@@ -151,7 +151,7 @@ impl IdePanel for ConsolePanel {
             // Terminal buffer area
             let frame = egui::Frame::NONE
                 .fill(BG_EXTREME)
-                .stroke(Stroke::new(1.0, BORDER_CRISP))
+                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
                 .inner_margin(4.0);
 
             frame.show(ui, |ui| {

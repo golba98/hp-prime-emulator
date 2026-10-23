@@ -204,7 +204,7 @@ impl EditorArea {
         let r = ui.min_rect();
         ui.painter().line_segment(
             [pos2(r.min.x, r.max.y - 0.5), pos2(r.max.x, r.max.y - 0.5)],
-            Stroke::new(1.0, BORDER_CRISP),
+            Stroke::new(1.0_f32, BORDER_CRISP),
         );
         if let Some(idx) = activate {
             self.active_tab_index = idx;
@@ -258,7 +258,7 @@ fn tab_button(
             pos2(rect.max.x - 0.5, rect.min.y + 6.0),
             pos2(rect.max.x - 0.5, rect.max.y - 6.0),
         ],
-        Stroke::new(1.0, BORDER_CRISP),
+        Stroke::new(1.0_f32, BORDER_CRISP),
     );
     if active {
         painter.rect_filled(

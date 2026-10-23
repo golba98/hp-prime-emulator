@@ -167,7 +167,7 @@ pub fn classic_engineering_visuals() -> Visuals {
     visuals.extreme_bg_color = BG_EXTREME;
     visuals.faint_bg_color = BG_PANEL;
 
-    let crisp_stroke = Stroke::new(1.0, BORDER_CRISP);
+    let crisp_stroke = Stroke::new(1.0_f32, BORDER_CRISP);
     visuals.window_stroke = crisp_stroke;
     visuals.window_corner_radius = egui::CornerRadius::ZERO;
     visuals.menu_corner_radius = egui::CornerRadius::ZERO;
@@ -176,35 +176,35 @@ pub fn classic_engineering_visuals() -> Visuals {
     visuals.widgets.noninteractive.bg_fill = BG_WIDGET;
     visuals.widgets.noninteractive.bg_stroke = crisp_stroke;
     visuals.widgets.noninteractive.corner_radius = egui::CornerRadius::ZERO;
-    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, TEXT_NORMAL);
+    visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, TEXT_NORMAL);
 
     // Inactive interactive widgets (buttons, tabs, inputs at rest)
     visuals.widgets.inactive.bg_fill = BG_WIDGET;
     visuals.widgets.inactive.bg_stroke = crisp_stroke;
     visuals.widgets.inactive.corner_radius = egui::CornerRadius::ZERO;
-    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, TEXT_NORMAL);
+    visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, TEXT_NORMAL);
 
     // Hovered widgets
     visuals.widgets.hovered.bg_fill = Color32::from_rgb(0x38, 0x3E, 0x45);
-    visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, ACCENT_BLUE);
+    visuals.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, ACCENT_BLUE);
     visuals.widgets.hovered.corner_radius = egui::CornerRadius::ZERO;
-    visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+    visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
 
     // Active (clicked/pressed) widgets
     visuals.widgets.active.bg_fill = Color32::from_rgb(0x40, 0x47, 0x4F);
-    visuals.widgets.active.bg_stroke = Stroke::new(1.0, ACCENT_BLUE);
+    visuals.widgets.active.bg_stroke = Stroke::new(1.0_f32, ACCENT_BLUE);
     visuals.widgets.active.corner_radius = egui::CornerRadius::ZERO;
-    visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+    visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
 
     // Open/expanded widgets (comboboxes, menus)
     visuals.widgets.open.bg_fill = BG_WIDGET;
     visuals.widgets.open.bg_stroke = crisp_stroke;
     visuals.widgets.open.corner_radius = egui::CornerRadius::ZERO;
-    visuals.widgets.open.fg_stroke = Stroke::new(1.0, TEXT_NORMAL);
+    visuals.widgets.open.fg_stroke = Stroke::new(1.0_f32, TEXT_NORMAL);
 
     visuals.selection.bg_fill = editor::SELECTION;
-    visuals.selection.stroke = Stroke::new(1.0, TEXT_NORMAL);
-    visuals.text_cursor.stroke = Stroke::new(2.0, editor::CURSOR);
+    visuals.selection.stroke = Stroke::new(1.0_f32, TEXT_NORMAL);
+    visuals.text_cursor.stroke = Stroke::new(2.0_f32, editor::CURSOR);
     visuals.text_cursor.blink = true;
 
     visuals
