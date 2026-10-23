@@ -1,0 +1,1 @@
+{"dump": "/tmp/ppl-ide-e2e/dump_stop.json", "steps": [{"step": "new_program", "name": "SLEEPER"}, {"step": "set_content", "content": "EXPORT SLEEPER()\nBEGIN\n  WHILE 1 DO\n    WAIT(0.5);\n  END;\n  RETURN 1;\nEND;"}, {"step": "run"}, {"step": "wait_idle", "timeout_ms": 2000}, {"step": "stop"}, {"step": "exit"}]}

@@ -1,0 +1,82 @@
+{
+  "schema": 2,
+  "suite": "core",
+  "program": "ZZT_1A9784",
+  "program_sha256": "8e55389a2be1da65318f959d4b98fa5973bbf7b985df6b4d9bbfc8cb99f361b4",
+  "method": "screenshot-transcribed-user-confirmed",
+  "device": {
+    "model": "HP Prime G1 (firmware build 8151 or later)",
+    "usb_pid": "03f0:1541",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640",
+    "serial_id": "5f3d8dbdb38ae2a0"
+  },
+  "recorded_at_utc": "2026-10-22T12:17:14Z",
+  "settings": {
+    "HAngle": "0",
+    "HDigits": "4",
+    "HFormat": "0"
+  },
+  "raw_artifact": "tests/compat/evidence/core/ZZT_1A9784.screen.raw.png",
+  "raw_artifact_sha256": "cbef740a4abdf0d20b69169a9014b06e1fd9eb164a5b08e72a1544907f15fc14",
+  "raw_text": "@@ZZT|ZZT_1A9784|8ad55d05|0|0|4\nc1|0|0.333333333333\nc2|0|0.999999999999\nc3|0|1.41421356237\nc4|0|1.41421356237\nc5|0|2\nc6|0|-2\n@@END\n",
+  "results": {
+    "num_div_one_third": {
+      "raw": "c1|0|0.333333333333",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.333333333333"
+      }
+    },
+    "num_mod_neg_pos": {
+      "raw": "c5|0|2",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      }
+    },
+    "num_mod_pos_neg": {
+      "raw": "c6|0|-2",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-2"
+      }
+    },
+    "num_one_third_mul_three": {
+      "raw": "c2|0|0.999999999999",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.999999999999"
+      }
+    },
+    "num_sqrt_two_builtin": {
+      "raw": "c4|0|1.41421356237",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      }
+    },
+    "num_sqrt_two_pow": {
+      "raw": "c3|0|1.41421356237",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      }
+    }
+  },
+  "setting_changes": [],
+  "comparison": {
+    "num_div_one_third": "VERIFIED",
+    "num_mod_neg_pos": "VERIFIED",
+    "num_mod_pos_neg": "VERIFIED",
+    "num_one_third_mul_three": "VERIFIED",
+    "num_sqrt_two_builtin": "VERIFIED",
+    "num_sqrt_two_pow": "VERIFIED"
+  }
+}

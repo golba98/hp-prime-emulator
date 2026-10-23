@@ -1,0 +1,1 @@
+{"dump": "/tmp/ppl-ide-e2e/dump_runconfig.json", "steps": [{"step": "new_program", "name": "SQUARE"}, {"step": "set_content", "content": "EXPORT SQUARE(x)\nBEGIN\n  RETURN x*x;\nEND;"}, {"step": "run_config", "entry": "SQUARE", "args": "5"}, {"step": "wait_idle", "timeout_ms": 10000}, {"step": "exit"}]}

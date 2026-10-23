@@ -1,70 +1,68 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## What This Project Does
 
-Transpiles and executes HP Prime PPL (`.hpprgm`) calculator programs locally in Python. The pipeline is: **Lint → Transpile → Execute**, with graphical output rendered to `screen.png` (320×240 via Pillow).
+A high-fidelity native Rust emulator and differential testing harness for HP Prime PPL (`.hpprgm`) calculator programs.
+The pipeline parses PPL source with a typed Pratt parser, compiles to native bytecode with line/column span tracking, and executes on an isolated stack VM with accurate 12-digit BCD decimal arithmetic, Copy-on-Write value semantics, headless GROB graphics, and hardware differential verification against a physical HP Prime G1.
+
+## Workspace Crates
+
+| Crate | Responsibility |
+|---|---|
+| `ppl-math` | 12-digit decimal `Real` ($\pm 499$ exp), `HpInt` (`#FFh`), `Complex`, formatting |
+| `ppl-syntax` | Source loader (UTF-8, UTF-16, container headers), lexer, Pratt parser, typed AST, diagnostics |
+| `ppl-compiler` | Builtin specifications, semantic analysis, scoping, bytecode compiler |
+| `ppl-vm` | Stack VM, Copy-on-Write `Value`, collections (1-based), builtins, `Host` trait, debugger hooks |
+| `ppl-graphics` | Headless GROB G0–G9 pixel buffers, Bresenham drawing, DejaVu Sans font, PNG read/write, RGB565 diff |
+| `ppl-device` | USB HID communication (`03f0:1541`/`0441`/`2441`), `hplp` framing, CRC16, screenshots, guarded file transfer |
+| `ppl-compat` | Differential test suites (TOML), emulator runner, device program synthesis, note parser, evidence reports |
+| `ppl-gui` | Native window frontend (`winit 0.30`, `softbuffer 0.4`), 0–50 HP keycode mapping, non-blocking worker thread |
+| `ppl-cli` | `ppl` binary CLI |
 
 ## Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Build the workspace
+cargo build --workspace
 
-# Run a PPL file
-python src/ppl_emulator/cli.py examples/FIREWORKS.hpprgm
+# Run all workspace unit & integration tests
+cargo test --workspace
 
-# Run with flags
-python src/ppl_emulator/cli.py examples/FIREWORKS.hpprgm --dump-python   # show transpiled Python
-python src/ppl_emulator/cli.py --code "EXPORT T() BEGIN PRINT(42); END;" # inline code
-python src/ppl_emulator/cli.py program.hpprgm --no-lint                  # skip linter
+# Run formatting and linting
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
 
-# Run all tests
-pytest -v
+# Execute a PPL program headlessly (PRINT to stdout, optional PNG)
+cargo run --bin ppl -- run examples/FIREWORKS.hpprgm --png out.png
 
-# Run unit tests only
-pytest tests/test_compiler.py -v
+# Launch the native interactive GUI window
+cargo run --bin ppl -- gui examples/FIREWORKS.hpprgm
 
-# Run integration tests only
-pytest tests/test_integration.py -v
+# Run the interactive step debugger
+cargo run --bin ppl -- debug examples/FIREWORKS.hpprgm
 
-# Run a specific test
-pytest tests/test_compiler.py -v -k "test_for_loop"
+# Differential testing against test suites
+cargo run --bin ppl -- compare tests/compat/cases/core.toml
+
+# Print device program without calculator interaction
+cargo run --bin ppl -- compare tests/compat/cases/core.toml --print-program
+
+# Talk to a connected physical HP Prime over USB (read-only)
+cargo run --bin ppl -- device detect
+cargo run --bin ppl -- device info
+cargo run --bin ppl -- device screenshot screen.png
 ```
 
-## Architecture
+## Non-Negotiable Rules
 
-The pipeline runs in three sequential stages inside `cli.py`:
-
-1. **Lint** (`linter.py`) — Static analysis on raw PPL code. 27+ checks: block balance (`IF/END`, `FOR/DO/END`), undefined variables, invalid function signatures, 1-indexed array misuse. Outputs colored errors with line numbers.
-
-2. **Transpile** (`transpiler/`) — Converts PPL to Python:
-   - `core.py`: Line-by-line state machine. Preprocessing expands one-liners; first pass scans function/variable declarations; main pass tracks indent and emits Python blocks.
-   - `expressions.py`: Transforms PPL expressions — operators, array indexing, string escaping.
-   - `constants.py`: Operator/keyword mappings (`:=`→`=`, `=`→`==`, `^`→`**`, `AND`→`and`, `DIV`→`//`, Unicode `≠≤≥`).
-
-3. **Execute** (`runtime/`) — Runs transpiled Python via `exec()` with an `HPPrimeRuntime` namespace:
-   - `engine.py`: Emulates 70+ HP Prime builtins (graphics: `RECT`, `LINE`, `CIRCLE_P`; I/O: `PRINT`, `INPUT`, `CHOOSE`; math/string functions). `INPUT`/`CHOOSE` return defaults in headless mode.
-   - `types.py`: `PPLList` — 1-based indexed list (auto-expands on set). `CASMock` — stub for CAS operations.
-
-## Key PPL→Python Conventions
-
-- **Assignment**: `:=` → `=`; **Equality**: `=` → `==`
-- **Arrays**: PPL is 1-indexed. `PPLList` handles this transparently.
-- **Globals**: Variables assigned outside a `LOCAL` declaration get `global <var>` emitted. HP Prime reserves `A-Z`, `G0-G9`, `L0-L9`, `M0-M9` as globals.
-- **String escaping**: PPL uses `""` for a literal quote inside strings (also accepts `\"`).
-
-## Tests
-
-- `tests/test_compiler.py` — Unit tests for transpiler and runtime internals.
-- `tests/test_integration.py` — Discovers all `.hpprgm` files in the `8-PPL/` directory tree and runs them. If a `.expected` file exists alongside a `.hpprgm`, the test validates `PRINT` output against it.
-
-To add a test case: create a `.hpprgm` file and optionally a `.expected` file with one expected `PRINT` line per line.
-
-## Debugging Transpilation Issues
-
-- Use `--dump-python` to inspect the generated Python code.
-- Most transpilation bugs are missing regex/keyword mappings — check `transpiler/constants.py` and `transpiler/expressions.py` first.
-- Runtime builtin failures (e.g., `RECT`, `LINE`) are in `runtime/engine.py`; verify color format handling (HP uses both decimal and `#FFh` hex).
-- `patcher.py` auto-patches known bugs in `linter.py` — if the linter has a regression, check this file for context on what was patched and why.
+1. **Git Restrictions:**
+   - Work strictly on branch `rust-rewrite`.
+   - Never commit, push, merge, reset, or create pull requests without explicit user authorization.
+2. **Physical Hardware Safety:**
+   - Connected HP Prime G1 is a real physical device.
+   - Never overwrite or delete existing user programs. Only upload new programs prefixed with `ZZT_*`.
+   - Never perform firmware writes, date/time alterations, or undocumented memory writes.
+   - Remote key injection (`EC`) is opt-in only (`--auto-run`) and disabled by default.
+   - Hardware results must never be fabricated; only genuine calculator evidence may be tagged as `VERIFIED`.

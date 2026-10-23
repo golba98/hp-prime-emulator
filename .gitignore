@@ -1,4 +1,4 @@
-# Python
+# Python (legacy)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -30,3 +30,37 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Rust
+/target/
+*.rs.bk
+
+# Generated reports & agent-authored documentation.
+# Permanent project docs (README.md, AGENTS.md) stay tracked; every
+# Markdown file under docs/ is session-generated engineering output.
+docs/**/*.md
+docs/reports/
+HANDOFF.md
+
+# Generated artifacts, scratch probes and agent runtime files
+librust_out.rlib
+probe_src.rs
+scratch/
+.agents/
+.claude/
+
+# Local hardware-control sessions, EC probe evidence, campaign ledgers and
+# imported third-party archives (licensing: never commit downloaded code)
+artifacts/
+
+# Coverage, profiling and benchmark output
+coverage/
+*.profraw
+perf.data*
+flamegraph.html
+benchmark-results/
+criterion/
+
+# Temporary GUI / emulator screenshots (fixtures under tests/ stay tracked)
+*.png.actual
+out.png

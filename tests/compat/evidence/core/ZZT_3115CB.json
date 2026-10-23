@@ -1,0 +1,91 @@
+{
+  "schema": 2,
+  "suite": "core",
+  "program": "ZZT_3115CB",
+  "program_sha256": "dd311b891ecde0044dc62a2800c9cdb4e2ff6c48d55b4a25b33e9904d766471e",
+  "method": "screenshot-transcribed-user-confirmed",
+  "device": {
+    "model": "HP Prime G1 (firmware build 8151 or later)",
+    "usb_pid": "03f0:1541",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640",
+    "serial_id": "5f3d8dbdb38ae2a0"
+  },
+  "recorded_at_utc": "2026-10-22T12:33:35Z",
+  "settings": {
+    "HAngle": "0",
+    "HDigits": "4",
+    "HFormat": "0"
+  },
+  "raw_artifact": "tests/compat/evidence/core/ZZT_3115CB.screen.raw.png",
+  "raw_artifact_sha256": "a6f4f18ba62f26e8e823f9a08acbb79413d1c8ff0698ee3ee63bbc409e4967c5",
+  "raw_text": "@@ZZT|ZZT_3115CB|ef31d9d8|0|0|4\nc1|0|2\nc2|2|hello\nc3|0|5\nc4|0|101\nc5|2|ab1\nc6|2|ell\nc7|6|{65}\n@@END\n",
+  "results": {
+    "str_asc": {
+      "raw": "c7|6|{65}",
+      "outcome": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{65}"
+      }
+    },
+    "str_concat_num": {
+      "raw": "c5|2|ab1",
+      "outcome": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ab1"
+      }
+    },
+    "str_dim": {
+      "raw": "c3|0|5",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "5"
+      }
+    },
+    "str_indexing": {
+      "raw": "c4|0|101",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "101"
+      }
+    },
+    "str_mid": {
+      "raw": "c6|2|ell",
+      "outcome": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ell"
+      }
+    },
+    "type_str": {
+      "raw": "c1|0|2",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      }
+    },
+    "type_str_val": {
+      "raw": "c2|2|hello",
+      "outcome": {
+        "kind": "value",
+        "ty": 2,
+        "text": "hello"
+      }
+    }
+  },
+  "setting_changes": [],
+  "comparison": {
+    "str_asc": "VERIFIED",
+    "str_concat_num": "VERIFIED",
+    "str_dim": "VERIFIED",
+    "str_indexing": "VERIFIED",
+    "str_mid": "VERIFIED",
+    "type_str": "VERIFIED",
+    "type_str_val": "VERIFIED"
+  }
+}

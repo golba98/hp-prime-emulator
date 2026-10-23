@@ -1,0 +1,91 @@
+{
+  "schema": 2,
+  "suite": "core",
+  "program": "ZZT_CB8188",
+  "program_sha256": "b10b688b72198982d0edb2f0eb65a9aa96310cdf211112352e11101351cfac8e",
+  "method": "screenshot-transcribed-user-confirmed",
+  "device": {
+    "model": "HP Prime G1 (firmware build 8151 or later)",
+    "usb_pid": "03f0:1541",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640",
+    "serial_id": "5f3d8dbdb38ae2a0"
+  },
+  "recorded_at_utc": "2026-10-22T12:31:32Z",
+  "settings": {
+    "HAngle": "0",
+    "HDigits": "4",
+    "HFormat": "0"
+  },
+  "raw_artifact": "tests/compat/evidence/core/ZZT_CB8188.screen.raw.png",
+  "raw_artifact_sha256": "c2b58c921cfbf54c668515bf9104a418c8854d5a8e3b5bbd6ff2a10095d6efcd",
+  "raw_text": "@@ZZT|ZZT_CB8188|5abf0093|0|0|4\nc1|0|0.00001\nc2|0|1E499\nc3|0|1E-499\nc4|0|4\nc5|4|[1,2]\nc6|0|6\nc7|6|{1,2}\n@@END\n",
+  "results": {
+    "num_exp_max": {
+      "raw": "c2|0|1E499",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E499"
+      }
+    },
+    "num_exp_min": {
+      "raw": "c3|0|1E-499",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E-499"
+      }
+    },
+    "num_exp_small": {
+      "raw": "c1|0|0.00001",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.00001"
+      }
+    },
+    "type_list": {
+      "raw": "c6|0|6",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "6"
+      }
+    },
+    "type_list_val": {
+      "raw": "c7|6|{1,2}",
+      "outcome": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{1,2}"
+      }
+    },
+    "type_mat": {
+      "raw": "c4|0|4",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      }
+    },
+    "type_mat_val": {
+      "raw": "c5|4|[1,2]",
+      "outcome": {
+        "kind": "value",
+        "ty": 4,
+        "text": "[1,2]"
+      }
+    }
+  },
+  "setting_changes": [],
+  "comparison": {
+    "num_exp_max": "VERIFIED",
+    "num_exp_min": "VERIFIED",
+    "num_exp_small": "VERIFIED",
+    "type_list": "VERIFIED",
+    "type_list_val": "VERIFIED",
+    "type_mat": "VERIFIED",
+    "type_mat_val": "VERIFIED"
+  }
+}

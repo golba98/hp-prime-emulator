@@ -1,0 +1,136 @@
+{
+  "schema": 2,
+  "suite": "gen_0135289e",
+  "program": "ZZT_099AED",
+  "program_sha256": "48686489bf4db8757a32e077d9f6fe2d033fec308991fa4474b67a08f8b55f71",
+  "method": "note-fetch",
+  "device": {
+    "model": "HP Prime G1 (firmware build 8151 or later)",
+    "usb_pid": "03f0:1541",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640",
+    "serial_id": "5f3d8dbdb38ae2a0"
+  },
+  "recorded_at_utc": "2026-10-22T22:26:37Z",
+  "settings": {
+    "HAngle": "0",
+    "HDigits": "0",
+    "HFormat": "0"
+  },
+  "raw_artifact": "tests/compat/evidence/gen_0135289e/ZZT_099AED.note.raw",
+  "raw_artifact_sha256": "6479840773a7b039f7528c684e6520e9601f105f3b4f9eb08b06e24197766fef",
+  "raw_text": "@@ZZT|ZZT_099AED|e2519822|0|0|0\nc1|0|1.23456789015\nc2|0|1.23456789016\nc3|0|\u22123.5\nc4|0|1.23456789015\nc5|0|\u22123.5\nc6|0|\u22121\nc7|0|1.23456789017\nc8|0|1.23456789014\nc9|0|1.23456789017\nc10|0|1.5\nc11|0|1.5\nc12|0|0\n@@END",
+  "results": {
+    "num_precision_00001": {
+      "raw": "c1|0|1.23456789015",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789015"
+      }
+    },
+    "num_precision_00011": {
+      "raw": "c2|0|1.23456789016",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789016"
+      }
+    },
+    "num_precision_00021": {
+      "raw": "c3|0|\u22123.5",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "\u22123.5"
+      }
+    },
+    "num_precision_00031": {
+      "raw": "c4|0|1.23456789015",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789015"
+      }
+    },
+    "num_precision_00041": {
+      "raw": "c5|0|\u22123.5",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "\u22123.5"
+      }
+    },
+    "num_precision_00051": {
+      "raw": "c6|0|\u22121",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "\u22121"
+      }
+    },
+    "num_precision_00061": {
+      "raw": "c7|0|1.23456789017",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789017"
+      }
+    },
+    "num_precision_00071": {
+      "raw": "c8|0|1.23456789014",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789014"
+      }
+    },
+    "num_precision_00081": {
+      "raw": "c9|0|1.23456789017",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789017"
+      }
+    },
+    "num_precision_00091": {
+      "raw": "c10|0|1.5",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.5"
+      }
+    },
+    "num_precision_00101": {
+      "raw": "c11|0|1.5",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.5"
+      }
+    },
+    "num_precision_00111": {
+      "raw": "c12|0|0",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      }
+    }
+  },
+  "setting_changes": [],
+  "comparison": {
+    "num_precision_00001": "VERIFIED",
+    "num_precision_00011": "VERIFIED",
+    "num_precision_00021": "PARTIAL",
+    "num_precision_00031": "VERIFIED",
+    "num_precision_00041": "PARTIAL",
+    "num_precision_00051": "PARTIAL",
+    "num_precision_00061": "VERIFIED",
+    "num_precision_00071": "VERIFIED",
+    "num_precision_00081": "VERIFIED",
+    "num_precision_00091": "VERIFIED",
+    "num_precision_00101": "VERIFIED",
+    "num_precision_00111": "VERIFIED"
+  }
+}

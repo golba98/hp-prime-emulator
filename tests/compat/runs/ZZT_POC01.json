@@ -1,0 +1,19 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_POC01",
+  "note": "ZZT_POCN1",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_POC01()\nBEGIN\n  RETURN 1;\nEND;\n",
+  "sha256": "eb097d58dce0aa77d668bc1e6fe44b882890815e352a6351e21ab9dbd3994385",
+  "created_at_utc": "2026-10-22T23:47:04Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null,
+  "note_sha256": "78f98ba7955c086a9540d5716f43b127ed87dd9abfa87494fb7101b97fd5e3c0"
+}

@@ -1,0 +1,56 @@
+[package]
+name = "ppl-bench"
+description = "Criterion performance benchmarks for the PPL front end, compiler, VM, graphics and GUI scaler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+# The library only hosts workload generators; keep libtest out of
+# `cargo bench` so criterion flags reach the bench harnesses.
+[lib]
+bench = false
+
+[dependencies]
+ppl-syntax.workspace = true
+ppl-compiler.workspace = true
+ppl-vm.workspace = true
+ppl-graphics.workspace = true
+
+[dev-dependencies]
+ppl-gui.workspace = true
+egui = "0.32"
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "lexer"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
+
+[[bench]]
+name = "compile"
+harness = false
+
+[[bench]]
+name = "vm"
+harness = false
+
+[[bench]]
+name = "collections"
+harness = false
+
+[[bench]]
+name = "graphics"
+harness = false
+
+[[bench]]
+name = "framebuffer"
+harness = false
+
+[[bench]]
+name = "editor"
+harness = false
