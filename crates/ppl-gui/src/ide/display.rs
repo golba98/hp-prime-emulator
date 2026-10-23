@@ -149,7 +149,7 @@ impl IdePanel for CalculatorDisplay {
             ui.painter().rect_stroke(
                 rect,
                 0.0,
-                Stroke::new(1.0, BORDER_CRISP),
+                Stroke::new(1.0_f32, BORDER_CRISP),
                 StrokeKind::Inside,
             );
 
@@ -182,9 +182,9 @@ impl IdePanel for CalculatorDisplay {
             }
 
             let border_stroke = if state.calc_input_focus {
-                Stroke::new(1.0, ACCENT_BLUE)
+                Stroke::new(1.0_f32, ACCENT_BLUE)
             } else {
-                Stroke::new(1.0, Color32::from_rgb(0x35, 0x3B, 0x41))
+                Stroke::new(1.0_f32, Color32::from_rgb(0x35, 0x3B, 0x41))
             };
             ui.painter()
                 .rect_stroke(display_rect, 0.0, border_stroke, StrokeKind::Inside);

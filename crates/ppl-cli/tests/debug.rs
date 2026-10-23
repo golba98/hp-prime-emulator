@@ -174,7 +174,7 @@ fn step_enters_calls_next_steps_over_finish_returns() {
     let s = stops(&out);
     let lines: Vec<&str> = s
         .iter()
-        .map(|l| l.split(':').nth(1).unwrap_or(""))
+        .map(|l| l.rsplit(':').nth(1).unwrap_or(""))
         .collect();
     assert_eq!(lines, ["11", "12", "13", "4", "14"], "{s:?}");
     assert!(s[3].starts_with("[STOP] SQR2()") && s[3].ends_with("(frame depth 2)"));
@@ -189,7 +189,7 @@ fn step_enters_calls_next_steps_over_finish_returns() {
     assert!(s.iter().all(|l| l.starts_with("[STOP] MAIN()")), "{s:?}");
     let lines: Vec<&str> = s
         .iter()
-        .map(|l| l.split(':').nth(1).unwrap_or(""))
+        .map(|l| l.rsplit(':').nth(1).unwrap_or(""))
         .collect();
     assert_eq!(lines, ["11", "12", "13", "14", "15"], "{s:?}");
 }

@@ -166,7 +166,7 @@ impl IdePanel for VirtualKeypad {
                                         .strong(),
                                 )
                                 .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0, BORDER_CRISP))
+                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
                                 .min_size(Vec2::new(col_width - 2.0, key_height));
 
                                 if ui.add(btn).clicked() {
@@ -193,7 +193,7 @@ impl IdePanel for VirtualKeypad {
                                         .strong(),
                                 )
                                 .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0, BORDER_CRISP))
+                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
                                 .min_size(Vec2::new(col_width - 2.0, key_height));
 
                                 if ui.add(btn).clicked() {
@@ -220,7 +220,7 @@ impl IdePanel for VirtualKeypad {
                                         .strong(),
                                 )
                                 .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0, BORDER_CRISP))
+                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
                                 .min_size(Vec2::new(col_width - 2.0, key_height));
 
                                 if ui.add(btn).clicked() {
@@ -243,7 +243,7 @@ impl IdePanel for VirtualKeypad {
                             .strong(),
                     )
                     .fill(KEY_ENTER_DEF.bg_color)
-                    .stroke(Stroke::new(1.0, BORDER_CRISP))
+                    .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
                     .min_size(Vec2::new(avail_width, 28.0));
 
                     if ui.add(enter_btn).clicked() {
