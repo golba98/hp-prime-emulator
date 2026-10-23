@@ -35,6 +35,10 @@ mod tests {
     fn exclusive_and_released_on_close() {
         let id = format!("lock-test-{}", std::process::id());
         let first = super::acquire(&id).unwrap();
+        // Windows byte-range locks (LockFileEx) do not conflict within a
+        // single process, so same-process exclusivity can only be asserted
+        // on Unix, where the lock is a flock held by the file description.
+        #[cfg(unix)]
         assert!(matches!(
             super::acquire(&id),
             Err(crate::DeviceError::Busy(_))
