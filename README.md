@@ -136,8 +136,8 @@ The repository is structured as a modular Cargo workspace:
 
 ```bash
 # Clone repository
-git clone https://github.com/golba98/hp-prime-ppl-python
-cd hp-prime-ppl-python
+git clone https://github.com/golba98/hp-prime-emulator
+cd hp-prime-emulator
 
 # Build all workspace crates in release mode
 cargo build --workspace --release

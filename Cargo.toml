@@ -6,7 +6,7 @@ members = ["crates/*"]
 version = "0.2.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/golba98/hp-prime-ppl-python"
+repository = "https://github.com/golba98/hp-prime-emulator"
 rust-version = "1.85"
 
 [workspace.dependencies]
