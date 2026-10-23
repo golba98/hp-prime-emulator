@@ -1,0 +1,5896 @@
+# Generated PPL compatibility corpus (ppl test generate).
+# Deterministic: seed 424242, count 1000, rejected 97.
+
+suite = "gen_00067932"
+description = "Deterministic generated corpus (seed 424242, 1000 cases, categories: num_basic, num_precision, types_format, control_flow, scoping, strings, lists, matrices, complex, errors)"
+
+[[group]]
+id = "num_basic_b1"
+description = ""
+
+[[group]]
+id = "num_precision_b1"
+description = ""
+
+[[group]]
+id = "types_format_b1"
+description = ""
+
+[[group]]
+id = "control_flow_b1"
+description = ""
+
+[[group]]
+id = "scoping_b1"
+description = ""
+
+[[group]]
+id = "strings_b1"
+description = ""
+
+[[group]]
+id = "lists_b1"
+description = ""
+
+[[group]]
+id = "matrices_b1"
+description = ""
+
+[[group]]
+id = "complex_b1"
+description = ""
+
+[[group]]
+id = "errors_iso00009"
+description = ""
+
+[[group]]
+id = "errors_iso00026"
+description = ""
+
+[[group]]
+id = "errors_iso00036"
+description = ""
+
+[[group]]
+id = "errors_iso00046"
+description = ""
+
+[[group]]
+id = "errors_iso00074"
+description = ""
+
+[[group]]
+id = "errors_iso00084"
+description = ""
+
+[[group]]
+id = "errors_iso00093"
+description = ""
+
+[[group]]
+id = "errors_iso00103"
+description = ""
+
+[[group]]
+id = "errors_iso00113"
+description = ""
+
+[[group]]
+id = "num_basic_b2"
+description = ""
+
+[[group]]
+id = "num_precision_b2"
+description = ""
+
+[[group]]
+id = "types_format_b2"
+description = ""
+
+[[group]]
+id = "control_flow_b2"
+description = ""
+
+[[group]]
+id = "scoping_b2"
+description = ""
+
+[[group]]
+id = "strings_b2"
+description = ""
+
+[[group]]
+id = "lists_b2"
+description = ""
+
+[[group]]
+id = "complex_b2"
+description = ""
+
+[[group]]
+id = "errors_iso00132"
+description = ""
+
+[[group]]
+id = "errors_iso00141"
+description = ""
+
+[[group]]
+id = "matrices_b2"
+description = ""
+
+[[group]]
+id = "errors_iso00177"
+description = ""
+
+[[group]]
+id = "errors_iso00186"
+description = ""
+
+[[group]]
+id = "errors_iso00196"
+description = ""
+
+[[group]]
+id = "errors_iso00214"
+description = ""
+
+[[group]]
+id = "num_basic_b3"
+description = ""
+
+[[group]]
+id = "num_precision_b3"
+description = ""
+
+[[group]]
+id = "types_format_b3"
+description = ""
+
+[[group]]
+id = "control_flow_b3"
+description = ""
+
+[[group]]
+id = "scoping_b3"
+description = ""
+
+[[group]]
+id = "strings_b3"
+description = ""
+
+[[group]]
+id = "complex_b3"
+description = ""
+
+[[group]]
+id = "lists_b3"
+description = ""
+
+[[group]]
+id = "errors_iso00248"
+description = ""
+
+[[group]]
+id = "errors_iso00266"
+description = ""
+
+[[group]]
+id = "errors_iso00284"
+description = ""
+
+[[group]]
+id = "errors_iso00294"
+description = ""
+
+[[group]]
+id = "matrices_b3"
+description = ""
+
+[[group]]
+id = "num_basic_b4"
+description = ""
+
+[[group]]
+id = "num_precision_b4"
+description = ""
+
+[[group]]
+id = "types_format_b4"
+description = ""
+
+[[group]]
+id = "control_flow_b4"
+description = ""
+
+[[group]]
+id = "scoping_b4"
+description = ""
+
+[[group]]
+id = "strings_b4"
+description = ""
+
+[[group]]
+id = "complex_b4"
+description = ""
+
+[[group]]
+id = "errors_iso00337"
+description = ""
+
+[[group]]
+id = "errors_iso00355"
+description = ""
+
+[[group]]
+id = "errors_iso00373"
+description = ""
+
+[[group]]
+id = "errors_iso00382"
+description = ""
+
+[[group]]
+id = "lists_b4"
+description = ""
+
+[[group]]
+id = "errors_iso00401"
+description = ""
+
+[[group]]
+id = "errors_iso00411"
+description = ""
+
+[[group]]
+id = "errors_iso00421"
+description = ""
+
+[[group]]
+id = "num_basic_b5"
+description = ""
+
+[[group]]
+id = "num_precision_b5"
+description = ""
+
+[[group]]
+id = "types_format_b5"
+description = ""
+
+[[group]]
+id = "control_flow_b5"
+description = ""
+
+[[group]]
+id = "scoping_b5"
+description = ""
+
+[[group]]
+id = "strings_b5"
+description = ""
+
+[[group]]
+id = "complex_b5"
+description = ""
+
+[[group]]
+id = "errors_iso00456"
+description = ""
+
+[[group]]
+id = "matrices_b4"
+description = ""
+
+[[group]]
+id = "errors_iso00474"
+description = ""
+
+[[group]]
+id = "errors_iso00484"
+description = ""
+
+[[group]]
+id = "errors_iso00502"
+description = ""
+
+[[group]]
+id = "lists_b5"
+description = ""
+
+[[group]]
+id = "errors_iso00537"
+description = ""
+
+[[group]]
+id = "num_basic_b6"
+description = ""
+
+[[group]]
+id = "num_precision_b6"
+description = ""
+
+[[group]]
+id = "types_format_b6"
+description = ""
+
+[[group]]
+id = "control_flow_b6"
+description = ""
+
+[[group]]
+id = "scoping_b6"
+description = ""
+
+[[group]]
+id = "strings_b6"
+description = ""
+
+[[group]]
+id = "complex_b6"
+description = ""
+
+[[group]]
+id = "errors_iso00572"
+description = ""
+
+[[group]]
+id = "matrices_b5"
+description = ""
+
+[[group]]
+id = "errors_iso00616"
+description = ""
+
+[[group]]
+id = "errors_iso00626"
+description = ""
+
+[[group]]
+id = "lists_b6"
+description = ""
+
+[[group]]
+id = "errors_iso00645"
+description = ""
+
+[[group]]
+id = "errors_iso00654"
+description = ""
+
+[[group]]
+id = "num_basic_b7"
+description = ""
+
+[[group]]
+id = "num_precision_b7"
+description = ""
+
+[[group]]
+id = "types_format_b7"
+description = ""
+
+[[group]]
+id = "control_flow_b7"
+description = ""
+
+[[group]]
+id = "scoping_b7"
+description = ""
+
+[[group]]
+id = "strings_b7"
+description = ""
+
+[[group]]
+id = "complex_b7"
+description = ""
+
+[[group]]
+id = "errors_iso00664"
+description = ""
+
+[[group]]
+id = "errors_iso00674"
+description = ""
+
+[[group]]
+id = "errors_iso00683"
+description = ""
+
+[[group]]
+id = "errors_iso00711"
+description = ""
+
+[[group]]
+id = "errors_iso00721"
+description = ""
+
+[[group]]
+id = "matrices_b6"
+description = ""
+
+[[group]]
+id = "errors_iso00740"
+description = ""
+
+[[group]]
+id = "lists_b7"
+description = ""
+
+[[group]]
+id = "errors_iso00759"
+description = ""
+
+[[group]]
+id = "errors_iso00769"
+description = ""
+
+[[group]]
+id = "num_basic_b8"
+description = ""
+
+[[group]]
+id = "num_precision_b8"
+description = ""
+
+[[group]]
+id = "types_format_b8"
+description = ""
+
+[[group]]
+id = "control_flow_b8"
+description = ""
+
+[[group]]
+id = "scoping_b8"
+description = ""
+
+[[group]]
+id = "strings_b8"
+description = ""
+
+[[group]]
+id = "complex_b8"
+description = ""
+
+[[group]]
+id = "errors_iso00795"
+description = ""
+
+[[group]]
+id = "errors_iso00805"
+description = ""
+
+[[group]]
+id = "errors_iso00814"
+description = ""
+
+[[group]]
+id = "errors_iso00823"
+description = ""
+
+[[group]]
+id = "errors_iso00833"
+description = ""
+
+[[group]]
+id = "errors_iso00843"
+description = ""
+
+[[group]]
+id = "num_basic_b9"
+description = ""
+
+[[group]]
+id = "num_precision_b9"
+description = ""
+
+[[group]]
+id = "types_format_b9"
+description = ""
+
+[[group]]
+id = "control_flow_b9"
+description = ""
+
+[[group]]
+id = "scoping_b9"
+description = ""
+
+[[group]]
+id = "strings_b9"
+description = ""
+
+[[group]]
+id = "lists_b8"
+description = ""
+
+[[group]]
+id = "complex_b9"
+description = ""
+
+[[group]]
+id = "matrices_b7"
+description = ""
+
+[[group]]
+id = "errors_iso00895"
+description = ""
+
+[[group]]
+id = "errors_iso00939"
+description = ""
+
+[[group]]
+id = "errors_iso00965"
+description = ""
+
+[[group]]
+id = "errors_iso00975"
+description = ""
+
+[[group]]
+id = "num_basic_b10"
+description = ""
+
+[[group]]
+id = "num_precision_b10"
+description = ""
+
+[[group]]
+id = "types_format_b10"
+description = ""
+
+[[group]]
+id = "control_flow_b10"
+description = ""
+
+[[group]]
+id = "scoping_b10"
+description = ""
+
+[[group]]
+id = "strings_b10"
+description = ""
+
+[[group]]
+id = "complex_b10"
+description = ""
+
+[[group]]
+id = "errors_iso00992"
+description = ""
+
+[[case]]
+id = "num_basic_00000"
+group = "num_basic_b1"
+expr = "SQRT(7.7)"
+
+[[case]]
+id = "num_precision_00001"
+group = "num_precision_b1"
+expr = "FLOOR(0.5)"
+
+[[case]]
+id = "types_format_00002"
+group = "types_format_b1"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00003"
+group = "control_flow_b1"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=12; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00004"
+group = "scoping_b1"
+body = """LOCAL p:=3; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00005"
+group = "strings_b1"
+expr = "MID(\"HP Prime\", 4, 4)"
+
+[[case]]
+id = "lists_00006"
+group = "lists_b1"
+expr = "{1, 3, 4}"
+
+[[case]]
+id = "matrices_00007"
+group = "matrices_b1"
+expr = "DET([[5, 3], [3, 5]])"
+
+[[case]]
+id = "complex_00008"
+group = "complex_b1"
+expr = "CONJ((4, 1))"
+
+[[case]]
+id = "errors_00009"
+group = "errors_iso00009"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00010"
+group = "num_basic_b1"
+expr = "2.71828 - 1.23456789012"
+
+[[case]]
+id = "num_precision_00011"
+group = "num_precision_b1"
+expr = "1.2345678901770"
+
+[[case]]
+id = "types_format_00012"
+group = "types_format_b1"
+expr = "STRING(-42) + \"|\" + STRING(1.5)"
+
+[[case]]
+id = "control_flow_00013"
+group = "control_flow_b1"
+body = """LOCAL i; FOR i FROM 8 TO 3 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00014"
+group = "scoping_b1"
+body = """LOCAL x:=9; IF x>4 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00015"
+group = "strings_b1"
+expr = "UPPER(\"PPL\") + \"|\" + LOWER(\"PPL\")"
+
+[[case]]
+id = "lists_00016"
+group = "lists_b1"
+expr = "SIZE({5, 8, 13})"
+
+[[case]]
+id = "complex_00018"
+group = "complex_b1"
+expr = "(6, 4)"
+
+[[case]]
+id = "num_basic_00020"
+group = "num_basic_b1"
+expr = "0.000001 - 0.7"
+
+[[case]]
+id = "num_precision_00021"
+group = "num_precision_b1"
+expr = "IP(-0.5) + FP(-0.5)"
+
+[[case]]
+id = "types_format_00022"
+group = "types_format_b1"
+expr = "TYPE((7, 5))"
+
+[[case]]
+id = "control_flow_00023"
+group = "control_flow_b1"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 7 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00024"
+group = "scoping_b1"
+body = """LOCAL a:=1, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00025"
+group = "strings_b1"
+expr = "\"HP-Prime G1\" + \"0123456789\""
+
+[[case]]
+id = "lists_00026"
+group = "lists_b1"
+expr = "SIZE({9, 1, 10})"
+
+[[case]]
+id = "complex_00028"
+group = "complex_b1"
+expr = "(1, 4) + (4, -1)"
+
+[[case]]
+id = "errors_00029"
+group = "errors_iso00026"
+expr = "99/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00030"
+group = "num_basic_b1"
+expr = "1.25 - 0.000001"
+
+[[case]]
+id = "num_precision_00031"
+group = "num_precision_b1"
+expr = "1.2345678901184"
+
+[[case]]
+id = "types_format_00032"
+group = "types_format_b1"
+expr = "STRING(99) + \"|\" + STRING(1.23456789012)"
+
+[[case]]
+id = "control_flow_00033"
+group = "control_flow_b1"
+body = """IF 2<6 THEN RETURN 2; ELSE RETURN 6; END;
+"""
+
+[[case]]
+id = "scoping_00034"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00035"
+group = "strings_b1"
+expr = "INSTRING(\"0123456789\", \"HP Prime\")"
+
+[[case]]
+id = "lists_00036"
+group = "lists_b1"
+expr = "REVERSE({3, 5, 8})"
+
+[[case]]
+id = "matrices_00037"
+group = "matrices_b1"
+expr = "TRN([[4, 5], [5, 4]])"
+
+[[case]]
+id = "complex_00038"
+group = "complex_b1"
+expr = "(9, 4) + (4, -9)"
+
+[[case]]
+id = "errors_00039"
+group = "errors_iso00036"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00040"
+group = "num_basic_b1"
+expr = "SQRT(0.7)"
+
+[[case]]
+id = "num_precision_00041"
+group = "num_precision_b1"
+expr = "1.2345678901430"
+
+[[case]]
+id = "types_format_00042"
+group = "types_format_b1"
+expr = "TYPE({7, 5})"
+
+[[case]]
+id = "control_flow_00043"
+group = "control_flow_b1"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=4 THEN CONTINUE; END; IF i=8 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00044"
+group = "scoping_b1"
+body = """LOCAL z:=9; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00045"
+group = "strings_b1"
+expr = "POS(\"\", \"hello\")"
+
+[[case]]
+id = "lists_00046"
+group = "lists_b1"
+expr = "MIN({4, 7, 11}) + MAX({4, 7, 11}) + POS({4, 7, 11}, 7)"
+
+[[case]]
+id = "matrices_00047"
+group = "matrices_b1"
+expr = "DET([[9, 3], [3, 9]])"
+
+[[case]]
+id = "complex_00048"
+group = "complex_b1"
+expr = "CONJ((7, 9))"
+
+[[case]]
+id = "errors_00049"
+group = "errors_iso00046"
+expr = "255/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00050"
+group = "num_basic_b1"
+expr = "SQRT(0.1)"
+
+[[case]]
+id = "num_precision_00051"
+group = "num_precision_b1"
+expr = "TRUNCATE(3.5, 0)"
+
+[[case]]
+id = "types_format_00052"
+group = "types_format_b1"
+expr = "TYPE({8, 9})"
+
+[[case]]
+id = "control_flow_00053"
+group = "control_flow_b1"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 6 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00054"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 9 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00055"
+group = "strings_b1"
+expr = "INSTRING(\"CamelCase\", \"hello\")"
+
+[[case]]
+id = "lists_00056"
+group = "lists_b1"
+expr = "DELTALIST({6, 7, 13}) + PILIST({6, 7, 13})"
+
+[[case]]
+id = "matrices_00057"
+group = "matrices_b1"
+expr = "[[6, 9], [9, 6]] * [[6, 9], [9, 6]]"
+
+[[case]]
+id = "complex_00058"
+group = "complex_b1"
+expr = "(6, 7) * (7, -6)"
+
+[[case]]
+id = "num_basic_00060"
+group = "num_basic_b1"
+expr = "1 + (-0.5) * 2"
+
+[[case]]
+id = "num_precision_00061"
+group = "num_precision_b1"
+expr = "ROUND(-2.5, 1)"
+
+[[case]]
+id = "types_format_00062"
+group = "types_format_b1"
+expr = "TYPE(7)"
+
+[[case]]
+id = "control_flow_00063"
+group = "control_flow_b1"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 5 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00064"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00065"
+group = "strings_b1"
+expr = "UPPER(\"0123456789\") + \"|\" + LOWER(\"0123456789\")"
+
+[[case]]
+id = "lists_00066"
+group = "lists_b1"
+expr = "MEAN({3, 9, 12}) + MEDIAN({3, 9, 12})"
+
+[[case]]
+id = "matrices_00067"
+group = "matrices_b1"
+expr = "[[5, 7], [7, 5]]"
+
+[[case]]
+id = "complex_00068"
+group = "complex_b1"
+expr = "(4, 1) * (1, -4)"
+
+[[case]]
+id = "num_basic_00070"
+group = "num_basic_b1"
+expr = "IP(2.5 / 1.23456789012)"
+
+[[case]]
+id = "num_precision_00071"
+group = "num_precision_b1"
+expr = "TRUNCATE(-0.5, 2)"
+
+[[case]]
+id = "types_format_00072"
+group = "types_format_b1"
+expr = "TYPE(\"PPL\")"
+
+[[case]]
+id = "control_flow_00073"
+group = "control_flow_b1"
+body = """LOCAL i; FOR i FROM 11 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00074"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 2 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00075"
+group = "strings_b1"
+expr = "UPPER(\"hello\") + \"|\" + LOWER(\"hello\")"
+
+[[case]]
+id = "lists_00076"
+group = "lists_b1"
+expr = "{6, 7, 13}"
+
+[[case]]
+id = "matrices_00077"
+group = "matrices_b1"
+expr = "TRN([[8, 7], [7, 8]])"
+
+[[case]]
+id = "complex_00078"
+group = "complex_b1"
+expr = "ARG((2, 8))"
+
+[[case]]
+id = "errors_00079"
+group = "errors_iso00074"
+expr = "42/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00080"
+group = "num_basic_b1"
+expr = "42 + 3.5 * 9"
+
+[[case]]
+id = "num_precision_00081"
+group = "num_precision_b1"
+expr = "ROUND(2.5, 0)"
+
+[[case]]
+id = "types_format_00082"
+group = "types_format_b1"
+expr = "TYPE(1.5)"
+
+[[case]]
+id = "control_flow_00083"
+group = "control_flow_b1"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=8; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00084"
+group = "scoping_b1"
+body = """LOCAL z:=9; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00085"
+group = "strings_b1"
+expr = "MID(\"a\", 3, 2)"
+
+[[case]]
+id = "lists_00086"
+group = "lists_b1"
+expr = "{3, 3, 6}"
+
+[[case]]
+id = "matrices_00087"
+group = "matrices_b1"
+expr = "INV([[9, 2], [2, 9]])"
+
+[[case]]
+id = "complex_00088"
+group = "complex_b1"
+expr = "(8, 3) + (3, -8)"
+
+[[case]]
+id = "errors_00089"
+group = "errors_iso00084"
+expr = "42/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00090"
+group = "num_basic_b1"
+expr = "1.25 - (-1.5)"
+
+[[case]]
+id = "num_precision_00091"
+group = "num_precision_b1"
+expr = "TRUNCATE(-2.5, 2)"
+
+[[case]]
+id = "types_format_00092"
+group = "types_format_b1"
+expr = "TYPE({6, 8})"
+
+[[case]]
+id = "control_flow_00093"
+group = "control_flow_b1"
+body = """LOCAL i:=0, s:=0; WHILE i<2 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00094"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 2 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00095"
+group = "strings_b1"
+expr = "POS(\"\", \"hello\")"
+
+[[case]]
+id = "lists_00096"
+group = "lists_b1"
+expr = "MIN({5, 4, 9}) + MAX({5, 4, 9}) + POS({5, 4, 9}, 4)"
+
+[[case]]
+id = "complex_00098"
+group = "complex_b1"
+expr = "TYPE((4, 4)) + SIGN((4, 4))"
+
+[[case]]
+id = "errors_00099"
+group = "errors_iso00093"
+expr = "42/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00100"
+group = "num_basic_b1"
+expr = "0.000001 MOD 1E-11"
+
+[[case]]
+id = "num_precision_00101"
+group = "num_precision_b1"
+expr = "TRUNCATE(1.5, 2)"
+
+[[case]]
+id = "types_format_00102"
+group = "types_format_b1"
+expr = "TYPE((7, 1))"
+
+[[case]]
+id = "control_flow_00103"
+group = "control_flow_b1"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=1; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00104"
+group = "scoping_b1"
+body = """LOCAL p:=5; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00105"
+group = "strings_b1"
+expr = "UPPER(\"0123456789\") + \"|\" + LOWER(\"0123456789\")"
+
+[[case]]
+id = "lists_00106"
+group = "lists_b1"
+expr = "DELTALIST({8, 1, 9}) + PILIST({8, 1, 9})"
+
+[[case]]
+id = "matrices_00107"
+group = "matrices_b1"
+expr = "DET([[6, 1], [1, 6]])"
+
+[[case]]
+id = "complex_00108"
+group = "complex_b1"
+expr = "(4, 1)"
+
+[[case]]
+id = "errors_00109"
+group = "errors_iso00103"
+expr = "10/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00110"
+group = "num_basic_b1"
+expr = "SQRT(7.7)"
+
+[[case]]
+id = "num_precision_00111"
+group = "num_precision_b1"
+expr = "FLOOR(-1.5)"
+
+[[case]]
+id = "types_format_00112"
+group = "types_format_b1"
+expr = "TYPE(-7.7)"
+
+[[case]]
+id = "control_flow_00113"
+group = "control_flow_b1"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 6 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00114"
+group = "scoping_b1"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00115"
+group = "strings_b1"
+expr = "LEFT(\"with space\", 0)"
+
+[[case]]
+id = "lists_00116"
+group = "lists_b1"
+expr = "SIZE({5, 8, 13})"
+
+[[case]]
+id = "matrices_00117"
+group = "matrices_b1"
+expr = "DET([[3, 5], [5, 3]])"
+
+[[case]]
+id = "complex_00118"
+group = "complex_b1"
+expr = "(9, 9)"
+
+[[case]]
+id = "errors_00119"
+group = "errors_iso00113"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00120"
+group = "num_basic_b2"
+expr = "1E-5 - (-1.5)"
+
+[[case]]
+id = "num_precision_00121"
+group = "num_precision_b2"
+expr = "IP(4.5) + FP(4.5)"
+
+[[case]]
+id = "types_format_00122"
+group = "types_format_b2"
+expr = "TYPE((7, 8))"
+
+[[case]]
+id = "control_flow_00123"
+group = "control_flow_b2"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=6; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00124"
+group = "scoping_b2"
+body = """LOCAL x:=3; IF x>1 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00125"
+group = "strings_b2"
+expr = "RIGHT(\"hello\", 1)"
+
+[[case]]
+id = "lists_00126"
+group = "lists_b2"
+expr = "DELTALIST({1, 2, 3}) + PILIST({1, 2, 3})"
+
+[[case]]
+id = "matrices_00127"
+group = "matrices_b1"
+expr = "INV([[2, 7], [7, 2]])"
+
+[[case]]
+id = "complex_00128"
+group = "complex_b2"
+expr = "(4, 5)"
+
+[[case]]
+id = "num_basic_00130"
+group = "num_basic_b2"
+expr = "SQRT(1.23456789012)"
+
+[[case]]
+id = "num_precision_00131"
+group = "num_precision_b2"
+expr = "1.2345678901465"
+
+[[case]]
+id = "types_format_00132"
+group = "types_format_b2"
+expr = "TYPE((3, 9))"
+
+[[case]]
+id = "control_flow_00133"
+group = "control_flow_b2"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=4; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00134"
+group = "scoping_b2"
+body = """LOCAL x:=7; IF x>3 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00135"
+group = "strings_b2"
+expr = "MID(\"HP Prime\", 4, 0)"
+
+[[case]]
+id = "lists_00136"
+group = "lists_b2"
+expr = "{9, 3, 12}"
+
+[[case]]
+id = "matrices_00137"
+group = "matrices_b1"
+expr = "INV([[8, 7], [7, 8]])"
+
+[[case]]
+id = "complex_00138"
+group = "complex_b2"
+expr = "(4, 8) * (8, -4)"
+
+[[case]]
+id = "errors_00139"
+group = "errors_iso00132"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00140"
+group = "num_basic_b2"
+expr = "3.14159 + 3.14159"
+
+[[case]]
+id = "num_precision_00141"
+group = "num_precision_b2"
+expr = "IP(1.5) + FP(1.5)"
+
+[[case]]
+id = "types_format_00142"
+group = "types_format_b2"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00143"
+group = "control_flow_b2"
+body = """IF 3<7 THEN RETURN 3; ELSE RETURN 7; END;
+"""
+
+[[case]]
+id = "scoping_00144"
+group = "scoping_b2"
+body = """LOCAL z:=2; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00145"
+group = "strings_b2"
+expr = "REPLACE(\"Hello, World!\", \"with space\", \"hello\")"
+
+[[case]]
+id = "matrices_00147"
+group = "matrices_b1"
+expr = "[[5, 3], [3, 5]]"
+
+[[case]]
+id = "complex_00148"
+group = "complex_b2"
+expr = "(2, 6)"
+
+[[case]]
+id = "errors_00149"
+group = "errors_iso00141"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00150"
+group = "num_basic_b2"
+expr = "1.35 + 1E-5"
+
+[[case]]
+id = "num_precision_00151"
+group = "num_precision_b2"
+expr = "FLOOR(3.5)"
+
+[[case]]
+id = "types_format_00152"
+group = "types_format_b2"
+expr = "STRING(10) + \"|\" + STRING(1.5)"
+
+[[case]]
+id = "control_flow_00153"
+group = "control_flow_b2"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 3 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00154"
+group = "scoping_b2"
+body = """LOCAL z:=6; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00155"
+group = "strings_b2"
+expr = "\"CamelCase\" + \"a\""
+
+[[case]]
+id = "lists_00156"
+group = "lists_b2"
+expr = "CONCAT({5, 3, 8}, {5})"
+
+[[case]]
+id = "complex_00158"
+group = "complex_b2"
+expr = "(1, 7) * (7, -1)"
+
+[[case]]
+id = "num_basic_00160"
+group = "num_basic_b2"
+expr = "99 + 0.1 * 1"
+
+[[case]]
+id = "num_precision_00161"
+group = "num_precision_b2"
+expr = "IP(4.5) + FP(4.5)"
+
+[[case]]
+id = "types_format_00162"
+group = "types_format_b2"
+expr = "STRING(0) + \"|\" + STRING(0.7)"
+
+[[case]]
+id = "control_flow_00163"
+group = "control_flow_b2"
+body = """LOCAL i; FOR i FROM 11 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00164"
+group = "scoping_b2"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 7 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00165"
+group = "strings_b2"
+expr = "UPPER(\"a\") + \"|\" + LOWER(\"a\")"
+
+[[case]]
+id = "lists_00166"
+group = "lists_b2"
+expr = "MIN({4, 2, 6}) + MAX({4, 2, 6}) + POS({4, 2, 6}, 2)"
+
+[[case]]
+id = "matrices_00167"
+group = "matrices_b2"
+expr = "INV([[8, 7], [7, 8]])"
+
+[[case]]
+id = "complex_00168"
+group = "complex_b2"
+expr = "TYPE((2, 3)) + SIGN((2, 3))"
+
+[[case]]
+id = "num_basic_00170"
+group = "num_basic_b2"
+expr = "1E-5 + 1E-11"
+
+[[case]]
+id = "num_precision_00171"
+group = "num_precision_b2"
+expr = "TRUNCATE(-0.5, 2)"
+
+[[case]]
+id = "types_format_00172"
+group = "types_format_b2"
+expr = "TYPE(1)"
+
+[[case]]
+id = "control_flow_00173"
+group = "control_flow_b2"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=3 THEN CONTINUE; END; IF i=8 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00174"
+group = "scoping_b2"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00175"
+group = "strings_b2"
+expr = "LEFT(\"with space\", 4)"
+
+[[case]]
+id = "lists_00176"
+group = "lists_b2"
+expr = "SORT({5, 8, 13})"
+
+[[case]]
+id = "matrices_00177"
+group = "matrices_b2"
+expr = "[[2, 6], [6, 2]]"
+
+[[case]]
+id = "complex_00178"
+group = "complex_b2"
+expr = "(5, 9) + (9, -5)"
+
+[[case]]
+id = "num_basic_00180"
+group = "num_basic_b2"
+expr = "-((-7.7) + 1.5)"
+
+[[case]]
+id = "num_precision_00181"
+group = "num_precision_b2"
+expr = "TRUNCATE(1.5, 2)"
+
+[[case]]
+id = "types_format_00182"
+group = "types_format_b2"
+expr = "TYPE(-7)"
+
+[[case]]
+id = "control_flow_00183"
+group = "control_flow_b2"
+body = """LOCAL i; FOR i FROM 9 TO 3 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00184"
+group = "scoping_b2"
+body = """LOCAL z:=6; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00185"
+group = "strings_b2"
+expr = "\"tab	sep\" + \"HP Prime\""
+
+[[case]]
+id = "lists_00186"
+group = "lists_b2"
+expr = "MEAN({9, 9, 18}) + MEDIAN({9, 9, 18})"
+
+[[case]]
+id = "matrices_00187"
+group = "matrices_b2"
+expr = "DET([[4, 4], [4, 4]])"
+
+[[case]]
+id = "complex_00188"
+group = "complex_b2"
+expr = "TYPE((5, 5)) + SIGN((5, 5))"
+
+[[case]]
+id = "errors_00189"
+group = "errors_iso00177"
+expr = "5/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00190"
+group = "num_basic_b2"
+expr = "-(1E-5 + 1.23456789012)"
+
+[[case]]
+id = "num_precision_00191"
+group = "num_precision_b2"
+expr = "ROUND(4.5, 0)"
+
+[[case]]
+id = "types_format_00192"
+group = "types_format_b2"
+expr = "TYPE(1)"
+
+[[case]]
+id = "control_flow_00193"
+group = "control_flow_b2"
+body = """LOCAL i, s:=0; FOR i FROM 5 TO 9 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00194"
+group = "scoping_b2"
+body = """LOCAL p:=3; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00195"
+group = "strings_b2"
+expr = "REPLACE(\"\", \"CamelCase\", \"PPL\")"
+
+[[case]]
+id = "lists_00196"
+group = "lists_b2"
+expr = "CONCAT({8, 4, 12}, {8})"
+
+[[case]]
+id = "complex_00198"
+group = "complex_b2"
+expr = "(4, 3) * (3, -4)"
+
+[[case]]
+id = "errors_00199"
+group = "errors_iso00186"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00200"
+group = "num_basic_b2"
+expr = "(-0.5) * 0.000001"
+
+[[case]]
+id = "num_precision_00201"
+group = "num_precision_b2"
+expr = "TRUNCATE(-3.5, 1)"
+
+[[case]]
+id = "types_format_00202"
+group = "types_format_b2"
+expr = "TYPE({8, 6})"
+
+[[case]]
+id = "control_flow_00203"
+group = "control_flow_b2"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=11; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00204"
+group = "scoping_b2"
+body = """LOCAL x:=9; IF x>4 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00205"
+group = "strings_b2"
+expr = "ASC(\"h\")"
+
+[[case]]
+id = "lists_00206"
+group = "lists_b2"
+expr = "CONCAT({8, 6, 14}, {8})"
+
+[[case]]
+id = "matrices_00207"
+group = "matrices_b2"
+expr = "[[1, 2], [2, 1]]"
+
+[[case]]
+id = "complex_00208"
+group = "complex_b2"
+expr = "TYPE((8, 9)) + SIGN((8, 9))"
+
+[[case]]
+id = "errors_00209"
+group = "errors_iso00196"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00210"
+group = "num_basic_b2"
+expr = "0.5 + (-1.5)"
+
+[[case]]
+id = "num_precision_00211"
+group = "num_precision_b2"
+expr = "1.2345678901928"
+
+[[case]]
+id = "types_format_00212"
+group = "types_format_b2"
+expr = "TYPE([7, 3])"
+
+[[case]]
+id = "control_flow_00213"
+group = "control_flow_b2"
+body = """LOCAL i, s:=0; FOR i FROM 5 TO 11 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00214"
+group = "scoping_b2"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00215"
+group = "strings_b2"
+expr = "POS(\"PPL\", \"\")"
+
+[[case]]
+id = "lists_00216"
+group = "lists_b2"
+expr = "CONCAT({5, 5, 10}, {5})"
+
+[[case]]
+id = "complex_00218"
+group = "complex_b2"
+expr = "(5, 3)"
+
+[[case]]
+id = "num_basic_00220"
+group = "num_basic_b2"
+expr = "1.25 - 1.35"
+
+[[case]]
+id = "num_precision_00221"
+group = "num_precision_b2"
+expr = "IP(-3.5) + FP(-3.5)"
+
+[[case]]
+id = "types_format_00222"
+group = "types_format_b2"
+expr = "STRING(10) + \"|\" + STRING(-1.5)"
+
+[[case]]
+id = "control_flow_00223"
+group = "control_flow_b2"
+body = """LOCAL i; FOR i FROM 7 TO 6 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00224"
+group = "scoping_b2"
+body = """LOCAL a:=8, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00225"
+group = "strings_b2"
+expr = "LEFT(\"PPL\", 0)"
+
+[[case]]
+id = "lists_00226"
+group = "lists_b2"
+expr = "SIZE({9, 5, 14})"
+
+[[case]]
+id = "matrices_00227"
+group = "matrices_b2"
+expr = "[[6, 1], [1, 6]] * [[6, 1], [1, 6]]"
+
+[[case]]
+id = "complex_00228"
+group = "complex_b2"
+expr = "RE((9, 4)) + IM((9, 4))"
+
+[[case]]
+id = "errors_00229"
+group = "errors_iso00214"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00230"
+group = "num_basic_b2"
+expr = "IP(0.7 / 1.35)"
+
+[[case]]
+id = "num_precision_00231"
+group = "num_precision_b2"
+expr = "IP(1.5) + FP(1.5)"
+
+[[case]]
+id = "types_format_00232"
+group = "types_format_b2"
+expr = "TYPE(-1)"
+
+[[case]]
+id = "control_flow_00233"
+group = "control_flow_b2"
+body = """IF 3<3 THEN RETURN 3; ELSE RETURN 3; END;
+"""
+
+[[case]]
+id = "scoping_00234"
+group = "scoping_b2"
+body = """LOCAL p:=5; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00235"
+group = "strings_b2"
+expr = "MID(\"\", 3, 4)"
+
+[[case]]
+id = "lists_00236"
+group = "lists_b2"
+expr = "MIN({5, 9, 14}) + MAX({5, 9, 14}) + POS({5, 9, 14}, 9)"
+
+[[case]]
+id = "complex_00238"
+group = "complex_b2"
+expr = "ARG((4, 5))"
+
+[[case]]
+id = "num_basic_00240"
+group = "num_basic_b3"
+expr = "1E-11^9"
+
+[[case]]
+id = "num_precision_00241"
+group = "num_precision_b3"
+expr = "FLOOR(-0.5)"
+
+[[case]]
+id = "types_format_00242"
+group = "types_format_b3"
+expr = "STRING(5) + \"|\" + STRING(2.5)"
+
+[[case]]
+id = "control_flow_00243"
+group = "control_flow_b3"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=5; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00244"
+group = "scoping_b3"
+body = """LOCAL z:=1; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00245"
+group = "strings_b3"
+expr = "\"tab	sep\" + \"tab	sep\""
+
+[[case]]
+id = "lists_00246"
+group = "lists_b2"
+expr = "{9, 1, 10}"
+
+[[case]]
+id = "matrices_00247"
+group = "matrices_b2"
+expr = "DET([[4, 7], [7, 4]])"
+
+[[case]]
+id = "complex_00248"
+group = "complex_b3"
+expr = "TYPE((3, 1)) + SIGN((3, 1))"
+
+[[case]]
+id = "num_basic_00250"
+group = "num_basic_b3"
+expr = "0.5 MOD 3.14159"
+
+[[case]]
+id = "num_precision_00251"
+group = "num_precision_b3"
+expr = "1.2345678901998"
+
+[[case]]
+id = "types_format_00252"
+group = "types_format_b3"
+expr = "TYPE({7, 5})"
+
+[[case]]
+id = "control_flow_00253"
+group = "control_flow_b3"
+body = """LOCAL i; FOR i FROM 2 TO 1 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00254"
+group = "scoping_b3"
+body = """LOCAL p:=5; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00255"
+group = "strings_b3"
+expr = "\"tab	sep\" + \"HP Prime\""
+
+[[case]]
+id = "complex_00258"
+group = "complex_b3"
+expr = "ABS((4, 9))"
+
+[[case]]
+id = "num_basic_00260"
+group = "num_basic_b3"
+expr = "IP(2.71828 / 1.35)"
+
+[[case]]
+id = "num_precision_00261"
+group = "num_precision_b3"
+expr = "TRUNCATE(4.5, 2)"
+
+[[case]]
+id = "types_format_00262"
+group = "types_format_b3"
+expr = "STRING(1000) + \"|\" + STRING(0.1)"
+
+[[case]]
+id = "control_flow_00263"
+group = "control_flow_b3"
+body = """LOCAL i; FOR i FROM 8 TO 6 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00264"
+group = "scoping_b3"
+body = """LOCAL p:=8; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00265"
+group = "strings_b3"
+expr = "REPLACE(\"HP-Prime G1\", \"HP Prime\", \"hello\")"
+
+[[case]]
+id = "lists_00266"
+group = "lists_b3"
+expr = "MEAN({6, 1, 7}) + MEDIAN({6, 1, 7})"
+
+[[case]]
+id = "matrices_00267"
+group = "matrices_b2"
+expr = "TRN([[2, 3], [3, 2]])"
+
+[[case]]
+id = "complex_00268"
+group = "complex_b3"
+expr = "CONJ((5, 5))"
+
+[[case]]
+id = "errors_00269"
+group = "errors_iso00248"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00270"
+group = "num_basic_b3"
+expr = "0.000001 + 2.5"
+
+[[case]]
+id = "num_precision_00271"
+group = "num_precision_b3"
+expr = "1.2345678901103"
+
+[[case]]
+id = "types_format_00272"
+group = "types_format_b3"
+expr = "TYPE(-42)"
+
+[[case]]
+id = "control_flow_00273"
+group = "control_flow_b3"
+body = """LOCAL i, s:=0; FOR i FROM 3 TO 6 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00274"
+group = "scoping_b3"
+body = """LOCAL p:=2; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00275"
+group = "strings_b3"
+expr = "RIGHT(\"PPL\", 1)"
+
+[[case]]
+id = "lists_00276"
+group = "lists_b3"
+expr = "{6, 7, 13}"
+
+[[case]]
+id = "complex_00278"
+group = "complex_b3"
+expr = "TYPE((1, 4)) + SIGN((1, 4))"
+
+[[case]]
+id = "num_basic_00280"
+group = "num_basic_b3"
+expr = "3.14159 MOD 3.5"
+
+[[case]]
+id = "num_precision_00281"
+group = "num_precision_b3"
+expr = "1.2345678901165"
+
+[[case]]
+id = "types_format_00282"
+group = "types_format_b3"
+expr = "TYPE(0)"
+
+[[case]]
+id = "control_flow_00283"
+group = "control_flow_b3"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=9; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00284"
+group = "scoping_b3"
+body = """LOCAL p:=7; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00285"
+group = "strings_b3"
+expr = "MID(\"\", 3, 0)"
+
+[[case]]
+id = "lists_00286"
+group = "lists_b3"
+expr = "CONCAT({8, 2, 10}, {8})"
+
+[[case]]
+id = "matrices_00287"
+group = "matrices_b2"
+expr = "TRN([[6, 2], [2, 6]])"
+
+[[case]]
+id = "complex_00288"
+group = "complex_b3"
+expr = "CONJ((5, 4))"
+
+[[case]]
+id = "errors_00289"
+group = "errors_iso00266"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00290"
+group = "num_basic_b3"
+expr = "(-2.5) * 0.5"
+
+[[case]]
+id = "num_precision_00291"
+group = "num_precision_b3"
+expr = "ROUND(1.5, -2)"
+
+[[case]]
+id = "types_format_00292"
+group = "types_format_b3"
+expr = "TYPE([8, 6])"
+
+[[case]]
+id = "control_flow_00293"
+group = "control_flow_b3"
+body = """IF 1<3 THEN RETURN 1; ELSE RETURN 3; END;
+"""
+
+[[case]]
+id = "scoping_00294"
+group = "scoping_b3"
+body = """LOCAL a:=3, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00295"
+group = "strings_b3"
+expr = "LEFT(\"\", 2)"
+
+[[case]]
+id = "matrices_00297"
+group = "matrices_b2"
+expr = "[[1, 2], [2, 1]]"
+
+[[case]]
+id = "complex_00298"
+group = "complex_b3"
+expr = "TYPE((1, 3)) + SIGN((1, 3))"
+
+[[case]]
+id = "num_basic_00300"
+group = "num_basic_b3"
+expr = "(-42) + 1.5 * 3"
+
+[[case]]
+id = "num_precision_00301"
+group = "num_precision_b3"
+expr = "TRUNCATE(-2.5, 1)"
+
+[[case]]
+id = "types_format_00302"
+group = "types_format_b3"
+expr = "TYPE((9, 1))"
+
+[[case]]
+id = "control_flow_00303"
+group = "control_flow_b3"
+body = """LOCAL i, s:=0; FOR i FROM 4 TO 6 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00304"
+group = "scoping_b3"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 7 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00305"
+group = "strings_b3"
+expr = "UPPER(\"0123456789\") + \"|\" + LOWER(\"0123456789\")"
+
+[[case]]
+id = "lists_00306"
+group = "lists_b3"
+expr = "DELTALIST({6, 4, 10}) + PILIST({6, 4, 10})"
+
+[[case]]
+id = "matrices_00307"
+group = "matrices_b2"
+expr = "TRN([[9, 2], [2, 9]])"
+
+[[case]]
+id = "complex_00308"
+group = "complex_b3"
+expr = "ABS((8, 8))"
+
+[[case]]
+id = "errors_00309"
+group = "errors_iso00284"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00310"
+group = "num_basic_b3"
+expr = "(-0.5) MOD 0.5"
+
+[[case]]
+id = "num_precision_00311"
+group = "num_precision_b3"
+expr = "ROUND(0.5, 0)"
+
+[[case]]
+id = "types_format_00312"
+group = "types_format_b3"
+expr = "STRING(99) + \"|\" + STRING(1.25)"
+
+[[case]]
+id = "control_flow_00313"
+group = "control_flow_b3"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=1 THEN CONTINUE; END; IF i=2 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00314"
+group = "scoping_b3"
+body = """LOCAL x:=5; IF x>2 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00315"
+group = "strings_b3"
+expr = "REPLACE(\"with space\", \"HP-Prime G1\", \"HP Prime\")"
+
+[[case]]
+id = "lists_00316"
+group = "lists_b3"
+expr = "MIN({7, 4, 11}) + MAX({7, 4, 11}) + POS({7, 4, 11}, 4)"
+
+[[case]]
+id = "matrices_00317"
+group = "matrices_b2"
+expr = "[[4, 6], [6, 4]]"
+
+[[case]]
+id = "complex_00318"
+group = "complex_b3"
+expr = "ABS((5, 7))"
+
+[[case]]
+id = "errors_00319"
+group = "errors_iso00294"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00320"
+group = "num_basic_b3"
+expr = "-(0.7 + 3.14159)"
+
+[[case]]
+id = "num_precision_00321"
+group = "num_precision_b3"
+expr = "FLOOR(4.5)"
+
+[[case]]
+id = "types_format_00322"
+group = "types_format_b3"
+expr = "TYPE(\"HP-Prime G1\")"
+
+[[case]]
+id = "control_flow_00323"
+group = "control_flow_b3"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=5 THEN CONTINUE; END; IF i=5 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00324"
+group = "scoping_b3"
+body = """LOCAL p:=7; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00325"
+group = "strings_b3"
+expr = "LEFT(\"0123456789\", 1)"
+
+[[case]]
+id = "lists_00326"
+group = "lists_b3"
+expr = "REVERSE({3, 3, 6})"
+
+[[case]]
+id = "matrices_00327"
+group = "matrices_b2"
+expr = "[[9, 6], [6, 9]]"
+
+[[case]]
+id = "complex_00328"
+group = "complex_b3"
+expr = "ABS((4, 8))"
+
+[[case]]
+id = "num_basic_00330"
+group = "num_basic_b3"
+expr = "1 + 1E-5 * 1"
+
+[[case]]
+id = "num_precision_00331"
+group = "num_precision_b3"
+expr = "IP(-0.5) + FP(-0.5)"
+
+[[case]]
+id = "types_format_00332"
+group = "types_format_b3"
+expr = "STRING(7) + \"|\" + STRING(3.5)"
+
+[[case]]
+id = "control_flow_00333"
+group = "control_flow_b3"
+body = """LOCAL i:=0, s:=0; WHILE i<8 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00334"
+group = "scoping_b3"
+body = """LOCAL x:=2; IF x>1 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00335"
+group = "strings_b3"
+expr = "RIGHT(\"tab	sep\", 0)"
+
+[[case]]
+id = "lists_00336"
+group = "lists_b3"
+expr = "SORT({8, 5, 13})"
+
+[[case]]
+id = "complex_00338"
+group = "complex_b3"
+expr = "(1, 8) + (8, -1)"
+
+[[case]]
+id = "num_basic_00340"
+group = "num_basic_b3"
+expr = "IP(1.35 / 0.1)"
+
+[[case]]
+id = "num_precision_00341"
+group = "num_precision_b3"
+expr = "FLOOR(-2.5)"
+
+[[case]]
+id = "types_format_00342"
+group = "types_format_b3"
+expr = "TYPE((4, 4))"
+
+[[case]]
+id = "control_flow_00343"
+group = "control_flow_b3"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 7 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00344"
+group = "scoping_b3"
+body = """LOCAL a:=2, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00345"
+group = "strings_b3"
+expr = "UPPER(\"hello\") + \"|\" + LOWER(\"hello\")"
+
+[[case]]
+id = "lists_00346"
+group = "lists_b3"
+expr = "MIN({4, 5, 9}) + MAX({4, 5, 9}) + POS({4, 5, 9}, 5)"
+
+[[case]]
+id = "matrices_00347"
+group = "matrices_b3"
+expr = "INV([[7, 2], [2, 7]])"
+
+[[case]]
+id = "complex_00348"
+group = "complex_b3"
+expr = "(8, 9)"
+
+[[case]]
+id = "num_basic_00350"
+group = "num_basic_b3"
+expr = "3.14159 MOD 2.71828"
+
+[[case]]
+id = "num_precision_00351"
+group = "num_precision_b3"
+expr = "1.2345678901247"
+
+[[case]]
+id = "types_format_00352"
+group = "types_format_b3"
+expr = "STRING(0) + \"|\" + STRING(1E-11)"
+
+[[case]]
+id = "control_flow_00353"
+group = "control_flow_b3"
+body = """IF 1<3 THEN RETURN 1; ELSE RETURN 3; END;
+"""
+
+[[case]]
+id = "scoping_00354"
+group = "scoping_b3"
+body = """LOCAL z:=7; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00355"
+group = "strings_b3"
+expr = "POS(\"PPL\", \"with space\")"
+
+[[case]]
+id = "complex_00358"
+group = "complex_b3"
+expr = "(4, 1)"
+
+[[case]]
+id = "num_basic_00360"
+group = "num_basic_b4"
+expr = "(-2.5) MOD 1.35"
+
+[[case]]
+id = "num_precision_00361"
+group = "num_precision_b4"
+expr = "ROUND(-1.5, 2)"
+
+[[case]]
+id = "types_format_00362"
+group = "types_format_b4"
+expr = "STRING(9) + \"|\" + STRING(1E-499)"
+
+[[case]]
+id = "control_flow_00363"
+group = "control_flow_b4"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=3; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00364"
+group = "scoping_b4"
+body = """LOCAL p:=3; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00365"
+group = "strings_b4"
+expr = "MID(\"CamelCase\", 4, 1)"
+
+[[case]]
+id = "lists_00366"
+group = "lists_b3"
+expr = "MIN({4, 5, 9}) + MAX({4, 5, 9}) + POS({4, 5, 9}, 5)"
+
+[[case]]
+id = "matrices_00367"
+group = "matrices_b3"
+expr = "[[5, 2], [2, 5]] * [[5, 2], [2, 5]]"
+
+[[case]]
+id = "complex_00368"
+group = "complex_b4"
+expr = "(3, 5) + (5, -3)"
+
+[[case]]
+id = "errors_00369"
+group = "errors_iso00337"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00370"
+group = "num_basic_b4"
+expr = "0.5^7"
+
+[[case]]
+id = "num_precision_00371"
+group = "num_precision_b4"
+expr = "ROUND(-0.5, -1)"
+
+[[case]]
+id = "types_format_00372"
+group = "types_format_b4"
+expr = "TYPE([9, 8])"
+
+[[case]]
+id = "control_flow_00373"
+group = "control_flow_b4"
+body = """LOCAL i, s:=0; FOR i FROM 6 TO 12 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00374"
+group = "scoping_b4"
+body = """LOCAL z:=4; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00375"
+group = "strings_b4"
+expr = "MID(\"PPL\", 1, 4)"
+
+[[case]]
+id = "lists_00376"
+group = "lists_b3"
+expr = "{6, 3, 9}"
+
+[[case]]
+id = "matrices_00377"
+group = "matrices_b3"
+expr = "[[9, 5], [5, 9]]"
+
+[[case]]
+id = "complex_00378"
+group = "complex_b4"
+expr = "(1, 2) * (2, -1)"
+
+[[case]]
+id = "num_basic_00380"
+group = "num_basic_b4"
+expr = "-(1E-5 + 1E-5)"
+
+[[case]]
+id = "num_precision_00381"
+group = "num_precision_b4"
+expr = "IP(-1.5) + FP(-1.5)"
+
+[[case]]
+id = "types_format_00382"
+group = "types_format_b4"
+expr = "STRING(-99) + \"|\" + STRING(1.35)"
+
+[[case]]
+id = "control_flow_00383"
+group = "control_flow_b4"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 7 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00384"
+group = "scoping_b4"
+body = """LOCAL z:=2; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00385"
+group = "strings_b4"
+expr = "RIGHT(\"Hello, World!\", 3)"
+
+[[case]]
+id = "matrices_00387"
+group = "matrices_b3"
+expr = "[[4, 3], [3, 4]]"
+
+[[case]]
+id = "complex_00388"
+group = "complex_b4"
+expr = "CONJ((6, 6))"
+
+[[case]]
+id = "errors_00389"
+group = "errors_iso00355"
+expr = "99/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00390"
+group = "num_basic_b4"
+expr = "1E-11 + 2.5"
+
+[[case]]
+id = "num_precision_00391"
+group = "num_precision_b4"
+expr = "ROUND(3.5, -1)"
+
+[[case]]
+id = "types_format_00392"
+group = "types_format_b4"
+expr = "TYPE(1.23456789012)"
+
+[[case]]
+id = "control_flow_00393"
+group = "control_flow_b4"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=2 THEN CONTINUE; END; IF i=8 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00394"
+group = "scoping_b4"
+body = """LOCAL z:=9; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00395"
+group = "strings_b4"
+expr = "SIZE(\"Hello, World!\")"
+
+[[case]]
+id = "matrices_00397"
+group = "matrices_b3"
+expr = "DET([[5, 2], [2, 5]])"
+
+[[case]]
+id = "complex_00398"
+group = "complex_b4"
+expr = "ABS((7, 3))"
+
+[[case]]
+id = "num_basic_00400"
+group = "num_basic_b4"
+expr = "1E-11 - 1E-5"
+
+[[case]]
+id = "num_precision_00401"
+group = "num_precision_b4"
+expr = "FLOOR(-3.5)"
+
+[[case]]
+id = "types_format_00402"
+group = "types_format_b4"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00403"
+group = "control_flow_b4"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=3 THEN CONTINUE; END; IF i=8 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00404"
+group = "scoping_b4"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00405"
+group = "strings_b4"
+expr = "REPLACE(\"\", \"\", \"CamelCase\")"
+
+[[case]]
+id = "lists_00406"
+group = "lists_b3"
+expr = "{8, 5, 13}"
+
+[[case]]
+id = "matrices_00407"
+group = "matrices_b3"
+expr = "[[4, 8], [8, 4]]"
+
+[[case]]
+id = "complex_00408"
+group = "complex_b4"
+expr = "ARG((9, 9))"
+
+[[case]]
+id = "errors_00409"
+group = "errors_iso00373"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00410"
+group = "num_basic_b4"
+expr = "-(1.5 + 3.14159)"
+
+[[case]]
+id = "num_precision_00411"
+group = "num_precision_b4"
+expr = "1.2345678901765"
+
+[[case]]
+id = "types_format_00412"
+group = "types_format_b4"
+expr = "TYPE({8, 1})"
+
+[[case]]
+id = "control_flow_00413"
+group = "control_flow_b4"
+body = """IF 2<7 THEN RETURN 2; ELSE RETURN 7; END;
+"""
+
+[[case]]
+id = "scoping_00414"
+group = "scoping_b4"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 6 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00415"
+group = "strings_b4"
+expr = "LEFT(\"Hello, World!\", 4)"
+
+[[case]]
+id = "lists_00416"
+group = "lists_b3"
+expr = "DELTALIST({9, 3, 12}) + PILIST({9, 3, 12})"
+
+[[case]]
+id = "complex_00418"
+group = "complex_b4"
+expr = "(4, 6)"
+
+[[case]]
+id = "errors_00419"
+group = "errors_iso00382"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00420"
+group = "num_basic_b4"
+expr = "1000 + 1.5 * (-99)"
+
+[[case]]
+id = "num_precision_00421"
+group = "num_precision_b4"
+expr = "1.2345678901886"
+
+[[case]]
+id = "types_format_00422"
+group = "types_format_b4"
+expr = "TYPE((1, 5))"
+
+[[case]]
+id = "control_flow_00423"
+group = "control_flow_b4"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=2 THEN CONTINUE; END; IF i=6 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00424"
+group = "scoping_b4"
+body = """LOCAL p:=9; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00425"
+group = "strings_b4"
+expr = "INSTRING(\"HP Prime\", \"\")"
+
+[[case]]
+id = "lists_00426"
+group = "lists_b4"
+expr = "MIN({9, 1, 10}) + MAX({9, 1, 10}) + POS({9, 1, 10}, 1)"
+
+[[case]]
+id = "matrices_00427"
+group = "matrices_b3"
+expr = "[[2, 6], [6, 2]]"
+
+[[case]]
+id = "complex_00428"
+group = "complex_b4"
+expr = "(2, 9)"
+
+[[case]]
+id = "num_basic_00430"
+group = "num_basic_b4"
+expr = "0.7 * 1E-5"
+
+[[case]]
+id = "num_precision_00431"
+group = "num_precision_b4"
+expr = "ROUND(-3.5, 0)"
+
+[[case]]
+id = "types_format_00432"
+group = "types_format_b4"
+expr = "TYPE([2, 5])"
+
+[[case]]
+id = "control_flow_00433"
+group = "control_flow_b4"
+body = """IF 2<7 THEN RETURN 2; ELSE RETURN 7; END;
+"""
+
+[[case]]
+id = "scoping_00434"
+group = "scoping_b4"
+body = """LOCAL a:=2, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00435"
+group = "strings_b4"
+expr = "ASC(\"a\")"
+
+[[case]]
+id = "lists_00436"
+group = "lists_b4"
+expr = "DELTALIST({8, 8, 16}) + PILIST({8, 8, 16})"
+
+[[case]]
+id = "matrices_00437"
+group = "matrices_b3"
+expr = "TRN([[9, 1], [1, 9]])"
+
+[[case]]
+id = "complex_00438"
+group = "complex_b4"
+expr = "ABS((2, 2))"
+
+[[case]]
+id = "errors_00439"
+group = "errors_iso00401"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00440"
+group = "num_basic_b4"
+expr = "0.1 + 2.5"
+
+[[case]]
+id = "num_precision_00441"
+group = "num_precision_b4"
+expr = "TRUNCATE(-3.5, 1)"
+
+[[case]]
+id = "types_format_00442"
+group = "types_format_b4"
+expr = "TYPE(1.35)"
+
+[[case]]
+id = "control_flow_00443"
+group = "control_flow_b4"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=6; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00444"
+group = "scoping_b4"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 1 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00445"
+group = "strings_b4"
+expr = "INSTRING(\"\", \"\")"
+
+[[case]]
+id = "lists_00446"
+group = "lists_b4"
+expr = "{8, 7, 15}"
+
+[[case]]
+id = "matrices_00447"
+group = "matrices_b3"
+expr = "[[2, 9], [9, 2]]"
+
+[[case]]
+id = "complex_00448"
+group = "complex_b4"
+expr = "(7, 7) * (7, -7)"
+
+[[case]]
+id = "errors_00449"
+group = "errors_iso00411"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00450"
+group = "num_basic_b4"
+expr = "1.23456789012 / 3.5"
+
+[[case]]
+id = "num_precision_00451"
+group = "num_precision_b4"
+expr = "CEILING(-0.5)"
+
+[[case]]
+id = "types_format_00452"
+group = "types_format_b4"
+expr = "STRING(10) + \"|\" + STRING(0.5)"
+
+[[case]]
+id = "control_flow_00453"
+group = "control_flow_b4"
+body = """LOCAL i; FOR i FROM 10 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00454"
+group = "scoping_b4"
+body = """LOCAL p:=2; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00455"
+group = "strings_b4"
+expr = "RIGHT(\"HP-Prime G1\", 2)"
+
+[[case]]
+id = "lists_00456"
+group = "lists_b4"
+expr = "DELTALIST({2, 1, 3}) + PILIST({2, 1, 3})"
+
+[[case]]
+id = "matrices_00457"
+group = "matrices_b3"
+expr = "DET([[2, 3], [3, 2]])"
+
+[[case]]
+id = "complex_00458"
+group = "complex_b4"
+expr = "TYPE((5, 7)) + SIGN((5, 7))"
+
+[[case]]
+id = "errors_00459"
+group = "errors_iso00421"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00460"
+group = "num_basic_b4"
+expr = "SQRT(2.71828)"
+
+[[case]]
+id = "num_precision_00461"
+group = "num_precision_b4"
+expr = "ROUND(0.5, -2)"
+
+[[case]]
+id = "types_format_00462"
+group = "types_format_b4"
+expr = "TYPE((2, 9))"
+
+[[case]]
+id = "control_flow_00463"
+group = "control_flow_b4"
+body = """LOCAL i:=0, s:=0; WHILE i<5 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00464"
+group = "scoping_b4"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00465"
+group = "strings_b4"
+expr = "\"hello\" + \"PPL\""
+
+[[case]]
+id = "lists_00466"
+group = "lists_b4"
+expr = "REVERSE({4, 9, 13})"
+
+[[case]]
+id = "matrices_00467"
+group = "matrices_b3"
+expr = "INV([[8, 9], [9, 8]])"
+
+[[case]]
+id = "complex_00468"
+group = "complex_b4"
+expr = "CONJ((3, 9))"
+
+[[case]]
+id = "num_basic_00470"
+group = "num_basic_b4"
+expr = "(-0.5) MOD 0.1"
+
+[[case]]
+id = "num_precision_00471"
+group = "num_precision_b4"
+expr = "FLOOR(2.5)"
+
+[[case]]
+id = "types_format_00472"
+group = "types_format_b4"
+expr = "STRING(255) + \"|\" + STRING(0.7)"
+
+[[case]]
+id = "control_flow_00473"
+group = "control_flow_b4"
+body = """LOCAL i; FOR i FROM 9 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00474"
+group = "scoping_b4"
+body = """LOCAL a:=1, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00475"
+group = "strings_b4"
+expr = "LEFT(\"0123456789\", 2)"
+
+[[case]]
+id = "lists_00476"
+group = "lists_b4"
+expr = "DELTALIST({5, 3, 8}) + PILIST({5, 3, 8})"
+
+[[case]]
+id = "complex_00478"
+group = "complex_b4"
+expr = "ARG((9, 4))"
+
+[[case]]
+id = "num_basic_00480"
+group = "num_basic_b5"
+expr = "SQRT(3.5)"
+
+[[case]]
+id = "num_precision_00481"
+group = "num_precision_b5"
+expr = "IP(-0.5) + FP(-0.5)"
+
+[[case]]
+id = "types_format_00482"
+group = "types_format_b5"
+expr = "TYPE(-2)"
+
+[[case]]
+id = "control_flow_00483"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 10 TO 4 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00484"
+group = "scoping_b5"
+body = """LOCAL z:=8; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00485"
+group = "strings_b5"
+expr = "REPLACE(\"0123456789\", \"0123456789\", \"0123456789\")"
+
+[[case]]
+id = "lists_00486"
+group = "lists_b4"
+expr = "MIN({3, 6, 9}) + MAX({3, 6, 9}) + POS({3, 6, 9}, 6)"
+
+[[case]]
+id = "matrices_00487"
+group = "matrices_b3"
+expr = "INV([[5, 9], [9, 5]])"
+
+[[case]]
+id = "complex_00488"
+group = "complex_b5"
+expr = "(1, 3)"
+
+[[case]]
+id = "num_basic_00490"
+group = "num_basic_b5"
+expr = "0 + 1E-11 * (-1)"
+
+[[case]]
+id = "num_precision_00491"
+group = "num_precision_b5"
+expr = "CEILING(1.5)"
+
+[[case]]
+id = "types_format_00492"
+group = "types_format_b5"
+expr = "STRING(9) + \"|\" + STRING(2.71828)"
+
+[[case]]
+id = "control_flow_00493"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 7 TO 1 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00494"
+group = "scoping_b5"
+body = """LOCAL p:=7; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00495"
+group = "strings_b5"
+expr = "INSTRING(\"with space\", \"0123456789\")"
+
+[[case]]
+id = "lists_00496"
+group = "lists_b4"
+expr = "SORT({3, 1, 4})"
+
+[[case]]
+id = "complex_00498"
+group = "complex_b5"
+expr = "RE((4, 6)) + IM((4, 6))"
+
+[[case]]
+id = "errors_00499"
+group = "errors_iso00456"
+expr = "7/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00500"
+group = "num_basic_b5"
+expr = "-(1.5 + 2.5)"
+
+[[case]]
+id = "num_precision_00501"
+group = "num_precision_b5"
+expr = "1.2345678901188"
+
+[[case]]
+id = "types_format_00502"
+group = "types_format_b5"
+expr = "TYPE(\"HP Prime\")"
+
+[[case]]
+id = "control_flow_00503"
+group = "control_flow_b5"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=2 THEN CONTINUE; END; IF i=2 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00504"
+group = "scoping_b5"
+body = """LOCAL p:=7; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00505"
+group = "strings_b5"
+expr = "\"HP-Prime G1\" + \"tab	sep\""
+
+[[case]]
+id = "lists_00506"
+group = "lists_b4"
+expr = "SORT({8, 3, 11})"
+
+[[case]]
+id = "matrices_00507"
+group = "matrices_b4"
+expr = "[[9, 9], [9, 9]] + [[9, 9], [9, 9]]"
+
+[[case]]
+id = "complex_00508"
+group = "complex_b5"
+expr = "(9, 6) * (6, -9)"
+
+[[case]]
+id = "num_basic_00510"
+group = "num_basic_b5"
+expr = "0.5 + 1E-11"
+
+[[case]]
+id = "num_precision_00511"
+group = "num_precision_b5"
+expr = "ROUND(2.5, 1)"
+
+[[case]]
+id = "types_format_00512"
+group = "types_format_b5"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00513"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 7 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00514"
+group = "scoping_b5"
+body = """LOCAL p:=2; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00515"
+group = "strings_b5"
+expr = "SIZE(\"\")"
+
+[[case]]
+id = "matrices_00517"
+group = "matrices_b4"
+expr = "INV([[1, 3], [3, 1]])"
+
+[[case]]
+id = "complex_00518"
+group = "complex_b5"
+expr = "ARG((8, 9))"
+
+[[case]]
+id = "errors_00519"
+group = "errors_iso00474"
+expr = "99/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00520"
+group = "num_basic_b5"
+expr = "0.5 * (-0.5)"
+
+[[case]]
+id = "num_precision_00521"
+group = "num_precision_b5"
+expr = "CEILING(1.5)"
+
+[[case]]
+id = "types_format_00522"
+group = "types_format_b5"
+expr = "TYPE(\"CamelCase\")"
+
+[[case]]
+id = "control_flow_00523"
+group = "control_flow_b5"
+body = """IF 3<6 THEN RETURN 3; ELSE RETURN 6; END;
+"""
+
+[[case]]
+id = "scoping_00524"
+group = "scoping_b5"
+body = """LOCAL p:=6; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00525"
+group = "strings_b5"
+expr = "RIGHT(\"HP Prime\", 0)"
+
+[[case]]
+id = "lists_00526"
+group = "lists_b4"
+expr = "SIZE({8, 1, 9})"
+
+[[case]]
+id = "matrices_00527"
+group = "matrices_b4"
+expr = "[[3, 7], [7, 3]]"
+
+[[case]]
+id = "complex_00528"
+group = "complex_b5"
+expr = "(1, 3) + (3, -1)"
+
+[[case]]
+id = "errors_00529"
+group = "errors_iso00484"
+expr = "5/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00530"
+group = "num_basic_b5"
+expr = "1.35 MOD 2.71828"
+
+[[case]]
+id = "num_precision_00531"
+group = "num_precision_b5"
+expr = "ROUND(-1.5, 0)"
+
+[[case]]
+id = "types_format_00532"
+group = "types_format_b5"
+expr = "STRING(42) + \"|\" + STRING(3.5)"
+
+[[case]]
+id = "control_flow_00533"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 4 TO 2 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00534"
+group = "scoping_b5"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 5 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00535"
+group = "strings_b5"
+expr = "ASC(\"H\")"
+
+[[case]]
+id = "lists_00536"
+group = "lists_b4"
+expr = "SORT({7, 2, 9})"
+
+[[case]]
+id = "matrices_00537"
+group = "matrices_b4"
+expr = "TRN([[3, 6], [6, 3]])"
+
+[[case]]
+id = "complex_00538"
+group = "complex_b5"
+expr = "CONJ((8, 5))"
+
+[[case]]
+id = "num_basic_00540"
+group = "num_basic_b5"
+expr = "(-0.5) MOD 2.71828"
+
+[[case]]
+id = "num_precision_00541"
+group = "num_precision_b5"
+expr = "1.2345678901307"
+
+[[case]]
+id = "types_format_00542"
+group = "types_format_b5"
+expr = "TYPE({2, 8})"
+
+[[case]]
+id = "control_flow_00543"
+group = "control_flow_b5"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=3 THEN CONTINUE; END; IF i=3 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00544"
+group = "scoping_b5"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00545"
+group = "strings_b5"
+expr = "POS(\"\", \"HP Prime\")"
+
+[[case]]
+id = "lists_00546"
+group = "lists_b4"
+expr = "SIZE({2, 2, 4})"
+
+[[case]]
+id = "complex_00548"
+group = "complex_b5"
+expr = "TYPE((9, 1)) + SIGN((9, 1))"
+
+[[case]]
+id = "errors_00549"
+group = "errors_iso00502"
+expr = "255/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00550"
+group = "num_basic_b5"
+expr = "5 + 3.5 * 99"
+
+[[case]]
+id = "num_precision_00551"
+group = "num_precision_b5"
+expr = "1.2345678901841"
+
+[[case]]
+id = "types_format_00552"
+group = "types_format_b5"
+expr = "TYPE(\"hello\")"
+
+[[case]]
+id = "control_flow_00553"
+group = "control_flow_b5"
+body = """IF 1<5 THEN RETURN 1; ELSE RETURN 5; END;
+"""
+
+[[case]]
+id = "scoping_00554"
+group = "scoping_b5"
+body = """LOCAL a:=8, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00555"
+group = "strings_b5"
+expr = "REPLACE(\"Hello, World!\", \"tab	sep\", \"0123456789\")"
+
+[[case]]
+id = "lists_00556"
+group = "lists_b5"
+expr = "DELTALIST({5, 6, 11}) + PILIST({5, 6, 11})"
+
+[[case]]
+id = "complex_00558"
+group = "complex_b5"
+expr = "(2, 2) + (2, -2)"
+
+[[case]]
+id = "num_basic_00560"
+group = "num_basic_b5"
+expr = "(-0.5) MOD 1E-11"
+
+[[case]]
+id = "num_precision_00561"
+group = "num_precision_b5"
+expr = "1.2345678901709"
+
+[[case]]
+id = "types_format_00562"
+group = "types_format_b5"
+expr = "TYPE({1, 5})"
+
+[[case]]
+id = "control_flow_00563"
+group = "control_flow_b5"
+body = """LOCAL i:=0, s:=0; WHILE i<12 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00564"
+group = "scoping_b5"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 5 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00565"
+group = "strings_b5"
+expr = "SIZE(\"tab	sep\")"
+
+[[case]]
+id = "matrices_00567"
+group = "matrices_b4"
+expr = "[[2, 4], [4, 2]] * [[2, 4], [4, 2]]"
+
+[[case]]
+id = "complex_00568"
+group = "complex_b5"
+expr = "(1, 3) + (3, -1)"
+
+[[case]]
+id = "num_basic_00570"
+group = "num_basic_b5"
+expr = "1.25 / 1.5"
+
+[[case]]
+id = "num_precision_00571"
+group = "num_precision_b5"
+expr = "ROUND(1.5, 0)"
+
+[[case]]
+id = "types_format_00572"
+group = "types_format_b5"
+expr = "TYPE((3, 5))"
+
+[[case]]
+id = "control_flow_00573"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 2 TO 2 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00574"
+group = "scoping_b5"
+body = """LOCAL x:=5; IF x>2 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00575"
+group = "strings_b5"
+expr = "INSTRING(\"tab	sep\", \"\")"
+
+[[case]]
+id = "lists_00576"
+group = "lists_b5"
+expr = "MIN({9, 7, 16}) + MAX({9, 7, 16}) + POS({9, 7, 16}, 7)"
+
+[[case]]
+id = "matrices_00577"
+group = "matrices_b4"
+expr = "[[9, 8], [8, 9]] * [[9, 8], [8, 9]]"
+
+[[case]]
+id = "complex_00578"
+group = "complex_b5"
+expr = "(5, 1) + (1, -5)"
+
+[[case]]
+id = "num_basic_00580"
+group = "num_basic_b5"
+expr = "-(1.23456789012 + 3.14159)"
+
+[[case]]
+id = "num_precision_00581"
+group = "num_precision_b5"
+expr = "1.2345678901929"
+
+[[case]]
+id = "types_format_00582"
+group = "types_format_b5"
+expr = "TYPE({6, 8})"
+
+[[case]]
+id = "control_flow_00583"
+group = "control_flow_b5"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 7 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00584"
+group = "scoping_b5"
+body = """LOCAL x:=3; IF x>1 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00585"
+group = "strings_b5"
+expr = "SIZE(\"with space\")"
+
+[[case]]
+id = "lists_00586"
+group = "lists_b5"
+expr = "REVERSE({1, 2, 3})"
+
+[[case]]
+id = "matrices_00587"
+group = "matrices_b4"
+expr = "DET([[5, 8], [8, 5]])"
+
+[[case]]
+id = "complex_00588"
+group = "complex_b5"
+expr = "(8, 9) + (9, -8)"
+
+[[case]]
+id = "errors_00589"
+group = "errors_iso00537"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00590"
+group = "num_basic_b5"
+expr = "(-7.7) MOD 1.23456789012"
+
+[[case]]
+id = "num_precision_00591"
+group = "num_precision_b5"
+expr = "TRUNCATE(1.5, 0)"
+
+[[case]]
+id = "types_format_00592"
+group = "types_format_b5"
+expr = "STRING(1) + \"|\" + STRING(1.23456789012)"
+
+[[case]]
+id = "control_flow_00593"
+group = "control_flow_b5"
+body = """LOCAL i; FOR i FROM 5 TO 4 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00594"
+group = "scoping_b5"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00595"
+group = "strings_b5"
+expr = "ASC(\"H\")"
+
+[[case]]
+id = "lists_00596"
+group = "lists_b5"
+expr = "MIN({2, 2, 4}) + MAX({2, 2, 4}) + POS({2, 2, 4}, 2)"
+
+[[case]]
+id = "matrices_00597"
+group = "matrices_b4"
+expr = "INV([[7, 7], [7, 7]])"
+
+[[case]]
+id = "complex_00598"
+group = "complex_b5"
+expr = "ARG((7, 5))"
+
+[[case]]
+id = "num_basic_00600"
+group = "num_basic_b6"
+expr = "0.7 * 2.71828"
+
+[[case]]
+id = "num_precision_00601"
+group = "num_precision_b6"
+expr = "CEILING(-2.5)"
+
+[[case]]
+id = "types_format_00602"
+group = "types_format_b6"
+expr = "TYPE(\"a\")"
+
+[[case]]
+id = "control_flow_00603"
+group = "control_flow_b6"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=4 THEN CONTINUE; END; IF i=6 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00604"
+group = "scoping_b6"
+body = """LOCAL x:=1; IF x>0 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00605"
+group = "strings_b6"
+expr = "\"0123456789\" + \"a\""
+
+[[case]]
+id = "matrices_00607"
+group = "matrices_b4"
+expr = "INV([[8, 5], [5, 8]])"
+
+[[case]]
+id = "complex_00608"
+group = "complex_b6"
+expr = "(7, 5) + (5, -7)"
+
+[[case]]
+id = "num_basic_00610"
+group = "num_basic_b6"
+expr = "0.1 / 0.1"
+
+[[case]]
+id = "num_precision_00611"
+group = "num_precision_b6"
+expr = "ROUND(1.5, 1)"
+
+[[case]]
+id = "types_format_00612"
+group = "types_format_b6"
+expr = "TYPE(\"tab	sep\")"
+
+[[case]]
+id = "control_flow_00613"
+group = "control_flow_b6"
+body = """LOCAL i; FOR i FROM 6 TO 1 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00614"
+group = "scoping_b6"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 2 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00615"
+group = "strings_b6"
+expr = "LEFT(\"HP Prime\", 3)"
+
+[[case]]
+id = "lists_00616"
+group = "lists_b5"
+expr = "{1, 7, 8}"
+
+[[case]]
+id = "complex_00618"
+group = "complex_b6"
+expr = "TYPE((2, 8)) + SIGN((2, 8))"
+
+[[case]]
+id = "num_basic_00620"
+group = "num_basic_b6"
+expr = "0.1 * 1.35"
+
+[[case]]
+id = "num_precision_00621"
+group = "num_precision_b6"
+expr = "1.2345678901814"
+
+[[case]]
+id = "types_format_00622"
+group = "types_format_b6"
+expr = "TYPE((7, 6))"
+
+[[case]]
+id = "control_flow_00623"
+group = "control_flow_b6"
+body = """IF 1<2 THEN RETURN 1; ELSE RETURN 2; END;
+"""
+
+[[case]]
+id = "scoping_00624"
+group = "scoping_b6"
+body = """LOCAL z:=4; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00625"
+group = "strings_b6"
+expr = "INSTRING(\"tab	sep\", \"Hello, World!\")"
+
+[[case]]
+id = "lists_00626"
+group = "lists_b5"
+expr = "MIN({9, 4, 13}) + MAX({9, 4, 13}) + POS({9, 4, 13}, 4)"
+
+[[case]]
+id = "matrices_00627"
+group = "matrices_b4"
+expr = "TRN([[9, 7], [7, 9]])"
+
+[[case]]
+id = "complex_00628"
+group = "complex_b6"
+expr = "TYPE((2, 4)) + SIGN((2, 4))"
+
+[[case]]
+id = "errors_00629"
+group = "errors_iso00572"
+expr = "99/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00630"
+group = "num_basic_b6"
+expr = "-(3.14159 + (-2.5))"
+
+[[case]]
+id = "num_precision_00631"
+group = "num_precision_b6"
+expr = "ROUND(3.5, 1)"
+
+[[case]]
+id = "types_format_00632"
+group = "types_format_b6"
+expr = "STRING(-1) + \"|\" + STRING(3.5)"
+
+[[case]]
+id = "control_flow_00633"
+group = "control_flow_b6"
+body = """LOCAL i; FOR i FROM 4 TO 4 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00634"
+group = "scoping_b6"
+body = """LOCAL z:=4; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00635"
+group = "strings_b6"
+expr = "LEFT(\"hello\", 3)"
+
+[[case]]
+id = "lists_00636"
+group = "lists_b5"
+expr = "SIZE({2, 6, 8})"
+
+[[case]]
+id = "matrices_00637"
+group = "matrices_b4"
+expr = "[[7, 2], [2, 7]]"
+
+[[case]]
+id = "complex_00638"
+group = "complex_b6"
+expr = "ABS((9, 7))"
+
+[[case]]
+id = "num_basic_00640"
+group = "num_basic_b6"
+expr = "2.71828 MOD 3.5"
+
+[[case]]
+id = "num_precision_00641"
+group = "num_precision_b6"
+expr = "ROUND(-3.5, 2)"
+
+[[case]]
+id = "types_format_00642"
+group = "types_format_b6"
+expr = "TYPE(2.71828)"
+
+[[case]]
+id = "control_flow_00643"
+group = "control_flow_b6"
+body = """IF 3<4 THEN RETURN 3; ELSE RETURN 4; END;
+"""
+
+[[case]]
+id = "scoping_00644"
+group = "scoping_b6"
+body = """LOCAL p:=3; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00645"
+group = "strings_b6"
+expr = "RIGHT(\"a\", 3)"
+
+[[case]]
+id = "lists_00646"
+group = "lists_b5"
+expr = "SIZE({4, 1, 5})"
+
+[[case]]
+id = "complex_00648"
+group = "complex_b6"
+expr = "TYPE((5, 1)) + SIGN((5, 1))"
+
+[[case]]
+id = "num_basic_00650"
+group = "num_basic_b6"
+expr = "IP(0.000001 / 0.7)"
+
+[[case]]
+id = "num_precision_00651"
+group = "num_precision_b6"
+expr = "ROUND(2.5, 2)"
+
+[[case]]
+id = "types_format_00652"
+group = "types_format_b6"
+expr = "TYPE(1E-499)"
+
+[[case]]
+id = "control_flow_00653"
+group = "control_flow_b6"
+body = """LOCAL i; FOR i FROM 5 TO 1 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00654"
+group = "scoping_b6"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00655"
+group = "strings_b6"
+expr = "REPLACE(\"PPL\", \"tab	sep\", \"PPL\")"
+
+[[case]]
+id = "lists_00656"
+group = "lists_b5"
+expr = "SORT({8, 1, 9})"
+
+[[case]]
+id = "matrices_00657"
+group = "matrices_b4"
+expr = "[[9, 8], [8, 9]] * [[9, 8], [8, 9]]"
+
+[[case]]
+id = "complex_00658"
+group = "complex_b6"
+expr = "(5, 6)"
+
+[[case]]
+id = "num_basic_00660"
+group = "num_basic_b6"
+expr = "7.7^8"
+
+[[case]]
+id = "num_precision_00661"
+group = "num_precision_b6"
+expr = "1.2345678901452"
+
+[[case]]
+id = "types_format_00662"
+group = "types_format_b6"
+expr = "TYPE((7, 4))"
+
+[[case]]
+id = "control_flow_00663"
+group = "control_flow_b6"
+body = """LOCAL i; FOR i FROM 8 TO 2 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00664"
+group = "scoping_b6"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00665"
+group = "strings_b6"
+expr = "INSTRING(\"PPL\", \"\")"
+
+[[case]]
+id = "lists_00666"
+group = "lists_b5"
+expr = "CONCAT({9, 8, 17}, {9})"
+
+[[case]]
+id = "complex_00668"
+group = "complex_b6"
+expr = "ARG((9, 3))"
+
+[[case]]
+id = "num_basic_00670"
+group = "num_basic_b6"
+expr = "0.5^2"
+
+[[case]]
+id = "num_precision_00671"
+group = "num_precision_b6"
+expr = "1.2345678901432"
+
+[[case]]
+id = "types_format_00672"
+group = "types_format_b6"
+expr = "STRING(-7) + \"|\" + STRING(-0.5)"
+
+[[case]]
+id = "control_flow_00673"
+group = "control_flow_b6"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=5; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00674"
+group = "scoping_b6"
+body = """LOCAL a:=8, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00675"
+group = "strings_b6"
+expr = "SIZE(\"HP-Prime G1\")"
+
+[[case]]
+id = "lists_00676"
+group = "lists_b5"
+expr = "SORT({1, 6, 7})"
+
+[[case]]
+id = "matrices_00677"
+group = "matrices_b5"
+expr = "INV([[8, 9], [9, 8]])"
+
+[[case]]
+id = "complex_00678"
+group = "complex_b6"
+expr = "RE((2, 4)) + IM((2, 4))"
+
+[[case]]
+id = "errors_00679"
+group = "errors_iso00616"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00680"
+group = "num_basic_b6"
+expr = "1.23456789012 / 3.5"
+
+[[case]]
+id = "num_precision_00681"
+group = "num_precision_b6"
+expr = "FLOOR(0.5)"
+
+[[case]]
+id = "types_format_00682"
+group = "types_format_b6"
+expr = "STRING(9) + \"|\" + STRING(1E499)"
+
+[[case]]
+id = "control_flow_00683"
+group = "control_flow_b6"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 5 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00684"
+group = "scoping_b6"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00685"
+group = "strings_b6"
+expr = "INSTRING(\"PPL\", \"hello\")"
+
+[[case]]
+id = "lists_00686"
+group = "lists_b5"
+expr = "MIN({9, 9, 18}) + MAX({9, 9, 18}) + POS({9, 9, 18}, 9)"
+
+[[case]]
+id = "matrices_00687"
+group = "matrices_b5"
+expr = "[[9, 5], [5, 9]] * [[9, 5], [5, 9]]"
+
+[[case]]
+id = "complex_00688"
+group = "complex_b6"
+expr = "RE((9, 1)) + IM((9, 1))"
+
+[[case]]
+id = "errors_00689"
+group = "errors_iso00626"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00690"
+group = "num_basic_b6"
+expr = "3.14159 * (-7.7)"
+
+[[case]]
+id = "num_precision_00691"
+group = "num_precision_b6"
+expr = "1.2345678901923"
+
+[[case]]
+id = "types_format_00692"
+group = "types_format_b6"
+expr = "TYPE([7, 8])"
+
+[[case]]
+id = "control_flow_00693"
+group = "control_flow_b6"
+body = """IF 3<5 THEN RETURN 3; ELSE RETURN 5; END;
+"""
+
+[[case]]
+id = "scoping_00694"
+group = "scoping_b6"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 6 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00695"
+group = "strings_b6"
+expr = "RIGHT(\"tab	sep\", 0)"
+
+[[case]]
+id = "lists_00696"
+group = "lists_b6"
+expr = "SORT({9, 3, 12})"
+
+[[case]]
+id = "matrices_00697"
+group = "matrices_b5"
+expr = "[[9, 4], [4, 9]] + [[9, 4], [4, 9]]"
+
+[[case]]
+id = "complex_00698"
+group = "complex_b6"
+expr = "CONJ((8, 9))"
+
+[[case]]
+id = "num_basic_00700"
+group = "num_basic_b6"
+expr = "IP(0.7 / 3.14159)"
+
+[[case]]
+id = "num_precision_00701"
+group = "num_precision_b6"
+expr = "TRUNCATE(1.5, 1)"
+
+[[case]]
+id = "types_format_00702"
+group = "types_format_b6"
+expr = "TYPE(\"Hello, World!\")"
+
+[[case]]
+id = "control_flow_00703"
+group = "control_flow_b6"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=6; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00704"
+group = "scoping_b6"
+body = """LOCAL x:=6; IF x>3 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00705"
+group = "strings_b6"
+expr = "ASC(\"t\")"
+
+[[case]]
+id = "lists_00706"
+group = "lists_b6"
+expr = "MIN({3, 3, 6}) + MAX({3, 3, 6}) + POS({3, 3, 6}, 3)"
+
+[[case]]
+id = "matrices_00707"
+group = "matrices_b5"
+expr = "[[8, 5], [5, 8]] * [[8, 5], [5, 8]]"
+
+[[case]]
+id = "complex_00708"
+group = "complex_b6"
+expr = "ARG((3, 9))"
+
+[[case]]
+id = "errors_00709"
+group = "errors_iso00645"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00710"
+group = "num_basic_b6"
+expr = "0.1 MOD (-2.5)"
+
+[[case]]
+id = "num_precision_00711"
+group = "num_precision_b6"
+expr = "FLOOR(3.5)"
+
+[[case]]
+id = "types_format_00712"
+group = "types_format_b6"
+expr = "TYPE({5, 2})"
+
+[[case]]
+id = "control_flow_00713"
+group = "control_flow_b6"
+body = """IF 5<5 THEN RETURN 5; ELSE RETURN 5; END;
+"""
+
+[[case]]
+id = "scoping_00714"
+group = "scoping_b6"
+body = """LOCAL x:=9; IF x>4 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00715"
+group = "strings_b6"
+expr = "RIGHT(\"CamelCase\", 3)"
+
+[[case]]
+id = "lists_00716"
+group = "lists_b6"
+expr = "DELTALIST({9, 1, 10}) + PILIST({9, 1, 10})"
+
+[[case]]
+id = "complex_00718"
+group = "complex_b6"
+expr = "ARG((8, 4))"
+
+[[case]]
+id = "errors_00719"
+group = "errors_iso00654"
+expr = "7/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00720"
+group = "num_basic_b7"
+expr = "2.71828 + 1.23456789012"
+
+[[case]]
+id = "num_precision_00721"
+group = "num_precision_b7"
+expr = "1.2345678901932"
+
+[[case]]
+id = "types_format_00722"
+group = "types_format_b7"
+expr = "TYPE(42)"
+
+[[case]]
+id = "control_flow_00723"
+group = "control_flow_b7"
+body = """LOCAL i; FOR i FROM 6 TO 2 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00724"
+group = "scoping_b7"
+body = """LOCAL p:=6; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00725"
+group = "strings_b7"
+expr = "INSTRING(\"HP-Prime G1\", \"0123456789\")"
+
+[[case]]
+id = "lists_00726"
+group = "lists_b6"
+expr = "CONCAT({5, 9, 14}, {5})"
+
+[[case]]
+id = "matrices_00727"
+group = "matrices_b5"
+expr = "[[8, 4], [4, 8]] + [[8, 4], [4, 8]]"
+
+[[case]]
+id = "complex_00728"
+group = "complex_b7"
+expr = "TYPE((2, 3)) + SIGN((2, 3))"
+
+[[case]]
+id = "errors_00729"
+group = "errors_iso00664"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00730"
+group = "num_basic_b7"
+expr = "0.1 / (-0.5)"
+
+[[case]]
+id = "num_precision_00731"
+group = "num_precision_b7"
+expr = "1.2345678901177"
+
+[[case]]
+id = "types_format_00732"
+group = "types_format_b7"
+expr = "TYPE([5, 1])"
+
+[[case]]
+id = "control_flow_00733"
+group = "control_flow_b7"
+body = """LOCAL i, s:=0; FOR i FROM 4 TO 5 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00734"
+group = "scoping_b7"
+body = """LOCAL p:=9; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00735"
+group = "strings_b7"
+expr = "ASC(\"w\")"
+
+[[case]]
+id = "lists_00736"
+group = "lists_b6"
+expr = "SORT({5, 6, 11})"
+
+[[case]]
+id = "matrices_00737"
+group = "matrices_b5"
+expr = "TRN([[7, 2], [2, 7]])"
+
+[[case]]
+id = "complex_00738"
+group = "complex_b7"
+expr = "(4, 4) * (4, -4)"
+
+[[case]]
+id = "errors_00739"
+group = "errors_iso00674"
+expr = "2/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00740"
+group = "num_basic_b7"
+expr = "(-0.5) / (-7.7)"
+
+[[case]]
+id = "num_precision_00741"
+group = "num_precision_b7"
+expr = "ROUND(-3.5, 1)"
+
+[[case]]
+id = "types_format_00742"
+group = "types_format_b7"
+expr = "TYPE(2.5)"
+
+[[case]]
+id = "control_flow_00743"
+group = "control_flow_b7"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=7; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00744"
+group = "scoping_b7"
+body = """LOCAL p:=8; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00745"
+group = "strings_b7"
+expr = "UPPER(\"HP-Prime G1\") + \"|\" + LOWER(\"HP-Prime G1\")"
+
+[[case]]
+id = "matrices_00747"
+group = "matrices_b5"
+expr = "[[1, 6], [6, 1]] + [[1, 6], [6, 1]]"
+
+[[case]]
+id = "complex_00748"
+group = "complex_b7"
+expr = "TYPE((5, 9)) + SIGN((5, 9))"
+
+[[case]]
+id = "errors_00749"
+group = "errors_iso00683"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00750"
+group = "num_basic_b7"
+expr = "1.25 / 0.000001"
+
+[[case]]
+id = "num_precision_00751"
+group = "num_precision_b7"
+expr = "IP(2.5) + FP(2.5)"
+
+[[case]]
+id = "types_format_00752"
+group = "types_format_b7"
+expr = "TYPE({4, 2})"
+
+[[case]]
+id = "control_flow_00753"
+group = "control_flow_b7"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 8 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00754"
+group = "scoping_b7"
+body = """LOCAL z:=1; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00755"
+group = "strings_b7"
+expr = "INSTRING(\"with space\", \"Hello, World!\")"
+
+[[case]]
+id = "lists_00756"
+group = "lists_b6"
+expr = "REVERSE({8, 4, 12})"
+
+[[case]]
+id = "matrices_00757"
+group = "matrices_b5"
+expr = "DET([[7, 4], [4, 7]])"
+
+[[case]]
+id = "complex_00758"
+group = "complex_b7"
+expr = "TYPE((1, 2)) + SIGN((1, 2))"
+
+[[case]]
+id = "num_basic_00760"
+group = "num_basic_b7"
+expr = "-(1.35 + 0.000001)"
+
+[[case]]
+id = "num_precision_00761"
+group = "num_precision_b7"
+expr = "IP(-1.5) + FP(-1.5)"
+
+[[case]]
+id = "types_format_00762"
+group = "types_format_b7"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00763"
+group = "control_flow_b7"
+body = """LOCAL i; FOR i FROM 5 TO 4 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00764"
+group = "scoping_b7"
+body = """LOCAL a:=1, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00765"
+group = "strings_b7"
+expr = "POS(\"Hello, World!\", \"\")"
+
+[[case]]
+id = "lists_00766"
+group = "lists_b6"
+expr = "REVERSE({7, 5, 12})"
+
+[[case]]
+id = "matrices_00767"
+group = "matrices_b5"
+expr = "TRN([[7, 7], [7, 7]])"
+
+[[case]]
+id = "complex_00768"
+group = "complex_b7"
+expr = "ABS((8, 4))"
+
+[[case]]
+id = "num_basic_00770"
+group = "num_basic_b7"
+expr = "3.14159 - 2.5"
+
+[[case]]
+id = "num_precision_00771"
+group = "num_precision_b7"
+expr = "ROUND(-1.5, 1)"
+
+[[case]]
+id = "types_format_00772"
+group = "types_format_b7"
+expr = "TYPE({8, 1})"
+
+[[case]]
+id = "control_flow_00773"
+group = "control_flow_b7"
+body = """LOCAL i; FOR i FROM 10 TO 4 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00774"
+group = "scoping_b7"
+body = """LOCAL a:=2, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00775"
+group = "strings_b7"
+expr = "INSTRING(\"0123456789\", \"0123456789\")"
+
+[[case]]
+id = "lists_00776"
+group = "lists_b6"
+expr = "REVERSE({7, 1, 8})"
+
+[[case]]
+id = "matrices_00777"
+group = "matrices_b5"
+expr = "TRN([[3, 2], [2, 3]])"
+
+[[case]]
+id = "complex_00778"
+group = "complex_b7"
+expr = "RE((7, 8)) + IM((7, 8))"
+
+[[case]]
+id = "errors_00779"
+group = "errors_iso00711"
+expr = "42/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00780"
+group = "num_basic_b7"
+expr = "SQRT(1E-11)"
+
+[[case]]
+id = "num_precision_00781"
+group = "num_precision_b7"
+expr = "TRUNCATE(1.5, 1)"
+
+[[case]]
+id = "types_format_00782"
+group = "types_format_b7"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00783"
+group = "control_flow_b7"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=3 THEN CONTINUE; END; IF i=5 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00784"
+group = "scoping_b7"
+body = """LOCAL x:=6; IF x>3 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00785"
+group = "strings_b7"
+expr = "REPLACE(\"\", \"0123456789\", \"HP-Prime G1\")"
+
+[[case]]
+id = "lists_00786"
+group = "lists_b6"
+expr = "DELTALIST({7, 7, 14}) + PILIST({7, 7, 14})"
+
+[[case]]
+id = "matrices_00787"
+group = "matrices_b5"
+expr = "DET([[1, 4], [4, 1]])"
+
+[[case]]
+id = "complex_00788"
+group = "complex_b7"
+expr = "TYPE((3, 5)) + SIGN((3, 5))"
+
+[[case]]
+id = "errors_00789"
+group = "errors_iso00721"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00790"
+group = "num_basic_b7"
+expr = "1E-5 - 0.000001"
+
+[[case]]
+id = "num_precision_00791"
+group = "num_precision_b7"
+expr = "1.2345678901649"
+
+[[case]]
+id = "types_format_00792"
+group = "types_format_b7"
+expr = "STRING(1) + \"|\" + STRING(3.14159)"
+
+[[case]]
+id = "control_flow_00793"
+group = "control_flow_b7"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=2; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00794"
+group = "scoping_b7"
+body = """LOCAL a:=8, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00795"
+group = "strings_b7"
+expr = "ASC(\"w\")"
+
+[[case]]
+id = "lists_00796"
+group = "lists_b6"
+expr = "REVERSE({3, 7, 10})"
+
+[[case]]
+id = "matrices_00797"
+group = "matrices_b5"
+expr = "[[7, 2], [2, 7]]"
+
+[[case]]
+id = "complex_00798"
+group = "complex_b7"
+expr = "(3, 2) * (2, -3)"
+
+[[case]]
+id = "num_basic_00800"
+group = "num_basic_b7"
+expr = "1.25 - 1.25"
+
+[[case]]
+id = "num_precision_00801"
+group = "num_precision_b7"
+expr = "ROUND(-3.5, 1)"
+
+[[case]]
+id = "types_format_00802"
+group = "types_format_b7"
+expr = "STRING(0) + \"|\" + STRING(1E-5)"
+
+[[case]]
+id = "control_flow_00803"
+group = "control_flow_b7"
+body = """LOCAL i; FOR i FROM 5 TO 3 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00804"
+group = "scoping_b7"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 5 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00805"
+group = "strings_b7"
+expr = "INSTRING(\"a\", \"tab	sep\")"
+
+[[case]]
+id = "lists_00806"
+group = "lists_b6"
+expr = "CONCAT({6, 7, 13}, {6})"
+
+[[case]]
+id = "matrices_00807"
+group = "matrices_b6"
+expr = "INV([[9, 5], [5, 9]])"
+
+[[case]]
+id = "complex_00808"
+group = "complex_b7"
+expr = "ABS((7, 2))"
+
+[[case]]
+id = "errors_00809"
+group = "errors_iso00740"
+expr = "5/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00810"
+group = "num_basic_b7"
+expr = "1.23456789012 + 0.000001"
+
+[[case]]
+id = "num_precision_00811"
+group = "num_precision_b7"
+expr = "FLOOR(-3.5)"
+
+[[case]]
+id = "types_format_00812"
+group = "types_format_b7"
+expr = "TYPE(1)"
+
+[[case]]
+id = "control_flow_00813"
+group = "control_flow_b7"
+body = """IF 6<8 THEN RETURN 6; ELSE RETURN 8; END;
+"""
+
+[[case]]
+id = "scoping_00814"
+group = "scoping_b7"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00815"
+group = "strings_b7"
+expr = "REPLACE(\"Hello, World!\", \"tab	sep\", \"\")"
+
+[[case]]
+id = "lists_00816"
+group = "lists_b6"
+expr = "MEAN({9, 9, 18}) + MEDIAN({9, 9, 18})"
+
+[[case]]
+id = "matrices_00817"
+group = "matrices_b6"
+expr = "INV([[6, 7], [7, 6]])"
+
+[[case]]
+id = "complex_00818"
+group = "complex_b7"
+expr = "ARG((8, 8))"
+
+[[case]]
+id = "num_basic_00820"
+group = "num_basic_b7"
+expr = "-((-1.5) + 0.7)"
+
+[[case]]
+id = "num_precision_00821"
+group = "num_precision_b7"
+expr = "ROUND(2.5, 3)"
+
+[[case]]
+id = "types_format_00822"
+group = "types_format_b7"
+expr = "TYPE((5, 4))"
+
+[[case]]
+id = "control_flow_00823"
+group = "control_flow_b7"
+body = """LOCAL i, s:=0; FOR i FROM 4 TO 10 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00824"
+group = "scoping_b7"
+body = """LOCAL x:=5; IF x>2 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00825"
+group = "strings_b7"
+expr = "ASC(\"w\")"
+
+[[case]]
+id = "lists_00826"
+group = "lists_b7"
+expr = "MIN({6, 9, 15}) + MAX({6, 9, 15}) + POS({6, 9, 15}, 9)"
+
+[[case]]
+id = "matrices_00827"
+group = "matrices_b6"
+expr = "[[9, 7], [7, 9]] + [[9, 7], [7, 9]]"
+
+[[case]]
+id = "complex_00828"
+group = "complex_b7"
+expr = "RE((6, 7)) + IM((6, 7))"
+
+[[case]]
+id = "errors_00829"
+group = "errors_iso00759"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00830"
+group = "num_basic_b7"
+expr = "0.1 * (-0.5)"
+
+[[case]]
+id = "num_precision_00831"
+group = "num_precision_b7"
+expr = "FLOOR(3.5)"
+
+[[case]]
+id = "types_format_00832"
+group = "types_format_b7"
+expr = "TYPE([4, 9])"
+
+[[case]]
+id = "control_flow_00833"
+group = "control_flow_b7"
+body = """LOCAL i; FOR i FROM 9 TO 3 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00834"
+group = "scoping_b7"
+body = """LOCAL a:=6, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00835"
+group = "strings_b7"
+expr = "REPLACE(\"with space\", \"hello\", \"tab	sep\")"
+
+[[case]]
+id = "lists_00836"
+group = "lists_b7"
+expr = "MIN({3, 2, 5}) + MAX({3, 2, 5}) + POS({3, 2, 5}, 2)"
+
+[[case]]
+id = "matrices_00837"
+group = "matrices_b6"
+expr = "[[3, 6], [6, 3]] + [[3, 6], [6, 3]]"
+
+[[case]]
+id = "complex_00838"
+group = "complex_b7"
+expr = "ABS((2, 7))"
+
+[[case]]
+id = "errors_00839"
+group = "errors_iso00769"
+expr = "1000/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00840"
+group = "num_basic_b8"
+expr = "1.25 * 2.5"
+
+[[case]]
+id = "num_precision_00841"
+group = "num_precision_b8"
+expr = "TRUNCATE(-3.5, 0)"
+
+[[case]]
+id = "types_format_00842"
+group = "types_format_b8"
+expr = "TYPE(\"a\")"
+
+[[case]]
+id = "control_flow_00843"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 4 TO 4 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00844"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00845"
+group = "strings_b8"
+expr = "LEFT(\"tab	sep\", 0)"
+
+[[case]]
+id = "lists_00846"
+group = "lists_b7"
+expr = "REVERSE({9, 3, 12})"
+
+[[case]]
+id = "matrices_00847"
+group = "matrices_b6"
+expr = "[[4, 3], [3, 4]] + [[4, 3], [3, 4]]"
+
+[[case]]
+id = "complex_00848"
+group = "complex_b8"
+expr = "TYPE((1, 4)) + SIGN((1, 4))"
+
+[[case]]
+id = "num_basic_00850"
+group = "num_basic_b8"
+expr = "IP(1.23456789012 / 0.5)"
+
+[[case]]
+id = "num_precision_00851"
+group = "num_precision_b8"
+expr = "IP(-3.5) + FP(-3.5)"
+
+[[case]]
+id = "types_format_00852"
+group = "types_format_b8"
+expr = "TYPE(0.1)"
+
+[[case]]
+id = "control_flow_00853"
+group = "control_flow_b8"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=4; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00854"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 3 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00855"
+group = "strings_b8"
+expr = "RIGHT(\"HP Prime\", 4)"
+
+[[case]]
+id = "lists_00856"
+group = "lists_b7"
+expr = "REVERSE({5, 5, 10})"
+
+[[case]]
+id = "complex_00858"
+group = "complex_b8"
+expr = "(3, 9) + (9, -3)"
+
+[[case]]
+id = "num_basic_00860"
+group = "num_basic_b8"
+expr = "42 + 0.5 * (-99)"
+
+[[case]]
+id = "num_precision_00861"
+group = "num_precision_b8"
+expr = "IP(-3.5) + FP(-3.5)"
+
+[[case]]
+id = "types_format_00862"
+group = "types_format_b8"
+expr = "TYPE(1E499)"
+
+[[case]]
+id = "control_flow_00863"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=1 THEN CONTINUE; END; IF i=7 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00864"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00865"
+group = "strings_b8"
+expr = "\"tab	sep\" + \"a\""
+
+[[case]]
+id = "lists_00866"
+group = "lists_b7"
+expr = "MEAN({7, 4, 11}) + MEDIAN({7, 4, 11})"
+
+[[case]]
+id = "complex_00868"
+group = "complex_b8"
+expr = "ARG((4, 9))"
+
+[[case]]
+id = "errors_00869"
+group = "errors_iso00795"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00870"
+group = "num_basic_b8"
+expr = "1000 + 1.23456789012 * 5"
+
+[[case]]
+id = "num_precision_00871"
+group = "num_precision_b8"
+expr = "ROUND(-0.5, -1)"
+
+[[case]]
+id = "types_format_00872"
+group = "types_format_b8"
+expr = "TYPE(0.000001)"
+
+[[case]]
+id = "control_flow_00873"
+group = "control_flow_b8"
+body = """LOCAL i:=0, s:=0; WHILE i<5 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00874"
+group = "scoping_b8"
+body = """LOCAL p:=4; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_00875"
+group = "strings_b8"
+expr = "REPLACE(\"0123456789\", \"tab	sep\", \"PPL\")"
+
+[[case]]
+id = "lists_00876"
+group = "lists_b7"
+expr = "SORT({1, 8, 9})"
+
+[[case]]
+id = "matrices_00877"
+group = "matrices_b6"
+expr = "[[4, 9], [9, 4]] * [[4, 9], [9, 4]]"
+
+[[case]]
+id = "complex_00878"
+group = "complex_b8"
+expr = "ABS((9, 8))"
+
+[[case]]
+id = "errors_00879"
+group = "errors_iso00805"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00880"
+group = "num_basic_b8"
+expr = "1.35 * 1E-5"
+
+[[case]]
+id = "num_precision_00881"
+group = "num_precision_b8"
+expr = "ROUND(-3.5, 2)"
+
+[[case]]
+id = "types_format_00882"
+group = "types_format_b8"
+expr = "TYPE(1000)"
+
+[[case]]
+id = "control_flow_00883"
+group = "control_flow_b8"
+body = """IF 2<3 THEN RETURN 2; ELSE RETURN 3; END;
+"""
+
+[[case]]
+id = "scoping_00884"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 7 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00885"
+group = "strings_b8"
+expr = "SIZE(\"hello\")"
+
+[[case]]
+id = "lists_00886"
+group = "lists_b7"
+expr = "MIN({5, 5, 10}) + MAX({5, 5, 10}) + POS({5, 5, 10}, 5)"
+
+[[case]]
+id = "complex_00888"
+group = "complex_b8"
+expr = "(2, 7) * (7, -2)"
+
+[[case]]
+id = "errors_00889"
+group = "errors_iso00814"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00890"
+group = "num_basic_b8"
+expr = "3.5 - 2.71828"
+
+[[case]]
+id = "num_precision_00891"
+group = "num_precision_b8"
+expr = "ROUND(2.5, 0)"
+
+[[case]]
+id = "types_format_00892"
+group = "types_format_b8"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00893"
+group = "control_flow_b8"
+body = """LOCAL i; FOR i FROM 5 TO 1 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00894"
+group = "scoping_b8"
+body = """LOCAL z:=2; z:=z+1; IFTE(z>0, z, -z); RETURN z;
+"""
+
+[[case]]
+id = "strings_00895"
+group = "strings_b8"
+expr = "RIGHT(\"HP Prime\", 3)"
+
+[[case]]
+id = "lists_00896"
+group = "lists_b7"
+expr = "SIZE({4, 4, 8})"
+
+[[case]]
+id = "complex_00898"
+group = "complex_b8"
+expr = "ABS((4, 8))"
+
+[[case]]
+id = "errors_00899"
+group = "errors_iso00823"
+expr = "255/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00900"
+group = "num_basic_b8"
+expr = "0.7 + 1E-11"
+
+[[case]]
+id = "num_precision_00901"
+group = "num_precision_b8"
+expr = "CEILING(1.5)"
+
+[[case]]
+id = "types_format_00902"
+group = "types_format_b8"
+expr = "TYPE(-7.7)"
+
+[[case]]
+id = "control_flow_00903"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=3 THEN CONTINUE; END; IF i=4 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00904"
+group = "scoping_b8"
+body = """LOCAL x:=8; IF x>4 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00905"
+group = "strings_b8"
+expr = "POS(\"0123456789\", \"CamelCase\")"
+
+[[case]]
+id = "lists_00906"
+group = "lists_b7"
+expr = "MIN({5, 3, 8}) + MAX({5, 3, 8}) + POS({5, 3, 8}, 3)"
+
+[[case]]
+id = "matrices_00907"
+group = "matrices_b6"
+expr = "[[6, 7], [7, 6]]"
+
+[[case]]
+id = "complex_00908"
+group = "complex_b8"
+expr = "(9, 7) * (7, -9)"
+
+[[case]]
+id = "errors_00909"
+group = "errors_iso00833"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00910"
+group = "num_basic_b8"
+expr = "2.5^3"
+
+[[case]]
+id = "num_precision_00911"
+group = "num_precision_b8"
+expr = "TRUNCATE(-1.5, 1)"
+
+[[case]]
+id = "types_format_00912"
+group = "types_format_b8"
+expr = "STRING(42) + \"|\" + STRING(2.71828)"
+
+[[case]]
+id = "control_flow_00913"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 3 TO 9 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00914"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 6 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00915"
+group = "strings_b8"
+expr = "ASC(\"a\")"
+
+[[case]]
+id = "lists_00916"
+group = "lists_b7"
+expr = "MEAN({2, 4, 6}) + MEDIAN({2, 4, 6})"
+
+[[case]]
+id = "matrices_00917"
+group = "matrices_b6"
+expr = "DET([[5, 8], [8, 5]])"
+
+[[case]]
+id = "complex_00918"
+group = "complex_b8"
+expr = "(9, 3) * (3, -9)"
+
+[[case]]
+id = "errors_00919"
+group = "errors_iso00843"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00920"
+group = "num_basic_b8"
+expr = "(-2.5) / 0.000001"
+
+[[case]]
+id = "num_precision_00921"
+group = "num_precision_b8"
+expr = "ROUND(2.5, 2)"
+
+[[case]]
+id = "types_format_00922"
+group = "types_format_b8"
+expr = "STRING(1) + \"|\" + STRING(0.7)"
+
+[[case]]
+id = "control_flow_00923"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=5 THEN CONTINUE; END; IF i=7 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00924"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00925"
+group = "strings_b8"
+expr = "\"\" + \"HP Prime\""
+
+[[case]]
+id = "lists_00926"
+group = "lists_b7"
+expr = "SORT({5, 7, 12})"
+
+[[case]]
+id = "matrices_00927"
+group = "matrices_b6"
+expr = "[[3, 1], [1, 3]] + [[3, 1], [1, 3]]"
+
+[[case]]
+id = "complex_00928"
+group = "complex_b8"
+expr = "CONJ((3, 3))"
+
+[[case]]
+id = "num_basic_00930"
+group = "num_basic_b8"
+expr = "(-1.5) + 1E-11"
+
+[[case]]
+id = "num_precision_00931"
+group = "num_precision_b8"
+expr = "ROUND(4.5, 1)"
+
+[[case]]
+id = "types_format_00932"
+group = "types_format_b8"
+expr = "TYPE(9)"
+
+[[case]]
+id = "control_flow_00933"
+group = "control_flow_b8"
+body = """LOCAL i; FOR i FROM 4 TO 2 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00934"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 8 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00935"
+group = "strings_b8"
+expr = "REPLACE(\"HP Prime\", \"HP-Prime G1\", \"\")"
+
+[[case]]
+id = "matrices_00937"
+group = "matrices_b6"
+expr = "[[3, 5], [5, 3]] + [[3, 5], [5, 3]]"
+
+[[case]]
+id = "complex_00938"
+group = "complex_b8"
+expr = "(2, 4) + (4, -2)"
+
+[[case]]
+id = "num_basic_00940"
+group = "num_basic_b8"
+expr = "IP((-1.5) / (-1.5))"
+
+[[case]]
+id = "num_precision_00941"
+group = "num_precision_b8"
+expr = "1.2345678901344"
+
+[[case]]
+id = "types_format_00942"
+group = "types_format_b8"
+expr = "TYPE(-1.5)"
+
+[[case]]
+id = "control_flow_00943"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 5 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00944"
+group = "scoping_b8"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 5 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00945"
+group = "strings_b8"
+expr = "UPPER(\"HP Prime\") + \"|\" + LOWER(\"HP Prime\")"
+
+[[case]]
+id = "complex_00948"
+group = "complex_b8"
+expr = "TYPE((4, 6)) + SIGN((4, 6))"
+
+[[case]]
+id = "num_basic_00950"
+group = "num_basic_b8"
+expr = "SQRT(1.5)"
+
+[[case]]
+id = "num_precision_00951"
+group = "num_precision_b8"
+expr = "1.2345678901326"
+
+[[case]]
+id = "types_format_00952"
+group = "types_format_b8"
+expr = "TYPE((2, 1))"
+
+[[case]]
+id = "control_flow_00953"
+group = "control_flow_b8"
+body = """LOCAL i, s:=0; FOR i FROM 5 TO 11 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00954"
+group = "scoping_b8"
+body = """LOCAL x:=9; IF x>4 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00955"
+group = "strings_b8"
+expr = "RIGHT(\"Hello, World!\", 0)"
+
+[[case]]
+id = "lists_00956"
+group = "lists_b7"
+expr = "MEAN({7, 1, 8}) + MEDIAN({7, 1, 8})"
+
+[[case]]
+id = "matrices_00957"
+group = "matrices_b6"
+expr = "[[8, 2], [2, 8]] + [[8, 2], [2, 8]]"
+
+[[case]]
+id = "complex_00958"
+group = "complex_b8"
+expr = "(6, 9)"
+
+[[case]]
+id = "num_basic_00960"
+group = "num_basic_b9"
+expr = "(-2.5) * (-2.5)"
+
+[[case]]
+id = "num_precision_00961"
+group = "num_precision_b9"
+expr = "CEILING(2.5)"
+
+[[case]]
+id = "types_format_00962"
+group = "types_format_b9"
+expr = "TYPE((6, 8))"
+
+[[case]]
+id = "control_flow_00963"
+group = "control_flow_b9"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=6; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00964"
+group = "scoping_b9"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_00965"
+group = "strings_b9"
+expr = "SIZE(\"with space\")"
+
+[[case]]
+id = "lists_00966"
+group = "lists_b8"
+expr = "SORT({7, 8, 15})"
+
+[[case]]
+id = "matrices_00967"
+group = "matrices_b6"
+expr = "[[2, 5], [5, 2]] + [[2, 5], [5, 2]]"
+
+[[case]]
+id = "complex_00968"
+group = "complex_b9"
+expr = "CONJ((4, 6))"
+
+[[case]]
+id = "num_basic_00970"
+group = "num_basic_b9"
+expr = "1.35 MOD 1.23456789012"
+
+[[case]]
+id = "num_precision_00971"
+group = "num_precision_b9"
+expr = "TRUNCATE(0.5, 0)"
+
+[[case]]
+id = "types_format_00972"
+group = "types_format_b9"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_00973"
+group = "control_flow_b9"
+body = """LOCAL i:=0, s:=0; WHILE i<6 DO s:=s+i; i:=i+1; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_00974"
+group = "scoping_b9"
+body = """LOCAL x:=6; IF x>3 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_00975"
+group = "strings_b9"
+expr = "MID(\"HP-Prime G1\", 2, 1)"
+
+[[case]]
+id = "lists_00976"
+group = "lists_b8"
+expr = "REVERSE({1, 7, 8})"
+
+[[case]]
+id = "matrices_00977"
+group = "matrices_b7"
+expr = "TRN([[6, 1], [1, 6]])"
+
+[[case]]
+id = "complex_00978"
+group = "complex_b9"
+expr = "RE((3, 3)) + IM((3, 3))"
+
+[[case]]
+id = "errors_00979"
+group = "errors_iso00895"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_00980"
+group = "num_basic_b9"
+expr = "(-2) + 0.5 * (-2)"
+
+[[case]]
+id = "num_precision_00981"
+group = "num_precision_b9"
+expr = "1.2345678901316"
+
+[[case]]
+id = "types_format_00982"
+group = "types_format_b9"
+expr = "TYPE(-42)"
+
+[[case]]
+id = "control_flow_00983"
+group = "control_flow_b9"
+body = """LOCAL i; FOR i FROM 6 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_00984"
+group = "scoping_b9"
+body = """LOCAL a:=2, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00985"
+group = "strings_b9"
+expr = "LEFT(\"PPL\", 4)"
+
+[[case]]
+id = "lists_00986"
+group = "lists_b8"
+expr = "SIZE({3, 6, 9})"
+
+[[case]]
+id = "matrices_00987"
+group = "matrices_b7"
+expr = "DET([[3, 2], [2, 3]])"
+
+[[case]]
+id = "complex_00988"
+group = "complex_b9"
+expr = "ABS((7, 4))"
+
+[[case]]
+id = "num_basic_00990"
+group = "num_basic_b9"
+expr = "0.1^5"
+
+[[case]]
+id = "num_precision_00991"
+group = "num_precision_b9"
+expr = "FLOOR(1.5)"
+
+[[case]]
+id = "types_format_00992"
+group = "types_format_b9"
+expr = "STRING(9) + \"|\" + STRING(-2.5)"
+
+[[case]]
+id = "control_flow_00993"
+group = "control_flow_b9"
+body = """IF 4<7 THEN RETURN 4; ELSE RETURN 7; END;
+"""
+
+[[case]]
+id = "scoping_00994"
+group = "scoping_b9"
+body = """LOCAL a:=9, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_00995"
+group = "strings_b9"
+expr = "MID(\"\", 1, 2)"
+
+[[case]]
+id = "matrices_00997"
+group = "matrices_b7"
+expr = "DET([[8, 1], [1, 8]])"
+
+[[case]]
+id = "complex_00998"
+group = "complex_b9"
+expr = "RE((7, 2)) + IM((7, 2))"
+
+[[case]]
+id = "num_basic_01000"
+group = "num_basic_b9"
+expr = "-(1E-5 + (-2.5))"
+
+[[case]]
+id = "num_precision_01001"
+group = "num_precision_b9"
+expr = "CEILING(1.5)"
+
+[[case]]
+id = "types_format_01002"
+group = "types_format_b9"
+expr = "TYPE((8, 5))"
+
+[[case]]
+id = "control_flow_01003"
+group = "control_flow_b9"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=11; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01004"
+group = "scoping_b9"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_01005"
+group = "strings_b9"
+expr = "REPLACE(\"\", \"Hello, World!\", \"HP Prime\")"
+
+[[case]]
+id = "lists_01006"
+group = "lists_b8"
+expr = "MIN({8, 6, 14}) + MAX({8, 6, 14}) + POS({8, 6, 14}, 6)"
+
+[[case]]
+id = "matrices_01007"
+group = "matrices_b7"
+expr = "[[1, 2], [2, 1]] + [[1, 2], [2, 1]]"
+
+[[case]]
+id = "complex_01008"
+group = "complex_b9"
+expr = "RE((4, 1)) + IM((4, 1))"
+
+[[case]]
+id = "num_basic_01010"
+group = "num_basic_b9"
+expr = "(-1) + 3.14159 * (-2)"
+
+[[case]]
+id = "num_precision_01011"
+group = "num_precision_b9"
+expr = "CEILING(3.5)"
+
+[[case]]
+id = "types_format_01012"
+group = "types_format_b9"
+expr = "TYPE(42)"
+
+[[case]]
+id = "control_flow_01013"
+group = "control_flow_b9"
+body = """LOCAL i, s:=0; FOR i FROM 1 TO 10 DO IF i=2 THEN CONTINUE; END; IF i=4 THEN BREAK; END; s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01014"
+group = "scoping_b9"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 5 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_01015"
+group = "strings_b9"
+expr = "RIGHT(\"tab	sep\", 3)"
+
+[[case]]
+id = "lists_01016"
+group = "lists_b8"
+expr = "CONCAT({9, 4, 13}, {9})"
+
+[[case]]
+id = "matrices_01017"
+group = "matrices_b7"
+expr = "TRN([[1, 9], [9, 1]])"
+
+[[case]]
+id = "complex_01018"
+group = "complex_b9"
+expr = "(8, 9)"
+
+[[case]]
+id = "num_basic_01020"
+group = "num_basic_b9"
+expr = "1.23456789012^4"
+
+[[case]]
+id = "num_precision_01021"
+group = "num_precision_b9"
+expr = "1.2345678901284"
+
+[[case]]
+id = "types_format_01022"
+group = "types_format_b9"
+expr = "STRING(1000) + \"|\" + STRING(0.5)"
+
+[[case]]
+id = "control_flow_01023"
+group = "control_flow_b9"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=2; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01024"
+group = "scoping_b9"
+body = """LOCAL a:=2, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_01025"
+group = "strings_b9"
+expr = "\"Hello, World!\" + \"\""
+
+[[case]]
+id = "lists_01026"
+group = "lists_b8"
+expr = "MIN({9, 9, 18}) + MAX({9, 9, 18}) + POS({9, 9, 18}, 9)"
+
+[[case]]
+id = "complex_01028"
+group = "complex_b9"
+expr = "ARG((4, 6))"
+
+[[case]]
+id = "errors_01029"
+group = "errors_iso00939"
+expr = "1000/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_01030"
+group = "num_basic_b9"
+expr = "IP((-1.5) / 2.71828)"
+
+[[case]]
+id = "num_precision_01031"
+group = "num_precision_b9"
+expr = "IP(0.5) + FP(0.5)"
+
+[[case]]
+id = "types_format_01032"
+group = "types_format_b9"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_01033"
+group = "control_flow_b9"
+body = """LOCAL i; FOR i FROM 9 TO 5 DO RETURN i; END; RETURN -1;
+"""
+
+[[case]]
+id = "scoping_01034"
+group = "scoping_b9"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 6 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_01035"
+group = "strings_b9"
+expr = "UPPER(\"\") + \"|\" + LOWER(\"\")"
+
+[[case]]
+id = "lists_01036"
+group = "lists_b8"
+expr = "MIN({5, 3, 8}) + MAX({5, 3, 8}) + POS({5, 3, 8}, 3)"
+
+[[case]]
+id = "complex_01038"
+group = "complex_b9"
+expr = "(2, 9) * (9, -2)"
+
+[[case]]
+id = "num_basic_01040"
+group = "num_basic_b9"
+expr = "2.5^4"
+
+[[case]]
+id = "num_precision_01041"
+group = "num_precision_b9"
+expr = "1.2345678901162"
+
+[[case]]
+id = "types_format_01042"
+group = "types_format_b9"
+expr = "TYPE(#FFh)"
+
+[[case]]
+id = "control_flow_01043"
+group = "control_flow_b9"
+body = """LOCAL i:=0, s:=0; REPEAT s:=s+i; i:=i+1; UNTIL i>=8; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01044"
+group = "scoping_b9"
+body = """LOCAL a:=9, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_01045"
+group = "strings_b9"
+expr = "POS(\"HP-Prime G1\", \"a\")"
+
+[[case]]
+id = "lists_01046"
+group = "lists_b8"
+expr = "{2, 3, 5}"
+
+[[case]]
+id = "matrices_01047"
+group = "matrices_b7"
+expr = "[[5, 4], [4, 5]] + [[5, 4], [4, 5]]"
+
+[[case]]
+id = "complex_01048"
+group = "complex_b9"
+expr = "TYPE((2, 6)) + SIGN((2, 6))"
+
+[[case]]
+id = "num_basic_01050"
+group = "num_basic_b9"
+expr = "(-7.7) + 3.5"
+
+[[case]]
+id = "num_precision_01051"
+group = "num_precision_b9"
+expr = "ROUND(4.5, -2)"
+
+[[case]]
+id = "types_format_01052"
+group = "types_format_b9"
+expr = "STRING(255) + \"|\" + STRING(1.23456789012)"
+
+[[case]]
+id = "control_flow_01053"
+group = "control_flow_b9"
+body = """LOCAL i, s:=0; FOR i FROM 4 TO 6 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01054"
+group = "scoping_b9"
+body = """LOCAL a:=4, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_01055"
+group = "strings_b9"
+expr = "MID(\"with space\", 1, 1)"
+
+[[case]]
+id = "lists_01056"
+group = "lists_b8"
+expr = "REVERSE({7, 4, 11})"
+
+[[case]]
+id = "complex_01058"
+group = "complex_b9"
+expr = "(5, 7) + (7, -5)"
+
+[[case]]
+id = "errors_01059"
+group = "errors_iso00965"
+expr = "1E499*10"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_01060"
+group = "num_basic_b9"
+expr = "IP(0.7 / 0.000001)"
+
+[[case]]
+id = "num_precision_01061"
+group = "num_precision_b9"
+expr = "ROUND(-1.5, 0)"
+
+[[case]]
+id = "types_format_01062"
+group = "types_format_b9"
+expr = "TYPE((8, 7))"
+
+[[case]]
+id = "control_flow_01063"
+group = "control_flow_b9"
+body = """LOCAL i, s:=0; FOR i FROM 2 TO 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01064"
+group = "scoping_b9"
+body = """LOCAL a:=6, b:=0; FOR a FROM 1 TO 3 DO b:=b+a; END; RETURN a*10+b;
+"""
+
+[[case]]
+id = "strings_01065"
+group = "strings_b9"
+expr = "\"PPL\" + \"a\""
+
+[[case]]
+id = "lists_01066"
+group = "lists_b8"
+expr = "MIN({6, 8, 14}) + MAX({6, 8, 14}) + POS({6, 8, 14}, 8)"
+
+[[case]]
+id = "matrices_01067"
+group = "matrices_b7"
+expr = "[[7, 1], [1, 7]] * [[7, 1], [1, 7]]"
+
+[[case]]
+id = "complex_01068"
+group = "complex_b9"
+expr = "CONJ((8, 5))"
+
+[[case]]
+id = "errors_01069"
+group = "errors_iso00975"
+expr = "42/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_01070"
+group = "num_basic_b9"
+expr = "(-0.5) + 1E-5"
+
+[[case]]
+id = "num_precision_01071"
+group = "num_precision_b9"
+expr = "1.2345678901185"
+
+[[case]]
+id = "types_format_01072"
+group = "types_format_b9"
+expr = "TYPE((7, 8))"
+
+[[case]]
+id = "control_flow_01073"
+group = "control_flow_b9"
+body = """LOCAL i, s:=0; FOR i FROM 6 TO 6 STEP 2 DO s:=s+i; END; RETURN s;
+"""
+
+[[case]]
+id = "scoping_01074"
+group = "scoping_b9"
+body = """LOCAL x:=3; IF x>1 THEN LOCAL y:=x*2; x:=x+y; END; RETURN x;
+"""
+
+[[case]]
+id = "strings_01075"
+group = "strings_b9"
+expr = "SIZE(\"a\")"
+
+[[case]]
+id = "lists_01076"
+group = "lists_b8"
+expr = "MIN({9, 9, 18}) + MAX({9, 9, 18}) + POS({9, 9, 18}, 9)"
+
+[[case]]
+id = "complex_01078"
+group = "complex_b9"
+expr = "TYPE((2, 8)) + SIGN((2, 8))"
+
+[[case]]
+id = "num_basic_01080"
+group = "num_basic_b10"
+expr = "2.71828 - (-2.5)"
+
+[[case]]
+id = "num_precision_01081"
+group = "num_precision_b10"
+expr = "1.2345678901583"
+
+[[case]]
+id = "types_format_01082"
+group = "types_format_b10"
+expr = "TYPE({4, 8})"
+
+[[case]]
+id = "control_flow_01083"
+group = "control_flow_b10"
+body = """IF 1<4 THEN RETURN 1; ELSE RETURN 4; END;
+"""
+
+[[case]]
+id = "scoping_01084"
+group = "scoping_b10"
+body = """LOCAL i, j, t:=0; FOR i FROM 1 TO 6 DO FOR j FROM 1 TO 2 DO t:=t+i*j; END; END; RETURN t;
+"""
+
+[[case]]
+id = "strings_01085"
+group = "strings_b10"
+expr = "POS(\"hello\", \"hello\")"
+
+[[case]]
+id = "matrices_01087"
+group = "matrices_b7"
+expr = "[[8, 1], [1, 8]] + [[8, 1], [1, 8]]"
+
+[[case]]
+id = "complex_01088"
+group = "complex_b10"
+expr = "TYPE((3, 9)) + SIGN((3, 9))"
+
+[[case]]
+id = "errors_01089"
+group = "errors_iso00992"
+expr = "1/0"
+isolate = true
+risk = "expected runtime error (caught by IFERR on the device)"
+
+[[case]]
+id = "num_basic_01090"
+group = "num_basic_b10"
+expr = "(-0.5) MOD 0.1"
+
+[[case]]
+id = "num_precision_01091"
+group = "num_precision_b10"
+expr = "TRUNCATE(0.5, 1)"
+
+[[case]]
+id = "types_format_01092"
+group = "types_format_b10"
+expr = "TYPE(0.1)"
+
+[[case]]
+id = "control_flow_01093"
+group = "control_flow_b10"
+body = """IF 1<2 THEN RETURN 1; ELSE RETURN 2; END;
+"""
+
+[[case]]
+id = "scoping_01094"
+group = "scoping_b10"
+body = """LOCAL p:=7; IF p MOD 2==0 THEN p:=p/2; ELSE p:=p*3+1; END; RETURN p;
+"""
+
+[[case]]
+id = "strings_01095"
+group = "strings_b10"
+expr = "LEFT(\"PPL\", 1)"
+
+[[case]]
+id = "lists_01096"
+group = "lists_b8"
+expr = "SORT({1, 3, 4})"
+

@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_AUTOP1",
+  "note": "ZZT_AUTOP1R",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_AUTOP1()\nBEGIN\n  RETURN 42;\nEND;\n",
+  "sha256": "3dc2da9a95aec4af8938cc4ed7cde49f3c5e8d8a622850bddb353d73cd3adca4",
+  "created_at_utc": "2026-10-23T17:55:24Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}

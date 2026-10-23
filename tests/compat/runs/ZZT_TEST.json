@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_TEST",
+  "note": "ZZT_TESTR",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_TEST()\nBEGIN\n  RETURN 42;\nEND;\n",
+  "sha256": "41d24799c5ed7f9f14e981cae22fbcba6825b98cc2c281e344239309a7a45ebe",
+  "created_at_utc": "2026-10-23T18:00:40Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "device_serial_id": "5f3d8dbdb38ae2a0",
+  "ty": "program",
+  "name": "ZZT_TEST",
+  "sha256": "28797b647b72e4bc00a7b64136795b616b27041db5b531d7deaf7ad32349b3d8",
+  "created_utc": "2026-10-23T18:00:40Z",
+  "active": false
+}

@@ -1,0 +1,606 @@
+# Core hardware compatibility probe corpus for HP Prime PPL.
+# Differential testing: verified against physical HP Prime hardware evidence.
+
+suite = "core"
+description = "Fundamental arithmetic, type codes, literals, operators, scoping, and control flow probes"
+
+# Groups: each fits one PRINT-channel device program (at most 8 cases, so the
+# header, every result line and @@END fit on one G1 terminal screenshot).
+# Cases marked `isolate = true` must be generated alone (one program per case)
+# and do not count towards their group's limit.
+
+[[group]]
+id = "num_basic_a"
+description = "Division, roots and MOD"
+
+[[group]]
+id = "num_basic_b"
+description = "Half-way ROUND to 0 places"
+
+[[group]]
+id = "num_precision_a"
+description = "Decimal ROUND exactness at 1 and 2 places"
+
+[[group]]
+id = "num_precision_b"
+description = "12-digit precision and input rounding"
+
+[[group]]
+id = "num_boundary"
+description = "Exponent range limits"
+
+[[group]]
+id = "num_boundary_isolated"
+description = "Error-risk numeric cases (overflow, DIV); each generated alone"
+
+[[group]]
+id = "types_a"
+description = "TYPE codes and literal formatting: real, integer, complex"
+
+[[group]]
+id = "types_b"
+description = "TYPE codes and literal formatting: matrix, list"
+
+[[group]]
+id = "strings_types"
+description = "String type, literals and string commands"
+
+[[group]]
+id = "lists_matrices"
+description = "List and matrix literals, indexing and append"
+
+[[group]]
+id = "control_logic"
+description = "Boolean operators and IFTE"
+
+[[group]]
+id = "control_loops"
+description = "Uninitialised LOCAL and loop scoping"
+
+[[group]]
+id = "settings_isolated"
+description = "Cases that write a calculator setting; each generated alone"
+
+[[group]]
+id = "semantics"
+description = "Evaluation-order and value-semantics probes; error-prone ones isolated"
+
+# ==============================================================================
+# SECTION 1: NUMERICAL PROBES
+# ==============================================================================
+
+[[case]]
+id = "num_div_one_third"
+group = "num_basic_a"
+expr = "1/3"
+note = "12-digit decimal division (expected 0.333333333333)"
+
+[[case]]
+id = "num_one_third_mul_three"
+group = "num_basic_a"
+expr = "1/3*3"
+note = "Precision loss in 12-digit arithmetic without symbolic simplification (expected 0.999999999999)"
+
+[[case]]
+id = "num_sqrt_two_pow"
+group = "num_basic_a"
+expr = "2^0.5"
+note = "Square root of 2 via exponentiation (expected 1.41421356237)"
+
+[[case]]
+id = "num_sqrt_two_builtin"
+group = "num_basic_a"
+expr = "SQRT(2)"
+note = "Square root of 2 via builtin SQRT function"
+
+[[case]]
+id = "num_exp_small"
+group = "num_boundary"
+expr = "1E-5"
+note = "Small exponent threshold formatting (0.00001 vs 1E-5)"
+
+[[case]]
+id = "num_exp_max"
+group = "num_boundary"
+expr = "1E499"
+note = "Maximum supported positive decimal exponent (HP Prime ±499 limit)"
+
+[[case]]
+id = "num_exp_min"
+group = "num_boundary"
+expr = "1E-499"
+note = "Minimum supported negative decimal exponent (HP Prime ±499 limit)"
+
+[[case]]
+id = "num_exp_overflow"
+group = "num_boundary_isolated"
+isolate = true
+risk = "Expected runtime error (exponent overflow); run alone so an uncaught failure cannot hide other cases"
+expr = "1E499*10"
+note = "Exponent overflow above 499 triggers runtime error"
+
+[[case]]
+id = "num_round_half_pos"
+group = "num_basic_b"
+expr = "ROUND(2.5, 0)"
+note = "Positive half-way rounding to 0 places (expected 3)"
+
+[[case]]
+id = "num_round_half_neg"
+group = "num_basic_b"
+expr = "ROUND(-2.5, 0)"
+note = "Negative half-way rounding to 0 places (-3 if half-away-from-zero, -2 if towards zero)"
+
+[[case]]
+id = "num_round_half_0_5"
+group = "num_basic_b"
+expr = "ROUND(0.5, 0)"
+note = "Half-way 0.5 to 0 places: 1 under half-away-from-zero/half-up, 0 under half-even (replaces ROUND(1.5,0), which cannot distinguish rules)"
+
+[[case]]
+id = "num_round_half_3_5"
+group = "num_basic_b"
+expr = "ROUND(3.5, 0)"
+note = "Half-way 3.5 to 0 places: 4 under half-away-from-zero and half-even alike; with 0.5 and 2.5 separates the rules"
+
+[[case]]
+id = "num_round_1_25"
+group = "num_precision_a"
+expr = "ROUND(1.25, 1)"
+note = "Half-way at 1 decimal: 1.25 is exact (in decimal and binary), so 1.3 under half-away/half-up, 1.2 under half-even"
+
+[[case]]
+id = "num_round_1_35"
+group = "num_precision_a"
+expr = "ROUND(1.35, 1)"
+note = "1.35 is exact in BCD: 1.4 under half-away and half-even (3 is odd); a 1.3 result would mean the half rule is half-down or truncation"
+
+[[case]]
+id = "num_round_1_15"
+group = "num_precision_a"
+expr = "ROUND(1.15, 1)"
+note = "Decimal exactness: 1.15 is exact in BCD, so 1.2 under half-away and half-even; a binary double (1.1499999…) would give 1.1"
+
+[[case]]
+id = "num_round_places"
+group = "num_precision_a"
+expr = "ROUND(3.14159, 2)"
+note = "Rounding to 2 decimal places (expected 3.14)"
+
+[[case]]
+id = "num_mod_neg_pos"
+group = "num_basic_a"
+expr = "-7 MOD 3"
+note = "Modulo with negative dividend; floored division gives 2"
+
+[[case]]
+id = "num_mod_pos_neg"
+group = "num_basic_a"
+expr = "7 MOD -3"
+note = "Modulo with negative divisor; floored division gives -2"
+
+[[case]]
+id = "num_div_neg_pos"
+group = "num_boundary_isolated"
+isolate = true
+risk = "DIV operator existence unverified on G1"
+expr = "-7 DIV 3"
+note = "Integer division with negative dividend; floored division gives -3"
+
+[[case]]
+id = "num_div_pos_neg"
+group = "num_boundary_isolated"
+isolate = true
+risk = "DIV operator existence unverified on G1"
+expr = "7 DIV -3"
+note = "Integer division with negative divisor; floored division gives -3"
+
+[[case]]
+id = "num_12_digits_exact"
+group = "num_precision_b"
+expr = "1.23456789012"
+note = "Exact 12 significant digits preserved"
+
+[[case]]
+id = "num_13_digits_round_down"
+group = "num_precision_b"
+expr = "1.234567890124"
+note = "13 digits with 13th digit < 5 rounds down to 1.23456789012"
+
+[[case]]
+id = "num_13_digits_round_up"
+group = "num_precision_b"
+expr = "1.234567890126"
+note = "13 digits with 13th digit > 5 rounds up to 1.23456789013"
+
+[[case]]
+id = "num_13_digits_half_way"
+group = "num_precision_b"
+expr = "1.234567890125"
+note = "13 digits with 13th digit == 5 tests half-way rounding direction"
+
+[[case]]
+id = "num_arith_12_digit_limit"
+group = "num_precision_b"
+expr = "1 + 1E-11"
+note = "Addition at 12th digit boundary (expected 1.00000000001)"
+
+[[case]]
+id = "num_arith_13_digit_drop"
+group = "num_precision_b"
+expr = "1 + 1E-12"
+note = "Addition beyond 12th digit boundary drops 13th digit (expected 1)"
+
+# ==============================================================================
+# SECTION 2: TYPE PROBES
+# ==============================================================================
+
+[[case]]
+id = "type_real"
+group = "types_a"
+expr = "TYPE(42)"
+note = "TYPE code for real number (expected 0)"
+
+[[case]]
+id = "type_real_val"
+group = "types_a"
+expr = "42"
+note = "Literal real value format"
+
+[[case]]
+id = "type_int"
+group = "types_a"
+expr = "TYPE(#FFh)"
+note = "TYPE code for integer/hash literal (expected 1)"
+
+[[case]]
+id = "type_int_val"
+group = "types_a"
+expr = "#FFh"
+note = "Literal integer format (#FFh)"
+
+[[case]]
+id = "type_str"
+group = "strings_types"
+expr = "TYPE(\"hello\")"
+note = "TYPE code for string (expected 2)"
+
+[[case]]
+id = "type_str_val"
+group = "strings_types"
+expr = "\"hello\""
+note = "Literal string value"
+
+[[case]]
+id = "type_cplx"
+group = "types_a"
+expr = "TYPE((1, 2))"
+note = "TYPE code for complex number (expected 3)"
+
+[[case]]
+id = "type_cplx_val"
+group = "types_a"
+expr = "(1, 2)"
+note = "Literal complex value (1,2)"
+
+[[case]]
+id = "type_mat"
+group = "types_b"
+expr = "TYPE([1, 2])"
+note = "TYPE code for matrix/vector (expected 4)"
+
+[[case]]
+id = "type_mat_val"
+group = "types_b"
+expr = "[1, 2]"
+note = "Vector literal [1,2]"
+
+[[case]]
+id = "type_list"
+group = "types_b"
+expr = "TYPE({1, 2})"
+note = "TYPE code for list (expected 6)"
+
+[[case]]
+id = "type_list_val"
+group = "types_b"
+expr = "{1, 2}"
+note = "List literal {1,2}"
+
+# ==============================================================================
+# SECTION 3: LANGUAGE / CONTROL FLOW / STRINGS / LISTS / MATRICES
+# ==============================================================================
+
+[[case]]
+id = "bool_and_false"
+group = "control_logic"
+expr = "0 AND 1"
+note = "Boolean AND with false left operand (expected 0)"
+
+[[case]]
+id = "bool_and_true"
+group = "control_logic"
+expr = "1 AND 1"
+note = "Boolean AND with true operands (expected 1)"
+
+[[case]]
+id = "bool_or_true"
+group = "control_logic"
+expr = "1 OR 0"
+note = "Boolean OR with true left operand (expected 1)"
+
+[[case]]
+id = "bool_or_false"
+group = "control_logic"
+expr = "0 OR 0"
+note = "Boolean OR with false operands (expected 0)"
+
+[[case]]
+id = "bool_not_zero"
+group = "control_logic"
+expr = "NOT 0"
+note = "Boolean NOT 0 (expected 1)"
+
+[[case]]
+id = "bool_not_one"
+group = "control_logic"
+expr = "NOT 1"
+note = "Boolean NOT 1 (expected 0)"
+
+[[case]]
+id = "control_ifte_true"
+group = "control_logic"
+expr = "IFTE(1, 10, 20)"
+note = "IFTE condition true selects then-value (expected 10)"
+
+[[case]]
+id = "control_ifte_false"
+group = "control_logic"
+expr = "IFTE(0, 10, 20)"
+note = "IFTE condition false selects else-value (expected 20)"
+
+[[case]]
+id = "str_dim"
+group = "strings_types"
+expr = "DIM(\"hello\")"
+note = "String length via DIM (expected 5)"
+
+[[case]]
+id = "str_indexing"
+group = "strings_types"
+body = """
+LOCAL s:=\"hello\";
+RETURN s(2);
+"""
+note = "1-based string character code indexing via s(2) (expected 101 for 'e')"
+
+[[case]]
+id = "str_concat_num"
+group = "strings_types"
+expr = "\"ab\"+1"
+note = "String concatenation with numeric coercion (expected \"ab1\")"
+
+[[case]]
+id = "str_mid"
+group = "strings_types"
+expr = "MID(\"hello\", 2, 3)"
+note = "Substring extraction via MID (expected \"ell\")"
+
+[[case]]
+id = "str_asc"
+group = "strings_types"
+expr = "ASC(\"A\")"
+note = "Character code list via ASC (expected {65})"
+
+[[case]]
+id = "list_size"
+group = "lists_matrices"
+expr = "SIZE({10, 20, 30})"
+note = "List length via SIZE (expected 3)"
+
+[[case]]
+id = "list_indexing"
+group = "lists_matrices"
+body = """
+LOCAL L:={10, 20, 30};
+RETURN L(2);
+"""
+note = "1-based list element access L(2) (expected 20)"
+
+[[case]]
+id = "list_append_zero"
+group = "lists_matrices"
+body = """
+LOCAL L:={10, 20};
+L(0):=30;
+RETURN L;
+"""
+note = "L(0):=val appends element to list (expected {10, 20, 30})"
+
+[[case]]
+id = "mat_create_2x2"
+group = "lists_matrices"
+expr = "[[1, 2], [3, 4]]"
+note = "2D matrix literal creation"
+
+[[case]]
+id = "mat_indexing"
+group = "lists_matrices"
+body = """
+LOCAL M:=[[1, 2], [3, 4]];
+RETURN M(2, 1);
+"""
+note = "2D matrix 1-based indexing M(row, col): M(2, 1) (expected 3)"
+
+# ==============================================================================
+# SECTION 4: HARDWARE SAFETY & SCOPING
+# ==============================================================================
+
+[[case]]
+id = "safe_hangle_deg"
+group = "settings_isolated"
+isolate = true
+mutates = ["HAngle"]
+risk = "Writes the persistent HAngle setting (restored by the case and re-checked by the harness)"
+body = """
+LOCAL prev, r;
+prev:=HAngle;
+HAngle:=1;
+r:=SIN(90);
+HAngle:=prev;
+RETURN r;
+"""
+note = "Safely sets and restores HAngle (1=degrees) without mutating device persistent state; SIN(90)=1"
+
+[[case]]
+id = "safe_hangle_rad"
+group = "settings_isolated"
+isolate = true
+mutates = ["HAngle"]
+risk = "Writes the persistent HAngle setting (restored by the case and re-checked by the harness)"
+body = """
+LOCAL prev, r;
+prev:=HAngle;
+HAngle:=0;
+r:=SIN(0);
+HAngle:=prev;
+RETURN r;
+"""
+note = "Safely sets and restores HAngle (0=radians); SIN(0)=0"
+
+[[case]]
+id = "scope_uninit_local"
+group = "control_loops"
+body = """
+LOCAL x;
+RETURN x;
+"""
+note = "Uninitialized LOCAL variable defaults to real 0"
+
+[[case]]
+id = "scope_for_after_loop"
+group = "control_loops"
+body = """
+LOCAL i, s:=0;
+FOR i FROM 1 TO 3 DO
+  s:=s+i;
+END;
+RETURN i;
+"""
+note = "FOR loop variable value upon normal termination (expected 4)"
+
+[[case]]
+id = "scope_while_loop"
+group = "control_loops"
+body = """
+LOCAL x:=1;
+WHILE x < 10 DO
+  x:=x*2;
+END;
+RETURN x;
+"""
+note = "WHILE loop control flow execution (expected 16)"
+
+[[case]]
+id = "scope_repeat_loop"
+group = "control_loops"
+body = """
+LOCAL x:=1;
+REPEAT
+  x:=x*3;
+UNTIL x > 20;
+RETURN x;
+"""
+note = "REPEAT UNTIL loop control flow execution (expected 27)"
+
+# ==============================================================================
+# SECTION 5: SEMANTICS PROBES
+# ==============================================================================
+
+[[case]]
+id = "sem_and_short_circuit"
+group = "semantics"
+isolate = true
+risk = "Errors (or returns a non-real) if AND evaluates its right operand"
+expr = "0 AND (1/0)"
+note = "AND short-circuit: 0 if the right operand is not evaluated, error otherwise"
+
+[[case]]
+id = "sem_or_short_circuit"
+group = "semantics"
+isolate = true
+risk = "Errors (or returns a non-real) if OR evaluates its right operand"
+expr = "1 OR (1/0)"
+note = "OR short-circuit: 1 if the right operand is not evaluated, error otherwise"
+
+[[case]]
+id = "sem_ifte_lazy"
+group = "semantics"
+isolate = true
+risk = "Errors if IFTE evaluates the unselected branch"
+expr = "IFTE(1, 5, 1/0)"
+note = "IFTE laziness: 5 if only the selected branch is evaluated"
+
+[[case]]
+id = "sem_string_quoting"
+group = "semantics"
+expr = "STRING(\"hello\")"
+note = "Whether STRING() of a string adds quotes (the harness records STRING(v) of every result)"
+
+[[case]]
+id = "sem_asc_multi"
+group = "semantics"
+expr = "ASC(\"AB\")"
+note = "ASC of a two-character string returns a list of codes (expected {65,66}); ASC(\"A\") is str_asc"
+
+[[case]]
+id = "sem_str_index_local"
+group = "semantics"
+body = """
+LOCAL s:=\"ab\";
+RETURN s(2);
+"""
+note = "Indexing a string held in a LOCAL returns a character code (expected 98)"
+
+[[case]]
+id = "sem_list_append_empty"
+group = "semantics"
+body = """
+LOCAL L:={};
+L(0):=5;
+L(0):=6;
+RETURN L;
+"""
+note = "L(0):= appends, starting from an empty list (expected {5,6})"
+
+[[case]]
+id = "sem_underflow"
+group = "semantics"
+isolate = true
+risk = "Underflow below 1E-499 may raise an error instead of flushing to zero"
+expr = "1E-499/10"
+note = "Underflow below the smallest exponent: 0 if flushed, error if trapped"
+
+[[case]]
+id = "sem_list_copy_by_value"
+group = "semantics"
+body = """
+LOCAL a:={1,2},b;
+b:=a;
+b(1):=9;
+RETURN a;
+"""
+note = "Assignment copies lists by value: modifying b leaves a unchanged (expected {1,2})"
+
+[[case]]
+id = "sem_for_limit_eval"
+group = "semantics"
+body = """
+LOCAL i,n:=3,c:=0;
+FOR i FROM 1 TO n DO
+  n:=1;
+  c:=c+1;
+END;
+RETURN c;
+"""
+note = "Whether FOR re-evaluates its TO limit each iteration: 3 if evaluated once, 1 if re-evaluated"

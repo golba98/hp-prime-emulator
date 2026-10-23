@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_0F220EP",
+  "note": "ZZT_0F220EPR",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_0F220EP()\nBEGIN\n  RETURN 42;\nEND;\n",
+  "sha256": "79dec010c1d4d20e9c8486000cfbc04a14697982fc197882aa059249061c09b5",
+  "created_at_utc": "2026-10-23T18:10:19Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}

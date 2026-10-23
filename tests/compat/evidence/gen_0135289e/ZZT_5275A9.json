@@ -1,0 +1,136 @@
+{
+  "schema": 2,
+  "suite": "gen_0135289e",
+  "program": "ZZT_5275A9",
+  "program_sha256": "7b71b0107df0fe238890dfbb4ff63642aa301b622794554588c9fd6e88871a6b",
+  "method": "note-fetch",
+  "device": {
+    "model": "HP Prime G1 (firmware build 8151 or later)",
+    "usb_pid": "03f0:1541",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640",
+    "serial_id": "5f3d8dbdb38ae2a0"
+  },
+  "recorded_at_utc": "2026-10-22T22:27:10Z",
+  "settings": {
+    "HAngle": "0",
+    "HDigits": "0",
+    "HFormat": "0"
+  },
+  "raw_artifact": "tests/compat/evidence/gen_0135289e/ZZT_5275A9.note.raw",
+  "raw_artifact_sha256": "007a7f7867274488459c384ad80a174abc4ce56b80ed6736b8d9c38984a3690c",
+  "raw_text": "@@ZZT|ZZT_5275A9|8197c0dc|0|0|0\nc1|0|0\nc2|2|\"0|\u22120.5\"\nc3|0|3\nc4|0|3\nc5|0|4\nc6|0|0\nc7|0|6\nc8|0|0\nc9|0|2\nc10|0|3\nc11|2|\"2|1\u1d07\u2212499\"\nc12|0|4\n@@END",
+  "results": {
+    "types_format_00002": {
+      "raw": "c1|0|0",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      }
+    },
+    "types_format_00012": {
+      "raw": "c2|2|\"0|\u22120.5\"",
+      "outcome": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"0|\u22120.5\""
+      }
+    },
+    "types_format_00022": {
+      "raw": "c3|0|3",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      }
+    },
+    "types_format_00032": {
+      "raw": "c4|0|3",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      }
+    },
+    "types_format_00042": {
+      "raw": "c5|0|4",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      }
+    },
+    "types_format_00052": {
+      "raw": "c6|0|0",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      }
+    },
+    "types_format_00062": {
+      "raw": "c7|0|6",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "6"
+      }
+    },
+    "types_format_00072": {
+      "raw": "c8|0|0",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      }
+    },
+    "types_format_00082": {
+      "raw": "c9|0|2",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      }
+    },
+    "types_format_00092": {
+      "raw": "c10|0|3",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      }
+    },
+    "types_format_00102": {
+      "raw": "c11|2|\"2|1\u1d07\u2212499\"",
+      "outcome": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"2|1\u1d07\u2212499\""
+      }
+    },
+    "types_format_00112": {
+      "raw": "c12|0|4",
+      "outcome": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      }
+    }
+  },
+  "setting_changes": [],
+  "comparison": {
+    "types_format_00002": "VERIFIED",
+    "types_format_00012": "PARTIAL",
+    "types_format_00022": "VERIFIED",
+    "types_format_00032": "VERIFIED",
+    "types_format_00042": "VERIFIED",
+    "types_format_00052": "VERIFIED",
+    "types_format_00062": "VERIFIED",
+    "types_format_00072": "VERIFIED",
+    "types_format_00082": "VERIFIED",
+    "types_format_00092": "VERIFIED",
+    "types_format_00102": "PARTIAL",
+    "types_format_00112": "VERIFIED"
+  }
+}

@@ -1,0 +1,292 @@
+EXPORT FIREWORKS()
+BEGIN
+  // Configuration constants
+  LOCAL RMAX := 3;    // Max concurrent rockets
+  LOCAL PMAX := 60;   // Particles per burst
+  LOCAL SMAX := 50;   // Number of stars
+  LOCAL BMAX := 20;   // Number of buildings
+  
+  // Data structures
+  LOCAL rockets;      // Rocket state: [x, y, dx, target_y, r, g, b, state, type] * RMAX
+  LOCAL p1;
+  LOCAL p2;
+  LOCAL p3;   // Particle buffers for each rocket
+  LOCAL stars_m;      // Star data: [x, y, brightness] * SMAX
+  LOCAL bldgs;        // Building heights
+  
+  // Iterators and temp vars
+  LOCAL idx;
+  LOCAL jdx;
+  LOCAL slot;
+  LOCAL base;
+  LOCAL ang;
+  LOCAL vel;
+  LOCAL bright;
+  LOCAL cr;
+  LOCAL cg;
+  LOCAL cb;
+  LOCAL px;
+  LOCAL py;
+  LOCAL bx;
+  LOCAL by;
+  LOCAL opx;
+  LOCAL opy;
+  LOCAL x0;
+  LOCAL x1;
+  LOCAL y0;
+  LOCAL y1;
+  
+  // Logic state
+  LOCAL m_info;
+  LOCAL mx;
+  LOCAL my;
+  LOCAL pd;
+  LOCAL r_type;
+  LOCAL burst;
+  LOCAL allDone;
+  LOCAL lTimer := 8;
+  LOCAL lDelay := 28;
+
+  // Initialize stars
+  stars_m := MAKELIST(0, idx, 1, SMAX * 3);
+  FOR idx FROM 1 TO SMAX DO
+    base := (idx-1) * 3;
+    stars_m[base + 1] := RANDINT(0, 319);
+    stars_m[base + 2] := RANDINT(5, 160);
+    stars_m[base + 3] := RANDINT(80, 255);
+  END;
+
+  // Initialize buildings
+  bldgs := MAKELIST(RANDINT(22, 79), idx, 1, BMAX);
+
+  // Initialize rockets and particle buffers
+  rockets := MAKELIST(0, idx, 1, RMAX * 9);
+  p1 := MAKELIST(0, idx, 1, PMAX * 9);
+  p2 := MAKELIST(0, idx, 1, PMAX * 9);
+  p3 := MAKELIST(0, idx, 1, PMAX * 9);
+
+  // Splash screen
+  RECT_P(0, 0, 319, 239, RGB(0, 0, 8));
+  TEXTOUT_P("FIREWORKS", 108, 95, 3, RGB(255, 200, 50));
+  TEXTOUT_P("Touch screen to launch", 52, 150, 1, RGB(180, 180, 180));
+  TEXTOUT_P("ESC to quit", 113, 170, 1, RGB(120, 120, 120));
+  BLIT_P(); // Frame marker
+  WAIT(1);
+
+  // Main simulation loop
+  // Note: GETKEY() returns 4 for ESC key
+  WHILE GETKEY() <> 4 DO
+
+    // Clear frame with deep blue sky
+    RECT_P(0, 0, 319, 239, RGB(0, 0, 8));
+
+    // Update and draw stars
+    FOR idx FROM 1 TO SMAX DO
+      base := (idx-1) * 3;
+      bright := stars_m[base + 3];
+      // Twinkle effect
+      IF RANDINT(1, 40) == 1 THEN
+        bright := MAX(40, bright - 120);
+      END;
+      px := stars_m[base + 1];
+      py := stars_m[base + 2];
+      IF px >= 0 AND px <= 319 AND py >= 0 AND py <= 239 THEN
+        PIXON_P(px, py, RGB(bright, bright, bright));
+      END;
+    END;
+
+    // Handle touch input for manual launches
+    m_info := MOUSE;
+    IF SIZE(m_info) > 0 THEN
+      mx := m_info[1,1];
+      my := m_info[1,2];
+      IF m_info[1,5] == 0 THEN // Mouse down
+        slot := 0;
+        FOR idx FROM 1 TO RMAX DO
+          IF rockets[(idx-1)*9 + 8] == 0 THEN
+            IF slot == 0 THEN slot := idx; END;
+          END;
+        END;
+        IF slot > 0 THEN
+          base := (slot-1) * 9;
+          rockets[base + 1] := mx;
+          rockets[base + 2] := 221;
+          rockets[base + 3] := (mx - 160) / 80;
+          rockets[base + 4] := MAX(15, my - 20);
+          burst := RANDINT(0, 7);
+          // Set rocket color based on random burst type
+          IF burst == 0 THEN rockets[base+5]:=255; rockets[base+6]:=50;  rockets[base+7]:=50;  END;
+          IF burst == 1 THEN rockets[base+5]:=255; rockets[base+6]:=160; rockets[base+7]:=0;   END;
+          IF burst == 2 THEN rockets[base+5]:=255; rockets[base+6]:=240; rockets[base+7]:=50;  END;
+          IF burst == 3 THEN rockets[base+5]:=50;  rockets[base+6]:=255; rockets[base+7]:=80;  END;
+          IF burst == 4 THEN rockets[base+5]:=60;  rockets[base+6]:=150; rockets[base+7]:=255; END;
+          IF burst == 5 THEN rockets[base+5]:=220; rockets[base+6]:=50;  rockets[base+7]:=255; END;
+          IF burst == 6 THEN rockets[base+5]:=255; rockets[base+6]:=100; rockets[base+7]:=200; END;
+          IF burst == 7 THEN rockets[base+5]:=180; rockets[base+6]:=255; rockets[base+7]:=220; END;
+          rockets[base + 8] := 1; // Set state to flying
+          rockets[base + 9] := RANDINT(0, 4); // Random burst pattern
+        END;
+      END;
+    END;
+
+    // Auto-launch logic
+    lTimer := lTimer - 1;
+    IF lTimer <= 0 THEN
+      slot := 0;
+      FOR idx FROM 1 TO RMAX DO
+        IF rockets[(idx-1)*9 + 8] == 0 THEN
+          IF slot == 0 THEN slot := idx; END;
+        END;
+      END;
+      IF slot > 0 THEN
+        base := (slot-1) * 9;
+        rockets[base + 1] := RANDINT(25, 295);
+        rockets[base + 2] := 221;
+        rockets[base + 3] := RANDINT(-10, 10) / 10;
+        rockets[base + 4] := RANDINT(15, 115);
+        burst := RANDINT(0, 7);
+        IF burst == 0 THEN rockets[base+5]:=255; rockets[base+6]:=50;  rockets[base+7]:=50;  END;
+        IF burst == 1 THEN rockets[base+5]:=255; rockets[base+6]:=160; rockets[base+7]:=0;   END;
+        IF burst == 2 THEN rockets[base+5]:=255; rockets[base+6]:=240; rockets[base+7]:=50;  END;
+        IF burst == 3 THEN rockets[base+5]:=50;  rockets[base+6]:=255; rockets[base+7]:=80;  END;
+        IF burst == 4 THEN rockets[base+5]:=60;  rockets[base+6]:=150; rockets[base+7]:=255; END;
+        IF burst == 5 THEN rockets[base+5]:=220; rockets[base+6]:=50;  rockets[base+7]:=255; END;
+        IF burst == 6 THEN rockets[base+5]:=255; rockets[base+6]:=100; rockets[base+7]:=200; END;
+        IF burst == 7 THEN rockets[base+5]:=180; rockets[base+6]:=255; rockets[base+7]:=220; END;
+        rockets[base + 8] := 1;
+        rockets[base + 9] := RANDINT(0, 4);
+        lTimer := lDelay - RANDINT(0, 14);
+      ELSE
+        lTimer := 5;
+      END;
+    END;
+
+    // Update and draw flying rockets
+    FOR idx FROM 1 TO RMAX DO
+      base := (idx-1) * 9;
+      IF rockets[base + 8] == 1 THEN
+        px := IP(rockets[base + 1]);
+        py := IP(rockets[base + 2]);
+        IF px >= 1 AND px <= 318 AND py >= 2 AND py <= 235 THEN
+          // Draw rocket head and tail
+          PIXON_P(px, py,   RGB(255, 255, 255));
+          PIXON_P(px, py+1, RGB(255, 200, 120));
+          cr := 200 + RANDINT(0, 55);
+          cg := 60  + RANDINT(0, 100);
+          x0 := px;
+          y0 := py + 2;
+          x1 := px + RANDINT(-1, 1);
+          y1 := py + 3 + RANDINT(0, 5);
+          LINE_P(x0, y0, x1, y1, RGB(cr, cg, 0));
+        END;
+        // Move rocket
+        rockets[base + 1] := rockets[base + 1] + rockets[base + 3];
+        rockets[base + 2] := rockets[base + 2] - (3 + RANDINT(0, 20) / 10);
+        // Check for detonation
+        IF rockets[base + 2] <= rockets[base + 4] THEN
+          bx := IP(rockets[base + 1]);
+          by := MAX(8, IP(rockets[base + 2]));
+          // Detonation flash
+          RECT_P(bx-6, by-6, bx+6, by+6, RGB(255, 255, 200));
+          RECT_P(bx-3, by-3, bx+3, by+3, RGB(255, 255, 255));
+          
+          // Initialize particles
+          IF idx == 1 THEN pd := p1; END;
+          IF idx == 2 THEN pd := p2; END;
+          IF idx == 3 THEN pd := p3; END;
+          FOR jdx FROM 1 TO PMAX DO
+            ang := RANDINT(0, 359);
+            vel := 1.0;
+            r_type := rockets[base + 9];
+            // Select velocity based on burst type
+            IF r_type == 0 THEN vel := RANDINT(5, 40) / 10; END;
+            IF r_type == 1 THEN vel := RANDINT(27, 35) / 10; END;
+            IF r_type == 2 THEN ang := RANDINT(0, 7) * 45 + RANDINT(-9, 9); vel := RANDINT(10, 50) / 10; END;
+            IF r_type == 3 THEN vel := RANDINT(5, 35) / 10; END;
+            IF r_type == 4 THEN 
+              IF RANDINT(0, 1) == 0 THEN vel := RANDINT(28, 38) / 10; ELSE vel := RANDINT(10, 18) / 10; END;
+            END;
+            slot := (jdx-1) * 9;
+            pd[slot + 1] := bx;
+            pd[slot + 2] := by;
+            pd[slot + 3] := vel * COS(ang);
+            pd[slot + 4] := vel * SIN(ang) * 0.7;
+            pd[slot + 5] := 20 + RANDINT(0, 32); // Life
+            pd[slot + 6] := pd[slot + 5];        // Max Life
+            IF r_type == 3 THEN
+              IF pd[slot + 4] < 0 THEN pd[slot + 4] := pd[slot + 4] * 0.15; END;
+            END;
+            // Particle color with slight variation
+            pd[slot + 7] := MAX(0, MIN(255, rockets[base + 5] + RANDINT(-35, 35)));
+            pd[slot + 8] := MAX(0, MIN(255, rockets[base + 6] + RANDINT(-35, 35)));
+            pd[slot + 9] := MAX(0, MIN(255, rockets[base + 7] + RANDINT(-35, 35)));
+          END;
+          IF idx == 1 THEN p1 := pd; END;
+          IF idx == 2 THEN p2 := pd; END;
+          IF idx == 3 THEN p3 := pd; END;
+          rockets[base + 8] := 2; // Set state to bursting
+        END;
+      END;
+    END;
+
+    // Update and draw burst particles
+    FOR idx FROM 1 TO RMAX DO
+      base := (idx-1) * 9;
+      IF rockets[base + 8] == 2 THEN
+        allDone := 1;
+        IF idx == 1 THEN pd := p1; END;
+        IF idx == 2 THEN pd := p2; END;
+        IF idx == 3 THEN pd := p3; END;
+        FOR jdx FROM 1 TO PMAX DO
+          slot := (jdx-1) * 9;
+          IF pd[slot + 5] > 0 THEN
+            allDone := 0;
+            px  := IP(pd[slot + 1]);
+            py  := IP(pd[slot + 2]);
+            opx := IP(pd[slot + 1] - pd[slot + 3] * 1.5);
+            opy := IP(pd[slot + 2] - pd[slot + 4] * 1.5);
+            
+            IF px >= 0 AND px <= 319 AND py >= 0 AND py <= 239 THEN
+              // Calculate fading color
+              bright := IP(pd[slot + 5] * 255 / pd[slot + 6]);
+              bright := MAX(0, MIN(255, bright));
+              cr := IP(pd[slot + 7] * bright / 255);
+              cg := IP(pd[slot + 8] * bright / 255);
+              cb := IP(pd[slot + 9] * bright / 255);
+              LINE_P(opx, opy, px, py, RGB(cr, cg, cb));
+              // Occasional spark
+              IF RANDINT(1, 5) == 1 THEN 
+                PIXON_P(px, py, RGB(MIN(255,cr+100), MIN(255,cg+100), MIN(255,cb+100))); 
+              END;
+            END;
+            // Move particle with air resistance and gravity
+            pd[slot + 1] := pd[slot + 1] + pd[slot + 3];
+            pd[slot + 2] := pd[slot + 2] + pd[slot + 4];
+            pd[slot + 3] := pd[slot + 3] * 0.96;
+            pd[slot + 4] := pd[slot + 4] * 0.97 + 0.13;
+            pd[slot + 5] := pd[slot + 5] - 1;
+          END;
+        END;
+        IF idx == 1 THEN p1 := pd; END;
+        IF idx == 2 THEN p2 := pd; END;
+        IF idx == 3 THEN p3 := pd; END;
+        IF allDone == 1 THEN
+          rockets[base + 8] := 0; // Back to inactive
+        END;
+      END;
+    END;
+
+    // Draw ground and city silhouette
+    RECT_P(0, 222, 319, 239, RGB(5, 5, 15));
+    LINE_P(0, 221, 319, 221, RGB(25, 25, 45));
+
+    // Refresh screen
+    BLIT_P();
+    WAIT(0.01);
+  END;
+
+  // Cleanup and exit message
+  RECT_P(0, 0, 319, 239, RGB(0, 0, 0));
+  TEXTOUT_P("SHOW ENDED", 100, 110, 2, RGB(255, 200, 50));
+  BLIT_P();
+END;

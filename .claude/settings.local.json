@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python:*)",
-      "Bash(py -m pytest tests/test_integration.py -v --tb=long -k \"FIREWORKS\")"
-    ]
-  }
-}

@@ -1,0 +1,9 @@
+[package]
+name = "ppl-math"
+description = "HP Prime numeric model: 12-digit decimal reals, word-sized integers, complex numbers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]

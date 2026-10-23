@@ -1,0 +1,184 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/dump_editor.json",
+ "steps": [
+  {
+   "step": "new_program",
+   "name": "BROKEN"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT BROKEN()\nBEGIN\n  PRINT(\"unterminated);\n  PRINT(2);\nEND;\n"
+  },
+  {
+   "step": "new_program",
+   "name": "EDITDEMO"
+  },
+  {
+   "step": "set_content",
+   "content": "// Editor acceptance: valid HP Prime PPL using features the emulator lacks\n#pragma mode( separator(.,;) integer(h32) )\nEXPORT counter;\nSQUARE(n);\n\nEXPORT EDITDEMO(a, b)\nBEGIN\n  LOCAL i, total := 0, lst := {1, [2, 3], \"x\\\"y\"};\n  FOR i FROM 1 TO a DO\n    total := total + SQUARE(i) MOD 7;\n  END;\n  IF total > b AND NOT 0 THEN PRINT(\"big\\n\"); END;\n  INPUT(counter, \"Title\", \"c =\", \"help\", 1, 5);\n  counter := solve(x^2 = 4, x) + SOLVE(X^2-4, X, 1);\n  lst := append(lst, EVAL(\"1+2\"));\n  RETURN 'X+1' + #1Fh + 1.5E-3 + \u03c0;\nEND;\n\nSQUARE(n)\nBEGIN\n  RETURN n * n;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "focus_editor"
+  },
+  {
+   "step": "goto",
+   "line": 23,
+   "col": 1
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "type",
+   "text": "EXPORT TYPED()\nBEGIN\nIF 1 THEN\nPRINT(\"ok\");\nEND;\nEND;"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "goto",
+   "line": 13,
+   "col": 5
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_initial.png"
+  },
+  {
+   "step": "resize",
+   "width": 800,
+   "height": 500
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_800x500.png"
+  },
+  {
+   "step": "resize",
+   "width": 1920,
+   "height": 1080
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_1920x1080.png"
+  },
+  {
+   "step": "resize",
+   "width": 2560,
+   "height": 1440
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_2560x1440.png"
+  },
+  {
+   "step": "resize",
+   "width": 3840,
+   "height": 2160
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_3840x2160.png"
+  },
+  {
+   "step": "resize",
+   "width": 1280,
+   "height": 720
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_1280x720.png"
+  },
+  {
+   "step": "resize",
+   "width": 1600,
+   "height": 1000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "breakpoint",
+   "line": 10
+  },
+  {
+   "step": "goto",
+   "line": 3,
+   "col": 3
+  },
+  {
+   "step": "wait_ms",
+   "ms": 400
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_features.png"
+  },
+  {
+   "step": "dock",
+   "tab": "problems"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_problems.png"
+  },
+  {
+   "step": "select_tab",
+   "index": 1
+  },
+  {
+   "step": "wait_ms",
+   "ms": 900
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/editor_broken.png"
+  },
+  {
+   "step": "select_tab",
+   "index": 2
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

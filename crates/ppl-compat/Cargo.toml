@@ -1,0 +1,16 @@
+[package]
+name = "ppl-compat"
+description = "Differential testing of the emulator against a physical HP Prime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ppl-syntax.workspace = true
+ppl-compiler.workspace = true
+ppl-vm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+zip = { version = "7.3.0", default-features = false, features = ["deflate"] }
