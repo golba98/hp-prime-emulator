@@ -16,7 +16,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Run a program headlessly (PRINT to stdout, optional PNG).
-    Run(cmd::unified::RunCommand),
+    Run(Box<cmd::unified::RunCommand>),
     /// Validate a program without running it.
     Check(cmd::unified::CheckCommand),
     /// List built-in commands and their emulation status.
@@ -106,7 +106,7 @@ fn main() -> ExitCode {
         Err(error) => error.exit(),
     };
     let code = match cli.command {
-        Command::Run(o) => cmd::unified::run(o),
+        Command::Run(o) => cmd::unified::run(*o),
         Command::Check(o) => cmd::unified::check(o),
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),
