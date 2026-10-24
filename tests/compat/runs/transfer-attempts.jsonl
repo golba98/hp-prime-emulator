@@ -1,0 +1,7 @@
+{"utc":"2026-10-24T14:36:53Z","name":"ZZT_BSTVIS2","kind":"program","state":"indeterminate_no_readback","payload_bytes":23050,"detail":"manual entry for pre-logging attempt: 375 HID writes ok, no inbound traffic, no F7 reply to read-back F8 within 20 s; follow-up get silent; calculator was in Spreadsheet app"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_BSTVIS2","payload_bytes":23050,"state":"indeterminate_no_readback","utc":"2026-10-24T12:40:54Z"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD20","payload_bytes":21080,"state":"indeterminate_no_readback","utc":"2026-10-24T12:44:08Z"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD20B","payload_bytes":21082,"state":"indeterminate_no_readback","utc":"2026-10-24T12:46:08Z"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD20C","payload_bytes":21082,"state":"indeterminate_no_readback","utc":"2026-10-24T12:47:17Z"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD16","payload_bytes":16284,"state":"indeterminate_no_readback","utc":"2026-10-24T12:48:19Z"}
+{"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD17","payload_bytes":18084,"state":"indeterminate_no_readback","utc":"2026-10-24T12:50:13Z"}
