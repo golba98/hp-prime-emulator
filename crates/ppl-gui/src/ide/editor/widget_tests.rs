@@ -470,3 +470,92 @@ fn a_burst_of_input_in_one_frame_keeps_order_and_smart_keys() {
     assert_eq!(h.text(), "BEGIN\n  PRINT(\"a\");\n  ");
     assert_eq!(h.selection(), (22, 22));
 }
+
+/// Error-coloured wavy lines painted in the last frame, as `(x0, x1, y)`.
+fn error_squiggles(h: &Harness) -> Vec<(f32, f32, f32)> {
+    fn walk(shape: &egui::Shape, out: &mut Vec<(f32, f32, f32)>) {
+        match shape {
+            egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+            egui::Shape::Path(p)
+                if p.points.len() >= 2
+                    && p.stroke.color
+                        == egui::epaint::ColorMode::Solid(crate::theme::ACCENT_RED) =>
+            {
+                let x0 = p.points.first().unwrap().x;
+                let x1 = p.points.last().unwrap().x;
+                let y = p.points.iter().map(|q| q.y).sum::<f32>() / p.points.len() as f32;
+                out.push((x0, x1, y));
+            }
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    for c in &h.last.as_ref().unwrap().shapes {
+        walk(&c.shape, &mut out);
+    }
+    out
+}
+
+#[test]
+fn squiggles_follow_compiler_spans_and_vanish_on_edit() {
+    // A tab and multi-byte characters before the error on the same line:
+    // byte offsets must be converted to characters correctly.
+    let src = "EXPORT UNI()\nBEGIN\n\tLOCAL a; PRINT(\"₂é\"); a := ;\nEND;\n";
+    let mut h = Harness::new(src);
+    let tab = h.area.active_tab_mut().unwrap();
+    let revision = tab.revision();
+    let items = crate::ide::diagnostics::analyze("UNI.ppl", src, revision).items;
+    assert_eq!(items.len(), 1, "{items:#?}");
+    let d = items[0].clone();
+    assert_eq!(d.code, "expected-expression");
+    let line3 = "\tLOCAL a; PRINT(\"₂é\"); a := ;";
+    // Columns count characters (the tab and `₂é` are one each).
+    assert_eq!((d.line, d.col), (3, line3.chars().count()));
+    // The span covers exactly the `;` (char-converted).
+    let lines = tab.document().lines().clone();
+    let s = lines.char_of_byte(src, d.span.start as usize);
+    let e = lines.char_of_byte(src, d.span.end as usize);
+    assert_eq!(src.chars().skip(s).take(e - s).collect::<String>(), ";");
+    tab.analysis = Some(super::TabAnalysis {
+        revision,
+        items,
+        failure: None,
+    });
+    h.frame(vec![]);
+    let sq = error_squiggles(&h);
+    assert_eq!(sq.len(), 1, "{sq:?}");
+    let (x0, x1, y) = sq[0];
+    // On the third row, one character wide (the minimum squiggle is 6 px).
+    let info = h.info();
+    let row = info.row_height;
+    let top = info.galley_pos.y + 2.0 * row;
+    assert!(
+        y > top && y <= top + row + 2.0,
+        "y {y} not on row 3 (top {top})"
+    );
+    assert!(x1 - x0 <= 12.0, "squiggle wider than one char: {x0}..{x1}");
+
+    // Typing anywhere changes the text: the stale squiggle disappears in
+    // the same frame, before any re-analysis.
+    h.focus();
+    h.type_text(" ");
+    assert!(error_squiggles(&h).is_empty(), "{:?}", error_squiggles(&h));
+}
+
+#[test]
+fn undo_and_redo_advance_the_revision_for_reanalysis() {
+    let mut h = Harness::new("EXPORT P()\nBEGIN\nEND;\n");
+    h.focus();
+    let mut revisions = vec![h.area.active_tab_mut().unwrap().revision()];
+    h.type_text("x");
+    revisions.push(h.area.active_tab_mut().unwrap().revision());
+    h.undo();
+    revisions.push(h.area.active_tab_mut().unwrap().revision());
+    assert_eq!(h.text(), "EXPORT P()\nBEGIN\nEND;\n");
+    h.redo();
+    revisions.push(h.area.active_tab_mut().unwrap().revision());
+    assert!(
+        revisions.windows(2).all(|w| w[0] < w[1]),
+        "every change (undo/redo included) must get a new revision: {revisions:?}"
+    );
+}

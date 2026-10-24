@@ -1,4 +1,4 @@
-# Python (legacy)
+# Python helpers
 __pycache__/
 *.py[cod]
 *$py.class
@@ -35,9 +35,9 @@ Thumbs.db
 /target/
 *.rs.bk
 
-# Generated reports & agent-authored documentation.
-# Permanent project docs (README.md, AGENTS.md) stay tracked; every
-# Markdown file under docs/ is session-generated engineering output.
+# Generated reports and engineering notes.
+# Reviewed public documentation is explicitly tracked; new Markdown under docs/
+# remains ignored until reviewed. This pattern does not affect tracked files.
 docs/**/*.md
 docs/reports/
 HANDOFF.md

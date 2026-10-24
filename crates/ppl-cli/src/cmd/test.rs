@@ -526,7 +526,7 @@ fn campaign(action: CampaignAction) -> u8 {
             ];
             let refs: Vec<(FileType, &str)> =
                 targets.iter().map(|(t, n)| (*t, n.as_str())).collect();
-            let guard = match p.preflight_new_names(&refs, &control) {
+            let guard = match p.preflight_new_names(&refs, Some(&control)) {
                 Ok(g) => g,
                 Err(e) => {
                     let msg = e.to_string();

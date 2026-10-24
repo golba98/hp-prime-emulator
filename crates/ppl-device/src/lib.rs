@@ -74,7 +74,7 @@ pub use guard::{
     SAFE_PREFIX, UploadReport, WriteGuard, fresh_test_name, normalize_program_text,
     result_note_name, validate_test_name,
 };
-pub use info::{CalcInfo, Exchange, Probe};
+pub use info::{CalcInfo, Exchange, Probe, TraceEvent};
 pub use keys::{
     KEYS, KeyDef, NAVIGATION_KEYS, describe_codes, key_by_name, key_code, key_name,
     parse_key_sequence,
@@ -102,6 +102,13 @@ pub const READY_REPLY: u8 = 0x59;
 
 /// Per-read timeout used by [`Prime::drain`].
 const DRAIN_TIMEOUT_MS: i32 = 50;
+/// Largest program payload (UTF-16LE bytes) known to upload on a G1 (fw
+/// 15157). Hardware evidence 2026-10-24: 15,926 B stored and read back
+/// exactly; 16,284 B, 21,080 B and 23,050 B were transmitted in full but
+/// silently dropped, even with 0xFF in the sequence and paced writes.
+pub const MAX_PROGRAM_PAYLOAD: usize = 15_928;
+/// How long the post-upload read-back keeps listening to its one `F8`.
+pub const READBACK_TIMEOUT: Duration = Duration::from_secs(20);
 /// Upper bound on reports discarded by one [`Prime::drain`] call.
 const DRAIN_MAX_REPORTS: usize = 4096;
 
@@ -152,6 +159,8 @@ pub struct Prime {
     report_size: usize,
     started: Instant,
     pub log: Vec<Exchange>,
+    pub traces: Vec<TraceEvent>,
+    pub trace_enabled: bool,
     pub read_timeout: Duration,
 }
 
@@ -188,18 +197,107 @@ impl Prime {
             detected,
             started: Instant::now(),
             log: Vec::new(),
+            traces: Vec::new(),
+            trace_enabled: false,
             read_timeout: Duration::from_secs(8),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_trace(
+        &mut self,
+        op_type: &str,
+        endpoint: &str,
+        requested_bytes: usize,
+        actual_bytes: usize,
+        status: &str,
+        cmd_id: Option<u8>,
+        resp_id: Option<u8>,
+        resp_len: Option<usize>,
+        timeout_stage: Option<&str>,
+        elapsed: Duration,
+        details: &str,
+    ) {
+        if !self.trace_enabled {
+            return;
+        }
+        self.traces.push(TraceEvent {
+            at: self.started.elapsed(),
+            op_type: op_type.to_string(),
+            endpoint: endpoint.to_string(),
+            requested_bytes,
+            actual_bytes,
+            status: status.to_string(),
+            cmd_id,
+            resp_id,
+            resp_len,
+            timeout_stage: timeout_stage.map(|s| s.to_string()),
+            elapsed,
+            details: details.to_string(),
+        });
+    }
+
     fn write_report(&mut self, report: &[u8]) -> Result<()> {
+        let t0 = Instant::now();
         self.log.push(Exchange {
             outgoing: true,
             bytes: report.to_vec(),
             at: self.started.elapsed(),
             drained: false,
         });
-        let n = self.dev.write(report)?;
+        let res = self.dev.write(report);
+        let elapsed = t0.elapsed();
+        match &res {
+            Ok(n) if *n == report.len() => {
+                // Only the first report of a message starts with the command
+                // byte (`[00][seq=0][cmd..]`); the rest is payload.
+                let cmd_id = (report.len() > 2 && report[1] == 0).then(|| report[2]);
+                self.record_trace(
+                    "write",
+                    "HID OUT",
+                    report.len(),
+                    *n,
+                    "ok",
+                    cmd_id,
+                    None,
+                    None,
+                    None,
+                    elapsed,
+                    "",
+                );
+            }
+            Ok(n) => {
+                self.record_trace(
+                    "write",
+                    "HID OUT",
+                    report.len(),
+                    *n,
+                    "short",
+                    None,
+                    None,
+                    None,
+                    None,
+                    elapsed,
+                    "short write",
+                );
+            }
+            Err(e) => {
+                self.record_trace(
+                    "write",
+                    "HID OUT",
+                    report.len(),
+                    0,
+                    "error",
+                    None,
+                    None,
+                    None,
+                    None,
+                    elapsed,
+                    &e.to_string(),
+                );
+            }
+        }
+        let n = res?;
         if n != report.len() {
             return Err(DeviceError::Hid(format!(
                 "short HID write: {n}/{} bytes; not retried",
@@ -211,20 +309,69 @@ impl Prime {
 
     fn read_report(&mut self, timeout: Duration) -> Result<Option<Vec<u8>>> {
         let mut buf = vec![0u8; self.report_size];
-        let n = self
+        let t0 = Instant::now();
+        let res = self
             .dev
-            .read_timeout(&mut buf, timeout.as_millis().min(i32::MAX as u128) as i32)?;
-        if n == 0 {
-            return Ok(None);
+            .read_timeout(&mut buf, timeout.as_millis().min(i32::MAX as u128) as i32);
+        let elapsed = t0.elapsed();
+        match &res {
+            Ok(0) => {
+                self.record_trace(
+                    "read",
+                    "HID IN",
+                    self.report_size,
+                    0,
+                    "timeout",
+                    None,
+                    None,
+                    None,
+                    Some("read_report"),
+                    elapsed,
+                    "no report",
+                );
+                Ok(None)
+            }
+            Ok(n) => {
+                buf.truncate(*n);
+                let resp_id = if *n > 1 { Some(buf[1]) } else { None };
+                self.record_trace(
+                    "read",
+                    "HID IN",
+                    self.report_size,
+                    *n,
+                    "ok",
+                    None,
+                    resp_id,
+                    Some(*n),
+                    None,
+                    elapsed,
+                    "",
+                );
+                self.log.push(Exchange {
+                    outgoing: false,
+                    bytes: buf.clone(),
+                    at: self.started.elapsed(),
+                    drained: false,
+                });
+                Ok(Some(buf))
+            }
+            Err(e) => {
+                self.record_trace(
+                    "read",
+                    "HID IN",
+                    self.report_size,
+                    0,
+                    "error",
+                    None,
+                    None,
+                    None,
+                    None,
+                    elapsed,
+                    &e.to_string(),
+                );
+                Err(res.err().unwrap())
+            }
         }
-        buf.truncate(n);
-        self.log.push(Exchange {
-            outgoing: false,
-            bytes: buf.clone(),
-            at: self.started.elapsed(),
-            drained: false,
-        });
-        Ok(Some(buf))
     }
 
     /// Discards input that is already queued or arrives within ~50 ms, so a
@@ -283,6 +430,34 @@ impl Prime {
     fn send_message(&mut self, message: &[u8]) -> Result<()> {
         for r in Prime::frame(message, self.report_size) {
             self.write_report(&r)?;
+            if self.trace_enabled {
+                // Diagnostics: note anything the calculator says mid-transfer.
+                let mut buf = vec![0u8; self.report_size];
+                if let Ok(n) = self.dev.read_timeout(&mut buf, 0) {
+                    if n > 0 {
+                        buf.truncate(n);
+                        self.record_trace(
+                            "read",
+                            "HID IN",
+                            self.report_size,
+                            n,
+                            "mid-transfer",
+                            None,
+                            buf.get(1).copied(),
+                            Some(n),
+                            None,
+                            Duration::ZERO,
+                            &format!("first bytes {:02X?}", &buf[..n.min(8)]),
+                        );
+                        self.log.push(Exchange {
+                            outgoing: false,
+                            bytes: buf,
+                            at: self.started.elapsed(),
+                            drained: true,
+                        });
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -306,7 +481,9 @@ impl Prime {
         let mut data = Vec::new();
         let mut expected: Option<usize> = None;
         let mut count: u32 = 0;
-        let deadline = Instant::now() + first + Duration::from_secs(2);
+        // Per-report waits are 2 s; the overall cap only bounds a stream that
+        // keeps trickling in, so a large (tens of KB) reply is not cut short.
+        let deadline = Instant::now() + first + Duration::from_secs(30);
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
@@ -375,8 +552,36 @@ impl Prime {
     /// `FF`: returns the single reply byte(s).
     pub fn check_ready(&mut self) -> Result<Vec<u8>> {
         self.drain();
+        let t0 = Instant::now();
+        self.record_trace(
+            "check_ready",
+            "protocol",
+            1,
+            0,
+            "start",
+            Some(CMD_CHECK_READY),
+            None,
+            None,
+            None,
+            Duration::ZERO,
+            "ping",
+        );
         self.send_message(&[CMD_CHECK_READY])?;
-        self.recv_message(CMD_CHECK_READY, "check-ready reply", self.read_timeout)
+        let r = self.recv_message(CMD_CHECK_READY, "check-ready reply", self.read_timeout)?;
+        self.record_trace(
+            "check_ready",
+            "protocol",
+            1,
+            r.len(),
+            "ok",
+            Some(CMD_CHECK_READY),
+            r.first().copied(),
+            Some(r.len()),
+            None,
+            t0.elapsed(),
+            &format!("reply: {:02X?}", r),
+        );
+        Ok(r)
     }
 
     /// `FA`: calculator name, firmware version and serial (read-only).
@@ -408,17 +613,60 @@ impl Prime {
     /// * any other reply → [`DeviceError::Protocol`].
     pub fn probe_file(&mut self, ty: FileType, name: &str, timeout: Duration) -> Result<Probe> {
         self.drain();
+        let t0 = Instant::now();
+        self.record_trace(
+            "probe",
+            "protocol",
+            0,
+            0,
+            "start",
+            Some(CMD_REQ_FILE),
+            None,
+            None,
+            None,
+            Duration::ZERO,
+            &format!("{}:{}", ty.label(), name),
+        );
         let msg = files::encode_file_message(CMD_REQ_FILE, ty, name, &[]);
         self.send_message(&msg)?;
         match self.recv_message(CMD_FILE, "file reply", timeout) {
             Ok(raw) if raw.first() == Some(&CMD_FILE) => {
-                Ok(Probe::Present(files::decode_file_message(&raw)?))
+                let f = files::decode_file_message(&raw)?;
+                self.record_trace(
+                    "probe",
+                    "protocol",
+                    0,
+                    raw.len(),
+                    "present",
+                    Some(CMD_REQ_FILE),
+                    Some(CMD_FILE),
+                    Some(raw.len()),
+                    None,
+                    t0.elapsed(),
+                    &format!("{}:{}: {} B", f.ty.label(), f.name, f.data.len()),
+                );
+                Ok(Probe::Present(f))
             }
             Ok(raw) => Err(DeviceError::Protocol(format!(
                 "F8 `{name}`: reply is not an F7 file (starts {:02X?})",
                 &raw[..raw.len().min(8)]
             ))),
-            Err(DeviceError::Timeout(_)) => Ok(Probe::NoReply { waited: timeout }),
+            Err(DeviceError::Timeout(_)) => {
+                self.record_trace(
+                    "probe",
+                    "protocol",
+                    0,
+                    0,
+                    "no_reply",
+                    Some(CMD_REQ_FILE),
+                    None,
+                    None,
+                    Some("probe_file"),
+                    t0.elapsed(),
+                    &format!("{}:{} silent", ty.label(), name),
+                );
+                Ok(Probe::NoReply { waited: timeout })
+            }
             Err(e) => Err(e),
         }
     }
@@ -476,7 +724,7 @@ impl Prime {
     pub fn preflight_new_names(
         &mut self,
         targets: &[(FileType, &str)],
-        control: &ControlObject,
+        control: Option<&ControlObject>,
     ) -> Result<WriteGuard> {
         self.preflight_new_names_inner(targets, control, false)
     }
@@ -484,7 +732,7 @@ impl Prime {
     pub(crate) fn preflight_mailbox(
         &mut self,
         request: &remote::Request,
-        control: &ControlObject,
+        control: Option<&ControlObject>,
     ) -> Result<WriteGuard> {
         if request.request_note != format!("ZZT_Q{}", request.id)
             || request.receipt_note != format!("ZZT_A{}", request.id)
@@ -508,7 +756,7 @@ impl Prime {
     fn preflight_new_names_inner(
         &mut self,
         targets: &[(FileType, &str)],
-        control: &ControlObject,
+        control: Option<&ControlObject>,
         mailbox: bool,
     ) -> Result<WriteGuard> {
         for (_, n) in targets {
@@ -543,17 +791,19 @@ impl Prime {
             if targets[..i].iter().any(|(_, b)| a.eq_ignore_ascii_case(b)) {
                 return Err(DeviceError::Refused(format!("`{a}` is listed twice")));
             }
-            if a.eq_ignore_ascii_case(&control.name) {
-                return Err(DeviceError::Refused(format!(
-                    "`{a}` is both a target and the control object"
-                )));
+            if let Some(ctrl) = control {
+                if a.eq_ignore_ascii_case(&ctrl.name) {
+                    return Err(DeviceError::Refused(format!(
+                        "`{a}` is both a target and the control object"
+                    )));
+                }
             }
         }
         let names: Vec<String> = targets.iter().map(|(_, n)| n.to_string()).collect();
         let start = self.log.len();
         let mut log = Vec::new();
 
-        // 1. FF
+        // 1. Initial FF check-ready
         let ready = self
             .check_ready()
             .map_err(|e| DeviceError::Inconclusive(format!("check-ready (FF) failed: {e}")))?;
@@ -565,35 +815,103 @@ impl Prime {
         log.push(format!("FF check-ready: reply {READY_REPLY:02X} (ready)"));
         self.ensure_quiet(start, &names)?;
 
-        // 2. control
-        let first = self.probe_control(control, 1, &mut log)?;
-        self.ensure_quiet(start, &names)?;
+        // 2. Control probe (optional)
+        let mut active_control: Option<(ControlObject, (usize, u64))> = None;
+        if let Some(ctrl) = control {
+            match self.probe_file(ctrl.ty, &ctrl.name, PROBE_TIMEOUT) {
+                Ok(Probe::Present(f)) => {
+                    if f.name != ctrl.name || f.ty != ctrl.ty {
+                        return Err(DeviceError::Inconclusive(format!(
+                            "control probe for {ctrl} was answered with object `{}`",
+                            f.name
+                        )));
+                    }
+                    if !f.crc_ok {
+                        return Err(DeviceError::Inconclusive(format!(
+                            "control {ctrl} reply has a CRC mismatch"
+                        )));
+                    }
+                    let h = fnv64(&f.data);
+                    log.push(format!(
+                        "control {ctrl}: present, {} bytes, fnv64 {h:016x}, crc ok (probe 1)",
+                        f.data.len()
+                    ));
+                    active_control = Some((ctrl.clone(), (f.data.len(), h)));
+                }
+                Ok(Probe::NoReply { waited }) => {
+                    log.push(format!(
+                        "control {ctrl}: no reply within {:.1} s; using device-level transport verification (FF check-ready)",
+                        waited.as_secs_f64()
+                    ));
+                }
+                Err(e) => {
+                    return Err(DeviceError::Inconclusive(format!(
+                        "control probe for {ctrl} failed: {e}"
+                    )));
+                }
+            }
+            self.ensure_quiet(start, &names)?;
+        } else {
+            log.push("no control object specified; using device-level transport verification (FF check-ready)".to_string());
+        }
 
-        // 3. targets, round 1
+        // 3. Targets, round 1
         for (ty, n) in targets {
             self.probe_absent(*ty, n, 1, &names, &mut log)?;
             self.ensure_quiet(start, &names)?;
         }
 
-        // 4. control again
-        let second = self.probe_control(control, 2, &mut log)?;
-        if second != first {
-            return Err(DeviceError::Inconclusive(format!(
-                "control {control} changed between probes ({} → {} bytes)",
-                first.0, second.0
-            )));
+        // 4. Inter-round verification: active control or FF check-ready
+        if let Some((ref ctrl, (expected_len, expected_hash))) = active_control {
+            let second = self.probe_control(ctrl, 2, &mut log)?;
+            if second != (expected_len, expected_hash) {
+                return Err(DeviceError::Inconclusive(format!(
+                    "control {ctrl} changed between probes ({expected_len} → {} bytes)",
+                    second.0
+                )));
+            }
+        } else {
+            let ready = self.check_ready().map_err(|e| {
+                DeviceError::Inconclusive(format!("inter-round check-ready (FF) failed: {e}"))
+            })?;
+            if ready.first() != Some(&READY_REPLY) {
+                return Err(DeviceError::Inconclusive(format!(
+                    "inter-round check-ready (FF) replied {ready:02X?}, expected [{READY_REPLY:02X}]"
+                )));
+            }
+            log.push(format!(
+                "FF check-ready (round 2): reply {READY_REPLY:02X} (ready)"
+            ));
         }
         self.ensure_quiet(start, &names)?;
 
-        // 5. targets, round 2
+        // 5. Targets, round 2
         for (ty, n) in targets {
             self.probe_absent(*ty, n, 2, &names, &mut log)?;
             self.ensure_quiet(start, &names)?;
         }
-        log.push(format!(
-            "preflight passed: {} silent twice while control {control} answered twice",
-            names.join(", ")
-        ));
+
+        // 6. Post-probe check-ready
+        let ready = self.check_ready().map_err(|e| {
+            DeviceError::Inconclusive(format!("post-probe check-ready (FF) failed: {e}"))
+        })?;
+        if ready.first() != Some(&READY_REPLY) {
+            return Err(DeviceError::Inconclusive(format!(
+                "post-probe check-ready (FF) replied {ready:02X?}, expected [{READY_REPLY:02X}]"
+            )));
+        }
+
+        if let Some((ref ctrl, _)) = active_control {
+            log.push(format!(
+                "preflight passed: {} silent twice while control {ctrl} answered twice",
+                names.join(", ")
+            ));
+        } else {
+            log.push(format!(
+                "preflight passed: {} silent twice with device responsive across all rounds",
+                names.join(", ")
+            ));
+        }
 
         Ok(WriteGuard {
             // `unwrap_or` (not `unwrap_or_else`) eagerly indexed
@@ -719,6 +1037,38 @@ impl Prime {
         )))
     }
 
+    /// Reads the object back with a **single** `F8` and compares it with
+    /// `sent`. The host keeps listening for [`READBACK_TIMEOUT`] instead of
+    /// re-asking: every new `F8` first drains the input queue, which would
+    /// discard a reply the calculator is already sending after a slow
+    /// compile or commit. Silence is [`ReadBack::NoReply`], never success.
+    fn read_back(&mut self, ty: FileType, name: &str, sent: &str) -> ReadBack {
+        match self.probe_file(ty, name, READBACK_TIMEOUT) {
+            Ok(Probe::Present(f)) if f.name != name || f.ty != ty => ReadBack::Failed {
+                error: format!("read-back returned object `{}`", f.name),
+            },
+            Ok(Probe::Present(f)) if !f.crc_ok => ReadBack::Failed {
+                error: "read-back CRC mismatch".into(),
+            },
+            Ok(Probe::Present(f)) => {
+                let got = normalize_program_text(&f.text());
+                if got == sent {
+                    ReadBack::Matches
+                } else {
+                    ReadBack::Differs {
+                        sent_chars: sent.chars().count(),
+                        got_chars: got.chars().count(),
+                        got_text: got,
+                    }
+                }
+            }
+            Ok(Probe::NoReply { .. }) => ReadBack::NoReply,
+            Err(e) => ReadBack::Failed {
+                error: e.to_string(),
+            },
+        }
+    }
+
     /// Sends a **new** program. The name comes from `guard`, which must
     /// have been issued by [`Prime::preflight_new_names`] for this device
     /// less than [`GUARD_MAX_AGE`] ago. The send is never retried. After the
@@ -750,37 +1100,23 @@ impl Prime {
 
         let name = guard.program.clone();
         let data: Vec<u8> = source.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        if data.len() > MAX_PROGRAM_PAYLOAD {
+            return Err(DeviceError::Refused(format!(
+                "`{name}` is {} UTF-16 bytes; this G1 silently drops uploads above {} bytes \
+                 (nothing was sent). Shorten the source, e.g. strip comments and indentation.",
+                data.len(),
+                MAX_PROGRAM_PAYLOAD
+            )));
+        }
         let msg = files::encode_file_message(CMD_FILE, FileType::Program, &name, &data);
         self.send_message(&msg)?;
         self.drain();
 
-        let sent = normalize_program_text(source);
-        let readback = match self.probe_file(FileType::Program, &name, PROBE_TIMEOUT) {
-            Ok(Probe::NoReply { .. }) => ReadBack::NoReply,
-            Ok(Probe::Present(f)) if f.name != name || f.ty != FileType::Program => {
-                ReadBack::Failed {
-                    error: format!("read-back returned object `{}`", f.name),
-                }
-            }
-            Ok(Probe::Present(f)) if !f.crc_ok => ReadBack::Failed {
-                error: "read-back CRC mismatch".into(),
-            },
-            Ok(Probe::Present(f)) => {
-                let got = normalize_program_text(&f.text());
-                if got == sent {
-                    ReadBack::Matches
-                } else {
-                    ReadBack::Differs {
-                        sent_chars: sent.chars().count(),
-                        got_chars: got.chars().count(),
-                        got_text: got,
-                    }
-                }
-            }
-            Err(e) => ReadBack::Failed {
-                error: e.to_string(),
-            },
-        };
+        // Brief settle time to let the physical calculator compile and commit the new program
+        std::thread::sleep(Duration::from_millis(50));
+        self.drain();
+
+        let readback = self.read_back(FileType::Program, &name, &normalize_program_text(source));
         Ok(UploadReport {
             name,
             bytes_sent: data.len(),
@@ -828,31 +1164,11 @@ impl Prime {
         self.send_message(&msg)?;
         self.drain();
 
-        let readback = match self.probe_file(FileType::Note, &name, PROBE_TIMEOUT) {
-            Ok(Probe::NoReply { .. }) => ReadBack::NoReply,
-            Ok(Probe::Present(f)) if f.name != name || f.ty != FileType::Note => ReadBack::Failed {
-                error: format!("read-back returned object `{}`", f.name),
-            },
-            Ok(Probe::Present(f)) if !f.crc_ok => ReadBack::Failed {
-                error: "read-back CRC mismatch".into(),
-            },
-            Ok(Probe::Present(f)) => {
-                let got = normalize_program_text(&f.text());
-                let sent = normalize_program_text(text);
-                if got == sent {
-                    ReadBack::Matches
-                } else {
-                    ReadBack::Differs {
-                        sent_chars: sent.chars().count(),
-                        got_chars: got.chars().count(),
-                        got_text: got,
-                    }
-                }
-            }
-            Err(e) => ReadBack::Failed {
-                error: e.to_string(),
-            },
-        };
+        // Brief settle time to let the physical calculator commit the note
+        std::thread::sleep(Duration::from_millis(50));
+        self.drain();
+
+        let readback = self.read_back(FileType::Note, &name, &normalize_program_text(text));
         Ok(UploadReport {
             name,
             bytes_sent: data.len(),
@@ -891,6 +1207,34 @@ impl Prime {
                 e.at.as_secs_f64(),
                 e.bytes.len(),
                 hex.join(" ")
+            ));
+        }
+        out
+    }
+
+    /// Formats the structured trace log.
+    pub fn trace_text(&self) -> String {
+        let mut out = String::new();
+        out.push_str("Time (s)  | Op Type     | Endpoint   | Req/Act   | Status   | Cmd/Resp | Elapsed  | Details\n");
+        out.push_str("----------+-------------+------------+-----------+----------+----------+----------+-------------------\n");
+        for t in &self.traces {
+            let cmd_str = match (t.cmd_id, t.resp_id) {
+                (Some(c), Some(r)) => format!("{:02X}/{:02X}", c, r),
+                (Some(c), None) => format!("{:02X}/--", c),
+                (None, Some(r)) => format!("--/{:02X}", r),
+                (None, None) => "--/--".to_string(),
+            };
+            out.push_str(&format!(
+                "{:>8.3} | {:<11} | {:<10} | {:>4}/{:<4} | {:<8} | {:<8} | {:>7.3}s | {}\n",
+                t.at.as_secs_f64(),
+                t.op_type,
+                t.endpoint,
+                t.requested_bytes,
+                t.actual_bytes,
+                t.status,
+                cmd_str,
+                t.elapsed.as_secs_f64(),
+                t.details
             ));
         }
         out

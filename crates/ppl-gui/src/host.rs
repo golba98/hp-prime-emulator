@@ -560,34 +560,66 @@ mod tests {
         assert_eq!(host.wait_key(Some(1.0)).unwrap(), Some(38));
     }
 
-    #[test]
-    fn test_input_dialog_through_host() {
-        use ppl_vm::host::InputField;
+    fn input_dialog(current: &str, string_only: bool) -> Dialog {
+        Dialog::Input {
+            title: "T".into(),
+            fields: vec![ppl_vm::host::InputField {
+                label: "A".into(),
+                help: String::new(),
+                current: current.into(),
+                string_only,
+            }],
+            error: None,
+            focus: 0,
+        }
+    }
+
+    /// Runs one INPUT dialog on a worker thread, feeds `keys` from the
+    /// "UI" side and returns the dialog result.
+    fn drive_input(dialog: Dialog, keys: Vec<KeyPress>) -> DialogResult {
         let state = Arc::new(GuiSharedState::new());
         let s2 = state.clone();
-        let worker = std::thread::spawn(move || {
-            GuiHost::new(s2).dialog(
-                &Dialog::Input {
-                    title: "T".into(),
-                    fields: vec![InputField {
-                        label: "A".into(),
-                        help: String::new(),
-                        current: "1".into(),
-                    }],
-                },
-                &Grob::screen(),
-            )
-        });
+        let worker = std::thread::spawn(move || GuiHost::new(s2).dialog(&dialog, &Grob::screen()));
         let gen0 = state.screen_generation.load(Ordering::Acquire);
-        for c in ['4', '2'] {
-            state.push_key_press(KeyPress::with_char(None, c));
+        for k in keys {
+            state.push_key_press(k);
         }
-        state.push_key(crate::keymap::KEY_ENTER);
         let r = worker.join().unwrap().unwrap();
-        assert_eq!(r, DialogResult::Entered(vec!["42".into()]));
         // The dialog was drawn and the screen restored afterwards.
         assert!(state.screen_generation.load(Ordering::Acquire) > gen0);
         assert_eq!(state.get_frame().pixels(), Grob::screen().pixels());
+        r
+    }
+
+    #[test]
+    fn test_input_dialog_through_host() {
+        let keys = vec![
+            KeyPress::with_char(None, '4'),
+            KeyPress::with_char(None, '2'),
+            KeyPress::code(crate::keymap::KEY_ENTER),
+        ];
+        assert_eq!(
+            drive_input(input_dialog("1", false), keys),
+            DialogResult::Entered(vec!["42".into()])
+        );
+    }
+
+    #[test]
+    fn test_input_dialog_string_field_and_escape() {
+        let mut keys: Vec<KeyPress> = "FF".chars().map(|c| KeyPress::with_char(None, c)).collect();
+        keys.push(KeyPress::code(crate::keymap::KEY_ENTER));
+        assert_eq!(
+            drive_input(input_dialog("", true), keys),
+            DialogResult::Entered(vec!["FF".into()])
+        );
+        let keys = vec![
+            KeyPress::with_char(None, 'A'),
+            KeyPress::code(crate::keymap::KEY_ESC),
+        ];
+        assert_eq!(
+            drive_input(input_dialog("", true), keys),
+            DialogResult::Cancelled
+        );
     }
 
     #[test]

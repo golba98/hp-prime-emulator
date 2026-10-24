@@ -328,13 +328,17 @@ mod tests {
                             label: "A".into(),
                             help: String::new(),
                             current: "1".into(),
+                            string_only: false,
                         },
                         InputField {
                             label: "B".into(),
                             help: String::new(),
                             current: "2".into(),
+                            string_only: false,
                         },
                     ],
+                    error: None,
+                    focus: 0,
                 },
                 &ppl_graphics::Grob::screen(),
             )

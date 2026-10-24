@@ -1,0 +1,12 @@
+SQUARE(N);
+EXPORT DEMO()
+BEGIN
+ LOCAL result;
+ result := SQUARE(7);
+ PRINT("SQUARE(7) = " + STRING(result));
+ RETURN result;
+END;
+SQUARE(N)
+BEGIN
+ RETURN N*N;
+END;

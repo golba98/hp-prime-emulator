@@ -13,7 +13,8 @@ pub mod value;
 
 pub use error::{ErrorKind, ResourceKind, RtResult, RuntimeError};
 pub use host::{
-    Dialog, DialogResult, DisplayMode, HeadlessHost, Host, ScriptEvent, parse_key_script,
+    Dialog, DialogResult, DisplayMode, HeadlessHost, Host, ScriptEvent, ScriptedInput,
+    parse_key_script,
 };
 pub use machine::{DebugAction, Debugger, Limits, Machine, eval_text_with};
 pub use settings::{AngleMode, Settings};

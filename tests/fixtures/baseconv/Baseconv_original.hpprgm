@@ -1,0 +1,127 @@
+EXPORT Baseconv()
+BEGIN
+  LOCAL inStr, intPart, fracPart, i, ch, tmp, digit;
+  LOCAL val, intVal, fracVal, result, fracResult;
+  LOCAL digits, fromBase, toBase, tempVal, remainder;
+  LOCAL precision, binNibble;
+
+  digits := "0123456789ABCDEF";
+
+  PRINT();
+  PRINT("=== BASE CONVERTER ===");
+
+  // --- Input number ---
+  LOCAL temp := {""};
+  IF INPUT(temp, "Enter the number to convert:", {"Number"}) == 0 THEN RETURN; END;
+  inStr := UPPER(temp(1));
+
+  // Split integer and fractional parts
+  LOCAL dotPos := INSTRING(inStr, ".");
+  IF dotPos > 0 THEN
+    intPart := LEFT(inStr, dotPos-1);
+    fracPart := MID(inStr, dotPos+1);
+  ELSE
+    intPart := inStr;
+    fracPart := "";
+  END;
+
+  // --- Input base ---
+  fromBase := 0;
+  WHILE 1 DO
+    IF INPUT({fromBase}, "Enter input base (2–16):", {"Base A"}) == 0 THEN RETURN; END;
+    IF fromBase>=2 AND fromBase<=16 THEN BREAK; END;
+    MSGBOX("Please select a base between 2 and 16");
+  END;
+
+  // --- Output base ---
+  toBase := 0;
+  WHILE 1 DO
+    IF INPUT({toBase}, "Enter output base (2–16):", {"Base B"}) == 0 THEN RETURN; END;
+    IF toBase>=2 AND toBase<=16 THEN BREAK; END;
+    MSGBOX("Please select a base between 2 and 16");
+  END;
+
+  // --- Precision setting ---
+  precision := 10;
+  IF INPUT({precision}, "Enter fractional precision (1–30):", {"Digits"}) == 0 THEN RETURN; END;
+  IF precision < 1 THEN precision := 1; END;
+  IF precision > 30 THEN precision := 30; END;
+
+  // --- Special case: Hex → Binary nibble expansion ---
+  IF fromBase==16 AND toBase==2 THEN
+    result := ""; fracResult := "";
+    FOR i FROM 1 TO DIM(intPart) DO
+      ch := MID(intPart,i,1); tmp := INSTRING(digits,ch); digit := tmp-1;
+      binNibble := ""; LOCAL d := digit;
+      REPEAT binNibble := MID(digits,(d MOD 2)+1,1)+binNibble; d := IP(d/2); UNTIL d==0;
+      WHILE DIM(binNibble)<4 DO binNibble:="0"+binNibble; END;
+      result := result + binNibble;
+    END;
+    FOR i FROM 1 TO DIM(fracPart) DO
+      ch := MID(fracPart,i,1); tmp := INSTRING(digits,ch); digit := tmp-1;
+      binNibble := ""; LOCAL d := digit;
+      REPEAT binNibble := MID(digits,(d MOD 2)+1,1)+binNibble; d := IP(d/2); UNTIL d==0;
+      WHILE DIM(binNibble)<4 DO binNibble:="0"+binNibble; END;
+      fracResult := fracResult + binNibble;
+    END;
+    // Concise explanation
+    PRINT("Input: " + inStr + " (Base 16) → Base 2");
+    PRINT("Step 1: Convert hex digits to binary");
+    PRINT("Integer part = " + result);
+    IF DIM(fracPart)>0 THEN
+      PRINT("Fractional part = ." + fracResult);
+    END;
+    PRINT("Step 2: Combine parts");
+    PRINT("Final Result = " + result + IFTE(DIM(fracResult)>0,"."+fracResult,"") + "₂");
+
+  ELSE
+    // --- General path: Convert via decimal ---
+    intVal := 0;
+    FOR i FROM 1 TO DIM(intPart) DO
+      ch := MID(intPart,i,1); tmp := INSTRING(digits,ch); digit := tmp-1;
+      intVal := intVal*fromBase + digit;
+    END;
+    fracVal := 0;
+    FOR i FROM 1 TO DIM(fracPart) DO
+      ch := MID(fracPart,i,1); tmp := INSTRING(digits,ch); digit := tmp-1;
+      fracVal := fracVal + digit / (fromBase^i);
+    END;
+    val := intVal + fracVal;
+
+    // Convert integer part
+    result := ""; tempVal := intVal;
+    IF tempVal==0 THEN result:="0"; END;
+    WHILE tempVal>0 DO
+      remainder := tempVal MOD toBase;
+      result := MID(digits,remainder+1,1) + result;
+      tempVal := IP(tempVal/toBase);
+    END;
+
+    // Convert fractional part
+    fracResult := ""; fracVal := fracVal;
+    FOR i FROM 1 TO precision DO
+      fracVal := fracVal * toBase; digit := IP(fracVal);
+      fracResult := fracResult + MID(digits,digit+1,1);
+      fracVal := fracVal - digit; IF fracVal==0 THEN BREAK; END;
+    END;
+
+    // Concise explanation
+    PRINT("Input: " + inStr + " (Base " + STRING(fromBase) + ") → Base " + STRING(toBase));
+    PRINT("Step 1: Convert to decimal = " + STRING(val));
+    PRINT("Step 2: Decimal integer → " + result);
+    IF DIM(fracPart)>0 THEN
+      PRINT("Step 2b: Decimal fraction → ." + fracResult);
+    END;
+    PRINT("Step 3: Combine parts");
+    PRINT("Final Result = " + result + IFTE(DIM(fracResult)>0,"."+fracResult,"") +
+          " (Base " + STRING(toBase) + ")");
+  END;
+
+  PRINT("");
+  PRINT("=== CONVERSION COMPLETE ===");
+  PRINT("Press ESC to return...");
+
+  // --- Wait until ESC is pressed ---
+  REPEAT UNTIL ISKEYDOWN(4);   // ESC key
+WAIT(-1);
+END;

@@ -14,7 +14,8 @@ JSON, which the assertions below check.
 ## Prerequisites
 
 - `Xvfb`, ImageMagick `import`/`magick`
-- `cargo build --workspace --release` (the runner uses `target/release/ppl`)
+- `cargo build --workspace --release` (the runner uses `release/ppl` in Cargo's
+  target directory, as reported by `cargo metadata`; set `PPL_BIN` to override)
 
 ## Run
 
@@ -46,6 +47,9 @@ python3 assert.py /tmp/ppl-ide-e2e/dump_workflow.json /tmp/ppl-ide-e2e/dump_synt
 | `script_gfx.json` | RECT_P / TEXTOUT_P → framebuffer → PNG screenshot | PNG is 320×240, red background, blue box, yellow text |
 | `script_input.json` | Interactive `INPUT` dialog with typed keys + Enter | user input 21 → program prints and returns `42` |
 | `script_stop.json` | Run a `WAIT`-loop → Stop | worker interrupted (`--- Execution stopped by user ---`), prompt clean exit |
+| `script_compile_gate.json` | Valid program runs → source broken (unsaved) → live squiggle/Problems/status → Run → fixed → Run; window screenshots `gate_*.png` | `assert_compile_gate.py`: broken source never runs (`Run blocked`, no `second` output, old outcome not re-reported); fixed program returns `3`; final state `Valid`, `Problems (0)` |
+| `script_baseconv.json` | `tests/fixtures/baseconv/Baseconv_fixed.hpprgm`: typed hex string `FF`, invalid base `abc` (re-prompt with an error line), then a second run with `7B.8` | `assert_baseconv.py`: console has `Final Result: 255`; second run returns `01111011.1000`; no problems |
+| `script_baseconv_cancel.json` | The same program, Esc in its third dialog | `assert_baseconv.py`: returns `0`, no result printed |
 | `script_runconfig.json` | Run a parameterized exported function via run configuration | `SQUARE(5)` returns `25` |
 | `script_editor.json` | Editor: valid PPL with unemulated commands, a broken program, typed code (auto-indent, pairing), window sweep 800×500 → 3840×2160 with real window screenshots, breakpoint, Problems panel | `assert_editor.py`: only Compatibility diagnostics on valid code; unclosed string is a Syntax error on its line; typed block indented; cursor and layout cache unchanged by every resize |
 | `script_editor_hidpi.json` | The same at `WINIT_X11_SCALE_FACTOR=2` | screenshots are 2× the logical size; cursor and layout cache unchanged |
@@ -73,3 +77,18 @@ Other automation steps: `focus_editor`, `type`, `key`, `goto`, `select`,
 - The debugger scenario needs `continue` twice after a breakpoint: the
   breakpoint on the loop body fires again on the next iteration, which is
   correct breakpoint semantics.
+
+Baseconv scenarios:
+
+```bash
+./run_ide_auto.sh scripts/script_baseconv.json 90
+./run_ide_auto.sh scripts/script_baseconv_cancel.json 60
+python3 assert_baseconv.py /tmp/ppl-ide-e2e/dump_baseconv.json /tmp/ppl-ide-e2e/dump_baseconv_cancel.json
+```
+
+Compile gate (the compiler decides what Run executes):
+
+```bash
+./run_ide_auto.sh scripts/script_compile_gate.json 60
+python3 assert_compile_gate.py /tmp/ppl-ide-e2e/dump_compile_gate.json
+```

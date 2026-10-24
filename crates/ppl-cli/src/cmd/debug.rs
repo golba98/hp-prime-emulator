@@ -56,7 +56,8 @@ pub struct DebugOpts {
     #[arg(short, long)]
     pub args: Option<String>,
 
-    /// Value typed into the next INPUT field (repeatable).
+    /// Value typed into the next INPUT field (repeatable); `<ESC>` cancels
+    /// the dialog.
     #[arg(long = "input", value_name = "TEXT")]
     pub inputs: Vec<String>,
 
@@ -128,7 +129,11 @@ impl DebugOpts {
         if let Some(k) = &self.keys {
             h.keys = parse_key_script(k)?.into();
         }
-        h.inputs = self.inputs.iter().cloned().collect();
+        h.inputs = self
+            .inputs
+            .iter()
+            .map(|t| ppl_vm::ScriptedInput::parse(t))
+            .collect();
         h.choices = self.choices.iter().copied().collect();
         Ok(h)
     }
@@ -430,7 +435,11 @@ pub fn run(o: DebugOpts) -> u8 {
         return exit::COMPILE;
     };
 
-    let entry = match common::pick_entry(&prog, o.entry.as_deref()) {
+    let stem = o
+        .file
+        .as_deref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()));
+    let entry = match common::pick_entry(&prog, o.entry.as_deref(), stem) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("error: {e}");

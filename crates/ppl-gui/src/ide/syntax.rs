@@ -99,7 +99,7 @@ pub fn format_of(kind: TokenKind, style: &CodeStyle) -> TextFormat {
     };
     if matches!(kind, TokenKind::InvalidString | TokenKind::Error) {
         f.background = colors::INVALID_BG;
-        f.underline = Stroke::new(1.0, colors::INVALID);
+        f.underline = Stroke::new(1.0_f32, colors::INVALID);
     }
     f
 }

@@ -1,0 +1,270 @@
+EXPORT Baseconv()
+BEGIN
+  LOCAL inStr, originalStr, intPart, fracPart;
+  LOCAL i, j, ch, digit, dotPos;
+  LOCAL intVal, fracVal, val, result, fracResult;
+  LOCAL digits, fromBase, toBase, tempVal, remainder;
+  LOCAL precision, binNibble, d, sign, pos;
+
+  digits := "0123456789ABCDEF";
+
+  PRINT();
+  PRINT("=== BASE CONVERTER ===");
+
+  // 1. Input number as a string
+  inStr := "";
+
+  IF INPUT({{inStr,[2]}},
+           "Number to convert",
+           {"Number"}) == 0 THEN
+    RETURN;
+  END;
+
+  inStr := UPPER(inStr);
+  originalStr := inStr;
+
+  IF inStr == "" THEN
+    MSGBOX("Please enter a number.");
+    RETURN;
+  END;
+
+  // 2. Handle an optional negative sign
+  sign := "";
+
+  IF LEFT(inStr,1) == "-" THEN
+    sign := "-";
+    inStr := MID(inStr,2);
+  END;
+
+  IF inStr == "" OR inStr == "." THEN
+    MSGBOX("Invalid number.");
+    RETURN;
+  END;
+
+  // 3. Split integer and fractional parts
+  dotPos := INSTRING(inStr,".");
+
+  IF dotPos > 0 THEN
+    intPart := LEFT(inStr,dotPos-1);
+    fracPart := MID(inStr,dotPos+1);
+
+    IF INSTRING(fracPart,".") > 0 THEN
+      MSGBOX("Invalid number: multiple decimal points.");
+      RETURN;
+    END;
+  ELSE
+    intPart := inStr;
+    fracPart := "";
+  END;
+
+  IF intPart == "" THEN
+    intPart := "0";
+  END;
+
+  // 4. Input source base
+  fromBase := 10;
+
+  REPEAT
+    IF INPUT(fromBase,
+             "Source base",
+             "Base (2-16)") == 0 THEN
+      RETURN;
+    END;
+
+    IF fromBase < 2 OR fromBase > 16
+       OR fromBase <> IP(fromBase) THEN
+      MSGBOX("Base must be an integer from 2 to 16.");
+    END;
+  UNTIL fromBase >= 2 AND fromBase <= 16
+        AND fromBase == IP(fromBase);
+
+  // 5. Input destination base
+  toBase := 2;
+
+  REPEAT
+    IF INPUT(toBase,
+             "Destination base",
+             "Base (2-16)") == 0 THEN
+      RETURN;
+    END;
+
+    IF toBase < 2 OR toBase > 16
+       OR toBase <> IP(toBase) THEN
+      MSGBOX("Base must be an integer from 2 to 16.");
+    END;
+  UNTIL toBase >= 2 AND toBase <= 16
+        AND toBase == IP(toBase);
+
+  // 6. Fractional precision
+  precision := 10;
+
+  IF INPUT(precision,
+           "Fractional precision",
+           "Digits (1-30)") == 0 THEN
+    RETURN;
+  END;
+
+  precision := IP(precision);
+
+  IF precision < 1 THEN
+    precision := 1;
+  END;
+
+  IF precision > 30 THEN
+    precision := 30;
+  END;
+
+  // 7. Validate every input digit
+  FOR i FROM 1 TO DIM(intPart) DO
+    ch := MID(intPart,i,1);
+    pos := INSTRING(digits,ch);
+
+    IF pos == 0 OR pos > fromBase THEN
+      MSGBOX("Invalid digit: " + ch);
+      RETURN;
+    END;
+  END;
+
+  FOR i FROM 1 TO DIM(fracPart) DO
+    ch := MID(fracPart,i,1);
+    pos := INSTRING(digits,ch);
+
+    IF pos == 0 OR pos > fromBase THEN
+      MSGBOX("Invalid fractional digit: " + ch);
+      RETURN;
+    END;
+  END;
+
+  result := "";
+  fracResult := "";
+
+  // 8. Special case: hexadecimal to binary
+  IF fromBase == 16 AND toBase == 2 THEN
+
+    // Convert integer hex digits into 4-bit groups
+    FOR i FROM 1 TO DIM(intPart) DO
+      ch := MID(intPart,i,1);
+      digit := INSTRING(digits,ch)-1;
+
+      d := digit;
+      binNibble := "";
+
+      FOR j FROM 1 TO 4 DO
+        remainder := d MOD 2;
+        binNibble :=
+          MID(digits,remainder+1,1) + binNibble;
+        d := IP(d/2);
+      END;
+
+      result := result + binNibble;
+    END;
+
+    // Convert fractional hex digits
+    FOR i FROM 1 TO DIM(fracPart) DO
+      ch := MID(fracPart,i,1);
+      digit := INSTRING(digits,ch)-1;
+
+      d := digit;
+      binNibble := "";
+
+      FOR j FROM 1 TO 4 DO
+        remainder := d MOD 2;
+        binNibble :=
+          MID(digits,remainder+1,1) + binNibble;
+        d := IP(d/2);
+      END;
+
+      fracResult := fracResult + binNibble;
+    END;
+
+    PRINT("Input: " + originalStr);
+    PRINT("Source base: 16");
+    PRINT("Destination base: 2");
+    PRINT("");
+    PRINT("Integer bits: " + result);
+
+    IF DIM(fracPart) > 0 THEN
+      PRINT("Fraction bits: " + fracResult);
+    END;
+
+  ELSE
+
+    // 9. Convert integer part to decimal
+    intVal := 0;
+
+    FOR i FROM 1 TO DIM(intPart) DO
+      ch := MID(intPart,i,1);
+      digit := INSTRING(digits,ch)-1;
+
+      intVal := intVal*fromBase + digit;
+    END;
+
+    // 10. Convert fractional part to decimal
+    fracVal := 0;
+
+    FOR i FROM 1 TO DIM(fracPart) DO
+      ch := MID(fracPart,i,1);
+      digit := INSTRING(digits,ch)-1;
+
+      fracVal := fracVal + digit/(fromBase^i);
+    END;
+
+    val := intVal + fracVal;
+
+    // 11. Convert decimal integer to target base
+    tempVal := intVal;
+
+    IF tempVal == 0 THEN
+      result := "0";
+    END;
+
+    WHILE tempVal > 0 DO
+      remainder := tempVal MOD toBase;
+
+      result :=
+        MID(digits,remainder+1,1) + result;
+
+      tempVal := IP(tempVal/toBase);
+    END;
+
+    // 12. Convert decimal fraction to target base
+    FOR i FROM 1 TO precision DO
+      fracVal := fracVal*toBase;
+      digit := IP(fracVal);
+
+      fracResult :=
+        fracResult + MID(digits,digit+1,1);
+
+      fracVal := fracVal-digit;
+
+      IF fracVal == 0 THEN
+        BREAK;
+      END;
+    END;
+
+    PRINT("Input: " + originalStr);
+    PRINT("Source base: " + STRING(fromBase));
+    PRINT("Destination base: " + STRING(toBase));
+    PRINT("");
+    PRINT("Decimal value: " + STRING(val));
+    PRINT("Integer result: " + result);
+
+    IF DIM(fracPart) > 0 THEN
+      PRINT("Fraction result: " + fracResult);
+    END;
+
+  END;
+
+  // 13. Combine final result
+  result := sign + result;
+
+  IF DIM(fracResult) > 0 THEN
+    result := result + "." + fracResult;
+  END;
+
+  PRINT("");
+  PRINT("Final Result: " + result);
+  PRINT("=== CONVERSION COMPLETE ===");
+
+  RETURN result;
+END;

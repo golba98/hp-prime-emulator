@@ -23,7 +23,7 @@ use crate::ide::menu::MenuBar;
 use crate::ide::problems::ProblemsPanel;
 use crate::ide::status::StatusBar;
 use crate::ide::toolbar::ToolBar;
-use crate::ide::{DockTab, IdeAction, IdeAppState, IdePanel};
+use crate::ide::{AnalysisState, DockTab, IdeAction, IdeAppState, IdePanel};
 use crate::theme;
 
 /// Native Desktop IDE Application implementing `eframe::App`.
@@ -47,10 +47,11 @@ pub struct IdeDesktopApp {
     diagnostics: DiagnosticsWorker,
     /// Live-diagnostic bookkeeping per tab.
     diag_requests: HashMap<TabId, DiagRequest>,
-    /// Runtime problems from the last run.
-    runtime_problems: Vec<DiagnosticItem>,
-    /// Tab and source of the program currently (or last) running.
-    running: Option<(TabId, ppl_syntax::SourceFile)>,
+    /// Runtime problems from the last run, with the source revision that
+    /// ran; shown only while the tab still has that revision.
+    runtime_problems: Vec<(DiagnosticItem, u64)>,
+    /// The program currently (or last) running.
+    running: Option<RunningProgram>,
     /// Tabs and revisions the Problems panel was last built from.
     problems_key: Vec<(TabId, u64)>,
     /// (tab, revision) the outline was last built from.
@@ -65,6 +66,14 @@ pub struct IdeDesktopApp {
 
 /// Quiet period after an edit before live diagnostics recompile.
 const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(250);
+
+/// The exact source a run was compiled from.
+#[derive(Debug, Clone)]
+struct RunningProgram {
+    tab: TabId,
+    revision: u64,
+    file: ppl_syntax::SourceFile,
+}
 
 #[derive(Debug, Clone, Copy)]
 struct DiagRequest {
@@ -239,18 +248,20 @@ impl IdeDesktopApp {
         self.dialogs.show_run_config = true;
     }
 
-    /// Compiles and runs the active editor buffer on the background worker.
+    /// Compiles the active buffer's current text and, only if it compiles,
+    /// runs exactly that program on the background worker. The compile
+    /// result also becomes the tab's diagnostics for that revision, so the
+    /// Problems panel and the executed bytecode always match.
     fn run_source(&mut self, debug: bool, stop_at_entry: bool) {
         if self.controller.worker_alive() {
             self.state.status_message = "A program is already running (use Stop first)".to_string();
             return;
         }
-        let Some(tab) = self.editor.active_tab() else {
+        let Some(i) = Some(self.editor.active_tab_index).filter(|&i| i < self.editor.tabs.len())
+        else {
             self.state.status_message = "No program open to run".to_string();
             return;
         };
-        self.controller.bridge.set_breakpoints(&tab.breakpoints);
-        let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
         let max_steps = self
             .dialogs
             .max_steps_input
@@ -259,47 +270,84 @@ impl IdeDesktopApp {
             .ok()
             .filter(|&n| n > 0);
 
-        let stem = tab.title.split('.').next().unwrap_or(&tab.title);
-        // Prefer the configured entry point; fall back to the first exported
-        // function (as the analyzer sees it), then the file name.
-        let entry_name = tab.run_entry.clone().or_else(|| {
-            ppl_compiler::highlight::analyze(&tab.content)
-                .symbols
-                .functions
-                .into_iter()
-                .find(|f| f.exported)
-                .map(|f| f.name)
-                .or_else(|| Some(stem.to_string()))
-        });
+        let tab = &mut self.editor.tabs[i];
+        let revision = tab.revision();
+        let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
+        let analysis = diagnostics::analyze(&tab.title, &tab.content, revision);
         let tab_id = tab.id;
-        let run_args = tab.run_args.trim();
-        let run_args = if run_args.is_empty() {
-            None
-        } else {
-            Some(run_args)
+        let run_entry = tab.run_entry.clone();
+        let run_args = Some(tab.run_args.trim().to_string()).filter(|a| !a.is_empty());
+        self.controller.bridge.set_breakpoints(&tab.breakpoints);
+        let errors = analysis.error_count();
+        let failure = analysis.failure.clone();
+        let program = analysis.program;
+        Self::set_analysis(tab, revision, analysis.items, analysis.failure);
+        self.mark_requested(tab_id, revision);
+        self.runtime_problems.clear();
+        self.rebuild_problems();
+
+        let program = match (program, failure) {
+            (Some(p), None) => p,
+            (_, failure) => {
+                // Never fall back to an earlier program: drop the finished
+                // worker so its outcome is not reported again.
+                let _ = self.controller.join_current();
+                self.state.vm_state = crate::ide::VmExecutionState::Idle;
+                self.state.step_count = 0;
+                self.state.elapsed_time = Duration::ZERO;
+                let msg = match failure {
+                    Some(f) => format!("Run blocked: {f}"),
+                    None => {
+                        format!("Run blocked: {errors} compile error(s); fix them and run again")
+                    }
+                };
+                self.console.print_error(&msg);
+                self.state.status_message = msg;
+                self.state.active_dock_tab = DockTab::Problems;
+                self.state.show_bottom_dock = true;
+                let first = self.editor.tabs[i]
+                    .current_diagnostics()
+                    .iter()
+                    .find(|d| d.severity == ppl_syntax::Severity::Error)
+                    .map(|d| (d.line, d.col));
+                if let Some((line, col)) = first {
+                    self.editor.tabs[i].goto_line(line, col);
+                }
+                return;
+            }
+        };
+        let entry = match program.pick_entry(run_entry.as_deref()) {
+            Ok(e) => e,
+            Err(msg) => {
+                self.state.vm_state = crate::ide::VmExecutionState::Idle;
+                self.console.print_error(&msg);
+                self.state.status_message = msg;
+                return;
+            }
         };
 
-        let result = self.controller.start(
+        let result = self.controller.start_compiled(
+            program,
             &file,
-            entry_name.as_deref(),
-            run_args,
+            &entry,
+            run_args.as_deref(),
             debug,
             stop_at_entry,
             max_steps,
         );
         match result {
             crate::ide::execution::RunStart::Started => {
-                self.running = Some((tab_id, file.clone()));
-                self.runtime_problems.clear();
-                // The program compiled: show its current diagnostics
-                // (compatibility warnings included) without waiting.
-                self.refresh_diagnostics();
+                self.running = Some(RunningProgram {
+                    tab: tab_id,
+                    revision,
+                    file,
+                });
                 self.state.vm_state = crate::ide::VmExecutionState::Running;
                 self.state.paused_line = 0;
                 self.state.status_message = if debug {
                     "Debug session started; paused at first statement".to_string()
                 } else {
-                    "Running program...".to_string()
+                    format!("Running {entry}...")
                 };
                 self.console.print_diagnostic(if debug {
                     "--- Debug session started ---"
@@ -307,14 +355,6 @@ impl IdeDesktopApp {
                     "--- Run started ---"
                 });
                 self.state.active_dock_tab = DockTab::Output;
-                self.state.show_bottom_dock = true;
-            }
-            crate::ide::execution::RunStart::CompileFailed(msg) => {
-                self.state.vm_state = crate::ide::VmExecutionState::Error(msg.clone());
-                self.console.print_error(&msg);
-                self.state.status_message = "Compilation failed".to_string();
-                self.refresh_diagnostics();
-                self.state.active_dock_tab = DockTab::Problems;
                 self.state.show_bottom_dock = true;
             }
             crate::ide::execution::RunStart::AlreadyRunning => {
@@ -329,53 +369,125 @@ impl IdeDesktopApp {
             return;
         };
         let revision = tab.revision();
-        let items = diagnostics::check_source(&tab.title, &tab.content);
+        let analysis = diagnostics::analyze(&tab.title, &tab.content, revision);
         let id = tab.id;
-        Self::apply_diagnostics(tab, items);
-        let req = self.diag_requests.entry(id).or_insert(DiagRequest {
+        Self::set_analysis(tab, revision, analysis.items, analysis.failure);
+        self.mark_requested(id, revision);
+        self.rebuild_problems();
+        if self.problems.items.is_empty() && self.problems.is_settled() {
+            self.state.status_message = "No problems detected".to_string();
+        }
+    }
+
+    /// Records that `revision` of `tab` has been (or is being) analysed, so
+    /// the background worker does not compile it again.
+    fn mark_requested(&mut self, tab: TabId, revision: u64) {
+        let req = self.diag_requests.entry(tab).or_insert(DiagRequest {
             requested: 0,
             seen: 0,
             seen_at: Instant::now(),
         });
         req.requested = revision;
         req.seen = revision;
-        self.rebuild_problems();
-        if self.problems.items.is_empty() {
-            self.state.status_message = "No problems detected".to_string();
-        }
     }
 
-    fn apply_diagnostics(tab: &mut EditorTab, mut items: Vec<DiagnosticItem>) {
+    /// Stores a compiler result for `revision`; ignored unless that is
+    /// still the tab's current revision.
+    fn set_analysis(
+        tab: &mut EditorTab,
+        revision: u64,
+        mut items: Vec<DiagnosticItem>,
+        failure: Option<String>,
+    ) -> bool {
+        if tab.revision() != revision {
+            return false;
+        }
         for item in &mut items {
             item.tab = Some(tab.id);
             item.file = tab.title.clone();
         }
         items.sort_by_key(|i| (i.line, i.col));
-        tab.diagnostics = items;
+        tab.analysis = Some(crate::ide::editor::TabAnalysis {
+            revision,
+            items,
+            failure,
+        });
+        true
     }
 
-    /// Rebuilds the Problems list from every open tab plus runtime errors.
+    /// The compiler's verdict on tab `i`'s current text.
+    pub(crate) fn analysis_state(&mut self, i: usize) -> AnalysisState {
+        let tab = &mut self.editor.tabs[i];
+        let revision = tab.revision();
+        if let Some(a) = tab.current_analysis() {
+            if let Some(f) = &a.failure {
+                return AnalysisState::AnalysisFailed(f.clone());
+            }
+            let count = |sev| a.items.iter().filter(|d| d.severity == sev).count();
+            let (errors, warnings) = (
+                count(ppl_syntax::Severity::Error),
+                count(ppl_syntax::Severity::Warning),
+            );
+            return match (errors, warnings) {
+                (0, 0) => AnalysisState::Valid,
+                (0, w) => AnalysisState::ValidWithWarnings(w),
+                (errors, warnings) => AnalysisState::Invalid { errors, warnings },
+            };
+        }
+        match self.diag_requests.get(&tab.id) {
+            Some(r) if r.requested == revision => AnalysisState::Analyzing,
+            Some(_) => AnalysisState::Queued,
+            None => AnalysisState::NotAnalyzed,
+        }
+    }
+
+    /// Updates the per-file analysis status (Problems header, status bar).
+    fn refresh_analysis_status(&mut self) {
+        let mut pending = Vec::new();
+        let mut failures = Vec::new();
+        for i in 0..self.editor.tabs.len() {
+            let state = self.analysis_state(i);
+            let title = self.editor.tabs[i].title.clone();
+            match &state {
+                AnalysisState::AnalysisFailed(f) => failures.push((title, f.clone())),
+                s if !s.is_settled() => pending.push(title),
+                _ => {}
+            }
+            if i == self.editor.active_tab_index {
+                self.state.analysis = state;
+                self.state.encoding_label = self.editor.tabs[i].format.label();
+            }
+        }
+        if self.editor.tabs.is_empty() {
+            self.state.analysis = AnalysisState::NotAnalyzed;
+        }
+        self.problems.pending = pending;
+        self.problems.failures = failures;
+    }
+
+    /// Rebuilds the Problems list from every open tab's current analysis
+    /// plus runtime errors of runs whose source is still unchanged.
     fn rebuild_problems(&mut self) {
-        let mut items: Vec<DiagnosticItem> = self
-            .editor
-            .tabs
-            .iter()
-            .flat_map(|t| t.diagnostics.iter().cloned())
-            .collect();
-        items.extend(
-            self.runtime_problems
-                .iter()
-                .filter(|p| p.tab.is_none_or(|id| self.editor.index_of(id).is_some()))
-                .cloned(),
-        );
-        self.problems.set_diagnostics(items);
-        self.problems.active_tab_index = self.editor.active_tab_index;
-        self.problems_key = self
+        let mut items: Vec<DiagnosticItem> = Vec::new();
+        for t in self.editor.tabs.iter_mut() {
+            items.extend(t.current_diagnostics().iter().cloned());
+        }
+        let current: Vec<(TabId, u64)> = self
             .editor
             .tabs
             .iter_mut()
             .map(|t| (t.id, t.revision()))
             .collect();
+        items.extend(
+            self.runtime_problems
+                .iter()
+                .filter(|(p, rev)| p.tab.is_none_or(|id| current.contains(&(id, *rev))))
+                .map(|(p, _)| p.clone()),
+        );
+        self.problems.set_diagnostics(items);
+        self.problems.active_tab_index = self.editor.active_tab_index;
+        self.problems_key = current;
+        self.refresh_analysis_status();
     }
 
     /// Runs an Edit-menu command by focusing the editor and replaying the
@@ -418,13 +530,14 @@ impl IdeDesktopApp {
     fn schedule_diagnostics(&mut self, ctx: &egui::Context) {
         let mut changed = false;
         for result in self.diagnostics.poll() {
+            // Results for closed tabs or older revisions are superseded.
             if let Some(i) = self.editor.index_of(result.tab) {
-                let tab = &mut self.editor.tabs[i];
-                // Results for an older revision are superseded.
-                if tab.revision() == result.revision {
-                    Self::apply_diagnostics(tab, result.items);
-                    changed = true;
-                }
+                changed |= Self::set_analysis(
+                    &mut self.editor.tabs[i],
+                    result.revision,
+                    result.items,
+                    result.failure,
+                );
             }
         }
 
@@ -457,13 +570,20 @@ impl IdeDesktopApp {
             }
         }
 
-        // Closed tabs drop out of the list.
-        let ids: Vec<TabId> = self.editor.tabs.iter().map(|t| t.id).collect();
-        self.diag_requests.retain(|id, _| ids.contains(id));
-        let tabs_changed = self.problems_key.len() != ids.len()
-            || self.problems_key.iter().map(|(id, _)| id).ne(ids.iter());
-        if changed || tabs_changed {
+        // Closed tabs drop out of the list; any edit hides the edited tab's
+        // old diagnostics at once (they no longer match its text).
+        let key: Vec<(TabId, u64)> = self
+            .editor
+            .tabs
+            .iter_mut()
+            .map(|t| (t.id, t.revision()))
+            .collect();
+        self.diag_requests
+            .retain(|id, _| key.iter().any(|(k, _)| k == id));
+        if changed || key != self.problems_key {
             self.rebuild_problems();
+        } else {
+            self.refresh_analysis_status();
         }
     }
 
@@ -498,13 +618,13 @@ impl IdeDesktopApp {
                     }
                     WorkerOutcome::Error(e) => {
                         let msg = e.to_string();
-                        if let Some((tab, file)) = &self.running {
-                            let mut item = DiagnosticItem::runtime(&e, file);
-                            item.tab = Some(*tab);
-                            if let Some(i) = self.editor.index_of(*tab) {
+                        if let Some(run) = &self.running {
+                            let mut item = DiagnosticItem::runtime(&e, &run.file);
+                            item.tab = Some(run.tab);
+                            if let Some(i) = self.editor.index_of(run.tab) {
                                 item.file = self.editor.tabs[i].title.clone();
                             }
-                            self.runtime_problems = vec![item];
+                            self.runtime_problems = vec![(item, run.revision)];
                             self.rebuild_problems();
                         }
                         self.state.vm_state = crate::ide::VmExecutionState::Error(msg.clone());
@@ -948,15 +1068,7 @@ impl eframe::App for IdeDesktopApp {
                                 DockTab::Output => {
                                     format!("Output ({})", self.console.messages.len())
                                 }
-                                DockTab::Problems => {
-                                    let errors = self.problems.error_count();
-                                    let total = self.problems.items.len();
-                                    if errors > 0 {
-                                        format!("Problems ({total}, {errors} errors)")
-                                    } else {
-                                        format!("Problems ({total})")
-                                    }
-                                }
+                                DockTab::Problems => self.problems.title(),
                                 DockTab::Variables => "Variables".to_string(),
                                 DockTab::CallStack => "Call Stack".to_string(),
                             };
@@ -1152,6 +1264,10 @@ pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "app_compile_tests.rs"]
+mod compile_tests;
 
 #[cfg(test)]
 mod tests {

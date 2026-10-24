@@ -382,7 +382,6 @@ impl Debugger for WorkerDebugger {
 #[derive(Debug)]
 pub enum RunStart {
     Started,
-    CompileFailed(String),
     AlreadyRunning,
 }
 
@@ -463,15 +462,20 @@ impl ExecutionController {
         None
     }
 
-    /// Compiles `source` and spawns a background VM worker for it.
+    /// Spawns a background VM worker for `prog`, which the caller compiled
+    /// from `file` (the source the debugger shows). Taking the program
+    /// rather than the source guarantees the bytecode that runs is exactly
+    /// the one whose diagnostics the IDE displays.
     ///
     /// `debug` installs the [`WorkerDebugger`]; `stop_at_entry` makes it
     /// pause at the first statement. `args` is a comma-separated argument
     /// list (PPL expression per argument) evaluated on the worker thread.
-    pub fn start(
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_compiled(
         &mut self,
+        prog: ppl_compiler::CompiledProgram,
         file: &SourceFile,
-        entry: Option<&str>,
+        entry: &str,
         args: Option<&str>,
         debug: bool,
         stop_at_entry: bool,
@@ -480,23 +484,6 @@ impl ExecutionController {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
-
-        let opts = ppl_compiler::CompileOptions::default();
-        let (prog, diags) = ppl_compiler::compile_source(file, &opts);
-        let Some(prog) = prog else {
-            let mut rendered = String::new();
-            for d in &diags.items {
-                let lc = file.line_col(d.span.start);
-                rendered.push_str(&format!(
-                    "{}:{}:{}: error: {}\n",
-                    file.name, lc.line, lc.col, d.message
-                ));
-            }
-            if rendered.is_empty() {
-                rendered.push_str("compilation failed");
-            }
-            return RunStart::CompileFailed(rendered.trim_end().to_string());
-        };
 
         self.terminal_seen = 0;
         self.shared.reset_for_run();
@@ -511,7 +498,7 @@ impl ExecutionController {
 
         let config = WorkerConfig {
             prog,
-            entry: entry.map(str::to_string),
+            entry: Some(entry.to_string()),
             args: args.map(str::to_string),
             settings: ppl_vm::Settings::default(),
             limits: ppl_vm::Limits {
@@ -596,15 +583,13 @@ mod tests {
         assert!(c.join_current().is_none());
     }
 
-    #[test]
-    fn controller_start_reports_compile_errors() {
-        let mut c = ExecutionController::new();
-        let file = SourceFile::new("bad.ppl", "EXPORT F( BEGIN END;");
-        match c.start(&file, None, None, false, false, None) {
-            RunStart::CompileFailed(msg) => assert!(msg.contains("error:")),
-            other => panic!("expected compile failure, got {other:?}"),
-        }
-        assert!(!c.running());
+    /// Compiles `file` and starts its first exported function.
+    fn start(c: &mut ExecutionController, file: &SourceFile) -> RunStart {
+        let (prog, _) =
+            ppl_compiler::compile_source(file, &ppl_compiler::CompileOptions::default());
+        let prog = prog.expect("test program compiles");
+        let entry = prog.pick_entry(None).expect("entry");
+        c.start_compiled(prog, file, &entry, None, false, false, None)
     }
 
     #[test]
@@ -612,7 +597,7 @@ mod tests {
         let mut c = ExecutionController::new();
         let src = "EXPORT TEST() BEGIN PRINT(30); RETURN 1; END;";
         let file = SourceFile::new("test.ppl", src);
-        match c.start(&file, None, None, false, false, None) {
+        match start(&mut c, &file) {
             RunStart::Started => {}
             other => panic!("expected start, got {other:?}"),
         }
@@ -673,17 +658,11 @@ mod tests {
         let mut c = ExecutionController::new();
         let src = "EXPORT TEST() BEGIN RETURN 42; END;";
         let file = SourceFile::new("test.ppl", src);
-        assert!(matches!(
-            c.start(&file, None, None, false, false, None),
-            RunStart::Started
-        ));
+        assert!(matches!(start(&mut c, &file), RunStart::Started));
         c.stop();
         let _ = c.join_current();
         // Subsequent run must succeed and not be immediately aborted
-        assert!(matches!(
-            c.start(&file, None, None, false, false, None),
-            RunStart::Started
-        ));
+        assert!(matches!(start(&mut c, &file), RunStart::Started));
         for _ in 0..200 {
             if c.outcome().is_some() {
                 break;

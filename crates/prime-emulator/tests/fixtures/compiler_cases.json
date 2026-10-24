@@ -1,0 +1,235 @@
+[
+  {
+    "name": "HELLO",
+    "source": "EXPORT HELLO()\nBEGIN\n  PRINT(\"Hello from HP Prime!\");\nEND;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "HELLO",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "BROKEN",
+    "source": "EXPORT BROKEN()\nBEGIN\n  PRINT(\"Missing parenthesis\";\nEND;\n",
+    "accepted": false,
+    "line": 3,
+    "column": 30,
+    "exports": []
+  },
+  {
+    "name": "SQUARE",
+    "source": "EXPORT SQUARE(N) BEGIN RETURN N*N; END;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "SQUARE",
+        25
+      ]
+    ]
+  },
+  {
+    "name": "TEST",
+    "source": "EXPORT TEST() BEGIN LOCAL A; A:=42; PRINT(A); END;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "TEST",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "MULTI",
+    "source": "EXPORT FIRST() BEGIN RETURN 1; END;\nEXPORT SECOND(X) BEGIN RETURN X+2; END;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "FIRST",
+        9
+      ],
+      [
+        "SECOND",
+        25
+      ]
+    ]
+  },
+  {
+    "name": "LOCAL",
+    "source": "EXPORT LOCALS()\nBEGIN\n LOCAL A;\n A:=2+2;\n RETURN A;\nEND;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "LOCALS",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "NESTED",
+    "source": "EXPORT NESTED()\nBEGIN\n LOCAL A; A:=0;\n FOR I FROM 1 TO 5 DO\n  IF I>2 THEN A:=A+I; END;\n END;\n RETURN A;\nEND;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "NESTED",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "STRINGS",
+    "source": "EXPORT STRINGS() BEGIN PRINT(\"é ≥ 😀 hello\"); END;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "STRINGS",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "MISSEXPR",
+    "source": "EXPORT MISSEXPR()\nBEGIN\n LOCAL A;\n A := ;\nEND;\n",
+    "accepted": false,
+    "line": 4,
+    "column": 7,
+    "exports": []
+  },
+  {
+    "name": "MISSEND",
+    "source": "EXPORT MISSEND()\nBEGIN\n PRINT(\"Test\");\n",
+    "accepted": false,
+    "line": 4,
+    "column": 1,
+    "exports": []
+  },
+  {
+    "name": "MISSSEMI",
+    "source": "EXPORT MISSSEMI()\nBEGIN\n LOCAL A\n A:=2;\nEND;\n",
+    "accepted": false,
+    "line": 4,
+    "column": 2,
+    "exports": []
+  },
+  {
+    "name": "NESTERR",
+    "source": "EXPORT NESTERR()\nBEGIN\n IF 1 THEN\n END;\n ELSE\n END;\nEND;\n",
+    "accepted": false,
+    "line": 5,
+    "column": 2,
+    "exports": []
+  },
+  {
+    "name": "DUPLICATE",
+    "source": "EXPORT DUPLICATE()\nBEGIN\n LOCAL A,A;\n RETURN A;\nEND;\n",
+    "accepted": false,
+    "line": 3,
+    "column": 11,
+    "exports": []
+  },
+  {
+    "name": "HEADER",
+    "source": "EXPORT HEADER(\nBEGIN\n RETURN 1;\nEND;\n",
+    "accepted": false,
+    "line": 2,
+    "column": 6,
+    "exports": []
+  },
+  {
+    "name": "UNKNOWN",
+    "source": "EXPORT UNKNOWN() BEGIN M6NONEXISTENT(1); END;\n",
+    "accepted": false,
+    "line": 1,
+    "column": 24,
+    "exports": []
+  },
+  {
+    "name": "IDENT",
+    "source": "EXPORT IDENT() BEGIN RETURN M6UNKNOWN; END;\n",
+    "accepted": false,
+    "line": 1,
+    "column": 29,
+    "exports": []
+  },
+  {
+    "name": "ARGCOUNT",
+    "source": "EXPORT ARGCOUNT() BEGIN RETURN SIN(1,2); END;\n",
+    "accepted": false,
+    "line": 1,
+    "column": 37,
+    "exports": []
+  },
+  {
+    "name": "STRERR",
+    "source": "EXPORT STRERR()\nBEGIN\n PRINT(\"unterminated);\nEND;\n",
+    "accepted": false,
+    "line": 5,
+    "column": 1,
+    "exports": []
+  },
+  {
+    "name": "COMMENTERR",
+    "source": "EXPORT COMMENTERR()\nBEGIN\n // é😀\n\n PRINT(\"Test\";\nEND;\n",
+    "accepted": false,
+    "line": 5,
+    "column": 14,
+    "exports": []
+  },
+  {
+    "name": "UNICODEERR",
+    "source": "EXPORT UNICODEERR()\nBEGIN\n PRINT(\"é😀\";\nEND;\n",
+    "accepted": false,
+    "line": 3,
+    "column": 12,
+    "exports": []
+  },
+  {
+    "name": "CRLFERR",
+    "source": "EXPORT CRLFERR()\r\nBEGIN\r\n\r\n PRINT(\"Test\";\r\nEND;\r\n",
+    "accepted": false,
+    "line": 4,
+    "column": 14,
+    "exports": []
+  },
+  {
+    "name": "CRLFVALID",
+    "source": "EXPORT CRLFVALID()\r\nBEGIN\r\n // comment\r\n\r\n RETURN 4;\r\nEND;\r\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "CRLFVALID",
+        9
+      ]
+    ]
+  },
+  {
+    "name": "LONG",
+    "source": "EXPORT LONG()\nBEGIN\n // padding 0\n // padding 1\n // padding 2\n // padding 3\n // padding 4\n // padding 5\n // padding 6\n // padding 7\n // padding 8\n // padding 9\n // padding 10\n // padding 11\n // padding 12\n // padding 13\n // padding 14\n // padding 15\n // padding 16\n // padding 17\n // padding 18\n // padding 19\n // padding 20\n // padding 21\n // padding 22\n // padding 23\n // padding 24\n // padding 25\n // padding 26\n // padding 27\n // padding 28\n // padding 29\n // padding 30\n // padding 31\n // padding 32\n // padding 33\n // padding 34\n // padding 35\n // padding 36\n // padding 37\n // padding 38\n // padding 39\n // padding 40\n // padding 41\n // padding 42\n // padding 43\n // padding 44\n // padding 45\n // padding 46\n // padding 47\n // padding 48\n // padding 49\n // padding 50\n // padding 51\n // padding 52\n // padding 53\n // padding 54\n // padding 55\n // padding 56\n // padding 57\n // padding 58\n // padding 59\n // padding 60\n // padding 61\n // padding 62\n // padding 63\n // padding 64\n // padding 65\n // padding 66\n // padding 67\n // padding 68\n // padding 69\n // padding 70\n // padding 71\n // padding 72\n // padding 73\n // padding 74\n // padding 75\n // padding 76\n // padding 77\n // padding 78\n // padding 79\n // padding 80\n // padding 81\n // padding 82\n // padding 83\n // padding 84\n // padding 85\n // padding 86\n // padding 87\n // padding 88\n // padding 89\n // padding 90\n // padding 91\n // padding 92\n // padding 93\n // padding 94\n // padding 95\n // padding 96\n // padding 97\n // padding 98\n // padding 99\n // padding 100\n // padding 101\n // padding 102\n // padding 103\n // padding 104\n // padding 105\n // padding 106\n // padding 107\n // padding 108\n // padding 109\n // padding 110\n // padding 111\n // padding 112\n // padding 113\n // padding 114\n // padding 115\n // padding 116\n // padding 117\n // padding 118\n // padding 119\n // padding 120\n // padding 121\n // padding 122\n // padding 123\n // padding 124\n // padding 125\n // padding 126\n // padding 127\n // padding 128\n // padding 129\n // padding 130\n // padding 131\n // padding 132\n // padding 133\n // padding 134\n // padding 135\n // padding 136\n // padding 137\n // padding 138\n // padding 139\n // padding 140\n // padding 141\n // padding 142\n // padding 143\n // padding 144\n // padding 145\n // padding 146\n // padding 147\n // padding 148\n // padding 149\n // padding 150\n // padding 151\n // padding 152\n // padding 153\n // padding 154\n // padding 155\n // padding 156\n // padding 157\n // padding 158\n // padding 159\n // padding 160\n // padding 161\n // padding 162\n // padding 163\n // padding 164\n // padding 165\n // padding 166\n // padding 167\n // padding 168\n // padding 169\n // padding 170\n // padding 171\n // padding 172\n // padding 173\n // padding 174\n // padding 175\n // padding 176\n // padding 177\n // padding 178\n // padding 179\n // padding 180\n // padding 181\n // padding 182\n // padding 183\n // padding 184\n // padding 185\n // padding 186\n // padding 187\n // padding 188\n // padding 189\n // padding 190\n // padding 191\n // padding 192\n // padding 193\n // padding 194\n // padding 195\n // padding 196\n // padding 197\n // padding 198\n // padding 199\n // padding 200\n // padding 201\n // padding 202\n // padding 203\n // padding 204\n // padding 205\n // padding 206\n // padding 207\n // padding 208\n // padding 209\n // padding 210\n // padding 211\n // padding 212\n // padding 213\n // padding 214\n // padding 215\n // padding 216\n // padding 217\n // padding 218\n // padding 219\n // padding 220\n // padding 221\n // padding 222\n // padding 223\n // padding 224\n // padding 225\n // padding 226\n // padding 227\n // padding 228\n // padding 229\n // padding 230\n // padding 231\n // padding 232\n // padding 233\n // padding 234\n // padding 235\n // padding 236\n // padding 237\n // padding 238\n // padding 239\n // padding 240\n // padding 241\n // padding 242\n // padding 243\n // padding 244\n // padding 245\n // padding 246\n // padding 247\n // padding 248\n // padding 249\n PRINT(\"ok\");\nEND;\n",
+    "accepted": true,
+    "line": null,
+    "column": null,
+    "exports": [
+      [
+        "LONG",
+        9
+      ]
+    ]
+  }
+]

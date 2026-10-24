@@ -17,6 +17,16 @@ use crate::ide::diagnostics::DiagnosticItem;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TabId(pub u64);
 
+/// Compiler diagnostics for one revision of a tab.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TabAnalysis {
+    pub revision: u64,
+    /// Sorted by line and column.
+    pub items: Vec<DiagnosticItem>,
+    /// The compiler failed internally (not a source error).
+    pub failure: Option<String>,
+}
+
 impl TabId {
     fn next() -> TabId {
         static NEXT: AtomicU64 = AtomicU64::new(1);
@@ -32,6 +42,23 @@ pub struct FileFormat {
     pub bom: bool,
     /// Lines ended with `\r\n` (the editor works on `\n`).
     pub crlf: bool,
+}
+
+impl FileFormat {
+    /// Short status-bar label, e.g. `UTF-16LE (.hpprgm), CRLF`.
+    pub fn label(&self) -> String {
+        let enc = match self.encoding {
+            SourceEncoding::Utf8 if self.bom => "UTF-8 BOM",
+            SourceEncoding::Utf8 => "UTF-8",
+            SourceEncoding::Utf16Le => "UTF-16LE",
+            SourceEncoding::Utf16LeContainer { .. } => "UTF-16LE (.hpprgm)",
+        };
+        if self.crlf {
+            format!("{enc}, CRLF")
+        } else {
+            enc.to_string()
+        }
+    }
 }
 
 impl Default for FileFormat {
@@ -152,7 +179,9 @@ pub struct EditorTab {
     /// Unsaved changes. Kept in sync with the content by
     /// [`EditorTab::sync`]: undoing back to the saved text clears it.
     pub modified: bool,
-    pub diagnostics: Vec<DiagnosticItem>,
+    /// The compiler's last result for this buffer, tagged with the revision
+    /// it analysed. Only shown while that revision is current.
+    pub analysis: Option<TabAnalysis>,
     pub breakpoints: BTreeSet<usize>,
     /// Pending cursor jump (char index) applied on the next frame.
     pub pending_jump: Option<usize>,
@@ -178,7 +207,7 @@ impl EditorTab {
             saved_hash: content_hash(&content),
             content,
             modified: false,
-            diagnostics: Vec::new(),
+            analysis: None,
             breakpoints: BTreeSet::new(),
             pending_jump: None,
             pending_select: None,
@@ -220,6 +249,18 @@ impl EditorTab {
             self.modified = content_hash(&self.content) != self.saved_hash;
         }
         changed
+    }
+
+    /// The analysis of the current revision, if it has finished.
+    pub fn current_analysis(&mut self) -> Option<&TabAnalysis> {
+        let rev = self.revision();
+        self.analysis.as_ref().filter(|a| a.revision == rev)
+    }
+
+    /// Diagnostics of the current revision; empty while it is unanalysed,
+    /// so results computed for older text are never shown.
+    pub fn current_diagnostics(&mut self) -> &[DiagnosticItem] {
+        self.current_analysis().map_or(&[], |a| &a.items)
     }
 
     /// Content revision: advances on every real change (see [`Self::sync`]).

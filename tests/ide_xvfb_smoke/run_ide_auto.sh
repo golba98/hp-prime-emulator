@@ -24,7 +24,12 @@ export NO_COLOR=1
 export PPL_IDE_AUTOMATION="$SCRIPT"
 cd "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator"
 T0=$(date +%s)
-timeout "$TIMEOUT" ./target/release/ppl gui >/tmp/ppl-ide-e2e/ide_run.log 2>&1
+# The release binary lives in Cargo's target directory, which
+# .cargo/config.toml may move outside the repository; PPL_BIN overrides.
+TARGET_DIR="$(cargo metadata --format-version 1 --no-deps 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null)"
+PPL_BIN="${PPL_BIN:-${TARGET_DIR:-./target}/release/ppl}"
+timeout "$TIMEOUT" "$PPL_BIN" gui >/tmp/ppl-ide-e2e/ide_run.log 2>&1
 CODE=$?
 T1=$(date +%s)
 kill -TERM "$XVFB_PID" 2>/dev/null

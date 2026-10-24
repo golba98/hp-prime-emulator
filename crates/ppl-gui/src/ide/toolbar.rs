@@ -180,7 +180,7 @@ impl IdePanel for ToolBar {
                 ui.painter().rect_stroke(
                     rect,
                     0.0,
-                    Stroke::new(1.0, status_color),
+                    Stroke::new(1.0_f32, status_color),
                     StrokeKind::Inside,
                 );
             });

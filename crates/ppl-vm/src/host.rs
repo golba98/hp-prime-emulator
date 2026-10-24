@@ -23,6 +23,11 @@ pub enum Dialog {
     Input {
         title: String,
         fields: Vec<InputField>,
+        /// Shown when the previous entry was rejected; the dialog stays
+        /// open, as on the calculator.
+        error: Option<String>,
+        /// 0-based field that receives focus.
+        focus: usize,
     },
 }
 
@@ -30,8 +35,12 @@ pub enum Dialog {
 pub struct InputField {
     pub label: String,
     pub help: String,
-    /// Current value, formatted.
+    /// Initial editor text: the current value, formatted so that
+    /// accepting it unchanged reproduces the value.
     pub current: String,
+    /// Allowed types are exactly `[2]`: the entry is stored as a string
+    /// verbatim instead of being evaluated (no quotes needed).
+    pub string_only: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -82,6 +91,29 @@ pub trait Host {
     }
 }
 
+/// One scripted INPUT dialog response for headless runs.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ScriptedInput {
+    /// Text typed into the next field.
+    Text(String),
+    /// Esc: cancels the whole dialog.
+    Cancel,
+}
+
+impl ScriptedInput {
+    /// The CLI token that stands for [`ScriptedInput::Cancel`].
+    pub const CANCEL_TOKEN: &'static str = "<ESC>";
+
+    /// Parses a CLI `--input` value (`<ESC>` cancels).
+    pub fn parse(text: &str) -> ScriptedInput {
+        if text == Self::CANCEL_TOKEN {
+            ScriptedInput::Cancel
+        } else {
+            ScriptedInput::Text(text.to_string())
+        }
+    }
+}
+
 /// One scripted event for headless runs.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ScriptEvent {
@@ -97,7 +129,7 @@ pub struct HeadlessHost {
     pub output: Vec<String>,
     pub echo: bool,
     pub keys: VecDeque<ScriptEvent>,
-    pub inputs: VecDeque<String>,
+    pub inputs: VecDeque<ScriptedInput>,
     pub choices: VecDeque<usize>,
     pub dialogs: Vec<String>,
     pub clock_ms: f64,
@@ -219,15 +251,28 @@ impl Host for HeadlessHost {
                     Ok(DialogResult::Chosen(pick))
                 }
             }
-            Dialog::Input { title, fields } => {
+            Dialog::Input {
+                title,
+                fields,
+                error,
+                ..
+            } => {
+                if let Some(e) = error {
+                    self.dialogs.push(format!("INPUT-ERROR: {e}"));
+                }
                 let mut out = Vec::new();
-                for f in fields {
-                    let v = self
+                for _ in fields {
+                    match self
                         .inputs
                         .pop_front()
-                        .ok_or_else(|| self.exhausted("INPUT"))?;
-                    out.push(v);
-                    let _ = f;
+                        .ok_or_else(|| self.exhausted("INPUT"))?
+                    {
+                        ScriptedInput::Text(t) => out.push(t),
+                        ScriptedInput::Cancel => {
+                            self.dialogs.push(format!("INPUT: {title} -> cancelled"));
+                            return Ok(DialogResult::Cancelled);
+                        }
+                    }
                 }
                 self.dialogs.push(format!("INPUT: {title} -> {out:?}"));
                 Ok(DialogResult::Entered(out))

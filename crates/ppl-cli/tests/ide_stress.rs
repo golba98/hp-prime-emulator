@@ -463,7 +463,13 @@ fn test_stress_compiler_generated_eof_diagnostic_mapping() {
     assert!(end_char > start_char);
 
     let mut tab = EditorTab::new("test.ppl", source);
-    tab.diagnostics.push(item.clone());
+    let revision = tab.revision();
+    tab.analysis = Some(editor::TabAnalysis {
+        revision,
+        items: vec![item.clone()],
+        failure: None,
+    });
+    assert_eq!(tab.current_diagnostics(), &[item.clone()][..]);
     tab.goto_line(item.line, item.col);
     assert!(tab.pending_jump.is_some());
 }

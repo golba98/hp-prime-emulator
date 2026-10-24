@@ -67,7 +67,7 @@ pub fn show(ui: &mut egui::Ui, id: egui::Id, g: GutterInput<'_>) -> Option<usize
             pos2(rect.max.x - 0.5, rect.min.y),
             pos2(rect.max.x - 0.5, rect.max.y),
         ],
-        Stroke::new(1.0, crate::theme::BORDER_CRISP.gamma_multiply(0.6)),
+        Stroke::new(1.0_f32, crate::theme::BORDER_CRISP.gamma_multiply(0.6)),
     );
 
     let rows = visible_rows(g.galley, g.galley_pos, g.rect);

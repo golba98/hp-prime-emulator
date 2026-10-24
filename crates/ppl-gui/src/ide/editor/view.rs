@@ -93,7 +93,7 @@ fn squiggle(painter: &egui::Painter, x0: f32, x1: f32, y: f32, color: egui::Colo
         x += 1.0;
     }
     if points.len() >= 2 {
-        painter.add(Shape::line(points, Stroke::new(1.0, color)));
+        painter.add(Shape::line(points, Stroke::new(1.0_f32, color)));
     }
 }
 
@@ -179,10 +179,13 @@ pub fn show(
     let mut typed_word = false;
     let mut caret_rect: Option<Rect> = None;
 
+    // Diagnostics are drawn only for the revision they were computed from:
+    // spans of older text would underline the wrong code.
+    let doc_revision = tab.doc.revision();
     let EditorTab {
         content,
         doc,
-        diagnostics,
+        analysis: tab_analysis,
         breakpoints,
         ..
     } = tab;
@@ -217,6 +220,10 @@ pub fn show(
                         .show(ui)
                 })
                 .inner;
+            let diagnostics: &[DiagnosticItem] = match tab_analysis {
+                Some(a) if a.revision == doc_revision && !output.response.changed() => &a.items,
+                _ => &[],
+            };
             let galley = output.galley.clone();
             let gpos = output.galley_pos;
             let has_focus = output.response.has_focus();
@@ -293,7 +300,7 @@ pub fn show(
                         bg.push(Shape::rect_stroke(
                             r,
                             2.0,
-                            Stroke::new(1.0, ACCENT_AMBER),
+                            Stroke::new(1.0_f32, ACCENT_AMBER),
                             egui::StrokeKind::Inside,
                         ));
                     }
@@ -409,7 +416,7 @@ pub fn show(
         ui.painter().rect_stroke(
             outer.round_to_pixels(ui.pixels_per_point()),
             0.0,
-            Stroke::new(1.0, colors::FOCUS_BORDER.gamma_multiply(0.7)),
+            Stroke::new(1.0_f32, colors::FOCUS_BORDER.gamma_multiply(0.7)),
             egui::StrokeKind::Inside,
         );
     }

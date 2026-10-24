@@ -1,0 +1,266 @@
+{
+  "suite": "strings_baseconv",
+  "evidence": null,
+  "cases": [
+    {
+      "id": "bc_mid_past_end",
+      "source": "\"|\"+MID(\"ABC\",4)+\"|\"",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"||\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "MID starting one past the end (emulator: \"||\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_mid_len_past_end",
+      "source": "MID(\"ABC\",2,9)",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"BC\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "MID length beyond the end clamps (emulator: \"BC\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_left_zero",
+      "source": "\"|\"+LEFT(\"A\",0)+\"|\"",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"||\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "LEFT with length 0 (emulator: \"||\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_left_past_end",
+      "source": "LEFT(\"AB\",9)",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"AB\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "LEFT longer than the string (emulator: \"AB\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_instring_miss",
+      "source": "INSTRING(\"0123456789ABCDEF\",\"G\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "INSTRING of a missing character (emulator: 0)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_instring_hit",
+      "source": "INSTRING(\"0123456789ABCDEF\",\"A\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "11"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "1-based INSTRING position (emulator: 11)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_instring_empty_needle",
+      "source": "INSTRING(\"abc\",\"\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "INSTRING with an empty needle (emulator: 0)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_dim_empty",
+      "source": "DIM(\"\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Length of the empty string (emulator: 0)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_upper_mixed",
+      "source": "UPPER(\"7b.8\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"7B.8\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "UPPER leaves digits and dots (emulator: \"7B.8\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_upper_non_ascii",
+      "source": "UPPER(\"äb\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"ÄB\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "UPPER on a non-ASCII letter (emulator: \"ÄB\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_dim_unicode",
+      "source": "DIM(\"₂é\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "DIM counts characters, not bytes (emulator: 2)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_string_real",
+      "source": "STRING(10.5)",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"10.5\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "STRING of a real (emulator: \"10.5\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_string_large",
+      "source": "STRING(1.84467440738E19)",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "\"1.84467440738E19\""
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "STRING of a 20-digit value in Standard format (emulator: \"1.84467440738E19\")",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_mod_16",
+      "source": "255 MOD 16",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "15"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Remainder of a hex digit step (emulator: 15)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_ip_div",
+      "source": "IP(255/16)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "15"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Quotient of a hex digit step (emulator: 15)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_ip_negative",
+      "source": "IP(-2.5)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-2"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "IP truncates toward zero (emulator: -2)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_round_13_digits",
+      "source": "9999999999999",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E13"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "A 13-digit literal rounds to 12 digits (emulator: 1E13)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_large_mod",
+      "source": "1.84467440738E19 MOD 10",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "MOD on a value beyond 12 integer digits (emulator: 0)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_large_ip_div",
+      "source": "IP(1.84467440738E19/16)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.15292150461E18"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "IP of a large quotient (emulator: 1.15292150461E18)",
+      "known_divergence": null
+    },
+    {
+      "id": "bc_frac_times_base",
+      "source": "IP(0.1*2*2*2*2)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Decimal fraction doubling stays exact (emulator: 1)",
+      "known_divergence": null
+    }
+  ]
+}

@@ -132,7 +132,11 @@ pub fn run(o: GuiOpts) -> u8 {
         return exit::COMPILE;
     };
 
-    let entry = match common::pick_entry(&prog, o.entry.as_deref()) {
+    let stem = o
+        .file
+        .as_deref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()));
+    let entry = match common::pick_entry(&prog, o.entry.as_deref(), stem) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("error: {e}");

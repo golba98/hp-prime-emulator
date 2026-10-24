@@ -95,7 +95,7 @@ pub fn publish<F>(
 where
     F: FnOnce() -> Result<()>,
 {
-    let guard = prime.preflight_mailbox(request, control)?;
+    let guard = prime.preflight_mailbox(request, Some(control))?;
     before_send()?;
     let upload = prime.send_new_note(guard, &request.payload)?;
     if upload.readback != ReadBack::Matches {

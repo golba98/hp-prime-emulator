@@ -36,9 +36,8 @@ pub fn load_source(file: Option<&Path>, code: Option<&str>) -> Result<SourceFile
     }
     match file {
         Some(p) => {
-            let (f, _) = ppl_syntax::read_source_file(p)
-                .map_err(|e| format!("cannot read {}: {e}", p.display()))?;
-            Ok(f)
+            let source = ppl_engine::source::Source::file(p)?;
+            Ok(SourceFile::new(source.identity.display_name, source.text))
         }
         None => {
             use std::io::Read;
@@ -86,60 +85,33 @@ pub fn compile(
     (prog.map(Rc::new), diags)
 }
 
-/// Chooses the function to run: `--entry`, else the only (or first)
-/// exported function.
-pub fn pick_entry(prog: &CompiledProgram, entry: Option<&str>) -> Result<String, String> {
-    if let Some(e) = entry {
-        return prog
-            .function_index(e)
-            .map(|_| e.to_string())
-            .ok_or_else(|| format!("no function named `{e}` in this program"));
-    }
-    let exported: Vec<&str> = prog.exported().map(|(_, c)| c.name.as_str()).collect();
-    match exported.as_slice() {
-        [] => Err("the program has no EXPORT function to run (use --entry NAME)".into()),
-        [one] => Ok(one.to_string()),
-        [first, rest @ ..] => {
+/// Chooses the function to run ([`CompiledProgram::pick_entry_with_stem`]) and
+/// notes the alternatives when several functions are exported.
+pub fn pick_entry(
+    prog: &CompiledProgram,
+    entry: Option<&str>,
+    preferred_stem: Option<&str>,
+) -> Result<String, String> {
+    let picked = prog.pick_entry_with_stem(entry, preferred_stem)?;
+    if entry.is_none() {
+        let others: Vec<&str> = prog
+            .exported()
+            .map(|(_, c)| c.name.as_str())
+            .filter(|n| *n != picked)
+            .collect();
+        if !others.is_empty() {
             eprintln!(
-                "note: several EXPORT functions; running `{first}` (others: {}; choose with --entry)",
-                rest.join(", ")
+                "note: several EXPORT functions; running `{picked}` (others: {}; choose with --entry)",
+                others.join(", ")
             );
-            Ok(first.to_string())
         }
     }
+    Ok(picked)
 }
 
 /// Parses `--args "50, {1,2}, \"s\""` into values (top-level commas split).
 pub fn parse_args(text: Option<&str>, settings: &Settings) -> Result<Vec<Value>, String> {
-    let Some(text) = text else {
-        return Ok(Vec::new());
-    };
-    let mut parts = Vec::new();
-    let mut depth = 0i32;
-    let mut in_str = false;
-    let mut cur = String::new();
-    for c in text.chars() {
-        match c {
-            '"' => in_str = !in_str,
-            '{' | '[' | '(' if !in_str => depth += 1,
-            '}' | ']' | ')' if !in_str => depth -= 1,
-            ',' if depth == 0 && !in_str => {
-                parts.push(std::mem::take(&mut cur));
-                continue;
-            }
-            _ => {}
-        }
-        cur.push(c);
-    }
-    parts.push(cur);
-    parts
-        .iter()
-        .map(|p| p.trim())
-        .filter(|p| !p.is_empty())
-        .map(|p| {
-            ppl_vm::eval_text_with(p, settings).map_err(|e| format!("bad argument `{p}`: {e}"))
-        })
-        .collect()
+    ppl_engine::arguments::ppl_args(text, settings)
 }
 
 pub fn report_runtime_error(file: &SourceFile, err: &RuntimeError) {

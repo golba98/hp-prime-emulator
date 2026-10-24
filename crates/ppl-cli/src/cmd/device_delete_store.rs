@@ -12,7 +12,14 @@ fn disk(e: impl std::fmt::Display) -> DeviceError {
 }
 pub fn sync_dir(path: &Path) -> io::Result<()> {
     #[cfg(unix)]
-    std::fs::File::open(path)?.sync_all()?;
+    {
+        std::fs::File::open(path)?.sync_all()?;
+    }
+    #[cfg(not(unix))]
+    {
+        // No portable directory-fsync equivalent; durability is left to the OS.
+        let _ = path;
+    }
     Ok(())
 }
 fn durable_directory(path: &Path) -> io::Result<()> {

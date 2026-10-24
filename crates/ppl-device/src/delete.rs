@@ -417,7 +417,7 @@ pub fn upload_deletion_helper(
             (FileType::Program, deletion.helper.as_str()),
             (FileType::Note, deletion.helper_note.as_str()),
         ],
-        control,
+        Some(control),
     )?;
     let report = p.send_new_program(guard, &deletion.source)?;
     Ok(report)

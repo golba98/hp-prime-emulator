@@ -64,13 +64,21 @@ pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
             items,
             current,
         } => Box::new(ChooseBox::new(title, items.clone(), *current)),
-        Dialog::Input { title, fields } => Box::new(InputBox::new(
+        Dialog::Input {
             title,
-            fields
-                .iter()
-                .map(|f| (f.label.clone(), f.help.clone(), f.current.clone()))
-                .collect(),
-        )),
+            fields,
+            error,
+            focus,
+        } => Box::new(
+            InputBox::new(
+                title,
+                fields
+                    .iter()
+                    .map(|f| (f.label.clone(), f.help.clone(), f.current.clone()))
+                    .collect(),
+            )
+            .with_error(*focus, error.clone()),
+        ),
     }
 }
 
@@ -124,6 +132,7 @@ const C_PANEL: u32 = 0x00E0_E0E0;
 const C_TITLE: u32 = 0x0000_3366;
 const C_HINT: u32 = 0x0055_5555;
 const C_SELECT: u32 = 0x0033_66CC;
+const C_ERROR: u32 = 0x00CC_0000;
 const PX: f32 = 12.0;
 const PX_HINT: f32 = 10.0;
 
@@ -371,6 +380,8 @@ pub struct InputBox {
     pub fields: Vec<EditField>,
     pub focus: usize,
     pub scroll: usize,
+    /// Why the previous entry was rejected (shown in place of the help).
+    pub error: Option<String>,
 }
 
 impl InputBox {
@@ -389,7 +400,17 @@ impl InputBox {
                 .collect(),
             focus: 0,
             scroll: 0,
+            error: None,
         }
+    }
+
+    /// Reopens the form after a rejected entry: focus on the offending
+    /// field and show the reason.
+    pub fn with_error(mut self, focus: usize, error: Option<String>) -> Self {
+        self.focus = focus.min(self.fields.len().saturating_sub(1));
+        self.error = error;
+        self.fix_scroll();
+        self
     }
 
     pub fn values(&self) -> Vec<String> {
@@ -486,7 +507,9 @@ impl ModalDialog for InputBox {
             .get(self.focus)
             .map(|f| f.help.as_str())
             .unwrap_or("");
-        if !help.is_empty() {
+        if let Some(err) = &self.error {
+            draw_text(&mut g, err, 16, 180, PX_HINT, C_ERROR, Some(288), None);
+        } else if !help.is_empty() {
             draw_text(&mut g, help, 16, 180, PX_HINT, C_HINT, Some(288), None);
         }
         draw_text(
@@ -663,6 +686,38 @@ mod tests {
         assert_eq!(
             i.handle(KeyPress::code(KEY_ESC)),
             Some(DialogResult::Cancelled)
+        );
+    }
+
+    #[test]
+    fn input_reopened_with_error_focuses_field_and_draws_message() {
+        let fields = vec![
+            ("A".into(), "help".into(), "1".into()),
+            ("B".into(), "help".into(), "abc".into()),
+        ];
+        let plain = InputBox::new("T", fields.clone());
+        let i = InputBox::new("T", fields).with_error(1, Some("Syntax error".into()));
+        assert_eq!(i.focus, 1);
+        let base = Grob::screen();
+        assert_ne!(plain.render(&base).pixels(), i.render(&base).pixels());
+        // The previous entry is kept and replaced by the first typed key.
+        let mut i = i;
+        let mut keys = typed("16");
+        keys.push(KeyPress::code(KEY_ENTER));
+        assert_eq!(
+            feed(&mut i, &keys),
+            Some(DialogResult::Entered(vec!["1".into(), "16".into()]))
+        );
+    }
+
+    #[test]
+    fn input_string_field_takes_letters_verbatim() {
+        let mut i = InputBox::new("T", vec![("N".into(), String::new(), String::new())]);
+        let mut keys = typed("7b.8");
+        keys.push(KeyPress::code(KEY_ENTER));
+        assert_eq!(
+            feed(&mut i, &keys),
+            Some(DialogResult::Entered(vec!["7b.8".into()]))
         );
     }
 

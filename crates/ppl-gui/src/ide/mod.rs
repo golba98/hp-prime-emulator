@@ -109,6 +109,52 @@ impl VmExecutionState {
     }
 }
 
+/// What the compiler says about the current revision of a buffer.
+///
+/// Only `Valid`, `ValidWithWarnings`, `Invalid` and `AnalysisFailed` are
+/// verdicts; the others mean the current text has not been analysed yet,
+/// so "no problems" must not be claimed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum AnalysisState {
+    #[default]
+    NotAnalyzed,
+    /// Changed; waiting for the typing pause before analysis.
+    Queued,
+    /// Sent to the background compiler.
+    Analyzing,
+    Valid,
+    /// Compiles; carries the number of warnings.
+    ValidWithWarnings(usize),
+    Invalid {
+        errors: usize,
+        warnings: usize,
+    },
+    /// The compiler failed internally: neither valid nor invalid source.
+    AnalysisFailed(String),
+}
+
+impl AnalysisState {
+    /// True once the current revision has a compiler verdict.
+    pub fn is_settled(&self) -> bool {
+        !matches!(
+            self,
+            AnalysisState::NotAnalyzed | AnalysisState::Queued | AnalysisState::Analyzing
+        )
+    }
+
+    /// Short status-bar text.
+    pub fn label(&self) -> String {
+        match self {
+            AnalysisState::NotAnalyzed => "PPL: not analysed".into(),
+            AnalysisState::Queued | AnalysisState::Analyzing => "PPL: analysing…".into(),
+            AnalysisState::Valid => "PPL: valid".into(),
+            AnalysisState::ValidWithWarnings(n) => format!("PPL: valid, {n} warning(s)"),
+            AnalysisState::Invalid { errors, .. } => format!("PPL: {errors} error(s)"),
+            AnalysisState::AnalysisFailed(_) => "PPL: analysis failed".into(),
+        }
+    }
+}
+
 /// Pending user actions queued by menus, toolbars, or keyboard shortcuts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdeAction {
@@ -197,6 +243,10 @@ pub struct IdeAppState {
 
     // Execution & metrics
     pub vm_state: VmExecutionState,
+    /// Compiler verdict for the active tab's current text.
+    pub analysis: AnalysisState,
+    /// Encoding of the active tab's file, as saved back.
+    pub encoding_label: String,
     pub step_count: u64,
     pub elapsed_time: Duration,
     pub cursor_line: usize,
@@ -234,6 +284,8 @@ impl Default for IdeAppState {
             workspace_root: std::env::current_dir().ok(),
             recent_files: Vec::new(),
             vm_state: VmExecutionState::Idle,
+            analysis: AnalysisState::NotAnalyzed,
+            encoding_label: "UTF-8".into(),
             step_count: 0,
             elapsed_time: Duration::ZERO,
             cursor_line: 1,

@@ -19,6 +19,14 @@ pub struct ProblemsPanel {
     pub active_tab_index: usize,
     /// Classes currently hidden by the filter chips.
     pub hidden: BTreeSet<DiagnosticClass>,
+    /// Open files whose current text has no compiler verdict yet: the list
+    /// is incomplete while this is non-empty.
+    pub pending: Vec<String>,
+    /// Open files the compiler failed on internally: `(file, reason)`.
+    pub failures: Vec<(String, String)>,
+    /// Screen rect of each visible row's message, in display order (for
+    /// pointer-driven tests).
+    pub(crate) row_rects: Vec<egui::Rect>,
 }
 
 fn severity_color(s: Severity) -> egui::Color32 {
@@ -44,6 +52,28 @@ impl ProblemsPanel {
 
     pub fn clear(&mut self) {
         self.items.clear();
+    }
+
+    /// Every open file has a compiler verdict for its current text, so an
+    /// empty list really means "no problems".
+    pub fn is_settled(&self) -> bool {
+        self.pending.is_empty() && self.failures.is_empty()
+    }
+
+    /// The dock tab title. The count is only claimed once settled.
+    pub fn title(&self) -> String {
+        let total = self.items.len();
+        let errors = self.error_count();
+        let count = if self.is_settled() {
+            total.to_string()
+        } else {
+            format!("{total}…")
+        };
+        if errors > 0 {
+            format!("Problems ({count}, {errors} errors)")
+        } else {
+            format!("Problems ({count})")
+        }
     }
 
     pub fn error_count(&self) -> usize {
@@ -120,12 +150,32 @@ impl IdePanel for ProblemsPanel {
             });
             ui.add(egui::Separator::default().spacing(4.0));
 
+            for (file, reason) in &self.failures {
+                ui.label(
+                    RichText::new(format!(
+                        "{file}: analysis failed ({reason}); the source was not checked"
+                    ))
+                    .color(ACCENT_RED)
+                    .size(12.0),
+                );
+            }
+            if !self.pending.is_empty() {
+                ui.label(
+                    RichText::new(format!("Analysing {}…", self.pending.join(", ")))
+                        .color(TEXT_MUTED)
+                        .size(12.0),
+                );
+            }
+            self.row_rects.clear();
             if self.items.is_empty() {
-                ui.centered_and_justified(|ui| {
-                    ui.label(RichText::new("No problems detected.").color(TEXT_MUTED));
-                });
+                if self.is_settled() {
+                    ui.centered_and_justified(|ui| {
+                        ui.label(RichText::new("No problems detected.").color(TEXT_MUTED));
+                    });
+                }
                 return;
             }
+            let grouped = self.items.iter().any(|i| i.file != self.items[0].file);
 
             let mut navigate = None;
             ScrollArea::both().auto_shrink([false; 2]).show(ui, |ui| {
@@ -139,7 +189,19 @@ impl IdePanel for ProblemsPanel {
                         }
                         ui.end_row();
 
+                        let mut file: Option<&str> = None;
+                        let mut rects = Vec::new();
                         for item in self.visible() {
+                            if grouped && file != Some(item.file.as_str()) {
+                                file = Some(item.file.as_str());
+                                let n = self.items.iter().filter(|i| i.file == item.file).count();
+                                ui.label(
+                                    RichText::new(format!("{} ({n})", item.file))
+                                        .strong()
+                                        .size(12.0),
+                                );
+                                ui.end_row();
+                            }
                             let color = severity_color(item.severity);
                             ui.label(RichText::new(item.class.label()).size(12.0));
                             ui.label(RichText::new(item.severity_label()).color(color).size(12.0));
@@ -156,16 +218,17 @@ impl IdePanel for ProblemsPanel {
                             if item.unverified {
                                 message.push_str("  (unverified rule)");
                             }
+                            if let Some(h) = &item.hint {
+                                message.push_str(&format!("  — {h}"));
+                            }
                             let msg = ui.selectable_label(false, RichText::new(message).size(12.0));
-                            let msg = match &item.hint {
-                                Some(h) => msg.on_hover_text(format!("hint: {h}")),
-                                None => msg,
-                            };
+                            rects.push(msg.rect);
                             if loc.clicked() || code.clicked() || msg.clicked() {
                                 navigate = Some((item.tab, item.line, item.col));
                             }
                             ui.end_row();
                         }
+                        self.row_rects = rects;
                     });
             });
             if let Some((tab, line, col)) = navigate {

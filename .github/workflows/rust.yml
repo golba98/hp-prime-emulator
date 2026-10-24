@@ -1,6 +1,7 @@
 name: Rust CI
 
 on:
+  workflow_dispatch:
   push:
     branches: ["**"]
   pull_request:
@@ -12,39 +13,35 @@ env:
 
 jobs:
   check-and-test:
-    name: Check, Lint & Test (${{ matrix.os }})
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            name: Linux — native and firmware infrastructure
+            exclude: ""
+          - os: windows-latest
+            name: Windows — native engine
+            exclude: "--exclude prime-emulator"
     runs-on: ${{ matrix.os }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-
-      - name: Install Linux dependencies (hidapi, udev)
+      - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev pkg-config
-
-      - name: Verify code formatting
+          sudo apt-get install -y build-essential clang libclang-dev cmake libudev-dev pkg-config
+      - name: Formatting
         run: cargo fmt --all -- --check
-
-      - name: Cargo check all targets
-        run: cargo check --workspace --all-targets
-
-      - name: Run Clippy checks
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Run workspace tests
-        run: cargo test --workspace
-
+      - name: Check
+        run: cargo check --locked --workspace ${{ matrix.exclude }} --all-targets
+      - name: Clippy
+        run: cargo clippy --locked --workspace ${{ matrix.exclude }} --all-targets -- -D warnings
+      - name: Tests (firmware assets are not distributed to CI)
+        run: cargo test --locked --workspace ${{ matrix.exclude }} --all-targets
       - name: Release build
-        run: cargo build --workspace --release
+        run: cargo build --locked --workspace ${{ matrix.exclude }} --release

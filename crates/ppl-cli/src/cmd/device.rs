@@ -21,6 +21,9 @@ pub struct DeviceOpts {
     /// Write every raw HID report exchanged to this file.
     #[arg(long, global = true)]
     pub log: Option<PathBuf>,
+    /// Write structured protocol/USB trace to this file.
+    #[arg(long, global = true)]
+    pub trace: Option<PathBuf>,
     /// Emit machine-readable results for status, listener, and remote execution.
     #[arg(long, global = true)]
     pub json: bool,
@@ -94,9 +97,10 @@ pub enum DeviceAction {
         name: String,
         /// PPL source file (or, with --note, the note text file) to send unchanged.
         file: PathBuf,
-        /// Existing object used as the preflight control, as `type:name`.
-        #[arg(long, default_value = DEFAULT_CONTROL)]
-        control: String,
+        /// Optional existing object used for preflight diagnostics, as `type:name`.
+        /// If omitted or absent, device-level transport verification is used.
+        #[arg(long)]
+        control: Option<String>,
         /// Send a NOTE instead of a program (same ZZT_ rules and preflight).
         #[arg(long)]
         note: bool,
@@ -146,9 +150,10 @@ pub enum DeviceAction {
         /// Seconds per silent poll (default 2).
         #[arg(long)]
         poll_secs: Option<u64>,
-        /// Existing object used as the preflight control, as `type:name`.
-        #[arg(long, default_value = DEFAULT_CONTROL)]
-        control: String,
+        /// Optional existing object used for preflight diagnostics, as `type:name`.
+        /// If omitted or absent, device-level transport verification is used.
+        #[arg(long)]
+        control: Option<String>,
         /// Save the captured note text to this file.
         #[arg(long)]
         out: Option<PathBuf>,
@@ -365,7 +370,7 @@ pub fn run(o: DeviceOpts) -> u8 {
         );
         return exit::USAGE;
     }
-    let code = run_inner(&o.action, o.log.as_ref(), o.json);
+    let code = run_inner(&o.action, o.log.as_ref(), o.trace.as_ref(), o.json);
     if code != exit::OK {
         eprintln!(
             "hint: the calculator must be on, unlocked, and not in exam mode; close the Connectivity Kit if it is running"
@@ -374,7 +379,12 @@ pub fn run(o: DeviceOpts) -> u8 {
     code
 }
 
-fn run_inner(action: &DeviceAction, log: Option<&PathBuf>, json: bool) -> u8 {
+fn run_inner(
+    action: &DeviceAction,
+    log: Option<&PathBuf>,
+    trace: Option<&PathBuf>,
+    json: bool,
+) -> u8 {
     if let DeviceAction::Detect = action {
         return match ppl_device::detect() {
             Ok(list) if list.is_empty() => {
@@ -435,7 +445,7 @@ fn run_inner(action: &DeviceAction, log: Option<&PathBuf>, json: bool) -> u8 {
             control,
             note,
             runs_dir,
-        } => match prepare_send(name, file, control, *note, runs_dir) {
+        } => match prepare_send(name, file, control.as_deref(), *note, runs_dir) {
             Ok(s) => Some(s),
             Err(code) => return code,
         },
@@ -448,6 +458,9 @@ fn run_inner(action: &DeviceAction, log: Option<&PathBuf>, json: bool) -> u8 {
             return exit::IO;
         }
     };
+    if trace.is_some() {
+        p.trace_enabled = true;
+    }
     let result = match &send {
         Some(s) => send_program(&mut p, s),
         None => act(&mut p, action),
@@ -457,6 +470,11 @@ fn run_inner(action: &DeviceAction, log: Option<&PathBuf>, json: bool) -> u8 {
             eprintln!("error: cannot write log {}: {e}", path.display());
         }
     }
+    if let Some(path) = trace {
+        if let Err(e) = std::fs::write(path, p.trace_text()) {
+            eprintln!("error: cannot write trace {}: {e}", path.display());
+        }
+    }
     match result {
         Ok(code) => code,
         Err(e) => {
@@ -464,9 +482,9 @@ fn run_inner(action: &DeviceAction, log: Option<&PathBuf>, json: bool) -> u8 {
             if let DeviceError::Inconclusive(_) = e {
                 eprintln!(
                     "hint: the preflight could not establish that the names are free, so nothing was written. \
-                     Make sure the control object exists on the calculator (default: create an empty program \
-                     named ZZT_CTRL, or pass --control type:name), that the calculator shows the Home screen \
-                     and is not busy, then retry."
+                     Make sure the calculator is on, shows the Home screen, is not busy or in exam mode, and \
+                     that no other program (e.g. Connectivity Kit) holds the USB connection, then retry. \
+                     No control program is required; --control type:name is an optional extra probe."
                 );
             }
             exit::IO
@@ -480,7 +498,7 @@ struct SendPlan {
     /// For a program send: its future result note. Unused for notes.
     note: String,
     text: String,
-    control: ControlObject,
+    control: Option<ControlObject>,
     /// Send a note (not a program).
     is_note: bool,
     /// Runs directory for the upload ledger.
@@ -490,7 +508,7 @@ struct SendPlan {
 fn prepare_send(
     name: &str,
     file: &Path,
-    control: &str,
+    control: Option<&str>,
     is_note: bool,
     runs_dir: &Path,
 ) -> Result<SendPlan, u8> {
@@ -509,12 +527,15 @@ fn prepare_send(
             return Err(exit::USAGE);
         }
     }
-    let control = match ControlObject::parse(control) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return Err(exit::USAGE);
-        }
+    let control = match control {
+        Some(c) if !c.trim().is_empty() => match ControlObject::parse(c.trim()) {
+            Ok(c) => Some(c),
+            Err(e) => {
+                eprintln!("error: {e}");
+                return Err(exit::USAGE);
+            }
+        },
+        _ => None,
     };
     let src = match std::fs::read(file) {
         Ok(b) => b,
@@ -560,38 +581,97 @@ fn prepare_send(
     })
 }
 
+/// Appends one line to `<runs_dir>/transfer-attempts.jsonl` for a transfer
+/// that did not end verified. Kept apart from the ownership ledger, which
+/// only ever lists read-back-verified objects, so a failed or indeterminate
+/// upload is recorded without claiming ownership or presence.
+fn record_attempt(s: &SendPlan, state: &str, detail: &str, bytes: usize) {
+    let line = serde_json::json!({
+        "utc": ppl_compat::utc_now(),
+        "name": s.name,
+        "kind": if s.is_note { "note" } else { "program" },
+        "state": state,
+        "payload_bytes": bytes,
+        "detail": detail,
+    });
+    let path = s.runs_dir.join("transfer-attempts.jsonl");
+    let res = std::fs::create_dir_all(&s.runs_dir).and_then(|_| {
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)?;
+        writeln!(f, "{line}")
+    });
+    if let Err(e) = res {
+        eprintln!("warning: cannot record attempt in {}: {e}", path.display());
+    }
+}
+
 fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
     let report = if s.is_note {
-        println!(
-            "preflight: control {}, target note:{} (about 20 s)...",
-            s.control, s.name
-        );
-        let guard = p.preflight_new_names(&[(FileType::Note, &s.name)], &s.control)?;
+        if let Some(ctrl) = &s.control {
+            println!(
+                "preflight: control {}, target note:{} (about 20 s)...",
+                ctrl, s.name
+            );
+        } else {
+            println!(
+                "preflight: device-level verification, target note:{} (about 16 s)...",
+                s.name
+            );
+        }
+        let guard = p.preflight_new_names(&[(FileType::Note, &s.name)], s.control.as_ref())?;
         for line in guard.log() {
             println!("  {line}");
         }
+        println!(
+            "Transfer initiated: sending note `{}` ({} UTF-16 bytes)...",
+            s.name,
+            s.text.encode_utf16().count() * 2
+        );
         p.send_new_note(guard, &s.text)?
     } else {
-        println!(
-            "preflight: control {}, targets program:{} and note:{} (about 40 s)...",
-            s.control, s.name, s.note
-        );
+        if let Some(ctrl) = &s.control {
+            println!(
+                "preflight: control {}, targets program:{} and note:{} (about 40 s)...",
+                ctrl, s.name, s.note
+            );
+        } else {
+            println!(
+                "preflight: device-level verification, targets program:{} and note:{} (about 32 s)...",
+                s.name, s.note
+            );
+        }
         let guard = p.preflight_new_names(
             &[(FileType::Program, &s.name), (FileType::Note, &s.note)],
-            &s.control,
+            s.control.as_ref(),
         )?;
         for line in guard.log() {
             println!("  {line}");
         }
+        println!(
+            "Transfer initiated: sending program `{}` ({} UTF-16 bytes)...",
+            s.name,
+            s.text.encode_utf16().count() * 2
+        );
         p.send_new_program(guard, &s.text)?
     };
+
     println!(
-        "sent `{}` ({} bytes of UTF-16 program data)",
-        report.name, report.bytes_sent
+        "Payload transmitted: {} bytes submitted to USB endpoint for `{}` (no write ACK on Prime wire protocol)",
+        report.bytes_sent, report.name
     );
+    println!(
+        "Device acknowledgement: none exists in this protocol. Awaiting read-back (F8) to verify..."
+    );
+
     match &report.readback {
         ReadBack::Matches => {
-            println!("read-back: matches ({} chars)", s.text.chars().count());
+            println!(
+                "Read-back verified: exact match ({} chars, CRC valid)",
+                s.text.chars().count()
+            );
             let identity_log_start = p.log.len();
             let info = p.info();
             // The added ownership query must not leak raw serial bytes into --log.
@@ -655,21 +735,40 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
             got_chars,
             ..
         } => {
+            record_attempt(
+                s,
+                "readback_differs",
+                &format!("sent {sent_chars} chars, got {got_chars}"),
+                report.bytes_sent,
+            );
             println!(
-                "read-back: DIFFERS (sent {sent_chars} chars, got {got_chars}); inspect with `ppl device get program {}`",
+                "Read-back differs: sent {sent_chars} chars, got {got_chars}; inspect with `ppl device get program {}`",
                 report.name
             );
             Ok(exit::IO)
         }
         ReadBack::NoReply => {
+            record_attempt(
+                s,
+                "indeterminate_no_readback",
+                "payload transmitted; no F7 reply to the single read-back F8",
+                report.bytes_sent,
+            );
             println!(
-                "read-back: no reply within {} s; the upload is UNVERIFIED (do not resend; inspect the Program Catalog)",
-                ppl_device::PROBE_TIMEOUT.as_secs()
+                "Outcome INDETERMINATE: `{}` was transmitted but the calculator gave no read-back within {} s. \
+                 Installation is neither confirmed nor ruled out; it was NOT retried. Do not resend under another name. \
+                 Check the Program Catalog, or later run `ppl device get program {}` (read-only).",
+                report.name,
+                ppl_device::READBACK_TIMEOUT.as_secs(),
+                report.name
             );
             Ok(exit::IO)
         }
         ReadBack::Failed { error } => {
-            println!("read-back: failed ({error}); the upload is UNVERIFIED");
+            record_attempt(s, "indeterminate_readback_failed", error, report.bytes_sent);
+            println!(
+                "Outcome INDETERMINATE: read-back failed ({error}); installation is not verified and was not retried"
+            );
             Ok(exit::IO)
         }
     }
@@ -774,7 +873,8 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
             no_audit,
             audit_path,
         } => {
-            let ctrl = match ControlObject::parse(control) {
+            let s = control.as_deref().unwrap_or(DEFAULT_CONTROL);
+            let ctrl = match ControlObject::parse(s) {
                 Ok(c) => c,
                 Err(e) => return Err(DeviceError::Refused(format!("--control: {e}"))),
             };
@@ -1176,7 +1276,7 @@ fn cleanup_execute(
                     return exit::USAGE;
                 }
             };
-            let guard = match p.preflight_new_names(&refs, &ctrl) {
+            let guard = match p.preflight_new_names(&refs, Some(&ctrl)) {
                 Ok(g) => g,
                 Err(e) => {
                     eprintln!("error: preflight refused: {e}");
@@ -1421,7 +1521,7 @@ fn cleanup_execute(
         (FileType::Note, note.clone()),
     ];
     let trefs: Vec<(FileType, &str)> = targets.iter().map(|(t, n)| (*t, n.as_str())).collect();
-    let guard = match p.preflight_new_names(&trefs, &ctrl) {
+    let guard = match p.preflight_new_names(&trefs, Some(&ctrl)) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("error: preflight refused: {e}");

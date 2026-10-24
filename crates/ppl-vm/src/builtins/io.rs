@@ -176,42 +176,125 @@ fn str_list(m: &Machine, v: Option<&Value>, n: usize) -> Vec<String> {
     }
 }
 
+/// The allowed TYPE codes of one INPUT field (`[2]` in `{{A,[2]}}`);
+/// empty means any type. The compiler passes `0` for a field without a
+/// type list, and `-1` in a list also allows every type.
+fn allowed_types(spec: &Value) -> Vec<i64> {
+    let codes: Vec<i64> = match spec {
+        Value::Matrix(mx) => mx
+            .data
+            .iter()
+            .filter_map(|v| v.expect_i64("INPUT").ok())
+            .collect(),
+        Value::List(l) => l
+            .iter()
+            .filter_map(|v| v.expect_i64("INPUT").ok())
+            .collect(),
+        _ => Vec::new(),
+    };
+    if codes.contains(&-1) {
+        Vec::new()
+    } else {
+        codes
+    }
+}
+
+/// The value typed into one field, or the message the dialog shows when
+/// the entry is rejected.
+fn field_value(m: &Machine, text: &str, current: &Value, allowed: &[i64]) -> Result<Value, String> {
+    // A string-only field stores the text verbatim and never evaluates it
+    // (HP: "the input will be shown WITHOUT the quotes and save directly as
+    // a string"). UNVERIFIED on G1: an empty string-only entry yields "".
+    if allowed == [2] {
+        return Ok(Value::str(text));
+    }
+    if text.trim().is_empty() {
+        return Ok(current.clone());
+    }
+    let v = m.eval_text(text).map_err(|e| {
+        // The field already shows the text: keep only the reason.
+        let prefix = format!("cannot evaluate `{text}`: ");
+        let reason = e.detail.strip_prefix(&prefix).unwrap_or(&e.detail);
+        format!("Syntax error: {reason}")
+    })?;
+    if !allowed.is_empty() && !allowed.contains(&v.type_code()) {
+        return Err(format!(
+            "Invalid input: a {} is not allowed here",
+            v.type_name()
+        ));
+    }
+    Ok(v)
+}
+
 /// `INPUT(var | {vars}, [title], [labels], [help], [reset], [initial])`.
-/// `args[0]` holds the current values of the referenced variables.
+/// `args[0]` holds the current values of the referenced variables and
+/// `args[1]` (added by the compiler) each field's allowed types.
+/// A rejected entry reopens the dialog with an error instead of stopping
+/// the program, the way the calculator keeps its form open.
 /// The reset and initial values (arguments 5 and 6) are accepted but not
 /// applied yet: fields always start from the variables' current values.
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
-    let title = args.get(1).map(|v| text_of(m, v)).unwrap_or_default();
-    let labels = str_list(m, args.get(2), n);
-    let helps = str_list(m, args.get(3), n);
-    let fields = (0..n)
-        .map(|i| InputField {
-            label: labels[i].clone(),
-            help: helps[i].clone(),
-            current: current[i].display(m.settings.format()),
+    let allowed: Vec<Vec<i64>> = match args.get(1) {
+        Some(Value::List(l)) => (0..n)
+            .map(|i| l.get(i).map(allowed_types).unwrap_or_default())
+            .collect(),
+        _ => vec![Vec::new(); n],
+    };
+    let title = args.get(2).map(|v| text_of(m, v)).unwrap_or_default();
+    let labels = str_list(m, args.get(3), n);
+    let helps = str_list(m, args.get(4), n);
+    let opts = m.settings.format();
+    let mut texts: Vec<String> = (0..n)
+        .map(|i| {
+            if allowed[i] == [2] {
+                current[i].display(opts)
+            } else {
+                current[i].string_form(opts)
+            }
         })
         .collect();
-    let screen = m.screen().clone();
-    let r = m.blocking(|h| h.dialog(&Dialog::Input { title, fields }, &screen))?;
-    match r {
-        DialogResult::Entered(texts) => {
-            let mut out = Vec::new();
-            for (i, t) in texts.iter().enumerate().take(n) {
-                let v = if t.trim().is_empty() {
-                    current[i].clone()
-                } else {
-                    m.eval_text(t)?
-                };
-                out.push(v);
+    let mut error = None;
+    let mut focus = 0;
+    loop {
+        let fields = (0..n)
+            .map(|i| InputField {
+                label: labels[i].clone(),
+                help: helps[i].clone(),
+                current: texts[i].clone(),
+                string_only: allowed[i] == [2],
+            })
+            .collect();
+        let dialog = Dialog::Input {
+            title: title.clone(),
+            fields,
+            error: error.take(),
+            focus,
+        };
+        let screen = m.screen().clone();
+        let DialogResult::Entered(entered) = m.blocking(|h| h.dialog(&dialog, &screen))? else {
+            return Ok((Value::zero(), current.iter().cloned().collect()));
+        };
+        let mut out = Vec::with_capacity(n);
+        for (i, text) in texts.iter_mut().enumerate() {
+            let Some(typed) = entered.get(i) else {
+                out.push(current[i].clone());
+                continue;
+            };
+            *text = typed.clone();
+            match field_value(m, typed, &current[i], &allowed[i]) {
+                Ok(v) => out.push(v),
+                Err(msg) => {
+                    error = Some(msg);
+                    focus = i;
+                    break;
+                }
             }
-            while out.len() < n {
-                out.push(current[out.len()].clone());
-            }
-            Ok((Value::from_i64(1), out))
         }
-        _ => Ok((Value::zero(), current.iter().cloned().collect())),
+        if out.len() == n {
+            return Ok((Value::from_i64(1), out));
+        }
     }
 }
 
