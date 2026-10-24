@@ -182,6 +182,44 @@ impl CompiledProgram {
             .filter(|(_, f)| f.exported)
     }
 
+    /// The function a run starts in: `entry` when given, else the only (or
+    /// first) exported function, else the program's only function. Shared
+    /// by `ppl run` and the IDE so both pick the same entry point.
+    pub fn pick_entry(&self, entry: Option<&str>) -> Result<String, String> {
+        self.pick_entry_with_stem(entry, None)
+    }
+
+    /// Like [`pick_entry`], but if `entry` is not given and an exported function
+    /// matches `preferred_stem` (e.g. the file or program name), it is preferred
+    /// over the first exported function in file order.
+    pub fn pick_entry_with_stem(
+        &self,
+        entry: Option<&str>,
+        preferred_stem: Option<&str>,
+    ) -> Result<String, String> {
+        if let Some(e) = entry {
+            return self
+                .function_index(e)
+                .map(|_| e.to_string())
+                .ok_or_else(|| format!("no function named `{e}` in this program"));
+        }
+        if let Some(stem) = preferred_stem {
+            if let Some((_, f)) = self
+                .exported()
+                .find(|(_, f)| f.name.eq_ignore_ascii_case(stem))
+            {
+                return Ok(f.name.clone());
+            }
+        }
+        if let Some((_, first)) = self.exported().next() {
+            return Ok(first.name.clone());
+        }
+        match self.functions.as_slice() {
+            [only] => Ok(only.name.clone()),
+            _ => Err("the program has no EXPORT function to run (use --entry NAME)".into()),
+        }
+    }
+
     /// Disassembly for `ppl check --dump-bytecode`.
     pub fn disassemble(&self) -> String {
         use std::fmt::Write;

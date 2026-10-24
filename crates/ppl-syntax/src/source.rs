@@ -117,6 +117,18 @@ pub enum SourceEncoding {
 /// inside the text is removed or rewritten, so string contents survive and
 /// line numbers stay exact.
 pub fn decode_source(bytes: &[u8]) -> (String, SourceEncoding) {
+    if bytes.len() >= 4
+        && u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == crate::hpprgm::MAGIC
+    {
+        if let Ok(container) = crate::hpprgm::parse(bytes) {
+            if let Ok(src) = container.source() {
+                return (
+                    normalise(&src.source),
+                    SourceEncoding::Utf16LeContainer { offset: src.offset },
+                );
+            }
+        }
+    }
     if let Some(rest) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
         return (
             normalise(&String::from_utf8_lossy(rest)),

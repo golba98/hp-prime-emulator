@@ -37,10 +37,11 @@ pub struct RunOpts {
     /// Function to run (default: the EXPORT function).
     #[arg(short, long)]
     pub entry: Option<String>,
-    /// Arguments for the function, e.g. --args "50, {1,2}".
+    /// Function arguments: legacy PPL by default; JSON with explicit --engine.
     #[arg(short, long)]
     pub args: Option<String>,
-    /// Value typed into the next INPUT field (repeatable).
+    /// Value typed into the next INPUT field (repeatable); `<ESC>` cancels
+    /// the dialog.
     #[arg(long = "input", value_name = "TEXT")]
     pub inputs: Vec<String>,
     /// Choice for the next CHOOSE (1-based; 0 = cancel; repeatable).
@@ -55,22 +56,22 @@ pub struct RunOpts {
     /// Save the final screen as PNG.
     #[arg(short = 'o', long = "png", value_name = "PATH")]
     pub png: Option<PathBuf>,
-    /// Wall-clock limit in seconds (host protection, default 30).
+    /// Execution limit in seconds (default 30; excludes firmware boot).
     #[arg(long, value_name = "SECS")]
     pub max_time: Option<f64>,
     /// Disable the wall-clock limit.
     #[arg(long)]
     pub no_time_limit: bool,
-    /// Instruction limit (host protection).
+    /// Native VM instruction limit.
     #[arg(long, value_name = "N")]
     pub max_steps: Option<u64>,
-    /// Call-depth limit (host protection, default 1000).
+    /// Native VM call-depth limit (default 1000).
     #[arg(long, value_name = "N")]
     pub max_depth: Option<usize>,
-    /// Angle mode (HAngle) at start.
+    /// Native engine: initial angle mode (HAngle).
     #[arg(long, value_enum, default_value_t = Angle::Rad)]
     pub angle: Angle,
-    /// Random seed for RANDOM/RANDINT.
+    /// Native engine: seed for RANDOM/RANDINT.
     #[arg(long, default_value_t = 0x5EED)]
     pub seed: u64,
     /// Show compiler warnings.
@@ -113,7 +114,11 @@ impl RunOpts {
         if let Some(k) = &self.keys {
             h.keys = parse_key_script(k)?.into();
         }
-        h.inputs = self.inputs.iter().cloned().collect();
+        h.inputs = self
+            .inputs
+            .iter()
+            .map(|t| ppl_vm::ScriptedInput::parse(t))
+            .collect();
         h.choices = self.choices.iter().copied().collect();
         Ok(h)
     }
@@ -176,7 +181,11 @@ pub fn run(o: RunOpts) -> u8 {
     let Some(prog) = prog else {
         return exit::COMPILE;
     };
-    let entry = match common::pick_entry(&prog, o.entry.as_deref()) {
+    let stem = o
+        .file
+        .as_deref()
+        .and_then(|p| p.file_stem().and_then(|s| s.to_str()));
+    let entry = match common::pick_entry(&prog, o.entry.as_deref(), stem) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("error: {e}");

@@ -235,3 +235,97 @@ fn closed_multiline_string_is_legal_with_a_note() {
     assert_eq!(d.severity, Severity::Note);
     assert_eq!(c.line_col(d), (3, 9));
 }
+
+// ---------------------------------------------------------------------------
+// LOCAL placement and typed INPUT (Baseconv regression).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn local_declarations_anywhere_in_a_block_are_valid() {
+    // LOCAL is a statement: after other statements, inside loops, and
+    // re-declared in sibling blocks (the original Baseconv does all three).
+    let c = check(
+        "EXPORT PROG()\nBEGIN\n  LOCAL a := 1;\n  PRINT(a);\n  LOCAL b := a + 1;\n\
+         FOR a FROM 1 TO 2 DO LOCAL d := a; PRINT(d); END;\n\
+         FOR a FROM 1 TO 2 DO LOCAL d := b; PRINT(d); END;\n\
+         RETURN b;\nEND;\n",
+    );
+    assert!(c.compiled, "{:#?}", c.diags);
+    assert!(c.diags.is_empty(), "{:#?}", c.diags);
+}
+
+#[test]
+fn duplicate_local_in_one_block_warns() {
+    let c = check("EXPORT PROG()\nBEGIN\n  LOCAL a;\n  LOCAL a := 2;\n  RETURN a;\nEND;\n");
+    assert!(c.compiled);
+    let d = c.find("duplicate-local");
+    assert_eq!(d.severity, Severity::Warning);
+    assert_eq!(c.line_col(d), (4, 9));
+}
+
+#[test]
+fn typed_input_forms_compile_cleanly() {
+    let c = check(
+        "EXPORT PROG()\nBEGIN\n  LOCAL s := \"\", b := 10, p;\n\
+         IF INPUT({{s,[2]}}, \"Number\", {\"N\"}) == 0 THEN RETURN; END;\n\
+         INPUT(b, \"Base\", \"B\");\n\
+         INPUT({b, {p,[0,-1]}}, \"T\", {\"B\",\"P\"});\n\
+         RETURN s;\nEND;\n",
+    );
+    assert!(c.compiled, "{:#?}", c.diags);
+    assert!(c.diags.is_empty(), "{:#?}", c.diags);
+}
+
+#[test]
+fn typed_input_errors_point_at_the_field() {
+    // A typed field must name a variable.
+    let c = check("EXPORT PROG()\nBEGIN\n  INPUT({{1,[2]}});\nEND;\n");
+    assert!(!c.compiled);
+    let d = c.find("expected-variable");
+    assert_eq!(d.class(), DiagnosticClass::Semantic);
+    assert_eq!(c.line_col(d), (3, 11));
+    // A missing comma makes `s [2]` an index expression, not a field.
+    let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s [2]}});\nEND;\n");
+    assert!(!c.compiled);
+    assert_eq!(c.line_col(c.find("expected-variable")), (4, 11));
+    // Undeclared variables are still reported.
+    let c = check("EXPORT PROG()\nBEGIN\n  INPUT({{zz,[2]}});\nEND;\n");
+    assert!(!c.compiled);
+    assert_eq!(c.line_col(c.find("undeclared-identifier")), (3, 11));
+}
+
+#[test]
+fn unknown_input_type_code_warns_and_position_is_noted() {
+    let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[7]}});\nEND;\n");
+    assert!(c.compiled);
+    let d = c.find("input-unknown-type");
+    assert_eq!(d.severity, Severity::Warning);
+    assert!(d.unverified);
+    assert_eq!(c.line_col(d), (4, 14));
+    let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[2],{20,50,1}}});\nEND;\n");
+    c.assert_valid_with_compat_only();
+    c.find("input-field-position-ignored");
+}
+
+#[test]
+fn malformed_control_flow_is_still_rejected() {
+    for (src, code) in [
+        (
+            "EXPORT PROG()\nBEGIN\n  REPEAT PRINT(1); END;\nEND;\n",
+            "expected-until",
+        ),
+        (
+            "EXPORT PROG()\nBEGIN\n  WHILE 1 PRINT(1); END;\nEND;\n",
+            "expected-do",
+        ),
+        (
+            "EXPORT PROG()\nBEGIN\n  IF 1 THEN PRINT(1);\n",
+            "unclosed-block",
+        ),
+    ] {
+        let c = check(src);
+        assert!(!c.compiled, "{src}");
+        let d = c.find(code);
+        assert_eq!(d.class(), DiagnosticClass::Syntax, "{src}");
+    }
+}

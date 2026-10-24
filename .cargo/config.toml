@@ -1,0 +1,5 @@
+# Unicorn's bundled QEMU configure script rejects spaces in build paths.
+# Apply this at the workspace root so rust-analyzer and ordinary Cargo
+# commands use the same space-free directory as scripts/emulator/run.sh.
+[build]
+target-dir = "../.cache/prime-emulator-target"

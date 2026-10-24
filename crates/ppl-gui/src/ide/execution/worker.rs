@@ -193,7 +193,7 @@ impl Drop for WorkerHandle {
 /// Runs the configured program to completion on the current thread.
 fn run_program(config: WorkerConfig, state: Arc<GuiSharedState>) -> WorkerOutcome {
     let prog_rc = Rc::new(config.prog);
-    let entry_name = match pick_entry(&prog_rc, config.entry.as_deref()) {
+    let entry_name = match prog_rc.pick_entry(config.entry.as_deref()) {
         Ok(e) => e,
         Err(msg) => return WorkerOutcome::Error(RuntimeError::new(ErrorKind::Undefined, msg)),
     };
@@ -221,27 +221,6 @@ fn run_program(config: WorkerConfig, state: Arc<GuiSharedState>) -> WorkerOutcom
             elapsed,
         },
         Err(e) => WorkerOutcome::Error(e),
-    }
-}
-
-fn pick_entry(prog: &CompiledProgram, entry: Option<&str>) -> Result<String, String> {
-    if let Some(e) = entry {
-        return prog
-            .function_index(e)
-            .map(|_| e.to_string())
-            .ok_or_else(|| format!("no function named `{e}` in this program"));
-    }
-    let exported: Vec<&str> = prog.exported().map(|(_, c)| c.name.as_str()).collect();
-    match exported.as_slice() {
-        [one] => Ok(one.to_string()),
-        [first, ..] => Ok(first.to_string()),
-        [] => {
-            if prog.functions.len() == 1 {
-                Ok(prog.functions[0].name.clone())
-            } else {
-                Err("the program has no EXPORT function to run (use --entry NAME)".into())
-            }
-        }
     }
 }
 
@@ -392,7 +371,9 @@ mod tests {
         let opts = CompileOptions::default();
         let (prog, _) = compile_source(&file, &opts);
         let prog = prog.expect("compiles");
-        let entry = pick_entry(&prog, None).expect("single function picked as entry");
+        let entry = prog
+            .pick_entry(None)
+            .expect("single function picked as entry");
         assert_eq!(entry, "FOO");
 
         let state = Arc::new(GuiSharedState::new());

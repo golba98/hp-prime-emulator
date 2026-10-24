@@ -1442,44 +1442,90 @@ impl Compiler {
             self.builtin(id, args, span);
             return;
         };
-        let mut targets: Vec<(VarRef, Span)> = Vec::new();
-        let mut collect = |c: &mut Compiler, e: &Expr| match &e.kind {
-            ExprKind::Ident(n) => match c.resolve_var(n) {
-                Some(v) => targets.push((v, e.span)),
-                None => {
+        let resolve = |c: &mut Compiler, e: &Expr| -> Option<(VarRef, Span)> {
+            match &e.kind {
+                ExprKind::Ident(n) => match c.resolve_var(n) {
+                    Some(v) => Some((v, e.span)),
+                    None => {
+                        c.error(
+                            "undeclared-identifier",
+                            e.span,
+                            format!("undeclared variable `{n}`"),
+                        )
+                        .hint = Some(format!("declare it first: LOCAL {n};"));
+                        None
+                    }
+                },
+                _ => {
                     c.error(
-                        "undeclared-identifier",
+                        "expected-variable",
                         e.span,
-                        format!("undeclared variable `{n}`"),
-                    )
-                    .hint = Some(format!("declare it first: LOCAL {n};"));
+                        "this argument must be a variable name",
+                    );
+                    None
                 }
-            },
-            _ => {
-                c.error(
-                    "expected-variable",
-                    e.span,
-                    "this argument must be a variable name",
-                );
             }
         };
+        let mut targets: Vec<(VarRef, Span)> = Vec::new();
+        // INPUT only: each field's allowed-types expression (`[2]` in
+        // `{{A,[2]}}`), aligned with `targets`; `None` allows any type.
+        let mut types: Vec<Option<&Expr>> = Vec::new();
         match &first.kind {
             ExprKind::List(items) if id == Builtin::Input => {
                 for it in items {
                     match &it.kind {
                         // {{A,[0]}}: variable plus allowed-type list.
-                        ExprKind::List(inner) if !inner.is_empty() => collect(self, &inner[0]),
-                        _ => collect(self, it),
+                        ExprKind::List(inner) if !inner.is_empty() => {
+                            if let Some(t) = resolve(self, &inner[0]) {
+                                targets.push(t);
+                                types.push(inner.get(1));
+                            }
+                            if let Some(t) = inner.get(1) {
+                                self.check_input_types(t);
+                            }
+                            if inner.len() > 2 {
+                                self.compat_note(
+                                    "input-field-position-ignored",
+                                    inner[2].span.to(inner[inner.len() - 1].span),
+                                    "the emulator's INPUT dialog ignores field position and width",
+                                );
+                            }
+                        }
+                        _ => {
+                            if let Some(t) = resolve(self, it) {
+                                targets.push(t);
+                                types.push(None);
+                            }
+                        }
                     }
                 }
             }
-            _ => collect(self, first),
+            _ => {
+                if let Some(t) = resolve(self, first) {
+                    targets.push(t);
+                    types.push(None);
+                }
+            }
         }
         for (v, s) in &targets {
             self.load(*v, *s);
         }
         self.cur
             .emit(Op::MakeList(targets.len() as u32), first.span);
+        let mut argc = args.len();
+        if id == Builtin::Input {
+            // INPUT receives the allowed types as a hidden second argument.
+            for t in &types {
+                match t {
+                    Some(e) => self.expr(e),
+                    None => {
+                        self.cur.emit(Op::Zero, first.span);
+                    }
+                }
+            }
+            self.cur.emit(Op::MakeList(types.len() as u32), first.span);
+            argc += 1;
+        }
         for a in &args[1..] {
             self.expr(a);
         }
@@ -1487,7 +1533,7 @@ impl Compiler {
         self.cur.emit(
             Op::BuiltinRef {
                 id,
-                argc: args.len().min(255) as u8,
+                argc: argc.min(255) as u8,
                 refs,
             },
             span,
@@ -1495,6 +1541,39 @@ impl Compiler {
         // Stack: result, new values…; store them back in reverse order.
         for (v, s) in targets.iter().rev() {
             self.store(*v, *s);
+        }
+    }
+
+    /// Warns about literal INPUT type codes outside the documented set
+    /// (-1 any, 0 real, 1 integer, 2 string, 3 complex, 4 matrix, 6 list,
+    /// 8 function, 9 unit: User Guide INPUT entry and TYPE codes).
+    fn check_input_types(&mut self, e: &Expr) {
+        let ExprKind::Bracket(items) = &e.kind else {
+            return;
+        };
+        for it in items {
+            let code = match &it.kind {
+                ExprKind::Number(n) => n.parse::<f64>().ok(),
+                ExprKind::Unary(UnOp::Neg, inner) => match &inner.kind {
+                    ExprKind::Number(n) => n.parse::<f64>().ok().map(|v| -v),
+                    _ => None,
+                },
+                _ => None,
+            };
+            let Some(code) = code else { continue };
+            if ![-1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 9.0].contains(&code) {
+                let d = self.warn(
+                    "input-unknown-type",
+                    it.span,
+                    format!("{code} is not a documented INPUT type code"),
+                );
+                d.hint = Some(
+                    "use -1 (any), 0 real, 1 integer, 2 string, 3 complex, 4 matrix, \
+                     6 list, 8 function or 9 unit"
+                        .into(),
+                );
+                d.unverified = true;
+            }
         }
     }
 

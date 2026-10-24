@@ -340,7 +340,7 @@ fn preflight_only(o: &CompareOpts, m: &RunManifest) -> Result<(), Failure> {
     let t = targets(m);
     let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
     let guard = p
-        .preflight_new_names(&refs, &control)
+        .preflight_new_names(&refs, Some(&control))
         .map_err(|e| io_err(format!("preflight did not pass: {}", explain(&e))))?;
     for line in guard.log() {
         println!("  {line}");
@@ -405,7 +405,7 @@ fn upload(o: &CompareOpts, mut m: RunManifest) -> Result<(), Failure> {
     m.device = Some(device);
 
     let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
-    let guard = match p.preflight_new_names(&refs, &control) {
+    let guard = match p.preflight_new_names(&refs, Some(&control)) {
         Ok(g) => g,
         Err(e) => {
             let msg = format!("preflight did not pass: {}", explain(&e));
@@ -726,7 +726,7 @@ fn run_program_render(o: CompareOpts) -> u8 {
     let Some(prog) = prog else {
         return exit::COMPILE;
     };
-    let entry = match common::pick_entry(&prog, None) {
+    let entry = match common::pick_entry(&prog, None, None) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("error: {e}");

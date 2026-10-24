@@ -60,7 +60,7 @@ pub(super) fn install(
         .expect("new listener heartbeat");
     let guard = prime.preflight_new_names(
         &[(FileType::Program, &program), (FileType::Note, heartbeat)],
-        &control(),
+        Some(&control()),
     )?;
     out["upload_state"] = json!("unverified");
     let report = prime.send_new_program(guard, &source)?;
@@ -107,7 +107,7 @@ pub(super) fn upload_program(
     file.write_all(source.as_bytes())?;
     file.sync_all()?;
     evidence(out, path);
-    let guard = prime.preflight_new_names(&[(FileType::Program, name)], &control())?;
+    let guard = prime.preflight_new_names(&[(FileType::Program, name)], Some(&control()))?;
     out["upload_state"] = json!("unverified");
     let upload = prime.send_new_program(guard, source)?;
     if upload.readback != ReadBack::Matches {

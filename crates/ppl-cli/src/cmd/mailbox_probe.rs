@@ -150,7 +150,8 @@ pub(super) fn run(
     out["source_sha256"] = json!(ppl_compat::sha256_hex(source.as_bytes()));
     let result = (|| {
         eprintln!("preflighting fresh fixed-mailbox program {program}");
-        let guard = prime.preflight_new_names(&[(FileType::Program, &program)], &control())?;
+        let guard =
+            prime.preflight_new_names(&[(FileType::Program, &program)], Some(&control()))?;
         let upload = prime.send_new_program(guard, &source)?;
         if upload.readback != ReadBack::Matches {
             return Err(Failure {
@@ -162,7 +163,7 @@ pub(super) fn run(
         }
         out["uploaded"] = json!(true);
         out["upload_state"] = json!("verified");
-        let guard = prime.preflight_new_names(&[(FileType::Note, &note)], &control())?;
+        let guard = prime.preflight_new_names(&[(FileType::Note, &note)], Some(&control()))?;
         let owned = prime.create_owned_note(guard, &format!("{prefix}{initial}"))?;
         out["probe_state"] = json!("waiting_for_start");
         store.save(&manifest, out)?;

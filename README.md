@@ -1,360 +1,144 @@
-# HP Prime Emulator & Development Toolkit
+# HP Prime Emulator
 
-[![Rust Version](https://img.shields.io/badge/rust-1.85%2B%20%282024%29-orange.svg)](https://www.rust-lang.org/)
+[![Rust CI](https://github.com/golba98/hp-prime-emulator/actions/workflows/rust.yml/badge.svg)](https://github.com/golba98/hp-prime-emulator/actions/workflows/rust.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Hardware Verified](https://img.shields.io/badge/hardware-HP%20Prime%20G1-success.svg)](#hardware-differential-verification)
-[![Differential Testing](https://img.shields.io/badge/differential%20testing-passing-brightgreen.svg)](#differential-test-suites)
-[![Workspace](https://img.shields.io/badge/crates-10%20crates-informational.svg)](#workspace-architecture)
 
-An independent, native Rust emulator, compiler, interactive desktop IDE, and differential testing harness for **HP Prime PPL** (`.hpprgm`) programs — verified against physical HP Prime G1 hardware over USB.
+A Rust development environment for HP Prime PPL programs, with a native compiler and VM, a graphical editor, and an optional backend that runs the original HP Prime G1 firmware.
 
-The execution engine follows a strict pipeline: **Source Loader (UTF-8 / UTF-16LE) → Typed Pratt Parser → Bytecode Compiler with Spans → Isolated Stack VM**. It features genuine 12-digit BCD decimal arithmetic, Copy-on-Write value semantics, headless GROB graphics rasterization, an integrated desktop IDE, an interactive step debugger, and a guarded USB hardware bridge for differential testing.
+Check programs, select an entry function, pass arguments, and run either engine through the same `ppl` CLI. The native engine is the default and needs no calculator or firmware files.
 
----
+![Native PPL editor and calculator display](assets/ide-display-output.png)
 
-<p align="center">
-  <img src="assets/ide-display-output.png" alt="HP Prime PPL Emulator Display & IDE" width="680">
-  <br>
-  <em>Interactive Desktop IDE running a PPL graphics program with pixel-perfect 320×240 GROB rendering.</em>
-</p>
+## Two execution engines
 
----
-
-## Table of Contents
-
-- [Key Features](#key-features)
-- [Pipeline Architecture](#pipeline-architecture)
-- [Workspace Architecture](#workspace-architecture)
-- [Installation & Requirements](#installation--requirements)
-- [Quick Start Guide](#quick-start-guide)
-  - [1. Interactive Desktop IDE](#1-interactive-desktop-ide)
-  - [2. Headless Execution & Screen Capture](#2-headless-execution--screen-capture)
-  - [3. Interactive CLI Step Debugger](#3-interactive-cli-step-debugger)
-  - [4. Syntax Checking & Bytecode Disassembly](#4-syntax-checking--bytecode-disassembly)
-  - [5. Example PPL Program](#5-example-ppl-program)
-- [Hardware Differential Verification](#hardware-differential-verification)
-  - [Hardware Safety Guardrails](#hardware-safety-guardrails)
-  - [Device Workflows over USB](#device-workflows-over-usb)
-  - [Differential Test Suites](#differential-test-suites)
-- [Command Coverage & Emulation Status](#command-coverage--emulation-status)
-- [Development & Quality Gates](#development--quality-gates)
-- [License & Acknowledgments](#license--acknowledgments)
-
----
-
-## Key Features
-
-- **Typed Language Pipeline:**
-  - Robust UTF-8 and UTF-16LE container loader handling official calculator export headers.
-  - Typed Pratt parser handling expressions, control structures (`IF`, `CASE`, `FOR`, `WHILE`, `REPEAT`), and nested subroutines.
-  - Bytecode compiler generating compact instructions accompanied by an exact line/column span table for diagnostics.
-
-- **High-Fidelity Virtual Machine:**
-  - Isolated stack machine implementing calculator-faithful semantics.
-  - Strict **Copy-on-Write** (`Rc::make_mut`) value model: assigning or passing lists and matrices never creates unexpected reference aliases.
-  - Authentic **1-based indexing** across all collections, strings, and matrix dimensions.
-  - Configurable resource limits: execution step watchdog, wall-clock limits, and call-depth protection.
-
-- **Exact Decimal Arithmetic (`ppl-math`):**
-  - Custom 12-significant-digit BCD decimal `Real` representation with an exponent range of $\pm 499$, eliminating IEEE 754 binary floating-point rounding errors.
-  - HP-style `#FFh` integers (`HpInt`), complex numbers, and full matrix linear algebra operations (`DET`, `TRN`, `INVERSE`, `DOT`, `CROSS`).
-
-- **Headless & Hardware GROB Graphics (`ppl-graphics`):**
-  - Complete G0–G9 graphic object buffers matching the calculator's native 320×240 display.
-  - Bresenham rasterizer for `RECT_P`, `LINE_P`, `CIRCLE_P`, `ARC_P`, `BLIT_P`, and polygon fills.
-  - Integrated typography using bundled DejaVu Sans font for `TEXTOUT_P`.
-  - Zero-display-server headless mode capable of exporting direct PNG screenshots.
-
-- **Dual Graphical Frontends (`ppl-gui`):**
-  - **Integrated Desktop IDE (`egui` / `eframe`):** Multi-tab source editor, live syntax diagnostics, interactive on-screen HP keypad, console output, variable watch, and visual breakpoints.
-  - **Standalone Virtual Calculator Window (`winit` / `softbuffer`):** Ultra-fast, lightweight pixel-perfect window for running programs and automated GUI test scripting.
-
-- **Command-Line Step Debugger (`ppldb`):**
-  - GDB-style interactive CLI debugger (`ppl debug`).
-  - Line breakpoints, step over (`next`), step into (`step`), finish (`finish`), call stack inspection (`backtrace`), and local/global variable evaluation.
-
-- **Hardware Differential Testing & USB Link (`ppl-device`, `ppl-compat`):**
-  - Native USB HID communication with the physical HP Prime G1 (`03f0:1541`) using `hplp` v1 framing and CRC-16 integrity checks.
-  - Automated differential testing engine that runs test suites simultaneously in the emulator and on real hardware, comparing outputs and screenshots.
-  - Preserved empirical evidence logs validating language behaviors against physical firmware.
-
----
-
-## Pipeline Architecture
-
-```
-PPL Source (.hpprgm / .ppl / text)
-    │
-    ▼
-[ppl-syntax] ─────── Lexer & Pratt Parser ────────► Typed AST & Diagnostics
-    │
-    ▼
-[ppl-compiler] ───── Semantic Analysis & Codegen ─► Bytecode & Span Table
-    │
-    ▼
-[ppl-vm] ─────────── Stack VM & Host Trait ◄─────► [ppl-graphics] Framebuffers G0–G9
-    │                                                     │
-    ├─────────────────────────────┬───────────────────────┤
-    ▼                             ▼                       ▼
-[ppl-gui: IDE & Window]     [ppl-cli: Runner/Debug]  [ppl-device: USB Hardware]
-(Native Desktop GUI)        (CLI & Headless PNG)     (HP Prime G1 USB Bridge)
-```
-
----
-
-## Workspace Architecture
-
-The repository is structured as a modular Cargo workspace:
-
-| Crate | Responsibility |
-|---|---|
-| [`ppl-math`](crates/ppl-math) | 12-digit BCD decimal `Real` ($\pm 499$ exp), `#FFh` integers (`HpInt`), `Complex`, formatting |
-| [`ppl-syntax`](crates/ppl-syntax) | Source loader (UTF-8, UTF-16LE headers), lexer, Pratt parser, typed AST, diagnostics |
-| [`ppl-compiler`](crates/ppl-compiler) | Built-in command specifications (163 commands), semantic analysis, scopes, bytecode compiler |
-| [`ppl-vm`](crates/ppl-vm) | Stack VM, Copy-on-Write `Value` model, 1-based collections, built-ins, `Host` trait |
-| [`ppl-graphics`](crates/ppl-graphics) | Headless GROB G0–G9 pixel buffers, Bresenham drawing, DejaVu Sans font, PNG export |
-| [`ppl-device`](crates/ppl-device) | USB HID protocol (`03f0:1541`), `hplp` framing, CRC-16, screenshots, guarded file transfer |
-| [`ppl-compat`](crates/ppl-compat) | Differential test harness (TOML), device program synthesis, note parser, evidence reports |
-| [`ppl-gui`](crates/ppl-gui) | Native desktop IDE (`egui`) and standalone virtual calculator window (`winit` / `softbuffer`) |
-| [`ppl-cli`](crates/ppl-cli) | Unified `ppl` command-line executable |
-| [`ppl-bench`](crates/ppl-bench) | Criterion microbenchmarks and execution performance suites |
-
----
-
-## Installation & Requirements
-
-### System Requirements
-
-- **Rust Toolchain:** Version ≥ 1.85 (Edition 2024). Install via [rustup](https://rustup.rs/):
-  ```bash
-  rustup update stable
-  ```
-- **C Compiler & Build Tools:** A standard C compiler (`gcc` or `clang`) for building the static `hidapi` backend (no external `libudev` shared library required).
-- **Desktop Window System:** X11 or Wayland session for GUI operation.
-
-### Building from Source
-
-```bash
-# Clone repository
-git clone https://github.com/golba98/hp-prime-emulator
-cd hp-prime-emulator
-
-# Build all workspace crates in release mode
-cargo build --workspace --release
-```
-
-The compiled binary will be located at `target/release/ppl`.
-
----
-
-## Quick Start Guide
-
-### 1. Interactive Desktop IDE
-
-Launch the graphical IDE with an integrated code editor, visual debugger, interactive keypad, and emulated 320×240 display:
-
-```bash
-# Open an empty IDE workspace
-cargo run --release --bin ppl -- gui
-
-# Open a specific PPL program in the IDE
-cargo run --release --bin ppl -- gui examples/FIREWORKS.hpprgm
-```
-
-### 2. Headless Execution & Screen Capture
-
-Execute PPL programs headlessly in CI or terminal environments, capturing `PRINT` output to stdout and exporting the calculator screen buffer to a PNG:
-
-```bash
-# Execute headlessly with simulated keypresses and capture the final frame
-cargo run --release --bin ppl -- run examples/FIREWORKS.hpprgm --keys "-1*5,4" --png fireworks.png
-
-# Execute an inline PPL statement directly
-cargo run --release --bin ppl -- run -c "EXPORT DEMO() BEGIN PRINT(2^10 + SQRT(144)); END;"
-```
-
-### 3. Interactive CLI Step Debugger
-
-Launch the interactive command-line step debugger (`ppldb`) with line breakpoints and frame inspection:
-
-```bash
-cargo run --release --bin ppl -- debug examples/FIREWORKS.hpprgm
-```
-
-Debugger command summary:
-- `s` / `step`: Step into next statement
-- `n` / `next`: Step over subroutine calls
-- `c` / `continue`: Resume execution until next breakpoint
-- `b <line>` / `break <line>`: Set a breakpoint at `<line>`
-- `locals`: Inspect local variables in the current stack frame
-- `globals`: Inspect calculator global variables
-- `bt` / `backtrace`: Display the call stack
-- `q` / `quit`: Terminate the debug session
-
-### 4. Syntax Checking & Bytecode Disassembly
-
-Validate syntax and semantic validity without running the program, or inspect the compiled VM bytecode:
-
-```bash
-# Check syntax and semantics
-cargo run --release --bin ppl -- check examples/FIREWORKS.hpprgm
-
-# Disassemble compiled bytecode instructions
-cargo run --release --bin ppl -- check -c "EXPORT ADD(a, b) BEGIN RETURN a + b; END;" --dump-bytecode
-```
-
-Output:
-```text
-fn <init> (params 0, locals 0):
-     0  Zero
-     1  Return
-fn ADD (params 2, locals 0):
-     0  Stmt
-     1  LoadLocal(0)
-     2  LoadLocal(1)
-     3  Bin(Add)
-     4  Return
-     5  Zero
-     6  Return
-```
-
-### 5. Example PPL Program
-
-Here is an idiomatic PPL program drawing circles and displaying text:
-
-```ppl
-EXPORT DEMO()
-BEGIN
-    RECT_P(0, 0, 319, 239, 0, 0);               // Clear screen with black
-    CIRCLE_P(160, 120, 50, #00FF00h);            // Draw green circle
-    TEXTOUT_P("Hello from HP Prime PPL!", 50, 20); // Render anti-aliased text
-    WAIT(2);                                    // Pause for 2 seconds
-END;
-```
-
----
-
-## Hardware Differential Verification
-
-A core design principle of this project is **empirical verification**: rather than guessing edge-case behaviors, emulator outputs are continuously compared against a genuine **HP Prime G1** (firmware `2.2.15157`, USB `03f0:1541`).
-
-### Hardware Safety Guardrails
-
-The test harness enforces non-negotiable safety rules when interacting with physical hardware:
-
-1. **Strict Namespace Isolation:** Only objects starting with `ZZT_*` may ever be created or deleted. User programs and system variables are never touched.
-2. **Double-Probe Preflight:** Before any program is uploaded, the target name is probed twice to guarantee absence, while a positive control object (`ZZT_CTRL`) is verified to respond.
-3. **Durable Ownership Ledger:** Every upload is recorded in an append-only ledger (`tests/compat/runs/ledger.jsonl`). Deletion requires cryptographic or verified ledger authorization.
-4. **No Destructive Overwrites:** Uploads refuse to overwrite existing objects. If a collision is detected, the operation aborts immediately.
-5. **No Automatic Firmware Changes:** Date, time, and system settings are strictly read-only.
-
-### Device Workflows over USB
-
-With an HP Prime G1 connected via USB:
-
-```bash
-# Detect connected HP Prime calculators (read-only)
-cargo run --release --bin ppl -- device detect
-
-# Query calculator model, firmware version, and serial number (read-only)
-cargo run --release --bin ppl -- device info
-
-# Capture a real-time screenshot from the physical calculator screen
-cargo run --release --bin ppl -- device screenshot calc_screen.png
-
-# Run an uploaded test program (manual Run on the G1), then retrieve its note
-cargo run --release --bin ppl -- device run ZZT_004752
-
-# Delete a tool-created program or note without touching the calculator
-# Physically verified: G1 build 15157, boot V0.050.640; backs up first.
-cargo run --release --bin ppl -- device delete program ZZT_TEST --json
-cargo run --release --bin ppl -- device delete note ZZT_NOTE --json
-
-# Reconcile an interrupted deletion without resubmitting it
-cargo run --release --bin ppl -- device delete verify --operation-id ZZT_Dxxxxx --json
-```
-
-Deletion uses Connectivity Kit's native USB `EB` command, independently
-verified against actual calculator storage. It creates no helper or evidence
-note. Matching creation receipts from `device send` authorize unattended
-operation; unrelated objects are refused. `--manual-run` preserves the existing
-helper workflow, and `--prepare-only` performs no deletion. See
-[deletion and recovery](docs/device/deletion.md). Remote keypress execution
-and arbitrary expression evaluation remain unverified on this G1 firmware.
-
-### Differential Test Suites
-
-Test suites are written in TOML (`tests/compat/cases/core.toml`). The differential harness executes each test on both the emulator and physical hardware, recording byte-for-byte comparisons and screenshots under `tests/compat/evidence/`:
-
-```bash
-# Run differential comparison against the core test suite
-cargo run --release --bin ppl -- compare tests/compat/cases/core.toml --no-report
-
-# Preview the generated calculator program without touching hardware
-cargo run --release --bin ppl -- compare tests/compat/cases/core.toml --print-program
-```
-
----
-
-## Command Coverage & Emulation Status
-
-The emulator implements **163 standard PPL built-in commands**:
-
-| Category | Status | Highlights |
+| | Native | Original firmware |
 |---|---|---|
-| **Math** | Implemented | `ABS`, `SQRT`, `ROUND`, `TRUNCATE`, `FLOOR`, `CEILING`, `IP`, `FP`, `SIGN`, `MOD`, `DIV`, `MAX`, `MIN`, `RANDOM`, `RANDINT`, `NTHROOT`, `FACTORIAL` |
-| **Trigonometry** | Implemented | `SIN`, `COS`, `TAN`, `ASIN`, `ACOS`, `ATAN`, `SINH`, `COSH`, `TANH`, `ASINH`, `ACOSH`, `ATANH` (respects `HAngle`: Radians, Degrees, Gradians) |
-| **Bitwise** | Implemented | `BITAND`, `BITOR`, `BITXOR`, `BITNOT`, `BITSL`, `BITSR`, `R→B`, `B→R`, `SETBASE`, `GETBASE`, `SETBITS`, `GETBITS` |
-| **Strings** | Implemented | `ASC`, `CHAR`, `DIM`, `INSTRING`, `LEFT`, `RIGHT`, `MID`, `ROTATE`, `UPPER`, `LOWER`, `REPLACE`, `STRING` |
-| **Lists** | Implemented | `MAKELIST`, `SIZE`, `SORT`, `REVERSE`, `POS`, `ΣLIST`, `∏LIST`, `ΔLIST`, `HEAD`, `TAIL`, `APPEND`, `CONCAT` |
-| **Matrices** | Implemented | `MAKEMAT`, `DET`, `TRN`, `IDENMAT`, `RANK`, `COLNORM`, `ROWNORM`, `INVERSE`, `ADDROW`, `ADDCOL`, `DELROW`, `DELCOL`, `DOT`, `CROSS` |
-| **Graphics** | Implemented | `RECT_P`, `LINE_P`, `PIXON_P`, `PIXOFF_P`, `GETPIX_P`, `CIRCLE_P`, `ARC_P`, `BLIT_P`, `DIMGROB_P`, `SUBGROB_P`, `INVERT_P`, `FILLPOLY_P`, `RGB` |
-| **I/O & Dialogs** | Implemented / Approximated | `PRINT`, `MSGBOX`, `INPUT`, `CHOOSE`, `GETKEY`, `ISKEYDOWN`, `WAIT`, `MOUSE`, `DRAWMENU` |
-| **System & Time** | Implemented | `TICKS`, `TIME`, `DATE`, `TYPE`, `NOTES`, `PROGRAMS` |
-| **CAS & App Scope** | *Out of Scope* | `CAS()`, `STARTAPP`, and Home app persistent settings are deliberately unsupported |
+| Compiler | Rust parser and bytecode compiler | HP's compiler running under ARM emulation |
+| Runtime | Rust VM | HP's PPL runtime |
+| Interface | CLI and native graphical IDE | Headless CLI |
+| Resources | Included source and dependencies | Separately supplied G1 firmware and factory resources |
+| Platform | Native platform support depends on desktop and HID libraries | Linux; pinned G1 firmware version |
 
-To inspect the real-time status of all commands in your terminal:
+The firmware backend never falls back to native execution. Missing resources, unsupported arguments, guest faults, and timeouts are reported separately from PPL errors. The graphical IDE currently uses the native engine.
+
+This is an independent project, not an HP product. Compatibility is under active development; neither backend should be assumed to reproduce every calculator feature.
+
+## Get started
+
+Install stable Rust with Cargo. Native builds also need the platform's C/C++ build tools and HID development dependencies; Linux builds use `pkg-config` and `libudev`. The desktop IDE needs a graphical session.
 
 ```bash
-cargo run --release --bin ppl -- commands
+git clone https://github.com/golba98/hp-prime-emulator.git
+cd hp-prime-emulator
+cargo build --release --bin ppl
+
+cargo run --release --bin ppl -- check examples/HELLO.ppl
+cargo run --release --bin ppl -- run examples/HELLO.ppl
 ```
 
-For complete behavioral details and hardware discrepancies, see the [Compatibility Matrix](docs/compatibility/matrix.md).
-
----
-
-## Development & Quality Gates
-
-All contributions must pass the workspace quality gate:
+Select a function and supply JSON arguments explicitly:
 
 ```bash
-# 1. Format check
+cargo run --release --bin ppl -- run examples/SQUARE.ppl \
+  --engine native --entry SQUARE --args '[7]' --json
+```
+
+The returned value is `49`. Existing commands without `--engine` retain their native behavior, including legacy PPL argument syntax. Use `--args-format ppl` when explicitly selecting native mode with PPL-formatted arguments.
+
+Other native tools:
+
+```bash
+cargo run --release --bin ppl -- gui examples/FIREWORKS.hpprgm
+cargo run --release --bin ppl -- debug examples/HELLO.ppl
+cargo run --release --bin ppl -- run examples/FIREWORKS.hpprgm --png output.png
+cargo run --release --bin ppl -- --help
+```
+
+Source loading supports PPL text and recognized HP Prime program containers. A genuine binary `.hpprgm` container is not treated as plain text merely because of its extension.
+
+The workspace directs Cargo output to `../.cache/prime-emulator-target` to accommodate build tools that cannot handle spaces in the project path. Use Cargo commands or install the binaries rather than assuming `target/release` is inside the repository.
+
+## Original firmware backend
+
+Firmware execution requires Linux, CMake, Clang/libclang, the native build dependencies, and user-supplied firmware assets. Firmware binaries and factory resources are not included or downloaded automatically.
+
+Build both executables:
+
+```bash
+scripts/emulator/run.sh build --release --bin ppl --bin prime-emulator
+```
+
+Prepare factory resources from your local archive with the existing helper:
+
+```bash
+scripts/emulator/prepare_factory_a.sh /path/to/PRIME_APP.DAT /path/to/factory
+```
+
+The preparation script requires `mtools`. Configure the resulting resources and the emulator executable:
+
+```bash
+export PPL_FIRMWARE=/path/to/armfir.elf
+export PPL_OS_ROM=/path/to/PRIME_OS.ROM
+export PPL_FACTORY_A=/path/to/factory/A
+export PPL_FIRMWARE_RUNNER=/path/to/prime-emulator
+
+cargo run --release --bin ppl -- check examples/HELLO.ppl --engine firmware --json
+cargo run --release --bin ppl -- run examples/SQUARE.ppl \
+  --engine firmware --entry SQUARE --args '[7]' --json
+```
+
+The CLI also accepts explicit resource flags. It discovers the emulator through an explicit path, the configured environment variable, a sibling executable, or `PATH`; it does not launch Cargo behind the scenes.
+
+Each invocation prepares isolated guest storage, imports the program, boots the original firmware, and invokes its compiler. Execution proceeds only after successful compilation. Reports identify the engine and source hash and retain backend-specific evidence. Use `--report` to save JSON and `--png` to request a framebuffer capture; consult command help for timeout and trace options.
+
+Current firmware support includes numeric arguments, recovered PRINT output, supported scalar return values, runtime diagnostics, and guest-generated graphics. Aggregate values and some source locations remain unsupported. A fresh firmware boot takes seconds, unlike an in-process native run. Internal entry points are tied to the documented firmware image.
+
+See the [unified CLI report](docs/emulator/M8_UNIFIED_CLI_REPORT.md) for configuration, result fields, exit codes, measured timings, and reproducible tests. The [compiler](docs/emulator/M6_FIRMWARE_COMPILER_REPORT.md) and [runtime](docs/emulator/M7_FIRMWARE_RUNTIME_REPORT.md) reports distinguish observed firmware behavior from unresolved details.
+
+## Development and testing
+
+```bash
 cargo fmt --all -- --check
-
-# 2. Workspace compilation check
-cargo check --workspace --all-targets
-
-# 3. Strict Clippy linter
-cargo clippy --workspace --all-targets -- -D warnings
-
-# 4. Workspace unit and integration tests
-cargo test --workspace
-
-# 5. Release build verification
-cargo build --workspace --release
+scripts/emulator/run.sh check --workspace --all-targets
+scripts/emulator/run.sh clippy --workspace --all-targets -- -D warnings
+scripts/emulator/run.sh test --workspace --all-targets
 ```
 
----
+Ordinary tests do not need proprietary firmware. Genuine firmware tests are environment-gated and require local assets; a skipped firmware test is not evidence of guest execution. See the milestone reports for exact environment variables and commands.
 
-## License & Acknowledgments
+The reports include successful native/firmware comparisons and reliability runs, as well as observed timing failures during concurrent traced runs. Rendering, diagnostics, and language semantics can differ between engines.
 
-### License
+### Workspace
 
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+| Crate | Purpose |
+|---|---|
+| `ppl-math` | Decimal arithmetic and HP numeric types |
+| `ppl-syntax` | Source loading, program containers, lexer, parser, diagnostics |
+| `ppl-compiler` | Semantic analysis and native bytecode generation |
+| `ppl-vm` | Native execution, values, builtins, host interface |
+| `ppl-graphics` | Headless graphics and PNG output |
+| `ppl-engine` | Shared results and native/firmware orchestration |
+| `prime-emulator` | ARM firmware execution, guest storage, compiler and runtime |
+| `ppl-gui` | Native editor, diagnostics, execution and calculator display |
+| `ppl-cli` | The `ppl` command |
+| `ppl-device` | Optional, explicit USB calculator communication |
+| `ppl-compat` | Compatibility suites and evidence reporting |
+| `ppl-bench` | Benchmarks |
 
-### Acknowledgments & References
+The superseded Python interpreter has been removed. Its history remains in Git. Small Python helpers used by desktop tests and maintenance remain; they are not an execution backend.
 
-- **[hpcalc.org](https://www.hpcalc.org/prime/apps/):** The authoritative repository of authentic HP Prime community programs, used as reference corpora.
-- **[hplp](https://github.com/debrouxl/hplp):** Reverse-engineered HP Prime USB protocol documentation by Lionel Debroux and contributors.
-- **[DejaVu Fonts](https://dejavu-fonts.github.io/):** High-quality typography used for GROB text rendering.
-- **HP Inc. Disclaimer:** This is an independent open-source project and is not affiliated with, endorsed by, or sponsored by HP Inc. "HP Prime" is a trademark of HP Inc.
+## Documentation
+
+- [Architecture](docs/architecture/overview.md) and [editor design](docs/architecture/editor.md)
+- [Native diagnostics](docs/compatibility/diagnostics.md)
+- [Firmware research and milestone reports](docs/emulator/README.md)
+- [Unified CLI implementation and limitations](docs/emulator/M8_UNIFIED_CLI_REPORT.md)
+- [Hardware testing](docs/device/hardware-testing.md)
+
+Physical-device tooling is separate and opt-in. Native and emulated-firmware commands do not require a connected calculator. Read the hardware safety documentation before using USB operations; never use a real calculator as disposable test storage.
+
+## License and acknowledgements
+
+Project source is [MIT licensed](LICENSE). HP firmware is separate proprietary material and is not distributed with this repository. Fonts and third-party dependencies retain their own licenses.
+
+Firmware research references, including the PrimU2 source audit and licensing boundaries, are documented in the [firmware research index](docs/emulator/README.md). Research findings do not imply that third-party code is covered by this project's license.

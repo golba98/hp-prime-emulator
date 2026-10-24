@@ -1,0 +1,4 @@
+EXPORT BROKEN()
+BEGIN
+  PRINT("Missing parenthesis";
+END;

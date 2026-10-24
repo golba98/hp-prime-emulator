@@ -6,11 +6,13 @@
 //! means valid HP Prime code the emulator cannot fully run; a runtime
 //! error comes from executing the program.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use ppl_compiler::{CompileOptions, compile_source};
+use ppl_compiler::{CompileOptions, CompiledProgram, compile_source};
 use ppl_syntax::source::{SourceFile, Span};
 use ppl_syntax::{Diagnostic, DiagnosticClass, Severity};
 
@@ -82,15 +84,74 @@ impl DiagnosticItem {
     }
 }
 
+/// The compiler's verdict on one revision of a buffer. Live diagnostics
+/// (background worker) and Run (UI thread) both come from [`analyze`], so
+/// they cannot disagree about the same source.
+#[derive(Debug)]
+pub struct Analysis {
+    pub revision: u64,
+    pub items: Vec<DiagnosticItem>,
+    /// The compiled program; `None` when there are errors or the analysis
+    /// failed.
+    pub program: Option<CompiledProgram>,
+    /// The compiler itself failed (a panic): neither valid nor invalid.
+    pub failure: Option<String>,
+}
+
+impl Analysis {
+    pub fn error_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|i| i.severity == Severity::Error)
+            .count()
+    }
+}
+
+/// Parses and compiles `text` exactly as `ppl check` does (default compile
+/// options). A compiler panic is contained and reported as a failure.
+pub fn analyze(title: &str, text: &str, revision: u64) -> Analysis {
+    let file = SourceFile::new(title, text);
+    let compiled = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        #[cfg(test)]
+        if text.contains(PANIC_MARKER) {
+            panic!("injected compiler failure");
+        }
+        compile_source(&file, &CompileOptions::default())
+    }));
+    match compiled {
+        Ok((program, diags)) => Analysis {
+            revision,
+            items: diags
+                .items
+                .iter()
+                .map(|d| DiagnosticItem::from_diagnostic(d, &file))
+                .collect(),
+            program,
+            failure: None,
+        },
+        Err(panic) => {
+            let msg = panic
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "unknown panic".into());
+            Analysis {
+                revision,
+                items: Vec::new(),
+                program: None,
+                failure: Some(format!("internal compiler failure: {msg}")),
+            }
+        }
+    }
+}
+
+/// Test hook: a buffer containing this text makes [`analyze`] panic.
+#[cfg(test)]
+pub(crate) const PANIC_MARKER: &str = "\u{0}__ppl_test_compiler_panic__";
+
 /// Parses and compiles `text`, returning every diagnostic as an item.
 pub fn check_source(title: &str, text: &str) -> Vec<DiagnosticItem> {
-    let file = SourceFile::new(title, text);
-    let (_, diags) = compile_source(&file, &CompileOptions::default());
-    diags
-        .items
-        .iter()
-        .map(|d| DiagnosticItem::from_diagnostic(d, &file))
-        .collect()
+    analyze(title, text, 0).items
 }
 
 struct Request {
@@ -106,7 +167,17 @@ pub struct CheckResult {
     pub tab: TabId,
     pub revision: u64,
     pub items: Vec<DiagnosticItem>,
+    pub failure: Option<String>,
     pub elapsed: Duration,
+}
+
+/// Counters for tests and measurements.
+#[derive(Debug, Default)]
+pub struct WorkerStats {
+    /// Requests received.
+    pub requested: AtomicU64,
+    /// Compilations actually run (coalescing keeps this below `requested`).
+    pub compiled: AtomicU64,
 }
 
 /// A background thread that compiles buffers for diagnostics. Requests for
@@ -115,6 +186,7 @@ pub struct DiagnosticsWorker {
     tx: Option<Sender<Request>>,
     rx: Receiver<CheckResult>,
     handle: Option<JoinHandle<()>>,
+    pub stats: Arc<WorkerStats>,
 }
 
 impl std::fmt::Debug for DiagnosticsWorker {
@@ -129,6 +201,8 @@ impl DiagnosticsWorker {
     pub fn new(on_result: Option<Box<dyn Fn() + Send>>) -> Self {
         let (tx, req_rx) = channel::<Request>();
         let (res_tx, rx) = channel::<CheckResult>();
+        let stats = Arc::new(WorkerStats::default());
+        let worker_stats = stats.clone();
         let handle = std::thread::Builder::new()
             .name("ppl-diagnostics".into())
             .spawn(move || {
@@ -146,11 +220,13 @@ impl DiagnosticsWorker {
                     }
                     for r in latest {
                         let start = Instant::now();
-                        let items = check_source(&r.title, &r.text);
+                        worker_stats.compiled.fetch_add(1, Ordering::Relaxed);
+                        let analysis = analyze(&r.title, &r.text, r.revision);
                         let result = CheckResult {
                             tab: r.tab,
                             revision: r.revision,
-                            items,
+                            items: analysis.items,
+                            failure: analysis.failure,
                             elapsed: start.elapsed(),
                         };
                         if res_tx.send(result).is_err() {
@@ -167,11 +243,13 @@ impl DiagnosticsWorker {
             tx: Some(tx),
             rx,
             handle,
+            stats,
         }
     }
 
     /// Queues a check of `text` (revision `revision` of `tab`).
     pub fn request(&self, tab: TabId, revision: u64, title: &str, text: &str) {
+        self.stats.requested.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = &self.tx {
             let _ = tx.send(Request {
                 tab,
@@ -221,6 +299,38 @@ mod tests {
             .unwrap();
         assert_eq!(undeclared.class, DiagnosticClass::Semantic);
         assert_eq!(undeclared.file, "T.ppl");
+    }
+
+    /// The Problems panel must report exactly what `ppl check` reports
+    /// (both go through `compile_source` with default options).
+    #[test]
+    fn problems_panel_matches_cli_compiler() {
+        let fixed = include_str!("../../../../tests/fixtures/baseconv/Baseconv_fixed.hpprgm");
+        let sources = [
+            fixed.to_string(),
+            include_str!("../../../../tests/fixtures/baseconv/Baseconv_original.hpprgm")
+                .to_string(),
+            // Broken variants: a typed field without a variable, and a
+            // REPEAT closed by END.
+            fixed.replace("{{inStr,[2]}}", "{{1,[2]}}"),
+            fixed.replacen("  UNTIL fromBase >= 2", "  END; //", 1),
+        ];
+        for src in &sources {
+            let file = SourceFile::new("Baseconv.hpprgm", src.as_str());
+            let (_, diags) = compile_source(&file, &CompileOptions::default());
+            let cli: Vec<_> = diags
+                .items
+                .iter()
+                .map(|d| DiagnosticItem::from_diagnostic(d, &file))
+                .collect();
+            assert_eq!(check_source("Baseconv.hpprgm", src), cli);
+        }
+        assert!(check_source("Baseconv.hpprgm", &sources[0]).is_empty());
+        assert!(
+            check_source("Baseconv.hpprgm", &sources[2])
+                .iter()
+                .any(|i| i.code == "expected-variable" && i.line == 21)
+        );
     }
 
     #[test]

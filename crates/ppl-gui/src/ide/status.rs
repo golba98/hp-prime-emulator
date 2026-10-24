@@ -1,6 +1,6 @@
 //! Bottom status bar displaying cursor coordinates, VM state, and metrics.
 
-use super::{IdeAppState, IdePanel, VmExecutionState};
+use super::{AnalysisState, IdeAppState, IdePanel, VmExecutionState};
 use crate::theme::{ACCENT_AMBER, ACCENT_BLUE, ACCENT_GREEN, ACCENT_RED, TEXT_MUTED};
 use egui::RichText;
 
@@ -26,7 +26,29 @@ impl IdePanel for StatusBar {
             ui.add(egui::Separator::default().vertical());
 
             // Encoding & line endings
-            ui.label(RichText::new("UTF-8").size(11.0).color(TEXT_MUTED));
+            ui.label(
+                RichText::new(&state.encoding_label)
+                    .size(11.0)
+                    .color(TEXT_MUTED),
+            );
+
+            ui.add(egui::Separator::default().vertical());
+
+            // Compiler verdict for the active buffer's current text.
+            let analysis_color = match &state.analysis {
+                AnalysisState::Valid => ACCENT_GREEN,
+                AnalysisState::ValidWithWarnings(_) => ACCENT_AMBER,
+                AnalysisState::Invalid { .. } | AnalysisState::AnalysisFailed(_) => ACCENT_RED,
+                _ => TEXT_MUTED,
+            };
+            let analysis = ui.label(
+                RichText::new(state.analysis.label())
+                    .size(11.0)
+                    .color(analysis_color),
+            );
+            if let AnalysisState::AnalysisFailed(reason) = &state.analysis {
+                analysis.on_hover_text(reason);
+            }
 
             ui.add(egui::Separator::default().vertical());
 

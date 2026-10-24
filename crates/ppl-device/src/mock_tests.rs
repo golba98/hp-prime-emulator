@@ -318,7 +318,7 @@ fn targets(program: &str) -> Vec<(FileType, String)> {
 fn preflight(p: &mut Prime, program: &str) -> Result<WriteGuard> {
     let t = targets(program);
     let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
-    p.preflight_new_names(&refs, &control())
+    p.preflight_new_names(&refs, Some(&control()))
 }
 
 fn drained(p: &Prime) -> Vec<&Exchange> {
@@ -382,19 +382,31 @@ fn late_target_reply_during_preflight_refuses() {
 // (ii) control silent / not ready
 
 #[test]
-fn preflight_inconclusive_when_control_does_not_answer() {
-    let mock = Mock::new();
+fn preflight_succeeds_without_control_object_or_when_control_absent() {
+    let mock = Mock::new(); // Zero user programs on device
     let mut p = mock.prime();
-    let err = preflight(&mut p, "ZZT_ABC").unwrap_err();
+    // 1. With an absent control object, preflight falls back to device-level transport verification
+    let guard = preflight(&mut p, "ZZT_ABC").expect("preflight should succeed without control");
+    assert_eq!(guard.program(), "ZZT_ABC");
     assert!(
-        matches!(&err, DeviceError::Inconclusive(m) if m.contains("did not answer")),
-        "{err}"
+        guard
+            .log()
+            .iter()
+            .any(|l| l.contains("using device-level transport verification"))
     );
-    assert!(mock.f7_messages().is_empty());
-    assert_eq!(
-        mock.f8_names(),
-        vec![CTRL.to_string()],
-        "stops at the control"
+
+    // 2. With no control object specified at all (control = None), preflight succeeds directly
+    let t = targets("ZZT_DEF");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard2 = p
+        .preflight_new_names(&refs, None)
+        .expect("preflight without control");
+    assert_eq!(guard2.program(), "ZZT_DEF");
+    assert!(
+        guard2
+            .log()
+            .iter()
+            .any(|l| l.contains("no control object specified"))
     );
 }
 
@@ -520,6 +532,66 @@ fn preflight_then_send_writes_framed_f7_and_reads_back() {
 }
 
 #[test]
+fn preflight_and_send_on_clean_device_without_any_programs() {
+    // Zero user programs on device: no ZZT_CTRL, no ZZT_* programs.
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let t = targets("ZZT_CLEAN");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).expect("clean preflight");
+    assert_eq!(guard.program(), "ZZT_CLEAN");
+    assert!(
+        guard
+            .log()
+            .iter()
+            .any(|l| l.contains("no control object specified"))
+    );
+
+    let report = p
+        .send_new_program(guard, SRC)
+        .expect("send on clean device");
+    assert_eq!(report.name, "ZZT_CLEAN");
+    assert_eq!(report.readback, ReadBack::Matches);
+}
+
+#[test]
+fn preflight_and_send_with_unrelated_user_programs() {
+    // Device has unrelated user programs and notes.
+    let mock = Mock::new()
+        .object(FileType::Program, "PHYSICS", "EXPORT RUN()...")
+        .object(FileType::Note, "MYNOTES", "Some personal notes");
+    let mut p = mock.prime();
+    let t = targets("ZZT_APP");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p
+        .preflight_new_names(&refs, None)
+        .expect("preflight with user programs");
+    let report = p.send_new_program(guard, SRC).expect("send");
+    assert_eq!(report.readback, ReadBack::Matches);
+
+    // Unrelated programs remain untouched
+    assert!(matches!(
+        p.request_file(FileType::Program, "PHYSICS"),
+        Ok(Probe::Present(_))
+    ));
+    assert!(matches!(
+        p.request_file(FileType::Note, "MYNOTES"),
+        Ok(Probe::Present(_))
+    ));
+}
+
+#[test]
+fn preflight_refuses_existing_zzt_bstvis() {
+    // Device has existing ZZT_BSTVIS.
+    let mock = Mock::new().object(FileType::Program, "ZZT_BSTVIS", "EXPORT BSTVisualizer()...");
+    let mut p = mock.prime();
+    let t = targets("ZZT_BSTVIS");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let err = p.preflight_new_names(&refs, None).unwrap_err();
+    assert!(matches!(err, DeviceError::Refused(m) if m.contains("exists on the calculator")));
+}
+
+#[test]
 fn readback_normalises_crlf_and_trailing_nuls() {
     let mock = Mock::with_control();
     mock.st().on_write = OnWrite::StoreCrlf;
@@ -562,6 +634,63 @@ fn readback_no_reply_is_reported() {
     let report = p.send_new_program(guard, SRC).unwrap();
     assert_eq!(report.readback, ReadBack::NoReply);
     assert_eq!(mock.f7_messages().len(), 1, "no automatic retry");
+}
+
+#[test]
+fn readback_accepts_slow_reply_without_resending_f8() {
+    // The calculator takes 3.5 s to answer the read-back. The host must
+    // keep listening to the single F8 instead of re-asking every 2 s and
+    // draining the reply that is already on its way.
+    let mock = Mock::new();
+    mock.st().late.insert("ZZT_SLOW".into(), 3500);
+    let mut p = mock.prime();
+    let t = targets("ZZT_SLOW");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).unwrap();
+    let before = mock.f8_names().iter().filter(|n| *n == "ZZT_SLOW").count();
+    let report = p.send_new_program(guard, SRC).unwrap();
+    assert_eq!(report.readback, ReadBack::Matches);
+    let after = mock.f8_names().iter().filter(|n| *n == "ZZT_SLOW").count();
+    assert_eq!(after - before, 1, "exactly one read-back F8");
+    assert_eq!(mock.f7_messages().len(), 1);
+}
+
+#[test]
+fn large_program_uploads_in_exact_report_count_and_reads_back() {
+    // Just under the proven G1 limit (about 15.9 KB of UTF-16).
+    let mut src = String::from("EXPORT ZZT_BIG()\nBEGIN\n");
+    while src.len() < 7_900 {
+        src.push_str("  LOCAL a; a:=a+1; // padding line\n");
+    }
+    src.push_str("END;\n");
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let t = targets("ZZT_BIG");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).unwrap();
+    let report = p.send_new_program(guard, &src).unwrap();
+    assert_eq!(report.readback, ReadBack::Matches);
+    assert_eq!(report.bytes_sent, src.len() * 2);
+    let f7 = mock.f7_messages();
+    assert_eq!(f7.len(), 1);
+    let expected = Prime::frame(&f7[0], 64).len();
+    let sent_reports = p.log.iter().filter(|e| e.outgoing).count();
+    // F7 reports plus the FF/F8 probes (one report each).
+    let small = mock.cmds().iter().filter(|c| **c != CMD_FILE).count();
+    assert_eq!(sent_reports, expected + small);
+}
+
+#[test]
+fn oversize_program_is_refused_before_any_f7() {
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let t = targets("ZZT_HUGE");
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).unwrap();
+    let src = "A".repeat(MAX_PROGRAM_PAYLOAD / 2 + 1);
+    let err = p.send_new_program(guard, &src).unwrap_err();
+    assert!(matches!(err, DeviceError::Refused(m) if m.contains("silently drops")));
+    assert!(mock.f7_messages().is_empty());
 }
 
 // (vi) expired guards, invalid names
@@ -609,7 +738,7 @@ fn invalid_names_are_refused_without_traffic() {
         let mock = Mock::with_control();
         let mut p = mock.prime();
         let err = p
-            .preflight_new_names(&[(FileType::Program, bad)], &control())
+            .preflight_new_names(&[(FileType::Program, bad)], Some(&control()))
             .unwrap_err();
         assert!(matches!(err, DeviceError::Refused(_)), "{bad:?}: {err}");
         assert!(mock.cmds().is_empty(), "{bad:?}: no traffic");
@@ -631,7 +760,7 @@ fn preflight_target_set_rules() {
     for t in cases {
         let mock = Mock::with_control();
         let mut p = mock.prime();
-        let err = p.preflight_new_names(&t, &control()).unwrap_err();
+        let err = p.preflight_new_names(&t, Some(&control())).unwrap_err();
         assert!(matches!(err, DeviceError::Refused(_)), "{t:?}: {err}");
         assert!(mock.cmds().is_empty());
     }
@@ -824,7 +953,7 @@ fn note_only_preflight_and_send_roundtrip() {
     let mock = Mock::with_control().object(FileType::Note, "ZZT_KEPT", "existing");
     let mut p = mock.prime();
     let guard = p
-        .preflight_new_names(&[(FileType::Note, "ZZT_NEWNT")], &control())
+        .preflight_new_names(&[(FileType::Note, "ZZT_NEWNT")], Some(&control()))
         .expect("note-only preflight");
     assert_eq!(guard.names(), vec!["ZZT_NEWNT"]);
     let report = p
@@ -840,10 +969,10 @@ fn note_only_preflight_and_send_roundtrip() {
     // program guard rules still enforced
     let err = p.preflight_new_names(
         &[(FileType::Note, "ZZT_A"), (FileType::Note, "ZZT_B")],
-        &control(),
+        Some(&control()),
     );
     assert!(matches!(err, Err(DeviceError::Refused(_))));
-    let err = p.preflight_new_names(&[], &control());
+    let err = p.preflight_new_names(&[], Some(&control()));
     assert!(matches!(err, Err(DeviceError::Refused(_))));
 }
 
@@ -854,7 +983,7 @@ fn note_guard_may_not_send_a_program() {
     let guard = p
         .preflight_new_names(
             &[(FileType::Program, "ZZT_NP"), (FileType::Note, "ZZT_NPR")],
-            &control(),
+            Some(&control()),
         )
         .unwrap();
     let err = p.send_new_note(guard, "text");
@@ -870,7 +999,7 @@ fn program_only_preflight_does_not_panic() {
     let mock = Mock::with_control();
     let mut p = mock.prime();
     let guard = p
-        .preflight_new_names(&[(FileType::Program, "ZZT_ONLYP")], &control())
+        .preflight_new_names(&[(FileType::Program, "ZZT_ONLYP")], Some(&control()))
         .expect("program-only preflight");
     assert_eq!(guard.program(), "ZZT_ONLYP");
     let report = p
@@ -1177,7 +1306,7 @@ fn owned_note_capability_is_connection_bound_and_never_writes_programs() {
     let mock = Mock::with_control();
     let mut prime = mock.prime();
     let guard = prime
-        .preflight_new_names(&[(FileType::Note, "ZZT_OWNED")], &control())
+        .preflight_new_names(&[(FileType::Note, "ZZT_OWNED")], Some(&control()))
         .unwrap();
     let owned = prime.create_owned_note(guard, "initial").unwrap();
     let mut other = mock.prime();
@@ -1204,7 +1333,7 @@ fn unverified_note_creation_never_issues_owned_update_capability() {
     mock.st().on_write = OnWrite::Drop;
     let mut prime = mock.prime();
     let guard = prime
-        .preflight_new_names(&[(FileType::Note, "ZZT_OWNED")], &control())
+        .preflight_new_names(&[(FileType::Note, "ZZT_OWNED")], Some(&control()))
         .unwrap();
     assert!(prime.create_owned_note(guard, "initial").is_err());
     assert_eq!(mock.f7_messages().len(), 1);
@@ -1215,7 +1344,7 @@ fn write_guard_cannot_cross_connections_even_with_same_path() {
     let mock = Mock::with_control();
     let mut original = mock.prime();
     let guard = original
-        .preflight_new_names(&[(FileType::Program, "ZZT_BOUND")], &control())
+        .preflight_new_names(&[(FileType::Program, "ZZT_BOUND")], Some(&control()))
         .unwrap();
     let mut other = mock.prime();
     assert!(matches!(

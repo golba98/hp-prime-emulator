@@ -1,0 +1,141 @@
+# Non-interactive probes behind the Baseconv converter regression
+# (tests/fixtures/baseconv): string edge cases, MOD/IP on the values the
+# converter produces, and 12-digit rounding of large integers.
+# No INPUT here: typed-field behaviour needs a person at the keypad and
+# stays UNVERIFIED (see docs/compatibility/baseconv.md).
+# Empty-string results are wrapped in "|…|" so they are visible on screen.
+
+suite = "strings_baseconv"
+description = "String commands, MOD and IP as used by digit-by-digit base conversion"
+
+[[group]]
+id = "bc_strings_a"
+description = "MID / LEFT out of range, INSTRING misses, DIM of empty"
+
+[[group]]
+id = "bc_strings_b"
+description = "UPPER, Unicode length, STRING of reals"
+
+[[group]]
+id = "bc_numeric"
+description = "MOD and IP on converter values; 12-digit rounding"
+
+[[case]]
+id = "bc_mid_past_end"
+group = "bc_strings_a"
+expr = "\"|\"+MID(\"ABC\",4)+\"|\""
+note = "MID starting one past the end (emulator: \"||\")"
+
+[[case]]
+id = "bc_mid_len_past_end"
+group = "bc_strings_a"
+expr = "MID(\"ABC\",2,9)"
+note = "MID length beyond the end clamps (emulator: \"BC\")"
+
+[[case]]
+id = "bc_left_zero"
+group = "bc_strings_a"
+expr = "\"|\"+LEFT(\"A\",0)+\"|\""
+note = "LEFT with length 0 (emulator: \"||\")"
+
+[[case]]
+id = "bc_left_past_end"
+group = "bc_strings_a"
+expr = "LEFT(\"AB\",9)"
+note = "LEFT longer than the string (emulator: \"AB\")"
+
+[[case]]
+id = "bc_instring_miss"
+group = "bc_strings_a"
+expr = "INSTRING(\"0123456789ABCDEF\",\"G\")"
+note = "INSTRING of a missing character (emulator: 0)"
+
+[[case]]
+id = "bc_instring_hit"
+group = "bc_strings_a"
+expr = "INSTRING(\"0123456789ABCDEF\",\"A\")"
+note = "1-based INSTRING position (emulator: 11)"
+
+[[case]]
+id = "bc_instring_empty_needle"
+group = "bc_strings_a"
+expr = "INSTRING(\"abc\",\"\")"
+note = "INSTRING with an empty needle (emulator: 0)"
+
+[[case]]
+id = "bc_dim_empty"
+group = "bc_strings_a"
+expr = "DIM(\"\")"
+note = "Length of the empty string (emulator: 0)"
+
+[[case]]
+id = "bc_upper_mixed"
+group = "bc_strings_b"
+expr = "UPPER(\"7b.8\")"
+note = "UPPER leaves digits and dots (emulator: \"7B.8\")"
+
+[[case]]
+id = "bc_upper_non_ascii"
+group = "bc_strings_b"
+expr = "UPPER(\"äb\")"
+note = "UPPER on a non-ASCII letter (emulator: \"ÄB\")"
+
+[[case]]
+id = "bc_dim_unicode"
+group = "bc_strings_b"
+expr = "DIM(\"₂é\")"
+note = "DIM counts characters, not bytes (emulator: 2)"
+
+[[case]]
+id = "bc_string_real"
+group = "bc_strings_b"
+expr = "STRING(10.5)"
+note = "STRING of a real (emulator: \"10.5\")"
+
+[[case]]
+id = "bc_string_large"
+group = "bc_strings_b"
+expr = "STRING(1.84467440738E19)"
+note = "STRING of a 20-digit value in Standard format (emulator: \"1.84467440738E19\")"
+
+[[case]]
+id = "bc_mod_16"
+group = "bc_numeric"
+expr = "255 MOD 16"
+note = "Remainder of a hex digit step (emulator: 15)"
+
+[[case]]
+id = "bc_ip_div"
+group = "bc_numeric"
+expr = "IP(255/16)"
+note = "Quotient of a hex digit step (emulator: 15)"
+
+[[case]]
+id = "bc_ip_negative"
+group = "bc_numeric"
+expr = "IP(-2.5)"
+note = "IP truncates toward zero (emulator: -2)"
+
+[[case]]
+id = "bc_round_13_digits"
+group = "bc_numeric"
+expr = "9999999999999"
+note = "A 13-digit literal rounds to 12 digits (emulator: 1E13)"
+
+[[case]]
+id = "bc_large_mod"
+group = "bc_numeric"
+expr = "1.84467440738E19 MOD 10"
+note = "MOD on a value beyond 12 integer digits (emulator: 0)"
+
+[[case]]
+id = "bc_large_ip_div"
+group = "bc_numeric"
+expr = "IP(1.84467440738E19/16)"
+note = "IP of a large quotient (emulator: 1.15292150461E18)"
+
+[[case]]
+id = "bc_frac_times_base"
+group = "bc_numeric"
+expr = "IP(0.1*2*2*2*2)"
+note = "Decimal fraction doubling stays exact (emulator: 1)"

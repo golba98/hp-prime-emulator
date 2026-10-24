@@ -179,10 +179,13 @@ pub fn show(
     let mut typed_word = false;
     let mut caret_rect: Option<Rect> = None;
 
+    // Diagnostics are drawn only for the revision they were computed from:
+    // spans of older text would underline the wrong code.
+    let doc_revision = tab.doc.revision();
     let EditorTab {
         content,
         doc,
-        diagnostics,
+        analysis: tab_analysis,
         breakpoints,
         ..
     } = tab;
@@ -217,6 +220,10 @@ pub fn show(
                         .show(ui)
                 })
                 .inner;
+            let diagnostics: &[DiagnosticItem] = match tab_analysis {
+                Some(a) if a.revision == doc_revision && !output.response.changed() => &a.items,
+                _ => &[],
+            };
             let galley = output.galley.clone();
             let gpos = output.galley_pos;
             let has_focus = output.response.has_focus();

@@ -81,3 +81,20 @@ impl CalcInfo {
         Some(format!("{:016x}", fnv64(s.as_bytes())))
     }
 }
+
+/// Structured event recorded in optional diagnostic trace mode.
+#[derive(Clone, Debug)]
+pub struct TraceEvent {
+    pub at: Duration,
+    pub op_type: String,
+    pub endpoint: String,
+    pub requested_bytes: usize,
+    pub actual_bytes: usize,
+    pub status: String,
+    pub cmd_id: Option<u8>,
+    pub resp_id: Option<u8>,
+    pub resp_len: Option<usize>,
+    pub timeout_stage: Option<String>,
+    pub elapsed: Duration,
+    pub details: String,
+}

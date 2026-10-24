@@ -51,8 +51,8 @@ The program still runs on every other path (see
 
 | Code | Severity |
 |---|---|
-| `undeclared-identifier`, `unknown-function`, `wrong-arg-count`, `invalid-assignment-target`, `expected-variable`, `read-only`, `reserved-name`, `duplicate-function`, `duplicate-local`, `duplicate-parameter`, `invalid-dimension`, `number-out-of-range`, `div-requires-integers`, `outside-loop`, `return-outside-function` | Error |
-| `call-before-definition`, `forward-without-definition`, `duplicate-global`, `shadows-builtin`, `unused-local`, `unreachable-code`, `break-levels` | Warning |
+| `undeclared-identifier`, `unknown-function`, `wrong-arg-count`, `invalid-assignment-target`, `expected-variable`, `read-only`, `reserved-name`, `duplicate-function`, `duplicate-parameter`, `invalid-dimension`, `number-out-of-range`, `div-requires-integers`, `outside-loop`, `return-outside-function` | Error |
+| `call-before-definition`, `forward-without-definition`, `duplicate-global`, `duplicate-local`, `shadows-builtin`, `unused-local`, `unreachable-code`, `break-levels`, `input-unknown-type` (unverified: an INPUT type code outside -1, 0–4, 6, 8, 9) | Warning |
 
 - `unknown-function` and `undeclared-identifier` are reported only for
   names that are neither declared nor a documented HP Prime command. An
@@ -73,6 +73,7 @@ The program still runs on every other path (see
 | `unsupported-value` | Warning | `∞` |
 | `lowercase-command` | Note, unverified | `append(...)`: on the calculator a lower-case name calls the CAS command; the emulator runs the Home command (`APPEND`) |
 | `input-defaults-ignored` | Note | `INPUT` with `reset_value` / `initial_value`: accepted, but the emulator's dialog does not apply them yet |
+| `input-field-position-ignored` | Note | `INPUT({{var,[types],{x,width,line}}})`: the field position is accepted but the emulator lays fields out in order |
 
 ### Runtime (VM)
 

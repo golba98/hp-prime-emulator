@@ -1,0 +1,24 @@
+[package]
+name = "prime-emulator"
+description = "Headless HP Prime G1 firmware emulator: executes the original armfir.elf ARM firmware under Unicorn with host-side OS services (Phase 2, M2)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+unicorn-engine = "2.1"
+goblin = "0.10"
+memmap2 = "0.9"
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+png = { workspace = true }
+
+tempfile = "3"
+ctrlc = "3"
+
+[[bin]]
+name = "prime-emulator"
+path = "src/main.rs"

@@ -1,0 +1,19 @@
+EXPORT FAIL()
+BEGIN
+  RETURN SIN("x");
+END;
+EXPORT GOOD()
+BEGIN
+  PRINT();
+  PRINT(49);
+  PRINT("Fresh output");
+  RETURN 7;
+END;
+EXPORT CATCHED()
+BEGIN
+  IFERR
+    SIN("x");
+  THEN
+    RETURN 17;
+  END;
+END;

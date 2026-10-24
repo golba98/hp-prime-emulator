@@ -1,0 +1,12 @@
+# Unicorn Engine 2.x's bundled CMake build refuses build directories whose
+# path contains a space, and this repository's checkout path contains one
+# ("3-HP Prime Emulator"). Scoped here, `cargo` invocations made from inside
+# `crates/prime-emulator/` use a space-free build directory just outside
+# the repository. `scripts/emulator/run.sh` does the same for invocations
+# from the repository root.
+#
+# Path: <repo>/crates/prime-emulator/.cargo/config.toml
+#   -> "../../../.cache/prime-emulator-target"
+#   = <repo>../.cache/prime-emulator-target  (space-free)
+[build]
+target-dir = "../../../.cache/prime-emulator-target"

@@ -1,0 +1,1231 @@
+{
+  "suite": "core",
+  "evidence": {
+    "program": "ZZT_1A9784, ZZT_3115CB, ZZT_352D68, ZZT_7BB42D, ZZT_82E3D2, ZZT_CB8188, ZZT_D45C33",
+    "firmware_build": 15157,
+    "device_model": "HP Prime G1 (firmware build 8151 or later)",
+    "recorded_at_utc": "2026-10-22T12:35:34Z"
+  },
+  "cases": [
+    {
+      "id": "num_div_one_third",
+      "source": "1/3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.333333333333"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.333333333333"
+      },
+      "status": "VERIFIED",
+      "note": "12-digit decimal division (expected 0.333333333333)",
+      "known_divergence": null,
+      "device_raw": "c1|0|0.333333333333",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_one_third_mul_three",
+      "source": "1/3*3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.999999999999"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.999999999999"
+      },
+      "status": "VERIFIED",
+      "note": "Precision loss in 12-digit arithmetic without symbolic simplification (expected 0.999999999999)",
+      "known_divergence": null,
+      "device_raw": "c2|0|0.999999999999",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_sqrt_two_pow",
+      "source": "2^0.5",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      },
+      "status": "VERIFIED",
+      "note": "Square root of 2 via exponentiation (expected 1.41421356237)",
+      "known_divergence": null,
+      "device_raw": "c3|0|1.41421356237",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_sqrt_two_builtin",
+      "source": "SQRT(2)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.41421356237"
+      },
+      "status": "VERIFIED",
+      "note": "Square root of 2 via builtin SQRT function",
+      "known_divergence": null,
+      "device_raw": "c4|0|1.41421356237",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_exp_small",
+      "source": "1E-5",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.00001"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0.00001"
+      },
+      "status": "VERIFIED",
+      "note": "Small exponent threshold formatting (0.00001 vs 1E-5)",
+      "known_divergence": null,
+      "device_raw": "c1|0|0.00001",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "num_exp_max",
+      "source": "1E499",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E499"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E499"
+      },
+      "status": "VERIFIED",
+      "note": "Maximum supported positive decimal exponent (HP Prime ±499 limit)",
+      "known_divergence": null,
+      "device_raw": "c2|0|1E499",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "num_exp_min",
+      "source": "1E-499",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E-499"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1E-499"
+      },
+      "status": "VERIFIED",
+      "note": "Minimum supported negative decimal exponent (HP Prime ±499 limit)",
+      "known_divergence": null,
+      "device_raw": "c3|0|1E-499",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "num_exp_overflow",
+      "source": "1E499*10",
+      "emulator": {
+        "kind": "error",
+        "detail": "Error: Overflow"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Exponent overflow above 499 triggers runtime error",
+      "known_divergence": null
+    },
+    {
+      "id": "num_round_half_pos",
+      "source": "ROUND(2.5, 0)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "status": "VERIFIED",
+      "note": "Positive half-way rounding to 0 places (expected 3)",
+      "known_divergence": null,
+      "device_raw": "c1|0|3",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_half_neg",
+      "source": "ROUND(-2.5, 0)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-3"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-3"
+      },
+      "status": "VERIFIED",
+      "note": "Negative half-way rounding to 0 places (-3 if half-away-from-zero, -2 if towards zero)",
+      "known_divergence": null,
+      "device_raw": "c2|0|-3",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_half_0_5",
+      "source": "ROUND(0.5, 0)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "Half-way 0.5 to 0 places: 1 under half-away-from-zero/half-up, 0 under half-even (replaces ROUND(1.5,0), which cannot distinguish rules)",
+      "known_divergence": null,
+      "device_raw": "c3|0|1",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_half_3_5",
+      "source": "ROUND(3.5, 0)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      },
+      "status": "VERIFIED",
+      "note": "Half-way 3.5 to 0 places: 4 under half-away-from-zero and half-even alike; with 0.5 and 2.5 separates the rules",
+      "known_divergence": null,
+      "device_raw": "c4|0|4",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_1_25",
+      "source": "ROUND(1.25, 1)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.3"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.3"
+      },
+      "status": "VERIFIED",
+      "note": "Half-way at 1 decimal: 1.25 is exact (in decimal and binary), so 1.3 under half-away/half-up, 1.2 under half-even",
+      "known_divergence": null,
+      "device_raw": "c5|0|1.3",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_1_35",
+      "source": "ROUND(1.35, 1)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.4"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.4"
+      },
+      "status": "VERIFIED",
+      "note": "1.35 is exact in BCD: 1.4 under half-away and half-even (3 is odd); a 1.3 result would mean the half rule is half-down or truncation",
+      "known_divergence": null,
+      "device_raw": "c6|0|1.4",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_1_15",
+      "source": "ROUND(1.15, 1)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.2"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.2"
+      },
+      "status": "VERIFIED",
+      "note": "Decimal exactness: 1.15 is exact in BCD, so 1.2 under half-away and half-even; a binary double (1.1499999…) would give 1.1",
+      "known_divergence": null,
+      "device_raw": "c7|0|1.2",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_round_places",
+      "source": "ROUND(3.14159, 2)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3.14"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3.14"
+      },
+      "status": "VERIFIED",
+      "note": "Rounding to 2 decimal places (expected 3.14)",
+      "known_divergence": null,
+      "device_raw": "c8|0|3.14",
+      "evidence_program": "ZZT_7BB42D"
+    },
+    {
+      "id": "num_mod_neg_pos",
+      "source": "-7 MOD 3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      },
+      "status": "VERIFIED",
+      "note": "Modulo with negative dividend; floored division gives 2",
+      "known_divergence": null,
+      "device_raw": "c5|0|2",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_mod_pos_neg",
+      "source": "7 MOD -3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-2"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-2"
+      },
+      "status": "VERIFIED",
+      "note": "Modulo with negative divisor; floored division gives -2",
+      "known_divergence": null,
+      "device_raw": "c6|0|-2",
+      "evidence_program": "ZZT_1A9784"
+    },
+    {
+      "id": "num_div_neg_pos",
+      "source": "-7 DIV 3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-3"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Integer division with negative dividend; floored division gives -3",
+      "known_divergence": null
+    },
+    {
+      "id": "num_div_pos_neg",
+      "source": "7 DIV -3",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "-3"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Integer division with negative divisor; floored division gives -3",
+      "known_divergence": null
+    },
+    {
+      "id": "num_12_digits_exact",
+      "source": "1.23456789012",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789012"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789012"
+      },
+      "status": "VERIFIED",
+      "note": "Exact 12 significant digits preserved",
+      "known_divergence": null,
+      "device_raw": "c1|0|1.23456789012",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "num_13_digits_round_down",
+      "source": "1.234567890124",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789012"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789012"
+      },
+      "status": "VERIFIED",
+      "note": "13 digits with 13th digit < 5 rounds down to 1.23456789012",
+      "known_divergence": null,
+      "device_raw": "c2|0|1.23456789012",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "num_13_digits_round_up",
+      "source": "1.234567890126",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789013"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789013"
+      },
+      "status": "VERIFIED",
+      "note": "13 digits with 13th digit > 5 rounds up to 1.23456789013",
+      "known_divergence": null,
+      "device_raw": "c3|0|1.23456789013",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "num_13_digits_half_way",
+      "source": "1.234567890125",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789013"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.23456789012"
+      },
+      "status": "FAILED",
+      "note": "13 digits with 13th digit == 5 tests half-way rounding direction",
+      "known_divergence": null,
+      "device_raw": "c4|0|1.23456789012",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "num_arith_12_digit_limit",
+      "source": "1 + 1E-11",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.00000000001"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1.00000000001"
+      },
+      "status": "VERIFIED",
+      "note": "Addition at 12th digit boundary (expected 1.00000000001)",
+      "known_divergence": null,
+      "device_raw": "c5|0|1.00000000001",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "num_arith_13_digit_drop",
+      "source": "1 + 1E-12",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "Addition beyond 12th digit boundary drops 13th digit (expected 1)",
+      "known_divergence": null,
+      "device_raw": "c6|0|1",
+      "evidence_program": "ZZT_352D68"
+    },
+    {
+      "id": "type_real",
+      "source": "TYPE(42)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for real number (expected 0)",
+      "known_divergence": null,
+      "device_raw": "c1|0|0",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_real_val",
+      "source": "42",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "42"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "42"
+      },
+      "status": "VERIFIED",
+      "note": "Literal real value format",
+      "known_divergence": null,
+      "device_raw": "c2|0|42",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_int",
+      "source": "TYPE(#FFh)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for integer/hash literal (expected 1)",
+      "known_divergence": null,
+      "device_raw": "c3|0|1",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_int_val",
+      "source": "#FFh",
+      "emulator": {
+        "kind": "value",
+        "ty": 1,
+        "text": "#FFh"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 1,
+        "text": "#FFh"
+      },
+      "status": "VERIFIED",
+      "note": "Literal integer format (#FFh)",
+      "known_divergence": null,
+      "device_raw": "c4|1|#FFh",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_str",
+      "source": "TYPE(\"hello\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "2"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for string (expected 2)",
+      "known_divergence": null,
+      "device_raw": "c1|0|2",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "type_str_val",
+      "source": "\"hello\"",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "hello"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 2,
+        "text": "hello"
+      },
+      "status": "VERIFIED",
+      "note": "Literal string value",
+      "known_divergence": null,
+      "device_raw": "c2|2|hello",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "type_cplx",
+      "source": "TYPE((1, 2))",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for complex number (expected 3)",
+      "known_divergence": null,
+      "device_raw": "c5|0|3",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_cplx_val",
+      "source": "(1, 2)",
+      "emulator": {
+        "kind": "value",
+        "ty": 3,
+        "text": "1+2*i"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 3,
+        "text": "1+2*i"
+      },
+      "status": "VERIFIED",
+      "note": "Literal complex value (1,2)",
+      "known_divergence": null,
+      "device_raw": "c6|3|1+2*i",
+      "evidence_program": "ZZT_82E3D2"
+    },
+    {
+      "id": "type_mat",
+      "source": "TYPE([1, 2])",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for matrix/vector (expected 4)",
+      "known_divergence": null,
+      "device_raw": "c4|0|4",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "type_mat_val",
+      "source": "[1, 2]",
+      "emulator": {
+        "kind": "value",
+        "ty": 4,
+        "text": "[1,2]"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 4,
+        "text": "[1,2]"
+      },
+      "status": "VERIFIED",
+      "note": "Vector literal [1,2]",
+      "known_divergence": null,
+      "device_raw": "c5|4|[1,2]",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "type_list",
+      "source": "TYPE({1, 2})",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "6"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "6"
+      },
+      "status": "VERIFIED",
+      "note": "TYPE code for list (expected 6)",
+      "known_divergence": null,
+      "device_raw": "c6|0|6",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "type_list_val",
+      "source": "{1, 2}",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{1,2}"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{1,2}"
+      },
+      "status": "VERIFIED",
+      "note": "List literal {1,2}",
+      "known_divergence": null,
+      "device_raw": "c7|6|{1,2}",
+      "evidence_program": "ZZT_CB8188"
+    },
+    {
+      "id": "bool_and_false",
+      "source": "0 AND 1",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean AND with false left operand (expected 0)",
+      "known_divergence": null,
+      "device_raw": "c1|0|0",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "bool_and_true",
+      "source": "1 AND 1",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean AND with true operands (expected 1)",
+      "known_divergence": null,
+      "device_raw": "c2|0|1",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "bool_or_true",
+      "source": "1 OR 0",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean OR with true left operand (expected 1)",
+      "known_divergence": null,
+      "device_raw": "c3|0|1",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "bool_or_false",
+      "source": "0 OR 0",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean OR with false operands (expected 0)",
+      "known_divergence": null,
+      "device_raw": "c4|0|0",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "bool_not_zero",
+      "source": "NOT 0",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean NOT 0 (expected 1)",
+      "known_divergence": null,
+      "device_raw": "c5|0|1",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "bool_not_one",
+      "source": "NOT 1",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "status": "VERIFIED",
+      "note": "Boolean NOT 1 (expected 0)",
+      "known_divergence": null,
+      "device_raw": "c6|0|0",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "control_ifte_true",
+      "source": "IFTE(1, 10, 20)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "10"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "10"
+      },
+      "status": "VERIFIED",
+      "note": "IFTE condition true selects then-value (expected 10)",
+      "known_divergence": null,
+      "device_raw": "c7|0|10",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "control_ifte_false",
+      "source": "IFTE(0, 10, 20)",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "20"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "20"
+      },
+      "status": "VERIFIED",
+      "note": "IFTE condition false selects else-value (expected 20)",
+      "known_divergence": null,
+      "device_raw": "c8|0|20",
+      "evidence_program": "ZZT_D45C33"
+    },
+    {
+      "id": "str_dim",
+      "source": "DIM(\"hello\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "5"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "5"
+      },
+      "status": "VERIFIED",
+      "note": "String length via DIM (expected 5)",
+      "known_divergence": null,
+      "device_raw": "c3|0|5",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "str_indexing",
+      "source": "LOCAL s:=\"hello\";\nRETURN s(2);\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "101"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 0,
+        "text": "101"
+      },
+      "status": "VERIFIED",
+      "note": "1-based string character code indexing via s(2) (expected 101 for 'e')",
+      "known_divergence": null,
+      "device_raw": "c4|0|101",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "str_concat_num",
+      "source": "\"ab\"+1",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ab1"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ab1"
+      },
+      "status": "VERIFIED",
+      "note": "String concatenation with numeric coercion (expected \"ab1\")",
+      "known_divergence": null,
+      "device_raw": "c5|2|ab1",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "str_mid",
+      "source": "MID(\"hello\", 2, 3)",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ell"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 2,
+        "text": "ell"
+      },
+      "status": "VERIFIED",
+      "note": "Substring extraction via MID (expected \"ell\")",
+      "known_divergence": null,
+      "device_raw": "c6|2|ell",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "str_asc",
+      "source": "ASC(\"A\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{65}"
+      },
+      "device": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{65}"
+      },
+      "status": "VERIFIED",
+      "note": "Character code list via ASC (expected {65})",
+      "known_divergence": null,
+      "device_raw": "c7|6|{65}",
+      "evidence_program": "ZZT_3115CB"
+    },
+    {
+      "id": "list_size",
+      "source": "SIZE({10, 20, 30})",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "List length via SIZE (expected 3)",
+      "known_divergence": null
+    },
+    {
+      "id": "list_indexing",
+      "source": "LOCAL L:={10, 20, 30};\nRETURN L(2);\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "20"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "1-based list element access L(2) (expected 20)",
+      "known_divergence": null
+    },
+    {
+      "id": "list_append_zero",
+      "source": "LOCAL L:={10, 20};\nL(0):=30;\nRETURN L;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{10,20,30}"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "L(0):=val appends element to list (expected {10, 20, 30})",
+      "known_divergence": null
+    },
+    {
+      "id": "mat_create_2x2",
+      "source": "[[1, 2], [3, 4]]",
+      "emulator": {
+        "kind": "value",
+        "ty": 4,
+        "text": "[[1,2],[3,4]]"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "2D matrix literal creation",
+      "known_divergence": null
+    },
+    {
+      "id": "mat_indexing",
+      "source": "LOCAL M:=[[1, 2], [3, 4]];\nRETURN M(2, 1);\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "2D matrix 1-based indexing M(row, col): M(2, 1) (expected 3)",
+      "known_divergence": null
+    },
+    {
+      "id": "safe_hangle_deg",
+      "source": "LOCAL prev, r;\nprev:=HAngle;\nHAngle:=1;\nr:=SIN(90);\nHAngle:=prev;\nRETURN r;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "1"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Safely sets and restores HAngle (1=degrees) without mutating device persistent state; SIN(90)=1",
+      "known_divergence": null
+    },
+    {
+      "id": "safe_hangle_rad",
+      "source": "LOCAL prev, r;\nprev:=HAngle;\nHAngle:=0;\nr:=SIN(0);\nHAngle:=prev;\nRETURN r;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Safely sets and restores HAngle (0=radians); SIN(0)=0",
+      "known_divergence": null
+    },
+    {
+      "id": "scope_uninit_local",
+      "source": "LOCAL x;\nRETURN x;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Uninitialized LOCAL variable defaults to real 0",
+      "known_divergence": null
+    },
+    {
+      "id": "scope_for_after_loop",
+      "source": "LOCAL i, s:=0;\nFOR i FROM 1 TO 3 DO\n  s:=s+i;\nEND;\nRETURN i;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "4"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "FOR loop variable value upon normal termination (expected 4)",
+      "known_divergence": null
+    },
+    {
+      "id": "scope_while_loop",
+      "source": "LOCAL x:=1;\nWHILE x < 10 DO\n  x:=x*2;\nEND;\nRETURN x;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "16"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "WHILE loop control flow execution (expected 16)",
+      "known_divergence": null
+    },
+    {
+      "id": "scope_repeat_loop",
+      "source": "LOCAL x:=1;\nREPEAT\n  x:=x*3;\nUNTIL x > 20;\nRETURN x;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "27"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "REPEAT UNTIL loop control flow execution (expected 27)",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_and_short_circuit",
+      "source": "0 AND (1/0)",
+      "emulator": {
+        "kind": "error",
+        "detail": "Error: Division by 0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "AND short-circuit: 0 if the right operand is not evaluated, error otherwise",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_or_short_circuit",
+      "source": "1 OR (1/0)",
+      "emulator": {
+        "kind": "error",
+        "detail": "Error: Division by 0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "OR short-circuit: 1 if the right operand is not evaluated, error otherwise",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_ifte_lazy",
+      "source": "IFTE(1, 5, 1/0)",
+      "emulator": {
+        "kind": "error",
+        "detail": "Error: Division by 0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "IFTE laziness: 5 if only the selected branch is evaluated",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_string_quoting",
+      "source": "STRING(\"hello\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 2,
+        "text": "hello"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Whether STRING() of a string adds quotes (the harness records STRING(v) of every result)",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_asc_multi",
+      "source": "ASC(\"AB\")",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{65,66}"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "ASC of a two-character string returns a list of codes (expected {65,66}); ASC(\"A\") is str_asc",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_str_index_local",
+      "source": "LOCAL s:=\"ab\";\nRETURN s(2);\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "98"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Indexing a string held in a LOCAL returns a character code (expected 98)",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_list_append_empty",
+      "source": "LOCAL L:={};\nL(0):=5;\nL(0):=6;\nRETURN L;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{5,6}"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "L(0):= appends, starting from an empty list (expected {5,6})",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_underflow",
+      "source": "1E-499/10",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "0"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Underflow below the smallest exponent: 0 if flushed, error if trapped",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_list_copy_by_value",
+      "source": "LOCAL a:={1,2},b;\nb:=a;\nb(1):=9;\nRETURN a;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 6,
+        "text": "{1,2}"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Assignment copies lists by value: modifying b leaves a unchanged (expected {1,2})",
+      "known_divergence": null
+    },
+    {
+      "id": "sem_for_limit_eval",
+      "source": "LOCAL i,n:=3,c:=0;\nFOR i FROM 1 TO n DO\n  n:=1;\n  c:=c+1;\nEND;\nRETURN c;\n",
+      "emulator": {
+        "kind": "value",
+        "ty": 0,
+        "text": "3"
+      },
+      "device": null,
+      "status": "UNVERIFIED",
+      "note": "Whether FOR re-evaluates its TO limit each iteration: 3 if evaluated once, 1 if re-evaluated",
+      "known_divergence": null
+    }
+  ]
+}

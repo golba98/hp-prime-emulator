@@ -619,3 +619,44 @@ fn notes_and_programs_namespaces_are_separate() {
     );
     assert_eq!(out, v(&["note", "prog"]));
 }
+
+// ---------------------------------------------------------------------------
+// String commands used by digit-by-digit converters (Baseconv)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn string_edge_cases() {
+    // Positions are 1-based and count characters, not bytes.
+    // UNVERIFIED on G1: out-of-range lengths clamp instead of erroring;
+    // INSTRING with an empty needle returns 0; UPPER maps non-ASCII.
+    assert_eq!(
+        lines(
+            r#"PRINT(DIM(""));
+               PRINT(MID("FF",2,1)); PRINT(MID("ABC",4)); PRINT(DIM(MID("ABC",4,2)));
+               PRINT(MID("ABC",2)); PRINT(LEFT("A",0) + "|"); PRINT(LEFT("AB",9));
+               PRINT(INSTRING("0123456789ABCDEF","G")); PRINT(INSTRING("0123456789ABCDEF","A"));
+               PRINT(INSTRING("abc","")); PRINT(INSTRING("","a"));
+               PRINT(UPPER("7b.8")); PRINT(UPPER("äb")); PRINT(DIM("₂é"));
+               PRINT(MID("₂é",2,1));"#
+        ),
+        v(&[
+            "0", "F", "", "0", "BC", "|", "AB", "0", "11", "0", "0", "7B.8", "ÄB", "2", "é",
+        ])
+    );
+    // UNVERIFIED on G1: a start position below 1 is an argument error.
+    assert_eq!(error_kind(r#"PRINT(MID("ABC",0));"#), "BadArgValue");
+}
+
+#[test]
+fn string_concatenation_and_conversion() {
+    // `+` with a string operand concatenates; STRING of a number is its
+    // terminal form; IP truncates toward zero.
+    assert_eq!(
+        lines(
+            r#"PRINT("Base " + STRING(16)); PRINT("." + "1000");
+               PRINT(STRING(10.5)); PRINT(IP(-2.5)); PRINT(IP(7/2));
+               PRINT(255 MOD 16); PRINT(IP(255/16));"#
+        ),
+        v(&["Base 16", ".1000", "10.5", "-2", "3", "15", "15"])
+    );
+}

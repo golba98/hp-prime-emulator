@@ -472,25 +472,36 @@ impl Automation {
     fn dump_state(&mut self, app: &mut IdeDesktopApp, ctx: &egui::Context) -> String {
         use serde_json::json;
 
-        let state = &app.state;
+        let states: Vec<String> = (0..app.editor.tabs.len())
+            .map(|i| format!("{:?}", app.analysis_state(i)))
+            .collect();
         let tabs: Vec<_> = app
             .editor
             .tabs
-            .iter()
-            .map(|t| {
+            .iter_mut()
+            .zip(states)
+            .map(|(t, analysis_state)| {
+                let diagnostics: Vec<_> = t
+                    .current_diagnostics()
+                    .iter()
+                    .map(|d| {
+                        json!({
+                            "line": d.line, "col": d.col,
+                            "message": d.message,
+                            "code": d.code,
+                            "class": d.class.label(),
+                            "is_error": matches!(d.severity, ppl_syntax::diag::Severity::Error),
+                        })
+                    })
+                    .collect();
                 json!({
                     "title": t.title,
                     "modified": t.modified,
                     "path": t.path.as_ref().map(|p| p.display().to_string()),
                     "content": t.content,
                     "breakpoints": t.breakpoints.iter().collect::<Vec<_>>(),
-                    "diagnostics": t.diagnostics.iter().map(|d| json!({
-                        "line": d.line, "col": d.col,
-                        "message": d.message,
-                        "code": d.code,
-                        "class": d.class.label(),
-                        "is_error": matches!(d.severity, ppl_syntax::diag::Severity::Error),
-                    })).collect::<Vec<_>>(),
+                    "analysis_state": analysis_state,
+                    "diagnostics": diagnostics,
                     "cache": {
                         "analyses": t.doc.stats.analyses,
                         "layouts": t.doc.stats.layouts,
@@ -499,6 +510,7 @@ impl Automation {
             })
             .collect();
 
+        let state = &app.state;
         let terminal = app
             .controller
             .shared
@@ -538,6 +550,8 @@ impl Automation {
                 "code": p.code, "class": p.class.label(), "file": p.file,
                 "is_error": matches!(p.severity, ppl_syntax::diag::Severity::Error),
             })).collect::<Vec<_>>(),
+            "problems_title": app.problems.title(),
+            "analysis": format!("{:?}", state.analysis),
             "editor_font_size": state.editor_font_size,
             "panel_sizes": {
                 "explorer": state.explorer_width,

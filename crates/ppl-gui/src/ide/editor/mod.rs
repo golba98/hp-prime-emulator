@@ -28,7 +28,7 @@ use std::path::PathBuf;
 use egui::{Align2, Color32, FontId, Key, RichText, Sense, Stroke, pos2, vec2};
 
 pub use self::find_bar::{FindBar, FindCommand};
-pub use self::tab::{EditorTab, FileFormat, SaveError, TabId};
+pub use self::tab::{EditorTab, FileFormat, SaveError, TabAnalysis, TabId};
 pub use crate::ide::diagnostics::DiagnosticItem;
 
 use super::syntax::CodeStyle;

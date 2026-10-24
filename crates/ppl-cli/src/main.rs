@@ -16,9 +16,9 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Run a program headlessly (PRINT to stdout, optional PNG).
-    Run(cmd::run::RunOpts),
+    Run(cmd::unified::RunCommand),
     /// Validate a program without running it.
-    Check(cmd::run::CheckOpts),
+    Check(cmd::unified::CheckCommand),
     /// List built-in commands and their emulation status.
     Commands(cmd::commands::CommandsOpts),
     /// Detect and talk to a physical HP Prime over USB.
@@ -69,11 +69,45 @@ fn main() -> ExitCode {
             );
             return ExitCode::from(2);
         }
+        Err(error)
+            if error.use_stderr()
+                && matches!(argv.get(1).map(String::as_str), Some("run" | "check"))
+                && argv.iter().any(|s| s == "--json") =>
+        {
+            let engine_arg = argv
+                .windows(2)
+                .find(|a| a[0] == "--engine")
+                .map(|a| a[1].as_str())
+                .or_else(|| argv.iter().find_map(|a| a.strip_prefix("--engine=")));
+            let mut report = ppl_engine::Report::new(
+                if engine_arg == Some("firmware") {
+                    ppl_engine::Engine::Firmware
+                } else {
+                    ppl_engine::Engine::Native
+                },
+                if argv.get(1).is_some_and(|s| s == "check") {
+                    ppl_engine::Operation::Check
+                } else {
+                    ppl_engine::Operation::Run
+                },
+            );
+            report.requested_engine = engine_arg.map(str::to_owned);
+            if engine_arg.is_some_and(|e| !matches!(e, "native" | "firmware")) {
+                report.engine = None;
+            }
+            report.fail(
+                ppl_engine::Status::InvalidRequest,
+                "arguments",
+                error.to_string(),
+            );
+            println!("{}", serde_json::to_string(&report).unwrap());
+            return ExitCode::from(2);
+        }
         Err(error) => error.exit(),
     };
     let code = match cli.command {
-        Command::Run(o) => cmd::run::run(o),
-        Command::Check(o) => cmd::run::check(o),
+        Command::Run(o) => cmd::unified::run(o),
+        Command::Check(o) => cmd::unified::check(o),
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),
         Command::Compare(o) => cmd::compare::run(o),
