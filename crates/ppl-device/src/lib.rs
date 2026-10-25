@@ -16,6 +16,7 @@
 //! | `FF` | check ready | none |
 //! | `FA` | get info | none |
 //! | `FC` | screenshot | none |
+//! | `F9` | receive backup inventory | reads objects; completeness remains unverified |
 //! | `F8` | request file | none (calculator replies with an `F7` file) |
 //! | `F7` | send file | creates guarded objects; owned-note updates require [`ownership::OwnedNote`] |
 //! | `EB` | delete object | removes exactly one named object (see [`delete`]); F7-shaped message
@@ -51,28 +52,33 @@ mod mock_tests;
 pub use delete::{
     Backup, Completion, DeleteEvent, DeleteGuard, DeleteOptions, DeleteReport, DeleteTarget,
     Deletion, DirectDeleteReport, MAX_TARGETS, Mechanism, NoteWatch, PROTECTED_OBJECTS,
-    TargetResult, TargetStatus, authorize_usb_deletion, await_deletion_note, delete_via_usb,
-    generate_deletion_helper, prepare_deletion, run_deletion, upload_deletion_helper,
-    verify_deleted,
+    SETTINGS_ANCHOR_VERIFIED, TargetResult, TargetStatus, authorize_usb_deletion,
+    await_deletion_note, delete_via_usb, generate_deletion_helper, prepare_deletion,
+    prepare_deletion_with, run_deletion, upload_deletion_helper, verify_deleted,
 };
 pub use files::{FileType, PrimeFile};
 
+pub mod control;
 pub mod guard;
 pub mod info;
+pub mod inventory;
 pub mod keys;
 pub mod listener;
 mod lock;
 pub mod ownership;
+pub mod program;
 pub mod protocol;
 pub mod remote;
 pub mod run;
+pub mod screenshot;
 pub mod session;
 pub mod transport;
 
 pub use guard::{
-    ControlObject, DEFAULT_CONTROL, GUARD_MAX_AGE, MAX_NAME_LEN, PROBE_TIMEOUT, ReadBack,
-    SAFE_PREFIX, UploadReport, WriteGuard, fresh_test_name, normalize_program_text,
-    result_note_name, validate_test_name,
+    ControlObject, DEFAULT_CONTROL, DEFAULT_SETTINGS_ANCHOR, GUARD_MAX_AGE, MAX_NAME_LEN,
+    NamePolicy, PROBE_TIMEOUT, ReadBack, SAFE_PREFIX, SETTINGS_ANCHORS, UploadReport, WriteGuard,
+    fresh_test_name, normalize_program_text, result_note_name, validate_object_name,
+    validate_program_name, validate_test_name,
 };
 pub use info::{CalcInfo, Exchange, Probe, TraceEvent};
 pub use keys::{
@@ -107,6 +113,22 @@ const DRAIN_TIMEOUT_MS: i32 = 50;
 /// exactly; 16,284 B, 21,080 B and 23,050 B were transmitted in full but
 /// silently dropped, even with 0xFF in the sequence and paced writes.
 pub const MAX_PROGRAM_PAYLOAD: usize = 15_928;
+
+/// Size of `source` as the UTF-16LE payload of an `F7` program upload, or
+/// [`DeviceError::Refused`] if it exceeds [`MAX_PROGRAM_PAYLOAD`]. Pure
+/// (no USB), so callers can reject an oversize program before any prompt
+/// or preflight.
+pub fn check_program_payload(name: &str, source: &str) -> Result<usize> {
+    let bytes = source.encode_utf16().count() * 2;
+    if bytes > MAX_PROGRAM_PAYLOAD {
+        return Err(DeviceError::Refused(format!(
+            "`{name}` is {bytes} UTF-16 bytes; this G1 silently drops uploads above \
+             {MAX_PROGRAM_PAYLOAD} bytes (nothing was sent). Shorten the source, e.g. strip \
+             comments and indentation."
+        )));
+    }
+    Ok(bytes)
+}
 /// How long the post-upload read-back keeps listening to its one `F8`.
 pub const READBACK_TIMEOUT: Duration = Duration::from_secs(20);
 /// Upper bound on reports discarded by one [`Prime::drain`] call.
@@ -124,6 +146,11 @@ pub enum DeviceError {
     /// already-submitted mutation as unresolved; this error does not undo it.
     Inconclusive(String),
     Busy(String),
+    /// The object type has no verified read/backup/delete support.
+    Unsupported(String),
+    /// The calculator answered liveness checks but not a file request, twice:
+    /// the object is not present.
+    Absent(String),
 }
 
 impl fmt::Display for DeviceError {
@@ -138,6 +165,8 @@ impl fmt::Display for DeviceError {
                 write!(f, "inconclusive: {e}")
             }
             DeviceError::Busy(e) => write!(f, "device busy: {e}"),
+            DeviceError::Unsupported(e) => write!(f, "unsupported object type: {e}"),
+            DeviceError::Absent(e) => write!(f, "not found: {e}"),
         }
     }
 }
@@ -594,9 +623,14 @@ impl Prime {
 
     /// `FC`: screenshot as PNG bytes. `format` 0x08 = 320×240 16-bit.
     pub fn screenshot(&mut self, format: u8) -> Result<Vec<u8>> {
+        self.screenshot_timeout(format, Duration::from_secs(15))
+    }
+
+    /// `FC`: screenshot as PNG bytes with custom first-report timeout.
+    pub fn screenshot_timeout(&mut self, format: u8, timeout: Duration) -> Result<Vec<u8>> {
         self.drain();
         self.send_message(&[CMD_SCREENSHOT, format])?;
-        let raw = self.recv_message(CMD_SCREENSHOT, "screenshot", Duration::from_secs(15))?;
+        let raw = self.recv_message(CMD_SCREENSHOT, "screenshot", timeout)?;
         let png_at = raw
             .windows(4)
             .position(|w| w == [0x89, b'P', b'N', b'G'])
@@ -690,11 +724,16 @@ impl Prime {
     /// caller must verify the deletion through [`delete::verify_deleted`]
     /// before reporting success. The message is never retried.
     pub(crate) fn delete_object(&mut self, ty: FileType, name: &str) -> Result<()> {
-        validate_test_name(name)?;
-        if !matches!(ty, FileType::Program | FileType::Note) {
-            return Err(DeviceError::Refused(
-                "only programs and notes may be deleted".into(),
-            ));
+        // Reachable only through a DeleteGuard, which re-validates every
+        // target under its own policy; this is the final per-object check.
+        validate_object_name(ty, name)?;
+        if PROTECTED_OBJECTS
+            .iter()
+            .any(|n| n.eq_ignore_ascii_case(name))
+        {
+            return Err(DeviceError::Refused(format!(
+                "`{name}` is a protected object and cannot be deleted"
+            )));
         }
         let start = self.log.len();
         self.drain();
@@ -726,7 +765,34 @@ impl Prime {
         targets: &[(FileType, &str)],
         control: Option<&ControlObject>,
     ) -> Result<WriteGuard> {
-        self.preflight_new_names_inner(targets, control, false)
+        self.preflight_new_names_inner(targets, control, false, NamePolicy::Test, &[])
+    }
+
+    /// Like [`Prime::preflight_new_names`] for one **ordinary user
+    /// program** (any name accepted by [`validate_program_name`]). It covers
+    /// the program only (no `NAME`+`R` result note) and needs no control
+    /// object. The exact name and its all-upper/all-lower case variants must
+    /// each stay silent twice, so an existing program is never overwritten
+    /// or shadowed. The returned guard carries [`NamePolicy::User`].
+    pub fn preflight_new_user_program(
+        &mut self,
+        name: &str,
+        control: Option<&ControlObject>,
+    ) -> Result<WriteGuard> {
+        validate_program_name(name)?;
+        let mut variants = Vec::new();
+        for v in [name.to_ascii_uppercase(), name.to_ascii_lowercase()] {
+            if v != name && !variants.contains(&v) {
+                variants.push(v);
+            }
+        }
+        self.preflight_new_names_inner(
+            &[(FileType::Program, name)],
+            control,
+            false,
+            NamePolicy::User,
+            &variants,
+        )
     }
 
     pub(crate) fn preflight_mailbox(
@@ -750,6 +816,8 @@ impl Prime {
             ],
             control,
             true,
+            NamePolicy::Test,
+            &[],
         )
     }
 
@@ -758,9 +826,11 @@ impl Prime {
         targets: &[(FileType, &str)],
         control: Option<&ControlObject>,
         mailbox: bool,
+        policy: NamePolicy,
+        variants: &[String],
     ) -> Result<WriteGuard> {
         for (_, n) in targets {
-            validate_test_name(n)?;
+            policy.validate(n)?;
         }
         let programs: Vec<&str> = targets
             .iter()
@@ -799,7 +869,8 @@ impl Prime {
                 }
             }
         }
-        let names: Vec<String> = targets.iter().map(|(_, n)| n.to_string()).collect();
+        let mut names: Vec<String> = targets.iter().map(|(_, n)| n.to_string()).collect();
+        names.extend(variants.iter().cloned());
         let start = self.log.len();
         let mut log = Vec::new();
 
@@ -860,6 +931,10 @@ impl Prime {
             self.probe_absent(*ty, n, 1, &names, &mut log)?;
             self.ensure_quiet(start, &names)?;
         }
+        for v in variants {
+            self.probe_absent(FileType::Program, v, 1, &names, &mut log)?;
+            self.ensure_quiet(start, &names)?;
+        }
 
         // 4. Inter-round verification: active control or FF check-ready
         if let Some((ref ctrl, (expected_len, expected_hash))) = active_control {
@@ -888,6 +963,10 @@ impl Prime {
         // 5. Targets, round 2
         for (ty, n) in targets {
             self.probe_absent(*ty, n, 2, &names, &mut log)?;
+            self.ensure_quiet(start, &names)?;
+        }
+        for v in variants {
+            self.probe_absent(FileType::Program, v, 2, &names, &mut log)?;
             self.ensure_quiet(start, &names)?;
         }
 
@@ -930,6 +1009,7 @@ impl Prime {
             created: Instant::now(),
             max_age: GUARD_MAX_AGE,
             log,
+            policy,
         })
     }
 
@@ -1092,22 +1172,15 @@ impl Prime {
                 "write guard was issued for a different device or connection".into(),
             ));
         }
-        validate_test_name(&guard.program)?;
+        guard.policy.validate(&guard.program)?;
         let names: Vec<String> = guard.targets.iter().map(|(_, n)| n.clone()).collect();
         let start = self.log.len();
         self.drain();
         self.ensure_quiet(start, &names)?;
 
         let name = guard.program.clone();
+        check_program_payload(&name, source)?;
         let data: Vec<u8> = source.encode_utf16().flat_map(u16::to_le_bytes).collect();
-        if data.len() > MAX_PROGRAM_PAYLOAD {
-            return Err(DeviceError::Refused(format!(
-                "`{name}` is {} UTF-16 bytes; this G1 silently drops uploads above {} bytes \
-                 (nothing was sent). Shorten the source, e.g. strip comments and indentation.",
-                data.len(),
-                MAX_PROGRAM_PAYLOAD
-            )));
-        }
         let msg = files::encode_file_message(CMD_FILE, FileType::Program, &name, &data);
         self.send_message(&msg)?;
         self.drain();
@@ -1145,6 +1218,11 @@ impl Prime {
         {
             return Err(DeviceError::Refused(
                 "write guard was issued for a different device or connection".into(),
+            ));
+        }
+        if guard.policy != NamePolicy::Test {
+            return Err(DeviceError::Refused(
+                "notes may only be created under the test-object naming policy".into(),
             ));
         }
         validate_test_name(&guard.program)?;

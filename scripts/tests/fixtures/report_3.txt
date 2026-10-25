@@ -1,0 +1,28 @@
+
+## SESSION
+
+Captures: 3; errors: 0; changed publications: 1; capture FPS: 50.000.
+Screenshot write attempts/s over recorded interval: 50.000; valid incremental responses/s: 50.000; resynchronization baselines: 0.
+Errors per screenshot write attempt: 0.0000 (identity/preflight errors may also be present).
+Incremental rectangles: [(1, 1)].
+Incremental composition ms median/P95/max: (0.0500, 0.0500, 0.0500).
+Baseline total ms median/P95/max: (1.0000, 1.0000, 1.0000).
+Rates breakdown: Request rate: 50.000 req/s; Response rate: 50.000 responses/s; Changed-frame rate: 0.000 changed/s.
+Throughput: 9600.0 B/s (report bytes), 6000.0 B/s (PNG payload).
+
+Stage | Median ms | P95 ms | Max ms | Share of mean capture time | Errors
+---|---:|---:|---:|---:|---:
+setup | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+write | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+first_response | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+transfer | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+assembly | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+extraction | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+decompression | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+conversion | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+publication | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+total | 2.0000 | 3.0000 | 3.0000 | 100.000% | 0
+
+PNG bytes median/P95/max: (80.0000, 80.0000, 80.0000); source sizes: [(320, 240)].
+Published FPS over changed publications: 0.000 (unchanged captures intentionally do not publish).
+No GUI presentation measurements; displayed FPS is unmeasured.

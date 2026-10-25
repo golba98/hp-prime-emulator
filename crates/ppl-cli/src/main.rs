@@ -16,7 +16,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Run a program headlessly (PRINT to stdout, optional PNG).
-    Run(cmd::unified::RunCommand),
+    Run(Box<cmd::unified::RunCommand>),
     /// Validate a program without running it.
     Check(cmd::unified::CheckCommand),
     /// List built-in commands and their emulation status.
@@ -49,6 +49,28 @@ const SUBCOMMANDS: &[&str] = &[
     "--version",
 ];
 
+fn device_action(argv: &[String]) -> Option<&str> {
+    if argv.get(1).map(String::as_str) != Some("device") {
+        return None;
+    }
+    let mut args = argv.iter().skip(2);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--log"
+            | "--trace"
+            | "--device"
+            | "--remote-dir"
+            | "--remote-timeout-secs"
+            | "--control-socket" => {
+                args.next();
+            }
+            s if s.starts_with('-') => {}
+            action => return Some(action),
+        }
+    }
+    None
+}
+
 fn main() -> ExitCode {
     // `ppl file.hpprgm …` (the Python-era form) means `ppl run file.hpprgm …`.
     let mut argv: Vec<String> = std::env::args().collect();
@@ -57,6 +79,23 @@ fn main() -> ExitCode {
     }
     let cli = match Cli::try_parse_from(&argv) {
         Ok(cli) => cli,
+        Err(error)
+            if error.use_stderr()
+                && argv.get(1).is_some_and(|s| s == "device")
+                && argv.iter().any(|s| s == "--json")
+                && matches!(
+                    device_action(&argv),
+                    Some("programs" | "ui" | "control" | "diagnose" | "run-file" | "debug")
+                ) =>
+        {
+            println!(
+                "{}",
+                serde_json::json!({"schema_version":1,"status":"invalid_input",
+                "execution_confirmed":false,"uploaded":false,"check_executed":false,
+                "error":{"kind":"invalid_input","message":error.to_string(),"exit_code":2}})
+            );
+            return ExitCode::from(2);
+        }
         Err(error)
             if error.use_stderr()
                 && argv.get(1).is_some_and(|s| s == "device")
@@ -106,7 +145,7 @@ fn main() -> ExitCode {
         Err(error) => error.exit(),
     };
     let code = match cli.command {
-        Command::Run(o) => cmd::unified::run(o),
+        Command::Run(o) => cmd::unified::run(*o),
         Command::Check(o) => cmd::unified::check(o),
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),

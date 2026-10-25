@@ -36,6 +36,9 @@ struct State {
     outbox: VecDeque<(u64, Vec<u8>)>,
     objects: HashMap<String, (FileType, Vec<u8>)>,
     ff_reply: Option<u8>,
+    /// Raw `FA` reply (identity); `None` = silent.
+    fa_reply: Option<Vec<u8>>,
+    fc_reply: Option<Vec<u8>>,
     reply_delay: u64,
     /// Per-name `F8` reply delay (ms) overriding `reply_delay`.
     late: HashMap<String, u64>,
@@ -90,6 +93,8 @@ impl Mock {
             outbox: VecDeque::new(),
             objects: HashMap::new(),
             ff_reply: Some(READY_REPLY),
+            fa_reply: Some(fa_raw("0000000000")),
+            fc_reply: None,
             reply_delay: 5,
             late: HashMap::new(),
             bogus: HashSet::new(),
@@ -111,6 +116,11 @@ impl Mock {
 
     fn object(self, ty: FileType, name: &str, text: &str) -> Mock {
         self.st().objects.insert(name.into(), (ty, utf16(text)));
+        self
+    }
+
+    fn screenshot(self, png: Vec<u8>) -> Mock {
+        self.st().fc_reply = Some(png);
         self
     }
 
@@ -170,6 +180,19 @@ impl State {
             CMD_CHECK_READY => {
                 if let Some(b) = self.ff_reply {
                     self.queue_reply(now + self.reply_delay, &[b]);
+                }
+            }
+            crate::CMD_GET_INFO => {
+                if let Some(raw) = self.fa_reply.clone() {
+                    self.queue_reply(now + self.reply_delay, &raw);
+                }
+            }
+            CMD_SCREENSHOT => {
+                if let Some(png) = self.fc_reply.clone() {
+                    let mut rep = vec![CMD_SCREENSHOT, 0x01];
+                    rep.extend_from_slice(&(png.len() as u32).to_be_bytes());
+                    rep.extend_from_slice(&png);
+                    self.queue_reply(now + self.reply_delay, &rep);
                 }
             }
             CMD_REQ_FILE => {
@@ -302,6 +325,26 @@ impl Transport for Mock {
             }
         }
     }
+}
+
+/// A G1 build-15157 `FA` reply with the given 10-character serial.
+fn fa_raw(serial: &str) -> Vec<u8> {
+    let mut raw = vec![0xFA, 0x01, 0, 0, 0, 0x6C];
+    let mut body = vec![0u8; 108];
+    body[65] = 0x30;
+    body[68..76].copy_from_slice(&[0x24, 0x20, 0x01, 0x39, 0x35, 0x3B, 0, 0]);
+    body[76..86].copy_from_slice(b"V0.050.640");
+    body[92..102].copy_from_slice(serial.as_bytes());
+    raw.extend(body);
+    raw
+}
+
+fn anchor() -> ControlObject {
+    ControlObject::parse(crate::DEFAULT_SETTINGS_ANCHOR).unwrap()
+}
+
+fn baseline(p: &mut Prime) -> crate::delete::Baseline {
+    crate::delete::Baseline::from_info(&p.info().unwrap()).unwrap()
 }
 
 fn control() -> ControlObject {
@@ -1568,7 +1611,7 @@ fn delete_prepare_refuses_missing_object() {
     let err =
         prepare_deletion(&mut p, &[DeleteTarget::program("ZZT_GONE")], &control()).unwrap_err();
     assert!(
-        matches!(err, DeviceError::Refused(ref m) if m.contains("not present")),
+        matches!(err, DeviceError::Absent(ref m) if m.contains("not present")),
         "{err}"
     );
 }
@@ -1841,4 +1884,512 @@ fn deletion_absence_rejects_late_target_replies_drained_beside_live_control() {
     let mut p = mock.prime();
     assert!(verify_deleted(&mut p, &[DeleteTarget::program("ZZT_SLOW")], &control()).is_err());
     assert!(mock.st().objects.contains_key("ZZT_SLOW"));
+}
+
+// ---- ordinary user programs (no ZZT_ prefix) ----
+
+#[test]
+fn user_program_names_accepted_and_rejected() {
+    for good in [
+        "FIREWORKS",
+        "HELLO",
+        "SQUARE",
+        "BSTVisualizer",
+        "MyProgram",
+        "ZZT_ABC",
+        "A_1",
+        "ABCDEFGHIJKLMNOP",
+    ] {
+        assert!(validate_program_name(good).is_ok(), "{good:?}");
+    }
+    for bad in [
+        "",
+        "1ABC",
+        "_ABC",
+        "MY PROG",
+        "MY-PROG",
+        "A/B",
+        "..",
+        "a.b",
+        "ÉCOLE",
+        "AB\nC",
+        "AB\0C",
+        "ABCDEFGHIJKLMNOPQ",
+        "A",
+        "L1",
+        "G0",
+        "Ans",
+        "BEGIN",
+        "end",
+        "ZZT_CTRL",
+    ] {
+        let err = validate_program_name(bad).unwrap_err();
+        assert!(
+            matches!(&err, DeviceError::Refused(m) if !m.contains("test object")),
+            "{bad:?}: {err}"
+        );
+    }
+    // The test-object policy is unchanged.
+    assert!(validate_test_name("FIREWORKS").is_err());
+    assert!(validate_test_name("ZZT_FIREWORKS").is_ok());
+}
+
+#[test]
+fn user_program_preflight_and_send_need_no_control_and_no_result_note() {
+    let mock = Mock::new(); // no ZZT_CTRL, no other objects
+    let mut p = mock.prime();
+    let guard = p.preflight_new_user_program("FIREWORKS", None).unwrap();
+    assert_eq!(guard.program(), "FIREWORKS");
+    assert_eq!(guard.policy(), NamePolicy::User);
+    assert_eq!(guard.names(), vec!["FIREWORKS"], "no result note target");
+    let f8 = mock.f8_names();
+    assert!(!f8.iter().any(|n| n == "FIREWORKSR" || n == CTRL), "{f8:?}");
+    // exact name plus its lower-case variant, two rounds each
+    assert_eq!(f8, ["FIREWORKS", "fireworks", "FIREWORKS", "fireworks"]);
+    assert!(mock.f7_messages().is_empty());
+
+    let report = p.send_new_program(guard, SRC).unwrap();
+    assert_eq!(report.name, "FIREWORKS");
+    assert_eq!(report.readback, ReadBack::Matches);
+    let f7 = mock.f7_messages();
+    assert_eq!(f7.len(), 1, "exactly one F7, never retried");
+    assert_eq!(decode_file_message(&f7[0]).unwrap().name, "FIREWORKS");
+    assert_eq!(*mock.cmds().last().unwrap(), CMD_REQ_FILE, "read-back last");
+}
+
+#[test]
+fn existing_user_program_is_never_overwritten() {
+    for existing in ["FIREWORKS", "fireworks"] {
+        let mock = Mock::new().object(FileType::Program, existing, "EXPORT X()\nBEGIN\nEND;");
+        let mut p = mock.prime();
+        let err = p.preflight_new_user_program("FIREWORKS", None).unwrap_err();
+        assert!(
+            matches!(&err, DeviceError::Refused(m) if m.contains("will not be overwritten")),
+            "{existing}: {err}"
+        );
+        assert!(mock.f7_messages().is_empty(), "{existing}: nothing written");
+    }
+}
+
+#[test]
+fn case_variant_of_existing_program_is_refused() {
+    // Uploading `Fireworks` must not shadow an existing `FIREWORKS`.
+    let mock = Mock::new().object(FileType::Program, "FIREWORKS", "EXPORT X()\nBEGIN\nEND;");
+    let mut p = mock.prime();
+    let err = p.preflight_new_user_program("Fireworks", None).unwrap_err();
+    assert!(matches!(err, DeviceError::Refused(_)), "{err}");
+    assert!(mock.f7_messages().is_empty());
+}
+
+#[test]
+fn silent_device_is_not_proof_of_absence_for_user_programs() {
+    let mock = Mock::new();
+    mock.st().ff_reply = None;
+    let mut p = mock.prime();
+    let err = p.preflight_new_user_program("FIREWORKS", None).unwrap_err();
+    assert!(matches!(err, DeviceError::Inconclusive(_)), "{err}");
+    assert!(mock.f7_messages().is_empty());
+}
+
+#[test]
+fn user_program_indeterminate_upload_is_not_retried() {
+    for mode in [OnWrite::Drop, OnWrite::StoreMutated] {
+        let mock = Mock::new();
+        mock.st().on_write = mode;
+        let mut p = mock.prime();
+        let guard = p.preflight_new_user_program("FIREWORKS", None).unwrap();
+        let report = p.send_new_program(guard, SRC).unwrap();
+        assert_ne!(report.readback, ReadBack::Matches, "{mode:?}");
+        assert_eq!(mock.f7_messages().len(), 1, "{mode:?}: exactly one F7");
+    }
+}
+
+#[test]
+fn user_program_payload_limit_is_enforced_before_any_f7() {
+    let at_limit = "A".repeat(MAX_PROGRAM_PAYLOAD / 2);
+    assert_eq!(
+        check_program_payload("X", &at_limit).unwrap(),
+        MAX_PROGRAM_PAYLOAD
+    );
+    let over = "A".repeat(MAX_PROGRAM_PAYLOAD / 2 + 1);
+    assert!(matches!(
+        check_program_payload("X", &over),
+        Err(DeviceError::Refused(m)) if m.contains("silently drops")
+    ));
+
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let guard = p.preflight_new_user_program("BIGPROG", None).unwrap();
+    let err = p.send_new_program(guard, &over).unwrap_err();
+    assert!(matches!(err, DeviceError::Refused(_)), "{err}");
+    assert!(mock.f7_messages().is_empty());
+
+    let guard = p.preflight_new_user_program("EDGEPROG", None).unwrap();
+    assert_eq!(
+        p.send_new_program(guard, &at_limit).unwrap().readback,
+        ReadBack::Matches
+    );
+}
+
+#[test]
+fn guards_are_bound_to_their_policy_and_exact_name() {
+    // A user guard names only its own program and cannot send a note.
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let guard = p.preflight_new_user_program("HELLO", None).unwrap();
+    assert!(matches!(
+        p.send_new_note(guard, "text"),
+        Err(DeviceError::Refused(_))
+    ));
+    assert!(mock.f7_messages().is_empty());
+
+    // The test-object entry points still refuse ordinary names ...
+    assert!(matches!(
+        p.preflight_new_names(&[(FileType::Program, "FIREWORKS")], None),
+        Err(DeviceError::Refused(_))
+    ));
+    // ... and a user guard sends exactly the program it was issued for.
+    let guard = p.preflight_new_user_program("SQUARE", None).unwrap();
+    let report = p.send_new_program(guard, SRC).unwrap();
+    assert_eq!(report.name, "SQUARE");
+    let f7 = mock.f7_messages();
+    assert_eq!(f7.len(), 1);
+    assert_eq!(decode_file_message(&f7[0]).unwrap().name, "SQUARE");
+}
+
+#[test]
+fn invalid_user_names_are_refused_without_traffic() {
+    for bad in ["", "A B", "../x", "ABCDEFGHIJKLMNOPQ", "Home", "ZZT_CTRL"] {
+        let mock = Mock::new();
+        let mut p = mock.prime();
+        let err = p.preflight_new_user_program(bad, None).unwrap_err();
+        assert!(matches!(err, DeviceError::Refused(_)), "{bad:?}: {err}");
+        assert!(mock.cmds().is_empty(), "{bad:?}: no traffic");
+    }
+}
+
+// ---- ordinary (non-ZZT) object deletion ----
+
+fn eb_count(mock: &Mock) -> usize {
+    mock.cmds()
+        .iter()
+        .filter(|c| **c == crate::CMD_DELETE_OBJECT)
+        .count()
+}
+
+#[test]
+fn object_names_accept_ordinary_and_test_names_and_reject_the_rest() {
+    use crate::validate_object_name;
+    for n in [
+        "FIREWORKS",
+        "HELLO",
+        "BSTVisualizer",
+        "ADVPMT",
+        "Leasing20",
+        "ZZT_BSTVIS",
+    ] {
+        validate_object_name(FileType::Program, n).unwrap_or_else(|e| panic!("{n}: {e}"));
+        validate_object_name(FileType::Note, n).unwrap();
+    }
+    for n in [
+        "",
+        "../x",
+        "a/b",
+        "A B",
+        "1ABC",
+        "_ABC",
+        "ABCDEFGHIJKLMNOPQ",
+        "ZZT_CTRL",
+        "zzt_ctrl",
+        "END",
+        "NA\0ME",
+        "naïve",
+    ] {
+        assert!(
+            matches!(
+                validate_object_name(FileType::Program, n),
+                Err(DeviceError::Refused(_))
+            ),
+            "`{n}` must be refused"
+        );
+    }
+    for ty in [
+        FileType::List,
+        FileType::Matrix,
+        FileType::Real,
+        FileType::Complex,
+        FileType::Settings,
+        FileType::App,
+    ] {
+        assert!(matches!(
+            validate_object_name(ty, "FIREWORKS"),
+            Err(DeviceError::Unsupported(_))
+        ));
+    }
+}
+
+#[test]
+fn ordinary_program_deletion_sends_one_eb_and_leaves_other_programs() {
+    let mock = Mock::with_control()
+        .object(FileType::Program, "FIREWORKS", DEL_SRC)
+        .object(FileType::Program, "HELLO", "EXPORT HELLO()\nBEGIN\nEND;\n")
+        .object(FileType::Note, "MyNote", "keep me");
+    let mut p = mock.prime();
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let del = crate::prepare_deletion_with(&mut p, &t, &control(), NamePolicy::User, None)
+        .expect("prepare");
+    assert_eq!(del.backups.len(), 1);
+    let guard = authorize_usb_deletion(&p, &del, &control()).unwrap();
+    let report = delete_via_usb(&mut p, guard, |_| {}).expect("usb delete");
+    assert_eq!(report.targets[0].status, TargetStatus::ConfirmedDeleted);
+    assert_eq!(eb_count(&mock), 1);
+    let st = mock.st();
+    assert!(!st.objects.contains_key("FIREWORKS"));
+    assert!(st.objects.contains_key("HELLO"));
+    assert!(st.objects.contains_key("MyNote"));
+    assert!(st.objects.contains_key("ZZT_CTRL"));
+}
+
+#[test]
+fn test_policy_still_refuses_ordinary_names() {
+    let mock = Mock::with_control().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let t = [DeleteTarget::program("FIREWORKS")];
+    assert!(prepare_deletion(&mut p, &t, &control()).is_err());
+    assert_eq!(eb_count(&mock), 0);
+}
+
+#[test]
+fn user_policy_refuses_batches_protected_and_control_names() {
+    let mock = Mock::with_control()
+        .object(FileType::Program, "FIREWORKS", DEL_SRC)
+        .object(FileType::Program, "HELLO", DEL_SRC);
+    let mut p = mock.prime();
+    let two = [
+        DeleteTarget::program("FIREWORKS"),
+        DeleteTarget::program("HELLO"),
+    ];
+    assert!(
+        crate::prepare_deletion_with(&mut p, &two, &control(), NamePolicy::User, None).is_err()
+    );
+    let ctrl = [DeleteTarget::program("zzt_ctrl")];
+    assert!(
+        crate::prepare_deletion_with(&mut p, &ctrl, &control(), NamePolicy::User, None).is_err()
+    );
+    assert_eq!(eb_count(&mock), 0);
+}
+
+#[test]
+fn ordinary_deletion_refuses_wrong_type_corrupt_crc_and_changed_content() {
+    // A program named FIREWORKS is not a note named FIREWORKS.
+    let mock = Mock::with_control().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let note = [DeleteTarget::note("FIREWORKS")];
+    assert!(
+        crate::prepare_deletion_with(&mut p, &note, &control(), NamePolicy::User, None).is_err()
+    );
+
+    // Corrupt CRC on the target.
+    mock.st().corrupt.insert("FIREWORKS".into());
+    let prog = [DeleteTarget::program("FIREWORKS")];
+    assert!(
+        crate::prepare_deletion_with(&mut p, &prog, &control(), NamePolicy::User, None).is_err()
+    );
+    mock.st().corrupt.clear();
+
+    // Content changes after the backup was taken.
+    let del = crate::prepare_deletion_with(&mut p, &prog, &control(), NamePolicy::User, None)
+        .expect("prepare");
+    let guard = authorize_usb_deletion(&p, &del, &control()).unwrap();
+    let data = crate::mock_tests::utf16("CHANGED");
+    mock.st()
+        .objects
+        .insert("FIREWORKS".into(), (FileType::Program, data));
+    assert!(delete_via_usb(&mut p, guard, |_| {}).is_err());
+    assert_eq!(eb_count(&mock), 0);
+    assert!(mock.st().objects.contains_key("FIREWORKS"));
+}
+
+#[test]
+fn ordinary_deletion_ignored_eb_is_still_present_and_never_resent() {
+    let mock = Mock::with_control().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    mock.st().ignore_eb = true;
+    let mut p = mock.prime();
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let del = crate::prepare_deletion_with(&mut p, &t, &control(), NamePolicy::User, None).unwrap();
+    let guard = authorize_usb_deletion(&p, &del, &control()).unwrap();
+    let report = delete_via_usb(&mut p, guard, |_| {}).unwrap();
+    assert_eq!(report.targets[0].status, TargetStatus::StillPresent);
+    assert_eq!(eb_count(&mock), 1);
+}
+
+#[test]
+fn ordinary_deletion_with_a_silent_control_is_inconclusive_before_any_eb() {
+    let mock = Mock::new().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let t = [DeleteTarget::program("FIREWORKS")];
+    assert!(matches!(
+        crate::prepare_deletion_with(&mut p, &t, &control(), NamePolicy::User, None),
+        Err(DeviceError::Inconclusive(_))
+    ));
+    assert_eq!(eb_count(&mock), 0);
+}
+
+// ---- control-free (settings anchor + FA/FF beat) deletion ----
+
+fn anchored() -> Mock {
+    Mock::new().object(FileType::Settings, "calc.settings", "settings")
+}
+
+#[test]
+fn settings_anchors_are_a_closed_allowlist() {
+    assert!(ControlObject::parse("settings:calc.settings").is_ok());
+    assert!(ControlObject::parse("settings:cas.settings").is_ok());
+    for bad in [
+        "settings:evil",
+        "settings:../calc.settings",
+        "list:calc.settings",
+        "program:calc.settings",
+    ] {
+        assert!(ControlObject::parse(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn deletion_without_any_control_program_uses_the_settings_anchor() {
+    let mock = anchored()
+        .object(FileType::Program, "FIREWORKS", DEL_SRC)
+        .object(FileType::Program, "HELLO", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let del = crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base))
+        .expect("prepare");
+    let guard = authorize_usb_deletion(&p, &del, &anchor()).unwrap();
+    let report = delete_via_usb(&mut p, guard, |_| {}).expect("delete");
+    assert_eq!(report.targets[0].status, TargetStatus::ConfirmedDeleted);
+    assert_eq!(eb_count(&mock), 1);
+    let cmds = mock.cmds();
+    assert!(cmds.contains(&crate::CMD_GET_INFO) && cmds.contains(&crate::CMD_CHECK_READY));
+    assert!(
+        cmds.iter().all(|c| matches!(*c, 0xF8 | 0xEB | 0xFA | 0xFF)),
+        "{cmds:02X?}"
+    );
+    let st = mock.st();
+    assert!(st.objects.contains_key("HELLO") && st.objects.contains_key("calc.settings"));
+    assert!(!st.objects.contains_key("FIREWORKS"));
+}
+
+#[test]
+fn missing_program_is_not_found_and_sends_no_eb() {
+    let mock = anchored().object(FileType::Program, "HELLO", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let err = crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base))
+        .unwrap_err();
+    assert!(matches!(err, DeviceError::Absent(_)), "{err}");
+    assert_eq!(eb_count(&mock), 0);
+}
+
+#[test]
+fn silent_anchor_or_silent_identity_never_counts_as_deletion() {
+    // Anchor missing: silence proves nothing -> inconclusive before any EB.
+    let mock = Mock::new().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let t = [DeleteTarget::program("FIREWORKS")];
+    assert!(matches!(
+        crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base)),
+        Err(DeviceError::Inconclusive(_))
+    ));
+    assert_eq!(eb_count(&mock), 0);
+
+    // Identity silent after the baseline: refused as unanswered, no EB.
+    let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    mock.st().fa_reply = None;
+    match crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base)) {
+        Err(DeviceError::Inconclusive(m)) => assert!(m.contains("did not answer"), "{m}"),
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(eb_count(&mock), 0);
+}
+
+#[test]
+fn device_swap_after_baseline_is_refused_before_eb() {
+    let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let del =
+        crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base)).unwrap();
+    let guard = authorize_usb_deletion(&p, &del, &anchor()).unwrap();
+    mock.st().fa_reply = Some(fa_raw("9999999999"));
+    assert!(matches!(
+        delete_via_usb(&mut p, guard, |_| {}),
+        Err(DeviceError::Refused(_))
+    ));
+    assert_eq!(eb_count(&mock), 0);
+    assert!(mock.st().objects.contains_key("FIREWORKS"));
+}
+
+#[test]
+fn anchor_lost_after_eb_is_inconclusive_not_deleted() {
+    let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let t = [DeleteTarget::program("FIREWORKS")];
+    let del =
+        crate::prepare_deletion_with(&mut p, &t, &anchor(), NamePolicy::User, Some(&base)).unwrap();
+    let guard = authorize_usb_deletion(&p, &del, &anchor()).unwrap();
+    // The anchor answers the pre-send probes, then goes silent for good.
+    mock.st().budget.insert("calc.settings".into(), 3);
+    let report = delete_via_usb(&mut p, guard, |_| {}).unwrap();
+    assert_eq!(report.targets[0].status, TargetStatus::Unknown);
+    assert_eq!(eb_count(&mock), 1);
+}
+
+#[test]
+fn screenshot_fetches_png_without_modifying_calculator_state() {
+    let mock_png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, 0xAA, 0xBB];
+    let mock = Mock::new()
+        .object(
+            FileType::Program,
+            "FIREWORKS",
+            "EXPORT FIREWORKS() BEGIN END;",
+        )
+        .screenshot(mock_png.clone());
+    let mut p = mock.prime();
+
+    let bytes = p.screenshot(8).expect("screenshot succeeds");
+    assert_eq!(bytes, mock_png);
+
+    let cmds = mock.cmds();
+    assert_eq!(cmds, vec![CMD_SCREENSHOT]);
+    // Verifies no F7 writes, no EB deletes, no key presses, program retained intact
+    assert!(mock.st().objects.contains_key("FIREWORKS"));
+    assert_eq!(mock.st().uploaded.len(), 0);
+}
+
+#[test]
+fn screenshot_timeout_reported_when_calculator_silent() {
+    let mock = Mock::new(); // fc_reply is None, so calculator stays silent
+    let mut p = mock.prime();
+
+    let err = p
+        .screenshot_timeout(8, Duration::from_millis(10))
+        .unwrap_err();
+    assert!(matches!(err, DeviceError::Timeout("screenshot")));
+}
+
+#[test]
+fn screenshot_protocol_error_when_reply_lacks_png() {
+    let non_png = vec![0x01, 0x02, 0x03, 0x04];
+    let mock = Mock::new().screenshot(non_png);
+    let mut p = mock.prime();
+
+    let err = p.screenshot(8).unwrap_err();
+    assert!(matches!(err, DeviceError::Protocol(_)));
 }

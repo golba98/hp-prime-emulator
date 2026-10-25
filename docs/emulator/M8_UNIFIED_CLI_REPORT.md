@@ -466,6 +466,7 @@ orchestration into widgets, while preserving the native GUI's revision tracking.
 The engineering reports are explicitly tracked in the publication commit; the
 existing Markdown ignore pattern is unchanged. Earlier warnings about ignored
 reports describe their pre-publication state. Proprietary firmware, raw guest
-drives, local ownership receipts and private transfer ledgers remain uncommitted.
+drives remain uncommitted. A subsequent user-requested save tracks the existing
+hashed-device ownership receipts and transfer ledger without altering their data.
 The firmware process backend is Linux-only. Other platforms retain the native
 engine and receive an explicit unsupported-platform result for firmware requests.

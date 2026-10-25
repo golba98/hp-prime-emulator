@@ -5,6 +5,24 @@ pub const LOGICAL_WIDTH: u32 = 320;
 pub const LOGICAL_HEIGHT: u32 = 240;
 pub const ASPECT_RATIO: f64 = 320.0 / 240.0; // 4:3
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ScaleFilter {
+    #[default]
+    Nearest,
+    Linear,
+}
+
+impl std::str::FromStr for ScaleFilter {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "nearest" => Ok(Self::Nearest),
+            "linear" => Ok(Self::Linear),
+            _ => Err("filter must be nearest or linear".into()),
+        }
+    }
+}
+
 /// Viewport destination within the window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Viewport {
@@ -121,6 +139,9 @@ pub fn blit_scaled(
     if dst_w == 0 || dst_h == 0 || vp.width == 0 || vp.height == 0 || src_w == 0 || src_h == 0 {
         return;
     }
+    if !valid_buffers(src, src_w, src_h, dst, dst_w, dst_h, vp) {
+        return;
+    }
 
     let vp_x_end = (vp.x + vp.width).min(dst_w as u32) as usize;
     let vp_y_end = (vp.y + vp.height).min(dst_h as u32) as usize;
@@ -132,6 +153,8 @@ pub fn blit_scaled(
         && vp.scale == 1
         && src_w == LOGICAL_WIDTH as usize
         && src_h == LOGICAL_HEIGHT as usize
+        && vp.width == LOGICAL_WIDTH
+        && vp.height == LOGICAL_HEIGHT
     {
         for (y, row) in dst.chunks_exact_mut(dst_w).enumerate().take(dst_h) {
             if y < vp_y_start || y >= vp_y_end {
@@ -164,6 +187,90 @@ pub fn blit_scaled(
                 let sx = ((vx as usize * src_w) / vp.width as usize).min(src_w - 1);
                 *dst_px = src[src_row_start + sx];
             }
+        }
+    }
+}
+
+fn valid_buffers(
+    src: &[u32],
+    sw: usize,
+    sh: usize,
+    dst: &[u32],
+    dw: usize,
+    dh: usize,
+    vp: &Viewport,
+) -> bool {
+    sw.checked_mul(sh).is_some_and(|n| n <= src.len())
+        && dw.checked_mul(dh).is_some_and(|n| n <= dst.len())
+        && vp.x.checked_add(vp.width).is_some_and(|n| n as usize <= dw)
+        && vp
+            .y
+            .checked_add(vp.height)
+            .is_some_and(|n| n as usize <= dh)
+}
+
+/// Aspect fitting and filtering are independent: nearest can fill a fractional
+/// viewport without creating new colors. Linear uses center-aligned sampling.
+#[allow(clippy::too_many_arguments)]
+pub fn blit_filtered(
+    src: &[u32],
+    sw: usize,
+    sh: usize,
+    dst: &mut [u32],
+    dw: usize,
+    dh: usize,
+    vp: &Viewport,
+    border: u32,
+    filter: ScaleFilter,
+) {
+    if filter == ScaleFilter::Nearest {
+        blit_scaled(src, sw, sh, dst, dw, dh, vp, border);
+        return;
+    }
+    if sw == 0
+        || sh == 0
+        || dw == 0
+        || dh == 0
+        || vp.width == 0
+        || vp.height == 0
+        || !valid_buffers(src, sw, sh, dst, dw, dh, vp)
+    {
+        return;
+    }
+    dst[..dw * dh].fill(border);
+    // Reuse horizontal coordinates for every row. This removes per-pixel
+    // divisions/floors without changing the center-aligned interpolation.
+    let horizontal: Vec<_> = (0..vp.width as usize)
+        .map(|x| {
+            let sx =
+                ((x as f64 + 0.5) * sw as f64 / vp.width as f64 - 0.5).clamp(0.0, (sw - 1) as f64);
+            let x0 = sx.floor() as usize;
+            (x0, (x0 + 1).min(sw - 1), sx - x0 as f64)
+        })
+        .collect();
+    for y in 0..vp.height as usize {
+        let sy =
+            ((y as f64 + 0.5) * sh as f64 / vp.height as f64 - 0.5).clamp(0.0, (sh - 1) as f64);
+        let y0 = sy.floor() as usize;
+        let y1 = (y0 + 1).min(sh - 1);
+        let fy = sy - y0 as f64;
+        for (x, &(x0, x1, fx)) in horizontal.iter().enumerate() {
+            let samples = [
+                src[y0 * sw + x0],
+                src[y0 * sw + x1],
+                src[y1 * sw + x0],
+                src[y1 * sw + x1],
+            ];
+            let mut color = 0;
+            for shift in [0, 8, 16] {
+                let c = samples.map(|p| ((p >> shift) & 255) as f64);
+                let a = c[0] + (c[1] - c[0]) * fx;
+                let b = c[2] + (c[3] - c[2]) * fx;
+                // Channels are nonnegative: add-half/truncate is the same
+                // rounding rule, without a floating-point round per channel.
+                color |= ((a + (b - a) * fy + 0.5) as u32) << shift;
+            }
+            dst[(vp.y as usize + y) * dw + vp.x as usize + x] = color;
         }
     }
 }
@@ -311,5 +418,175 @@ mod tests {
         assert_eq!(dst[60 * 800 + 80], 0x00FFFFFF);
         // Check right border (x=750, y=60)
         assert_eq!(dst[60 * 800 + 750], border_color);
+    }
+}
+
+#[cfg(test)]
+mod mirror_filter_tests {
+    use super::*;
+
+    #[test]
+    fn logical_scales_fill_fractional_physical_surfaces_without_margins() {
+        for scale in 1..=4 {
+            for dpi in [1.0, 1.25, 4.0 / 3.0, 1.5, 2.0] {
+                let w = (320.0 * scale as f64 * dpi).round() as u32;
+                let h = (240.0 * scale as f64 * dpi).round() as u32;
+                let vp = Viewport::calculate_aspect_fit(w, h);
+                assert!(
+                    w - vp.width <= 1 && h - vp.height <= 1,
+                    "{scale}× {dpi}: {vp:?}"
+                );
+                assert!(vp.x <= 1 && vp.y <= 1);
+                let src = vec![0x00123456; 320 * 240];
+                let mut dst = vec![0; w as usize * h as usize];
+                blit_filtered(
+                    &src,
+                    320,
+                    240,
+                    &mut dst,
+                    w as usize,
+                    h as usize,
+                    &vp,
+                    0,
+                    ScaleFilter::Nearest,
+                );
+                assert_eq!(dst[(vp.y * w + vp.x) as usize], src[0]);
+                assert_eq!(
+                    dst[((vp.y + vp.height - 1) * w + vp.x + vp.width - 1) as usize],
+                    src[0]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn nearest_preserves_each_source_pixel_and_does_not_create_colors() {
+        let src: Vec<_> = (0..320 * 240)
+            .map(|i| if i % 2 == 0 { 0xffffff } else { 0 })
+            .collect();
+        let before = src.clone();
+        for (w, h) in [
+            (320, 240),
+            (640, 480),
+            (853, 640),
+            (960, 720),
+            (1280, 960),
+            (200, 150),
+        ] {
+            let vp = Viewport::calculate_aspect_fit(w, h);
+            let mut dst = vec![0; (w * h) as usize];
+            blit_filtered(
+                &src,
+                320,
+                240,
+                &mut dst,
+                w as usize,
+                h as usize,
+                &vp,
+                0,
+                ScaleFilter::Nearest,
+            );
+            for y in 0..h as usize {
+                for x in 0..w as usize {
+                    assert_eq!(
+                        dst[y * w as usize + x],
+                        src[(y * 240 / h as usize) * 320 + x * 320 / w as usize]
+                    );
+                }
+            }
+        }
+        assert_eq!(src, before);
+    }
+
+    #[test]
+    fn bilinear_uses_independent_channels_and_clamps_edges() {
+        let src = [0, 0xff0000, 0x00ff00, 0x0000ff];
+        let mut dst = [0; 9];
+        let vp = Viewport {
+            x: 0,
+            y: 0,
+            width: 3,
+            height: 3,
+            scale: 1,
+            is_integer: false,
+        };
+        blit_filtered(&src, 2, 2, &mut dst, 3, 3, &vp, 0, ScaleFilter::Linear);
+        assert_eq!(dst[0], src[0]);
+        assert_eq!(dst[2], src[1]);
+        assert_eq!(dst[6], src[2]);
+        assert_eq!(dst[8], src[3]);
+        assert_eq!(dst[4], 0x404040);
+        assert!(dst.iter().all(|x| x >> 24 == 0));
+        assert_eq!(src, [0, 0xff0000, 0x00ff00, 0x0000ff]);
+    }
+
+    #[test]
+    fn invalid_buffers_and_viewports_do_not_index_outside_slices() {
+        let vp = Viewport::calculate_aspect_fit(320, 240);
+        for filter in [ScaleFilter::Nearest, ScaleFilter::Linear] {
+            let mut dst = [0x123; 10];
+            blit_filtered(&[0; 1], 320, 240, &mut dst, 320, 240, &vp, 0, filter);
+            assert_eq!(dst, [0x123; 10]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod presentation_acceptance {
+    use super::*;
+
+    #[test]
+    fn native_and_fast_pixels_are_exact_after_fractional_dpi_and_resize() {
+        for (sw, sh) in [(320usize, 240usize), (160, 120)] {
+            let source: Vec<u32> = (0..sw * sh).map(|i| (i as u32 * 137) & 0xffffff).collect();
+            // Physical client sizes, including 125%, 133%, 150% desktop scales.
+            for (w, h) in [
+                (320, 240),
+                (800, 600),
+                (853, 640),
+                (960, 720),
+                (1000, 600),
+                (640, 480),
+            ] {
+                let vp = Viewport::calculate_integer(w, h);
+                let factor = vp.width as usize / sw;
+                let mut actual = vec![0xdeadbeef; (w * h) as usize];
+                for replacement in [false, true] {
+                    let pixels: Vec<_> = source
+                        .iter()
+                        .map(|c| if replacement { c ^ 0xffffff } else { *c })
+                        .collect();
+                    blit_filtered(
+                        &pixels,
+                        sw,
+                        sh,
+                        &mut actual,
+                        w as usize,
+                        h as usize,
+                        &vp,
+                        0x101014,
+                        ScaleFilter::Nearest,
+                    );
+                    // Independently expand each source pixel into a square block.
+                    let mut expected = vec![0x101014; actual.len()];
+                    for sy in 0..sh {
+                        for sx in 0..sw {
+                            for dy in 0..factor {
+                                for dx in 0..factor {
+                                    expected[(vp.y as usize + sy * factor + dy) * w as usize
+                                        + vp.x as usize
+                                        + sx * factor
+                                        + dx] = pixels[sy * sw + sx];
+                                }
+                            }
+                        }
+                    }
+                    assert_eq!(
+                        actual, expected,
+                        "{sw}×{sh} on {w}×{h}, replacement={replacement}"
+                    );
+                }
+            }
+        }
     }
 }

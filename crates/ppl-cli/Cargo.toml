@@ -26,8 +26,10 @@ serde.workspace = true
 
 ppl-engine = { path = "../ppl-engine" }
 ctrlc = "3"
+fs2 = "0.4.3"
 
 [dev-dependencies]
+png.workspace = true
 tempfile = "3"
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 nix = { version = "0.31", features = ["signal", "process"] }

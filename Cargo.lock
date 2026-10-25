@@ -2615,7 +2615,9 @@ version = "0.2.0"
 dependencies = [
  "clap",
  "ctrlc",
+ "fs2",
  "nix",
+ "png",
  "ppl-compat",
  "ppl-compiler",
  "ppl-device",
@@ -2658,6 +2660,7 @@ dependencies = [
  "fs2",
  "getrandom 0.3.4",
  "hidapi",
+ "libc",
  "serde",
  "serde_json",
 ]
@@ -2694,6 +2697,7 @@ dependencies = [
  "egui",
  "png",
  "ppl-compiler",
+ "ppl-device",
  "ppl-graphics",
  "ppl-math",
  "ppl-syntax",

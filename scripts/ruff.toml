@@ -1,0 +1,6 @@
+# Tooling only; scripts have no runtime dependency on Ruff.
+target-version = "py310"
+line-length = 79
+
+[lint]
+select = ["E", "F", "I", "UP"]

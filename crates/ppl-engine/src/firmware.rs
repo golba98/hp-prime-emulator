@@ -700,6 +700,10 @@ fn perform(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // A sibling fork can inherit a temporary script's writable FD until exec,
+    // causing Linux ETXTBSY even after its creator closes the file. Keep these
+    // executable-fixture lifetimes separate; production execution is unchanged.
+    static FIXTURES: std::sync::Mutex<()> = std::sync::Mutex::new(());
     fn fixture(mode: &str) -> (tempfile::TempDir, Source, Options) {
         let dir = tempfile::tempdir().unwrap();
         let source = Source::text("EXPORT BROKEN() BEGIN PRINT(\"x\"; END;", "inline").unwrap();
@@ -755,6 +759,7 @@ exit 0
     }
     #[test]
     fn transport_is_independent_of_native_semantics() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         let (_d, s, o) = fixture("valid");
         let r = execute(s, Operation::Check, &o, &Cancellation::default());
         assert_eq!(r.status, Status::Success, "{:?}", r.error);
@@ -763,6 +768,7 @@ exit 0
     }
     #[test]
     fn rejects_missing_malformed_stale_and_disagreeing_reports() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         for mode in [
             "missing",
             "malformed",
@@ -783,6 +789,7 @@ exit 0
     }
     #[test]
     fn timeout_and_cancellation_reap_process_groups() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         for cancelled in [false, true] {
             let (_d, s, mut o) = fixture("hang");
             o.timeout = Duration::from_millis(150);
@@ -805,6 +812,7 @@ exit 0
     }
     #[test]
     fn drains_large_stderr_and_cleans_only_owned_work() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         let (d, s, o) = fixture("noisy");
         std::fs::write(d.path().join("unrelated"), b"keep").unwrap();
         let r = execute(s, Operation::Check, &o, &Cancellation::default());
@@ -814,6 +822,7 @@ exit 0
     }
     #[test]
     fn cancellation_during_process_and_missing_explicit_runner() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         let (dir, source, options) = fixture("hang");
         let control = Cancellation::default();
         let signal = control.clone();
@@ -860,6 +869,7 @@ exit 0
     }
     #[test]
     fn existing_screenshot_is_not_attributed_to_rejected_source() {
+        let _fixture_lock = FIXTURES.lock().unwrap();
         let (dir, source, mut options) = fixture("compile");
         let png = dir.path().join("old.png");
         std::fs::write(&png, b"previous invocation").unwrap();

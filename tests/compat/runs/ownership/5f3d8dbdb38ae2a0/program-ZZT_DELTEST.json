@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "device_serial_id": "5f3d8dbdb38ae2a0",
+  "ty": "program",
+  "name": "ZZT_DELTEST",
+  "sha256": "4d53c286142612d0855ab202c96c92741f4ac57926f28ce5b60d215c45c25299",
+  "created_utc": "2026-10-24T20:49:57Z",
+  "active": true
+}

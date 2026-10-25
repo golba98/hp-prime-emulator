@@ -15,16 +15,45 @@ use super::device_delete_store::{self as records, Operation, Store, Target};
 #[path = "device_delete_flow.rs"]
 mod flow;
 use flow::{cleanup, manual, reconcile, require_device, retire_confirmed};
+#[path = "device_delete_user.rs"]
+mod user;
 
 pub const DEFAULT_DELETE_DIR: &str = "artifacts/delete";
 
+/// Delete a program or note from a connected HP Prime G1.
+///
+/// One command, no calculator interaction: `ppl device delete program
+/// FIREWORKS --yes`. The object is read twice, backed up raw to disk,
+/// deleted with one native USB delete command and verified absent. Without
+/// --yes you must type the exact name. Objects named ZZT_* are disposable
+/// test objects and may instead be authorized by a creation receipt.
+/// Lists, matrices, real/complex variables and other types are unsupported.
 #[derive(Subcommand, Debug)]
 pub enum DeleteAction {
-    /// Delete tool-owned ZZT_ programs, with backup and independent verification.
+    /// Delete one program: backed up, authorized, independently verified.
+    ///
+    /// `delete program FIREWORKS --yes` deletes exactly that one program with
+    /// no further interaction (no Run press, no helper, no ZZT_CTRL, no
+    /// upload receipt). Without --yes you must type the exact name; --json
+    /// alone never authorizes. A raw backup is saved first, one native USB
+    /// delete is sent (never retried), and absence is verified against a
+    /// liveness anchor (built-in settings object, or --control). ZZT_* names are disposable test
+    /// objects: several may be given and a creation receipt can authorize
+    /// them; --manual-run and --prepare-only apply to those only.
     Program {
         names: Vec<String>,
-        #[arg(long, default_value = ppl_device::DEFAULT_CONTROL)]
-        control: String,
+        /// Liveness anchor `type:name` (default: built-in settings object when
+        /// evidenced, else ZZT_CTRL if installed).
+        #[arg(long)]
+        control: Option<String>,
+        /// Authorize deleting exactly this one named program, without
+        /// prompting. Scoped to this device, type, name and content, one
+        /// attempt; --json alone never authorizes.
+        #[arg(
+            long,
+            conflicts_with_all = ["manual_run", "prepare_only"]
+        )]
+        yes: bool,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=3600))]
         timeout_secs: Option<u64>,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=60))]
@@ -40,11 +69,18 @@ pub enum DeleteAction {
         #[arg(long, default_value = DEFAULT_DELETE_DIR)]
         delete_dir: PathBuf,
     },
-    /// Delete tool-owned ZZT_ notes, with backup and independent verification.
+    /// Delete one note: backed up, typed-name confirmed, independently verified.
+    ///
+    /// An ordinary name deletes exactly that one note after you type its
+    /// exact name; a companion note is never deleted implicitly. ZZT_* names
+    /// are disposable test objects (see `delete program --help`).
     Note {
         names: Vec<String>,
-        #[arg(long, default_value = ppl_device::DEFAULT_CONTROL)]
-        control: String,
+        #[arg(long)]
+        control: Option<String>,
+        /// Not supported for notes.
+        #[arg(long, hide = true)]
+        yes: bool,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=3600))]
         timeout_secs: Option<u64>,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=60))]
@@ -84,6 +120,61 @@ pub enum DeleteAction {
     },
 }
 
+/// Chooses the naming/authorization class for a deletion request.
+/// ZZT_* names are disposable test objects; everything else is an ordinary
+/// object that is deleted alone and only after typed confirmation.
+fn classify(
+    ty: FileType,
+    names: &[String],
+    control: &ControlObject,
+    yes: bool,
+) -> Result<(ppl_device::NamePolicy, Vec<DeleteTarget>), DeviceError> {
+    use ppl_device::NamePolicy;
+    if yes {
+        // Explicit authorization names exactly one object, whatever its
+        // prefix; it never goes through the receipt/ledger path.
+        if names.len() != 1 {
+            return Err(refused("--yes deletes exactly one named program"));
+        }
+        ppl_device::validate_object_name(ty, &names[0])?;
+        if names[0].eq_ignore_ascii_case(&control.name) {
+            return Err(refused("protected or duplicate deletion target"));
+        }
+        return Ok((
+            NamePolicy::User,
+            vec![DeleteTarget {
+                ty,
+                name: names[0].clone(),
+            }],
+        ));
+    }
+    let test = names
+        .iter()
+        .filter(|n| n.starts_with(ppl_device::SAFE_PREFIX))
+        .count();
+    if test == names.len() {
+        return Ok((NamePolicy::Test, targets(ty, names, control)?));
+    }
+    if test != 0 {
+        return Err(refused(
+            "do not mix ZZT_ test objects and ordinary objects in one request",
+        ));
+    }
+    if names.len() != 1 {
+        return Err(refused("ordinary objects are deleted one at a time"));
+    }
+    ppl_device::validate_object_name(ty, &names[0])?;
+    if names[0].eq_ignore_ascii_case(&control.name) {
+        return Err(refused("protected or duplicate deletion target"));
+    }
+    Ok((
+        NamePolicy::User,
+        vec![DeleteTarget {
+            ty,
+            name: names[0].clone(),
+        }],
+    ))
+}
 fn refused(s: impl Into<String>) -> DeviceError {
     DeviceError::Refused(s.into())
 }
@@ -151,6 +242,11 @@ pub fn run(
                         );
                     }
                 }
+                if value["object_class"] == "user" && code != exit::OK {
+                    if let Some(r) = value["result"].as_str() {
+                        println!("\nResult: {r}");
+                    }
+                }
                 if let Some(error) = value["error"].as_str() {
                     eprintln!("{error}");
                 }
@@ -167,7 +263,7 @@ pub fn run(
             if json_output {
                 println!(
                     "{}",
-                    json!({"schema_version":1,"operation":"delete","backup_created":false,"deletion_confirmed":false,"execution_confirmed":false,"error":e.to_string()})
+                    json!({"schema_version":1,"operation":"delete","backup_created":false,"deletion_confirmed":false,"execution_confirmed":false,"result":user::failure_result(&e),"error":e.to_string()})
                 );
             } else {
                 eprintln!("error: {e}");
@@ -205,6 +301,7 @@ fn execute(
         DeleteAction::Program {
             names,
             control,
+            yes,
             timeout_secs,
             poll_secs,
             prepare_only,
@@ -215,6 +312,7 @@ fn execute(
         | DeleteAction::Note {
             names,
             control,
+            yes,
             timeout_secs,
             poll_secs,
             prepare_only,
@@ -222,13 +320,45 @@ fn execute(
             runs_dir,
             delete_dir,
         } => {
-            let control = ControlObject::parse(control).map_err(refused)?;
+            let explicit_control = control
+                .as_deref()
+                .map(ControlObject::parse)
+                .transpose()
+                .map_err(refused)?;
+            let control = match &explicit_control {
+                Some(c) => c.clone(),
+                None => ControlObject::parse(ppl_device::DEFAULT_CONTROL).map_err(refused)?,
+            };
             let ty = if matches!(action, DeleteAction::Program { .. }) {
                 FileType::Program
             } else {
                 FileType::Note
             };
-            let targets = targets(ty, names, &control)?;
+            if *yes && ty != FileType::Program {
+                return Err(refused("--yes is only supported for programs"));
+            }
+            let (policy, targets) = classify(ty, names, &control, *yes)?;
+            if policy == ppl_device::NamePolicy::User {
+                if *manual_run || *prepare_only {
+                    return Err(refused(
+                        "--manual-run and --prepare-only apply to ZZT_ test objects only",
+                    ));
+                }
+                return user::execute_user(
+                    targets,
+                    explicit_control,
+                    if *yes {
+                        user::AuthMode::Yes
+                    } else {
+                        user::AuthMode::Typed
+                    },
+                    runs_dir,
+                    delete_dir,
+                    json_output,
+                    selected,
+                    log_path,
+                );
+            }
             let mut p = super::remote::open_selected(selected)?;
             let (serial, info) = identity(&mut p)?;
             let store = Store::new(delete_dir);
@@ -274,6 +404,9 @@ fn execute(
                 cleanup_state: "not_required".into(),
                 runs_dir: runs_dir.clone(),
                 error: None,
+                class: "test".into(),
+                authorization: None,
+                requested_utc: None,
             };
             store.create(&op, &deletion.backups)?;
             // Keep the exact authorization mode in the auditable operation directory.
@@ -417,6 +550,8 @@ fn execute(
                         source: String::new(),
                         backups: Vec::new(),
                         log: Vec::new(),
+                        policy: ppl_device::NamePolicy::Test,
+                        baseline: None,
                     };
                     let opts = DeleteOptions {
                         timeout: Duration::from_secs(timeout_secs.unwrap_or(600)),
@@ -541,6 +676,13 @@ fn outcome(store: &Store, op: &Operation) -> Value {
         store.root.display()
     );
     let mut out = json!({"schema_version":1,"device":"HP Prime G1","device_serial_id":op.device_serial_id,"operation":"delete","operation_id":op.id,"phase":op.state,"mechanism":op.mechanism,"backup_created":true,"backup_directory":store.directory(&op.id).ok(),"deletion_confirmed":op.confirmed(),"execution_confirmed":op.completion.as_deref()==Some("done"),"helper":op.helper,"helper_uploaded":op.helper_uploaded,"cleanup_state":op.cleanup_state,"temporary_objects":op.artifacts,"results":results,"error":op.error,"recovery":if op.state!="completed" {Some(recovery)} else {None}});
+    out["result"] = json!(if op.confirmed() {
+        "confirmed_deleted"
+    } else if op.targets.iter().any(|t| t.status == "still_present") {
+        "still_present"
+    } else {
+        "indeterminate"
+    });
     if op.targets.len() == 1 {
         out["object"] = json!(op.targets[0].name);
         out["type"] = json!(op.targets[0].ty);

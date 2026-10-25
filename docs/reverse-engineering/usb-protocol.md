@@ -1,5 +1,25 @@
 # HP Prime USB HID Protocol Reference
 
+## Evidence clarification — 2026-10-25
+
+The [PE32 HID call trace](HP_CONNECTIVITY_KIT_HID_CALL_TRACE.md) distinguishes
+Windows report-ID buffers from protocol reports: a historical 64-byte G1
+protocol report includes its sequence byte; the official Windows wrapper
+would request 65 bytes including report ID zero for that descriptor. Sizes
+are discovered from HIDP_CAPS, not universally fixed at 64 by the application.
+
+The [Project trace](HP_CONNECTIVITY_KIT_PROJECT_TRACE.md) identifies
+incremental FC04/05/07/0D/15 versus forced-full FC08/09/0B/11/17 selection
+and coordinate-aware PNG patch compositing. Older descriptions of 0D as
+unknown or a standalone black placeholder are incomplete; preserved tiny
+responses need compositing, with the documented replay limitations.
+
+Any historical EC/GETKEY labeling below describes external hplp assumptions
+or earlier tests, not verified firmware-15157 remote input. The recovered EC
+consumer belongs to the embedded host calculator and multiplexes local input
+and reserved commands. Physical key acceptance remains unverified. No new
+USB commands were sent for this clarification.
+
 This document summarizes the reverse-engineered USB communication protocol used by the HP Prime graphing calculator in normal Human Interface Device (HID) mode.
 
 > [!IMPORTANT]
@@ -54,16 +74,39 @@ Report: [0x00][seq][...up to 63 bytes of payload...]
     - `len - 16`: Firmware-specific serial field (the reference G1 parser uses 10 ASCII characters)
 
 ### 3.3 Screenshot Capture (`0xFC`)
-- **Host Send:** `[0xFC, format]`
-  - Format `0x08`: Full screen (320×240 logical resolution).
-  - Format `0x09` / `0x0A` / `0x0B` / `0x0D`: Scaled variants or 106×80 4-bit thumbnail.
-- **Device Reply:**
-  - For format `0x08`, returns a PNG image labeled as 16-bit Grayscale.
-  - **Critical Hardware Fact:** The samples are actually big-endian **RGB565** pixels packed into 16-bit words.
-  - Decoding formula:
-    - `r = ((v >> 11) & 0x1F) * 255 / 31`
-    - `g = ((v >> 5) & 0x3F) * 255 / 63`
-    - `b = (v & 0x1F) * 255 / 31`
+
+- **Host send:** `[0xFC, format]`, framed with the ordinary HID report sequence.
+- **Verified G1 build 15157 formats:**
+
+  | Format | Complete image observed | Encoding |
+  |---|---|---|
+  | `0x08` | 320×240 | 16-bit grayscale PNG samples containing big-endian RGB565 |
+  | `0x09` | 320×240 | Paletted PNG, visibly reduced/changed colors |
+  | `0x0A` | 160×120 | 16-bit grayscale PNG samples containing big-endian RGB565 |
+  | `0x0B` | 160×120 | Paletted PNG, visibly reduced/changed colors |
+  | `0x0D` | Sometimes 106×80; often 1×1 black | Not a verified continuous complete-image format |
+
+- **Complete-image reply:** `[FC, 01, body_length u32 BE, CRC16 BE, format, FF, FF, FF, FF, PNG...]`.
+  The length counts bytes after the six-byte message header. The screenshot CRC
+  covers bytes from offset 6 through the declared message end, with its own two
+  bytes zeroed. All 100 captured format-probe responses passed this CRC check.
+- The 18 observed 1×1 format-`0x0D` responses used `00 00 00 00` in place of
+  the complete-image marker. Their semantics are unresolved. Do not infer a
+  delta protocol, count them as complete captured screens, or upscale them as
+  full-quality source data.
+- **Packed RGB565 conversion:** do not strip the PNG's 16-bit samples or apply
+  a grayscale/gamma conversion. For big-endian sample `v`, use bit replication:
+  - `r5 = (v >> 11) & 31; r8 = (r5 << 3) | (r5 >> 2)`
+  - `g6 = (v >> 5) & 63; g8 = (g6 << 2) | (g6 >> 4)`
+  - `b5 = v & 31; b8 = (b5 << 3) | (b5 >> 2)`
+- On the measured unit, sysfs reported a 480 Mb/s bus, 64-byte interrupt reports,
+  and a 125 µs endpoint interval. Full-format capture nevertheless waited about
+  one second before the first response, then transferred about 10.6 KB in 43 ms.
+  Do not derive capture FPS from connector type or theoretical USB speed.
+
+These observations are specific to the connected G1/build. See the
+[live mirror performance report](../device/LIVE_MIRROR_PERFORMANCE_REPORT.md)
+for preserved evidence, timing distributions, format limitations, and validation.
 
 ### 3.4 File Request (`0xF8`)
 - **Host Send:** `[0xF8, 0x01, size u32 BE, type, namelen, crc lo, crc hi, name UTF-16LE + 0x00 0x00]`

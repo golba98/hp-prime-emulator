@@ -15,8 +15,9 @@ Python desktop-test assertions and maintenance tools remain in their existing
 locations. Removing the old interpreter does not remove these active helpers.
 
 Reviewed documentation is explicitly tracked without changing the existing ignore
-patterns. Proprietary firmware, generated guest drives, private transfer history,
-and ownership receipts remain local. Original firmware and sample assets were not
+patterns. Proprietary firmware and generated guest drives remain local. A follow-up
+save includes the existing transfer ledger and hashed-device ownership receipts
+in Git at the user’s request, preserving their recorded outcomes unchanged. Original firmware and sample assets were not
 modified. No physical-device operations were performed for this publication.
 
 ## Publication validation

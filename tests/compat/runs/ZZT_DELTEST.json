@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_DELTEST",
+  "note": "ZZT_DELTESTR",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_DELTEST()\nBEGIN\n  RETURN 42;\nEND;\n",
+  "sha256": "5ecd4173dd526e43c7ce3445821872d7f376465f7d3dba60ae279d2cc785a02e",
+  "created_at_utc": "2026-10-24T20:49:57Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}
