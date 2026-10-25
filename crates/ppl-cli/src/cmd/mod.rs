@@ -18,4 +18,9 @@ mod remote_experiment;
 
 mod mailbox_probe;
 
+mod device_control;
+mod device_diagnose;
+mod device_inspect;
 pub mod unified;
+
+mod device_incremental;

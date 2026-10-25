@@ -5,3 +5,7 @@
 {"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD20C","payload_bytes":21082,"state":"indeterminate_no_readback","utc":"2026-10-24T12:47:17Z"}
 {"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD16","payload_bytes":16284,"state":"indeterminate_no_readback","utc":"2026-10-24T12:48:19Z"}
 {"detail":"payload transmitted; no F7 reply to the single read-back F8","kind":"program","name":"ZZT_PAD17","payload_bytes":18084,"state":"indeterminate_no_readback","utc":"2026-10-24T12:50:13Z"}
+{"device_serial_id":"5f3d8dbdb38ae2a0","kind":"user_program","name":"FIREWORKS","payload_bytes":14758,"sha256":"fd894a914e939ab3f781cefe9905058a24afc1aea002777bae2ca8224f92e3ad","state":"verified","utc":"2026-10-24T20:02:41Z"}
+{"device_serial_id":"5f3d8dbdb38ae2a0","kind":"user_program","name":"FIREWORKS","payload_bytes":14758,"sha256":"fd894a914e939ab3f781cefe9905058a24afc1aea002777bae2ca8224f92e3ad","state":"verified","utc":"2026-10-24T20:15:44Z"}
+{"device_serial_id":"5f3d8dbdb38ae2a0","kind":"user_program","name":"FIREWORKS","payload_bytes":15262,"sha256":"8801ea72197cc9911ee5c5041f1b71b9a2a2b9435a2ac15badff3361b00349db","state":"verified","utc":"2026-10-24T20:20:34Z"}
+{"device_serial_id":"5f3d8dbdb38ae2a0","kind":"user_program","name":"FIREWORKS","payload_bytes":14762,"sha256":"d2bc3da5907267fe930ff3cf404d067e9a1f878799779fdcc7db19e782d1f576","state":"verified","utc":"2026-10-24T20:54:21Z"}

@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use clap::{Args, Subcommand};
 use ppl_device::{
     ControlObject, DEFAULT_CONTROL, DeviceError, DeviceSession, FileType, Prime, Probe, ReadBack,
-    describe_codes, result_note_name, validate_test_name,
+    check_program_payload, describe_codes, result_note_name, validate_program_name,
+    validate_test_name,
 };
 
 use super::common::exit;
@@ -30,6 +31,9 @@ pub struct DeviceOpts {
     /// Select a device by its cryptographic serial-id (from device status).
     #[arg(long, global = true)]
     pub device: Option<String>,
+    /// Connect to an explicit local USB owner instead of opening another HID handle.
+    #[arg(long, global = true)]
+    pub control_socket: Option<PathBuf>,
     /// Directory containing remote execution journals and evidence.
     #[arg(long, global = true, default_value = "artifacts/remote-execution")]
     pub remote_dir: PathBuf,
@@ -40,6 +44,27 @@ pub struct DeviceOpts {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceAction {
+    /// Read the physical program inventory or exact program source.
+    Programs {
+        #[command(subcommand)]
+        action: super::device_control::ProgramsAction,
+    },
+    /// Inspect physical screen evidence; navigation requires verified hardware input.
+    Ui {
+        #[command(subcommand)]
+        action: super::device_control::UiAction,
+    },
+    /// Manage an explicit foreground USB owner (Unix only).
+    Control {
+        #[command(subcommand)]
+        action: super::device_control::ControlAction,
+    },
+    /// Diagnose a file with genuine local firmware (default) or physical hardware.
+    Diagnose(super::device_diagnose::DiagnoseOptions),
+    /// Run a prepared fresh ZZT_ file on verified physical hardware.
+    RunFile(super::device_diagnose::FileOptions),
+    /// Perform one durable debug attempt; the agent edits source between attempts.
+    Debug(super::device_diagnose::DebugOptions),
     /// Read device identity, execution capabilities, or a pending request result.
     Status {
         #[arg(long)]
@@ -76,6 +101,58 @@ pub enum DeviceAction {
         #[arg(long, default_value_t = 8)]
         format: u8,
     },
+    /// One explicitly acknowledged FC04 screenshot probe; never enables streaming.
+    ProbeIncremental {
+        #[arg(long, required = true)]
+        acknowledge_experimental_fc04: bool,
+        #[arg(long)]
+        out_dir: PathBuf,
+    },
+    /// Controlled visual-change verification workflow for physical FC04 incremental capture.
+    VerifyIncremental {
+        /// Explicit opt-in for experimental FC04 verification.
+        #[arg(long, required = true)]
+        acknowledge_experimental_fc04: bool,
+        /// Output directory for baseline, updates, reference, and report.
+        #[arg(long)]
+        out_dir: PathBuf,
+        /// Bounded number of FC04 updates to capture after baseline (default: 5, range: 1..=50).
+        #[arg(long, default_value_t = 5, value_parser = clap::value_parser!(u32).range(1..=50))]
+        updates: u32,
+        /// Static screen verification (Test A: skips operator manual prompt).
+        #[arg(long)]
+        r#static: bool,
+    },
+    /// Live physical calculator screen mirroring window (read-only).
+    Mirror {
+        /// Display scale multiplier (1, 2, 3, or 4). Default: 2 (640×480).
+        #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(u32).range(1..=4))]
+        scale: u32,
+        /// Maximum capture frame rate limit (ceiling). Default: 10.
+        #[arg(long, default_value_t = 10.0, value_parser = parse_mirror_fps)]
+        fps: f64,
+        /// Image scaling: nearest (default) or linear.
+        #[arg(long, default_value = "nearest")]
+        filter: ppl_gui::scaler::ScaleFilter,
+        /// Capture quality: full (320×240) or fast (160×120 RGB565).
+        #[arg(long, default_value = "full")]
+        quality: ppl_gui::mirror::MirrorQuality,
+        /// Capture backend: full (default) or hardware-gated incremental.
+        #[arg(long, default_value = "full")]
+        capture: ppl_gui::mirror::MirrorCapture,
+        /// Stream capture/presentation timings and initial PNG evidence here.
+        #[arg(long)]
+        diagnostics: Option<PathBuf>,
+        /// Launch in fullscreen mode.
+        #[arg(long)]
+        fullscreen: bool,
+        /// Save initial displayed frame as PNG on launch or to specified path.
+        #[arg(long)]
+        snapshot: Option<PathBuf>,
+        /// Explicit opt-in for experimental FC04 incremental capture.
+        #[arg(long)]
+        acknowledge_experimental_fc04: bool,
+    },
     /// Fetch one object from the calculator (read-only).
     Get {
         /// Object type: program, note, list, matrix, real, complex, app, settings.
@@ -86,14 +163,35 @@ pub enum DeviceAction {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
-    /// Send a NEW program whose name starts with ZZT_ (never overwrites).
+    /// Read-only: check whether built-in settings objects can serve as the
+    /// control-free liveness anchor (FA, FF, then F8 `calc.settings` and
+    /// `cas.settings`, three times each). Writes nothing to the calculator.
+    ProbeAnchor {
+        /// Directory for the evidence JSON.
+        #[arg(long, default_value = "artifacts/anchor-probe")]
+        out_dir: PathBuf,
+    },
+    /// Send a NEW program under its own name (never overwrites).
+    ///
+    /// Example: ppl device send FIREWORKS FIREWORKS.hpprgm
     ///
     /// You must first confirm (by typing the name) that it is not in the
-    /// calculator's Program Catalog; then a preflight proves, twice, that a
-    /// known-present control object answers while the program and its
-    /// result note (NAME + "R") do not. Any doubt aborts without writing.
+    /// calculator's Program Catalog; then a preflight proves, twice, that the
+    /// calculator answers while the name (and its all-upper/all-lower case
+    /// variants) does not exist. Any doubt, including a silent calculator,
+    /// aborts without writing. Programs larger than 15,928 UTF-16 bytes are
+    /// refused before anything is sent. After one transfer the program is
+    /// read back and compared. A program that already exists is never
+    /// replaced, and the upload is never retried.
+    ///
+    /// Ordinary names need no prefix. Names starting with ZZT_ are treated as
+    /// disposable test programs (e.g. ZZT_FIREWORKS): they also reserve the
+    /// result note NAME+"R", are recorded as tool-owned and can be cleaned up
+    /// or deleted by this tool. Ordinary programs are never cleaned up or
+    /// deleted automatically.
     Send {
-        /// Program name on the calculator: ZZT_ + [A-Za-z0-9_], at most 16 characters.
+        /// Program name: 1-16 characters of [A-Za-z0-9_], starting with a letter
+        /// (e.g. FIREWORKS, BSTVisualizer). With --note it must be ZZT_ + [A-Za-z0-9_].
         name: String,
         /// PPL source file (or, with --note, the note text file) to send unchanged.
         file: PathBuf,
@@ -104,7 +202,8 @@ pub enum DeviceAction {
         /// Send a NOTE instead of a program (same ZZT_ rules and preflight).
         #[arg(long)]
         note: bool,
-        /// Runs directory for the upload ledger (ownership proof for `delete`).
+        /// Runs directory for transfer records (ownership receipts and the ledger
+        /// are written only for ZZT_ test objects).
         #[arg(long, default_value = ppl_compat::DEFAULT_RUNS_DIR)]
         runs_dir: PathBuf,
     },
@@ -172,7 +271,12 @@ pub enum DeviceAction {
         #[command(subcommand)]
         action: SessionAction,
     },
-    /// Delete tool-owned ZZT_ programs or notes (backed up and verified).
+    /// Delete a program or note from the calculator (backed up and verified).
+    ///
+    /// Ordinary objects such as FIREWORKS are backed up raw, authorized by
+    /// `--yes` (programs) or by typing their exact name, deleted with one USB
+    /// command and verified absent. ZZT_* objects are disposable test objects (receipt-authorized
+    /// cleanup). Other object types are unsupported.
     Delete {
         #[command(subcommand)]
         action: super::device_delete::DeleteAction,
@@ -347,8 +451,83 @@ fn run_session(action: &SessionAction) -> u8 {
 }
 
 pub fn run(o: DeviceOpts) -> u8 {
+    if matches!(
+        &o.action,
+        DeviceAction::Mirror {
+            capture: ppl_gui::mirror::MirrorCapture::Incremental,
+            acknowledge_experimental_fc04: false,
+            ..
+        }
+    ) && !ppl_device::screenshot::update::incremental_profiles_available()
+    {
+        println!(
+            "{}",
+            serde_json::json!({"status":"unsupported_capability","capability":"incremental_screen_capture","usb_commands_sent":0,"error":"incremental requires full quality and genuine hardware acceptance; use the separately acknowledged bounded probe"})
+        );
+        return exit::IO;
+    }
+
+    if super::device_control::handles(&o) {
+        return super::device_control::run(&o);
+    }
     if super::remote::handles(&o.action) {
         return super::remote::run(&o);
+    }
+    if let DeviceAction::ProbeIncremental {
+        acknowledge_experimental_fc04,
+        out_dir,
+    } = &o.action
+    {
+        return super::device_incremental::run(
+            o.device.as_deref(),
+            *acknowledge_experimental_fc04,
+            out_dir,
+            o.control_socket.is_some(),
+        );
+    }
+    if let DeviceAction::VerifyIncremental {
+        acknowledge_experimental_fc04,
+        out_dir,
+        updates,
+        r#static,
+    } = &o.action
+    {
+        return super::device_incremental::run_verify(
+            o.device.as_deref(),
+            *acknowledge_experimental_fc04,
+            out_dir,
+            *updates,
+            *r#static,
+            o.control_socket.is_some(),
+        );
+    }
+    if let DeviceAction::Mirror {
+        scale,
+        fps,
+        fullscreen,
+        snapshot,
+        filter,
+        quality,
+        capture,
+        diagnostics,
+        acknowledge_experimental_fc04,
+    } = &o.action
+    {
+        return run_mirror(
+            ppl_gui::MirrorConfig {
+                scale: *scale,
+                fps: *fps,
+                fullscreen: *fullscreen,
+                snapshot: snapshot.clone(),
+                filter: *filter,
+                quality: *quality,
+                capture: *capture,
+                diagnostics: diagnostics.clone(),
+                acknowledge_experimental_fc04: *acknowledge_experimental_fc04,
+                ..Default::default()
+            },
+            o.device.as_deref(),
+        );
     }
     let json_capable = matches!(
         o.action,
@@ -495,8 +674,11 @@ fn run_inner(
 /// A validated, user-confirmed send request.
 struct SendPlan {
     name: String,
-    /// For a program send: its future result note. Unused for notes.
+    /// For a ZZT_ test program: its future result note. Empty for notes and
+    /// ordinary user programs, which reserve no companion object.
     note: String,
+    /// Ordinary user program (not a disposable ZZT_ test object).
+    user: bool,
     text: String,
     control: Option<ControlObject>,
     /// Send a note (not a program).
@@ -512,16 +694,22 @@ fn prepare_send(
     is_note: bool,
     runs_dir: &Path,
 ) -> Result<SendPlan, u8> {
-    if let Err(e) = validate_test_name(name) {
+    let user = is_program_upload_user(name, is_note);
+    let valid = if user {
+        validate_program_name(name)
+    } else {
+        validate_test_name(name)
+    };
+    if let Err(e) = valid {
         eprintln!("error: {e}");
         return Err(exit::USAGE);
     }
-    let note = if is_note {
+    let note = if is_note || user {
         String::new()
     } else {
         result_note_name(name)
     };
-    if !is_note {
+    if !is_note && !user {
         if let Err(e) = validate_test_name(&note) {
             eprintln!("error: {e}");
             return Err(exit::USAGE);
@@ -545,6 +733,13 @@ fn prepare_send(
         }
     };
     let (text, _) = ppl_syntax::decode_source(&src);
+    if !is_note {
+        // Pure check: an oversize program is refused before any prompt or USB.
+        if let Err(e) = check_program_payload(name, &text) {
+            eprintln!("error: {e}");
+            return Err(exit::USAGE);
+        }
+    }
 
     if is_note {
         println!("About to create NOTE `{name}` on the calculator.");
@@ -552,6 +747,10 @@ fn prepare_send(
             "On the calculator, open the Notes catalog and check that `{name}` is NOT listed."
         );
         println!("The emulator never overwrites; this is an extra check.");
+    } else if user {
+        println!("About to create program `{name}` on the calculator.");
+        println!("On the calculator, open the Program Catalog ([Shift] [1]) and check that");
+        println!("`{name}` is NOT listed. The emulator never overwrites; this is an extra check.");
     } else {
         println!("About to create program `{name}` on the calculator (result note `{note}`).");
         println!("On the calculator, open the Program Catalog ([Shift] [1]) and check that");
@@ -574,6 +773,7 @@ fn prepare_send(
     Ok(SendPlan {
         name: name.to_string(),
         note,
+        user,
         text,
         control,
         is_note,
@@ -589,7 +789,13 @@ fn record_attempt(s: &SendPlan, state: &str, detail: &str, bytes: usize) {
     let line = serde_json::json!({
         "utc": ppl_compat::utc_now(),
         "name": s.name,
-        "kind": if s.is_note { "note" } else { "program" },
+        "kind": if s.is_note {
+            "note"
+        } else if s.user {
+            "user_program"
+        } else {
+            "program"
+        },
         "state": state,
         "payload_bytes": bytes,
         "detail": detail,
@@ -606,6 +812,71 @@ fn record_attempt(s: &SendPlan, state: &str, detail: &str, bytes: usize) {
     if let Err(e) = res {
         eprintln!("warning: cannot record attempt in {}: {e}", path.display());
     }
+}
+
+/// Whether a send is an ordinary user program: not a note and not a
+/// `ZZT_` name (any case), which keeps the test-object workflow.
+fn is_program_upload_user(name: &str, is_note: bool) -> bool {
+    !is_note && !name.to_ascii_lowercase().starts_with("zzt_")
+}
+
+/// Records a read-back-verified transfer. ZZT_ test objects get the
+/// ownership receipt, ledger entry and manifest that cleanup and `delete`
+/// rely on. An ordinary user program gets only an audit line (device
+/// identity fingerprint, content hash, size): no receipt, ledger or
+/// manifest, so it can never become a cleanup or deletion target.
+fn record_verified(
+    s: &SendPlan,
+    serial_id: &str,
+    ty: FileType,
+    data: &[u8],
+) -> Result<(), DeviceError> {
+    if s.user {
+        let line = serde_json::json!({
+            "utc": ppl_compat::utc_now(),
+            "name": s.name,
+            "kind": "user_program",
+            "state": "verified",
+            "device_serial_id": serial_id,
+            "sha256": ppl_compat::sha256_hex(data),
+            "payload_bytes": data.len(),
+        });
+        let path = s.runs_dir.join("transfer-attempts.jsonl");
+        std::fs::create_dir_all(&s.runs_dir)
+            .and_then(|_| {
+                let mut f = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)?;
+                writeln!(f, "{line}")
+            })
+            .map_err(|e| {
+                DeviceError::Refused(format!(
+                    "uploaded and verified, but cannot write audit record {}: {e}",
+                    path.display()
+                ))
+            })?;
+        return Ok(());
+    }
+    super::device_delete_store::record_creation(&s.runs_dir, serial_id, ty, &s.name, data)?;
+    // Record ownership so `device delete` / `device list` know
+    // this object belongs to this tool.
+    let names: Vec<String> = if s.is_note {
+        vec![s.name.clone()]
+    } else {
+        vec![s.name.clone(), s.note.clone()]
+    };
+    if let Err(e) = ppl_compat::ledger_append(&s.runs_dir, &names, &s.name, &ppl_compat::utc_now())
+    {
+        eprintln!("warning: ledger: {e}");
+    }
+    if !s.is_note {
+        if let Err(e) = register_object_manifest(&s.runs_dir, &s.name, Some(&s.note), &s.text, None)
+        {
+            eprintln!("warning: manifest: {e}");
+        }
+    }
+    Ok(())
 }
 
 fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
@@ -631,6 +902,28 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
             s.text.encode_utf16().count() * 2
         );
         p.send_new_note(guard, &s.text)?
+    } else if s.user {
+        if let Some(ctrl) = &s.control {
+            println!(
+                "preflight: control {}, target program:{} plus case variants (about 40-70 s)...",
+                ctrl, s.name
+            );
+        } else {
+            println!(
+                "preflight: device-level verification, target program:{} plus case variants (about 32-64 s)...",
+                s.name
+            );
+        }
+        let guard = p.preflight_new_user_program(&s.name, s.control.as_ref())?;
+        for line in guard.log() {
+            println!("  {line}");
+        }
+        println!(
+            "Transfer initiated: sending program `{}` ({} UTF-16 bytes)...",
+            s.name,
+            s.text.encode_utf16().count() * 2
+        );
+        p.send_new_program(guard, &s.text)?
     } else {
         if let Some(ctrl) = &s.control {
             println!(
@@ -702,31 +995,12 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
                     ));
                 }
             };
-            super::device_delete_store::record_creation(
-                &s.runs_dir,
-                &serial_id,
-                ty,
-                &s.name,
-                &file.data,
-            )?;
-            // Record ownership so `device delete` / `device list` know
-            // this object belongs to this tool.
-            let names: Vec<String> = if s.is_note {
-                vec![s.name.clone()]
-            } else {
-                vec![s.name.clone(), s.note.clone()]
-            };
-            if let Err(e) =
-                ppl_compat::ledger_append(&s.runs_dir, &names, &s.name, &ppl_compat::utc_now())
-            {
-                eprintln!("warning: ledger: {e}");
-            }
-            if !s.is_note {
-                if let Err(e) =
-                    register_object_manifest(&s.runs_dir, &s.name, Some(&s.note), &s.text, None)
-                {
-                    eprintln!("warning: manifest: {e}");
-                }
+            record_verified(s, &serial_id, ty, &file.data)?;
+            if s.user {
+                println!(
+                    "Installed user program `{}`. It is not registered as a disposable test object and will not be cleaned up or deleted by this tool.",
+                    s.name
+                );
             }
             Ok(exit::OK)
         }
@@ -774,9 +1048,55 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
     }
 }
 
+fn parse_mirror_fps(value: &str) -> Result<f64, String> {
+    let fps: f64 = value.parse().map_err(|_| "fps must be a number")?;
+    if !fps.is_finite()
+        || fps <= 0.0
+        || std::time::Duration::try_from_secs_f64(1.0 / fps)
+            .ok()
+            .is_none_or(|d| d.is_zero() || std::time::Instant::now().checked_add(d).is_none())
+    {
+        return Err("fps must be positive, finite, and representable".into());
+    }
+    Ok(fps)
+}
+
+fn run_mirror(config: ppl_gui::MirrorConfig, device: Option<&str>) -> u8 {
+    let prime = match super::remote::open_selected(device) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return exit::IO;
+        }
+    };
+    println!(
+        "Mirroring live screen from {} [{:04x}:{:04x}] at {}× scale (fps ceiling: {})...",
+        prime.detected.model,
+        prime.detected.vendor_id,
+        prime.detected.product_id,
+        config.scale,
+        config.fps
+    );
+    if config.quality == ppl_gui::mirror::MirrorQuality::Fast {
+        println!("Fast capture: 160×120 RGB565; half the source width/height, enlarged locally.");
+    }
+    if let Err(e) = ppl_gui::run_mirror_usb(config, prime) {
+        eprintln!("error: failed to run mirror window: {e}");
+        return exit::IO;
+    }
+    println!("Live mirror window closed.");
+    exit::OK
+}
+
 fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
     match action {
         DeviceAction::Status { .. }
+        | DeviceAction::Programs { .. }
+        | DeviceAction::Ui { .. }
+        | DeviceAction::Control { .. }
+        | DeviceAction::Diagnose(_)
+        | DeviceAction::RunFile(_)
+        | DeviceAction::Debug(_)
         | DeviceAction::Exec { .. }
         | DeviceAction::ExecFile { .. }
         | DeviceAction::Listener { .. }
@@ -785,6 +1105,9 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
         | DeviceAction::Session { .. }
         | DeviceAction::Cleanup { .. }
         | DeviceAction::Delete { .. }
+        | DeviceAction::Mirror { .. }
+        | DeviceAction::ProbeIncremental { .. }
+        | DeviceAction::VerifyIncremental { .. }
         | DeviceAction::List { .. } => unreachable!(),
         DeviceAction::Ping => {
             let r = p.check_ready()?;
@@ -829,6 +1152,64 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
                 img.height(),
                 raw_path.display()
             );
+        }
+        DeviceAction::ProbeAnchor { out_dir } => {
+            let info = p.info()?;
+            let ready = p.check_ready()?;
+            let mut results = Vec::new();
+            let mut stable = true;
+            for name in ppl_device::SETTINGS_ANCHORS {
+                let mut shas = Vec::new();
+                for round in 1..=3 {
+                    let t0 = std::time::Instant::now();
+                    let probe =
+                        p.probe_file(FileType::Settings, name, ppl_device::PROBE_TIMEOUT)?;
+                    let ms = t0.elapsed().as_millis() as u64;
+                    let r = match probe {
+                        Probe::Present(f) => {
+                            let ok = f.crc_ok && f.name == *name && f.ty == FileType::Settings;
+                            shas.push(ok);
+                            serde_json::json!({"round": round, "reply": true, "crc_ok": f.crc_ok,
+                                "name_matches": f.name == *name, "type": f.ty.label(),
+                                "bytes": f.data.len(), "sha256": ppl_compat::sha256_hex(&f.data),
+                                "elapsed_ms": ms})
+                        }
+                        Probe::NoReply { waited } => {
+                            shas.push(false);
+                            serde_json::json!({"round": round, "reply": false,
+                                "waited_ms": waited.as_millis() as u64})
+                        }
+                    };
+                    results.push(serde_json::json!({"object": name, "probe": r}));
+                }
+                let usable = shas.iter().all(|x| *x);
+                println!(
+                    "{name}: {}",
+                    if usable {
+                        "answered 3/3, CRC valid"
+                    } else {
+                        "NOT reliably served"
+                    }
+                );
+                stable &= usable;
+            }
+            let ident = ppl_compat::serial_fingerprint(info.serial.as_deref().unwrap_or(""));
+            let evidence = serde_json::json!({
+                "schema_version": 1, "at_utc": ppl_compat::utc_now(),
+                "device_serial_id": ident, "firmware_build": info.build,
+                "boot_version": info.version, "ready_reply": ready,
+                "read_only": true, "results": results,
+                "settings_anchor_usable": stable,
+            });
+            std::fs::create_dir_all(out_dir).map_err(|e| DeviceError::Hid(e.to_string()))?;
+            let path = out_dir.join(format!(
+                "anchor-probe-{}.json",
+                ppl_compat::utc_now().replace(':', "")
+            ));
+            std::fs::write(&path, serde_json::to_vec_pretty(&evidence).unwrap())
+                .map_err(|e| DeviceError::Hid(e.to_string()))?;
+            println!("evidence: {}", path.display());
+            return Ok(if stable { exit::OK } else { exit::IO });
         }
         DeviceAction::Get { ty, name, out } => {
             let t = FileType::parse(ty)
@@ -1686,4 +2067,57 @@ fn cleanup_verify(_runs_dir: &Path, cleanup_dir: &Path) -> u8 {
     );
     println!("run `ppl device cleanup status` for the full history");
     if unknown > 0 { exit::IO } else { exit::OK }
+}
+
+#[cfg(test)]
+mod send_record_tests {
+    use super::*;
+
+    fn plan(name: &str, user: bool, dir: &Path) -> SendPlan {
+        SendPlan {
+            name: name.into(),
+            note: if user {
+                String::new()
+            } else {
+                result_note_name(name)
+            },
+            user,
+            text: "EXPORT P()\nBEGIN\nEND;".into(),
+            control: None,
+            is_note: false,
+            runs_dir: dir.to_path_buf(),
+        }
+    }
+
+    #[test]
+    fn user_program_is_audited_but_never_becomes_a_cleanup_or_delete_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = plan("FIREWORKS", true, dir.path());
+        record_verified(&s, "0123456789abcdef", FileType::Program, b"data").unwrap();
+        assert!(
+            !dir.path().join("ownership").exists(),
+            "no deletion receipt"
+        );
+        assert!(!dir.path().join("ledger.jsonl").exists(), "no ledger entry");
+        let audit = std::fs::read_to_string(dir.path().join("transfer-attempts.jsonl")).unwrap();
+        assert!(audit.contains("\"user_program\"") && audit.contains("\"verified\""));
+        assert!(audit.contains(&ppl_compat::sha256_hex(b"data")));
+    }
+
+    #[test]
+    fn zzt_test_program_still_gets_receipt_and_ledger() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = plan("ZZT_ABC", false, dir.path());
+        record_verified(&s, "0123456789abcdef", FileType::Program, b"data").unwrap();
+        assert!(dir.path().join("ownership").exists());
+        assert!(dir.path().join("ledger.jsonl").exists());
+    }
+
+    #[test]
+    fn only_non_zzt_program_sends_are_user_programs() {
+        assert!(is_program_upload_user("FIREWORKS", false));
+        assert!(!is_program_upload_user("ZZT_ABC", false));
+        assert!(!is_program_upload_user("zzt_abc", false));
+        assert!(!is_program_upload_user("FIREWORKS", true));
+    }
 }

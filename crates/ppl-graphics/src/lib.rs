@@ -10,6 +10,8 @@
 
 pub mod text;
 
+pub mod incremental;
+
 use std::io::Write;
 
 pub const SCREEN_W: usize = 320;
@@ -389,23 +391,105 @@ impl Grob {
     /// sends a 16-bit *grayscale* PNG whose samples are really RGB565
     /// pixels, big-endian (observed on a G1, firmware build 15157).
     pub fn from_prime_screenshot(bytes: &[u8]) -> Result<Grob, String> {
+        PrimeScreenshotDecoder::default()
+            .decode(bytes, None)
+            .map(|(g, _)| g)
+    }
+}
+
+/// Reusable PNG scratch storage. Packed screenshot samples remain untouched by
+/// PNG color/gamma transforms; RGB565 conversion runs exactly once.
+#[derive(Default)]
+pub struct PrimeScreenshotDecoder {
+    buffer: Vec<u8>,
+    stage: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ScreenshotDecodeTimings {
+    pub decompression: std::time::Duration,
+    pub conversion: std::time::Duration,
+}
+
+impl PrimeScreenshotDecoder {
+    pub fn failure_stage(&self) -> &'static str {
+        self.stage
+    }
+
+    pub fn decode(
+        &mut self,
+        bytes: &[u8],
+        expected: Option<(usize, usize)>,
+    ) -> Result<(Grob, ScreenshotDecodeTimings), String> {
+        self.stage = "decompression";
+        let start = std::time::Instant::now();
         let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
-        dec.set_transformations(png::Transformations::IDENTITY);
+        dec.set_transformations(png::Transformations::EXPAND);
         let mut reader = dec.read_info().map_err(|e| e.to_string())?;
-        let mut buf = vec![0; reader.output_buffer_size().ok_or("png too large")?];
-        let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
-        if info.color_type != png::ColorType::Grayscale || info.bit_depth != png::BitDepth::Sixteen
+        if reader.info().animation_control.is_some() {
+            return Err("animated screenshots are unsupported".into());
+        }
+        let (w, h) = (reader.info().width as usize, reader.info().height as usize);
+        if expected.is_some_and(|dims| dims != (w, h)) {
+            return Err(format!("unexpected screenshot dimensions {w}×{h}"));
+        }
+        let pixels = w
+            .checked_mul(h)
+            .filter(|n| *n > 0 && *n <= 16 * 1024 * 1024)
+            .ok_or("screenshot dimensions exceed decode limit")?;
+        let size = reader
+            .output_buffer_size()
+            .filter(|n| *n <= 64 * 1024 * 1024)
+            .ok_or("screenshot decoded buffer too large")?;
+        self.buffer.resize(size, 0);
+        let info = reader
+            .next_frame(&mut self.buffer)
+            .map_err(|e| e.to_string())?;
+        reader.finish().map_err(|e| e.to_string())?;
+        let decompression = start.elapsed();
+        self.stage = "conversion";
+        let conversion = std::time::Instant::now();
+        let channels = match info.color_type {
+            png::ColorType::Grayscale => 1,
+            png::ColorType::GrayscaleAlpha => 2,
+            png::ColorType::Rgb => 3,
+            png::ColorType::Rgba => 4,
+            other => return Err(format!("unsupported screenshot color type {other:?}")),
+        };
+        let sample_bytes = match info.bit_depth {
+            png::BitDepth::Eight => 1,
+            png::BitDepth::Sixteen => 2,
+            _ => return Err("unexpected expanded PNG bit depth".into()),
+        };
+        let step = channels * sample_bytes;
+        let required = pixels.checked_mul(step).ok_or("PNG buffer size overflow")?;
+        if info.buffer_size() != required
+            || info.line_size != w * step
+            || self.buffer.len() < required
         {
-            // Already a normal image (e.g. reduced formats): decode generically.
-            return Grob::read_png(bytes);
+            return Err("invalid screenshot row stride or decoded buffer length".into());
         }
-        let (w, h) = (info.width as usize, info.height as usize);
-        let mut g = Grob::new(w, h, WHITE);
-        for (i, p) in g.px.iter_mut().enumerate() {
-            let v = u16::from_be_bytes([buf[i * 2], buf[i * 2 + 1]]);
-            *p = from_rgb565(v);
+        let packed = info.color_type == png::ColorType::Grayscale && sample_bytes == 2;
+        let mut g = Grob::new(w, h, BLACK);
+        for (pixel, sample) in
+            g.px.iter_mut()
+                .zip(self.buffer[..required].chunks_exact(step))
+        {
+            *pixel = if packed {
+                from_rgb565(u16::from_be_bytes([sample[0], sample[1]]))
+            } else if channels >= 3 {
+                rgb(sample[0], sample[sample_bytes], sample[2 * sample_bytes])
+            } else {
+                rgb(sample[0], sample[0], sample[0])
+            };
         }
-        Ok(g)
+        Ok((
+            g,
+            ScreenshotDecodeTimings {
+                decompression,
+                conversion: conversion.elapsed(),
+            },
+        ))
     }
 }
 
@@ -440,6 +524,20 @@ pub struct ScreenDiff {
     pub first_mismatch: Option<(usize, usize)>,
 }
 
+/// Detailed result of comparing two screens after RGB565 quantisation,
+/// including match percentage, total pixels, and mismatch bounding rectangle.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScreenDiffDetailed {
+    pub width: usize,
+    pub height: usize,
+    pub total_pixels: usize,
+    pub matching_pixels: usize,
+    pub mismatching_pixels: usize,
+    pub mismatch_percentage: f64,
+    pub first_mismatch: Option<(usize, usize)>,
+    pub mismatch_bounds: Option<[usize; 4]>,
+}
+
 pub fn compare_rgb565(a: &Grob, b: &Grob) -> Option<ScreenDiff> {
     if a.w != b.w || a.h != b.h {
         return None;
@@ -459,6 +557,69 @@ pub fn compare_rgb565(a: &Grob, b: &Grob) -> Option<ScreenDiff> {
         height: a.h,
         mismatched,
         first_mismatch: first,
+    })
+}
+
+pub fn compare_screens_detailed(a: &Grob, b: &Grob) -> Option<ScreenDiffDetailed> {
+    if a.w != b.w || a.h != b.h {
+        return None;
+    }
+    let w = a.w;
+    let h = a.h;
+    let total = w * h;
+    let mut mismatched = 0;
+    let mut first = None;
+    let mut min_x = usize::MAX;
+    let mut min_y = usize::MAX;
+    let mut max_x = 0;
+    let mut max_y = 0;
+
+    for y in 0..h {
+        for x in 0..w {
+            let pa = a.px[y * w + x];
+            let pb = b.px[y * w + x];
+            if to_rgb565(pa) != to_rgb565(pb) {
+                mismatched += 1;
+                if first.is_none() {
+                    first = Some((x, y));
+                }
+                if x < min_x {
+                    min_x = x;
+                }
+                if x > max_x {
+                    max_x = x;
+                }
+                if y < min_y {
+                    min_y = y;
+                }
+                if y > max_y {
+                    max_y = y;
+                }
+            }
+        }
+    }
+
+    let matching = total - mismatched;
+    let pct = if total > 0 {
+        (mismatched as f64 / total as f64) * 100.0
+    } else {
+        0.0
+    };
+    let bounds = if mismatched > 0 {
+        Some([min_x, min_y, max_x, max_y])
+    } else {
+        None
+    };
+
+    Some(ScreenDiffDetailed {
+        width: w,
+        height: h,
+        total_pixels: total,
+        matching_pixels: matching,
+        mismatching_pixels: mismatched,
+        mismatch_percentage: pct,
+        first_mismatch: first,
+        mismatch_bounds: bounds,
     })
 }
 
@@ -532,5 +693,157 @@ mod tests {
         let back = Grob::read_png(&buf).unwrap();
         assert_eq!(back, g);
         assert_eq!(compare_rgb565(&g, &back).unwrap().mismatched, 0);
+    }
+
+    fn encode_16bit_gray_png(w: u32, h: u32, pixels_u16: &[u16]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        let mut enc = png::Encoder::new(&mut buf, w, h);
+        enc.set_color(png::ColorType::Grayscale);
+        enc.set_depth(png::BitDepth::Sixteen);
+        let mut writer = enc.write_header().unwrap();
+        let mut byte_data = Vec::with_capacity(pixels_u16.len() * 2);
+        for &px in pixels_u16 {
+            byte_data.extend_from_slice(&px.to_be_bytes());
+        }
+        writer.write_image_data(&byte_data).unwrap();
+        drop(writer);
+        buf
+    }
+
+    #[test]
+    fn test_from_prime_screenshot_dimensions_and_colors() {
+        let w = 320;
+        let h = 240;
+        let mut samples = vec![0u16; w * h];
+        // Set specific test pixels:
+        // (0,0): Black
+        samples[0] = 0x0000;
+        // (1,0): White
+        samples[1] = 0xFFFF;
+        // (2,0): Red
+        samples[2] = 0xF800;
+        // (3,0): Green
+        samples[3] = 0x07E0;
+        // (4,0): Blue
+        samples[4] = 0x001F;
+        // (5,0): Yellow (Red + Green)
+        samples[5] = 0xFFE0;
+        // (6,0): Cyan (Green + Blue)
+        samples[6] = 0x07FF;
+        // (7,0): Magenta (Red + Blue)
+        samples[7] = 0xF81F;
+
+        let png_bytes = encode_16bit_gray_png(w as u32, h as u32, &samples);
+        let grob = Grob::from_prime_screenshot(&png_bytes).expect("decode prime screenshot");
+
+        assert_eq!(grob.width(), 320);
+        assert_eq!(grob.height(), 240);
+        assert_eq!(grob.get(0, 0), Some(BLACK));
+        assert_eq!(grob.get(1, 0), Some(WHITE));
+        assert_eq!(grob.get(2, 0), Some(rgb(255, 0, 0)));
+        assert_eq!(grob.get(3, 0), Some(rgb(0, 255, 0)));
+        assert_eq!(grob.get(4, 0), Some(rgb(0, 0, 255)));
+        assert_eq!(grob.get(5, 0), Some(rgb(255, 255, 0)));
+        assert_eq!(grob.get(6, 0), Some(rgb(0, 255, 255)));
+        assert_eq!(grob.get(7, 0), Some(rgb(255, 0, 255)));
+    }
+
+    #[test]
+    fn test_from_prime_screenshot_unexpected_dimensions() {
+        let w = 100;
+        let h = 50;
+        let samples = vec![0xF800u16; w * h]; // All red
+        let png_bytes = encode_16bit_gray_png(w as u32, h as u32, &samples);
+        let grob = Grob::from_prime_screenshot(&png_bytes).expect("decode custom dimension");
+
+        assert_eq!(grob.width(), 100);
+        assert_eq!(grob.height(), 50);
+        assert_eq!(grob.get(50, 25), Some(rgb(255, 0, 0)));
+    }
+
+    #[test]
+    fn test_from_prime_screenshot_fallback_8bit_rgb() {
+        let mut original = Grob::new(40, 30, rgb(100, 150, 200));
+        original.set(5, 5, rgb(255, 0, 0));
+        let mut buf = Vec::new();
+        original.write_png(&mut buf).unwrap();
+
+        // 8-bit RGB PNG should be handled by the fallback branch in from_prime_screenshot
+        let grob = Grob::from_prime_screenshot(&buf).expect("decode 8-bit png fallback");
+        assert_eq!(grob.width(), 40);
+        assert_eq!(grob.height(), 30);
+        assert_eq!(grob.get(5, 5), Some(rgb(255, 0, 0)));
+        assert_eq!(grob.get(0, 0), Some(rgb(100, 150, 200)));
+    }
+
+    #[test]
+    fn test_from_prime_screenshot_malformed() {
+        assert!(Grob::from_prime_screenshot(&[]).is_err());
+        assert!(Grob::from_prime_screenshot(&[0x89, b'P', b'N', b'G']).is_err());
+        assert!(Grob::from_prime_screenshot(&[1, 2, 3, 4, 5, 6, 7, 8]).is_err());
+    }
+    #[test]
+    fn screenshot_all_rgb565_values_round_trip_without_channel_loss() {
+        for v in 0..=u16::MAX {
+            assert_eq!(to_rgb565(from_rgb565(v)), v);
+        }
+    }
+
+    #[test]
+    fn screenshot_fixture_has_known_colors_and_preserves_rows() {
+        let raw = include_bytes!("../../../tests/fixtures/prime-rgb565.png");
+        let image = Grob::from_prime_screenshot(raw).unwrap();
+        let colors = [
+            0, 0xffff, 0xf800, 0x07e0, 0x001f, 0x8410, 0xffe0, 0xf81f, 0x07ff,
+        ];
+        for y in 0..240 {
+            for x in 0..320 {
+                assert_eq!(
+                    image.get(x as i64, y as i64),
+                    Some(from_rgb565(colors[(x / 17 + y / 13) % 9]))
+                );
+            }
+        }
+        let mut decoder = PrimeScreenshotDecoder::default();
+        assert!(decoder.decode(raw, Some((160, 120))).is_err());
+        assert_eq!(decoder.decode(raw, Some((320, 240))).unwrap().0, image);
+        assert!(decoder.decode(&raw[..raw.len() / 2], None).is_err());
+    }
+
+    #[test]
+    fn test_compare_screens_detailed_metrics_and_bounds() {
+        let mut a = Grob::new(320, 240, 0x00112233);
+        let b = Grob::new(320, 240, 0x00112233);
+
+        // Identical screens
+        let diff = compare_screens_detailed(&a, &b).unwrap();
+        assert_eq!(diff.total_pixels, 76800);
+        assert_eq!(diff.matching_pixels, 76800);
+        assert_eq!(diff.mismatching_pixels, 0);
+        assert_eq!(diff.mismatch_percentage, 0.0);
+        assert_eq!(diff.first_mismatch, None);
+        assert_eq!(diff.mismatch_bounds, None);
+
+        // Single pixel mismatch at (15, 25)
+        a.set(15, 25, 0x00FFFFFF);
+        let diff = compare_screens_detailed(&a, &b).unwrap();
+        assert_eq!(diff.total_pixels, 76800);
+        assert_eq!(diff.matching_pixels, 76799);
+        assert_eq!(diff.mismatching_pixels, 1);
+        assert!((diff.mismatch_percentage - (1.0 / 76800.0 * 100.0)).abs() < 1e-6);
+        assert_eq!(diff.first_mismatch, Some((15, 25)));
+        assert_eq!(diff.mismatch_bounds, Some([15, 25, 15, 25]));
+
+        // Multiple pixel mismatches bounding box
+        a.set(100, 50, 0x00FFFFFF);
+        a.set(5, 80, 0x00FFFFFF);
+        let diff = compare_screens_detailed(&a, &b).unwrap();
+        assert_eq!(diff.mismatching_pixels, 3);
+        assert_eq!(diff.first_mismatch, Some((15, 25)));
+        assert_eq!(diff.mismatch_bounds, Some([5, 25, 100, 80]));
+
+        // Dimension mismatch
+        let c = Grob::new(160, 120, 0);
+        assert!(compare_screens_detailed(&a, &c).is_none());
     }
 }

@@ -49,6 +49,8 @@ impl From<DeviceError> for Failure {
             DeviceError::Inconclusive(_) => (5, "inconclusive"),
             DeviceError::NotFound => (5, "not_found"),
             DeviceError::Hid(_) => (5, "usb_or_io"),
+            DeviceError::Unsupported(_) => (2, "unsupported_object_type"),
+            DeviceError::Absent(_) => (2, "not_found"),
         };
         Self {
             code,
@@ -317,6 +319,10 @@ fn perform(opts: &DeviceOpts, out: &mut Value) -> Result<()> {
                 }
             };
             out["listener_running"] = Value::Null;
+            let additions = super::device_control::capabilities(&out["device"]);
+            if let Some(existing) = out["capabilities"].as_object_mut() {
+                existing.extend(additions.as_object().expect("capability object").clone());
+            }
             return Ok(());
         }
         if let DeviceAction::Listener {

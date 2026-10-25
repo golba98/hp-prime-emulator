@@ -1,6 +1,6 @@
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use ppl_graphics::{BLACK, Grob, SCREEN_H, SCREEN_W};
-use ppl_gui::{Viewport, blit_scaled};
+use ppl_gui::{ScaleFilter, Viewport, blit_filtered, blit_scaled};
 
 fn bench_blit(c: &mut Criterion) {
     let frame = ppl_bench::test_frame();
@@ -24,6 +24,30 @@ fn bench_blit(c: &mut Criterion) {
                     dh,
                     &vp,
                     BLACK,
+                );
+                black_box(&dst);
+            })
+        });
+    }
+    for (name, dw, dh, filter) in [
+        ("mirror_nearest_853x640", 853, 640, ScaleFilter::Nearest),
+        ("mirror_linear_960x720", 960, 720, ScaleFilter::Linear),
+    ] {
+        let vp = Viewport::calculate_aspect_fit(dw as u32, dh as u32);
+        let mut dst = vec![0; dw * dh];
+        g.throughput(Throughput::Elements((dw * dh) as u64));
+        g.bench_function(name, |b| {
+            b.iter(|| {
+                blit_filtered(
+                    black_box(frame.pixels()),
+                    SCREEN_W,
+                    SCREEN_H,
+                    &mut dst,
+                    dw,
+                    dh,
+                    &vp,
+                    BLACK,
+                    filter,
                 );
                 black_box(&dst);
             })

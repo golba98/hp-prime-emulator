@@ -62,7 +62,8 @@ cargo run --bin ppl -- device screenshot screen.png
    - Never commit, push, merge, reset, or create pull requests without explicit user authorization.
 2. **Physical Hardware Safety:**
    - Connected HP Prime G1 is a real physical device.
-   - Never overwrite or delete existing user programs. Only upload new programs prefixed with `ZZT_*`.
+   - Never overwrite or delete existing user programs. `ppl device send` only creates new programs; ordinary names are allowed, but an existing name is always refused. Disposable test, cleanup and remote-execution objects must use `ZZT_*` names. Ordinary programs are never auto-cleaned or deleted.
+   - **Narrow exception (user-approved):** the user may delete one specifically named ordinary program by running `ppl device delete program NAME --yes` (or by typing the exact name when `--yes` is omitted). Each invocation covers one program on one selected device, with identity check, double read, raw backup, a single `EB`, and independent absence verification. This never permits batch/automatic deletion, deleting other object types or system resources, skipping backups, or deleting during development, tests or agent-initiated work: agents and tests must not run `ppl device delete` against the physical calculator without separate explicit user authorization (read-only `device probe-anchor` / `device get` are fine when the user has allowed device access).
    - Never perform firmware writes, date/time alterations, or undocumented memory writes.
    - Remote key injection (`EC`) is opt-in only (`--auto-run`) and disabled by default.
    - Hardware results must never be fabricated; only genuine calculator evidence may be tagged as `VERIFIED`.

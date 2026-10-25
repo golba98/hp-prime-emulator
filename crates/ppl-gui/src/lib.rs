@@ -10,6 +10,7 @@ pub mod dialog;
 pub mod host;
 pub mod ide;
 pub mod keymap;
+pub mod mirror;
 pub mod scaler;
 pub mod script;
 pub mod theme;
@@ -21,8 +22,14 @@ pub use host::{GuiHost, GuiSharedState, IdeSharedState};
 pub use ide::execution::worker::{WorkerConfig, WorkerHandle, WorkerOutcome};
 pub use ide::{DockTab, IdeAction, IdeAppState, IdePanel, VmExecutionState};
 pub use keymap::{egui_key_to_hp, hp_key_name, map_char, map_winit_key};
+pub use mirror::{
+    CapturedFrame, MirrorApp, MirrorCapture, MirrorConfig, MirrorCustomEvent, MirrorMetrics,
+    MirrorQuality, MirrorSource, MirrorStatus, MockMirrorSource, UsbMirrorSource, run_mirror,
+    run_mirror_usb,
+};
 pub use scaler::{
-    ASPECT_RATIO, LOGICAL_HEIGHT, LOGICAL_WIDTH, Viewport, blit_scaled, window_to_framebuffer,
+    ASPECT_RATIO, LOGICAL_HEIGHT, LOGICAL_WIDTH, ScaleFilter, Viewport, blit_filtered, blit_scaled,
+    window_to_framebuffer,
 };
 pub use script::{KeyFeeder, KeyScript, ScriptItem};
 pub use window::{

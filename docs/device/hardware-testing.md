@@ -3,7 +3,7 @@
 ## Scope and current conclusion
 
 Physical reference: G1 03f0:1541, build 15157, boot V0.050.640. Raw serials are
-excluded. Uploads create only fresh ZZT_ programs/notes, with positive controls,
+excluded. Experiment uploads create only fresh ZZT_ programs/notes (ordinary user programs can be sent with `ppl device send NAME file`, see program-upload.md), with positive controls,
 collision probes and CRC-valid read-back. Mutable-mailbox tests update only the
 note created by that test. No firmware, clock, undocumented memory or EC keys
 are involved. Existing user programs remain intact. The only deletions are

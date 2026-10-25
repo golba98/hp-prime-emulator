@@ -104,6 +104,9 @@ scripts/emulator/run.sh clippy --workspace --all-targets -- -D warnings
 scripts/emulator/run.sh test --workspace --all-targets
 ```
 
+See [Developer scripts](docs/development/SCRIPTS.md) for script architecture,
+offline research tools, dependencies, and hardware-isolated validation.
+
 Ordinary tests do not need proprietary firmware. Genuine firmware tests are environment-gated and require local assets; a skipped firmware test is not evidence of guest execution. See the milestone reports for exact environment variables and commands.
 
 The reports include successful native/firmware comparisons and reliability runs, as well as observed timing failures during concurrent traced runs. Rendering, diagnostics, and language semantics can differ between engines.

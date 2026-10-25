@@ -39,6 +39,13 @@ Thumbs.db
 # Reviewed public documentation is explicitly tracked; new Markdown under docs/
 # remains ignored until reviewed. This pattern does not affect tracked files.
 docs/**/*.md
+!docs/device/autonomous-control.md
+!docs/device/program-inventory.md
+!docs/device/physical-debugging.md
+!docs/device/live-screen.md
+!docs/device/INCREMENTAL_SCREEN_MIRROR.md
+!docs/device/FC04_PHYSICAL_VISUAL_VERIFICATION.md
+!docs/reverse-engineering/remote-input-investigation.md
 docs/reports/
 HANDOFF.md
 
@@ -64,3 +71,18 @@ criterion/
 # Temporary GUI / emulator screenshots (fixtures under tests/ stay tracked)
 *.png.actual
 out.png
+
+# Retain the Connectivity Kit continuation's technical evidence reports.
+!docs/reverse-engineering/HP_CONNECTIVITY_KIT_REMOTE_CONTROL.md
+!docs/reverse-engineering/HP_CONNECTIVITY_KIT_HID_CALL_TRACE.md
+!docs/reverse-engineering/HP_CONNECTIVITY_KIT_PROJECT_TRACE.md
+
+# Public incremental-mirror implementation documentation.
+!docs/device/INCREMENTAL_SCREEN_MIRROR.md
+!docs/device/live-screen.md
+
+# Public developer scripts reference.
+!docs/development/SCRIPTS.md
+
+# Reviewed live-viewer investigation and validation report.
+!docs/device/LIVE_VIEWER_QUALITY_AND_PERFORMANCE.md

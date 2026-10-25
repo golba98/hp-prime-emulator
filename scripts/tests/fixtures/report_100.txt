@@ -1,0 +1,33 @@
+
+## SESSION
+
+Captures: 100; errors: 0; changed publications: 10; capture FPS: 50.000.
+Screenshot write attempts/s over recorded interval: 50.000; valid incremental responses/s: 50.000; resynchronization baselines: 0.
+Errors per screenshot write attempt: 0.0000 (identity/preflight errors may also be present).
+Incremental rectangles: [(1, 1)].
+Incremental composition ms median/P95/max: (0.0500, 0.0500, 0.0500).
+Baseline total ms median/P95/max: (1.0000, 1.0000, 1.0000).
+Rates breakdown: Request rate: 50.000 req/s; Response rate: 50.000 responses/s; Changed-frame rate: 5.000 changed/s.
+Throughput: 6464.6 B/s (report bytes), 4040.4 B/s (PNG payload).
+
+Stage | Median ms | P95 ms | P99 ms | Max ms | Share of mean capture time | Errors
+---|---:|---:|---:|---:|---:|---:
+setup | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+write | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+first_response | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+transfer | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+assembly | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+extraction | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+decompression | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+conversion | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+publication | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+total | 50.5000 | 95.0000 | 99.0000 | 100.0000 | 100.000% | 0
+
+PNG bytes median/P95/max: (80.0000, 80.0000, 80.0000, 80.0000); source sizes: [(320, 240)].
+Published FPS over changed publications: 5.000 (unchanged captures intentionally do not publish).
+Unique submitted frames: 10; displayed submission FPS: 5.000; Display FPS: 50.000; Unique visual FPS: 5.000.
+scaling_ms median/P95/max: (0.2000, 0.2000, 0.2000, 0.2000)
+present_ms median/P95/max: (0.3000, 0.3000, 0.3000, 0.3000)
+request_age_ms median/P95/max: (1.0000, 1.0000, 1.0000, 1.0000)
+Physical surfaces/DPI: [(853, 640, 1.3333333333333333)]
+Presentation submission is not compositor scanout or measured LCD-to-eye latency.

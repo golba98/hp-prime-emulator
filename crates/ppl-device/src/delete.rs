@@ -12,7 +12,7 @@
 
 use std::time::Duration;
 
-use crate::guard::{PROBE_TIMEOUT, fresh_test_name, result_note_name};
+use crate::guard::{NamePolicy, PROBE_TIMEOUT, fresh_test_name, result_note_name};
 use crate::{ControlObject, DeviceError, FileType, Prime, Probe, UploadReport};
 
 /// Native EB deletion was physically verified for this exact firmware profile.
@@ -24,6 +24,63 @@ pub fn direct_delete_supported(
 ) -> bool {
     product_id == 0x1541 && build == Some(15157) && boot_version == Some("V0.050.640")
 }
+
+/// Identity captured before a deletion; every later `FA` must match it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Baseline {
+    pub serial_fp: String,
+    pub build: Option<u32>,
+    pub version: Option<String>,
+}
+
+impl Baseline {
+    pub fn from_info(info: &crate::CalcInfo) -> Result<Baseline, DeviceError> {
+        Ok(Baseline {
+            serial_fp: info
+                .serial_fingerprint()
+                .ok_or_else(|| DeviceError::Refused("device identity is unavailable".into()))?,
+            build: info.build,
+            version: info.version.clone(),
+        })
+    }
+}
+
+/// Transport-level heartbeat: `FA` must still identify the same calculator
+/// and `FF` must report ready. This proves the USB stack is alive and that
+/// the device was not swapped; it does NOT prove file requests are served
+/// (see docs/device/deletion.md), which is why it only supplements an
+/// `F8` anchor and never replaces one.
+pub fn beat(p: &mut Prime, base: &Baseline) -> Result<(), DeviceError> {
+    let silent = |what: &str, e: DeviceError| match e {
+        DeviceError::Timeout(_) => {
+            DeviceError::Inconclusive(format!("device did not answer {what}"))
+        }
+        other => other,
+    };
+    let info = p.info().map_err(|e| silent("the identity query", e))?;
+    if Baseline::from_info(&info)? != *base {
+        return Err(DeviceError::Refused(
+            "device identity changed during the operation".into(),
+        ));
+    }
+    let ready = p.check_ready().map_err(|e| silent("the ready check", e))?;
+    if ready.first() != Some(&crate::READY_REPLY) {
+        return Err(DeviceError::Protocol(format!(
+            "unexpected ready reply {ready:02X?}"
+        )));
+    }
+    Ok(())
+}
+
+/// Whether `calc.settings` has been shown (read-only, on hardware) to be
+/// fetchable with a CRC-valid reply on the verified profile, and so may serve
+/// as the control-free F8 liveness anchor. Evidence: 2026-10-24, G1 build
+/// 15157 / V0.050.640, `artifacts/anchor-probe/anchor-probe-2026-10-24T204230Z.json`
+/// (3/3 replies for both settings objects, CRC valid). The calculator answers
+/// *any* type-0 name with an empty reply, so this proves the file-request
+/// handler is alive, not that the object exists; it was not tested while a
+/// foreground PPL program was running (see docs/device/deletion.md).
+pub const SETTINGS_ANCHOR_VERIFIED: bool = true;
 
 /// The control object is never deletable, whatever the caller asks for.
 pub const PROTECTED_OBJECTS: &[&str] = &["ZZT_CTRL"];
@@ -82,6 +139,12 @@ pub struct Deletion {
     pub backups: Vec<Backup>,
     /// Probe log of the preparation.
     pub log: Vec<String>,
+    /// Naming policy the targets were validated under. A `User` deletion has
+    /// no usable helper (the helper allowlist is only meaningful for `Test`).
+    pub policy: NamePolicy,
+    /// Identity baseline; when set, every anchor probe is paired with a
+    /// [`beat`].
+    pub baseline: Option<Baseline>,
 }
 
 impl Deletion {
@@ -239,18 +302,27 @@ fn fresh_helper_name() -> String {
     n
 }
 
+fn check_name(policy: NamePolicy, t: &DeleteTarget) -> Result<(), DeviceError> {
+    match policy {
+        NamePolicy::Test => crate::guard::validate_test_name(&t.name),
+        NamePolicy::User => crate::guard::validate_object_name(t.ty, &t.name),
+    }
+}
+
 fn validate_target(
     t: &DeleteTarget,
     control: &ControlObject,
     others: &[DeleteTarget],
+    policy: NamePolicy,
 ) -> Result<(), DeviceError> {
-    let why = if !matches!(t.ty, FileType::Program | FileType::Note) {
-        Some(format!(
+    if !matches!(t.ty, FileType::Program | FileType::Note) {
+        return Err(DeviceError::Unsupported(format!(
             "only programs and notes are deletable, not {}",
             t.ty.label()
-        ))
-    } else if crate::guard::validate_test_name(&t.name).is_err() {
-        None // validate_test_name reports the precise reason below
+        )));
+    }
+    let why = if check_name(policy, t).is_err() {
+        None::<String> // check_name reports the precise reason below
     } else if PROTECTED_OBJECTS
         .iter()
         .any(|n| n.eq_ignore_ascii_case(&t.name))
@@ -269,8 +341,7 @@ fn validate_target(
             t.name
         )));
     }
-    crate::guard::validate_test_name(&t.name)?;
-    Ok(())
+    check_name(policy, t)
 }
 
 /// Probes one object and requires it to be present with a good CRC.
@@ -318,7 +389,7 @@ fn probe_present(
              known-present object answering, silence proves nothing",
             waited.as_secs_f64()
         ))),
-        Ok(Probe::NoReply { waited }) => Err(DeviceError::Refused(format!(
+        Ok(Probe::NoReply { waited }) => Err(DeviceError::Absent(format!(
             "`{name}` ({}): no reply within {:.1} s while the control object was just answering; \
              the object is not present on this calculator",
             ty.label(),
@@ -326,6 +397,21 @@ fn probe_present(
         ))),
         Err(e) => Err(e),
     }
+}
+
+/// Anchor probe (control present, CRC-valid) plus an optional heartbeat.
+fn anchor(
+    p: &mut Prime,
+    control: &ControlObject,
+    round: u32,
+    log: &mut Vec<String>,
+    base: Option<&Baseline>,
+) -> Result<(), DeviceError> {
+    probe_present(p, control.ty, &control.name, round, log, true)?;
+    if let Some(b) = base {
+        beat(p, b)?;
+    }
+    Ok(())
 }
 
 /// Validates the targets, proves each one present (two probe rounds with
@@ -341,6 +427,23 @@ pub fn prepare_deletion(
     targets: &[DeleteTarget],
     control: &ControlObject,
 ) -> Result<Deletion, DeviceError> {
+    prepare_deletion_with(p, targets, control, NamePolicy::Test, None)
+}
+
+/// [`prepare_deletion`] under an explicit naming policy. `User` accepts
+/// ordinary program/note names but exactly one target per request.
+pub fn prepare_deletion_with(
+    p: &mut Prime,
+    targets: &[DeleteTarget],
+    control: &ControlObject,
+    policy: NamePolicy,
+    baseline: Option<&Baseline>,
+) -> Result<Deletion, DeviceError> {
+    if policy == NamePolicy::User && targets.len() > 1 {
+        return Err(DeviceError::Refused(
+            "ordinary objects are deleted one at a time".into(),
+        ));
+    }
     if targets.is_empty() {
         return Err(DeviceError::Refused("no deletion targets given".into()));
     }
@@ -351,11 +454,11 @@ pub fn prepare_deletion(
         )));
     }
     for (i, t) in targets.iter().enumerate() {
-        validate_target(t, control, &targets[..i])?;
+        validate_target(t, control, &targets[..i], policy)?;
     }
     let mut log = Vec::new();
     // Round 1: control, then every target.
-    probe_present(p, control.ty, &control.name, 1, &mut log, true)?;
+    anchor(p, control, 1, &mut log, baseline)?;
     let mut backups = Vec::with_capacity(targets.len());
     for t in targets {
         let f = probe_present(p, t.ty, &t.name, 1, &mut log, false)?;
@@ -368,7 +471,7 @@ pub fn prepare_deletion(
     }
     // Round 2: the control must answer again, then every target again,
     // unchanged. Late or changed replies abort the preparation.
-    probe_present(p, control.ty, &control.name, 2, &mut log, true)?;
+    anchor(p, control, 2, &mut log, baseline)?;
     for b in &mut backups {
         let f = probe_present(p, b.ty, &b.name, 2, &mut log, false)?;
         if f != b.data {
@@ -401,6 +504,8 @@ pub fn prepare_deletion(
         source,
         backups,
         log,
+        policy,
+        baseline: baseline.cloned(),
     })
 }
 
@@ -498,33 +603,49 @@ pub fn verify_deleted(
     targets: &[DeleteTarget],
     control: &ControlObject,
 ) -> Result<Vec<TargetStatus>, DeviceError> {
+    verify_deleted_with(p, targets, control, None)
+}
+
+/// [`verify_deleted`] with an optional identity baseline: each anchor probe
+/// is then paired with an `FA`+`FF` [`beat`], and late replies are checked
+/// after every phase rather than only at the end.
+pub fn verify_deleted_with(
+    p: &mut Prime,
+    targets: &[DeleteTarget],
+    control: &ControlObject,
+    base: Option<&Baseline>,
+) -> Result<Vec<TargetStatus>, DeviceError> {
     let exchange_start = p.log.len();
+    let names: Vec<String> = targets.iter().map(|t| t.name.clone()).collect();
     let mut log = Vec::new();
     let mut present: Vec<bool> = vec![false; targets.len()];
-    probe_optional(p, control.ty, &control.name, &mut log)?.ok_or_else(|| control_lost(control))?;
-    for (i, t) in targets.iter().enumerate() {
-        if probe_optional(p, t.ty, &t.name, &mut log)?.is_some() {
-            present[i] = true;
+    let live = |p: &mut Prime| -> Result<(), DeviceError> {
+        probe_optional(p, control.ty, &control.name, &mut Vec::new())?
+            .ok_or_else(|| control_lost(control))?;
+        if let Some(b) = base {
+            beat(p, b)?;
+        }
+        Ok(())
+    };
+    live(p)?;
+    for round in 0..2 {
+        for (i, t) in targets.iter().enumerate() {
+            if probe_optional(p, t.ty, &t.name, &mut log)?.is_some() {
+                present[i] = true;
+            }
+        }
+        live(p)?;
+        if base.is_some() && round == 0 {
+            p.ensure_quiet(exchange_start, &names)?;
         }
     }
-    probe_optional(p, control.ty, &control.name, &mut log)?.ok_or_else(|| control_lost(control))?;
-    for (i, t) in targets.iter().enumerate() {
-        if probe_optional(p, t.ty, &t.name, &mut log)?.is_some() {
-            present[i] = true;
-        }
-    }
-    probe_optional(p, control.ty, &control.name, &mut log)?.ok_or_else(|| control_lost(control))?;
     // A late F7 discarded beside a live control is still evidence; never
     // convert it into absence just because the original request timed out.
-    p.ensure_quiet(
-        exchange_start,
-        &targets.iter().map(|t| t.name.clone()).collect::<Vec<_>>(),
-    )?;
-    Ok(targets
+    p.ensure_quiet(exchange_start, &names)?;
+    Ok(present
         .iter()
-        .enumerate()
-        .map(|(i, _)| {
-            if present[i] {
+        .map(|&seen| {
+            if seen {
                 TargetStatus::StillPresent
             } else {
                 TargetStatus::ConfirmedDeleted
@@ -664,6 +785,8 @@ pub struct DeleteGuard {
     created: std::time::Instant,
     backups: Vec<Backup>,
     control: ControlObject,
+    policy: NamePolicy,
+    baseline: Option<Baseline>,
 }
 
 /// Validate a prepared request and bind its immutable snapshot to this connection.
@@ -681,11 +804,14 @@ pub fn authorize_usb_deletion(
             name: b.name.clone(),
         })
         .collect();
-    if targets.is_empty() || targets.len() > MAX_TARGETS {
+    if targets.is_empty()
+        || targets.len() > MAX_TARGETS
+        || (deletion.policy == NamePolicy::User && targets.len() != 1)
+    {
         return Err(DeviceError::Refused("invalid deletion target count".into()));
     }
     for (i, t) in targets.iter().enumerate() {
-        validate_target(t, control, &targets[..i])?;
+        validate_target(t, control, &targets[..i], deletion.policy)?;
         if !deletion.backups[i].crc_ok {
             return Err(DeviceError::Refused(
                 "deletion requires verified backups".into(),
@@ -697,6 +823,8 @@ pub fn authorize_usb_deletion(
         created: std::time::Instant::now(),
         backups: deletion.backups.clone(),
         control: control.clone(),
+        policy: deletion.policy,
+        baseline: deletion.baseline.clone(),
     })
 }
 
@@ -735,11 +863,14 @@ where
             name: b.name.clone(),
         })
         .collect();
+    for (i, t) in targets.iter().enumerate() {
+        validate_target(t, &guard.control, &targets[..i], guard.policy)?;
+    }
     let start = p.log.len();
     let mut log = Vec::new();
     // Revalidate the whole batch before any mutation; then each target again
     // immediately before sending. Changed content never inherits old ownership.
-    probe_present(p, guard.control.ty, &guard.control.name, 1, &mut log, true)?;
+    anchor(p, &guard.control, 1, &mut log, guard.baseline.as_ref())?;
     for b in &guard.backups {
         if probe_present(p, b.ty, &b.name, 1, &mut log, false)? != b.data {
             return Err(DeviceError::Refused(format!(
@@ -751,7 +882,7 @@ where
     let mut error = None;
     for b in &guard.backups {
         let send = (|| {
-            probe_present(p, guard.control.ty, &guard.control.name, 2, &mut log, true)?;
+            anchor(p, &guard.control, 2, &mut log, guard.baseline.as_ref())?;
             if probe_present(p, b.ty, &b.name, 2, &mut log, false)? != b.data {
                 return Err(DeviceError::Refused(format!(
                     "`{}` changed before deletion",
@@ -770,7 +901,7 @@ where
         }
     }
     on_event(DeleteEvent::Verifying);
-    let statuses = match verify_deleted(p, &targets, &guard.control) {
+    let statuses = match verify_deleted_with(p, &targets, &guard.control, guard.baseline.as_ref()) {
         Ok(statuses) => statuses,
         Err(e) => {
             error = Some(format!(

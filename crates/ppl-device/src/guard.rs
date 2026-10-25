@@ -19,6 +19,13 @@ pub const MAX_NAME_LEN: usize = 16;
 /// Default control object for [`Prime::preflight_new_names`].
 pub const DEFAULT_CONTROL: &str = "program:ZZT_CTRL";
 
+/// Built-in settings objects usable as a liveness anchor (type 0x00). They
+/// exist on every calculator, so no control program has to be installed.
+pub const SETTINGS_ANCHORS: &[&str] = &["calc.settings", "cas.settings"];
+
+/// The default control-free anchor.
+pub const DEFAULT_SETTINGS_ANCHOR: &str = "settings:calc.settings";
+
 /// How long a preflight or read-back `F8` waits for the first reply report.
 pub const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
 
@@ -48,6 +55,101 @@ pub fn validate_test_name(name: &str) -> Result<()> {
         Some(r) => Err(DeviceError::Refused(format!(
             "`{name}` is not an allowed test object name: {r}"
         ))),
+    }
+}
+
+/// Which naming rules a [`WriteGuard`] was issued under. A guard keeps its
+/// policy, so a user-program guard cannot be spent as a disposable test
+/// object (or the other way round).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NamePolicy {
+    /// Disposable tool-owned objects: [`validate_test_name`].
+    Test,
+    /// Ordinary user programs: [`validate_program_name`].
+    User,
+}
+
+/// Names that would shadow PPL keywords or system identifiers. Compared
+/// case-insensitively. Deliberately conservative.
+const RESERVED_NAMES: &[&str] = &[
+    "ANS", "BEGIN", "BREAK", "CASE", "CONST", "CONTINUE", "DEFAULT", "DO", "DOWNTO", "ELSE",
+    "ELSIF", "END", "EXPORT", "FOR", "FROM", "HOME", "IF", "IFERR", "KILL", "LOCAL", "REPEAT",
+    "RETURN", "STEP", "THEN", "THETA", "TO", "UNTIL", "VAR", "WHILE", "ZZT_CTRL",
+];
+
+/// Checks the name of an ordinary user program: 1..=[`MAX_NAME_LEN`]
+/// characters of `[A-Za-z0-9_]`, starting with a letter, case preserved.
+/// No `ZZT_` prefix is required. Single letters and letter+digit names
+/// (`A`, `L1`, `G0`, …) are refused because they are system variables, as
+/// are the names in [`RESERVED_NAMES`].
+pub fn validate_program_name(name: &str) -> Result<()> {
+    let reason = if name.is_empty() {
+        Some("it is empty".to_string())
+    } else if name.len() > MAX_NAME_LEN {
+        Some(format!("it is longer than {MAX_NAME_LEN} characters"))
+    } else if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        Some("only A-Z, a-z, 0-9 and _ are allowed".to_string())
+    } else if !name.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        Some("it must start with a letter".to_string())
+    } else if name.len() == 1
+        || (name.len() == 2 && name.as_bytes()[1].is_ascii_digit())
+        || RESERVED_NAMES.iter().any(|r| r.eq_ignore_ascii_case(name))
+    {
+        Some("it is a reserved calculator name".to_string())
+    } else {
+        None
+    };
+    match reason {
+        None => Ok(()),
+        Some(r) => Err(DeviceError::Refused(format!(
+            "`{name}` is not a valid program name: {r}"
+        ))),
+    }
+}
+
+/// Checks the name of an existing calculator object that the user asks to
+/// delete. Program and note names follow the same character rules as
+/// [`validate_program_name`]; no `ZZT_` prefix is required. Any other type
+/// has no verified read/backup/delete path and is
+/// [`DeviceError::Unsupported`]. Names are object identifiers, never paths.
+pub fn validate_object_name(ty: FileType, name: &str) -> Result<()> {
+    match ty {
+        FileType::Program | FileType::Note => {}
+        other => {
+            return Err(DeviceError::Unsupported(format!(
+                "{} objects have no verified deletion support",
+                other.label()
+            )));
+        }
+    }
+    let reason = if name.is_empty() {
+        Some("it is empty".to_string())
+    } else if name.len() > MAX_NAME_LEN {
+        Some(format!("it is longer than {MAX_NAME_LEN} characters"))
+    } else if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        Some("only A-Z, a-z, 0-9 and _ are allowed".to_string())
+    } else if !name.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        Some("it must start with a letter".to_string())
+    } else if RESERVED_NAMES.iter().any(|r| r.eq_ignore_ascii_case(name)) {
+        Some("it is a reserved calculator name".to_string())
+    } else {
+        None
+    };
+    match reason {
+        None => Ok(()),
+        Some(r) => Err(DeviceError::Refused(format!(
+            "`{name}` is not a valid {} name: {r}",
+            ty.label()
+        ))),
+    }
+}
+
+impl NamePolicy {
+    pub(crate) fn validate(self, name: &str) -> Result<()> {
+        match self {
+            NamePolicy::Test => validate_test_name(name),
+            NamePolicy::User => validate_program_name(name),
+        }
     }
 }
 
@@ -109,6 +211,19 @@ impl ControlObject {
         let ty = FileType::parse(t.trim())
             .ok_or_else(|| format!("control `{s}`: unknown object type `{}`", t.trim()))?;
         let name = n.trim();
+        if ty == FileType::Settings {
+            // Built-in settings objects are the only non-program anchors.
+            return if SETTINGS_ANCHORS.contains(&name) {
+                Ok(ControlObject {
+                    ty,
+                    name: name.to_string(),
+                })
+            } else {
+                Err(format!(
+                    "control `{s}`: settings controls must be one of {SETTINGS_ANCHORS:?}"
+                ))
+            };
+        }
         let ok = !name.is_empty()
             && name.len() <= MAX_NAME_LEN
             && name.starts_with(|c: char| c.is_ascii_alphabetic())
@@ -151,9 +266,15 @@ pub struct WriteGuard {
     pub(crate) created: Instant,
     pub(crate) max_age: Duration,
     pub(crate) log: Vec<String>,
+    pub(crate) policy: NamePolicy,
 }
 
 impl WriteGuard {
+    /// The naming policy this guard was issued under.
+    pub fn policy(&self) -> NamePolicy {
+        self.policy
+    }
+
     /// The program this guard allows to be created.
     pub fn program(&self) -> &str {
         &self.program

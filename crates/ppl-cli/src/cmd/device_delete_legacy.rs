@@ -118,7 +118,7 @@ pub fn import(
     }
     let requested = targets
         .iter()
-        .map(Target::target)
+        .map(|t| t.target(ppl_device::NamePolicy::Test))
         .collect::<Result<Vec<_>, _>>()?;
     if ppl_device::verify_deleted(p, &requested, &control)?
         .iter()
@@ -175,6 +175,9 @@ pub fn import(
         cleanup_state: "pending".into(),
         runs_dir: Path::new(ppl_compat::DEFAULT_RUNS_DIR).into(),
         error: None,
+        class: "test".into(),
+        authorization: None,
+        requested_utc: None,
     };
     store.create(&op, &backups)?;
     Ok(op)

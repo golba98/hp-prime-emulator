@@ -3,7 +3,7 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use ppl_device::{Backup, ControlObject, DeleteTarget, DeviceError, FileType};
+use ppl_device::{Backup, ControlObject, DeleteTarget, DeviceError, FileType, NamePolicy};
 use serde::{Deserialize, Serialize};
 
 pub type Result<T> = std::result::Result<T, DeviceError>;
@@ -133,11 +133,14 @@ pub struct Target {
     pub status: String,
 }
 impl Target {
-    pub fn target(&self) -> Result<DeleteTarget> {
-        ppl_device::validate_test_name(&self.name)?;
+    pub fn target(&self, policy: NamePolicy) -> Result<DeleteTarget> {
         let ty = FileType::parse(&self.ty)
             .filter(|t| matches!(t, FileType::Program | FileType::Note))
             .ok_or_else(|| DeviceError::Refused("invalid deletion record type".into()))?;
+        match policy {
+            NamePolicy::Test => ppl_device::validate_test_name(&self.name)?,
+            NamePolicy::User => ppl_device::validate_object_name(ty, &self.name)?,
+        }
         Ok(DeleteTarget {
             ty,
             name: self.name.clone(),
@@ -175,13 +178,32 @@ pub struct Operation {
     pub cleanup_state: String,
     pub runs_dir: PathBuf,
     pub error: Option<String>,
+    /// `"test"` (disposable ZZT_ objects, receipt-authorizable) or `"user"`
+    /// (ordinary objects, typed confirmation only). Records written before
+    /// this field existed are `test` records.
+    #[serde(default)]
+    pub class: String,
+    /// How deletion was authorized (`creation_receipt` / `exact_typed_confirmation`).
+    #[serde(default)]
+    pub authorization: Option<String>,
+    /// When the deletion was requested (UTC).
+    #[serde(default)]
+    pub requested_utc: Option<String>,
 }
 impl Operation {
+    pub fn policy(&self) -> NamePolicy {
+        if self.class == "user" {
+            NamePolicy::User
+        } else {
+            NamePolicy::Test
+        }
+    }
     pub fn confirmed(&self) -> bool {
         !self.targets.is_empty() && self.targets.iter().all(|t| t.status == "confirmed_deleted")
     }
     pub fn targets(&self) -> Result<Vec<DeleteTarget>> {
-        self.targets.iter().map(Target::target).collect()
+        let policy = self.policy();
+        self.targets.iter().map(|t| t.target(policy)).collect()
     }
     pub fn control(&self) -> Result<ControlObject> {
         ControlObject::parse(&self.control).map_err(disk)
@@ -238,6 +260,19 @@ impl Store {
                 "invalid deletion operation record".into(),
             ));
         }
+        if !matches!(op.class.as_str(), "" | "test" | "user") {
+            return Err(DeviceError::Refused("unknown deletion record class".into()));
+        }
+        if op.class == "user"
+            && (op.targets.len() != 1
+                || op.helper.is_some()
+                || op.helper_source.is_some()
+                || op.mechanism != "usb_delete")
+        {
+            return Err(DeviceError::Refused(
+                "ordinary-object records are single-target USB deletions".into(),
+            ));
+        }
         let targets = op.targets()?;
         let control = op.control()?;
         for t in targets {
@@ -284,7 +319,7 @@ impl Store {
         op.targets
             .iter()
             .map(|t| {
-                let target = t.target()?;
+                let target = t.target(op.policy())?;
                 let data = std::fs::read(
                     self.directory(&op.id)?
                         .join(format!("{}-{}.bin", t.ty, t.name)),
@@ -319,13 +354,14 @@ impl Store {
             let op = self.load(&id)?;
             if op.device_serial_id != serial
                 || matches!(op.state.as_str(), "completed" | "not_submitted")
+                || (op.class == "user" && op.confirmed())
             {
                 continue;
             }
             if op.targets.iter().any(|old| {
                 targets
                     .iter()
-                    .any(|t| t.name == old.name && t.ty.label() == old.ty)
+                    .any(|t| t.name.eq_ignore_ascii_case(&old.name) && t.ty.label() == old.ty)
             }) {
                 return Err(DeviceError::Refused(format!(
                     "unresolved operation {}; use delete verify --operation-id {}",

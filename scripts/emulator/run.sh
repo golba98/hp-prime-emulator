@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build/run helper for the prime-emulator crate.
+# Cargo build/run helper for the Rust workspace.
 #
 # Why this exists: Unicorn 2.x's bundled CMake build fails when the build
 # directory path contains a space, and this repository's checkout path

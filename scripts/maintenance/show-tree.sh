@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Print the meaningful repository structure, excluding generated artifacts.
 #
 # Usage: scripts/maintenance/show-tree.sh [depth]
@@ -8,6 +8,10 @@
 set -euo pipefail
 
 DEPTH="${1:-4}"
+if [[ ! "$DEPTH" =~ ^[1-9][0-9]*$ ]]; then
+  echo "error: depth must be a positive integer" >&2
+  exit 2
+fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if ! command -v tree >/dev/null 2>&1; then
