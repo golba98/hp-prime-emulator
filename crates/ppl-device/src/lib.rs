@@ -44,6 +44,8 @@ use hidapi::HidApi;
 use guard::fnv64;
 
 pub mod delete;
+/// Offline official extended framing research; never selected by live USB.
+pub mod extended;
 pub mod files;
 
 #[cfg(test)]
@@ -63,6 +65,7 @@ pub mod guard;
 pub mod info;
 pub mod inventory;
 pub mod keys;
+mod late;
 pub mod listener;
 mod lock;
 pub mod ownership;
@@ -108,10 +111,11 @@ pub const READY_REPLY: u8 = 0x59;
 
 /// Per-read timeout used by [`Prime::drain`].
 const DRAIN_TIMEOUT_MS: i32 = 50;
-/// Largest program payload (UTF-16LE bytes) known to upload on a G1 (fw
-/// 15157). Hardware evidence 2026-10-24: 15,926 B stored and read back
-/// exactly; 16,284 B, 21,080 B and 23,050 B were transmitted in full but
-/// silently dropped, even with 0xFF in the sequence and paced writes.
+/// Conservative legacy upload policy, NOT an established firmware maximum.
+/// Historical evidence: 15,926 source bytes were stored as 15,928 returned
+/// bytes (including a terminator). Larger tested transfers (16,284 / 21,080 /
+/// 23,050 source bytes) were unverified. The exact boundary and cause remain
+/// unresolved; retain the existing policy until official/physical evidence.
 pub const MAX_PROGRAM_PAYLOAD: usize = 15_928;
 
 /// Size of `source` as the UTF-16LE payload of an `F7` program upload, or
@@ -122,9 +126,9 @@ pub fn check_program_payload(name: &str, source: &str) -> Result<usize> {
     let bytes = source.encode_utf16().count() * 2;
     if bytes > MAX_PROGRAM_PAYLOAD {
         return Err(DeviceError::Refused(format!(
-            "`{name}` is {bytes} UTF-16 bytes; this G1 silently drops uploads above \
-             {MAX_PROGRAM_PAYLOAD} bytes (nothing was sent). Shorten the source, e.g. strip \
-             comments and indentation."
+            "`{name}` is {bytes} UTF-16 bytes; the conservative G1 legacy upload policy is \
+             {MAX_PROGRAM_PAYLOAD} bytes. Previous larger transfers were silently dropped, \
+             but the cause and exact boundary remain unverified (nothing was sent)."
         )));
     }
     Ok(bytes)
@@ -191,9 +195,21 @@ pub struct Prime {
     pub traces: Vec<TraceEvent>,
     pub trace_enabled: bool,
     pub read_timeout: Duration,
+    retired: Option<String>,
 }
 
 impl Prime {
+    /// A framing failure retires this connection. A new handle must establish
+    /// fresh device identity; continuing on an ambiguous stream is unsafe.
+    pub fn require_healthy(&self) -> Result<()> {
+        match &self.retired {
+            Some(reason) => Err(DeviceError::Inconclusive(format!(
+                "connection retired: {reason}; close and reconnect"
+            ))),
+            None => Ok(()),
+        }
+    }
+
     pub fn open_first() -> Result<Prime> {
         let mut devices = detect()?;
         if devices.len() > 1 {
@@ -229,6 +245,7 @@ impl Prime {
             traces: Vec::new(),
             trace_enabled: false,
             read_timeout: Duration::from_secs(8),
+            retired: None,
         }
     }
 
@@ -362,7 +379,11 @@ impl Prime {
             }
             Ok(n) => {
                 buf.truncate(*n);
-                let resp_id = if *n > 1 { Some(buf[1]) } else { None };
+                let resp_id = if *n > 1 && buf[0] == 0 {
+                    Some(buf[1])
+                } else {
+                    None
+                };
                 self.record_trace(
                     "read",
                     "HID IN",
@@ -457,36 +478,9 @@ impl Prime {
     /// Private so that no caller can emit an `F7` (or anything else)
     /// without going through the guarded methods below.
     fn send_message(&mut self, message: &[u8]) -> Result<()> {
+        self.require_healthy()?;
         for r in Prime::frame(message, self.report_size) {
             self.write_report(&r)?;
-            if self.trace_enabled {
-                // Diagnostics: note anything the calculator says mid-transfer.
-                let mut buf = vec![0u8; self.report_size];
-                if let Ok(n) = self.dev.read_timeout(&mut buf, 0) {
-                    if n > 0 {
-                        buf.truncate(n);
-                        self.record_trace(
-                            "read",
-                            "HID IN",
-                            self.report_size,
-                            n,
-                            "mid-transfer",
-                            None,
-                            buf.get(1).copied(),
-                            Some(n),
-                            None,
-                            Duration::ZERO,
-                            &format!("first bytes {:02X?}", &buf[..n.min(8)]),
-                        );
-                        self.log.push(Exchange {
-                            outgoing: false,
-                            bytes: buf,
-                            at: self.started.elapsed(),
-                            drained: true,
-                        });
-                    }
-                }
-            }
         }
         Ok(())
     }
@@ -494,7 +488,10 @@ impl Prime {
     /// Reads one reply message, draining the line after any failure.
     fn recv_message(&mut self, cmd: u8, what: &'static str, first: Duration) -> Result<Vec<u8>> {
         let r = self.recv_message_inner(cmd, what, first);
-        if r.is_err() {
+        if let Err(e) = &r {
+            if !matches!(e, DeviceError::Timeout(_)) {
+                self.retired = Some(e.to_string());
+            }
             self.drain();
         }
         r
@@ -1096,18 +1093,13 @@ impl Prime {
         if drained.is_empty() {
             return Ok(());
         }
-        let payload: Vec<u8> = drained
-            .iter()
-            .flat_map(|e| e.bytes.iter().skip(1).copied())
-            .collect();
-        if payload.first() == Some(&CMD_FILE) {
-            if let Ok(f) = files::decode_file_message(&payload) {
-                if names.iter().any(|n| n.eq_ignore_ascii_case(&f.name)) {
-                    return Err(DeviceError::Refused(format!(
-                        "`{}` exists on the calculator (its reply arrived late); it will not be overwritten",
-                        f.name
-                    )));
-                }
+        for file in crate::late::files(&drained, self.report_size)? {
+            if names.iter().any(|n| n == &file.name) {
+                return Err(DeviceError::Refused(format!(
+                    "`{}` exists on the calculator (a CRC-valid late {} reply); no absence was established",
+                    file.name,
+                    file.ty.label()
+                )));
             }
         }
         Err(DeviceError::Inconclusive(format!(

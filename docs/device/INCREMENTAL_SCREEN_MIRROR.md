@@ -1,5 +1,28 @@
 # Experimental incremental screen mirroring
 
+## Official-software correction — 2026-10-25
+
+The screen constructor was missing from the prior color trace. Both official
+builds select **QImage::Format_RGB555 (11)** and copy decoded byte pairs as native
+little-endian words. Full, fast and incremental PNG decoding now follow that
+layout. The earlier big-endian RGB565 interpretation caused the colored glyph
+artifacts; the corrected decoder agrees with system Qt5 on all input words and
+preserved physical fixtures. This does not establish new FC04 hardware acceptance.
+See [the complete pipeline](../reverse-engineering/CONNECTIVITY_KIT_SCREEN_PIPELINE.md).
+
+The acknowledgement-only normal-stream bypass has been removed. `VerifiedIncremental`
+can only come from a reviewed production profile, and that profile list remains
+empty. `BoundedIncrementalPermit` is a separate diagnostic type with global request
+and time budgets. Normal mirror/IPC refusal happens before device access even
+with the legacy flag. Existing one-shot and manual-change diagnostics remain.
+
+The separately approved `verify-incremental-stream` command checks prior visual
+fixtures, captures exact references, requires multiple actual transitions and
+recovery, and cannot enable production streaming. Its raw outputs remain private.
+No new physical request, changed-screen acceptance or sustained test was run.
+The manual-change verifier now refuses EOF at its confirmation prompt before
+sending FC04, rather than continuing without operator confirmation.
+
 Status: **Physical FC04 response verified** on G1 firmware 15157 (`03f0:1541`).
 The first authorized hardware probe returned a valid coordinate update in 16.33 ms
 (vs 990 ms baseline). **Physical visual correctness under screen changes remains
@@ -27,7 +50,7 @@ These establish software behavior, not G1 firmware acceptance.
 | CRC | 44f7a0/5a3c60 | CRC16 over format/coordinates/PNG, checked before decoding |
 | PNG start | Handler's payload offsets | Message offset 13; dimensions come from IHDR |
 | Coordinates | 42dae0 | `(FFFF,FFFF)` denotes full placement; otherwise source-pixel x/y |
-| Color | 42d8e0/58afc0 | Formats 04/08: grayscale16 PNG samples carry big-endian RGB565 |
+| Color | 42d8e0/58afc0 | Formats 04/08: grayscale16 PNG samples carry little-endian RGB555 |
 | Cache baseline | 5a17b7 → 5a2540; copy at 5a17e3 | Embedded producer sizes and populates comparison cache on full output |
 | Incremental output | 5a14c1 → 59c290 | Bounding-rectangle pixels and coordinates |
 | Periodic full image | 5a147c onward | Embedded producer forces full output every 32nd count; not an instruction for the host to request FC08 every 32 calls |
@@ -58,14 +81,14 @@ ScreenshotSession, bounded assembly, deadline and failure poisoning. The
 ordinary full-frame capture method still refuses partial images.
 
 `ppl-graphics::incremental::IncrementalFramebuffer` owns a fixed 320×240 canvas
-and a reusable PNG decoder. It accepts only grayscale16 RGB565 patches. Palette
+and a reusable PNG decoder. It accepts only grayscale16 RGB555 patches. Palette
 colors remain supported by the general decoder, but are not silently treated
-as packed RGB565 in this backend. No claim is made that paletted modes preserve
-RGB565 source colors.
+as packed RGB555 in this backend. No claim is made that paletted modes preserve
+RGB555 source colors.
 
 For every update the compositor:
 
-1. Checks its host-local ordinal, encoded extent, RGB565 IHDR and complete IEND.
+1. Checks its host-local ordinal, encoded extent, RGB555 IHDR and complete IEND.
 2. Checks nonzero dimensions and checked rectangle bounds before allocating.
 3. Requires a complete baseline unless already synchronized. Full-origin
    responses must be exactly 320×240; a rectangle at (0,0) of that size also
@@ -73,14 +96,14 @@ For every update the compositor:
 4. Decodes the entire PNG into scratch pixels, including PNG checksum and
    end-of-stream validation. Animated images are rejected.
 5. Compares covered rows and commits only after all fallible validation succeeds.
-   Pixels outside the patch remain unchanged. RGB565 expansion uses existing
-   bit replication, with no composition scaling, gamma or palette conversion.
+   Pixels outside the patch remain unchanged. RGB555 expansion uses five-bit-per-channel
+   replication, with no composition scaling, gamma or palette conversion.
 6. Publishes an immutable Arc-backed Grob to the existing renderer. Unchanged
    updates reuse the Arc. Changed updates use copy-on-write when a displayed
    snapshot is still held; this can require a canvas copy to prevent tearing.
 
 The existing PNG decoder now finishes validation through trailing chunks/IEND;
-its accepted static RGB565 pixel conversion remains unchanged. Compressed
+the packed pixel conversion now follows the official little-endian RGB555 consumer. Compressed
 update storage is transferred from the transport allocation rather than cloned.
 Nearest/linear display filtering, DPI, 4:3 viewport fitting, saving and resize
 behavior remain separate from composition.
@@ -185,7 +208,9 @@ Sustained incremental streaming:    UNVERIFIED
 Production enablement:              DISABLED
 ```
 
-Normal `ppl device mirror --capture incremental` refuses with `unsupported_capability`. Experimental streaming is enabled only with `--acknowledge-experimental-fc04`.
+Normal `ppl device mirror --capture incremental` refuses with `unsupported_capability`. The legacy `--acknowledge-experimental-fc04` flag does not enable ordinary mirroring.
+Use the separately approved bounded `verify-incremental-stream` diagnostic after a
+reviewed changed-screen pass; see the official-software comparison for exact bounds.
 
 ## Diagnostics and performance
 
@@ -210,7 +235,7 @@ screen-change FPS. Historical full/fast measurements remain 0.950/2.579 FPS;
 Synthetic tests independently construct expected framebuffers and compare all
 76,800 pixels after each commit: full initialization, disjoint and overlapping
 patches, bottom-right/origin pixels, full replacement, unchanged updates and
-immutable snapshots. Baseline samples cover every RGB565 value. Negative tests
+immutable snapshots. Baseline samples cover every RGB555 value. Negative tests
 cover malformed envelopes, length/CRC/format errors, fragment ordering,
 truncation, PNG CRC/IEND, palette rejection, excessive dimensions, mixed sentinel
 coordinates, out-of-bounds rectangles and missing/local-out-of-order updates.

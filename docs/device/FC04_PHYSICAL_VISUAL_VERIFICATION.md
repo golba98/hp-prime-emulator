@@ -1,5 +1,21 @@
 # HP Prime G1 FC04 Physical Visual Verification & Incremental Mirroring
 
+## Correction from the complete official screen consumer
+
+The screenshot's native packed representation is **little-endian RGB555**.
+The previous big-endian RGB565 label and oracle were incorrect. The official
+QImage constructor and word-copy proof, independent Qt verification, and corrected
+Rust decoding are in [the screen pipeline](../reverse-engineering/CONNECTIVITY_KIT_SCREEN_PIPELINE.md).
+Timing/envelope observations below remain genuine historical physical evidence.
+
+Section 3 describes the **embedded host calculator producer**, not a recovered
+build-15157 physical screenshot implementation. Its cache initialization, bounding
+rectangle and origin-pixel fallback must not be presented as physical firmware
+facts. The actual saved visual report is `screen_did_not_change`; changed-screen
+and sustained acceptance remain unverified. The old normal-stream acknowledgement
+bypass is removed. Only separately approved bounded diagnostics are available.
+
+
 ## 1. Physical FC04 Probe Evidence
 
 The first physical `FC04` probe was executed against an authorized HP Prime G1 running firmware build 15157:

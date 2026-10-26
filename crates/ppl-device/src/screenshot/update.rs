@@ -17,7 +17,7 @@ impl ScreenshotUpdate {
         let bad = || DeviceError::Protocol("invalid FC update envelope".into());
         if raw.len() >= 9 && (raw[8] != requested || !matches!(requested, 4 | 8)) {
             return Err(DeviceError::Refused(
-                "unsupported_incremental_format: response does not match requested RGB565 format"
+                "unsupported_incremental_format: response does not match requested RGB555 format"
                     .into(),
             ));
         }
@@ -96,7 +96,52 @@ impl IncrementalVerifyPermit {
     }
 }
 
+/// Diagnostic-only request and wall-time budget. Never grants normal mirroring.
+pub struct BoundedIncrementalPermit {
+    remaining: u32,
+    deadline: Instant,
+}
+
+impl BoundedIncrementalPermit {
+    pub fn acknowledge_experimental_fc04(limit: u32, duration: Duration) -> Result<Self> {
+        if !(1..=200).contains(&limit) || duration.is_zero() || duration > Duration::from_secs(120)
+        {
+            return Err(DeviceError::Refused(
+                "stream verification requires 1..=200 updates and at most 120 seconds".into(),
+            ));
+        }
+        Ok(Self {
+            remaining: limit,
+            deadline: Instant::now() + duration,
+        })
+    }
+}
+
 impl ScreenshotSession {
+    pub fn verify_incremental_bounded(
+        &mut self,
+        permit: &mut BoundedIncrementalPermit,
+        cancel: &AtomicBool,
+    ) -> Result<ScreenshotUpdate> {
+        let timeout = permit
+            .deadline
+            .saturating_duration_since(Instant::now())
+            .min(Duration::from_secs(5));
+        if permit.remaining == 0 || timeout.is_zero() {
+            return Err(DeviceError::Refused(
+                "stream verification budget exhausted".into(),
+            ));
+        }
+        if (self.detected().vendor_id, self.detected().product_id) != (0x03f0, 0x1541) {
+            return Err(DeviceError::Refused(
+                "stream verification restricted to G1 03f0:1541".into(),
+            ));
+        }
+        // Charge attempts before I/O; an ambiguous failed write is never refunded.
+        permit.remaining -= 1;
+        self.capture_update_timeout(4, timeout, cancel)
+    }
+
     pub fn probe_incremental(
         &mut self,
         permit: &mut IncrementalProbePermit,
@@ -137,9 +182,17 @@ impl ScreenshotSession {
         format: u8,
         cancel: &AtomicBool,
     ) -> Result<ScreenshotUpdate> {
+        self.capture_update_timeout(format, Duration::from_secs(5), cancel)
+    }
+
+    fn capture_update_timeout(
+        &mut self,
+        format: u8,
+        timeout: Duration,
+        cancel: &AtomicBool,
+    ) -> Result<ScreenshotUpdate> {
         let start = Instant::now();
-        let (raw, mut timings) =
-            self.exchange(&[CMD_SCREENSHOT, format], Duration::from_secs(5), cancel)?;
+        let (raw, mut timings) = self.exchange(&[CMD_SCREENSHOT, format], timeout, cancel)?;
         self.stage = "extraction";
         let extract = Instant::now();
         match ScreenshotUpdate::parse_owned(raw, format) {
@@ -200,28 +253,6 @@ impl VerifiedIncremental {
             ))
         }
     }
-
-    /// Explicit experimental enablement for streaming when acknowledged by operator.
-    pub fn for_device_experimental(
-        device: &crate::Detected,
-        info: &CalcInfo,
-        acknowledged: bool,
-    ) -> Result<Self> {
-        if !acknowledged {
-            return Self::for_device(device, info);
-        }
-        if (device.vendor_id, device.product_id) != (0x03f0, 0x1541) {
-            return Err(DeviceError::Refused(
-                "incremental streaming restricted to G1 03f0:1541".into(),
-            ));
-        }
-        if info.build != Some(15157) || info.serial.is_none() {
-            return Err(DeviceError::Refused(
-                "incremental streaming requires identified firmware build 15157".into(),
-            ));
-        }
-        Ok(Self { _private: () })
-    }
 }
 impl ScreenshotSession {
     pub fn capture_incremental(
@@ -236,6 +267,42 @@ impl ScreenshotSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bounded_stream_permit_cannot_outlive_attempt_or_wall_time_limits() {
+        assert!(
+            BoundedIncrementalPermit::acknowledge_experimental_fc04(201, Duration::from_secs(1))
+                .is_err()
+        );
+        assert!(
+            BoundedIncrementalPermit::acknowledge_experimental_fc04(1, Duration::from_secs(121))
+                .is_err()
+        );
+        let (mut session, writes) =
+            super::super::tests::session(vec![super::super::tests::reply(4, 100, 63)]);
+        let cancel = AtomicBool::new(false);
+        let mut permit =
+            BoundedIncrementalPermit::acknowledge_experimental_fc04(1, Duration::from_secs(1))
+                .unwrap();
+        session
+            .verify_incremental_bounded(&mut permit, &cancel)
+            .unwrap();
+        assert!(
+            session
+                .verify_incremental_bounded(&mut permit, &cancel)
+                .is_err()
+        );
+        let mut expired =
+            BoundedIncrementalPermit::acknowledge_experimental_fc04(1, Duration::from_secs(1))
+                .unwrap();
+        expired.deadline = Instant::now();
+        assert!(
+            session
+                .verify_incremental_bounded(&mut expired, &cancel)
+                .is_err()
+        );
+        assert_eq!(*writes.lock().unwrap(), vec![vec![0, 0, 0xfc, 4]]);
+    }
+
     #[test]
     fn continuous_request_method_is_exercised_only_with_synthetic_transport() {
         let (mut s, writes) = super::super::tests::session(vec![
