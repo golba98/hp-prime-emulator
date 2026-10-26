@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "device_serial_id": "5f3d8dbdb38ae2a0",
+  "ty": "program",
+  "name": "ZZT_SM901",
+  "sha256": "d60737816a91a9ddec87512a4b84f68438cc1792060d50dcc524c4c0366f6422",
+  "created_utc": "2026-10-26T20:45:31Z",
+  "active": true
+}

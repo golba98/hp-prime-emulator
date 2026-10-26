@@ -61,6 +61,12 @@ struct State {
     budget: HashMap<String, usize>,
     on_write: OnWrite,
     messages: Vec<Vec<u8>>,
+    mode: TransportMode,
+    mode1_rx: Vec<u8>,
+    mode1_msg_id: Option<u32>,
+    mode1_expected_len: Option<usize>,
+    mode1_seq: u8,
+    mode1_reports_since_ack: usize,
 }
 
 #[derive(Clone)]
@@ -108,7 +114,19 @@ impl Mock {
             budget: HashMap::new(),
             on_write: OnWrite::Store,
             messages: Vec::new(),
+            mode: TransportMode::Legacy,
+            mode1_rx: Vec::new(),
+            mode1_msg_id: None,
+            mode1_expected_len: None,
+            mode1_seq: 1,
+            mode1_reports_since_ack: 0,
         })))
+    }
+
+    /// Overrides simulated firmware build number (build < 10517 does not support Mode 1).
+    fn with_build(self, build: u16) -> Mock {
+        self.st().fa_reply = Some(fa_raw_with_build("0000000000", build));
+        self
     }
 
     /// A ready calculator holding the default control program.
@@ -164,6 +182,34 @@ impl Mock {
 impl State {
     /// Frames a calc → host message: `[seq][payload]`, padded to full reports.
     fn queue_reply(&mut self, at: u64, msg: &[u8]) {
+        if self.mode == TransportMode::Mode1 {
+            let chunk_size = self.report_size - 1;
+            let mid: u32 = 1;
+            let total_len = msg.len() as u32;
+
+            let first_chunk = msg.len().min(55);
+            let mut r1 = vec![0x01];
+            r1.extend_from_slice(&mid.to_le_bytes());
+            r1.extend_from_slice(&total_len.to_le_bytes());
+            r1.extend_from_slice(&msg[..first_chunk]);
+            r1.resize(self.report_size, 0);
+            self.outbox.push_back((at, r1));
+
+            let mut offset = first_chunk;
+            let mut seq = 2u8;
+            while offset < msg.len() {
+                let chunk = (msg.len() - offset).min(chunk_size);
+                let mut r = vec![seq];
+                r.extend_from_slice(&msg[offset..offset + chunk]);
+                r.resize(self.report_size, 0);
+                self.outbox.push_back((at, r));
+                offset += chunk;
+                seq = if seq == 0xFD { 2 } else { seq + 1 };
+            }
+            self.outbox.make_contiguous().sort_by_key(|(t, _)| *t);
+            return;
+        }
+
         let chunk = self.report_size - 1;
         for (count, part) in msg.chunks(chunk).enumerate() {
             let count = count as u32;
@@ -288,6 +334,97 @@ impl Transport for Mock {
         let mut s = self.st();
         assert_eq!(report[0], 0, "report id");
         assert!(report.len() <= s.report_size + 1, "report too long");
+
+        // Control report switching to Mode 1
+        if report.len() >= 3 && report[1] == 0xFF && report[2] == 0xEC {
+            s.mode = TransportMode::Mode1;
+            s.rx_seq = 0;
+            s.rx.clear();
+            s.mode1_rx.clear();
+            s.mode1_msg_id = None;
+            s.mode1_expected_len = None;
+            s.mode1_seq = 1;
+            s.mode1_reports_since_ack = 0;
+            return Ok(report.len());
+        }
+
+        if s.mode == TransportMode::Mode1 {
+            let seq = report[1];
+            if seq == 0xFE {
+                // Host ACK report (e.g. host finished receiving message from mock)
+                return Ok(report.len());
+            }
+            if seq == 0x01 {
+                assert!(report.len() >= 10, "mode 1 first report too short");
+                let mid = u32::from_le_bytes(report[2..6].try_into().unwrap());
+                let total_len = u32::from_le_bytes(report[6..10].try_into().unwrap()) as usize;
+                s.mode1_msg_id = Some(mid);
+                s.mode1_expected_len = Some(total_len);
+                s.mode1_rx.clear();
+                let payload = &report[10..];
+                let chunk_len = payload.len().min(total_len);
+                s.mode1_rx.extend_from_slice(&payload[..chunk_len]);
+                s.mode1_seq = 2;
+                s.mode1_reports_since_ack = 1;
+
+                if s.mode1_rx.len() >= total_len {
+                    let now = s.clock;
+                    let mut ack = vec![0u8; s.report_size];
+                    ack[0] = 0xFE;
+                    ack[1] = 0x01;
+                    ack[4..8].copy_from_slice(&(total_len as u32).to_le_bytes());
+                    ack[8..12].copy_from_slice(&mid.to_le_bytes());
+                    s.outbox.push_back((now, ack));
+
+                    let msg = std::mem::take(&mut s.mode1_rx);
+                    s.mode1_expected_len = None;
+                    s.handle(msg);
+                }
+                return Ok(report.len());
+            }
+            if (2..=0xFD).contains(&seq) {
+                assert_eq!(seq, s.mode1_seq, "mode 1 sequence number");
+                let total_len = s.mode1_expected_len.expect("continuation before header");
+                let mid = s.mode1_msg_id.expect("continuation before header");
+                let needed = total_len.saturating_sub(s.mode1_rx.len());
+                let payload = &report[2..];
+                let chunk_len = payload.len().min(needed);
+                s.mode1_rx.extend_from_slice(&payload[..chunk_len]);
+                s.mode1_seq = if s.mode1_seq == 0xFD {
+                    2
+                } else {
+                    s.mode1_seq + 1
+                };
+                s.mode1_reports_since_ack += 1;
+
+                let now = s.clock;
+                if s.mode1_reports_since_ack == 76 && s.mode1_rx.len() < total_len {
+                    let mut ack = vec![0u8; s.report_size];
+                    ack[0] = 0xFE;
+                    ack[1] = 0x01;
+                    ack[4..8].copy_from_slice(&(s.mode1_rx.len() as u32).to_le_bytes());
+                    ack[8..12].copy_from_slice(&mid.to_le_bytes());
+                    s.outbox.push_back((now, ack));
+                    s.mode1_reports_since_ack = 0;
+                }
+
+                if s.mode1_rx.len() >= total_len {
+                    let mut ack = vec![0u8; s.report_size];
+                    ack[0] = 0xFE;
+                    ack[1] = 0x01;
+                    ack[4..8].copy_from_slice(&(total_len as u32).to_le_bytes());
+                    ack[8..12].copy_from_slice(&mid.to_le_bytes());
+                    s.outbox.push_back((now, ack));
+
+                    let msg = std::mem::take(&mut s.mode1_rx);
+                    s.mode1_expected_len = None;
+                    s.handle(msg);
+                }
+                return Ok(report.len());
+            }
+            panic!("unexpected sequence 0x{seq:02x} in mode 1");
+        }
+
         assert_eq!(report[1], s.rx_seq, "host sequence number");
         s.rx_seq = s.rx_seq.wrapping_add(1);
         if s.rx_seq == 0xFF {
@@ -332,16 +469,22 @@ impl Transport for Mock {
     }
 }
 
-/// A G1 build-15157 `FA` reply with the given 10-character serial.
-fn fa_raw(serial: &str) -> Vec<u8> {
+/// A G1 `FA` reply with the given 10-character serial and firmware build.
+fn fa_raw_with_build(serial: &str, build: u16) -> Vec<u8> {
     let mut raw = vec![0xFA, 0x01, 0, 0, 0, 0x6C];
     let mut body = vec![0u8; 108];
     body[65] = 0x30;
-    body[68..76].copy_from_slice(&[0x24, 0x20, 0x01, 0x39, 0x35, 0x3B, 0, 0]);
+    let b = build.to_le_bytes();
+    body[68..76].copy_from_slice(&[0x24, 0x20, 0x01, 0x39, b[0], b[1], 0, 0]);
     body[76..86].copy_from_slice(b"V0.050.640");
     body[92..102].copy_from_slice(serial.as_bytes());
     raw.extend(body);
     raw
+}
+
+/// A G1 build-15157 `FA` reply with the given 10-character serial.
+fn fa_raw(serial: &str) -> Vec<u8> {
+    fa_raw_with_build(serial, 15157)
 }
 
 fn anchor() -> ControlObject {
@@ -730,7 +873,7 @@ fn large_program_uploads_in_exact_report_count_and_reads_back() {
 
 #[test]
 fn oversize_program_is_refused_before_any_f7() {
-    let mock = Mock::new();
+    let mock = Mock::new().with_build(9999);
     let mut p = mock.prime();
     let t = targets("ZZT_HUGE");
     let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
@@ -2033,7 +2176,7 @@ fn user_program_payload_limit_is_enforced_before_any_f7() {
         Err(DeviceError::Refused(m)) if m.contains("conservative G1 legacy upload policy")
     ));
 
-    let mock = Mock::new();
+    let mock = Mock::new().with_build(9999);
     let mut p = mock.prime();
     let guard = p.preflight_new_user_program("BIGPROG", None).unwrap();
     let err = p.send_new_program(guard, &over).unwrap_err();
@@ -2480,4 +2623,136 @@ fn physical_sequence_reset_at_9f_retires_connection_without_any_mutation() {
     assert!(prime.check_ready().is_err());
     assert_eq!(before, mock.cmds());
     assert!(!mock.cmds().iter().any(|c| matches!(*c, 0xf7 | 0xeb | 0xec)));
+}
+
+#[test]
+fn mode1_large_program_20048_bytes_fireworks_upload_and_readback() {
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let guard = p.preflight_new_user_program("FIREWORKS", None).unwrap();
+    // 20048 bytes of UTF-16 = 10024 ASCII characters
+    let mut src = String::from("EXPORT FIREWORKS()\nBEGIN\n");
+    while src.len() < 10_019 {
+        src.push_str("  LOCAL a; a:=a+1; // fireworks padding line\n");
+    }
+    src.truncate(10_019);
+    src.push_str("END;\n");
+    assert_eq!(src.len() * 2, 20_048);
+
+    let report = p.send_new_program(guard, &src).unwrap();
+    assert_eq!(p.mode, TransportMode::Mode1);
+    assert_eq!(report.readback, ReadBack::Matches);
+    assert_eq!(report.bytes_sent, 20_048);
+
+    // Verify readback using read_program_exact
+    let file = p.read_program_exact("FIREWORKS").unwrap();
+    assert_eq!(file.data.len(), 20_048);
+    assert_eq!(file.text(), src);
+}
+
+#[test]
+fn mode1_multi_report_boundaries_254_255_256_319() {
+    for target_reports in [254, 255, 256, 319] {
+        let mock = Mock::new();
+        let mut p = mock.prime();
+        let name = format!("ZZT_R{target_reports}");
+        let t = targets(&name);
+        let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+        let guard = p.preflight_new_names(&refs, None).unwrap();
+
+        let overhead = 10 + name.len() * 2;
+        let target_message_len = 55 + (target_reports - 2) * 63 + 30;
+        let payload_bytes = target_message_len - overhead;
+        let char_count = payload_bytes / 2;
+
+        let mut src = format!("EXPORT {name}()\nBEGIN\n");
+        while src.len() < char_count.saturating_sub(6) {
+            src.push_str("  // pad\n");
+        }
+        while src.len() < char_count.saturating_sub(5) {
+            src.push(' ');
+        }
+        src.push_str("END;\n");
+        src.truncate(char_count);
+
+        let report = p.send_new_program(guard, &src).unwrap();
+        assert_eq!(report.readback, ReadBack::Matches);
+        let readback = p.read_program_exact(&name).unwrap();
+        assert_eq!(readback.text(), src);
+    }
+}
+
+#[test]
+fn mode1_sequence_rollover_0xfd_to_0x02() {
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let name = "ZZT_ROLL";
+    let t = targets(name);
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).unwrap();
+
+    let char_count = 8_200; // 16,400 bytes -> ~260 reports (> 253 reports, triggers 0xFD -> 0x02 wrap)
+    let mut src = format!("EXPORT {name}()\nBEGIN\n");
+    while src.len() < char_count - 5 {
+        src.push_str("  X:=1;\n");
+    }
+    while src.len() < char_count {
+        src.push(' ');
+    }
+
+    let report = p.send_new_program(guard, &src).unwrap();
+    assert_eq!(p.mode, TransportMode::Mode1);
+    assert_eq!(report.readback, ReadBack::Matches);
+
+    let readback = p.read_program_exact(name).unwrap();
+    assert_eq!(readback.data.len(), char_count * 2);
+}
+
+#[test]
+fn mode1_flow_control_window_and_periodic_ack() {
+    let mock = Mock::new();
+    let mut p = mock.prime();
+    let name = "ZZT_FLOW";
+    let t = targets(name);
+    let refs: Vec<(FileType, &str)> = t.iter().map(|(ty, n)| (*ty, n.as_str())).collect();
+    let guard = p.preflight_new_names(&refs, None).unwrap();
+
+    let char_count = 10_000; // 20,000 bytes
+    let mut src = format!("EXPORT {name}()\nBEGIN\n");
+    while src.len() < char_count - 5 {
+        src.push_str("  Y:=2;\n");
+    }
+    while src.len() < char_count {
+        src.push(' ');
+    }
+
+    let report = p.send_new_program(guard, &src).unwrap();
+    assert_eq!(report.readback, ReadBack::Matches);
+}
+
+#[test]
+fn legacy_firmware_refuses_large_program_with_actionable_error() {
+    let mock = Mock::new().with_build(9999);
+    let mut p = mock.prime();
+    let guard = p.preflight_new_user_program("HUGE", None).unwrap();
+    let src = "A".repeat(MAX_PROGRAM_PAYLOAD / 2 + 10);
+    let err = p.send_new_program(guard, &src).unwrap_err();
+    assert!(
+        matches!(&err, DeviceError::Refused(m) if m.contains("conservative G1 legacy upload policy")),
+        "{err}"
+    );
+    assert!(mock.f7_messages().is_empty());
+}
+
+#[test]
+fn program_exceeding_extended_maximum_is_refused() {
+    let err = check_program_payload_for_protocol(
+        "TOO_BIG",
+        &"A".repeat((MAX_EXTENDED_PROGRAM_PAYLOAD / 2) + 1),
+        TransferProtocol::Extended,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, DeviceError::Refused(m) if m.contains("extended transport maximum policy"))
+    );
 }

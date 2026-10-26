@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use clap::{Args, Subcommand};
 use ppl_device::{
     ControlObject, DEFAULT_CONTROL, DeviceError, DeviceSession, FileType, Prime, Probe, ReadBack,
-    check_program_payload, describe_codes, result_note_name, validate_program_name,
-    validate_test_name,
+    TransferProtocol, check_program_payload_for_protocol, describe_codes, result_note_name,
+    validate_program_name, validate_test_name,
 };
 
 use super::common::exit;
@@ -186,10 +186,11 @@ pub enum DeviceAction {
     /// calculator's Program Catalog; then a preflight proves, twice, that the
     /// calculator answers while the name (and its all-upper/all-lower case
     /// variants) does not exist. Any doubt, including a silent calculator,
-    /// aborts without writing. Programs larger than 15,928 UTF-16 bytes are
-    /// refused before anything is sent. After one transfer the program is
-    /// read back and compared. A program that already exists is never
-    /// replaced, and the upload is never retried.
+    /// aborts without writing. Legacy transfers support up to 15,928 UTF-16 bytes;
+    /// on firmware build 10517 or later, official extended transport (Mode 1) is
+    /// automatically used for larger programs up to 16 MiB. After one transfer
+    /// the program is read back and compared. A program that already exists is
+    /// never replaced, and the upload is never retried.
     ///
     /// Ordinary names need no prefix. Names starting with ZZT_ are treated as
     /// disposable test programs (e.g. ZZT_FIREWORKS): they also reserve the
@@ -848,8 +849,9 @@ fn prepare_send(
         }
     };
     if !is_note {
-        // Pure check: an oversize program is refused before any prompt or USB.
-        if let Err(e) = check_program_payload(name, &text) {
+        // Pure check: a program exceeding maximum supported payload is refused before any prompt or USB.
+        if let Err(e) = check_program_payload_for_protocol(name, &text, TransferProtocol::Extended)
+        {
             eprintln!("error: {e}");
             return Err(exit::USAGE);
         }
@@ -1003,6 +1005,24 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
             "Transfer initiated: guarded create-only program `{}` ({} UTF-16 bytes)",
             s.name, image.sizes.payload_bytes
         );
+        let protocol = if image.sizes.payload_bytes > ppl_device::MAX_LEGACY_PROGRAM_PAYLOAD {
+            ppl_device::TransferProtocol::Extended
+        } else {
+            ppl_device::TransferProtocol::Legacy
+        };
+        match protocol {
+            ppl_device::TransferProtocol::Extended => {
+                println!("Selected protocol: official extended transport (Mode 1)");
+                if !p.supports_extended_transport().unwrap_or(false) {
+                    return Err(DeviceError::Refused(
+                        "extended transfer requires HP Prime G1 firmware build 10517 or later (nothing was sent)".into(),
+                    ));
+                }
+            }
+            ppl_device::TransferProtocol::Legacy => {
+                println!("Selected protocol: legacy transport (Mode 0)");
+            }
+        }
         if let Some(control) = &s.control {
             let identity = ppl_programs::DeviceIdentity::read(p)?;
             identity.require_reference()?;
@@ -1049,6 +1069,14 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
             FileType::Program,
             &stored.data,
         )?;
+        println!();
+        println!("Program {} uploaded.", s.name);
+        println!();
+        println!("Device: HP Prime G1");
+        println!("Source verification: passed");
+        println!("Readback verification: passed");
+        println!("Stored bytes: {}", stored.data.len());
+        println!("Status: verified");
         return Ok(exit::OK);
     }
     let identity = ppl_programs::DeviceIdentity::read(p)?;

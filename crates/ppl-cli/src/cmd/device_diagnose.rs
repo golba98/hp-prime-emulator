@@ -179,7 +179,11 @@ fn staging_errors(source: &Source) -> Value {
     if let Err(e) = super::remote_input::source(&source.text) {
         errors.push(e);
     }
-    if let Err(e) = ppl_device::check_program_payload(&source.stem, &source.text) {
+    if let Err(e) = ppl_device::check_program_payload_for_protocol(
+        &source.stem,
+        &source.text,
+        ppl_device::TransferProtocol::Extended,
+    ) {
         errors.push(e.to_string());
     }
     json!(errors)

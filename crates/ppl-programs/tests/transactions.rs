@@ -220,7 +220,7 @@ fn replacement_sends_one_delete_and_one_create_and_keeps_sentinel_and_backup() {
 fn refused_large_replacement_sends_no_requests_or_mutations() {
     let (mut p, m, _dir, s) = fixture();
     put(&m, "ZZT_TEST", OLD);
-    let image = ProgramImage::new(
+    let mut image = ProgramImage::new(
         "FIREWORKS",
         Source::decode(
             include_bytes!("../../../examples/FIREWORKS.hpprgm").to_vec(),
@@ -230,6 +230,7 @@ fn refused_large_replacement_sends_no_requests_or_mutations() {
         .unwrap(),
     )
     .unwrap();
+    image.sizes.supported = false;
     assert!(replacement::prepare(&mut p, &image, &s).is_err());
     assert!(m.lock().unwrap().sent.is_empty());
 }

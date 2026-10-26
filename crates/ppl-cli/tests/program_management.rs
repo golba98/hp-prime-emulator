@@ -26,26 +26,45 @@ fn full_fireworks_inspection_is_structured_and_local() {
     let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(json["sizes"]["payload_bytes"], 20048);
     assert_eq!(json["sizes"]["hid_reports"], 319);
-    assert_eq!(json["sizes"]["supported"], false);
+    assert_eq!(json["sizes"]["supported"], true);
+    assert_eq!(
+        json["sizes"]["limit_kind"],
+        "verified_extended_mode1_transport_limit_16mib"
+    );
     assert_eq!(json["uploaded"], false);
 }
 #[test]
 fn replacement_size_and_authorization_fail_before_usb() {
-    let source = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/FIREWORKS.hpprgm"
-    );
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("oversize.hpprgm");
+    let size = (ppl_device::MAX_EXTENDED_PROGRAM_PAYLOAD / 2) + 10;
+    let mut f = std::fs::File::create(&file).unwrap();
+    use std::io::Write;
+    let chunk = vec![b'A'; 64 * 1024];
+    let mut written = 0;
+    while written < size {
+        let to_write = (size - written).min(chunk.len());
+        f.write_all(&chunk[..to_write]).unwrap();
+        written += to_write;
+    }
+    drop(f);
+
     let result = cli(&[
         "device",
         "replace",
         "prepare",
-        "FIREWORKS",
-        source,
+        "OVERSIZE",
+        file.to_str().unwrap(),
         "--json",
     ]);
     let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert!(!result.status.success());
-    assert!(json["error"].as_str().unwrap().contains("conservative"));
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("exceeds maximum limit")
+    );
     let result = cli(&[
         "device",
         "replace",

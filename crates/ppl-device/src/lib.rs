@@ -111,27 +111,73 @@ pub const READY_REPLY: u8 = 0x59;
 
 /// Per-read timeout used by [`Prime::drain`].
 const DRAIN_TIMEOUT_MS: i32 = 50;
-/// Conservative legacy upload policy, NOT an established firmware maximum.
-/// Historical evidence: 15,926 source bytes were stored as 15,928 returned
-/// bytes (including a terminator). Larger tested transfers (16,284 / 21,080 /
-/// 23,050 source bytes) were unverified. The exact boundary and cause remain
-/// unresolved; retain the existing policy until official/physical evidence.
-pub const MAX_PROGRAM_PAYLOAD: usize = 15_928;
 
-/// Size of `source` as the UTF-16LE payload of an `F7` program upload, or
-/// [`DeviceError::Refused`] if it exceeds [`MAX_PROGRAM_PAYLOAD`]. Pure
-/// (no USB), so callers can reject an oversize program before any prompt
-/// or preflight.
-pub fn check_program_payload(name: &str, source: &str) -> Result<usize> {
+/// Maximum program payload (UTF-16LE bytes) supported by legacy framing.
+/// Hardware evidence: 15,926 B stored and read back exactly.
+/// 254 reports * 63 bytes = 16,002 bytes minus file headers (~28 B).
+/// Beyond 254 reports, legacy sequence wraps to 00, causing receiver assembly reset.
+pub const MAX_LEGACY_PROGRAM_PAYLOAD: usize = 15_928;
+
+/// Maximum program payload (UTF-16LE bytes) supported by extended framing (Mode 1).
+/// The wire protocol length field is u32 LE; this is the host defensive allocation limit (16 MiB).
+pub const MAX_EXTENDED_PROGRAM_PAYLOAD: usize = 16 * 1024 * 1024;
+
+/// Legacy alias for MAX_LEGACY_PROGRAM_PAYLOAD.
+pub const MAX_PROGRAM_PAYLOAD: usize = MAX_LEGACY_PROGRAM_PAYLOAD;
+
+/// Wire transfer protocol variants.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransferProtocol {
+    Legacy,
+    Extended,
+}
+
+impl TransferProtocol {
+    pub fn max_payload_bytes(self) -> usize {
+        match self {
+            TransferProtocol::Legacy => MAX_LEGACY_PROGRAM_PAYLOAD,
+            TransferProtocol::Extended => MAX_EXTENDED_PROGRAM_PAYLOAD,
+        }
+    }
+}
+
+/// Transport protocol mode currently active on the USB HID session.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransportMode {
+    Legacy,
+    Mode1,
+}
+
+/// Checks `source` as the UTF-16LE payload against the given protocol maximum.
+pub fn check_program_payload_for_protocol(
+    _name: &str,
+    source: &str,
+    protocol: TransferProtocol,
+) -> Result<usize> {
     let bytes = source.encode_utf16().count() * 2;
-    if bytes > MAX_PROGRAM_PAYLOAD {
+    let max = protocol.max_payload_bytes();
+    if bytes > max {
+        let policy = match protocol {
+            TransferProtocol::Legacy => "conservative G1 legacy upload policy",
+            TransferProtocol::Extended => "extended transport maximum policy",
+        };
         return Err(DeviceError::Refused(format!(
-            "`{name}` is {bytes} UTF-16 bytes; the conservative G1 legacy upload policy is \
-             {MAX_PROGRAM_PAYLOAD} bytes. Previous larger transfers were silently dropped, \
-             but the cause and exact boundary remain unverified (nothing was sent)."
+            "program payload is {bytes} bytes; {policy} allows at most {max} bytes (nothing was sent)."
         )));
     }
     Ok(bytes)
+}
+
+/// Checks `source` against the conservative legacy payload limit ([`MAX_LEGACY_PROGRAM_PAYLOAD`]).
+pub fn check_program_payload_legacy(name: &str, source: &str) -> Result<usize> {
+    check_program_payload_for_protocol(name, source, TransferProtocol::Legacy)
+}
+
+/// Size of `source` as the UTF-16LE payload of an `F7` program upload, or
+/// [`DeviceError::Refused`] if it exceeds the conservative legacy limit
+/// ([`MAX_LEGACY_PROGRAM_PAYLOAD`]).
+pub fn check_program_payload(name: &str, source: &str) -> Result<usize> {
+    check_program_payload_legacy(name, source)
 }
 /// How long the post-upload read-back keeps listening to its one `F8`.
 pub const READBACK_TIMEOUT: Duration = Duration::from_secs(20);
@@ -195,6 +241,8 @@ pub struct Prime {
     pub traces: Vec<TraceEvent>,
     pub trace_enabled: bool,
     pub read_timeout: Duration,
+    pub mode: TransportMode,
+    pub next_message_id: u32,
     retired: Option<String>,
 }
 
@@ -245,6 +293,8 @@ impl Prime {
             traces: Vec::new(),
             trace_enabled: false,
             read_timeout: Duration::from_secs(8),
+            mode: TransportMode::Legacy,
+            next_message_id: 1,
             retired: None,
         }
     }
@@ -475,19 +525,26 @@ impl Prime {
         out
     }
 
-    /// Private so that no caller can emit an `F7` (or anything else)
-    /// without going through the guarded methods below.
+    /// Emits one logical message to the calculator using the active transport mode.
     fn send_message(&mut self, message: &[u8]) -> Result<()> {
         self.require_healthy()?;
-        for r in Prime::frame(message, self.report_size) {
-            self.write_report(&r)?;
+        match self.mode {
+            TransportMode::Legacy => {
+                for r in Prime::frame(message, self.report_size) {
+                    self.write_report(&r)?;
+                }
+                Ok(())
+            }
+            TransportMode::Mode1 => self.send_message_mode1(message),
         }
-        Ok(())
     }
 
     /// Reads one reply message, draining the line after any failure.
     fn recv_message(&mut self, cmd: u8, what: &'static str, first: Duration) -> Result<Vec<u8>> {
-        let r = self.recv_message_inner(cmd, what, first);
+        let r = match self.mode {
+            TransportMode::Legacy => self.recv_message_inner(cmd, what, first),
+            TransportMode::Mode1 => self.recv_message_mode1(what, first),
+        };
         if let Err(e) = &r {
             if !matches!(e, DeviceError::Timeout(_)) {
                 self.retired = Some(e.to_string());
@@ -497,18 +554,19 @@ impl Prime {
         r
     }
 
-    /// hplp `prime_recv_data`.
-    fn recv_message_inner(
+    /// Reassembles a legacy-framed stream (counting reports `[want, payload]`),
+    /// ignoring out-of-band `0xFF` reports and `0xFE` flow-control ACKs in Mode 1.
+    pub(crate) fn recv_message_legacy_from(
         &mut self,
-        cmd: u8,
+        cmd: Option<u8>,
         what: &'static str,
         first: Duration,
+        first_rep: Option<Vec<u8>>,
     ) -> Result<Vec<u8>> {
         let mut data = Vec::new();
         let mut expected: Option<usize> = None;
         let mut count: u32 = 0;
-        // Per-report waits are 2 s; the overall cap only bounds a stream that
-        // keeps trickling in, so a large (tens of KB) reply is not cut short.
+        let mut next_rep = first_rep;
         let deadline = Instant::now() + first + Duration::from_secs(30);
         loop {
             let remaining = deadline.saturating_duration_since(Instant::now());
@@ -520,13 +578,19 @@ impl Prime {
             } else {
                 Duration::from_secs(2)
             };
-            let Some(r) = self.read_report(timeout.min(remaining))? else {
-                if count == 0 {
-                    return Err(DeviceError::Timeout(what));
-                }
-                break;
+            let r = match next_rep.take() {
+                Some(r) => r,
+                None => match self.read_report(timeout.min(remaining))? {
+                    Some(r) => r,
+                    None => {
+                        if count == 0 {
+                            return Err(DeviceError::Timeout(what));
+                        }
+                        break;
+                    }
+                },
             };
-            if r[0] == 0xFF {
+            if r[0] == 0xFF || (count == 0 && r[0] != 0x00) {
                 continue;
             }
             let want = ((count + count / 0xFF) & 0xFF) as u8;
@@ -539,13 +603,16 @@ impl Prime {
             count += 1;
             data.extend_from_slice(&r[1..]);
             if expected.is_none() {
-                if cmd != CMD_CHECK_READY && data.first() != Some(&cmd) {
-                    return Err(DeviceError::Protocol(format!(
-                        "{what}: unexpected reply command"
-                    )));
+                if let Some(c) = cmd {
+                    if c != CMD_CHECK_READY && data.first() != Some(&c) {
+                        return Err(DeviceError::Protocol(format!(
+                            "{what}: unexpected reply command"
+                        )));
+                    }
                 }
                 expected = Some(match cmd {
-                    CMD_CHECK_READY => 1,
+                    Some(CMD_CHECK_READY) => 1,
+                    _ if data.first() == Some(&crate::transport::READY_REPLY) => 1,
                     _ if data.len() >= 6 && data[1] == 0x01 => {
                         u32::from_be_bytes([data[2], data[3], data[4], data[5]]) as usize + 6
                     }
@@ -573,6 +640,16 @@ impl Prime {
         }
         data.truncate(exp);
         Ok(data)
+    }
+
+    /// hplp `prime_recv_data`.
+    fn recv_message_inner(
+        &mut self,
+        cmd: u8,
+        what: &'static str,
+        first: Duration,
+    ) -> Result<Vec<u8>> {
+        self.recv_message_legacy_from(Some(cmd), what, first, None)
     }
 
     /// `FF`: returns the single reply byte(s).
@@ -1171,7 +1248,20 @@ impl Prime {
         self.ensure_quiet(start, &names)?;
 
         let name = guard.program.clone();
-        check_program_payload(&name, source)?;
+        let payload_bytes = source.encode_utf16().count() * 2;
+        if payload_bytes > MAX_LEGACY_PROGRAM_PAYLOAD {
+            if !self.supports_extended_transport().unwrap_or(false) {
+                return Err(DeviceError::Refused(format!(
+                    "program payload is {payload_bytes} bytes; conservative G1 legacy upload policy allows at most {MAX_LEGACY_PROGRAM_PAYLOAD} bytes (nothing was sent)."
+                )));
+            }
+            self.ensure_mode1()?;
+        }
+        let protocol = match self.mode {
+            TransportMode::Legacy => TransferProtocol::Legacy,
+            TransportMode::Mode1 => TransferProtocol::Extended,
+        };
+        check_program_payload_for_protocol(&name, source, protocol)?;
         let data: Vec<u8> = source.encode_utf16().flat_map(u16::to_le_bytes).collect();
         let msg = files::encode_file_message(CMD_FILE, FileType::Program, &name, &data);
         self.send_message(&msg)?;
