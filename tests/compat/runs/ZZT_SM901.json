@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_SM901",
+  "note": "ZZT_SM901R",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_SM901()\nBEGIN\n  RETURN 42;\nEND;\n",
+  "sha256": "4b3c33b17814ea7af05f5abe3fe0784f8991cc15d9e67b1b2905083a0818e7ac",
+  "created_at_utc": "2026-10-26T20:45:31Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}

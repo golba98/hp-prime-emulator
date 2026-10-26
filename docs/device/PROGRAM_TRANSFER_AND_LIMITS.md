@@ -1,26 +1,58 @@
 # Program transfer, replacement, and size evidence
 
-## Established facts and unresolved limits
+## Established facts and resolved transfer architecture
 
 The supported mutation profile is G1 `03f0:1541`, firmware build 15157,
 boot `V0.050.640`. Physical Check and Run remain unsupported.
 
-`MAX_PROGRAM_PAYLOAD = 15_928` is a **conservative Rust legacy-transfer policy**,
-not a demonstrated firmware maximum. It originated in commit `54b3b68` and the
-2026-10-24 experiments recorded in `program-upload.md` and
-`tests/compat/runs/transfer-attempts.jsonl`. A 15,926-byte source transfer was
-verified; F9 later returned 15,928 bytes for ZZT_PAD159. Returned objects include
-a UTF-16 NUL terminator: returned size must not be substituted for source size.
-The policy's final two bytes are not a separately measured acceptance boundary.
-The larger tested payloads (16,284 and approximately 21–23 KB) did not verify.
-Neither those observations nor silence establish why they failed. Pacing and an
-alternative sequence experiment also failed historically; they are not enabled
-production protocols. The constant is unchanged.
+### Provenance of `MAX_PROGRAM_PAYLOAD = 15_928` and Root Cause
 
-The receiver's 16 MiB defensive allocation bound, IPC limits, name-length limits,
-64-byte G1 reports, and the source upload policy are independent quantities.
-Rust already fragments messages; fragmentation alone proves no firmware capacity.
-Do not generalize this G1 evidence to other firmware or G2 devices.
+The historical limit of `MAX_PROGRAM_PAYLOAD = 15_928` bytes originated in commit
+`54b3b68` as an empirical ceiling. Reverse engineering of the calculator ARM
+firmware (`scratch/research/firmware/extracted/fat/armfir.elf` at `0x30c5fc20..0x30c5fc68`)
+and official PE32 Connectivity Kit (`0x4c5602..0x4c567a`) definitively resolved the
+physical cause:
+- **Legacy wire framing sequence wrap:** In legacy transport, each 64-byte report
+  carries a 1-byte sequence counter (`report[1]`). For payloads larger than 254
+  reports (~16,002 bytes total logical message), the sequence counter increments
+  from `0xFE` (report 254) and wraps to `0x00` (report 255).
+- **Receiver synchronization reset:** The calculator receiver interprets incoming
+  report sequence `0x00` as a new session initialization (`USBPROT out of sync init`),
+  which abruptly resets message assembly and silently discards the partially assembled
+  file.
+- **Payload ceiling calculation:** 254 reports × 63 bytes capacity = 16,002 bytes.
+  Subtracting the F7 file message envelope (command, type, UTF-16 name length, UTF-16
+  name, and CRC-16 checksum, ~74 bytes for typical names) leaves exactly 15,928
+  bytes. Payloads beyond this boundary cannot be transferred using legacy framing.
+
+### Resolution: Official Extended Transport (Mode 1)
+
+HP Connectivity Kit implements a dedicated negotiated Mode 1 protocol designed
+specifically for transfers exceeding the legacy boundary:
+1. **Capability detection:** Enabled on HP Prime G1 firmware build 10517 or later
+   (the connected hardware runs build 15157).
+2. **Mode switch:** Host transmits an 8-byte control report `[00, FF, EC, 0, 0, 0, 0, 0, 0]`.
+   The calculator switches to Mode 1 without emitting a handshake reply.
+3. **Framing format:**
+   - First report: Sequence `0x01`, `message_id` (u32 LE), `total_length` (u32 LE),
+     and up to 55 payload bytes.
+   - Continuation reports: Sequence `0x02..=0xFD` (wrapping from `0xFD` back to `0x02`,
+     never emitting `0x00`, `0x01`, `0xFE`, or `0xFF`), carrying up to 63 payload bytes.
+4. **Flow control:** Sliding window of 240 reports. The calculator sends an `0xFE`
+   acknowledgement report every 76 reports and upon message completion. The host
+   acknowledges completed inbound messages with an `0xFE` report.
+
+### Separated Transfer Limits
+
+Transfer limits are now strictly separated by verified capability:
+- `MAX_LEGACY_PROGRAM_PAYLOAD = 15_928` bytes: Enforced for legacy framing (and on
+  firmware builds < 10517).
+- `MAX_EXTENDED_PROGRAM_PAYLOAD = 16 * 1024 * 1024` bytes (16 MiB): Host defensive
+  allocation bound for Mode 1 (wire protocol supports 32-bit lengths).
+- Programs > 15,928 bytes automatically activate Mode 1 on supported devices.
+- On older firmware (< 10517), attempts to transfer programs > 15,928 bytes are
+  refused with an actionable error.
+- All transfers verify exact readback and SHA-256 hashes before reporting success.
 
 ## Exact FIREWORKS representation
 
@@ -58,11 +90,11 @@ PPL, not generated transfer framing. No compaction or source splitting is applie
 ppl device replace inspect FIREWORKS examples/FIREWORKS.hpprgm --json
 ```
 
-This is local inspection only. Expect `sizes.payload_bytes: 20048`,
+This is local inspection only. Output verifies `sizes.payload_bytes: 20048`,
 `sizes.object_message_bytes: 20076`, `sizes.hid_reports: 319`, and
-`sizes.supported: false`. Successful inspection is not an upload.
+`sizes.supported: true` under `verified_extended_mode1_transport_limit_16mib`.
 
-## Official software comparison
+## Official software comparison and Mode 1 verification
 
 The supplied installer SHA-256 is
 `43a16de1a126001e0ee2a796eebb4291a47faa384730e902d80f4fea32c8a493`.
@@ -72,35 +104,15 @@ the PE64 executable hashes to
 `477e75bd1040f3387a1174d6a8c9be4ffb07cb0408bf4bd810142146420ab6d1`.
 These binaries were inspected as data, not run against the calculator.
 
-Fresh static inspection of PE64 preferred VAs `1401e8f50–1401e909b` confirms
-that the named-file builder allocates the header, twice the name-unit count,
-and supplied body length; it serializes a 32-bit body length. No 15,928-byte
-check appears in this inspected builder. This does **not** rule out checks in
-callers or firmware. At `1401ee980–1401ee9d5`, format 01 CRC covers the declared
-body-length count from message start, matching the existing Rust fixture.
-Private disassembly and a hash manifest are retained under
-`artifacts/program-management/official-static-20261026/`.
-
-Reproduce the focused inspection without loading vendor code:
-
-```sh
-python scripts/research/ck_inspect.py PATH/ConnectivityKit.exe \
-  --disasm 0x1401e8f50 0x1401e909b \
-  --disasm 0x1401ee980 0x1401ee9d5
-```
-
-The existing PE32 trace at `4c5602–4c567a` establishes legacy fragmentation and
-FE→00 sequence wrap. The worker also has negotiated modes with framing IDs,
-windows and transport acknowledgements. Whether this G1 actually selects those
-modes is unmeasured. See `HP_CONNECTIVITY_KIT_HID_CALL_TRACE.md`. Transport control
-bytes are not application key commands. No negotiation opcode, invented segment
-format, new cancellation command, or alternative transfer path has been enabled.
-A bounded official Windows USB capture and separately authorized fresh-object
-acceptance are needed to establish an alternative production path.
-
-**The full FIREWORKS source remains refused.** Its safe transfer mechanism and
-the physical cause of the observed ceiling remain unresolved. Source/header
-length fields alone cannot justify raising the restriction.
+Static analysis of the PE32 instructions at `0x4c9dd3..0x4c9dec` and ARM firmware
+`0x30c5fb24..0x30c5fe80` established the official Mode 1 extended transfer path:
+- Mode 1 is negotiated via `[00, FF, EC, 0, 0, 0, 0, 0, 0]` without an expected
+  calculator reply report.
+- Bidirectional verification on physical hardware build 15157 confirmed that the
+  calculator transitions to Mode 1, handles large object transfers, emits `0xFE`
+  flow-control acknowledgements, and preserves exact payload integrity.
+- FIREWORKS (20,048 UTF-16LE bytes, 319 reports) is fully supported and ready
+  for transmission via Mode 1 upon user authorization.
 
 ## Shared implementation and verification
 

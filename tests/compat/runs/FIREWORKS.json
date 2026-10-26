@@ -1,0 +1,23 @@
+{
+  "schema": 2,
+  "suite": "production",
+  "group": null,
+  "program": "FIREWORKS",
+  "note": null,
+  "channel": null,
+  "case_ids": [],
+  "short_ids": [],
+  "source_file": "examples/FIREWORKS.hpprgm",
+  "sha256": "afd90033ffeb5b57c2f6d641b4d73efecc9ef43d5f0059e0267e154f725914c8",
+  "payload_sha256": "4e00f67d791e47d5b5d962327c80d147badf482a4bc28ad1f1e319de2a1c8c5f",
+  "created_at_utc": "2026-10-26T21:45:56Z",
+  "uploaded_at_utc": "2026-10-26T21:53:29Z",
+  "preflight_log": [],
+  "device": {
+    "serial_id": "5f3d8dbdb38ae2a0",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640"
+  },
+  "status": "uploaded",
+  "blocked_reason": null
+}

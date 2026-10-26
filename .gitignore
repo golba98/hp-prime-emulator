@@ -45,6 +45,7 @@ docs/**/*.md
 !docs/device/live-screen.md
 !docs/device/INCREMENTAL_SCREEN_MIRROR.md
 !docs/device/FC04_PHYSICAL_VISUAL_VERIFICATION.md
+!docs/device/PROGRAM_TRANSFER_REPAIR_REPORT.md
 !docs/reverse-engineering/remote-input-investigation.md
 docs/reports/
 HANDOFF.md

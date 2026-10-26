@@ -1,0 +1,23 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_LG901",
+  "note": "ZZT_LG901R",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source_file": "scratch/ZZT_LG901.hpprgm",
+  "sha256": "3a4d707723d6715b2100f3a59c57b98219d1516531a66aac2dd07a519a5c013d",
+  "payload_sha256": "373a93945bb9f62cc4e2b018d1598753f9eb7494558856fab8d2358762585e05",
+  "created_at_utc": "2026-10-26T21:24:38Z",
+  "uploaded_at_utc": "2026-10-26T21:27:11Z",
+  "preflight_log": [],
+  "device": {
+    "serial_id": "5f3d8dbdb38ae2a0",
+    "firmware_build": 15157,
+    "boot_version": "V0.050.640"
+  },
+  "status": "uploaded",
+  "blocked_reason": null
+}

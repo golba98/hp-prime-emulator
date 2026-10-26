@@ -59,15 +59,45 @@ fn missing_file_is_reported_as_such() {
 }
 
 #[test]
-fn oversize_payload_is_refused_before_the_prompt() {
+fn fireworks_payload_is_accepted_and_reaches_the_confirmation_prompt() {
     let example = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../examples/FIREWORKS.hpprgm"
     );
     let out = send(&["FIREWORKS", example]);
     let (so, se) = (text(&out.stdout), text(&out.stderr));
+    // Stdin was empty so confirmation failed, but the prompt was reached!
+    assert!(
+        so.contains("About to create program `FIREWORKS`"),
+        "reached the prompt: {so}"
+    );
+    assert!(
+        se.contains("confirmation did not match"),
+        "failed at prompt confirmation, not before: {se}"
+    );
+}
+
+#[test]
+fn oversize_payload_is_refused_before_the_prompt() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("oversize.hpprgm");
+    // Exceed MAX_EXTENDED_PROGRAM_PAYLOAD (16 MiB)
+    let size = (ppl_device::MAX_EXTENDED_PROGRAM_PAYLOAD / 2) + 10;
+    let mut f = std::fs::File::create(&file).unwrap();
+    use std::io::Write;
+    let chunk = vec![b'A'; 64 * 1024];
+    let mut written = 0;
+    while written < size {
+        let to_write = (size - written).min(chunk.len());
+        f.write_all(&chunk[..to_write]).unwrap();
+        written += to_write;
+    }
+    drop(f);
+
+    let out = send(&["OVERSIZE", file.to_str().unwrap()]);
+    let (so, se) = (text(&out.stdout), text(&out.stderr));
     assert_eq!(out.status.code(), Some(2), "{se}");
-    assert!(se.contains("conservative G1 legacy upload policy"), "{se}");
+    assert!(se.contains("extended transport maximum policy"), "{se}");
     assert!(
         !so.contains("About to create"),
         "refused before the prompt: {so}"

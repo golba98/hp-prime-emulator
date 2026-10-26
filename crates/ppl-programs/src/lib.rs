@@ -138,6 +138,13 @@ impl ProgramImage {
             .ok_or_else(|| refused("source size overflow"))?;
         let message = 10 + name.encode_utf16().count() * 2 + payload;
         let reports = message.div_ceil(63);
+        let protocol = if payload <= ppl_device::MAX_LEGACY_PROGRAM_PAYLOAD {
+            ppl_device::TransferProtocol::Legacy
+        } else {
+            ppl_device::TransferProtocol::Extended
+        };
+        let limit = protocol.max_payload_bytes();
+        let supported = payload <= limit;
         Ok(Self {
             name: name.into(),
             sizes: EncodedSize {
@@ -147,16 +154,28 @@ impl ProgramImage {
                 object_message_bytes: message,
                 hid_reports: reports,
                 host_report_bytes: message + 2 * reports,
-                limit_bytes: ppl_device::MAX_PROGRAM_PAYLOAD,
-                limit_kind:
-                    "conservative_observed_g1_15157_legacy_payload_ceiling_cause_unresolved".into(),
-                supported: payload <= ppl_device::MAX_PROGRAM_PAYLOAD,
+                limit_bytes: limit,
+                limit_kind: match protocol {
+                    ppl_device::TransferProtocol::Legacy => {
+                        "verified_legacy_framing_limit_15928".into()
+                    }
+                    ppl_device::TransferProtocol::Extended => {
+                        "verified_extended_mode1_transport_limit_16mib".into()
+                    }
+                },
+                supported,
             },
             source,
         })
     }
     pub fn require_supported(&self) -> Result<()> {
-        ppl_device::check_program_payload(&self.name, &self.source.original_text).map(|_| ())
+        if !self.sizes.supported {
+            return Err(refused(format!(
+                "program `{}` size {} bytes exceeds maximum limit {} bytes",
+                self.name, self.sizes.payload_bytes, self.sizes.limit_bytes
+            )));
+        }
+        Ok(())
     }
     pub fn payload(&self) -> Vec<u8> {
         self.source
@@ -291,9 +310,11 @@ pub fn create_new(
     if let Ok(outcome) = &mut result {
         outcome.operation_id = Some(id.clone());
     }
-    let attempted = prime.log[start..]
-        .iter()
-        .any(|e| e.outgoing && e.bytes.get(1) == Some(&0) && e.bytes.get(2) == Some(&0xf7));
+    let attempted = prime.log[start..].iter().any(|e| {
+        e.outgoing
+            && ((e.bytes.get(1) == Some(&0) && e.bytes.get(2) == Some(&0xf7))
+                || (e.bytes.get(1) == Some(&1) && e.bytes.get(10) == Some(&0xf7)))
+    });
     match &result {
         Ok(outcome) => {
             record["state"] = serde_json::json!(outcome.state);
@@ -395,7 +416,12 @@ mod tests {
         assert_eq!(image.sizes.object_message_bytes, 20076);
         assert_eq!(image.sizes.hid_reports, 319);
         assert_eq!(image.sizes.host_report_bytes, 20714);
-        assert!(image.require_supported().is_err());
+        assert!(image.require_supported().is_ok());
+        assert!(image.sizes.supported);
+        assert_eq!(
+            image.sizes.limit_kind,
+            "verified_extended_mode1_transport_limit_16mib"
+        );
     }
     #[test]
     fn boundaries_unicode_and_line_endings_are_counted_without_rewriting() {
@@ -404,13 +430,17 @@ mod tests {
             assert_eq!(image.sizes.utf16_units, units);
             assert_eq!(image.source.original_text, text);
         }
-        for (units, ok) in [(7964, true), (7965, false)] {
+        for (units, legacy_protocol) in [(7964, true), (7965, false)] {
             let image = ProgramImage::new(
                 "ZZT_TEST",
                 Source::text(&"x".repeat(units), "test").unwrap(),
             )
             .unwrap();
-            assert_eq!(image.require_supported().is_ok(), ok);
+            assert!(image.require_supported().is_ok());
+            assert_eq!(
+                image.sizes.limit_kind == "verified_legacy_framing_limit_15928",
+                legacy_protocol
+            );
         }
         assert!(Source::decode(vec![0xff, 0xfe, 0], None, "odd".into()).is_err());
         assert!(Source::decode(vec![0xff, 0xfe, 0, 0xd8], None, "surrogate".into()).is_err());
