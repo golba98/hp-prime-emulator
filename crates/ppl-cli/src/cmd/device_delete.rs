@@ -362,6 +362,7 @@ fn execute(
             let mut p = super::remote::open_selected(selected)?;
             let (serial, info) = identity(&mut p)?;
             let store = Store::new(delete_dir);
+            let _journal_lock = store.lock()?;
             store.reject_pending(&serial, &targets)?;
             let deletion = ppl_device::prepare_deletion(&mut p, &targets, &control)?;
             let owned = authorize_targets(&deletion.backups, runs_dir, &serial, json_output)?;
@@ -407,6 +408,7 @@ fn execute(
                 class: "test".into(),
                 authorization: None,
                 requested_utc: None,
+                submission: Vec::new(),
             };
             store.create(&op, &deletion.backups)?;
             // Keep the exact authorization mode in the auditable operation directory.
@@ -434,10 +436,14 @@ fn execute(
                 } else if direct_profile(&p, &info) {
                     op.state = "submitting".into();
                     store.save(&op)?;
-                    let result = ppl_device::authorize_usb_deletion(&p, &deletion, &control)
-                        .and_then(|guard| ppl_device::delete_via_usb(&mut p, guard, |_| {}));
+                    let result = ppl_programs::submit_deletion(&mut p, &deletion, &store, &mut op);
                     match result {
                         Ok(report) => {
+                            let never_sent = report
+                                .submission
+                                .iter()
+                                .all(|s| *s == ppl_device::delete::SubmissionState::NotSent);
+                            op.submission = report.submission;
                             apply_statuses(
                                 &mut op,
                                 &report
@@ -447,7 +453,9 @@ fn execute(
                                     .collect::<Vec<_>>(),
                             );
                             op.error = report.error;
-                            op.state = if op.confirmed() {
+                            op.state = if never_sent {
+                                "not_submitted"
+                            } else if op.confirmed() {
                                 "completed"
                             } else {
                                 "unresolved"
@@ -456,7 +464,11 @@ fn execute(
                             store.save(&op)?;
                             retire_confirmed(&store, &op)
                         }
-                        Err(e) => Err(e),
+                        Err(e) => {
+                            // The shared submitter returns Err only before any EB attempt.
+                            op.state = "not_submitted".into();
+                            Err(e)
+                        }
                     }
                 } else {
                     op.state = "not_submitted".into();
@@ -515,6 +527,12 @@ fn execute(
                     ));
                 }
                 let store = Store::new(delete_dir);
+                let _journal_lock = store.lock()?;
+                if store.directory(id)?.join("replacement.json").exists() {
+                    return Err(refused(
+                        "replacement operations require `device replace verify --operation-id ID`; deletion-only recovery cannot complete a replacement",
+                    ));
+                }
                 let mut op = store.load(id)?;
                 let mut p = super::remote::open_selected(selected)?;
                 let (serial, _) = identity(&mut p)?;
@@ -579,6 +597,7 @@ fn execute(
             delete_dir,
         } => {
             let store = Store::new(delete_dir);
+            let _journal_lock = store.lock()?;
             ppl_device::validate_test_name(operation_id)?;
             let mut p = super::remote::open_selected(selected)?;
             let (serial, info) = identity(&mut p)?;
@@ -675,8 +694,17 @@ fn outcome(store: &Store, op: &Operation) -> Value {
         op.id,
         store.root.display()
     );
-    let mut out = json!({"schema_version":1,"device":"HP Prime G1","device_serial_id":op.device_serial_id,"operation":"delete","operation_id":op.id,"phase":op.state,"mechanism":op.mechanism,"backup_created":true,"backup_directory":store.directory(&op.id).ok(),"deletion_confirmed":op.confirmed(),"execution_confirmed":op.completion.as_deref()==Some("done"),"helper":op.helper,"helper_uploaded":op.helper_uploaded,"cleanup_state":op.cleanup_state,"temporary_objects":op.artifacts,"results":results,"error":op.error,"recovery":if op.state!="completed" {Some(recovery)} else {None}});
-    out["result"] = json!(if op.confirmed() {
+    let mut out = json!({"schema_version":1,"device":"HP Prime G1","device_serial_id":op.device_serial_id,"operation":"delete","operation_id":op.id,"phase":op.state,"mechanism":op.mechanism,"backup_created":true,"backup_directory":store.directory(&op.id).ok(),"deletion_confirmed":op.confirmed(),"execution_confirmed":op.completion.as_deref()==Some("done"),"helper":op.helper,"helper_uploaded":op.helper_uploaded,"cleanup_state":op.cleanup_state,"temporary_objects":op.artifacts,"results":results,"error":op.error,"recovery":if !matches!(op.state.as_str(),"completed"|"not_submitted") {Some(recovery)} else {None}});
+    out["submission_evidence"] = json!(op.submission);
+    out["result"] = json!(if op.state == "not_submitted"
+        && !op.submission.is_empty()
+        && op
+            .submission
+            .iter()
+            .all(|s| *s == ppl_device::delete::SubmissionState::NotSent)
+    {
+        "verified_not_performed"
+    } else if op.confirmed() {
         "confirmed_deleted"
     } else if op.targets.iter().any(|t| t.status == "still_present") {
         "still_present"
@@ -687,7 +715,7 @@ fn outcome(store: &Store, op: &Operation) -> Value {
         out["object"] = json!(op.targets[0].name);
         out["type"] = json!(op.targets[0].ty);
     }
-    if !op.confirmed() && op.state != "awaiting_run" && op.error.is_none() {
+    if !op.confirmed() && op.state == "unresolved" && op.error.is_none() {
         out["error"] = json!("deletion not confirmed; inspect per-target results");
     }
     out

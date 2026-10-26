@@ -11,6 +11,7 @@ name = "ppl"
 path = "src/main.rs"
 
 [dependencies]
+ppl-programs = { path = "../ppl-programs" }
 ppl-math.workspace = true
 ppl-syntax.workspace = true
 ppl-compiler.workspace = true
@@ -29,6 +30,7 @@ ctrlc = "3"
 fs2 = "0.4.3"
 
 [dev-dependencies]
+egui = "0.32"
 png.workspace = true
 tempfile = "3"
 [target.'cfg(target_os = "linux")'.dev-dependencies]

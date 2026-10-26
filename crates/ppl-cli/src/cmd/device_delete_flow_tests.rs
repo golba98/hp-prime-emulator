@@ -126,7 +126,7 @@ fn fixture() -> (
     let op = Operation {
         schema_version: 1,
         id: d.helper.clone(),
-        device_serial_id: "0123456789abcdef".into(),
+        device_serial_id: ppl_compat::serial_fingerprint("0000000000"),
         usb_pid: 0x1541,
         firmware_build: Some(15157),
         boot_version: Some("V0.050.640".into()),
@@ -158,6 +158,7 @@ fn fixture() -> (
         class: "test".into(),
         authorization: None,
         requested_utc: None,
+        submission: Vec::new(),
     };
     store.create(&op, &d.backups).unwrap();
     m.lock().unwrap().commands.clear();
