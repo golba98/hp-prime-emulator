@@ -1,7 +1,7 @@
 //! Desktop live screen mirror viewer for a physical HP Prime G1.
 //!
 //! Continuously fetches 320×240 screenshots from the physical calculator over
-//! USB HID (`FC 08`), decodes the RGB565 PNG samples, and presents them in a
+//! USB HID (`FC 08`), decodes the little-endian RGB555 PNG bytes, and presents them in a
 //! responsive desktop window via `winit` and `softbuffer`.
 //!
 //! The capture loop runs asynchronously on a dedicated worker thread so that
@@ -76,7 +76,7 @@ impl MirrorStatus {
     }
 }
 
-/// Full retains all 320×240 pixels. Fast retains RGB565 color at 160×120.
+/// Full retains all 320×240 pixels. Fast retains RGB555 color at 160×120.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MirrorQuality {
     #[default]
@@ -711,6 +711,7 @@ pub struct MirrorConfig {
     pub diagnostics: Option<PathBuf>,
     pub bg_color: u32,
     pub exit_after: Option<Duration>,
+    /// Legacy CLI compatibility only; never grants a streaming permit.
     pub acknowledge_experimental_fc04: bool,
 }
 
@@ -1319,7 +1320,6 @@ pub fn run_mirror_usb(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let source = UsbMirrorSource::new(prime)
         .with_quality(config.quality)
-        .with_experimental_fc04(config.acknowledge_experimental_fc04)
         .with_capture(config.capture)?;
     run_mirror(config, source)
 }
@@ -1616,7 +1616,9 @@ mod tests {
 
     #[test]
     fn standalone_mirror_and_unscaled_surface_match_the_same_png() {
-        assert_screenshot_pipeline(include_bytes!("../../../tests/fixtures/prime-rgb565.png"));
+        assert_screenshot_pipeline(include_bytes!(
+            "../../../tests/fixtures/prime-rgb555-le.png"
+        ));
     }
 
     #[test]

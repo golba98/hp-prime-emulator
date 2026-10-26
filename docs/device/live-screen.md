@@ -1,6 +1,6 @@
 # HP Prime G1 live screen mirror
 
-`ppl device mirror` captures the physical calculator over read-only USB HID and displays its actual screenshot pixels in a native winit/softbuffer window. Full quality remains 320×240 RGB565. No keys, programs, settings, firmware writes, or machine-learning upscaling are involved.
+`ppl device mirror` captures the physical calculator over read-only USB HID and displays its actual screenshot pixels in a native winit/softbuffer window. Full quality remains 320×240 RGB555. No keys, programs, settings, firmware writes, or machine-learning upscaling are involved.
 
 ## Experimental incremental backend
 
@@ -9,8 +9,9 @@
 The first physical `FC04` probe against G1 build 15157 returned a valid
 1×1 response in **16.33 ms** (vs 990 ms for full FC08).
 Actual visual correctness under physical screen changes is verified using
-`ppl device verify-incremental`. Incremental streaming remains capability-gated
-behind `--acknowledge-experimental-fc04` until full physical visual acceptance.
+`ppl device verify-incremental`. Normal incremental streaming remains disabled even with the legacy acknowledgement
+flag. A separately approved bounded `verify-incremental-stream` diagnostic is available;
+it requires reviewed changed-screen evidence and cannot grant production permission.
 See [FC04 Visual Verification](FC04_PHYSICAL_VISUAL_VERIFICATION.md) and
 [incremental mirroring](INCREMENTAL_SCREEN_MIRROR.md) for details.
 
@@ -29,7 +30,7 @@ ppl device mirror --diagnostics artifacts/live-mirror/my-new-run
 | `--scale 1…4` | `2` | Logical client size: 320×240, 640×480, 960×720, or 1280×960 |
 | `--filter nearest\|linear` | `nearest` | Exact source colors or center-aligned bilinear interpolation |
 | `--capture full\|incremental` | `full` | Existing polling or hardware-gated experimental patch capture |
-| `--quality full\|fast` | `full` | 320×240 RGB565 (`FC 08`) or 160×120 RGB565 (`FC 0A`) |
+| `--quality full\|fast` | `full` | 320×240 RGB555 (`FC 08`) or 160×120 RGB555 (`FC 0A`) |
 | `--fps N` | `10` | Positive finite capture ceiling, not a guaranteed rate |
 | `--fullscreen` | off | Borderless fullscreen with 4:3 fitting |
 | `--snapshot PATH` | none | Save first received image; S also saves to this path |
@@ -47,9 +48,12 @@ Keyboard shortcuts operate only on the desktop viewer:
 | S / F12 | Save the current source image as PNG |
 | 1–4 | Change logical window size and leave fullscreen |
 
+See the [official software comparison](../reverse-engineering/HP_VS_RUST_SCREEN_COMPARISON.md)
+for the constructor evidence, corrected independent oracle and before/after images.
+
 ## Pixels and DPI
 
-The screenshot's unusual 16-bit grayscale PNG samples are big-endian RGB565, not grayscale luminance. Conversion uses bit replication into `0x00RRGGBB`, exactly the softbuffer representation. The original samples are unchanged. The decoder validates dimensions, output lengths, and row strides before indexing; the mirror also checks the expected dimensions of its selected quality.
+The screenshot's unusual 16-bit grayscale PNG samples are little-endian RGB555, not grayscale luminance. Conversion uses bit replication into `0x00RRGGBB`, exactly the softbuffer representation. The PNG container declares big-endian numeric samples, but HP's screen consumer copies the raw decoded bytes into a little-endian RGB555 QImage. The decoder preserves those bytes, then interprets the native words once. The decoder validates dimensions, output lengths, and row strides before indexing; the mirror also checks the expected dimensions of its selected quality.
 
 The window requests a **logical client size**, excluding decorations. Rendering uses the actual **physical client size** on X11 and Wayland. Default nearest filtering centers the largest integer multiple of 320×240 that fits, with letterboxing; fractional desktop DPI therefore does not create uneven source-pixel widths. Windows smaller than native resolution use aspect fitting. Fast 160×120 pixels occupy twice the width and height of full-quality pixels. Linear filtering remains an optional aspect-filling mode. The compositor can independently resample windows; real Wayland compositor validation remains outstanding.
 
@@ -76,7 +80,7 @@ scripts/emulator/run.sh run --release --bin ppl -- device mirror --diagnostics a
 
 Diagnostics contain `captures.jsonl` and, for the GUI, `presentations.jsonl`. The first capture preserves `source.raw.png` and `decoded.png`; the first rendered frame preserves `renderer-source.png` and `surface.png`. Surface evidence is captured before presentation, not represented as a desktop screenshot. No PNGs are encoded on subsequent frames unless the user saves one.
 
-Capture records separate setup, write, first-response wait, subsequent HID read waits, host assembly, extraction/CRC, PNG decompression, RGB565 conversion, and publication. Raw USB read waits are distinct from host CPU work. Reported assembly excludes read waits; minor uninstrumented bookkeeping remains inside total time. First-image evidence I/O is separately reported as `evidence_ms` and is excluded from stage timing but can affect the next arrival interval.
+Capture records separate setup, write, first-response wait, subsequent HID read waits, host assembly, extraction/CRC, PNG decompression, RGB555 conversion, and publication. Raw USB read waits are distinct from host CPU work. Reported assembly excludes read waits; minor uninstrumented bookkeeping remains inside total time. First-image evidence I/O is separately reported as `evidence_ms` and is excluded from stage timing but can affect the next arrival interval.
 
 ```bash
 # Persistent connection, exactly 20 successful captures, no GUI metrics claimed:
@@ -104,7 +108,7 @@ PPL_MIRROR_FIXTURE="$PWD/artifacts/live-mirror/full-new/source.raw.png" \
 
 # No calculator access: synthetic fixture, Xvfb, XTest, ImageMagick and Pillow:
 python3 scripts/device/mirror_xvfb_smoke.py \
-  --fixture tests/fixtures/prime-rgb565.png --out-dir artifacts/live-mirror/xvfb-new
+  --fixture tests/fixtures/prime-rgb555-le.png --out-dir artifacts/live-mirror/xvfb-new
 
 # Reproduce the old integer viewport and the new fit from identical bytes:
 scripts/emulator/run.sh run --release -p ppl-gui --example mirror_diagnostics -- \

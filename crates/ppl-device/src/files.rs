@@ -97,7 +97,8 @@ pub struct PrimeFile {
 }
 
 impl PrimeFile {
-    /// Program and note contents are UTF-16LE text.
+    /// Lossy legacy display helper; management must use `program::utf16` and
+    /// retain the raw data, including terminators and original whitespace.
     pub fn text(&self) -> String {
         let d = self.data.strip_prefix(&[0xFF, 0xFE]).unwrap_or(&self.data);
         let units: Vec<u16> = d
@@ -136,9 +137,15 @@ pub fn decode_file_message(raw: &[u8]) -> Result<PrimeFile> {
             raw.len()
         )));
     }
+    let declared = u32::from_be_bytes(raw[2..6].try_into().unwrap()) as usize;
+    if raw[1] != 1 || declared.checked_add(6) != Some(raw.len()) {
+        return Err(DeviceError::Protocol(
+            "file header/declared length mismatch".into(),
+        ));
+    }
     let ty = FileType::from_code(raw[6]);
     let namelen = raw[7] as usize;
-    if raw.len() < 10 + namelen {
+    if namelen % 2 != 0 || raw.len() < 10 + namelen {
         return Err(DeviceError::Protocol(
             "file name runs past the message".into(),
         ));
@@ -152,9 +159,12 @@ pub fn decode_file_message(raw: &[u8]) -> Result<PrimeFile> {
         .chunks_exact(2)
         .map(|c| u16::from_le_bytes([c[0], c[1]]))
         .collect();
-    let name = String::from_utf16_lossy(&units)
-        .trim_end_matches('\0')
-        .to_string();
+    let decoded = String::from_utf16(&units)
+        .map_err(|_| DeviceError::Protocol("invalid UTF-16 object name".into()))?;
+    let name = decoded.strip_suffix('\0').unwrap_or(&decoded).to_string();
+    if name.is_empty() || name.contains('\0') {
+        return Err(DeviceError::Protocol("ambiguous object name".into()));
+    }
     Ok(PrimeFile {
         ty,
         name,
