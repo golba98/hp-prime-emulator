@@ -30,7 +30,7 @@ use ppl_vm::settings::Settings;
 use ppl_vm::value::Value;
 
 // ============================================================================
-// FEATURE 1: Classic Engineering Aesthetic
+// FEATURE 1: True-black IDE and authentic calculator materials
 // ============================================================================
 pub mod f01_engineering_aesthetic {
     use super::*;
@@ -38,14 +38,17 @@ pub mod f01_engineering_aesthetic {
     #[test]
     fn test_f01_c1_palette_background_colors() {
         let visuals = classic_engineering_visuals();
-        assert_eq!(visuals.panel_fill, BG_PANEL, "Panel bg must match #25292D");
+        assert_eq!(
+            visuals.panel_fill, BG_PANEL,
+            "Panel bg must match the true-black tokens"
+        );
         assert_eq!(
             visuals.window_fill, BG_WIDGET,
-            "Window bg must match #2D3237"
+            "Window bg must match the raised surface token"
         );
         assert_eq!(
             visuals.extreme_bg_color, BG_EXTREME,
-            "Extreme bg must match #1B1E21"
+            "Extreme bg must match the application background"
         );
     }
 
@@ -71,12 +74,17 @@ pub mod f01_engineering_aesthetic {
 
     #[test]
     fn test_f01_c4_calculator_key_palettes() {
-        assert_eq!(CALC_KEY_FN_BG.to_array(), [0x38, 0x3E, 0x45, 255]);
-        assert_eq!(CALC_KEY_NUM_BG.to_array(), [0xDE, 0xE2, 0xE6, 255]);
-        assert_eq!(CALC_KEY_SHIFT.to_array(), [0xE6, 0x7E, 0x22, 255]);
-        assert_eq!(CALC_KEY_ALPHA.to_array(), [0x00, 0xA8, 0xB5, 255]);
-        assert_eq!(CALC_KEY_ON.to_array(), [0xC0, 0x39, 0x2B, 255]);
-        assert_eq!(CALC_KEY_ENTER.to_array(), [0x29, 0x80, 0xB9, 255]);
+        assert_eq!(CALC_KEY_FN_BG.to_array(), [39, 39, 39, 255]);
+        assert_eq!(CALC_KEY_NUM_BG.to_array(), [226, 226, 226, 255]);
+        assert_eq!(CALC_KEY_SHIFT.to_array(), [0, 61, 156, 255]);
+        assert_eq!(CALC_KEY_ALPHA.to_array(), [244, 103, 6, 255]);
+        assert_eq!(CALC_KEY_ON, CALC_KEY_NUM_BG);
+        assert_eq!(CALC_KEY_ENTER, CALC_KEY_NUM_BG);
+        for surface in [BG_EXTREME, BG_PANEL, BG_WIDGET] {
+            assert_eq!(surface.r(), surface.g());
+            assert_eq!(surface.g(), surface.b());
+            assert!(surface.r() <= 0x11);
+        }
     }
 
     #[test]

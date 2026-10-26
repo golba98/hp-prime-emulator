@@ -25,6 +25,9 @@ class CLIContractTests(unittest.TestCase):
             "research/ck_inspect.py",
             "research/ck_screen_replay.py",
             "research/ck_trace_evidence.py",
+            "research/official_archives.py",
+            "research/official_screen_trace.py",
+            "research/qt555_oracle.py",
         ]
         with tempfile.TemporaryDirectory() as temporary:
             for script in scripts:

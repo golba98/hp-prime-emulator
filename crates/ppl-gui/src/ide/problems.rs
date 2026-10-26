@@ -207,14 +207,20 @@ impl IdePanel for ProblemsPanel {
                             ui.label(RichText::new(item.severity_label()).color(color).size(12.0));
                             ui.label(RichText::new(&item.file).size(12.0).color(TEXT_MUTED));
                             let loc = ui.link(
-                                RichText::new(format!("Ln {}, Col {}", item.line, item.col))
-                                    .size(12.0),
+                                RichText::new(if item.line == 0 {
+                                    "Location unavailable".into()
+                                } else if item.col == 0 {
+                                    format!("Ln {}", item.line)
+                                } else {
+                                    format!("Ln {}, Col {}", item.line, item.col)
+                                })
+                                .size(12.0),
                             );
                             let code = ui.selectable_label(
                                 false,
                                 RichText::new(&item.code).monospace().size(12.0),
                             );
-                            let mut message = item.message.clone();
+                            let mut message = format!("[{}] {}", item.provenance, item.message);
                             if item.unverified {
                                 message.push_str("  (unverified rule)");
                             }
@@ -231,7 +237,7 @@ impl IdePanel for ProblemsPanel {
                         self.row_rects = rects;
                     });
             });
-            if let Some((tab, line, col)) = navigate {
+            if let Some((tab, line, col)) = navigate.filter(|(_, line, _)| *line > 0) {
                 state.queue_action(super::IdeAction::NavigateToLocation { tab, line, col });
             }
         });

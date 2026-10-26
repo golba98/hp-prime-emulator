@@ -81,6 +81,9 @@ pub enum AutoStep {
     Dock(String),
     /// Dump state JSON to the dump path and close the window.
     Exit,
+    Layout(String),
+    CalculatorMode(String),
+    Backend(bool),
 }
 
 pub struct Automation {
@@ -185,6 +188,9 @@ impl Automation {
                         AutoStep::WindowScreenshot(get_path("path").unwrap_or_default())
                     }
                     "exit" => AutoStep::Exit,
+                    "layout" => AutoStep::Layout(get_str("mode")),
+                    "calculator_mode" => AutoStep::CalculatorMode(get_str("mode")),
+                    "backend" => AutoStep::Backend(get_str("engine") == "firmware"),
                     other => {
                         eprintln!("automation: unknown step `{other}`; skipping");
                         continue;
@@ -275,7 +281,7 @@ impl Automation {
                         _ => unreachable!(),
                     };
                     let done = if matches!(self.steps[self.next], AutoStep::WaitIdle(_)) {
-                        !app.controller.worker_alive()
+                        !app.execution_busy()
                     } else {
                         app.controller.paused()
                     };
@@ -445,6 +451,25 @@ impl Automation {
                     "callstack" => DockTab::CallStack,
                     _ => DockTab::Output,
                 };
+            }
+            AutoStep::Layout(mode) => app.handle_action(
+                IdeAction::SetLayout(match mode.as_str() {
+                    "editor" => super::layout::WorkspaceLayout::Editor,
+                    "calculator" => super::layout::WorkspaceLayout::Calculator,
+                    _ => super::layout::WorkspaceLayout::Split,
+                }),
+                ctx,
+            ),
+            AutoStep::CalculatorMode(mode) => app.handle_action(
+                IdeAction::SetCalculatorMode(if mode == "screen" {
+                    super::layout::CalculatorMode::ScreenOnly
+                } else {
+                    super::layout::CalculatorMode::Full
+                }),
+                ctx,
+            ),
+            AutoStep::Backend(firmware) => {
+                app.handle_action(IdeAction::SelectBackend(firmware), ctx)
             }
             AutoStep::Exit => self.finish(app, ctx),
         }

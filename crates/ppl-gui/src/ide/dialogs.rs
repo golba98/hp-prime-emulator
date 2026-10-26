@@ -10,6 +10,7 @@ use egui::{RichText, Window};
 #[derive(Debug, Default)]
 pub struct DialogHost {
     pub show_about: bool,
+    pub show_shortcuts: bool,
     pub show_settings: bool,
     pub show_new_program: bool,
     pub show_go_to_line: bool,
@@ -84,6 +85,34 @@ impl DialogHost {
             self.show_about = open;
         }
 
+        if self.show_shortcuts {
+            Window::new("Keyboard Shortcuts")
+                .open(&mut self.show_shortcuts)
+                .show(ctx, |ui| {
+                    egui::Grid::new("shortcuts")
+                        .spacing([24.0, 6.0])
+                        .show(ui, |ui| {
+                            for (keys, action) in [
+                                ("Ctrl+N / O / S", "New / Open / Save"),
+                                ("F7 / F5 / Shift+F5", "Compile / Run / Stop"),
+                                ("Ctrl+F5 / F9", "Restart / Native Debug"),
+                                ("F10 / F11 / Shift+F11", "Step Over / Into / Out"),
+                                ("Ctrl+B / K / J", "Explorer / Calculator / Bottom Panel"),
+                                ("Ctrl+F / H / G", "Find / Replace / Go to line"),
+                                ("Ctrl+Tab / Ctrl+Shift+Tab", "Next / Previous file"),
+                                ("Ctrl+Space", "PPL completion"),
+                                ("Ctrl+= / − / 0", "Editor zoom"),
+                                ("F1…F9 (calculator focused)", "Calculator function keys"),
+                                ("Tab (firmware calculator)", "Alpha"),
+                            ] {
+                                ui.label(keys);
+                                ui.label(action);
+                                ui.end_row();
+                            }
+                        });
+                });
+        }
+
         // Settings Dialog
         if self.show_settings {
             let mut open = true;
@@ -116,6 +145,13 @@ impl DialogHost {
                         });
 
                     ui.add_space(8.0);
+                    ui.separator();
+                    ui.label("Local G1 firmware");
+                    ui.label(egui::RichText::new("Paths apply when the firmware session next starts. Empty paths use PPL_FIRMWARE / PPL_FACTORY_A.").small().color(crate::theme::TEXT_MUTED));
+                    for (label,path) in [("Firmware ELF",&mut state.firmware.firmware),("Factory A directory",&mut state.firmware.factory_a),("Helper executable",&mut state.firmware.runner),("Calculator profile",&mut state.firmware.profile)] {
+                        ui.horizontal(|ui|{ui.label(label);ui.add(egui::TextEdit::singleline(path).desired_width(320.0));});
+                    }
+                    ui.checkbox(&mut state.smooth_display,"Smooth LCD scaling");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("OK").clicked() {
                             close_clicked = true;
