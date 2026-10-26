@@ -415,6 +415,10 @@ impl ScriptDriver {
                 } else {
                     let before = match self.view.map(|v| v.capture(mem)) {
                         Some(Ok(f)) => f,
+                        Some(Err(crate::display::DisplayError::Busy)) => {
+                            self.phase = Phase::KeyStart { index };
+                            return Tick::Continue;
+                        }
                         _ => return self.fail("framebuffer unreadable before key".into()),
                     };
                     shared.lcd_watch.reset_pcs();

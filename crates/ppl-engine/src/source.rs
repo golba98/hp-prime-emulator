@@ -20,6 +20,8 @@ pub struct SourceIdentity {
 pub struct Source {
     pub identity: SourceIdentity,
     pub text: String,
+    /// Strictly decoded source before compiler newline normalization.
+    pub original_text: String,
     pub firmware_text: String,
     pub bytes: Vec<u8>,
     pub container: bool,
@@ -112,11 +114,13 @@ impl Source {
             .into(),
             transformations,
         };
+        let original_text = raw.clone();
         let firmware_text = if container { raw } else { text.clone() };
         Ok(Self {
             identity,
             text,
             firmware_text,
+            original_text,
             bytes,
             container,
             stem,

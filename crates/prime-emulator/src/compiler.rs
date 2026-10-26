@@ -72,6 +72,9 @@ pub struct ObservedSource {
 pub struct Observer(Mutex<CompilerTrace>);
 
 impl Observer {
+    pub fn reset(&self) {
+        *self.0.lock().unwrap() = CompilerTrace::default();
+    }
     pub fn snapshot(&self) -> CompilerTrace {
         self.0.lock().unwrap().clone()
     }

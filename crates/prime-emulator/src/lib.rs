@@ -29,6 +29,7 @@ pub mod runtime;
 pub mod runtime_value;
 pub mod script;
 pub mod services;
+pub mod session;
 pub mod sha256;
 pub mod storage;
 pub mod trace;

@@ -420,30 +420,7 @@ impl Driver {
     }
     fn begin_finish(&mut self, trace: &TraceHub) {
         let observer = trace.runtime.as_ref().unwrap();
-        let snapshot = observer.snapshot();
-        let c = snapshot.invocations.last().unwrap();
-        let status = if !c.unavailable.is_empty()
-            || c.truncated
-            || c.result.as_ref().is_none_or(|v| v.value.is_none())
-            || c.calls
-                .first()
-                .is_none_or(|f| f.arguments.iter().any(|a| a.value.is_none()))
-            || c.output
-                .iter()
-                .any(|o| o.value.as_ref().is_some_and(|v| v.value.is_none()))
-        {
-            ExecutionStatus::Unsupported
-        } else if !c.body_entered {
-            ExecutionStatus::InvalidArguments
-        } else if matches!(
-            c.result.as_ref().and_then(|v| v.value.as_ref()),
-            Some(FirmwareValue::Error { .. })
-        ) {
-            ExecutionStatus::RuntimeError
-        } else {
-            ExecutionStatus::Completed
-        };
-        observer.finish_invocation(status);
+        let status = observer.finish_observed();
         if status != ExecutionStatus::Completed && self.first_failure.is_none() {
             self.first_failure = Some(status);
         }

@@ -8,6 +8,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+ppl-engine = { path = "../ppl-engine" }
 unicorn-engine = "2.1"
 goblin = "0.10"
 memmap2 = "0.9"
