@@ -209,13 +209,32 @@ class PE:
         offset = self.offset(start)
         # Deliberately does not guess boundaries or follow branches.
         data = self.data[offset : offset + end - start]
-        for address, _size, mnemonic, operands in self.decoder().disasm_lite(
+        for address, size, mnemonic, operands in self.decoder().disasm_lite(
             data, start
         ):
             print(
                 f"{address:08x} {mnemonic:8s} "
                 f"{operands}{self.annotation(operands)}"
+                f"{self.rip_annotation(address, size, operands)}"
             )
+
+    def rip_target(self, address: int, size: int, operands: str) -> int | None:
+        """Resolve x64 RIP-relative memory, without inferring a call edge."""
+        if self.bits != 64:
+            return None
+        match = re.search(r"\[rip(?: ([+-]) (0x[0-9a-f]+))?\]", operands)
+        if not match:
+            return None
+        displacement = int(match[2], 16) if match[2] else 0
+        if match[1] == "-":
+            displacement = -displacement
+        return address + size + displacement
+
+    def rip_annotation(self, address: int, size: int, operands: str) -> str:
+        target = self.rip_target(address, size, operands)
+        if target is None:
+            return ""
+        return f" ; RIP target {target:#x}{self.annotation(hex(target))}"
 
     def xrefs(self, targets: Iterable[int]) -> None:
         targets = set(targets)
@@ -226,7 +245,7 @@ class PE:
             code = self.data[section["offset"] : section["offset"] + size]
             for (
                 address,
-                _size,
+                size,
                 mnemonic,
                 operands,
             ) in self.decoder().disasm_lite(code, section["va"]):
@@ -234,10 +253,14 @@ class PE:
                     int(token, 16)
                     for token in re.findall(r"0x[0-9a-f]+", operands)
                 }
+                relative = self.rip_target(address, size, operands)
+                if relative is not None:
+                    values.add(relative)
                 if values & targets:
                     print(
                         f"{address:08x} {mnemonic:8s} "
                         f"{operands}{self.annotation(operands)}"
+                        f"{self.rip_annotation(address, size, operands)}"
                     )
 
     def pointers(self, address: int) -> None:
@@ -290,29 +313,37 @@ class PE:
 
     def vtables(self, descriptor: int) -> Iterator[tuple[int, int, int]]:
         """Yield (COL, object offset, vtable) candidates for one MSVC type."""
-        needle = descriptor.to_bytes(4, "little")
+        needle = (
+            descriptor if self.bits == 32 else descriptor - self.base
+        ).to_bytes(4, "little")
         position = self.data.find(needle)
         while position >= 0:
-            locator = self.va(position - 12)
-            if locator is not None and self.u32(position - 12) == 0:
-                reference = self.data.find(locator.to_bytes(4, "little"))
+            locator = self.va(position - 12) if position >= 12 else None
+            signature = 0 if self.bits == 32 else 1
+            valid = (
+                locator is not None and self.u32(position - 12) == signature
+            )
+            if valid and self.bits == 64:
+                valid = (
+                    position + 12 <= len(self.data)
+                    and self.u32(position + 8) == locator - self.base
+                )
+            if valid:
+                pointer = locator.to_bytes(self.width, "little")
+                reference = self.data.find(pointer)
                 while reference >= 0:
-                    table = self.va(reference + 4)
+                    table = self.va(reference + self.width)
                     if table is not None:
                         yield locator, self.u32(position - 8), table
-                    reference = self.data.find(
-                        locator.to_bytes(4, "little"), reference + 1
-                    )
+                    reference = self.data.find(pointer, reference + 1)
             position = self.data.find(needle, position + 1)
 
     def rtti(self, pattern: str) -> None:
-        if self.bits != 32:
-            raise ValueError("RTTI helper currently supports only MSVC PE32")
         for match in re.finditer(rb"\.\?AV[^\x00]{1,150}@@\x00", self.data):
             name = match[0][:-1].decode("ascii", "replace")
             if not re.search(pattern, name, re.I):
                 continue
-            descriptor = self.va(match.start() - 8)
+            descriptor = self.va(match.start() - 2 * self.width)
             if descriptor is None:
                 continue
             for locator, object_offset, table in self.vtables(descriptor):
@@ -323,20 +354,22 @@ class PE:
                 self.words(table, 24)
 
     def qt_string(self, strings: int, index: int) -> str:
-        header = strings + 16 * index
+        header = strings + (16 if self.bits == 32 else 24) * index
         offset = self.offset(header)
         length = self.u32(offset + 4)
-        relative = self.unpack("<i", offset + 12)[0]
+        relative = self.unpack(
+            "<i" if self.bits == 32 else "<q",
+            offset + (12 if self.bits == 32 else 16),
+        )[0]
         raw = self.offset(header + relative)
         return self.data[raw : raw + length].decode("utf-8", "replace")
 
     def qt(self, address: int) -> None:
-        """Inspect Qt5 PE32 QMetaObject revision-7/8 method metadata."""
-        if self.bits != 32:
-            raise ValueError("Qt helper currently supports PE32")
+        """Inspect Qt5 QMetaObject revision-7/8 method metadata."""
         position = self.offset(address)
-        strings = self.u32(position + 4)
-        table = self.u32(position + 8)
+        read_pointer = self.u32 if self.bits == 32 else self.u64
+        strings = read_pointer(position + self.width)
+        table = read_pointer(position + 2 * self.width)
         data = self.offset(table)
         if self.u32(data) not in (7, 8):
             raise ValueError("unsupported Qt metadata revision")
@@ -344,7 +377,8 @@ class PE:
         print(
             f"Qt {self.qt_string(strings, self.u32(data + 4))} "
             f"meta={address:#x}"
-            f" static_metacall={self.u32(position + 12):#x} methods={count}"
+            f" static_metacall={read_pointer(position + 3 * self.width):#x}"
+            f" methods={count}"
         )
         for index in range(count):
             entry = data + (first + 5 * index) * 4
