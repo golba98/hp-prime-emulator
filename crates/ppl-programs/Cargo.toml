@@ -1,0 +1,18 @@
+[package]
+name = "ppl-programs"
+description = "Shared, guarded HP Prime program management and durable recovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ppl-device.workspace = true
+ppl-compat.workspace = true
+ppl-engine = { path = "../ppl-engine" }
+serde.workspace = true
+serde_json.workspace = true
+fs2 = "0.4.3"
+
+[dev-dependencies]
+tempfile = "3"

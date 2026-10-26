@@ -85,22 +85,8 @@ pub(super) fn reconcile(
     store: &Store,
     op: &mut Operation,
 ) -> Result<(), DeviceError> {
-    // Read-only recovery never reissues EB, F7, or EC, even after a timeout.
-    let statuses = ppl_device::verify_deleted(p, &op.targets()?, &op.control()?)?;
-    apply_statuses(op, &statuses);
-    op.error = None;
-    op.state = if op.confirmed() {
-        if op.helper.is_some() && op.cleanup_state != "complete" {
-            "verified"
-        } else {
-            "completed"
-        }
-    } else {
-        "unresolved"
-    }
-    .into();
-    op.updated_utc = ppl_compat::utc_now();
-    store.save(op)?;
+    // Common read-only recovery preserves identity, backups and submission evidence.
+    ppl_programs::deletion::reconcile(p, store, op)?;
     if op.confirmed() {
         if op.helper.is_some() && op.cleanup_state != "complete" {
             archive_artifacts(p, store, op)?;

@@ -1,5 +1,10 @@
 # Uploading a program to a G1 (`ppl device send`)
 
+Current shared-manager behavior and evidence boundaries are documented in
+[PROGRAM_TRANSFER_AND_LIMITS.md](PROGRAM_TRANSFER_AND_LIMITS.md). The historical measurements below are retained;
+claims about an exact firmware size limit or legacy pending-state handling are
+superseded by that report.
+
 Works on a calculator with **no** preinstalled `ZZT_*` object. `ZZT_CTRL` is not
 needed; `--control type:name` is an optional extra probe and a missing control is
 not an error. (`device run`, `cleanup` and `delete` still use a control by design.)

@@ -252,7 +252,11 @@ fn capture_verify_inner(
             "Press Enter when the screen has changed to capture incremental updates and verify..."
         );
         let mut line = String::new();
-        let _ = reader.read_line(&mut line)?;
+        if reader.read_line(&mut line)? == 0 {
+            return Err(
+                "manual screen-change confirmation reached EOF; no FC04 requests sent".into(),
+            );
+        }
     } else {
         println!("Running static screen verification (no screen change expected)...");
     }
@@ -472,11 +476,12 @@ mod tests {
     }
     #[test]
     fn bounded_probe_composes_synthetic_bottom_right_patch_and_preserves_baseline_on_failure() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
+        // Independent PNG fixture: raw scanline [filter=0, RGB555 red LE=00 7c].
         let patch: &[u8] = &[
             137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1,
-            16, 0, 0, 0, 0, 106, 238, 71, 22, 0, 0, 0, 11, 73, 68, 65, 84, 120, 156, 99, 248, 193,
-            0, 0, 1, 243, 0, 249, 27, 10, 35, 102, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+            16, 0, 0, 0, 0, 106, 238, 71, 22, 0, 0, 0, 11, 73, 68, 65, 84, 120, 156, 99, 96, 168,
+            1, 0, 0, 127, 0, 125, 136, 91, 148, 9, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
         ];
         for corrupt in [false, true] {
             let directory = tempfile::tempdir().unwrap();
@@ -542,7 +547,7 @@ mod tests {
             .write_image_data(
                 &pixels
                     .iter()
-                    .flat_map(|v| v.to_be_bytes())
+                    .flat_map(|v| v.to_le_bytes())
                     .collect::<Vec<_>>(),
             )
             .unwrap();
@@ -550,8 +555,48 @@ mod tests {
     }
 
     #[test]
+    fn manual_confirmation_eof_refuses_before_fc04() {
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
+        let writes = Arc::new(Mutex::new(Vec::new()));
+        let transport = Fake {
+            replies: vec![response(8, (65535, 65535), baseline)].into(),
+            pending: VecDeque::new(),
+            writes: writes.clone(),
+        };
+        let detected = ppl_device::Detected {
+            vendor_id: 0x03f0,
+            product_id: 0x1541,
+            model: "synthetic",
+            path: "not-physical".into(),
+            manufacturer: None,
+            product: None,
+            serial: None,
+            release: 0,
+            interface: 0,
+        };
+        let mut session = ScreenshotSession::new(ppl_device::Prime::with_transport(
+            detected,
+            Box::new(transport),
+        ));
+        let directory = tempfile::tempdir().unwrap();
+        let mut prompt = std::io::Cursor::new(Vec::<u8>::new());
+        let mut report = json!({"fc04_attempts":0});
+        let error = capture_verify_inner(
+            &mut session,
+            directory.path(),
+            5,
+            Some(&mut prompt),
+            &mut report,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("confirmation reached EOF"));
+        assert_eq!(*writes.lock().unwrap(), vec![vec![0, 0, 0xfc, 8]]);
+        assert_eq!(report["fc04_attempts"], 0);
+    }
+
+    #[test]
     fn static_screen_verification_passes_with_zero_mismatches() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
         let patch = encode_gray16(1, 1, &[0x0000]); // black pixel matching (0,0)
         let directory = tempfile::tempdir().unwrap();
         let writes = Arc::new(Mutex::new(Vec::new()));
@@ -630,9 +675,9 @@ mod tests {
 
     #[test]
     fn changed_screen_verification_detects_change_and_exact_match() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
-        let patch = encode_gray16(1, 1, &[0xf800]); // Red pixel at (319, 239)
-        // Reference frame: 320x240 with pixel (319, 239) modified to 0xf800
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
+        let patch = encode_gray16(1, 1, &[0x7c00]); // Red pixel at (319, 239)
+        // Reference frame: 320x240 with pixel (319, 239) modified to 0x7c00
         let (mut ref_grob, _) = ppl_graphics::PrimeScreenshotDecoder::default()
             .decode(baseline, Some((320, 240)))
             .unwrap();
@@ -643,9 +688,9 @@ mod tests {
             for x in 0..320 {
                 let px = ref_grob.pixels()[y * 320 + x];
                 let r = ((px >> 16) & 0xFF) as u16 >> 3;
-                let g = ((px >> 8) & 0xFF) as u16 >> 2;
+                let g = ((px >> 8) & 0xFF) as u16 >> 3;
                 let b = (px & 0xFF) as u16 >> 3;
-                ref_pixels[y * 320 + x] = (r << 11) | (g << 5) | b;
+                ref_pixels[y * 320 + x] = (r << 10) | (g << 5) | b;
             }
         }
         let reference_png = encode_gray16(320, 240, &ref_pixels);
@@ -714,8 +759,8 @@ mod tests {
 
     #[test]
     fn changed_screen_verification_detects_reconstruction_mismatch() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
-        let patch = encode_gray16(1, 1, &[0xf800]); // Red pixel at (319, 239)
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
+        let patch = encode_gray16(1, 1, &[0x7c00]); // Red pixel at (319, 239)
         // Reference frame has blue pixel instead of red at (319, 239)
         let (mut ref_grob, _) = ppl_graphics::PrimeScreenshotDecoder::default()
             .decode(baseline, Some((320, 240)))
@@ -726,9 +771,9 @@ mod tests {
             for x in 0..320 {
                 let px = ref_grob.pixels()[y * 320 + x];
                 let r = ((px >> 16) & 0xFF) as u16 >> 3;
-                let g = ((px >> 8) & 0xFF) as u16 >> 2;
+                let g = ((px >> 8) & 0xFF) as u16 >> 3;
                 let b = (px & 0xFF) as u16 >> 3;
-                ref_pixels[y * 320 + x] = (r << 11) | (g << 5) | b;
+                ref_pixels[y * 320 + x] = (r << 10) | (g << 5) | b;
             }
         }
         let reference_png = encode_gray16(320, 240, &ref_pixels);
@@ -796,7 +841,7 @@ mod tests {
 
     #[test]
     fn changed_screen_verification_fails_closed_when_screen_did_not_change() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
         let patch = encode_gray16(1, 1, &[0x0000]);
         let directory = tempfile::tempdir().unwrap();
         let writes = Arc::new(Mutex::new(Vec::new()));
@@ -854,9 +899,9 @@ mod tests {
 
     #[test]
     fn multi_patch_sequence_with_overlapping_updates_passes_verification() {
-        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb565.png");
-        // Patch 1: 10x10 green (0x07e0) at (10, 20)
-        let patch1 = encode_gray16(10, 10, &[0x07e0; 100]);
+        let baseline = include_bytes!("../../../../tests/fixtures/prime-rgb555-le.png");
+        // Patch 1: 10x10 green (0x03e0) at (10, 20)
+        let patch1 = encode_gray16(10, 10, &[0x03e0; 100]);
         // Patch 2: 10x10 blue (0x001f) at (15, 25) - overlaps (15..20, 25..30)
         let patch2 = encode_gray16(10, 10, &[0x001f; 100]);
         // Patch 3: 1x1 unchanged at (0, 0)
@@ -883,9 +928,9 @@ mod tests {
             for x in 0..320 {
                 let px = ref_grob.pixels()[y * 320 + x];
                 let r = ((px >> 16) & 0xFF) as u16 >> 3;
-                let g = ((px >> 8) & 0xFF) as u16 >> 2;
+                let g = ((px >> 8) & 0xFF) as u16 >> 3;
                 let b = (px & 0xFF) as u16 >> 3;
-                ref_pixels[y * 320 + x] = (r << 11) | (g << 5) | b;
+                ref_pixels[y * 320 + x] = (r << 10) | (g << 5) | b;
             }
         }
         let reference_png = encode_gray16(320, 240, &ref_pixels);

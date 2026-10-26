@@ -67,7 +67,7 @@ fn oversize_payload_is_refused_before_the_prompt() {
     let out = send(&["FIREWORKS", example]);
     let (so, se) = (text(&out.stdout), text(&out.stderr));
     assert_eq!(out.status.code(), Some(2), "{se}");
-    assert!(se.contains("silently drops"), "{se}");
+    assert!(se.contains("conservative G1 legacy upload policy"), "{se}");
     assert!(
         !so.contains("About to create"),
         "refused before the prompt: {so}"
