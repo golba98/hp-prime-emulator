@@ -43,7 +43,7 @@ fn settle(app: &mut IdeDesktopApp, ctx: &egui::Context) {
 /// Polls the worker until the run ends.
 fn finish_run(app: &mut IdeDesktopApp) {
     let deadline = Instant::now() + Duration::from_secs(10);
-    while app.controller.worker_alive() {
+    while app.controller.worker_alive() || app.native_compile.is_some() {
         app.poll_execution();
         assert!(Instant::now() < deadline, "run never finished");
         std::thread::sleep(Duration::from_millis(5));
@@ -241,6 +241,7 @@ fn compiler_panic_is_reported_as_analysis_failure() {
     assert!(!app.problems.title().ends_with("(0)"));
     // Run refuses to execute an unchecked program.
     app.handle_action(IdeAction::RunProgram, &ctx);
+    finish_run(&mut app);
     assert!(!app.controller.worker_alive());
     assert!(console(&app).contains("Run blocked: internal compiler failure"));
     // The worker survived: the next revision is analysed normally.
@@ -476,7 +477,13 @@ fn baseconv_runs_through_the_ide_with_typed_input() {
     settle(&mut app, &ctx);
     assert_eq!(app.state.analysis, AnalysisState::Valid);
 
-    let type_answers = |app: &IdeDesktopApp, answers: &[&str]| {
+    let type_answers = |app: &mut IdeDesktopApp, answers: &[&str]| {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while app.native_compile.is_some() {
+            app.poll_execution();
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
         for a in answers {
             for c in a.chars() {
                 app.controller
@@ -488,7 +495,7 @@ fn baseconv_runs_through_the_ide_with_typed_input() {
     };
     // Run 1: a typed hex string.
     app.handle_action(IdeAction::RunProgram, &ctx);
-    type_answers(&app, &["FF", "16", "10", "10"]);
+    type_answers(&mut app, &["FF", "16", "10", "10"]);
     finish_run(&mut app);
     assert!(
         console(&app).contains("Final Result: 255"),
@@ -499,7 +506,7 @@ fn baseconv_runs_through_the_ide_with_typed_input() {
     // Run 2: Esc in the second dialog ends the program normally.
     let before = console(&app).len();
     app.handle_action(IdeAction::RunProgram, &ctx);
-    type_answers(&app, &["7B.8"]);
+    type_answers(&mut app, &["7B.8"]);
     app.controller.shared.push_key(KEY_ESC);
     finish_run(&mut app);
     let tail = console(&app)[before..].to_string();
@@ -509,7 +516,7 @@ fn baseconv_runs_through_the_ide_with_typed_input() {
     // Run 3: the program runs again from a clean state.
     let before = console(&app).len();
     app.handle_action(IdeAction::RunProgram, &ctx);
-    type_answers(&app, &["7B.8", "16", "2", "10"]);
+    type_answers(&mut app, &["7B.8", "16", "2", "10"]);
     finish_run(&mut app);
     let tail = console(&app)[before..].to_string();
     assert!(tail.contains("Final Result: 01111011.1000"), "{tail}");
@@ -526,6 +533,10 @@ fn baseconv_original_source_defect_is_a_runtime_problem() {
     // The original compiles: its defects are run-time ones.
     assert_eq!(app.state.analysis, AnalysisState::Valid);
     app.handle_action(IdeAction::RunProgram, &ctx);
+    while app.native_compile.is_some() {
+        app.poll_execution();
+        std::thread::sleep(Duration::from_millis(1));
+    }
     // Typing "FF" (with quotes) stores a string; temp(1) is then a
     // character code and UPPER rejects it.
     for c in "\"FF\"".chars() {

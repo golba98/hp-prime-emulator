@@ -1,6 +1,7 @@
 //! IDE desktop architecture, shared state, and panel orchestration.
 
 pub mod automation;
+pub mod calculator;
 pub mod console;
 pub mod debugger;
 pub mod diagnostics;
@@ -9,9 +10,13 @@ pub mod display;
 pub mod editor;
 pub mod execution;
 pub mod explorer;
+pub mod firmware;
+pub mod icons;
 pub mod keypad;
+pub mod layout;
 pub mod menu;
 pub mod problems;
+pub mod programs;
 pub mod status;
 pub mod syntax;
 pub mod toolbar;
@@ -38,7 +43,15 @@ pub enum DockTab {
 
 /// Serializable subset of IDE state persisted across application runs.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct PersistentPanelState {
+    pub layout: layout::WorkspaceLayout,
+    #[serde(default)]
+    pub previous_layout: layout::WorkspaceLayout,
+    pub calculator_mode: layout::CalculatorMode,
+    pub smooth_display: bool,
+    pub firmware_backend: bool,
+    pub firmware: firmware::FirmwareSettings,
     pub show_explorer: bool,
     pub show_calculator: bool,
     pub show_bottom_dock: bool,
@@ -62,13 +75,19 @@ pub const EDITOR_FONT_RANGE: std::ops::RangeInclusive<f32> = 9.0..=28.0;
 impl Default for PersistentPanelState {
     fn default() -> Self {
         Self {
+            layout: layout::WorkspaceLayout::Split,
+            previous_layout: layout::WorkspaceLayout::Split,
+            calculator_mode: layout::CalculatorMode::Full,
+            smooth_display: false,
+            firmware_backend: false,
+            firmware: firmware::FirmwareSettings::default(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
             show_status_bar: true,
             active_dock_tab: DockTab::Output,
-            explorer_width: 240.0,
-            calculator_width: 360.0,
+            explorer_width: 220.0,
+            calculator_width: 400.0,
             bottom_height: 180.0,
             editor_font_size: default_editor_font_size(),
         }
@@ -173,12 +192,17 @@ pub enum IdeAction {
     StepOut,
     ToggleBreakpoint(usize),
     CheckSyntax,
+    ManagePrograms,
     FormatSource,
     ToggleExplorer,
     ToggleCalculator,
     ToggleBottomDock,
     ToggleStatusBar,
     ResetLayout,
+    SetLayout(layout::WorkspaceLayout),
+    SetCalculatorMode(layout::CalculatorMode),
+    SelectBackend(bool),
+    ShowShortcuts,
     ShowAboutDialog,
     ShowSettingsDialog,
     ShowNewProgramDialog,
@@ -223,6 +247,14 @@ pub enum EditCommand {
 /// Global state shared across all IDE panels and desktop components.
 #[derive(Debug)]
 pub struct IdeAppState {
+    pub layout: layout::WorkspaceLayout,
+    pub previous_layout: layout::WorkspaceLayout,
+    pub calculator_mode: layout::CalculatorMode,
+    pub smooth_display: bool,
+    pub firmware_backend: bool,
+    pub firmware: firmware::FirmwareSettings,
+    pub key_transitions: Vec<(i64, bool)>,
+    pub firmware_input_enabled: bool,
     // Panel visibility toggles
     pub show_explorer: bool,
     pub show_calculator: bool,
@@ -273,13 +305,19 @@ pub struct IdeAppState {
 impl Default for IdeAppState {
     fn default() -> Self {
         Self {
+            layout: layout::WorkspaceLayout::Split,
+            previous_layout: layout::WorkspaceLayout::Split,
+            calculator_mode: layout::CalculatorMode::Full,
+            smooth_display: false,
+            firmware_backend: false,
+            firmware: firmware::FirmwareSettings::default(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
             show_status_bar: true,
             active_dock_tab: DockTab::Output,
-            explorer_width: 240.0,
-            calculator_width: 360.0,
+            explorer_width: 220.0,
+            calculator_width: 400.0,
             bottom_height: 180.0,
             workspace_root: std::env::current_dir().ok(),
             recent_files: Vec::new(),
@@ -296,6 +334,8 @@ impl Default for IdeAppState {
             calc_input_focus: false,
             editor_font_size: default_editor_font_size(),
             key_events: Vec::new(),
+            key_transitions: Vec::new(),
+            firmware_input_enabled: true,
             keys_down: HashSet::new(),
             pending_actions: Vec::new(),
         }
@@ -305,6 +345,12 @@ impl Default for IdeAppState {
 impl IdeAppState {
     pub fn to_persistent(&self) -> PersistentPanelState {
         PersistentPanelState {
+            layout: self.layout,
+            previous_layout: self.previous_layout,
+            calculator_mode: self.calculator_mode,
+            smooth_display: self.smooth_display,
+            firmware_backend: self.firmware_backend,
+            firmware: self.firmware.clone(),
             show_explorer: self.show_explorer,
             show_calculator: self.show_calculator,
             show_bottom_dock: self.show_bottom_dock,
@@ -318,14 +364,24 @@ impl IdeAppState {
     }
 
     pub fn apply_persistent(&mut self, p: &PersistentPanelState) {
+        self.layout = p.layout;
+        self.previous_layout = if p.previous_layout == layout::WorkspaceLayout::Calculator {
+            layout::WorkspaceLayout::Split
+        } else {
+            p.previous_layout
+        };
+        self.calculator_mode = p.calculator_mode;
+        self.smooth_display = p.smooth_display;
+        self.firmware_backend = p.firmware_backend;
+        self.firmware = p.firmware.clone();
         self.show_explorer = p.show_explorer;
         self.show_calculator = p.show_calculator;
         self.show_bottom_dock = p.show_bottom_dock;
         self.show_status_bar = p.show_status_bar;
         self.active_dock_tab = p.active_dock_tab;
-        self.explorer_width = p.explorer_width;
-        self.calculator_width = p.calculator_width;
-        self.bottom_height = p.bottom_height;
+        self.explorer_width = layout::valid_size(p.explorer_width, 220.0, 160.0, 600.0);
+        self.calculator_width = layout::valid_size(p.calculator_width, 400.0, 280.0, 900.0);
+        self.bottom_height = layout::valid_size(p.bottom_height, 180.0, 100.0, 900.0);
         self.editor_font_size = p
             .editor_font_size
             .clamp(*EDITOR_FONT_RANGE.start(), *EDITOR_FONT_RANGE.end());
@@ -333,12 +389,15 @@ impl IdeAppState {
 
     /// Resets all panel toggles and sizes to their default desktop layout.
     pub fn reset_layout(&mut self) {
+        self.layout = layout::WorkspaceLayout::Split;
+        self.previous_layout = layout::WorkspaceLayout::Split;
+        self.calculator_mode = layout::CalculatorMode::Full;
         self.show_explorer = true;
         self.show_calculator = true;
         self.show_bottom_dock = true;
         self.show_status_bar = true;
-        self.explorer_width = 240.0;
-        self.calculator_width = 360.0;
+        self.explorer_width = 220.0;
+        self.calculator_width = 400.0;
         self.bottom_height = 180.0;
     }
 

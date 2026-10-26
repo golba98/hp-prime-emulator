@@ -125,7 +125,7 @@ pub fn show(
     tab.sync();
 
     // 1. Editor keys, before TextEdit sees them.
-    let focused = ctx.memory(|m| m.has_focus(id));
+    let focused = !state.calc_input_focus && ctx.memory(|m| m.has_focus(id));
     let mut explicit_completion = false;
     if focused {
         let lines = tab.doc.lines().clone();
@@ -239,6 +239,21 @@ pub fn show(
             });
 
             // Keystrokes that changed the text through TextEdit itself.
+            output.response.context_menu(|ui| {
+                for (label, command) in [
+                    ("Undo", crate::ide::EditCommand::Undo),
+                    ("Redo", crate::ide::EditCommand::Redo),
+                    ("Cut", crate::ide::EditCommand::Cut),
+                    ("Copy", crate::ide::EditCommand::Copy),
+                    ("Paste", crate::ide::EditCommand::Paste),
+                    ("Select All", crate::ide::EditCommand::SelectAll),
+                ] {
+                    if ui.button(label).clicked() {
+                        state.queue_action(IdeAction::Edit(command));
+                        ui.close();
+                    }
+                }
+            });
             if output.response.changed() {
                 typed_word = ui.input(|i| {
                     i.events.iter().any(|e| {
@@ -329,6 +344,22 @@ pub fn show(
                     }
                 }
             }
+            // Indentation guides visit only visible rows and share the cached galley.
+            for line in rows.clone() {
+                let leading = content
+                    .get(lines.line_bytes(line))
+                    .unwrap_or("")
+                    .chars()
+                    .take_while(|c| *c == ' ')
+                    .count();
+                for column in (2..leading).step_by(2) {
+                    let r = caret(&galley, gpos, line, column);
+                    bg.push(Shape::line_segment(
+                        [r.left_top(), r.left_bottom()],
+                        Stroke::new(1.0 / ui.pixels_per_point(), crate::theme::BORDER_CRISP),
+                    ));
+                }
+            }
             ui.painter().set(bg_idx, Shape::Vec(bg));
 
             // --- diagnostics (on top) ------------------------------------
@@ -410,7 +441,10 @@ pub fn show(
         });
 
     // Focus indicator.
-    let focused_now = ctx.memory(|m| m.has_focus(id));
+    if ui.rect_contains_pointer(outer) && ui.input(|i| i.pointer.primary_pressed()) {
+        state.calc_input_focus = false;
+    }
+    let focused_now = !state.calc_input_focus && ctx.memory(|m| m.has_focus(id));
     if focused_now {
         state.calc_input_focus = false;
         ui.painter().rect_stroke(

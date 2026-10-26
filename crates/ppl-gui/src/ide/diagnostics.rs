@@ -22,6 +22,7 @@ use super::editor::TabId;
 #[derive(Clone, Debug, PartialEq)]
 pub struct DiagnosticItem {
     pub severity: Severity,
+    pub provenance: String,
     pub class: DiagnosticClass,
     pub code: String,
     pub message: String,
@@ -42,6 +43,7 @@ impl DiagnosticItem {
     pub fn from_diagnostic(d: &Diagnostic, file: &SourceFile) -> Self {
         let lc = file.line_col(d.span.start);
         DiagnosticItem {
+            provenance: "native-compiler".into(),
             severity: d.severity,
             class: d.class(),
             code: d.code.to_string(),
@@ -61,6 +63,7 @@ impl DiagnosticItem {
         let span = err.trace.first().map(|f| f.span).unwrap_or_default();
         let lc = file.line_col(span.start);
         DiagnosticItem {
+            provenance: "native-runtime".into(),
             severity: Severity::Error,
             class: DiagnosticClass::Runtime,
             code: "runtime-error".into(),
@@ -71,6 +74,34 @@ impl DiagnosticItem {
             col: lc.col as usize,
             span,
             file: file.name.clone(),
+            tab: None,
+        }
+    }
+
+    /// Missing firmware positions remain unknown (zero), not a fabricated line 1.
+    pub fn from_engine(d: &ppl_engine::Diagnostic, title: &str) -> Self {
+        Self {
+            severity: match d.severity.as_str() {
+                "warning" => Severity::Warning,
+                "note" => Severity::Note,
+                _ => Severity::Error,
+            },
+            provenance: d.source.clone(),
+            class: DiagnosticClass::Syntax,
+            code: d
+                .code
+                .clone()
+                .unwrap_or_else(|| "firmware-diagnostic".into()),
+            message: d
+                .message
+                .clone()
+                .unwrap_or_else(|| "Firmware returned a diagnostic without text".into()),
+            hint: None,
+            unverified: false,
+            line: d.line.unwrap_or(0) as usize,
+            col: d.column.unwrap_or(0) as usize,
+            span: Span::default(),
+            file: title.into(),
             tab: None,
         }
     }

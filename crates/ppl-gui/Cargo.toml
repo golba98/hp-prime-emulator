@@ -7,6 +7,9 @@ rust-version.workspace = true
 autotests = false
 
 [dependencies]
+ppl-programs = { path = "../ppl-programs" }
+ppl-engine = { path = "../ppl-engine" }
+fs2 = "0.4.3"
 winit.workspace = true
 softbuffer.workspace = true
 ppl-vm.workspace = true
