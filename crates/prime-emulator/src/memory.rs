@@ -7,6 +7,8 @@
 //! guest accesses go through the validated accessors here; handlers never
 //! touch raw pointers themselves.
 
+pub mod snapshot;
+
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
@@ -164,6 +166,7 @@ impl Heap {
 }
 
 pub struct GuestMemory {
+    pub snapshot_gate: snapshot::Gate,
     blocks: Vec<MemBlock>,
     heap: Mutex<Heap>,
     /// Heap offsets are relative to this base (stored as the guest address).
@@ -180,6 +183,7 @@ impl Default for GuestMemory {
 impl GuestMemory {
     pub fn new() -> Self {
         GuestMemory {
+            snapshot_gate: snapshot::Gate::default(),
             blocks: Vec::new(),
             heap: Mutex::new(Heap::new(0)),
             heap_base: 0,

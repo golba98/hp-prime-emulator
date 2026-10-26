@@ -339,6 +339,8 @@ impl CpuThread {
     /// real hardware preempts one context; concurrent engines would race).
     /// The ISR returns via the unmapped sentinel LR.
     pub fn run_isr(&mut self, isr_va: u32, irq: u32) -> Result<(), uc_error> {
+        let memory = self._mem.clone();
+        let _active = memory.snapshot_gate.enter();
         const SENTINEL: u32 = 0x9000_0000;
         const SAVED: [RegisterARM; 17] = [
             RegisterARM::R0,
@@ -440,6 +442,8 @@ impl CpuThread {
     }
 
     pub fn run_slice(&mut self, slice: usize) -> Result<RunSliceOutcome, uc_error> {
+        let memory = self._mem.clone();
+        let _active = memory.snapshot_gate.enter();
         self.ensure_lcd_hook()?;
         if self._shared.stopping() {
             return Ok(RunSliceOutcome::Stopped(StopReason::Requested));

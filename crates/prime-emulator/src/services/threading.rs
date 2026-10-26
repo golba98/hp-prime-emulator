@@ -139,7 +139,10 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     if main {
         ctx.shared.set_main_waiting(true);
     }
-    let signaled = ev.wait(timeout, &|| ctx.shared.stopping());
+    let signaled = {
+        let _parked = ctx.mem.snapshot_gate.park();
+        ev.wait(timeout, &|| ctx.shared.stopping())
+    };
     if main {
         ctx.shared.set_main_waiting(false);
     }

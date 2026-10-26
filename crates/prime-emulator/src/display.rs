@@ -45,17 +45,22 @@ pub enum PixelFormat {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DisplayError {
+    Busy,
     /// `GetActiveLCD` has not been called yet: there is no LCD object.
     NotInitialized,
     /// The object does not have the verified layout.
     InvalidLayout(String),
     /// The buffer is not inside one mapped guest block.
-    OutOfBounds { va: u32, len: u32 },
+    OutOfBounds {
+        va: u32,
+        len: u32,
+    },
 }
 
 impl std::fmt::Display for DisplayError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            DisplayError::Busy => write!(f, "guest engines are rendering"),
             DisplayError::NotInitialized => {
                 write!(f, "display not initialized (no GetActiveLCD call yet)")
             }
@@ -151,6 +156,18 @@ impl LcdView {
     /// Reads the framebuffer (one guest-memory read; the guest is not
     /// modified).
     pub fn capture(&self, mem: &GuestMemory) -> Result<Frame, DisplayError> {
+        self.capture_inner(mem, false)
+    }
+    pub(crate) fn capture_from_hook(&self, mem: &GuestMemory) -> Result<Frame, DisplayError> {
+        self.capture_inner(mem, true)
+    }
+    fn capture_inner(&self, mem: &GuestMemory, from_hook: bool) -> Result<Frame, DisplayError> {
+        let _snapshot = if from_hook {
+            mem.snapshot_gate.try_snapshot_from_hook()
+        } else {
+            mem.snapshot_gate.try_snapshot()
+        }
+        .ok_or(DisplayError::Busy)?;
         let len = self.stride * self.height;
         let bytes = mem
             .read_bytes_alloc(self.fb_va, len as usize)

@@ -33,6 +33,15 @@ struct Args {
 enum Cmd {
     /// Load and execute a firmware ELF.
     Run(RunArgs),
+    /// Long-lived local IDE calculator session (versioned stdin/stdout protocol).
+    Session {
+        #[arg(long)]
+        firmware: std::path::PathBuf,
+        #[arg(long)]
+        os_rom: Option<std::path::PathBuf>,
+        #[arg(long)]
+        data_dir: std::path::PathBuf,
+    },
     /// Check imported PPL using the original firmware Program Editor.
     CheckProgram(CheckProgramArgs),
     /// Execute an exported PPL function through the original firmware runtime.
@@ -334,6 +343,11 @@ fn main() {
     let args = Args::parse();
     let code = match args.cmd {
         Cmd::Run(a) => run(a),
+        Cmd::Session {
+            firmware,
+            os_rom,
+            data_dir,
+        } => prime_emulator::session::run(firmware, os_rom, data_dir),
         Cmd::CheckProgram(a) => check_program(a),
         Cmd::RunProgram(a) => run_program(a),
         Cmd::VerifyCalc(a) => verify_calc(a),

@@ -106,6 +106,7 @@ impl SvcCtx<'_, '_> {
     /// Block the calling guest thread like the real OS would, but bounded so
     /// a headless run cannot hang forever without diagnostics.
     pub fn bounded_sleep(&self, ms: u64) {
+        let _parked = self.mem.snapshot_gate.park();
         std::thread::sleep(Duration::from_millis(ms));
     }
 }
@@ -747,6 +748,17 @@ impl SharedState {
 
     pub fn firmware_guest_path(&self) -> &str {
         &self.firmware_guest_path
+    }
+
+    pub fn push_key_transition(&self, key_code: u16, down: bool) {
+        self.input_events.lock().unwrap().push_back(InputEvent {
+            status: if down {
+                UI_EVENT_TYPE_KEY
+            } else {
+                UI_EVENT_TYPE_KEY_UP
+            },
+            key_code0: key_code,
+        });
     }
 
     pub fn push_key_press(&self, key_code: u16) {

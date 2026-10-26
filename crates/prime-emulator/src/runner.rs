@@ -262,6 +262,7 @@ fn spawn_device_thread(
     mem: Arc<GuestMemory>,
     shared: Arc<SharedState>,
     trace: Arc<TraceHub>,
+    session: Option<Arc<crate::session::LiveSession>>,
 ) -> DeviceThread {
     let result = Arc::new(std::sync::Mutex::new(None));
     let out = result.clone();
@@ -279,6 +280,10 @@ fn spawn_device_thread(
             let (mut sys, mut dev, mut inject) = (Instant::now(), Instant::now(), Instant::now());
             let mut script_running = driver.is_some();
             while !shared.stopping() {
+                if let Some(s) = &session {
+                    s.tick(&mem, &shared, &trace);
+                    s.capture(&mem, &shared);
+                }
                 if ui_timers {
                     // PrimU2's 60 Hz window timer raises SYS_TIMER every 11
                     // ticks and DEVICE_TIMER every 61.
@@ -334,6 +339,13 @@ pub struct RunSummary {
 }
 
 pub fn run(cfg: &RunConfig) -> Result<RunSummary, Box<dyn std::error::Error>> {
+    run_with_session(cfg, None)
+}
+
+pub fn run_with_session(
+    cfg: &RunConfig,
+    session: Option<Arc<crate::session::LiveSession>>,
+) -> Result<RunSummary, Box<dyn std::error::Error>> {
     let trace = Arc::new(TraceHub::new(cfg.trace.clone())?);
     // Before the firmware touches anything (`--storage-diff`).
     let storage_before = cfg
@@ -600,7 +612,13 @@ pub fn run(cfg: &RunConfig) -> Result<RunSummary, Box<dyn std::error::Error>> {
     // their own host thread: the main guest thread blocks in long
     // OSWaitForEvent calls that only the UI pump ends, and the pump only
     // runs when GetEvent has something to deliver.
-    let device = spawn_device_thread(cfg, mem.clone(), shared.clone(), trace.clone());
+    let device = spawn_device_thread(
+        cfg,
+        mem.clone(),
+        shared.clone(),
+        trace.clone(),
+        session.clone(),
+    );
 
     let get_event_id = names::service_id_by_name("GetEvent").unwrap();
 
@@ -653,6 +671,10 @@ pub fn run(cfg: &RunConfig) -> Result<RunSummary, Box<dyn std::error::Error>> {
             }
         }
 
+        if let Some(s) = &session {
+            s.capture(&mem, &shared);
+        }
+
         // Heartbeat probe: count GetEvent calls that returned with a real
         // batch. The handler bumps the total; we require the guest to have
         // re-entered it from the same loop, which call-site counters show.
@@ -678,7 +700,7 @@ pub fn run(cfg: &RunConfig) -> Result<RunSummary, Box<dyn std::error::Error>> {
                         pump_reentries: *calls,
                         instructions: cpu.instructions,
                     });
-                    if cfg.script.is_none() && cfg.program.is_none() {
+                    if cfg.script.is_none() && cfg.program.is_none() && session.is_none() {
                         outcome = Outcome::Heartbeat;
                         evidence = format!(
                             "firmware event loop verified: GetEvent serviced {delivered} injected key events, re-entered from caller {caller_pc:#010X} {calls} times, no faults"

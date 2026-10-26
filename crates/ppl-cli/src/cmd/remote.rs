@@ -95,37 +95,7 @@ pub fn handles(action: &DeviceAction) -> bool {
 }
 
 pub fn open_selected(selected: Option<&str>) -> std::result::Result<Prime, DeviceError> {
-    let devices = ppl_device::detect()?;
-    if selected.is_none() {
-        if devices.len() > 1 {
-            return Err(DeviceError::Refused(
-                "multiple calculators match; pass --device <serial-id>".into(),
-            ));
-        }
-        return Prime::open(devices.into_iter().next().ok_or(DeviceError::NotFound)?);
-    }
-    let mut matches = Vec::new();
-    for device in devices {
-        let mut prime = Prime::open(device)?;
-        let info = prime.info()?;
-        if info
-            .serial
-            .as_deref()
-            .map(ppl_compat::serial_fingerprint)
-            .as_deref()
-            == selected
-        {
-            matches.push(prime);
-        }
-    }
-    if matches.len() > 1 {
-        return Err(DeviceError::Refused(
-            "multiple calculators share the requested identity".into(),
-        ));
-    }
-    matches
-        .pop()
-        .ok_or_else(|| DeviceError::Refused("requested device serial-id was not found".into()))
+    ppl_programs::open_selected(selected)
 }
 
 fn identity(prime: &mut Prime) -> Result<Identity> {
