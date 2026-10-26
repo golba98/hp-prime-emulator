@@ -1,5 +1,17 @@
 # Monitor, Project and capture trace — 2026-10-25
 
+## RGB555 constructor correction — supersedes earlier color labels
+
+The complete constructor trace now proves that the screen view selects Qt image
+format 11, **RGB555**, and copies decoded native words without byte swapping.
+The earlier RGB565/big-endian interpretation was wrong. Both official x86 and
+x64 constructors corroborate the correction; Rust and the independent oracle
+are fixed. The regular service thread also has a recovered 200 ms sleep, which
+is not a measured physical FPS. See [the new pipeline](CONNECTIVITY_KIT_SCREEN_PIPELINE.md)
+and [central findings](HP_OFFICIAL_SOFTWARE_ARCHITECTURE.md). Existing call edges,
+framing captures and remote-input restrictions below remain preserved evidence.
+
+
 Binary identity, address mapping and reproducible evidence are defined in
 [the HID trace](HP_CONNECTIVITY_KIT_HID_CALL_TRACE.md). All addresses here
 refer to that same PE32 SHA-256 a6ee0762… executable, base 0x400000;

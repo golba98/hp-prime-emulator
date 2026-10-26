@@ -1,5 +1,16 @@
 # HP Prime USB HID Protocol Reference
 
+## Packed screenshot correction — 2026-10-25
+
+FC04/FC08/FC0A grayscale16 screenshot PNGs carry **little-endian RGB555 bytes**,
+as established by both official screen constructors and native-word compositing.
+Earlier RGB565/big-endian labels in this historical reference are superseded.
+Do not change big-endian envelope lengths or CRC fields: this correction concerns
+only decoded PNG pixel pairs. See [the official screen pipeline](CONNECTIVITY_KIT_SCREEN_PIPELINE.md).
+The corrected decoder removes the colored glyph artifacts in preserved physical
+images; it does not establish new physical update performance or FC04 acceptance.
+
+
 ## Evidence clarification — 2026-10-25
 
 The [PE32 HID call trace](HP_CONNECTIVITY_KIT_HID_CALL_TRACE.md) distinguishes

@@ -143,7 +143,7 @@ def read_response(path: Path) -> tuple[int, bytes, int]:
 
 
 def decode_patch(metadata: dict[str, Any], png: bytes) -> Image.Image:
-    """Decode PNG pixels; 16-bit grayscale carries packed calculator RGB565."""
+    """Match HP's little-endian RGB555 QImage consumer, not PNG luminance."""
     from PIL import Image
 
     with Image.open(io.BytesIO(png)) as raw:
@@ -152,16 +152,19 @@ def decode_patch(metadata: dict[str, Any], png: bytes) -> Image.Image:
             raise ValueError("decoded dimensions differ from IHDR")
         if metadata["color_type"] == 0 and metadata["bit_depth"] == 16:
             pixels = []
-            for value in raw.getdata():
+            for value in raw.get_flattened_data():
+                # Pillow returns the PNG's BE numeric sample. HP instead copies
+                # the two decoded bytes into a little-endian RGB555 word.
+                value = ((value & 255) << 8) | (value >> 8)
                 red, green, blue = (
-                    (value >> 11) & 31,
-                    (value >> 5) & 63,
+                    (value >> 10) & 31,
+                    (value >> 5) & 31,
                     value & 31,
                 )
                 pixels.append(
                     (
                         (red << 3) | (red >> 2),
-                        (green << 2) | (green >> 4),
+                        (green << 3) | (green >> 2),
                         (blue << 3) | (blue >> 2),
                     )
                 )
