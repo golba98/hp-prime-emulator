@@ -21,6 +21,7 @@ mod mailbox_probe;
 mod device_control;
 mod device_diagnose;
 mod device_inspect;
+mod device_settings;
 pub mod unified;
 
 mod device_incremental;

@@ -44,6 +44,11 @@ pub struct DeviceOpts {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceAction {
+    /// Read or compare opaque Home and CAS settings without changing the calculator.
+    Settings {
+        #[command(subcommand)]
+        action: super::device_settings::Action,
+    },
     /// Prepare, explicitly apply, or inspect a program replacement.
     Replace {
         #[command(subcommand)]
@@ -459,6 +464,9 @@ fn run_session(action: &SessionAction) -> u8 {
 }
 
 pub fn run(o: DeviceOpts) -> u8 {
+    if let DeviceAction::Settings { action } = &o.action {
+        return super::device_settings::run(&o, action);
+    }
     if matches!(
         &o.action,
         DeviceAction::Mirror {
@@ -1245,6 +1253,7 @@ fn run_mirror(config: ppl_gui::MirrorConfig, device: Option<&str>) -> u8 {
 fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
     match action {
         DeviceAction::Status { .. }
+        | DeviceAction::Settings { .. }
         | DeviceAction::Replace { .. }
         | DeviceAction::Programs { .. }
         | DeviceAction::Ui { .. }

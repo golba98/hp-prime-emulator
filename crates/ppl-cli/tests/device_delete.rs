@@ -31,6 +31,9 @@ fn unsafe_missing_and_duplicate_targets_are_json_errors_before_usb() {
         vec!["program", "zzt_ctrl"],
         vec!["note", "ZZT_CTRL"],
         vec!["program", "ZZT_ONE", "ZZT_ONE"],
+        vec!["program", "ZZT_ONE", "ZZT_TWO"],
+        vec!["program", "ZZT_ONE", "--manual-run"],
+        vec!["program", "ZZT_ONE", "--prepare-only"],
         vec!["verify", "settings", "ZZT_TEST"],
         vec!["verify", "program", "ZZT_TEST", "--helper", "../bad"],
     ] {
@@ -79,7 +82,7 @@ fn ordinary_names_are_not_rejected_for_lacking_the_test_prefix() {
     let value: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     let error = value["error"].as_str().unwrap();
     assert!(!error.contains("test object name"), "{error}");
-    assert!(error.contains("ZZT_ test objects only"), "{error}");
+    assert!(error.contains("unavailable for this target"), "{error}");
 }
 
 #[test]
@@ -118,6 +121,8 @@ fn yes_flag_is_scoped_to_exactly_one_valid_program_before_any_usb_access() {
     }
     invalid(&["program", "FIREWORKS", "--yes", "--manual-run"], 2);
     invalid(&["program", "FIREWORKS", "--yes", "--prepare-only"], 2);
+    invalid(&["program", "FIREWORKS", "--yes", "--dry-run"], 2);
+    invalid(&["program", "FIREWORKS", "--manual-run", "--dry-run"], 2);
 }
 
 #[test]
@@ -128,6 +133,7 @@ fn help_documents_the_one_command_flow() {
         .unwrap();
     let text = String::from_utf8_lossy(&result.stdout);
     assert!(text.contains("--yes"), "{text}");
+    assert!(text.contains("--dry-run"), "{text}");
     assert!(
         text.contains("--yes` deletes exactly that one program"),
         "{text}"

@@ -1,5 +1,5 @@
-//! Documented hplp F9 backup receiver. End-marker observation is deliberately
-//! separate from firmware-verified catalog completeness. No restore API exists.
+//! Official F9 synchronization receiver. Identical broadcast/directed repeats
+//! are retained as evidence; conflicting repeats prevent a complete snapshot.
 use crate::{DeviceError, Prime, PrimeFile, Result, program::decode_record};
 use std::time::{Duration, Instant};
 
@@ -13,8 +13,11 @@ pub struct BackupDecoder {
     pub records: Vec<PrimeFile>,
     pub terminal_observed: bool,
     pub total_bytes: usize,
+    pub received_records: usize,
+    pub repetitions: Vec<Repetition>,
     message: Vec<u8>,
     reports: usize,
+    decoded_bytes: usize,
 }
 impl BackupDecoder {
     pub fn push(&mut self, report: &[u8]) -> Result<()> {
@@ -49,7 +52,7 @@ impl BackupDecoder {
         if self.message.len() < 6 {
             return Ok(());
         }
-        if !matches!(self.message[0], 0xf7 | 0xf9) || self.message[1] != 1 {
+        if !matches!(self.message[0], 0xf7 | 0xf9) || !matches!(self.message[1], 1 | 3) {
             return Err(DeviceError::Protocol(
                 "unrecognized backup record header".into(),
             ));
@@ -59,10 +62,34 @@ impl BackupDecoder {
             .checked_add(6)
             .filter(|n| *n <= MAX_MESSAGE)
             .ok_or_else(|| DeviceError::Protocol("invalid backup declared length".into()))?;
-        if self.message[0] == 0xf9 {
-            // prime_data_size and calc_prime_r_recv_file in pinned hplp:
-            // the empty version-1 F9 packet terminates the backup stream.
-            if length != 6 {
+        if self.message.len() < length {
+            return Ok(());
+        }
+        let raw = self.message[..length].to_vec();
+        self.accept_message(&raw)?;
+        // HID bytes beyond the logical length are unspecified padding.
+        self.message.clear();
+        self.reports = 0;
+        Ok(())
+    }
+    fn accept_message(&mut self, raw: &[u8]) -> Result<()> {
+        if self.terminal_observed
+            || raw.len() < 6
+            || raw.len() > MAX_MESSAGE
+            || !matches!(raw[1], 1 | 3)
+        {
+            return Err(DeviceError::Protocol(
+                "invalid inventory logical message".into(),
+            ));
+        }
+        let declared = u32::from_be_bytes(raw[2..6].try_into().unwrap()) as usize;
+        if declared.checked_add(6) != Some(raw.len()) {
+            return Err(DeviceError::Protocol(
+                "inventory declared length mismatch".into(),
+            ));
+        }
+        if raw[0] == 0xf9 {
+            if declared != 0 {
                 return Err(DeviceError::Protocol(
                     "unsupported F9 terminal payload".into(),
                 ));
@@ -70,42 +97,73 @@ impl BackupDecoder {
             self.terminal_observed = true;
             return Ok(());
         }
-        if length < 10 {
-            return Err(DeviceError::Protocol("invalid F7 record length".into()));
+        if raw[0] != 0xf7 || raw.len() < 10 {
+            return Err(DeviceError::Protocol(
+                "invalid inventory object command".into(),
+            ));
         }
-        if self.message.len() < length {
-            return Ok(());
-        }
-        if self.records.len() >= MAX_RECORDS {
+        if self.received_records >= MAX_RECORDS {
             return Err(DeviceError::Protocol("backup record limit exceeded".into()));
         }
-        let file = decode_record(&self.message[..length])?;
-        if self
+        let file = decode_record(raw)?;
+        self.decoded_bytes = self
+            .decoded_bytes
+            .checked_add(file.data.len() + 10 + file.name.len() * 2)
+            .filter(|n| *n <= MAX_TOTAL)
+            .ok_or_else(|| {
+                DeviceError::Protocol("decoded inventory total limit exceeded".into())
+            })?;
+        let record_index = self.received_records;
+        self.received_records += 1;
+        if let Some(first_index) = self
             .records
             .iter()
-            .any(|f| f.ty == file.ty && f.name == file.name)
+            .position(|f| f.ty == file.ty && f.name == file.name)
         {
-            return Err(DeviceError::Protocol("duplicate backup object".into()));
+            self.repetitions.push(Repetition {
+                record_index,
+                first_index,
+                identical: self.records[first_index].data == file.data,
+                record: file,
+            });
+        } else {
+            self.records.push(file);
         }
-        self.records.push(file);
-        // Reports are fixed-size on the tested G1; bytes after the declared
-        // packet length are unspecified HID padding, not a second object.
-        // Never parse that padding (which may contain stale private bytes).
-        self.message.clear();
-        self.reports = 0;
         Ok(())
     }
 }
 
+/// An actual repeated F7 record, retained separately from the unique catalog.
+/// Firmware emits broadcast and directed copies during F9 synchronization.
+#[derive(Clone, Debug)]
+pub struct Repetition {
+    pub record_index: usize,
+    pub first_index: usize,
+    pub identical: bool,
+    pub record: PrimeFile,
+}
+
+pub fn supported_profile(product_id: u16, info: &crate::CalcInfo) -> bool {
+    product_id == 0x1541
+        && info.build == Some(15157)
+        && info.version.as_deref() == Some("V0.050.640")
+}
+
 pub struct Inventory {
+    pub complete: bool,
+    pub received_records: usize,
+    pub repetitions: Vec<Repetition>,
     pub records: Vec<PrimeFile>,
     pub terminal_observed: bool,
     pub reason: String,
 }
 impl Prime {
-    /// Read-only F9; no inferred completion, mutations, resends or unbounded logs.
-    /// A caller must close the connection if no terminal was consumed.
+    /// Read-only F9. Completeness requires the reference profile, valid terminal,
+    /// consistent records and matching before/after device identity. Incomplete
+    /// exchanges retire the connection. Mode 1 is recommended for large dumps.
     pub fn receive_inventory(&mut self) -> Result<Inventory> {
+        let before = self.info()?;
+        let profile = supported_profile(self.detected.product_id, &before);
         self.drain();
         self.send_message(&[0xf9])?;
         let deadline = Instant::now() + Duration::from_secs(MAX_SECONDS);
@@ -115,12 +173,39 @@ impl Prime {
         let mut parse_error = None;
         let mut received = 0usize;
         let reason = loop {
+            if self.mode == crate::TransportMode::Mode1 {
+                if Instant::now() >= deadline {
+                    break "inventory response deadline reached".into();
+                }
+                match self.recv_message(0xf7, "inventory object", Duration::from_secs(5)) {
+                    Ok(raw) => {
+                        received += raw.len();
+                        if received > MAX_TOTAL {
+                            break "inventory total limit exceeded".into();
+                        }
+                        if let Err(error) = decoder.accept_message(&raw) {
+                            break error.to_string();
+                        }
+                        if decoder.terminal_observed {
+                            break "F9 terminal observed".into();
+                        }
+                        continue;
+                    }
+                    Err(error) => break error.to_string(),
+                }
+            }
             if Instant::now() >= deadline || last.elapsed() >= Duration::from_secs(5) {
                 break parse_error.unwrap_or_else(|| "backup response deadline reached".into());
             }
             match self.dev.read_timeout(&mut report, 100) {
                 Ok(0) => continue,
                 Ok(n) if n <= report.len() => {
+                    self.log.push(crate::Exchange {
+                        at: self.started.elapsed(),
+                        outgoing: false,
+                        drained: false,
+                        bytes: report[..n].to_vec(),
+                    });
                     last = Instant::now();
                     received += n;
                     if received > MAX_TOTAL {
@@ -136,14 +221,44 @@ impl Prime {
                         continue;
                     }
                     if decoder.terminal_observed {
-                        break "F9 terminal observed; completeness on this firmware remains unverified".into();
+                        break "F9 terminal observed".into();
                     }
                 }
                 Ok(_) => break "oversized HID report".into(),
                 Err(e) => break e.to_string(),
             }
         };
+        let mut reason = reason;
+        let conflicting = decoder.repetitions.iter().any(|r| !r.identical);
+        let mut complete = decoder.terminal_observed && profile && !conflicting;
+        if complete {
+            match self.info() {
+                Ok(after)
+                    if after.serial.is_some()
+                        && after.serial == before.serial
+                        && after.build == before.build
+                        && after.version == before.version => {}
+                Ok(_) => {
+                    complete = false;
+                    reason = "device identity changed or unavailable after inventory".into();
+                }
+                Err(error) => {
+                    complete = false;
+                    reason = format!("post-inventory identity failed: {error}");
+                }
+            }
+        } else if conflicting {
+            reason = "conflicting repeated objects; inventory is ambiguous".into();
+        } else if decoder.terminal_observed && !profile {
+            reason = "F9 terminal observed on an unverified device profile".into();
+        }
+        if !complete {
+            self.retired = Some(reason.clone());
+        }
         Ok(Inventory {
+            complete,
+            received_records: decoder.received_records,
+            repetitions: decoder.repetitions,
             records: decoder.records,
             terminal_observed: decoder.terminal_observed,
             reason,
@@ -186,7 +301,9 @@ mod tests {
         let raw = encode_file_message(0xf7, FileType::Program, "P", &[0; 100]);
         let mut d = BackupDecoder::default();
         feed(&mut d, &raw).unwrap();
-        assert!(feed(&mut d, &raw).is_err());
+        feed(&mut d, &raw).unwrap();
+        assert_eq!(d.records.len(), 1);
+        assert!(d.repetitions[0].identical);
         assert!(BackupDecoder::default().push(&[1, 0xf7]).is_err());
         assert!(
             BackupDecoder::default()
@@ -222,39 +339,47 @@ mod tests {
         assert!(decoder.records.is_empty());
         assert!(!decoder.terminal_observed);
     }
-    #[test]
-    fn backup_request_is_exactly_one_documented_byte_and_never_a_restore() {
+    // Synthetic transport; no physical calculator is opened.
+    fn snapshot(messages: Vec<Vec<u8>>, build: u16) -> Prime {
         use std::collections::VecDeque;
         struct ReadOnly {
             sent: bool,
+            stream: Vec<Vec<u8>>,
             replies: VecDeque<Vec<u8>>,
+            build: u16,
         }
         impl crate::Transport for ReadOnly {
             fn write(&mut self, report: &[u8]) -> Result<usize> {
-                assert!(!self.sent, "read-only backup is never resent");
-                assert_eq!(report, [0, 0, 0xf9]);
-                self.sent = true;
+                let messages = match report {
+                    [0, 0, 0xfa] => {
+                        let mut raw = vec![0xfa, 1, 0, 0, 0, 108];
+                        let mut body = vec![0; 108];
+                        body[72..74].copy_from_slice(&self.build.to_le_bytes());
+                        body[76..86].copy_from_slice(b"V0.050.640");
+                        body[92..102].copy_from_slice(b"0123456789");
+                        raw.extend(body);
+                        vec![raw]
+                    }
+                    [0, 0, 0xf9] => {
+                        assert!(!self.sent, "F9 never retried");
+                        self.sent = true;
+                        self.stream.clone()
+                    }
+                    _ => panic!("unexpected mutation or request {report:02x?}"),
+                };
+                for raw in messages {
+                    self.replies
+                        .extend(Prime::frame(&raw, 64).iter().map(|r| r[1..].to_vec()));
+                }
                 Ok(report.len())
             }
             fn read_timeout(&mut self, out: &mut [u8], _: i32) -> Result<usize> {
-                if !self.sent {
-                    return Ok(0);
-                }
                 if let Some(report) = self.replies.pop_front() {
                     out[..report.len()].copy_from_slice(&report);
                     Ok(report.len())
                 } else {
                     Ok(0)
                 }
-            }
-        }
-        let mut replies = VecDeque::new();
-        for raw in [
-            encode_file_message(0xf7, FileType::Program, "EXISTING", &[0; 100]),
-            vec![0xf9, 1, 0, 0, 0, 0],
-        ] {
-            for report in Prime::frame(&raw, 64) {
-                replies.push_back(report[1..].to_vec());
             }
         }
         let detected = crate::Detected {
@@ -268,16 +393,56 @@ mod tests {
             release: 0,
             interface: 0,
         };
-        let mut prime = Prime::with_transport(
+        Prime::with_transport(
             detected,
             Box::new(ReadOnly {
                 sent: false,
-                replies,
+                stream: messages,
+                replies: VecDeque::new(),
+                build,
             }),
-        );
+        )
+    }
+    #[test]
+    fn complete_empty_inventory_requires_terminal_and_reference_identity() {
+        let terminal = vec![0xf9, 1, 0, 0, 0, 0];
+        let mut prime = snapshot(vec![terminal.clone()], 15157);
         let inventory = prime.receive_inventory().unwrap();
-        assert!(inventory.terminal_observed);
-        assert_eq!(inventory.records.len(), 1);
-        assert!(inventory.reason.contains("unverified"));
+        assert!(inventory.complete && inventory.records.is_empty());
+        let mut prime = snapshot(vec![terminal], 15158);
+        assert!(!prime.receive_inventory().unwrap().complete);
+        assert!(prime.check_ready().is_err(), "unverified session retired");
+    }
+    #[test]
+    fn identical_repeats_are_evidence_but_conflicting_repeats_prevent_completeness() {
+        let a = encode_file_message(0xf7, FileType::Program, "ALPHA", &[1, 2]);
+        let b = encode_file_message(0xf7, FileType::Program, "BETA", &[3, 4]);
+        let changed = encode_file_message(0xf7, FileType::Program, "ALPHA", &[5, 6]);
+        let terminal = vec![0xf9, 1, 0, 0, 0, 0];
+        let mut prime = snapshot(vec![a.clone(), a.clone(), b, terminal.clone()], 15157);
+        let inventory = prime.receive_inventory().unwrap();
+        assert!(inventory.complete);
+        assert_eq!(inventory.records.len(), 2);
+        assert_eq!(inventory.received_records, 3);
+        assert_eq!(inventory.repetitions.len(), 1);
+        assert!(inventory.repetitions[0].identical);
+        let mut prime = snapshot(vec![a, changed, terminal], 15157);
+        let inventory = prime.receive_inventory().unwrap();
+        assert!(!inventory.complete && inventory.reason.contains("ambiguous"));
+        assert!(!inventory.repetitions[0].identical);
+        assert!(prime.check_ready().is_err());
+    }
+    #[test]
+    fn missing_terminal_and_truncated_record_cannot_be_complete() {
+        let mut d = BackupDecoder::default();
+        feed(
+            &mut d,
+            &encode_file_message(0xf7, FileType::Program, "ALPHA", &[0; 100]),
+        )
+        .unwrap();
+        assert!(!d.terminal_observed);
+        let mut prime = snapshot(vec![vec![0xf7, 1, 0, 0, 0, 100]], 15157);
+        let inventory = prime.receive_inventory().unwrap();
+        assert!(!inventory.complete && inventory.records.is_empty());
     }
 }

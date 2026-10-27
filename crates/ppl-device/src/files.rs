@@ -112,25 +112,42 @@ impl PrimeFile {
 }
 
 pub fn encode_file_message(cmd: u8, ty: FileType, name: &str, data: &[u8]) -> Vec<u8> {
+    encode_file_message_format(cmd, 1, ty, name, data)
+}
+
+pub fn encode_file_message_format(
+    cmd: u8,
+    format: u8,
+    ty: FileType,
+    name: &str,
+    data: &[u8],
+) -> Vec<u8> {
     let mut name16: Vec<u8> = name.encode_utf16().flat_map(u16::to_le_bytes).collect();
     if cmd == crate::CMD_REQ_FILE && !name16.ends_with(&[0, 0]) {
         name16.extend_from_slice(&[0, 0]);
     }
     let size = (4 + name16.len() + data.len()) as u32;
-    let mut m = vec![cmd, 0x01];
+    let mut m = vec![cmd, format];
     m.extend_from_slice(&size.to_be_bytes());
     m.push(ty.code());
     m.push(name16.len() as u8);
     m.extend_from_slice(&[0, 0]);
     m.extend_from_slice(&name16);
     m.extend_from_slice(data);
-    let crc = crc16(&m[..size as usize]);
+    let crc_len = if format == 1 { size as usize } else { m.len() };
+    let crc = crc16(&m[..crc_len]);
     m[8] = crc as u8;
     m[9] = (crc >> 8) as u8;
     m
 }
 
 pub fn decode_file_message(raw: &[u8]) -> Result<PrimeFile> {
+    let envelope = if raw.first() == Some(&0xf7) {
+        crate::envelope::file(raw)?
+    } else {
+        std::borrow::Cow::Borrowed(raw)
+    };
+    let raw = envelope.as_ref();
     if raw.len() < 10 {
         return Err(DeviceError::Protocol(format!(
             "file message too short ({} bytes)",
@@ -138,7 +155,10 @@ pub fn decode_file_message(raw: &[u8]) -> Result<PrimeFile> {
         )));
     }
     let declared = u32::from_be_bytes(raw[2..6].try_into().unwrap()) as usize;
-    if raw[1] != 1 || declared.checked_add(6) != Some(raw.len()) {
+    if !matches!(raw[1], 1 | 3)
+        || (raw[1] == 3 && !matches!(raw[0], 0xf7 | 0xeb))
+        || declared.checked_add(6) != Some(raw.len())
+    {
         return Err(DeviceError::Protocol(
             "file header/declared length mismatch".into(),
         ));
@@ -154,7 +174,7 @@ pub fn decode_file_message(raw: &[u8]) -> Result<PrimeFile> {
     let mut copy = raw.to_vec();
     copy[8] = 0;
     copy[9] = 0;
-    let computed = crc16(&copy[..raw.len().saturating_sub(6)]);
+    let computed = crc16(&copy[..crate::envelope::crc_length(raw, declared)]);
     let units: Vec<u16> = raw[10..10 + namelen]
         .chunks_exact(2)
         .map(|c| u16::from_le_bytes([c[0], c[1]]))
@@ -220,5 +240,30 @@ mod deletion_fixture_tests {
             crate::Prime::frame(&fixture, 64)[0],
             [&[0, 0][..], &fixture].concat()
         );
+    }
+
+    #[test]
+    fn connectivity_kit_v3_eb_fixture_has_full_crc_and_format_three() {
+        // Format 3 EB: byte 1 is 0x03, CRC covers entire message (26 bytes).
+        // Traced in CK x86 0x5a2d20 / x64 0x1401ee980 (add declared, 6).
+        let fixture = [
+            0xeb, 0x03, 0, 0, 0, 0x14, 0x06, 0x10, 0x6e, 0xac, 0x5a, 0, 0x5a, 0, 0x54, 0, 0x5f, 0,
+            0x54, 0, 0x45, 0, 0x53, 0, 0x54, 0,
+        ];
+        assert_eq!(
+            super::encode_file_message_format(
+                crate::CMD_DELETE_OBJECT,
+                3,
+                super::FileType::Program,
+                "ZZT_TEST",
+                &[]
+            ),
+            fixture
+        );
+        let decoded = super::decode_file_message(&fixture).unwrap();
+        assert_eq!(decoded.name, "ZZT_TEST");
+        assert_eq!(decoded.ty, super::FileType::Program);
+        assert!(decoded.crc_ok);
+        assert!(decoded.data.is_empty());
     }
 }

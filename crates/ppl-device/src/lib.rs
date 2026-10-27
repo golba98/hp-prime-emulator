@@ -61,6 +61,7 @@ pub use delete::{
 pub use files::{FileType, PrimeFile};
 
 pub mod control;
+mod envelope;
 pub mod guard;
 pub mod info;
 pub mod inventory;
@@ -75,6 +76,7 @@ pub mod remote;
 pub mod run;
 pub mod screenshot;
 pub mod session;
+pub mod settings;
 pub mod transport;
 
 pub use guard::{
@@ -613,7 +615,13 @@ impl Prime {
                 expected = Some(match cmd {
                     Some(CMD_CHECK_READY) => 1,
                     _ if data.first() == Some(&crate::transport::READY_REPLY) => 1,
-                    _ if data.len() >= 6 && data[1] == 0x01 => {
+                    // Version 3 uses the same outer length. F7 decompression
+                    // and its full-message CRC are checked by the file decoder.
+                    _ if data.len() >= 6
+                        && (data[1] == 0x01
+                            || (data[1] == 3
+                                && matches!(data[0], CMD_GET_INFO | CMD_FILE | 0xf9))) =>
+                    {
                         u32::from_be_bytes([data[2], data[3], data[4], data[5]]) as usize + 6
                     }
                     _ => {
@@ -791,13 +799,24 @@ impl Prime {
     ///
     /// Wire evidence (Connectivity Kit 2.4.2, `CConKitApp` delete
     /// dispatcher at `0x1400589f0` in `ConnectivityKit.exe`): the CK
-    /// builds a standard `F7` file message (type byte, length-prefixed
+    /// builds a standard file message (type byte, length-prefixed
     /// UTF-16LE name, CRC-16/XMODEM) and overwrites the command byte
-    /// with `0xEB`. Types are the usual object codes (`0x05` note,
-    /// `0x06` program). The calculator sends no acknowledgment; the
+    /// with `0xEB`. The wire format (format 1 or format 3) matches the active
+    /// connection format, and CRC covers `size` bytes in format 1 or full message
+    /// in format 3. The calculator sends no acknowledgment; the
     /// caller must verify the deletion through [`delete::verify_deleted`]
     /// before reporting success. The message is never retried.
+    #[allow(dead_code)]
     pub(crate) fn delete_object(&mut self, ty: FileType, name: &str) -> Result<()> {
+        self.delete_object_format(1, ty, name)
+    }
+
+    pub(crate) fn delete_object_format(
+        &mut self,
+        format: u8,
+        ty: FileType,
+        name: &str,
+    ) -> Result<()> {
         // Reachable only through a DeleteGuard, which re-validates every
         // target under its own policy; this is the final per-object check.
         validate_object_name(ty, name)?;
@@ -809,10 +828,15 @@ impl Prime {
                 "`{name}` is a protected object and cannot be deleted"
             )));
         }
+        if !matches!(format, 1 | 3) {
+            return Err(DeviceError::Refused(format!(
+                "unsupported deletion wire format {format}"
+            )));
+        }
         let start = self.log.len();
         self.drain();
         self.ensure_quiet(start, &[name.into()])?;
-        let msg = files::encode_file_message(CMD_DELETE_OBJECT, ty, name, &[]);
+        let msg = files::encode_file_message_format(CMD_DELETE_OBJECT, format, ty, name, &[]);
         self.send_message(&msg)
     }
 

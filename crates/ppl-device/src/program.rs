@@ -30,9 +30,8 @@ impl crate::Prime {
 }
 
 pub fn decode_record(raw: &[u8]) -> Result<PrimeFile> {
-    if raw.len() < 10 || raw[0] != 0xf7 || raw[1] != 1 {
-        return Err(DeviceError::Protocol("invalid F7 record header".into()));
-    }
+    let envelope = crate::envelope::file(raw)?;
+    let raw = envelope.as_ref();
     let declared = u32::from_be_bytes(raw[2..6].try_into().unwrap()) as usize;
     let name_bytes = raw[7] as usize;
     if declared.checked_add(6) != Some(raw.len())
@@ -44,7 +43,7 @@ pub fn decode_record(raw: &[u8]) -> Result<PrimeFile> {
     let mut checked = raw.to_vec();
     let embedded = u16::from_le_bytes([checked[8], checked[9]]);
     checked[8..10].fill(0);
-    if crc16(&checked[..declared]) != embedded {
+    if crc16(&checked[..crate::envelope::crc_length(raw, declared)]) != embedded {
         return Err(DeviceError::Protocol("file CRC mismatch".into()));
     }
     let name = utf16(&raw[10..10 + name_bytes])?;

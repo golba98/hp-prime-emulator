@@ -884,6 +884,13 @@ pub fn delete_via_usb<F>(
 where
     F: FnMut(DeleteEvent),
 {
+    // EB is evidenced on legacy framing only. In particular, the legacy
+    // submission journal cannot reliably classify Mode 1 write attempts.
+    if p.mode != crate::TransportMode::Legacy {
+        return Err(DeviceError::Refused(
+            "USB deletion requires the verified legacy transport; reconnect before deleting".into(),
+        ));
+    }
     if guard.created.elapsed() > crate::GUARD_MAX_AGE
         || !guard
             .owner
@@ -893,6 +900,36 @@ where
         return Err(DeviceError::Refused(
             "deletion guard expired or belongs to another connection".into(),
         ));
+    }
+    // Enforce the verified profile at the low-level submission boundary too,
+    // including callers that did not use the program CLI's profile gate.
+    let info = p.info()?;
+    let wire_format = match info.raw.get(1).copied() {
+        Some(1) => 1,
+        Some(3) => 3,
+        Some(other) => {
+            return Err(DeviceError::Refused(format!(
+                "USB deletion requires verified wire format 1 or 3; format {other} is unsupported"
+            )));
+        }
+        None => {
+            return Err(DeviceError::Refused(
+                "USB deletion requires verified wire format; identity reply missing format byte"
+                    .into(),
+            ));
+        }
+    };
+    if !direct_delete_supported(p.detected.product_id, info.build, info.version.as_deref()) {
+        return Err(DeviceError::Refused(
+            "unsupported device: USB deletion requires the verified G1 firmware profile".into(),
+        ));
+    }
+    if let Some(expected) = &guard.baseline {
+        if Baseline::from_info(&info)? != *expected {
+            return Err(DeviceError::Refused(
+                "device identity changed during the operation".into(),
+            ));
+        }
     }
     let targets: Vec<_> = guard
         .backups
@@ -934,7 +971,7 @@ where
                 start,
                 &targets.iter().map(|t| t.name.clone()).collect::<Vec<_>>(),
             )?;
-            p.delete_object(b.ty, &b.name)
+            p.delete_object_format(wire_format, b.ty, &b.name)
         })();
         // write_report journals an attempt BEFORE touching the transport. A
         // failed/short write is possibly applied, never safely retryable.

@@ -2659,6 +2659,7 @@ dependencies = [
 name = "ppl-device"
 version = "0.2.0"
 dependencies = [
+ "flate2",
  "fs2",
  "getrandom 0.3.4",
  "hidapi",

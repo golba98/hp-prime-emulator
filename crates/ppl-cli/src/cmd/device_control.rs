@@ -16,7 +16,7 @@ use std::{
 
 #[derive(Debug, Subcommand)]
 pub enum ProgramsAction {
-    /// Receive the read-only F9 backup stream; completeness remains unverified.
+    /// Receive a live F9 inventory with explicit completeness and repeated-record evidence.
     List,
     /// Retrieve exact physical UTF-16LE source, including original line endings.
     Show { name: String },
@@ -145,13 +145,13 @@ pub(super) fn capabilities(device: &Value) -> Value {
         && device["firmware_build"] == json!(15157)
         && device["boot_version"] == json!("V0.050.640");
     json!({"screenshot":reference,"program_read":reference,"program_upload":reference,
-        "program_delete":reference,"program_inventory":false,"remote_keys":false,
+        "program_delete":reference,"program_inventory":reference,"remote_keys":false,
         "remote_navigation":false,"remote_execution":false,
         "physical_error_capture":"screenshots_only",
         "firmware_emulator_check":super::device_diagnose::firmware_available(),
         "firmware_emulator_check_verification":"local_backend_configuration_not_physical_acceptance",
         "verified_actions":[],"verification_scope":if reference {"g1_15157_existing_hardware_evidence"} else {"unverified_profile"},
-        "inventory_verification":"unverified","remote_input_verification":if reference {"tested_ec_encoding_ineffective"}else{"unverified_profile"},
+        "inventory_verification":if reference {"g1_15157_f9_terminal_and_identity"} else {"unverified_profile"},"remote_input_verification":if reference {"tested_ec_encoding_ineffective"}else{"unverified_profile"},
         "authorization_required":["upload","delete","remote_input","execution"]})
 }
 
@@ -290,9 +290,11 @@ impl Owner {
                     report["status"] = json!("valid");
                 }
                 Request::Inventory => {
-                    let inventory = self.prime()?.receive_inventory()?;
+                    let prime = self.prime()?;
+                    prime.ensure_mode1()?;
+                    let inventory = prime.receive_inventory()?;
                     let programs:Vec<_> = inventory.records.iter().filter(|f| f.ty == FileType::Program)
-                        .map(|f| json!({"name":f.name,"size_bytes":f.data.len(),"size_kind":"wire_payload",
+                        .map(|f| json!({"name":f.name,"object_type":f.ty.code(),"size_bytes":f.data.len(),"size_kind":"wire_payload",
                             "status":"present","sha256":ppl_compat::sha256_hex(&f.data),"crc_verified":true})).collect();
                     let other: Vec<_> = inventory
                         .records
@@ -302,13 +304,33 @@ impl Owner {
                         .collect();
                     report["programs"] = json!(programs);
                     report["unknown_objects"] = json!(other);
-                    report["inventory"] = json!({"completeness":"inventory_incomplete","complete":false,
-                        "method":"hplp_f9_backup","terminal_observed":inventory.terminal_observed,
-                        "record_count":inventory.records.len(),"reason":inventory.reason});
-                    failure(&mut report, "inventory_incomplete", 9, &inventory.reason);
-                    // Until terminal behavior has a verified hardware profile,
-                    // this connection cannot safely return to command service.
-                    self.prime = None;
+                    let repetitions: Vec<_> = inventory.repetitions.iter().map(|r| json!({
+                        "record_index":r.record_index,"first_unique_index":r.first_index,
+                        "name":r.record.name,"object_type":r.record.ty.code(),"identical":r.identical,
+                        "size_bytes":r.record.data.len(),"sha256":ppl_compat::sha256_hex(&r.record.data)
+                    })).collect();
+                    let records: Vec<_> = inventory
+                        .records
+                        .iter()
+                        .map(|f| {
+                            json!({
+                                "name":f.name,"object_type":f.ty.code(),"size_bytes":f.data.len(),
+                                "sha256":ppl_compat::sha256_hex(&f.data),"crc_verified":f.crc_ok
+                            })
+                        })
+                        .collect();
+                    report["inventory"] = json!({"completeness":if inventory.complete {"complete"} else {"inventory_incomplete"},
+                        "complete":inventory.complete,"source":"live","cached":false,
+                        "method":"hplp_f9_backup","protocol_evidence":"official_f9_sync","terminal_observed":inventory.terminal_observed,
+                        "record_count":inventory.records.len(),"received_record_count":inventory.received_records,
+                        "repetitions":repetitions,"records":records,"reason":inventory.reason});
+                    if inventory.complete {
+                        report["status"] = json!("valid");
+                        report["completion_verified"] = json!(true);
+                    } else {
+                        failure(&mut report, "inventory_incomplete", 9, &inventory.reason);
+                        self.prime = None;
+                    }
                 }
             }
             Ok(())
@@ -610,7 +632,12 @@ pub fn run(opts: &DeviceOpts) -> u8 {
         ) {
             if let Some(programs) = report["programs"].as_array() {
                 println!(
-                    "HP Prime — partial installed-program inventory (completeness unverified)\n\nNAME                             PAYLOAD BYTES  STATUS"
+                    "HP Prime — {} installed-program inventory\n\nNAME                             PAYLOAD BYTES  STATUS",
+                    if report["inventory"]["complete"] == true {
+                        "complete live"
+                    } else {
+                        "incomplete live"
+                    }
                 );
                 for program in programs {
                     let name = program["name"]
@@ -629,7 +656,13 @@ pub fn run(opts: &DeviceOpts) -> u8 {
                         .as_str()
                         .unwrap_or("inventory incomplete")
                 );
-                return report["error"]["exit_code"].as_u64().unwrap_or(9) as u8;
+                return report["error"]["exit_code"].as_u64().unwrap_or(
+                    if report["inventory"]["complete"] == true {
+                        0
+                    } else {
+                        9
+                    },
+                ) as u8;
             }
         }
     }
@@ -980,14 +1013,15 @@ mod tests {
             json!({"usb_pid":0x1541,"firmware_build":15157,"boot_version":"V0.050.640"}),
         ] {
             let caps = capabilities(&id);
-            for name in [
-                "remote_keys",
-                "remote_navigation",
-                "remote_execution",
-                "program_inventory",
-            ] {
+            for name in ["remote_keys", "remote_navigation", "remote_execution"] {
                 assert_eq!(caps[name], false);
             }
+            assert_eq!(
+                caps["program_inventory"],
+                id["usb_pid"] == 0x1541
+                    && id["firmware_build"] == 15157
+                    && id["boot_version"] == "V0.050.640"
+            );
         }
     }
 }

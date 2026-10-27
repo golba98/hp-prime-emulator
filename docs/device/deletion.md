@@ -17,11 +17,10 @@ ppl device send ZZT_NOTE ./note.txt --note
 ppl device delete note ZZT_NOTE --json
 ```
 
-`send` retains its existing typed name confirmation and guarded creation
-checks. Deleting a disposable `ZZT_*` object requires no prompt for a matching
-creation receipt. Ordinary non-`ZZT_` programs sent with `send` are
-audit-logged only (no receipt or ledger entry): they are never test-cleanup
-candidates, but can be deleted deliberately (next section).
+`send` retains its existing guarded creation checks. Program deletion now
+requires explicit authorization for every name, including `ZZT_*`; a creation
+receipt does not authorize it. These commands describe historical physical
+evidence, not a new authorization to use hardware.
 The physical demonstration used these exact names with fresh objects, then
 verified each absence on a new USB connection. No helper was uploaded or
 executed. An unrelated, freshly created sentinel note remained unchanged.
@@ -32,6 +31,7 @@ executed. An unrelated, freshly created sentinel note remained unchanged.
 ppl device delete program FIREWORKS --yes       # one command, no interaction
 ppl device delete program FIREWORKS --yes --json # same, machine-readable
 ppl device delete program FIREWORKS              # asks you to type the name
+ppl device delete program FIREWORKS --dry-run    # read-only preflight
 ppl device delete note MyNote                    # notes: always asks
 ppl device get program FIREWORKS --out /tmp/FIREWORKS-backup.hpprgm   # optional
 ```
@@ -113,8 +113,8 @@ with `ZZT_*` names.
 
    Matching is case-sensitive and exact (only the line ending is ignored).
    Anything else cancels with nothing transmitted; the backup is kept.
-   Piped input and `--json` never prompt and are always refused; there is no
-   `--force` or `--yes`.
+   Piped input and `--json` never prompt and cannot replace `--yes`; there is
+   no `--force`.
 5. Record `authorization.json` (method, device, type, name, SHA-256) and the
    `submitting` state durably.
 6. Re-probe the control and target, require unchanged content, send one `EB`.
@@ -161,6 +161,13 @@ An unresolved operation blocks new deletions of that target until it is
 confirmed. Operation IDs keep the internal `ZZT_Dxxxxx` form regardless of
 the object name.
 
+**Dry run.** `--dry-run` identifies the calculator, checks the supported profile
+and liveness anchor, checks existing pending records, and reads the target twice
+with CRC validation. It sends no `EB`, creates no backup or authorization record,
+and returns `result: "dry_run"`, never `confirmed_deleted`. It conflicts with
+`--yes`, `--manual-run`, and `--prepare-only`. Its unlocked journal check is
+advisory; a real deletion repeats all checks while holding the journal lock.
+
 **Recovery.** The `.bin` backup is the exact byte stream the calculator sent
 (UTF-16LE source text for programs and notes). Re-sending it with
 `ppl device send` is the expected recovery route, but **restoration has not
@@ -187,18 +194,18 @@ different calculator, type or changed content never matches.
 Other types stay unsupported until fetch, raw backup and `EB` encoding are
 evidenced on hardware. No arbitrary-path or firmware/system deletion exists.
 
-**Physical testing.** Deleting a non-`ZZT_` object on a real calculator needs
-separate, explicit authorization from the owner. Until then the ordinary path
-is verified only against the in-memory mock transport, plus the read-only
-anchor probe above; the first physical check should use a throw-away program
-(`send` one, then `delete ... --yes`). Only build 15157 / `V0.050.640` is
-supported; other firmware and the G2 are refused.
+**Physical testing.** The current program CLI flow has only mock coverage;
+historical physical EB evidence predates this change. Creating or deleting a
+disposable program requires separate owner authorization for each stage. See
+[program deletion acceptance](PROGRAM_DELETION_ACCEPTANCE.md). Only build
+15157 / `V0.050.640` is supported; other firmware and the G2 are refused.
 
 ## Test-object (`ZZT_*`) deletion
 
-Everything below describes the disposable-test path: `ZZT_*` names, creation
-receipts, optional batches of up to 32, and the explicit manual helper. It is
-unchanged by ordinary-object deletion.
+The remaining sections describe historical disposable-test mechanisms and the
+retained note and recovery interfaces. They do not describe the current
+`delete program` command: program deletion always requires one name and
+explicit authorization, and refuses manual helper flags and batches.
 
 ## Mechanism and safety
 
@@ -280,7 +287,7 @@ ppl device delete verify program ZZT_TEST --json
 ppl device delete verify note ZZT_NOTE --json
 
 # Select a calculator using its cryptographic ID from device status.
-ppl device delete program ZZT_TEST --device SERIAL_ID --json
+ppl device delete program ZZT_TEST --device SERIAL_ID --yes --json
 ```
 
 Keep the operation store and its backups together. Recovery refuses records
@@ -293,7 +300,6 @@ verification may establish a delayed outcome; it does not cancel an operation.
 The established PPL catalog-assignment helper remains available explicitly:
 
 ```sh
-ppl device delete program ZZT_TEST --manual-run
 ppl device delete note ZZT_NOTE --prepare-only --json
 ppl device delete verify program ZZT_TEST --helper ZZT_Dxxxxx --json
 ```
@@ -363,3 +369,29 @@ The exact default demonstration is preserved in
 USB logs, independent query results, and immutable operation backups. Physical
 experiments created only fresh tool-owned `ZZT_*` objects. Existing personal
 programs and notes, settings, firmware and the clock were never modified.
+
+
+## Device-management protocol audit (2026-10-27)
+
+See [the Connectivity Kit audit](CONNECTIVITY_KIT_DELETE_PROTOCOL_AUDIT.md) for
+independently pinned official-client and newer firmware evidence. Live F9
+inventory now recognizes its real terminal and preserves repeated-record
+evidence; `ppl device programs list` reports completeness explicitly.
+
+Use `ppl device settings read home|cas --out PATH` and `settings verify home|cas
+--baseline PATH` for the actual type-0 binary settings objects. The older
+`calc.settings` anchor proves liveness only. Empty replies are not settings
+backups. CAS snapshot bytes vary across F9 synchronization; semantic settings
+preservation remains unresolved.
+
+The official client automatically attempts E7 clock synchronization and
+negotiates format 3. It must not be run unguarded during read-only acceptance.
+Rust now reads bounded plain/compressed format-3 F7 records with the correct
+full-message CRC. Physical deletion remains legacy transport, wire format 1;
+the CLI and low-level submission gate refuse format-3 mutation. A dry-run may
+read format 3 and reports `mutation_wire_format_supported: false`.
+
+All eight named programs, including the existing `ZZT_DEL901`, were independently
+read and matched their Stage A hashes. The target remains unchanged after a
+logged dry-run. No EB was transmitted. Stage A is not fully accepted and Stage B
+has not started. Historical transfer and deletion evidence above is unchanged.
