@@ -57,3 +57,18 @@ Claude retains hp-prime-runtime-parity. Runtime completion is not claimed.
 Integration requires Claude's committed checkpoint, validation and explicit
 handoff. Canonical ownership remains assigned to Codex; shared claim metadata
 and the ownership register require explicit release before another writer.
+
+## Checkout audit and completed removal
+
+| Original checkout | Branch | Audited HEAD | Status / owner | Final disposition |
+|---|---|---|---|---|
+| 3-HP Prime Emulator | main | 413251e | clean; released by Claude to Codex | canonical, now feat/g1-compat-integration |
+| hp-prime-file-compat | feat/hpprgm-file-compat | 0e94e51 | clean; Codex completed | evidence verified, worktree removed |
+| hp-prime-integration | integrate/diagnostic-and-location-parity | 06d4531 | clean; owner release confirmed | evidence verified, worktree removed |
+| hp-prime-location-parity | feat/ppl-location-parity | 2d5f14e | clean; owner release confirmed | evidence verified, worktree removed |
+| hp-prime-runtime-parity | feat/g1-runtime-parity | 06d4531 | dirty; active Claude ownership | protected and retained |
+
+All three removals completed using ordinary git worktree remove. Their
+branches remain. Final canonical source is clean and includes both merge
+histories. No unresolved merge conflicts remain. The remaining runtime
+checkout is intentionally excluded until its explicit handoff.

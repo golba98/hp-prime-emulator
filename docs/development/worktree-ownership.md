@@ -19,3 +19,7 @@ released only by its owner or explicit user coordination, never by timeout.
 Before runtime integration, Claude must supply a committed SHA, clean/dirty
 status, validation results and explicit handoff. Recheck all claims before
 writes. A written policy cannot itself prevent concurrent writes.
+
+Consolidation completed: the released file, location and integration worktrees
+were removed after hash-verified evidence preservation. Their branches remain.
+Canonical ownership stays with Codex; Claude's runtime checkout remains protected.
