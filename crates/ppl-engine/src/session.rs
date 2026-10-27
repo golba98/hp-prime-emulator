@@ -29,6 +29,13 @@ pub enum Command {
         request: u64,
         source: String,
     },
+    /// Check `source` with the original firmware compiler called directly
+    /// (no calculator UI driving); the verdict comes back in
+    /// `Event::Result.check`.
+    DirectCheck {
+        request: u64,
+        source: String,
+    },
     Run {
         request: u64,
         source: String,

@@ -49,6 +49,10 @@
    "path": "/tmp/ppl-ide-e2e/firmware_session_2_checked.png"
   },
   {
+   "step": "wait_ms",
+   "ms": 15000
+  },
+  {
    "step": "set_content",
    "content": "EXPORT FWCHK()\nBEGIN\n LOCAL θ:=π;\n RETURN θ+(π*2);\nEND;\n"
   },

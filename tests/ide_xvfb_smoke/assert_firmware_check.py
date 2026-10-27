@@ -117,11 +117,19 @@ if session_backend:
 else:
     check("the valid program ran and returned θ+2π", "9.42477796077" in console, console[-600:])
 
+direct = [l for l in console.splitlines() if "direct compiler call" in l]
+print(f"INFO direct firmware Checks: {len(direct)}; " + "; ".join(direct[:3]))
+check("later Checks used the direct firmware compiler call", len(direct) >= 3, len(direct))
+import re
+times = [float(m.group(1)) for l in direct for m in [re.search(r"call, (\d+) ms", l)] if m]
+check("every direct Check took under 1 s", times and max(times) < 1000, times)
+
 if len(sys.argv) > 2:
     # Samples of how many firmware runners the IDE process had as children.
     counts = [int(line.split()[1]) for line in open(sys.argv[2]) if len(line.split()) == 2]
-    # The firmware backend keeps its live session beside one fresh checker.
-    limit = 2 if session_backend else 1
+    # The warm direct checker runs beside at most one fresh checker; the
+    # firmware backend adds its live calculator session.
+    limit = 3 if session_backend else 2
     check(f"at most {limit} firmware process(es) at a time", max(counts, default=0) <= limit,
           max(counts, default=0))
     check("firmware processes were observed", max(counts, default=0) >= 1, "none sampled")

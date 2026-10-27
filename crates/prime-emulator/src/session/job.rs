@@ -1,7 +1,7 @@
 //! Same-session source replacement using documented Programs and AFilesB APIs.
 //! The host writes an app attachment; the guest loader performs the source assignment.
 use crate::{
-    checkprog, hpprgm, import, keys,
+    checkprog, direct, hpprgm, import, keys,
     memory::GuestMemory,
     runtime::{ExecutionRequest, ExecutionStatus},
     runtime_value::{self, FirmwareValue},
@@ -12,6 +12,7 @@ use crate::{
 use ppl_engine::session::{CheckVerdict, Event};
 use std::{
     path::Path,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
@@ -22,6 +23,8 @@ enum Stage {
     CheckTarget,
     Invoke,
     Execute,
+    /// A direct compiler call plan is running on the UI thread.
+    Direct,
 }
 pub struct Job {
     pub request: u64,
@@ -41,6 +44,12 @@ pub struct Job {
     check: Option<CheckVerdict>,
     /// Each finished UI script: stage, finish time and per-key timings.
     timeline: Vec<serde_json::Value>,
+    /// Check by a direct compiler call (`direct`) instead of the UI.
+    direct: bool,
+    direct_out: Option<Arc<Mutex<Option<direct::Outcome>>>>,
+    /// Guest-heap UTF-16 copy of `source` handed to the firmware.
+    direct_text: u32,
+    direct_started: Option<Instant>,
 }
 pub struct Request {
     pub request: u64,
@@ -56,6 +65,9 @@ pub struct Jobs {
     /// The catalog order last read from the guest's program reads.
     observed: Vec<String>,
     seen_fs: usize,
+    /// ZZT_IDE's program context, learned from the firmware's own compile in
+    /// `Programs("ZZT_IDE"):=source` during a loader run.
+    direct_ctx: Option<u32>,
 }
 impl Jobs {
     pub fn new() -> Self {
@@ -65,6 +77,7 @@ impl Jobs {
             catalog: Vec::new(),
             observed: Vec::new(),
             seen_fs: 0,
+            direct_ctx: None,
         }
     }
     pub fn accepts_input(&self) -> bool {
@@ -168,6 +181,10 @@ impl Jobs {
             reported_running: false,
             check: None,
             timeline: Vec::new(),
+            direct: false,
+            direct_out: None,
+            direct_text: 0,
+            direct_started: None,
         };
         if stage == Stage::CheckLoader {
             self.check_script(&mut job, "ZZT_LOADER", trace)?;
@@ -249,7 +266,64 @@ impl Jobs {
         job.script = Some(script(sequence));
         Ok(())
     }
+    /// Checks `source` by calling the firmware compiler directly. The first
+    /// request also runs the loader once, through the UI, to learn which
+    /// program context the firmware assigns ZZT_IDE's source to.
+    pub fn start_direct(
+        &mut self,
+        request: u64,
+        source: String,
+        mem: &GuestMemory,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> Result<(), String> {
+        let Some(ctx) = self.direct_ctx else {
+            self.start(
+                Request {
+                    request,
+                    source,
+                    entry: None,
+                    arguments: String::new(),
+                    run: false,
+                },
+                shared,
+                trace,
+            )?;
+            self.active.as_mut().unwrap().direct = true;
+            return Ok(());
+        };
+        if self.active.is_some() || shared.guest_calls.busy() {
+            return Err("The firmware is busy; stop the current operation first".into());
+        }
+        hpprgm::build_program(&source).map_err(|e| e.to_string())?;
+        let mut job = Job {
+            request,
+            source,
+            entry: None,
+            arguments: String::new(),
+            run: false,
+            stage: Stage::Direct,
+            script: None,
+            check_step: 0,
+            catalog_open: false,
+            catalog_start: 0,
+            started: Instant::now(),
+            execution_started: None,
+            reported_running: false,
+            check: None,
+            timeline: Vec::new(),
+            direct: true,
+            direct_out: None,
+            direct_text: 0,
+            direct_started: None,
+        };
+        begin_direct(&mut job, ctx, mem, shared, trace)?;
+        self.active = Some(job);
+        Ok(())
+    }
     fn load_script(&self, job: &mut Job, trace: &TraceHub) -> Result<(), String> {
+        // The loader's `Programs():=` compile identifies ZZT_IDE's context.
+        trace.compiler.as_ref().unwrap().reset();
         let observer = trace.runtime.as_ref().unwrap();
         observer.reset();
         observer.compiled();
@@ -266,8 +340,17 @@ impl Jobs {
         job.script = Some(script(runtime_value::invocation_keys("ZZTIDELOAD", &[])?));
         Ok(())
     }
-    pub fn cancel(&mut self) -> Option<u64> {
-        self.active.take().map(|j| j.request)
+    pub fn cancel(&mut self, mem: &GuestMemory, shared: &SharedState) -> Option<u64> {
+        let job = self.active.take()?;
+        if job.stage == Stage::Direct {
+            // A call in progress finishes on its own; one not yet started is
+            // dropped, and its source buffer is no longer referenced.
+            shared.guest_calls.cancel_pending();
+            if !shared.guest_calls.busy() && job.direct_text != 0 {
+                mem.heap_free(job.direct_text);
+            }
+        }
+        Some(job.request)
     }
     pub fn tick(
         &mut self,
@@ -382,8 +465,79 @@ impl Jobs {
                 if status != ExecutionStatus::Completed || !c.body_entered {
                     return Err(format!("Source loader failed: {status:?}"));
                 }
+                if job.direct {
+                    let sha = crate::sha256::hex(job.source.as_bytes());
+                    let snapshot = trace.compiler.as_ref().unwrap().snapshot();
+                    let ctx = snapshot
+                        .checks
+                        .iter()
+                        .filter(|c| {
+                            c.kind.as_deref() == Some("assign")
+                                && c.return_value.is_some()
+                                && c.sources.len() == 1
+                                && c.sources[0].sha256 == sha
+                        })
+                        .map(|c| c.program_va)
+                        .collect::<Vec<_>>();
+                    let [Some(ctx)] = ctx.as_slice() else {
+                        return Err("The loader's program assignment was not observed".into());
+                    };
+                    self.direct_ctx = Some(*ctx);
+                    return begin_direct(job, *ctx, mem, shared, trace).map(|()| None);
+                }
                 job.stage = Stage::CheckTarget;
                 self.check_script(job, "ZZT_IDE", trace)?;
+            }
+            Stage::Direct => {
+                let out = job
+                    .direct_out
+                    .as_ref()
+                    .and_then(|o| o.lock().unwrap().take());
+                let Some(outcome) = out else {
+                    if job
+                        .direct_started
+                        .is_some_and(|t| t.elapsed() > Duration::from_secs(60))
+                    {
+                        return Err("Direct firmware compiler call did not complete".into());
+                    }
+                    return Ok(None);
+                };
+                mem.heap_free(job.direct_text);
+                job.direct_text = 0;
+                let ctx = self
+                    .direct_ctx
+                    .ok_or("Direct check without a program context")?;
+                let snapshot = trace.compiler.as_ref().unwrap().snapshot();
+                job.timeline.push(serde_json::json!({
+                    "stage": "direct",
+                    "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                    "plan_ms": job.direct_started.map(|t| t.elapsed().as_secs_f64() * 1000.0),
+                    "outcome": outcome,
+                }));
+                let obs = direct::validate(&job.source, ctx, &outcome, &snapshot)?;
+                let accepted = obs.return_value == Some(1);
+                let diagnostics = if accepted {
+                    vec![]
+                } else {
+                    let d = checkprog::firmware_diagnostic(&job.source, &obs);
+                    vec![ppl_engine::firmware::diagnostic(
+                        &serde_json::to_value(d).map_err(|e| e.to_string())?,
+                    )]
+                };
+                job.check = Some(CheckVerdict {
+                    accepted,
+                    source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                    diagnostics,
+                });
+                if !accepted {
+                    return Err(obs
+                        .message
+                        .clone()
+                        .unwrap_or("The firmware rejected the program".into()));
+                }
+                let message = "G1 firmware compiled the exact current source (direct)".to_string();
+                save_report(shared, trace, job, true, &message);
+                return Ok(Some(message));
             }
             Stage::CheckTarget => {
                 let observations = trace.compiler.as_ref().unwrap().snapshot();
@@ -545,7 +699,41 @@ fn stage_name(stage: Stage, catalog: bool) -> &'static str {
         (Stage::CheckTarget, false) => "check-source",
         (Stage::Invoke, _) => "invoke",
         (Stage::Execute, _) => "execute",
+        (Stage::Direct, _) => "direct",
     }
+}
+/// Hands `job.source` to the firmware and starts the direct Check plan.
+fn begin_direct(
+    job: &mut Job,
+    ctx: u32,
+    mem: &GuestMemory,
+    shared: &SharedState,
+    trace: &TraceHub,
+) -> Result<(), String> {
+    let observer = trace
+        .compiler
+        .as_ref()
+        .ok_or("compiler observation is off")?;
+    observer.reset();
+    observer.set_direct_return(shared.guest_calls.prepare(mem)?);
+    let mut units: Vec<u16> = job.source.encode_utf16().collect();
+    units.push(0);
+    let text = mem.heap_alloc(units.len() * 2).map_err(|e| e.to_string())?;
+    let bytes: Vec<u8> = units.iter().flat_map(|u| u.to_le_bytes()).collect();
+    mem.write_bytes(text, &bytes).map_err(|e| e.to_string())?;
+    let out = Arc::new(Mutex::new(None));
+    if let Err(e) = shared
+        .guest_calls
+        .submit(Box::new(direct::Plan::new(ctx, text, out.clone())))
+    {
+        mem.heap_free(text);
+        return Err(e);
+    }
+    job.stage = Stage::Direct;
+    job.direct_out = Some(out);
+    job.direct_text = text;
+    job.direct_started = Some(Instant::now());
+    Ok(())
 }
 fn read_program(data: &Path, name: &str) -> Result<hpprgm::Container, String> {
     read_program_path(&data.join(format!("C/DATA/{name}.hpprgm")))

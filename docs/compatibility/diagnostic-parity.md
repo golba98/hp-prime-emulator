@@ -68,7 +68,7 @@ ppl diag-parity capture --overwrite \
 # firmware backend runs them (new profile from PPL_FIRMWARE_INIT_DATA, never
 # the user's). --reverse checks them in reverse order to expose leaked state.
 # Writes latency.json (cold, warm, per UI stage) next to the case evidence.
-ppl diag-parity capture --engine session [--reverse] \
+ppl diag-parity capture --engine session|direct [--reverse | --shuffle SEED] [--repeat N] \
   --output artifacts/diagnostic-parity/session.toml \
   --artifacts-dir artifacts/diagnostic-parity/session-$(date -u +%Y%m%dT%H%M%SZ)
 ```
@@ -213,6 +213,24 @@ so it fails without a verdict instead of misattributing one.
 | Session, reverse order vs fresh checker | 0 |
 | Session, corpus order vs reverse order | 0 |
 
+## Direct firmware Check (milestone 3)
+
+`--engine direct` (and the IDE's Check) calls the original firmware compiler
+directly inside the running emulated firmware, using the firmware's own
+`Programs():=` set-and-compile sequence, without driving the calculator UI.
+Details, contracts and evidence: `docs/emulator/M9_DIRECT_COMPILER_REPORT.md`.
+
+| Capture (75 cases) | Differences from the stored reference |
+|---|---|
+| corpus order, reverse, shuffled | 0, 0, 0 |
+| shuffled, every case 3× in one session (225 checks) | 0, and every repeat identical |
+
+| Path | Cold | Warm p50 | Warm p95 |
+|---|---|---|---|
+| Fresh checker | 6.9 s per Check | — | — |
+| Session, UI-driven | 15.5 s | 10.6 s | 11.1 s |
+| Session, direct | 10.6 s | 12.3 ms | 16–23 ms |
+
 ## Check latency (milestone 2, measured)
 
 | Path | Cold | Warm (median, p95) |
@@ -226,17 +244,17 @@ Fresh-checker phases (median of 63 reports): boot 0.61 s, program discovery
 Program Catalog 1.9 s, open the editor and Check 3.6 s. Almost all the time
 is calculator UI driving, which every Check needs because the verdict is the
 Program Editor's own; boot is a small share, so reusing the running firmware
-does not make Check faster. The sub-second target is **not met**. The IDE's
-Check therefore keeps the fresh checker in both backends; the session's
-verdict is used for firmware-backend Run.
+does not make Check faster. Milestone 3 removed the UI driving instead (see
+above); the IDE's Check now uses the direct checker, with the fresh checker
+as its fallback.
 
 ## Limitations
 
 - One firmware version (2.4.2); the device's build 15157 may differ.
 - First error only, generic message, no error code.
-- About 7 s per firmware Check; sub-second needs a way to reach the
-  firmware compiler without driving its UI, with new evidence that the
-  verdict is unchanged.
+- A warm direct Check takes about 12 ms; the first Check of a GUI session
+  uses the fresh checker (about 7 s) while the direct checker boots (about
+  10.6 s).
 - Firmware-backend Run of a valid program can still end with "Firmware
   runtime: Unsupported" while the calculator screen shows the right value
   (runtime-evidence capture, outside diagnostics).

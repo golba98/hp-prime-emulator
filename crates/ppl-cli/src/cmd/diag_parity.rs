@@ -70,11 +70,11 @@ pub enum DiagParityAction {
         overwrite: bool,
         /// `fresh`: a new firmware boot per case. `session`: every case
         /// through one long-lived firmware session, as the IDE uses it.
+        /// `direct`: one session, calling the firmware compiler directly.
         #[arg(long, value_enum, default_value_t = Engine::Fresh)]
         engine: Engine,
-        /// Session only: check the cases in reverse order.
-        #[arg(long)]
-        reverse: bool,
+        #[command(flatten)]
+        order: Order,
     },
 }
 
@@ -82,6 +82,75 @@ pub enum DiagParityAction {
 pub enum Engine {
     Fresh,
     Session,
+    Direct,
+}
+
+/// Check order within one session (`session` and `direct` engines).
+#[derive(Clone, Copy, Debug, Default, Args)]
+pub struct Order {
+    /// Check the cases in reverse order.
+    #[arg(long)]
+    reverse: bool,
+    /// Check the cases in a pseudo-random order from this seed (a new
+    /// order for each repeat).
+    #[arg(long, conflicts_with = "reverse")]
+    shuffle: Option<u64>,
+    /// Check every case this many times in the same session; each
+    /// result must equal the first.
+    #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=20))]
+    repeat: u32,
+}
+
+impl Order {
+    fn label(&self) -> String {
+        let order = match (self.reverse, self.shuffle) {
+            (true, _) => "reverse".to_string(),
+            (_, Some(seed)) => format!("shuffle:{seed}"),
+            _ => "corpus".to_string(),
+        };
+        if self.repeat > 1 {
+            format!("{order} x{}", self.repeat)
+        } else {
+            order
+        }
+    }
+    fn flags(&self) -> String {
+        let mut f = String::new();
+        if self.reverse {
+            f.push_str(" --reverse");
+        }
+        if let Some(seed) = self.shuffle {
+            f.push_str(&format!(" --shuffle {seed}"));
+        }
+        if self.repeat > 1 {
+            f.push_str(&format!(" --repeat {}", self.repeat));
+        }
+        f
+    }
+    /// Corpus indices in check order, all repeats concatenated.
+    fn sequence(&self, n: usize) -> Vec<usize> {
+        let mut out = Vec::new();
+        for r in 0..self.repeat {
+            let mut round: Vec<usize> = (0..n).collect();
+            if self.reverse {
+                round.reverse();
+            }
+            if let Some(seed) = self.shuffle {
+                // xorshift64, Fisher-Yates: reproducible from the seed.
+                let mut x = seed
+                    .wrapping_add(u64::from(r).wrapping_mul(0x9E37_79B9_7F4A_7C15))
+                    .max(1);
+                for i in (1..round.len()).rev() {
+                    x ^= x << 13;
+                    x ^= x >> 7;
+                    x ^= x << 17;
+                    round.swap(i, (x % (i as u64 + 1)) as usize);
+                }
+            }
+            out.extend(round);
+        }
+        out
+    }
 }
 
 pub fn run(o: DiagParityOpts) -> u8 {
@@ -103,8 +172,8 @@ pub fn run(o: DiagParityOpts) -> u8 {
             artifacts_dir,
             overwrite,
             engine,
-            reverse,
-        } => capture(&corpus, output, &artifacts_dir, overwrite, engine, reverse),
+            order,
+        } => capture(&corpus, output, &artifacts_dir, overwrite, engine, order),
     };
     match result {
         Ok(code) => code,
@@ -193,7 +262,7 @@ fn capture(
     artifacts_dir: &Path,
     overwrite: bool,
     engine: Engine,
-    reverse: bool,
+    order: Order,
 ) -> Result<u8, String> {
     let output = output.unwrap_or_else(|| corpus_dir.join(LOCAL_FIRMWARE_REFERENCE));
     if output.exists() && !overwrite {
@@ -211,11 +280,19 @@ fn capture(
     };
     let corpus = diag_parity::load_corpus(corpus_dir)?;
     std::fs::create_dir_all(artifacts_dir).map_err(|e| e.to_string())?;
-    if engine == Engine::Session {
-        return capture_session(&corpus, corpus_dir, &output, &base, artifacts_dir, reverse);
+    if engine != Engine::Fresh {
+        return capture_session(
+            &corpus,
+            corpus_dir,
+            &output,
+            &base,
+            artifacts_dir,
+            engine,
+            order,
+        );
     }
-    if reverse {
-        return Err("--reverse applies to --engine session".into());
+    if order.reverse || order.shuffle.is_some() || order.repeat > 1 {
+        return Err("--reverse, --shuffle and --repeat apply to the session engines".into());
     }
     let cancel = Cancellation::default();
     let mut firmware_sha256: Option<String> = None;
@@ -335,7 +412,8 @@ fn capture_session(
     output: &Path,
     base: &ppl_engine::firmware::Options,
     artifacts_dir: &Path,
-    reverse: bool,
+    engine: Engine,
+    order: Order,
 ) -> Result<u8, String> {
     let runner = ppl_engine::firmware::discover_runner(base.runner.as_deref())?;
     let firmware = base
@@ -392,10 +470,11 @@ fn capture_session(
             }
         }
     });
-    let mut cases: Vec<_> = corpus.cases.iter().collect();
-    if reverse {
-        cases.reverse();
-    }
+    let cases: Vec<_> = order
+        .sequence(corpus.cases.len())
+        .into_iter()
+        .map(|i| &corpus.cases[i])
+        .collect();
     let outcome = (|| -> Result<(Vec<ReferenceResult>, Vec<serde_json::Value>), String> {
         let mut results = Vec::new();
         let mut timings = Vec::new();
@@ -403,14 +482,13 @@ fn capture_session(
             let request = i as u64 + 1;
             eprintln!("checking {} …", case.spec.id);
             let sent = Instant::now();
-            wire::write_command(
-                &mut stdin,
-                &wire::Command::Compile {
-                    request,
-                    source: case.text.clone(),
-                },
-            )
-            .map_err(|e| format!("session write: {e}"))?;
+            let source = case.text.clone();
+            let command = if engine == Engine::Direct {
+                wire::Command::DirectCheck { request, source }
+            } else {
+                wire::Command::Compile { request, source }
+            };
+            wire::write_command(&mut stdin, &command).map_err(|e| format!("session write: {e}"))?;
             let (success, message, check) = loop {
                 match events.recv_timeout(Duration::from_secs(240)) {
                     Ok(Event::Hello { version }) if version != wire::VERSION => {
@@ -433,7 +511,7 @@ fn capture_session(
             let elapsed = sent.elapsed();
             let dir = artifacts_dir.join(&case.spec.id);
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            let artifact = dir.join("session-result.json");
+            let artifact = dir.join(format!("session-result-{request}.json"));
             std::fs::write(
                 &artifact,
                 serde_json::to_string_pretty(&serde_json::json!({
@@ -474,7 +552,34 @@ fn capture_session(
         std::thread::sleep(Duration::from_millis(50));
     }
     let _ = reader.join();
-    let (mut results, mut timings) = outcome?;
+    let (all_results, mut timings) = outcome?;
+    // Repeated checks of a case must reproduce its first result exactly.
+    let mut results: Vec<ReferenceResult> = Vec::new();
+    let mut repeat_differences = Vec::new();
+    for r in all_results {
+        match results.iter().find(|x| x.id == r.id) {
+            None => results.push(r),
+            Some(first) => {
+                let one = |x: &ReferenceResult| ReferenceFile {
+                    schema_version: 1,
+                    evidence: String::new(),
+                    description: String::new(),
+                    firmware_sha256: None,
+                    captured_at: None,
+                    capture_command: None,
+                    results: vec![x.clone()],
+                };
+                repeat_differences.extend(
+                    diag_parity::reference_differences(&one(first), &one(&r))
+                        .into_iter()
+                        .map(|d| format!("repeat: {d}")),
+                );
+            }
+        }
+    }
+    for d in &repeat_differences {
+        eprintln!("{d}");
+    }
     // The session's own per-request report breaks each Check into its UI
     // stages; keep it with the case and fold its stage durations in.
     let mut stages: std::collections::BTreeMap<String, Vec<f64>> = Default::default();
@@ -484,7 +589,8 @@ fn capture_session(
             continue;
         };
         if let Some(id) = t["id"].as_str() {
-            let _ = std::fs::write(artifacts_dir.join(id).join("session-report.json"), &raw);
+            let name = format!("session-report-{}.json", i + 1);
+            let _ = std::fs::write(artifacts_dir.join(id).join(name), &raw);
         }
         let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
             continue;
@@ -501,6 +607,16 @@ fn capture_session(
                 stages.entry(name.into()).or_default().push(done - previous);
             }
             previous = done;
+            // A direct check's individual firmware calls (host-measured).
+            for call in step["outcome"]["calls"].as_array().into_iter().flatten() {
+                if let (Some(n), Some(ms)) = (call[0].as_str(), call[1].as_f64()) {
+                    let key = format!("call:{n}");
+                    breakdown.insert(key.clone(), ms.into());
+                    if i > 0 {
+                        stages.entry(key).or_default().push(ms);
+                    }
+                }
+            }
         }
         if let Some(total) = v["elapsed_ms"].as_f64() {
             breakdown.insert("verdict".into(), (total - previous).into());
@@ -515,8 +631,10 @@ fn capture_session(
         .filter_map(|t| t["compile_to_result_ms"].as_f64())
         .collect();
     let latency = serde_json::json!({
-        "engine": "session",
-        "order": if reverse { "reverse" } else { "corpus" },
+        "engine": if engine == Engine::Direct { "direct" } else { "session" },
+        "order": order.label(),
+        "checks": timings.len(),
+        "repeat_differences": repeat_differences,
         "profile_seed": seed,
         "cold_spawn_to_first_result_ms": timings.first().and_then(|t| t["spawn_to_result_ms"].as_f64()),
         "warm_compile_to_result_ms": summary(&warm),
@@ -538,20 +656,29 @@ fn capture_session(
             .unwrap_or(f64::NAN),
         latency["warm_compile_to_result_ms"]
     );
+    let (engine_name, evidence, how) = if engine == Engine::Direct {
+        (
+            "direct",
+            "local-firmware-direct",
+            "compiler called directly (Programs():= set-and-compile sequence, no UI)",
+        )
+    } else {
+        ("session", "local-firmware-session", "Program Editor Check")
+    };
     let file = ReferenceFile {
         schema_version: 1,
-        evidence: "local-firmware-session".into(),
+        evidence: evidence.into(),
         description: format!(
-            "Original HP Prime G1 firmware 2.4.2 (armfir.elf) Program Editor Check through one \
-             long-lived local firmware session ({} order, profile from {seed}). Not a \
+            "Original HP Prime G1 firmware 2.4.2 (armfir.elf), {how}, through one long-lived \
+             local firmware session ({} order, profile from {seed}). Not a \
              physical-calculator observation.",
-            if reverse { "reverse" } else { "corpus" }
+            order.label()
         ),
         firmware_sha256: Some(firmware_sha256),
         captured_at: Some(ppl_compat::utc_now()),
         capture_command: Some(format!(
-            "ppl diag-parity capture --engine session{} --corpus {} --artifacts-dir {}",
-            if reverse { " --reverse" } else { "" },
+            "ppl diag-parity capture --engine {engine_name}{} --corpus {} --artifacts-dir {}",
+            order.flags(),
             corpus_dir.display(),
             artifacts_dir.display()
         )),
@@ -560,7 +687,7 @@ fn capture_session(
     let mut out = std::fs::File::create(output).map_err(|e| e.to_string())?;
     write!(
         out,
-        "# Generated by `ppl diag-parity capture --engine session` from authentic firmware.\n\
+        "# Generated by `ppl diag-parity capture --engine {engine_name}` from authentic firmware.\n\
          # Do not edit by hand: re-capture instead.\n\n{}",
         file.to_toml()?
     )
@@ -571,7 +698,11 @@ fn capture_session(
         .iter()
         .filter(|r| r.verdict == Verdict::InfrastructureError)
         .count();
-    Ok(if failed == 0 { 0 } else { 1 })
+    Ok(if failed == 0 && repeat_differences.is_empty() {
+        0
+    } else {
+        1
+    })
 }
 
 /// Converts a session result. Only an observed firmware verdict on this

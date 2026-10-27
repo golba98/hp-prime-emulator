@@ -119,7 +119,7 @@ pub fn validate<'a>(
     let candidates: Vec<_> = trace
         .checks
         .iter()
-        .filter(|c| c.step == Some(step))
+        .filter(|c| c.kind.is_none() && c.step == Some(step))
         .collect();
     if candidates.len() != 1 {
         return Err("expected exactly one Check invocation at this step".into());

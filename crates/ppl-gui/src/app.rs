@@ -40,6 +40,8 @@ pub struct IdeDesktopApp {
     pub firmware_status: String,
     pub program_manager: crate::ide::programs::ProgramManager,
     explicit_check: Option<checking_integration::CheckJob>,
+    /// The warm direct firmware checker (started on first Check).
+    direct: checking_integration::DirectSlot,
     native_compile: Option<NativeCompileJob>,
     native_stopping: bool,
     native_restart: Option<egui::Context>,
@@ -132,6 +134,7 @@ impl Default for IdeDesktopApp {
             firmware_status: "Firmware not started".into(),
             program_manager: Default::default(),
             explicit_check: None,
+            direct: Default::default(),
             native_compile: None,
             native_stopping: false,
             native_restart: None,

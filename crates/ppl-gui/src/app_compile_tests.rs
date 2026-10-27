@@ -1021,3 +1021,49 @@ fn the_status_bar_names_the_firmware_verdict_separately() {
     app.refresh_analysis_status();
     assert_eq!(app.state.firmware_verdict, None);
 }
+
+#[test]
+fn a_direct_firmware_check_is_marked_like_any_firmware_check() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    let (id, revision, title, text) = {
+        let tab = app.editor.active_tab_mut().unwrap();
+        (
+            tab.id,
+            tab.revision(),
+            tab.title.clone(),
+            tab.content.clone(),
+        )
+    };
+    app.apply_direct_check(
+        id,
+        revision,
+        &title,
+        session_verdict(&text, Some((3, 9))),
+        12.0,
+    );
+    let tab = app.editor.active_tab_mut().unwrap();
+    let marked = tab.current_firmware().unwrap().items.clone();
+    assert_eq!(marked.len(), 1);
+    assert_eq!(marked[0].provenance, "guest-firmware");
+    let span = marked[0].span;
+    assert_eq!(&tab.content[span.start as usize..span.end as usize], "π");
+    assert!(
+        app.console
+            .messages
+            .iter()
+            .any(|m| m.text.contains("direct compiler call"))
+    );
+    // A result for an older revision is dropped.
+    app.editor.active_tab_mut().unwrap().content.push(' ');
+    settle(&mut app, &ctx);
+    app.apply_direct_check(id, revision, &title, session_verdict(&text, None), 12.0);
+    assert!(
+        app.editor
+            .active_tab_mut()
+            .unwrap()
+            .current_firmware()
+            .is_none()
+    );
+}
