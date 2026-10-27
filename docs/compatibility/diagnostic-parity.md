@@ -134,13 +134,16 @@ every case it shared with another (verdict, message, line, column, UTF-16
 offset): four milestone-1 captures, two full milestone-2 fresh captures (the
 second with the rebuilt runner) and two session captures. Run `ppl diag-parity report` for the full table.
 
-| | Milestone 1 start | Milestone 1 | Milestone 2 |
-|---|---|---|---|
-| Verdict agreement, original 39 | 31/39 | 37/39 | **39/39** |
-| Verdict agreement, all 75 | — | — | **75/75** |
-| Location agreement, original 39 (rejected cases at the same line:column) | — | 15/23 | 15/23 |
-| Location agreement, all 75 | — | — | 16/32 |
-| `false-rejection` / `missed-error` | 2 / 6 | 2 / 0 | 0 / 0 |
+| | Milestone 1 start | Milestone 1 | Milestone 2 | Location parity |
+|---|---|---|---|---|
+| Verdict agreement, original 39 | 31/39 | 37/39 | **39/39** | **39/39** |
+| Verdict agreement, all 75 | — | — | **75/75** | **75/75** |
+| Location agreement, original 39 (rejected cases at the same line:column) | — | 15/23 | 15/23 | **23/23** |
+| Location agreement, all 75 | — | — | 16/32 | **32/32** |
+| `false-rejection` / `missed-error` | 2 / 6 | 2 / 0 | 0 / 0 | 0 / 0 |
+
+The location-parity column is `docs/compatibility/native-location-parity.md`,
+which also adds the `location-probes` and `location-arity-controls` corpora.
 
 Milestone 1 corrections (native analyzer now rejects, as the firmware does):
 
@@ -181,11 +184,11 @@ parser's resolution (`parser::resolve_soft_keywords`). A regression scan of
 the 58 `.ppl`/`.hpprgm` files under `examples/`, `tests/` and crate fixtures
 gave byte-identical `ppl check` output before and after the change.
 
-Known disagreements (recorded in the baseline; none is a verdict
-disagreement): 16 `location-differs`. The native first error is at the start
-of the construct; the firmware's is where its parser stopped (end of file
-for a missing END, the `)` or extra `,` for a wrong argument count, the `;`
-for an unclosed `(`, the offending word for a misplaced `div`).
+Known disagreements after milestone 2: 16 `location-differs`, where the
+native first error was at the start of the construct and the firmware's
+where its parser stopped. Native location parity
+(`native-location-parity.md`) since reports those positions as the firmware
+does: the baseline now records no disagreement, 32/32 locations match.
 
 ## Firmware session (milestone 2)
 

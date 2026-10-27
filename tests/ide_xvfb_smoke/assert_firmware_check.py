@@ -50,8 +50,11 @@ check("firmware error listed once at 4:15 (after θ and π)",
       [(p["line"], p["col"]) for p in fw] == [(4, 15)], fw)
 check("firmware marker sits on the `;` the firmware reported",
       marked(st, "FWCHK.ppl") == [";"], marked(st, "FWCHK.ppl"))
-check("native error kept beside it", any(p["provenance"] == "native-compiler"
-      and (p["line"], p["col"]) == (4, 11) for p in st["problems"]), st["problems"])
+# Native location parity reports the unclosed `(` where the firmware stops,
+# the `;` at 4:15; the native item stays listed beside the firmware one.
+check("native error kept beside it, at the firmware position",
+      any(p["provenance"] == "native-compiler"
+          and (p["line"], p["col"]) == (4, 15) for p in st["problems"]), st["problems"])
 check("status bar names the firmware verdict", st["status_firmware"] == "Firmware: 1 error(s)",
       st["status_firmware"])
 
