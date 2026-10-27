@@ -25,7 +25,6 @@ pub struct UsbMirrorSource {
     prior_requests: u64,
     permit: Option<VerifiedIncremental>,
     terminal: bool,
-    experimental_fc04: bool,
 }
 
 impl UsbMirrorSource {
@@ -46,13 +45,7 @@ impl UsbMirrorSource {
             prior_requests: 0,
             permit: None,
             terminal: false,
-            experimental_fc04: false,
         }
-    }
-
-    pub fn with_experimental_fc04(mut self, acknowledged: bool) -> Self {
-        self.experimental_fc04 = acknowledged;
-        self
     }
 
     pub fn with_capture(mut self, mode: MirrorCapture) -> Result<Self, DeviceError> {
@@ -61,9 +54,8 @@ impl UsbMirrorSource {
                 "incremental requires full quality".into(),
             ));
         }
-        // No profile is approved yet without explicit experimental acknowledgement.
+        // Acknowledgement is not physical acceptance; diagnostics have separate bounded permits.
         if mode == MirrorCapture::Incremental
-            && !self.experimental_fc04
             && !ppl_device::screenshot::update::incremental_profiles_available()
         {
             return Err(DeviceError::Refused(
@@ -96,11 +88,7 @@ impl MirrorSource for UsbMirrorSource {
             if self.expected_serial.is_none() {
                 let info = session.info(cancel)?;
                 if self.capture_mode == MirrorCapture::Incremental {
-                    self.permit = Some(VerifiedIncremental::for_device_experimental(
-                        session.detected(),
-                        &info,
-                        self.experimental_fc04,
-                    )?);
+                    self.permit = Some(VerifiedIncremental::for_device(session.detected(), &info)?);
                 }
                 self.expected_firmware = Some((info.build, info.version.clone()));
                 self.serial_id = info.serial_fingerprint();
@@ -134,7 +122,7 @@ impl MirrorSource for UsbMirrorSource {
                     self.framebuffer
                         .apply(self.ordinal, origin, &png)
                         .map_err(|error| {
-                            if error == "incremental RGB565 requires grayscale16 PNG" {
+                            if error == "incremental RGB555 requires grayscale16 PNG" {
                                 DeviceError::Refused(format!(
                                     "unsupported_incremental_encoding: {error}"
                                 ))
@@ -258,11 +246,7 @@ impl MirrorSource for UsbMirrorSource {
                     {
                         continue;
                     }
-                    self.permit = Some(VerifiedIncremental::for_device_experimental(
-                        session.detected(),
-                        &info,
-                        self.experimental_fc04,
-                    )?);
+                    self.permit = Some(VerifiedIncremental::for_device(session.detected(), &info)?);
                 }
                 if matched.is_some() {
                     return Err(DeviceError::Refused(

@@ -253,6 +253,7 @@ impl Host for GuiHost {
             let _ = out.flush();
         }
         lock(&self.state.terminal_lines).push(text.to_string());
+        self.state.notify_redraw();
     }
 
     fn clear_terminal(&mut self) {

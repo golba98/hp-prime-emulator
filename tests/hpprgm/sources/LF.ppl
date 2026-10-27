@@ -1,0 +1,4 @@
+EXPORT LF()
+BEGIN
+ PRINT("≥ é 😀");
+END;

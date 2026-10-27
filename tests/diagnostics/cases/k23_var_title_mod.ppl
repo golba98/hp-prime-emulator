@@ -1,0 +1,5 @@
+EXPORT DPK23()
+BEGIN
+ LOCAL Mod:=3;
+ RETURN Mod+1;
+END;

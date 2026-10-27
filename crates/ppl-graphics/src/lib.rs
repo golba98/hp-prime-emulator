@@ -33,7 +33,8 @@ pub fn channels(c: Color) -> (u8, u8, u8) {
     ((c >> 16) as u8, (c >> 8) as u8, c as u8)
 }
 
-/// Quantises to the 16-bit RGB565 format of the G1 panel, then expands back.
+/// Quantises graphics comparison colors to RGB565. Physical screenshot PNGs
+/// use a distinct little-endian RGB555 representation.
 pub fn to_rgb565(c: Color) -> u16 {
     let (r, g, b) = channels(c);
     ((r as u16 >> 3) << 11) | ((g as u16 >> 2) << 5) | (b as u16 >> 3)
@@ -388,8 +389,9 @@ impl Grob {
 
 impl Grob {
     /// Decodes an HP Prime USB screenshot (`FC 08` reply). The calculator
-    /// sends a 16-bit *grayscale* PNG whose samples are really RGB565
-    /// pixels, big-endian (observed on a G1, firmware build 15157).
+    /// sends a grayscale16 PNG containing little-endian RGB555 byte pairs.
+    /// HP's viewer copies the decoded bytes into QImage::Format_RGB555;
+    /// treating PNG numeric samples as big-endian RGB565 corrupts colors.
     pub fn from_prime_screenshot(bytes: &[u8]) -> Result<Grob, String> {
         PrimeScreenshotDecoder::default()
             .decode(bytes, None)
@@ -398,7 +400,7 @@ impl Grob {
 }
 
 /// Reusable PNG scratch storage. Packed screenshot samples remain untouched by
-/// PNG color/gamma transforms; RGB565 conversion runs exactly once.
+/// PNG color/gamma transforms; little-endian RGB555 conversion runs exactly once.
 #[derive(Default)]
 pub struct PrimeScreenshotDecoder {
     buffer: Vec<u8>,
@@ -476,7 +478,7 @@ impl PrimeScreenshotDecoder {
                 .zip(self.buffer[..required].chunks_exact(step))
         {
             *pixel = if packed {
-                from_rgb565(u16::from_be_bytes([sample[0], sample[1]]))
+                from_rgb555(u16::from_le_bytes([sample[0], sample[1]]))
             } else if channels >= 3 {
                 rgb(sample[0], sample[sample_bytes], sample[2 * sample_bytes])
             } else {
@@ -493,7 +495,15 @@ impl PrimeScreenshotDecoder {
     }
 }
 
-/// Expands RGB565 to 8-bit channels (bit replication).
+/// Expands the opaque RGB555 words used by HP's screenshot viewer.
+/// Bit 15 is unused by QImage::Format_RGB555, not an alpha channel.
+pub fn from_rgb555(v: u16) -> Color {
+    let expand = |v: u16| u32::from((v << 3) | (v >> 2));
+    expand((v >> 10) & 31) << 16 | expand((v >> 5) & 31) << 8 | expand(v & 31)
+}
+
+/// Expands RGB565 to 8-bit channels (bit replication). This is distinct from
+/// the little-endian RGB555 packing inside physical screenshot PNGs.
 pub fn from_rgb565(v: u16) -> Color {
     let r = ((v >> 11) & 31) as u32;
     let g = ((v >> 5) & 63) as u32;
@@ -703,7 +713,7 @@ mod tests {
         let mut writer = enc.write_header().unwrap();
         let mut byte_data = Vec::with_capacity(pixels_u16.len() * 2);
         for &px in pixels_u16 {
-            byte_data.extend_from_slice(&px.to_be_bytes());
+            byte_data.extend_from_slice(&px.to_le_bytes());
         }
         writer.write_image_data(&byte_data).unwrap();
         drop(writer);
@@ -719,19 +729,19 @@ mod tests {
         // (0,0): Black
         samples[0] = 0x0000;
         // (1,0): White
-        samples[1] = 0xFFFF;
+        samples[1] = 0x7FFF;
         // (2,0): Red
-        samples[2] = 0xF800;
+        samples[2] = 0x7C00;
         // (3,0): Green
-        samples[3] = 0x07E0;
+        samples[3] = 0x03E0;
         // (4,0): Blue
         samples[4] = 0x001F;
         // (5,0): Yellow (Red + Green)
-        samples[5] = 0xFFE0;
+        samples[5] = 0x7FE0;
         // (6,0): Cyan (Green + Blue)
-        samples[6] = 0x07FF;
+        samples[6] = 0x03FF;
         // (7,0): Magenta (Red + Blue)
-        samples[7] = 0xF81F;
+        samples[7] = 0x7C1F;
 
         let png_bytes = encode_16bit_gray_png(w as u32, h as u32, &samples);
         let grob = Grob::from_prime_screenshot(&png_bytes).expect("decode prime screenshot");
@@ -752,7 +762,7 @@ mod tests {
     fn test_from_prime_screenshot_unexpected_dimensions() {
         let w = 100;
         let h = 50;
-        let samples = vec![0xF800u16; w * h]; // All red
+        let samples = vec![0x7C00u16; w * h]; // All red
         let png_bytes = encode_16bit_gray_png(w as u32, h as u32, &samples);
         let grob = Grob::from_prime_screenshot(&png_bytes).expect("decode custom dimension");
 
@@ -783,7 +793,7 @@ mod tests {
         assert!(Grob::from_prime_screenshot(&[1, 2, 3, 4, 5, 6, 7, 8]).is_err());
     }
     #[test]
-    fn screenshot_all_rgb565_values_round_trip_without_channel_loss() {
+    fn grob_all_rgb565_values_round_trip_without_channel_loss() {
         for v in 0..=u16::MAX {
             assert_eq!(to_rgb565(from_rgb565(v)), v);
         }
@@ -791,16 +801,16 @@ mod tests {
 
     #[test]
     fn screenshot_fixture_has_known_colors_and_preserves_rows() {
-        let raw = include_bytes!("../../../tests/fixtures/prime-rgb565.png");
+        let raw = include_bytes!("../../../tests/fixtures/prime-rgb555-le.png");
         let image = Grob::from_prime_screenshot(raw).unwrap();
         let colors = [
-            0, 0xffff, 0xf800, 0x07e0, 0x001f, 0x8410, 0xffe0, 0xf81f, 0x07ff,
+            0, 0x7fff, 0x7c00, 0x03e0, 0x001f, 0x4210, 0x7fe0, 0x7c1f, 0x03ff,
         ];
         for y in 0..240 {
             for x in 0..320 {
                 assert_eq!(
                     image.get(x as i64, y as i64),
-                    Some(from_rgb565(colors[(x / 17 + y / 13) % 9]))
+                    Some(from_rgb555(colors[(x / 17 + y / 13) % 9]))
                 );
             }
         }
@@ -808,6 +818,49 @@ mod tests {
         assert!(decoder.decode(raw, Some((160, 120))).is_err());
         assert_eq!(decoder.decode(raw, Some((320, 240))).unwrap().0, image);
         assert!(decoder.decode(&raw[..raw.len() / 2], None).is_err());
+    }
+
+    #[test]
+    fn screenshot_matches_hp_native_rgb555_words_not_png_numeric_samples() {
+        let mut bytes = Vec::new();
+        let mut encoder = png::Encoder::new(&mut bytes, 8, 1);
+        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_depth(png::BitDepth::Sixteen);
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&[
+                0x00, 0x00, // black
+                0xff, 0x7f, // white
+                0x00, 0x7c, // red
+                0xe0, 0x03, // green
+                0x1f, 0x00, // blue
+                0x63, 0x0c, // repeated physical-fixture background: neutral 24
+                0x10, 0x42, // neutral 132
+                0x00, 0x80, // unused high bit, opaque black
+            ])
+            .unwrap();
+        let decoded = Grob::from_prime_screenshot(&bytes).unwrap();
+        assert_eq!(
+            decoded.pixels(),
+            &[
+                BLACK, WHITE, 0xff0000, 0x00ff00, 0x0000ff, 0x181818, 0x848484, BLACK,
+            ]
+        );
+    }
+
+    #[test]
+    fn every_rgb555_word_matches_independent_five_bit_channel_expansion() {
+        let samples: Vec<u16> = (0..=u16::MAX).collect();
+        let decoded =
+            Grob::from_prime_screenshot(&encode_16bit_gray_png(256, 256, &samples)).unwrap();
+        for (word, &actual) in samples.iter().zip(decoded.pixels()) {
+            let channel = |shift: u32| {
+                let five = (u32::from(*word) / (1u32 << shift)) % 32;
+                five * 8 + five / 4
+            };
+            assert_eq!(actual, channel(10) * 65536 + channel(5) * 256 + channel(0));
+        }
     }
 
     #[test]

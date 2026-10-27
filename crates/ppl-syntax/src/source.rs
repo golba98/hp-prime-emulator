@@ -2,6 +2,123 @@
 
 use std::path::Path;
 
+/// A strictly decoded file. No PPL syntax or catalog-name validation is done.
+/// `original_text` retains line endings; `text` is the compiler's LF view.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecodedProgram {
+    pub original_text: String,
+    pub text: String,
+    pub encoding: &'static str,
+    pub bom: bool,
+    pub container: bool,
+    pub source_offset: Option<usize>,
+    pub line_endings: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FileError {
+    Container(crate::hpprgm::Error),
+    InvalidUtf8 { offset: usize },
+    OddUtf16,
+    InvalidUtf16,
+    Nul,
+}
+
+impl std::fmt::Display for FileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Container(e) => write!(f, "invalid container: {e}"),
+            Self::InvalidUtf8 { offset } => write!(
+                f,
+                "invalid UTF-8 at byte {offset} (UTF-16 text needs a BOM)"
+            ),
+            Self::OddUtf16 => f.write_str("odd UTF-16 byte count"),
+            Self::InvalidUtf16 => f.write_str("invalid UTF-16"),
+            Self::Nul => f.write_str("NUL in source text"),
+        }
+    }
+}
+
+impl std::error::Error for FileError {}
+
+/// Decode a recognized container strictly; never fall back to text on error.
+/// Otherwise accept UTF-8 or BOM-marked UTF-16 text, whatever the filename.
+pub fn decode_program(bytes: &[u8]) -> Result<DecodedProgram, FileError> {
+    if bytes.starts_with(&crate::hpprgm::MAGIC.to_le_bytes()) {
+        let c = crate::hpprgm::parse(bytes).map_err(FileError::Container)?;
+        let source = c.source().map_err(FileError::Container)?;
+        return Ok(decoded(
+            source.source,
+            "utf-16le-container",
+            false,
+            Some(source.offset),
+        ));
+    }
+    decode_text(bytes)
+}
+
+/// Explicit text mode: rejects binary data rather than heuristically salvaging it.
+pub fn decode_text(bytes: &[u8]) -> Result<DecodedProgram, FileError> {
+    let (raw, encoding, bom) = if bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255]) {
+        let be = bytes[0] == 254;
+        let b = &bytes[2..];
+        if b.len() % 2 != 0 {
+            return Err(FileError::OddUtf16);
+        }
+        let units: Vec<_> = b
+            .chunks_exact(2)
+            .map(|c| {
+                if be {
+                    u16::from_be_bytes([c[0], c[1]])
+                } else {
+                    u16::from_le_bytes([c[0], c[1]])
+                }
+            })
+            .collect();
+        (
+            String::from_utf16(&units).map_err(|_| FileError::InvalidUtf16)?,
+            if be { "utf-16be" } else { "utf-16le" },
+            true,
+        )
+    } else {
+        let b = bytes.strip_prefix(&[239, 187, 191]).unwrap_or(bytes);
+        let text = std::str::from_utf8(b).map_err(|e| FileError::InvalidUtf8 {
+            offset: bytes.len() - b.len() + e.valid_up_to(),
+        })?;
+        (text.to_owned(), "utf-8", b.len() != bytes.len())
+    };
+    if raw.contains('\0') {
+        return Err(FileError::Nul);
+    }
+    Ok(decoded(raw, encoding, bom, None))
+}
+
+fn decoded(
+    original_text: String,
+    encoding: &'static str,
+    bom: bool,
+    source_offset: Option<usize>,
+) -> DecodedProgram {
+    let crlf = original_text.matches("\r\n").count();
+    let cr = original_text.matches('\r').count() - crlf;
+    let lf = original_text.matches('\n').count() - crlf;
+    let line_endings = match (crlf > 0, cr > 0, lf > 0) {
+        (false, false, _) => "lf",
+        (true, false, false) => "crlf->lf",
+        (false, true, false) => "cr->lf",
+        _ => "mixed->lf",
+    };
+    DecodedProgram {
+        text: normalise(&original_text),
+        original_text,
+        encoding,
+        bom,
+        container: source_offset.is_some(),
+        source_offset,
+        line_endings,
+    }
+}
+
 /// Byte range within a [`SourceFile`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Span {
@@ -105,17 +222,12 @@ pub enum SourceEncoding {
     },
 }
 
-/// Decodes PPL source bytes.
+/// Legacy recovery decoder retained for editor/import compatibility.
 ///
-/// * A UTF-8 file (optionally with BOM) is used as is.
-/// * A UTF-16LE file with BOM is decoded.
-/// * Anything else with many NUL bytes is treated as a Connectivity Kit
-///   `.hpprgm` container: the UTF-16LE program text is located by the first
-///   PPL marker and read until the first control or non-character code unit.
-///
-/// Line breaks are normalised to `\n`. Unlike the Python loader nothing
-/// inside the text is removed or rewritten, so string contents survive and
-/// line numbers stay exact.
+/// May replace malformed UTF-8 or truncate UTF-16 at a control character,
+/// malformed surrogate or heuristic container boundary. It cannot report
+/// errors. New file consumers (`ppl check`, `ppl show`, firmware imports)
+/// must use [`decode_program`] instead. This API is not format validation.
 pub fn decode_source(bytes: &[u8]) -> (String, SourceEncoding) {
     if bytes.len() >= 4
         && u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == crate::hpprgm::MAGIC
@@ -155,6 +267,8 @@ pub fn decode_source(bytes: &[u8]) -> (String, SourceEncoding) {
     )
 }
 
+/// Legacy adapter over [`decode_source`]. For validated loading use
+/// [`decode_program`] or `ppl_engine::source::Source::file`.
 pub fn read_source_file(path: &Path) -> std::io::Result<(SourceFile, SourceEncoding)> {
     let bytes = std::fs::read(path)?;
     let (text, enc) = decode_source(&bytes);

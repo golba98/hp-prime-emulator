@@ -1,0 +1,4 @@
+EXPORT ESCAPES()
+BEGIN
+ PRINT("path \\ and quote \" end");
+END;

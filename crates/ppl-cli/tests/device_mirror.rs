@@ -86,6 +86,12 @@ fn incremental_refuses_before_any_usb_or_ipc_access() {
     for extra in [
         vec![],
         vec!["--quality", "fast"],
+        vec!["--acknowledge-experimental-fc04"],
+        vec![
+            "--acknowledge-experimental-fc04",
+            "--control-socket",
+            "/does-not-exist",
+        ],
         vec!["--control-socket", "/does-not-exist"],
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_ppl"))
@@ -98,6 +104,31 @@ fn incremental_refuses_before_any_usb_or_ipc_access() {
         assert_eq!(result["status"], "unsupported_capability");
         assert_eq!(result["usb_commands_sent"], 0);
     }
+}
+
+#[test]
+fn sustained_verification_requires_reviewed_evidence_before_any_usb_or_output_creation() {
+    let temporary = tempfile::tempdir().unwrap();
+    let directory = temporary.path().join("must-not-exist");
+    let output = Command::new(env!("CARGO_BIN_EXE_ppl"))
+        .args([
+            "device",
+            "verify-incremental-stream",
+            "--device",
+            "0000000000000000",
+            "--acknowledge-experimental-fc04",
+            "--reviewed-visual-report",
+            "/missing/report.json",
+            "--out-dir",
+        ])
+        .arg(&directory)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["status"], "refused");
+    assert_eq!(report["fc04_attempts"], 0);
+    assert!(!directory.exists());
 }
 #[test]
 fn experimental_probe_requires_explicit_acknowledgement_and_identity() {

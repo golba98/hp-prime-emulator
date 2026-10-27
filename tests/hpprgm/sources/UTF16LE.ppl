@@ -1,0 +1,4 @@
+EXPORT UTF16LE()
+BEGIN
+ PRINT("≥ é 😀");
+END;

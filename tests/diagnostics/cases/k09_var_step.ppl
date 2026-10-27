@@ -1,0 +1,5 @@
+EXPORT DPK09()
+BEGIN
+ LOCAL step:=4;
+ RETURN step+1;
+END;

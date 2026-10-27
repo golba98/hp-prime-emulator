@@ -202,69 +202,555 @@ pub fn map_char(s: &str) -> Option<i64> {
     }
 }
 
-/// Maps an egui key to an HP Prime keycode (0–50 grid).
-pub fn egui_key_to_hp(key: egui::Key) -> Option<i64> {
-    use egui::Key::*;
-    Some(match key {
-        // Controls & Navigation
-        Enter => KEY_ENTER,
-        Escape => KEY_ESC,
-        Backspace | Delete => KEY_DEL,
-        Space => KEY_ANS,
-        Tab => KEY_TEMPLATE,
-        ArrowUp => KEY_UP,
-        ArrowLeft => KEY_LEFT,
-        ArrowRight => KEY_RIGHT,
-        ArrowDown => KEY_DOWN,
-        Home => KEY_HOME,
-        End => KEY_MENU,
-        PageUp => KEY_PLOT,
-        PageDown => KEY_NUM,
+/// Unified key translation mapping across physical ID, native PPL code,
+/// firmware scan code, labels, and PC keyboard shortcuts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyMapping {
+    pub physical_id: u8,
+    pub ppl_code: i32,
+    pub device_code: u16,
+    pub primary_label: &'static str,
+    pub secondary_label: &'static str,
+    pub alpha_label: &'static str,
+    pub pc_key: Option<egui::Key>,
+}
 
-        // Digits
-        Num0 => KEY_0,
-        Num1 => KEY_1,
-        Num2 => KEY_2,
-        Num3 => KEY_3,
-        Num4 => KEY_4,
-        Num5 => KEY_5,
-        Num6 => KEY_6,
-        Num7 => KEY_7,
-        Num8 => KEY_8,
-        Num9 => KEY_9,
+pub const KEY_MAPPINGS: [KeyMapping; 51] = [
+    KeyMapping {
+        physical_id: 0,
+        ppl_code: 0,
+        device_code: 0x00B1,
+        primary_label: "Apps",
+        secondary_label: "Info",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F1),
+    },
+    KeyMapping {
+        physical_id: 1,
+        ppl_code: 1,
+        device_code: 0x0091,
+        primary_label: "Symb",
+        secondary_label: "S-Setup",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F2),
+    },
+    KeyMapping {
+        physical_id: 2,
+        ppl_code: 2,
+        device_code: 0x0003,
+        primary_label: "Up",
+        secondary_label: "",
+        alpha_label: "",
+        pc_key: Some(egui::Key::ArrowUp),
+    },
+    KeyMapping {
+        physical_id: 3,
+        ppl_code: 3,
+        device_code: 0x0095,
+        primary_label: "Help",
+        secondary_label: "User",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F3),
+    },
+    KeyMapping {
+        physical_id: 4,
+        ppl_code: 4,
+        device_code: 0x0001,
+        primary_label: "Esc",
+        secondary_label: "Clear",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Escape),
+    },
+    KeyMapping {
+        physical_id: 5,
+        ppl_code: 5,
+        device_code: 0xE047,
+        primary_label: "Home",
+        secondary_label: "Settings",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Home),
+    },
+    KeyMapping {
+        physical_id: 6,
+        ppl_code: 6,
+        device_code: 0x00B2,
+        primary_label: "Plot",
+        secondary_label: "P-Setup",
+        alpha_label: "",
+        pc_key: Some(egui::Key::PageUp),
+    },
+    KeyMapping {
+        physical_id: 7,
+        ppl_code: 7,
+        device_code: 0x0002,
+        primary_label: "Left",
+        secondary_label: "",
+        alpha_label: "",
+        pc_key: Some(egui::Key::ArrowLeft),
+    },
+    KeyMapping {
+        physical_id: 8,
+        ppl_code: 8,
+        device_code: 0x0004,
+        primary_label: "Right",
+        secondary_label: "",
+        alpha_label: "",
+        pc_key: Some(egui::Key::ArrowRight),
+    },
+    KeyMapping {
+        physical_id: 9,
+        ppl_code: 9,
+        device_code: 0x00B4,
+        primary_label: "View",
+        secondary_label: "Copy",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F6),
+    },
+    KeyMapping {
+        physical_id: 10,
+        ppl_code: 10,
+        device_code: 0x00B5,
+        primary_label: "CAS",
+        secondary_label: "Settings",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F7),
+    },
+    KeyMapping {
+        physical_id: 11,
+        ppl_code: 11,
+        device_code: 0x00B3,
+        primary_label: "Num",
+        secondary_label: "N-Setup",
+        alpha_label: "",
+        pc_key: Some(egui::Key::PageDown),
+    },
+    KeyMapping {
+        physical_id: 12,
+        ppl_code: 12,
+        device_code: 0x0005,
+        primary_label: "Down",
+        secondary_label: "",
+        alpha_label: "",
+        pc_key: Some(egui::Key::ArrowDown),
+    },
+    KeyMapping {
+        physical_id: 13,
+        ppl_code: 13,
+        device_code: 0x0093,
+        primary_label: "Menu",
+        secondary_label: "Paste",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F9),
+    },
+    KeyMapping {
+        physical_id: 14,
+        ppl_code: 14,
+        device_code: 0x0041,
+        primary_label: "Vars",
+        secondary_label: "Chars",
+        alpha_label: "A",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 15,
+        ppl_code: 15,
+        device_code: 0x0042,
+        primary_label: "Toolbox",
+        secondary_label: "Mem",
+        alpha_label: "B",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 16,
+        ppl_code: 16,
+        device_code: 0x0043,
+        primary_label: "Templates",
+        secondary_label: "Units",
+        alpha_label: "C",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 17,
+        ppl_code: 17,
+        device_code: 0x0044,
+        primary_label: "x t θ n",
+        secondary_label: "Define",
+        alpha_label: "D",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 18,
+        ppl_code: 18,
+        device_code: 0x0045,
+        primary_label: "a b/c",
+        secondary_label: "° ′ ″",
+        alpha_label: "E",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 19,
+        ppl_code: 19,
+        device_code: 0x000C,
+        primary_label: "⌫",
+        secondary_label: "Del",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Backspace),
+    },
+    KeyMapping {
+        physical_id: 20,
+        ppl_code: 20,
+        device_code: 0x0046,
+        primary_label: "xʸ",
+        secondary_label: "ʸ√",
+        alpha_label: "F",
+        pc_key: Some(egui::Key::F11),
+    },
+    KeyMapping {
+        physical_id: 21,
+        ppl_code: 21,
+        device_code: 0x0047,
+        primary_label: "SIN",
+        secondary_label: "ASIN",
+        alpha_label: "G",
+        pc_key: Some(egui::Key::S),
+    },
+    KeyMapping {
+        physical_id: 22,
+        ppl_code: 22,
+        device_code: 0x0048,
+        primary_label: "COS",
+        secondary_label: "ACOS",
+        alpha_label: "H",
+        pc_key: Some(egui::Key::C),
+    },
+    KeyMapping {
+        physical_id: 23,
+        ppl_code: 23,
+        device_code: 0x0049,
+        primary_label: "TAN",
+        secondary_label: "ATAN",
+        alpha_label: "I",
+        pc_key: Some(egui::Key::T),
+    },
+    KeyMapping {
+        physical_id: 24,
+        ppl_code: 24,
+        device_code: 0x004A,
+        primary_label: "LN",
+        secondary_label: "eˣ",
+        alpha_label: "J",
+        pc_key: Some(egui::Key::L),
+    },
+    KeyMapping {
+        physical_id: 25,
+        ppl_code: 25,
+        device_code: 0x004B,
+        primary_label: "LOG",
+        secondary_label: "10ˣ",
+        alpha_label: "K",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 26,
+        ppl_code: 26,
+        device_code: 0x004C,
+        primary_label: "x²",
+        secondary_label: "√",
+        alpha_label: "L",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 27,
+        ppl_code: 27,
+        device_code: 0x004D,
+        primary_label: "+/−",
+        secondary_label: "|x|",
+        alpha_label: "M",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 28,
+        ppl_code: 28,
+        device_code: 0x004E,
+        primary_label: "( )",
+        secondary_label: "!",
+        alpha_label: "N",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 29,
+        ppl_code: 29,
+        device_code: 0x004F,
+        primary_label: ",",
+        secondary_label: "Eval",
+        alpha_label: "O",
+        pc_key: Some(egui::Key::Comma),
+    },
+    KeyMapping {
+        physical_id: 30,
+        ppl_code: 30,
+        device_code: 0x000D,
+        primary_label: "Enter",
+        secondary_label: "≈",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Enter),
+    },
+    KeyMapping {
+        physical_id: 31,
+        ppl_code: 31,
+        device_code: 0x0050,
+        primary_label: "EEX",
+        secondary_label: "Sto ▸",
+        alpha_label: "P",
+        pc_key: Some(egui::Key::E),
+    },
+    KeyMapping {
+        physical_id: 32,
+        ppl_code: 32,
+        device_code: 0x0051,
+        primary_label: "7",
+        secondary_label: "List",
+        alpha_label: "Q",
+        pc_key: Some(egui::Key::Num7),
+    },
+    KeyMapping {
+        physical_id: 33,
+        ppl_code: 33,
+        device_code: 0x0052,
+        primary_label: "8",
+        secondary_label: "{ }",
+        alpha_label: "R",
+        pc_key: Some(egui::Key::Num8),
+    },
+    KeyMapping {
+        physical_id: 34,
+        ppl_code: 34,
+        device_code: 0x0053,
+        primary_label: "9",
+        secondary_label: "! , ∞ , →",
+        alpha_label: "S",
+        pc_key: Some(egui::Key::Num9),
+    },
+    KeyMapping {
+        physical_id: 35,
+        ppl_code: 35,
+        device_code: 0x0054,
+        primary_label: "÷",
+        secondary_label: "x⁻¹",
+        alpha_label: "T",
+        pc_key: Some(egui::Key::Slash),
+    },
+    KeyMapping {
+        physical_id: 36,
+        ppl_code: 36,
+        device_code: 0x00B6,
+        primary_label: "ALPHA",
+        secondary_label: "alpha",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Tab),
+    },
+    KeyMapping {
+        physical_id: 37,
+        ppl_code: 37,
+        device_code: 0x0055,
+        primary_label: "4",
+        secondary_label: "Matrix",
+        alpha_label: "U",
+        pc_key: Some(egui::Key::Num4),
+    },
+    KeyMapping {
+        physical_id: 38,
+        ppl_code: 38,
+        device_code: 0x0056,
+        primary_label: "5",
+        secondary_label: "[ ]",
+        alpha_label: "V",
+        pc_key: Some(egui::Key::Num5),
+    },
+    KeyMapping {
+        physical_id: 39,
+        ppl_code: 39,
+        device_code: 0x0057,
+        primary_label: "6",
+        secondary_label: "≤, ≥, ≠",
+        alpha_label: "W",
+        pc_key: Some(egui::Key::Num6),
+    },
+    KeyMapping {
+        physical_id: 40,
+        ppl_code: 40,
+        device_code: 0x0058,
+        primary_label: "×",
+        secondary_label: "∠",
+        alpha_label: "X",
+        pc_key: Some(egui::Key::X),
+    },
+    KeyMapping {
+        physical_id: 41,
+        ppl_code: 41,
+        device_code: 0x008B,
+        primary_label: "Shift",
+        secondary_label: "",
+        alpha_label: "",
+        pc_key: None,
+    },
+    KeyMapping {
+        physical_id: 42,
+        ppl_code: 42,
+        device_code: 0x0059,
+        primary_label: "1",
+        secondary_label: "Program",
+        alpha_label: "Y",
+        pc_key: Some(egui::Key::Num1),
+    },
+    KeyMapping {
+        physical_id: 43,
+        ppl_code: 43,
+        device_code: 0x005A,
+        primary_label: "2",
+        secondary_label: "i",
+        alpha_label: "Z",
+        pc_key: Some(egui::Key::Num2),
+    },
+    KeyMapping {
+        physical_id: 44,
+        ppl_code: 44,
+        device_code: 0x0033,
+        primary_label: "3",
+        secondary_label: "π",
+        alpha_label: "#",
+        pc_key: Some(egui::Key::Num3),
+    },
+    KeyMapping {
+        physical_id: 45,
+        ppl_code: 45,
+        device_code: 0x00B7,
+        primary_label: "−",
+        secondary_label: "Base",
+        alpha_label: ":",
+        pc_key: Some(egui::Key::Minus),
+    },
+    KeyMapping {
+        physical_id: 46,
+        ppl_code: 46,
+        device_code: 0x0083,
+        primary_label: "On",
+        secondary_label: "Off",
+        alpha_label: "",
+        pc_key: Some(egui::Key::F12),
+    },
+    KeyMapping {
+        physical_id: 47,
+        ppl_code: 47,
+        device_code: 0x0030,
+        primary_label: "0",
+        secondary_label: "Notes",
+        alpha_label: "\" ′′",
+        pc_key: Some(egui::Key::Num0),
+    },
+    KeyMapping {
+        physical_id: 48,
+        ppl_code: 48,
+        device_code: 0x00B8,
+        primary_label: "•",
+        secondary_label: "=",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Period),
+    },
+    KeyMapping {
+        physical_id: 49,
+        ppl_code: 49,
+        device_code: 0x0020,
+        primary_label: "␣",
+        secondary_label: "_",
+        alpha_label: "",
+        pc_key: Some(egui::Key::Space),
+    },
+    KeyMapping {
+        physical_id: 50,
+        ppl_code: 50,
+        device_code: 0x00B9,
+        primary_label: "+",
+        secondary_label: "Ans",
+        alpha_label: ";",
+        pc_key: Some(egui::Key::Plus),
+    },
+];
 
-        // Operators & Punctuation
-        Plus => KEY_PLUS,
-        Minus => KEY_MINUS,
-        Slash => KEY_DIV,
-        Period => KEY_DOT,
-        Comma => KEY_COMMA,
-        Equals => KEY_ENTER,
+/// Looks up key mapping by physical ID (0..=50).
+#[inline]
+pub fn lookup_by_physical(id: u8) -> Option<&'static KeyMapping> {
+    KEY_MAPPINGS.get(id as usize)
+}
 
-        // Letters & Mathematical Shortcuts
-        X => KEY_TIMES,
-        S => KEY_SIN,
-        C => KEY_COS,
-        T => KEY_TAN,
-        L => KEY_LN,
-        E => KEY_EEX,
+/// Looks up key mapping by native PPL keycode (0..=50).
+#[inline]
+pub fn lookup_by_ppl_code(code: i32) -> Option<&'static KeyMapping> {
+    if (0..=50).contains(&code) {
+        KEY_MAPPINGS.get(code as usize)
+    } else {
+        None
+    }
+}
 
-        // Function Keys (matching physical layout)
-        F1 => KEY_APPS,
-        F2 => KEY_SYMB,
-        F3 => KEY_PLOT,
-        F4 => KEY_NUM,
-        F5 => KEY_CAS,
-        F6 => KEY_TOOLBOX,
-        F7 => KEY_MENU,
-        F8 => KEY_VARS,
-        F9 => KEY_HELP,
-        F10 => KEY_VIEW,
-        F11 => KEY_POW,
-        F12 => KEY_ON,
+/// Looks up key mapping by ARM firmware device scan code.
+pub fn lookup_by_device_code(code: u16) -> Option<&'static KeyMapping> {
+    KEY_MAPPINGS.iter().find(|m| m.device_code == code)
+}
 
+/// Looks up key mapping by host PC key (egui Key), including navigation and operator aliases.
+pub fn lookup_by_pc_key(key: egui::Key) -> Option<&'static KeyMapping> {
+    let id: u8 = match key {
+        egui::Key::F1 => 0,
+        egui::Key::F2 => 1,
+        egui::Key::ArrowUp => 2,
+        egui::Key::F3 => 3,
+        egui::Key::Escape => 4,
+        egui::Key::Home | egui::Key::F4 => 5,
+        egui::Key::PageUp | egui::Key::F5 => 6,
+        egui::Key::ArrowLeft => 7,
+        egui::Key::ArrowRight => 8,
+        egui::Key::F6 => 9,
+        egui::Key::F7 => 10,
+        egui::Key::PageDown | egui::Key::F8 => 11,
+        egui::Key::ArrowDown => 12,
+        egui::Key::End | egui::Key::F9 => 13,
+        egui::Key::Backspace | egui::Key::Delete => 19,
+        egui::Key::F11 => 20,
+        egui::Key::S => 21,
+        egui::Key::C => 22,
+        egui::Key::T => 23,
+        egui::Key::L => 24,
+        egui::Key::Comma => 29,
+        egui::Key::Enter | egui::Key::Equals => 30,
+        egui::Key::E => 31,
+        egui::Key::Num7 => 32,
+        egui::Key::Num8 => 33,
+        egui::Key::Num9 => 34,
+        egui::Key::Slash => 35,
+        egui::Key::Tab => 36,
+        egui::Key::Num4 => 37,
+        egui::Key::Num5 => 38,
+        egui::Key::Num6 => 39,
+        egui::Key::X => 40,
+        egui::Key::Num1 => 42,
+        egui::Key::Num2 => 43,
+        egui::Key::Num3 => 44,
+        egui::Key::Minus => 45,
+        egui::Key::F12 => 46,
+        egui::Key::Num0 => 47,
+        egui::Key::Period => 48,
+        egui::Key::Space => 49,
+        egui::Key::Plus => 50,
         _ => return None,
-    })
+    };
+    lookup_by_physical(id)
+}
+
+/// Maps an egui key to an HP Prime keycode (0–50 grid).
+#[inline]
+pub fn egui_key_to_hp(key: egui::Key) -> Option<i64> {
+    lookup_by_pc_key(key).map(|m| m.ppl_code as i64)
 }
 
 /// HP key for a physical key position.
@@ -745,11 +1231,69 @@ mod tests {
         assert_eq!(egui_key_to_hp(Key::Backspace), Some(KEY_DEL));
         assert_eq!(egui_key_to_hp(Key::Delete), Some(KEY_DEL));
         assert_eq!(egui_key_to_hp(Key::Space), Some(KEY_ANS));
-        assert_eq!(egui_key_to_hp(Key::Tab), Some(KEY_TEMPLATE));
+        assert_eq!(egui_key_to_hp(Key::Tab), Some(KEY_ALPHA));
         assert_eq!(egui_key_to_hp(Key::Enter), Some(KEY_ENTER));
         assert_eq!(egui_key_to_hp(Key::Escape), Some(KEY_ESC));
         assert_eq!(egui_key_to_hp(Key::X), Some(KEY_TIMES));
         assert_eq!(egui_key_to_hp(Key::S), Some(KEY_SIN));
         assert_eq!(egui_key_to_hp(Key::F12), Some(KEY_ON));
+    }
+
+    #[test]
+    fn test_unified_key_mapping_matrix() {
+        use std::collections::HashSet;
+
+        assert_eq!(KEY_MAPPINGS.len(), 51);
+        let mut device_codes = HashSet::new();
+
+        for (idx, mapping) in KEY_MAPPINGS.iter().enumerate() {
+            assert_eq!(mapping.physical_id as usize, idx);
+            assert_eq!(mapping.ppl_code, idx as i32);
+            assert!(!mapping.primary_label.is_empty());
+            assert!(
+                device_codes.insert(mapping.device_code),
+                "Duplicate device code {:#06X} at key {}",
+                mapping.device_code,
+                idx
+            );
+
+            // Lookup by physical
+            let by_phys = lookup_by_physical(idx as u8).expect("lookup_by_physical");
+            assert_eq!(by_phys.physical_id, idx as u8);
+            assert_eq!(by_phys.ppl_code, idx as i32);
+
+            // Lookup by PPL code
+            let by_ppl = lookup_by_ppl_code(idx as i32).expect("lookup_by_ppl_code");
+            assert_eq!(by_ppl.physical_id, idx as u8);
+
+            // Lookup by device code
+            let by_dev = lookup_by_device_code(mapping.device_code).expect("lookup_by_device_code");
+            assert_eq!(by_dev.physical_id, idx as u8);
+
+            // If pc_key is present, lookup_by_pc_key must return this mapping (or canonical alias)
+            if let Some(pc_k) = mapping.pc_key {
+                let by_pc = lookup_by_pc_key(pc_k).expect("lookup_by_pc_key");
+                assert_eq!(by_pc.ppl_code, idx as i32);
+            }
+        }
+
+        // Out of range lookups
+        assert!(lookup_by_physical(51).is_none());
+        assert!(lookup_by_physical(255).is_none());
+        assert!(lookup_by_ppl_code(-1).is_none());
+        assert!(lookup_by_ppl_code(51).is_none());
+        assert!(lookup_by_device_code(0xFFFF).is_none());
+
+        // Function keys match official HP skin
+        assert_eq!(lookup_by_pc_key(egui::Key::F1).unwrap().ppl_code, 0); // Apps
+        assert_eq!(lookup_by_pc_key(egui::Key::F2).unwrap().ppl_code, 1); // Symb
+        assert_eq!(lookup_by_pc_key(egui::Key::F3).unwrap().ppl_code, 3); // Help
+        assert_eq!(lookup_by_pc_key(egui::Key::F4).unwrap().ppl_code, 5); // Home
+        assert_eq!(lookup_by_pc_key(egui::Key::F5).unwrap().ppl_code, 6); // Plot
+        assert_eq!(lookup_by_pc_key(egui::Key::F6).unwrap().ppl_code, 9); // View
+        assert_eq!(lookup_by_pc_key(egui::Key::F7).unwrap().ppl_code, 10); // CAS
+        assert_eq!(lookup_by_pc_key(egui::Key::F8).unwrap().ppl_code, 11); // Num
+        assert_eq!(lookup_by_pc_key(egui::Key::F9).unwrap().ppl_code, 13); // Menu
+        assert_eq!(lookup_by_pc_key(egui::Key::Tab).unwrap().ppl_code, 36); // ALPHA
     }
 }

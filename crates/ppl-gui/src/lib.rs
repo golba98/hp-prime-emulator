@@ -21,7 +21,10 @@ pub use dialog::{KeyPress, ModalDialog, make_dialog};
 pub use host::{GuiHost, GuiSharedState, IdeSharedState};
 pub use ide::execution::worker::{WorkerConfig, WorkerHandle, WorkerOutcome};
 pub use ide::{DockTab, IdeAction, IdeAppState, IdePanel, VmExecutionState};
-pub use keymap::{egui_key_to_hp, hp_key_name, map_char, map_winit_key};
+pub use keymap::{
+    KEY_MAPPINGS, KeyMapping, egui_key_to_hp, hp_key_name, lookup_by_device_code, lookup_by_pc_key,
+    lookup_by_physical, lookup_by_ppl_code, map_char, map_winit_key,
+};
 pub use mirror::{
     CapturedFrame, MirrorApp, MirrorCapture, MirrorConfig, MirrorCustomEvent, MirrorMetrics,
     MirrorQuality, MirrorSource, MirrorStatus, MockMirrorSource, UsbMirrorSource, run_mirror,

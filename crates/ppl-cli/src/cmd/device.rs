@@ -44,6 +44,11 @@ pub struct DeviceOpts {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceAction {
+    /// Prepare, explicitly apply, or inspect a program replacement.
+    Replace {
+        #[command(subcommand)]
+        action: super::program_management::Action,
+    },
     /// Read the physical program inventory or exact program source.
     Programs {
         #[command(subcommand)]
@@ -123,6 +128,8 @@ pub enum DeviceAction {
         #[arg(long)]
         r#static: bool,
     },
+    /// Separately approved bounded sustained FC04 verification; never enables mirroring.
+    VerifyIncrementalStream(super::device_incremental_stream::StreamOptions),
     /// Live physical calculator screen mirroring window (read-only).
     Mirror {
         /// Display scale multiplier (1, 2, 3, or 4). Default: 2 (640×480).
@@ -134,7 +141,7 @@ pub enum DeviceAction {
         /// Image scaling: nearest (default) or linear.
         #[arg(long, default_value = "nearest")]
         filter: ppl_gui::scaler::ScaleFilter,
-        /// Capture quality: full (320×240) or fast (160×120 RGB565).
+        /// Capture quality: full (320×240) or fast (160×120 RGB555).
         #[arg(long, default_value = "full")]
         quality: ppl_gui::mirror::MirrorQuality,
         /// Capture backend: full (default) or hardware-gated incremental.
@@ -149,7 +156,7 @@ pub enum DeviceAction {
         /// Save initial displayed frame as PNG on launch or to specified path.
         #[arg(long)]
         snapshot: Option<PathBuf>,
-        /// Explicit opt-in for experimental FC04 incremental capture.
+        /// Legacy acknowledgement; does not bypass physical streaming acceptance.
         #[arg(long)]
         acknowledge_experimental_fc04: bool,
     },
@@ -455,7 +462,6 @@ pub fn run(o: DeviceOpts) -> u8 {
         &o.action,
         DeviceAction::Mirror {
             capture: ppl_gui::mirror::MirrorCapture::Incremental,
-            acknowledge_experimental_fc04: false,
             ..
         }
     ) && !ppl_device::screenshot::update::incremental_profiles_available()
@@ -467,6 +473,21 @@ pub fn run(o: DeviceOpts) -> u8 {
         return exit::IO;
     }
 
+    if let DeviceAction::Replace { action } = &o.action {
+        return super::program_management::run(&o, action);
+    }
+    if o.control_socket.is_some() {
+        if let DeviceAction::Send {
+            name,
+            file,
+            control,
+            note: false,
+            runs_dir,
+        } = &o.action
+        {
+            return run_socket_send(&o, name, file, control.as_deref(), runs_dir);
+        }
+    }
     if super::device_control::handles(&o) {
         return super::device_control::run(&o);
     }
@@ -501,6 +522,13 @@ pub fn run(o: DeviceOpts) -> u8 {
             o.control_socket.is_some(),
         );
     }
+    if let DeviceAction::VerifyIncrementalStream(options) = &o.action {
+        return super::device_incremental_stream::run(
+            o.device.as_deref(),
+            options,
+            o.control_socket.is_some(),
+        );
+    }
     if let DeviceAction::Mirror {
         scale,
         fps,
@@ -529,6 +557,7 @@ pub fn run(o: DeviceOpts) -> u8 {
             o.device.as_deref(),
         );
     }
+
     let json_capable = matches!(
         o.action,
         DeviceAction::Delete { .. } | DeviceAction::List { .. }
@@ -543,13 +572,13 @@ pub fn run(o: DeviceOpts) -> u8 {
     if let DeviceAction::Delete { action } = &o.action {
         return super::device_delete::run(action, o.json, o.device.as_deref(), o.log.as_deref());
     }
-    if o.device.is_some() {
-        eprintln!(
-            "--device is currently supported by status, listener and remote execution commands"
-        );
-        return exit::USAGE;
-    }
-    let code = run_inner(&o.action, o.log.as_ref(), o.trace.as_ref(), o.json);
+    let code = run_inner(
+        &o.action,
+        o.log.as_ref(),
+        o.trace.as_ref(),
+        o.json,
+        o.device.as_deref(),
+    );
     if code != exit::OK {
         eprintln!(
             "hint: the calculator must be on, unlocked, and not in exam mode; close the Connectivity Kit if it is running"
@@ -558,11 +587,86 @@ pub fn run(o: DeviceOpts) -> u8 {
     code
 }
 
+fn run_socket_send(
+    o: &DeviceOpts,
+    name: &str,
+    file: &Path,
+    control: Option<&str>,
+    runs_dir: &Path,
+) -> u8 {
+    if o.json {
+        eprintln!(
+            "send retains interactive confirmation; use typed management RPC for structured uploads"
+        );
+        return exit::USAGE;
+    }
+    let Some(device) = &o.device else {
+        eprintln!("owner-socket upload requires --device serial-id");
+        return exit::USAGE;
+    };
+    if control.is_some() {
+        eprintln!(
+            "optional custom control probes are unavailable over owner IPC; the shared settings anchor is mandatory"
+        );
+        return exit::USAGE;
+    }
+    let plan = match prepare_send(name, file, None, false, runs_dir) {
+        Ok(plan) => plan,
+        Err(code) => return code,
+    };
+    let payload: Vec<u8> = plan
+        .text
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect();
+    let request = ppl_device::control::Request::Manage {
+        device_serial_id: device.clone(),
+        action: ppl_device::control::ManagementAction::Create {
+            name: name.into(),
+            source: plan.text.clone(),
+            confirmation_sha256: ppl_compat::sha256_hex(&payload),
+        },
+    };
+    let response = super::device_control::request(o, &request);
+    if !response.report["error"].is_null() {
+        eprintln!("error: {}", response.report["error"]);
+        return exit::IO;
+    }
+    let result = &response.report["result"];
+    println!("{result}");
+    if result["state"] != "upload_verified" {
+        return exit::IO;
+    }
+    let source = super::device_control::request(
+        o,
+        &ppl_device::control::Request::Program { name: name.into() },
+    );
+    if !source.report["error"].is_null()
+        || !matches!(
+            ppl_programs::compare_source(&source.payload, &plan.text),
+            Ok(Some(_))
+        )
+    {
+        eprintln!(
+            "installation was verified, but receipt readback failed; retain the object for inspection"
+        );
+        return exit::IO;
+    }
+    match record_verified(&plan, device, FileType::Program, &source.payload) {
+        Ok(()) => exit::OK,
+        Err(error) => {
+            eprintln!("error: {error}");
+            exit::IO
+        }
+    }
+}
+
 fn run_inner(
     action: &DeviceAction,
     log: Option<&PathBuf>,
     trace: Option<&PathBuf>,
     json: bool,
+    selected: Option<&str>,
 ) -> u8 {
     if let DeviceAction::Detect = action {
         return match ppl_device::detect() {
@@ -630,7 +734,7 @@ fn run_inner(
         },
         _ => None,
     };
-    let mut p = match Prime::open_first() {
+    let mut p = match ppl_programs::open_selected(selected) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("error: {e}");
@@ -732,7 +836,17 @@ fn prepare_send(
             return Err(exit::IO);
         }
     };
-    let (text, _) = ppl_syntax::decode_source(&src);
+    let text = match ppl_engine::source::Source::decode(
+        src,
+        Some(file.to_owned()),
+        file.display().to_string(),
+    ) {
+        Ok(source) => source.original_text,
+        Err(error) => {
+            eprintln!("error: {error}; nothing was sent");
+            return Err(exit::USAGE);
+        }
+    };
     if !is_note {
         // Pure check: an oversize program is refused before any prompt or USB.
         if let Err(e) = check_program_payload(name, &text) {
@@ -880,7 +994,66 @@ fn record_verified(
 }
 
 fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
-    let report = if s.is_note {
+    if !s.is_note {
+        let image = ppl_programs::ProgramImage::new(
+            &s.name,
+            ppl_programs::Source::text(&s.text, &s.name).map_err(DeviceError::Refused)?,
+        )?;
+        println!(
+            "Transfer initiated: guarded create-only program `{}` ({} UTF-16 bytes)",
+            s.name, image.sizes.payload_bytes
+        );
+        if let Some(control) = &s.control {
+            let identity = ppl_programs::DeviceIdentity::read(p)?;
+            identity.require_reference()?;
+            if control.ty == FileType::Program && control.name == s.name {
+                return Err(DeviceError::Refused(
+                    "control object cannot be the upload target".into(),
+                ));
+            }
+            match p.probe_file(control.ty, &control.name, ppl_device::PROBE_TIMEOUT)? {
+                Probe::Present(file)
+                    if file.name != control.name || file.ty != control.ty || !file.crc_ok =>
+                {
+                    return Err(DeviceError::Inconclusive(
+                        "optional control reply identity/CRC mismatch".into(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+        let outcome = ppl_programs::create_new(
+            p,
+            &image,
+            &ppl_programs::delete_store::Store::new(Path::new(
+                super::device_delete::DEFAULT_DELETE_DIR,
+            )),
+        )?;
+        if outcome.state != "upload_verified" {
+            eprintln!(
+                "Upload {}: {}; object retained, no retry",
+                outcome.state,
+                outcome.error.as_deref().unwrap_or("readback unverified")
+            );
+            return Ok(exit::IO);
+        }
+        let stored = p.read_program_exact(&s.name)?;
+        println!(
+            "Read-back verified: {}; operation {}",
+            outcome.comparison.as_deref().unwrap_or("unknown"),
+            outcome.operation_id.as_deref().unwrap_or("unknown")
+        );
+        record_verified(
+            s,
+            &outcome.device.serial_id,
+            FileType::Program,
+            &stored.data,
+        )?;
+        return Ok(exit::OK);
+    }
+    let identity = ppl_programs::DeviceIdentity::read(p)?;
+    identity.require_reference()?;
+    let report = {
         if let Some(ctrl) = &s.control {
             println!(
                 "preflight: control {}, target note:{} (about 20 s)...",
@@ -902,53 +1075,6 @@ fn send_program(p: &mut Prime, s: &SendPlan) -> Result<u8, DeviceError> {
             s.text.encode_utf16().count() * 2
         );
         p.send_new_note(guard, &s.text)?
-    } else if s.user {
-        if let Some(ctrl) = &s.control {
-            println!(
-                "preflight: control {}, target program:{} plus case variants (about 40-70 s)...",
-                ctrl, s.name
-            );
-        } else {
-            println!(
-                "preflight: device-level verification, target program:{} plus case variants (about 32-64 s)...",
-                s.name
-            );
-        }
-        let guard = p.preflight_new_user_program(&s.name, s.control.as_ref())?;
-        for line in guard.log() {
-            println!("  {line}");
-        }
-        println!(
-            "Transfer initiated: sending program `{}` ({} UTF-16 bytes)...",
-            s.name,
-            s.text.encode_utf16().count() * 2
-        );
-        p.send_new_program(guard, &s.text)?
-    } else {
-        if let Some(ctrl) = &s.control {
-            println!(
-                "preflight: control {}, targets program:{} and note:{} (about 40 s)...",
-                ctrl, s.name, s.note
-            );
-        } else {
-            println!(
-                "preflight: device-level verification, targets program:{} and note:{} (about 32 s)...",
-                s.name, s.note
-            );
-        }
-        let guard = p.preflight_new_names(
-            &[(FileType::Program, &s.name), (FileType::Note, &s.note)],
-            s.control.as_ref(),
-        )?;
-        for line in guard.log() {
-            println!("  {line}");
-        }
-        println!(
-            "Transfer initiated: sending program `{}` ({} UTF-16 bytes)...",
-            s.name,
-            s.text.encode_utf16().count() * 2
-        );
-        p.send_new_program(guard, &s.text)?
     };
 
     println!(
@@ -1078,7 +1204,7 @@ fn run_mirror(config: ppl_gui::MirrorConfig, device: Option<&str>) -> u8 {
         config.fps
     );
     if config.quality == ppl_gui::mirror::MirrorQuality::Fast {
-        println!("Fast capture: 160×120 RGB565; half the source width/height, enlarged locally.");
+        println!("Fast capture: 160×120 RGB555; half the source width/height, enlarged locally.");
     }
     if let Err(e) = ppl_gui::run_mirror_usb(config, prime) {
         eprintln!("error: failed to run mirror window: {e}");
@@ -1091,6 +1217,7 @@ fn run_mirror(config: ppl_gui::MirrorConfig, device: Option<&str>) -> u8 {
 fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
     match action {
         DeviceAction::Status { .. }
+        | DeviceAction::Replace { .. }
         | DeviceAction::Programs { .. }
         | DeviceAction::Ui { .. }
         | DeviceAction::Control { .. }
@@ -1108,6 +1235,7 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
         | DeviceAction::Mirror { .. }
         | DeviceAction::ProbeIncremental { .. }
         | DeviceAction::VerifyIncremental { .. }
+        | DeviceAction::VerifyIncrementalStream(_)
         | DeviceAction::List { .. } => unreachable!(),
         DeviceAction::Ping => {
             let r = p.check_ready()?;
@@ -1146,7 +1274,7 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
             let img = ppl_graphics::Grob::from_prime_screenshot(&png).map_err(io)?;
             img.save_png(out).map_err(|e| io(e.to_string()))?;
             println!(
-                "saved {} ({}×{}, decoded from RGB565); raw reply in {}",
+                "saved {} ({}×{}, decoded from RGB555); raw reply in {}",
                 out.display(),
                 img.width(),
                 img.height(),
@@ -1214,7 +1342,12 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
         DeviceAction::Get { ty, name, out } => {
             let t = FileType::parse(ty)
                 .ok_or_else(|| DeviceError::Refused(format!("unknown object type `{ty}`")))?;
-            match p.request_file(t, name)? {
+            let probe = if t == FileType::Program {
+                Probe::Present(p.read_program_exact(name)?)
+            } else {
+                p.request_file(t, name)?
+            };
+            match probe {
                 Probe::NoReply { waited } => {
                     println!(
                         "{name}: no reply within {} s — this does NOT prove the object is absent",
@@ -1223,6 +1356,12 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
                     return Ok(exit::IO);
                 }
                 Probe::Present(f) => {
+                    if f.name != *name || f.ty != t || !f.crc_ok {
+                        return Err(DeviceError::Protocol(
+                            "retrieved object name/type/CRC differs from the requested object"
+                                .into(),
+                        ));
+                    }
                     eprintln!(
                         "{} {:?} {} bytes, crc {}",
                         f.name,
@@ -1234,7 +1373,7 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
                         Some(path) => std::fs::write(path, &f.data)
                             .map_err(|e| DeviceError::Hid(e.to_string()))?,
                         None if matches!(f.ty, FileType::Program | FileType::Note) => {
-                            println!("{}", f.text())
+                            print!("{}", ppl_device::program::utf16(&f.data)?)
                         }
                         None => println!("{}", hex(&f.data)),
                     }

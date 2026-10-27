@@ -1,0 +1,5 @@
+EXPORT DPK11()
+BEGIN
+ LOCAL to:=4;
+ RETURN to+1;
+END;

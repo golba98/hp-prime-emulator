@@ -4,6 +4,13 @@
 //! execution controller, and debugger panels into one eframe application.
 //! The plain winit calculator window lives in [`crate::window`].
 
+#[path = "app_check.rs"]
+mod checking_integration;
+#[path = "app_firmware.rs"]
+mod firmware_integration;
+#[path = "app_workspace.rs"]
+mod workspace;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -29,6 +36,28 @@ use crate::theme;
 /// Native Desktop IDE Application implementing `eframe::App`.
 pub struct IdeDesktopApp {
     pub state: IdeAppState,
+    pub firmware: Option<crate::ide::firmware::FirmwareClient>,
+    pub firmware_status: String,
+    pub program_manager: crate::ide::programs::ProgramManager,
+    explicit_check: Option<checking_integration::CheckJob>,
+    /// The warm direct firmware checker (started on first Check).
+    direct: checking_integration::DirectSlot,
+    native_compile: Option<NativeCompileJob>,
+    native_stopping: bool,
+    native_restart: Option<egui::Context>,
+    firmware_state: crate::ide::VmExecutionState,
+    native_vm_state: crate::ide::VmExecutionState,
+    firmware_request: u64,
+    /// Session requests awaiting a result: request → (tab, revision, title)
+    /// of the exact source sent, so a verdict lands only on that revision.
+    firmware_pending: std::collections::BTreeMap<u64, (TabId, u64, String)>,
+    /// Session requests that run the program (the rest are Checks).
+    firmware_runs: std::collections::BTreeSet<u64>,
+    last_touch: Option<ppl_vm::host::Touch>,
+    touch_start_time: Option<std::time::Instant>,
+    deferred_touch_end: Option<(ppl_vm::host::Touch, std::time::Instant)>,
+    prev_shift_held: bool,
+    prev_alpha_held: bool,
     pub menu_bar: MenuBar,
     pub toolbar: ToolBar,
     pub explorer: ProgramExplorer,
@@ -64,6 +93,19 @@ pub struct IdeDesktopApp {
     pub(crate) last_calc_input_focus: bool,
 }
 
+struct NativeCompileJob {
+    tab: TabId,
+    revision: u64,
+    file: ppl_syntax::SourceFile,
+    run_entry: Option<String>,
+    run_args: Option<String>,
+    max_steps: Option<u64>,
+    debug: bool,
+    stop_at_entry: bool,
+    run: bool,
+    result: std::sync::mpsc::Receiver<diagnostics::Analysis>,
+}
+
 /// Quiet period after an edit before live diagnostics recompile.
 const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(250);
 
@@ -88,6 +130,24 @@ impl Default for IdeDesktopApp {
     fn default() -> Self {
         Self {
             state: IdeAppState::default(),
+            firmware: None,
+            firmware_status: "Firmware not started".into(),
+            program_manager: Default::default(),
+            explicit_check: None,
+            direct: Default::default(),
+            native_compile: None,
+            native_stopping: false,
+            native_restart: None,
+            firmware_state: crate::ide::VmExecutionState::Idle,
+            native_vm_state: crate::ide::VmExecutionState::Idle,
+            firmware_request: 0,
+            firmware_pending: Default::default(),
+            firmware_runs: Default::default(),
+            last_touch: None,
+            touch_start_time: None,
+            deferred_touch_end: None,
+            prev_shift_held: false,
+            prev_alpha_held: false,
             menu_bar: MenuBar::new(),
             toolbar: ToolBar::new(),
             explorer: ProgramExplorer::new(),
@@ -167,10 +227,22 @@ impl IdeDesktopApp {
         app.controller
             .shared
             .set_redraw_callback(move || ctx.request_repaint());
+        let ctx = cc.egui_ctx.clone();
+        app.controller
+            .bridge
+            .set_wake_ui(move || ctx.request_repaint());
         // Diagnostics results arrive from a worker thread; repaint to show them.
         let ctx = cc.egui_ctx.clone();
         app.diagnostics = DiagnosticsWorker::new(Some(Box::new(move || ctx.request_repaint())));
         app
+    }
+
+    pub fn execution_busy(&self) -> bool {
+        if self.state.firmware_backend {
+            matches!(self.firmware_state, crate::ide::VmExecutionState::Running)
+        } else {
+            self.controller.worker_alive() || self.native_compile.is_some() || self.native_stopping
+        }
     }
 
     pub fn open_file(&mut self, path: PathBuf) {
@@ -225,20 +297,20 @@ impl IdeDesktopApp {
     /// Populates the run configuration dialog from the active buffer's
     /// exported functions and opens it.
     fn open_run_config(&mut self) {
-        let Some(tab) = self.editor.active_tab() else {
+        let Some(tab) = self.editor.active_tab_mut() else {
             self.state.status_message = "No program open to configure".to_string();
             return;
         };
-        let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
-        let (prog, _diags) =
-            ppl_compiler::compile_source(&file, &ppl_compiler::CompileOptions::default());
-        let entries = prog
-            .map(|p| {
-                p.exported()
-                    .map(|(_, c)| (c.name.clone(), c.params as usize))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        tab.sync();
+        let entries = tab
+            .doc
+            .analysis()
+            .symbols
+            .functions
+            .iter()
+            .filter(|f| f.exported)
+            .map(|f| (f.name.clone(), f.params.len()))
+            .collect::<Vec<_>>();
         self.dialogs.run_config_selected = entries
             .iter()
             .position(|(name, _)| Some(name) == tab.run_entry.as_ref())
@@ -252,32 +324,105 @@ impl IdeDesktopApp {
     /// runs exactly that program on the background worker. The compile
     /// result also becomes the tab's diagnostics for that revision, so the
     /// Problems panel and the executed bytecode always match.
-    fn run_source(&mut self, debug: bool, stop_at_entry: bool) {
-        if self.controller.worker_alive() {
-            self.state.status_message = "A program is already running (use Stop first)".to_string();
+    fn run_source(&mut self, debug: bool, stop_at_entry: bool, ctx: &egui::Context) {
+        self.begin_native_compile(true, debug, stop_at_entry, ctx);
+    }
+
+    fn begin_native_compile(
+        &mut self,
+        run: bool,
+        debug: bool,
+        stop_at_entry: bool,
+        ctx: &egui::Context,
+    ) {
+        if self.native_compile.is_some() || (run && self.controller.worker_alive()) {
+            self.state.status_message = "A program is already running (use Stop first)".into();
             return;
         }
-        let Some(i) = Some(self.editor.active_tab_index).filter(|&i| i < self.editor.tabs.len())
-        else {
-            self.state.status_message = "No program open to run".to_string();
+        let Some(tab) = self.editor.active_tab_mut() else {
             return;
         };
-        let max_steps = self
-            .dialogs
-            .max_steps_input
-            .trim()
-            .parse::<u64>()
-            .ok()
-            .filter(|&n| n > 0);
-
-        let tab = &mut self.editor.tabs[i];
         let revision = tab.revision();
-        let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
-        let analysis = diagnostics::analyze(&tab.title, &tab.content, revision);
         let tab_id = tab.id;
+        let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
         let run_entry = tab.run_entry.clone();
-        let run_args = Some(tab.run_args.trim().to_string()).filter(|a| !a.is_empty());
+        let run_args = Some(tab.run_args.trim().to_owned()).filter(|a| !a.is_empty());
         self.controller.bridge.set_breakpoints(&tab.breakpoints);
+        let (tx, result) = std::sync::mpsc::channel();
+        let source = file.clone();
+        let wake = ctx.clone();
+        std::thread::spawn(move || {
+            let analysis = diagnostics::analyze(&source.name, &source.text, revision);
+            let _ = tx.send(analysis);
+            wake.request_repaint();
+        });
+        self.native_compile = Some(NativeCompileJob {
+            tab: tab_id,
+            revision,
+            file,
+            run_entry,
+            run_args,
+            max_steps: self
+                .dialogs
+                .max_steps_input
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|n| *n > 0),
+            debug,
+            stop_at_entry,
+            run,
+            result,
+        });
+        self.mark_requested(tab_id, revision);
+        if run {
+            self.state.vm_state = crate::ide::VmExecutionState::Running;
+        }
+        self.state.status_message = "Compiling current source…".into();
+    }
+
+    fn poll_native_compile(&mut self) {
+        let Some(analysis) = self
+            .native_compile
+            .as_ref()
+            .and_then(|j| j.result.try_recv().ok())
+        else {
+            return;
+        };
+        let job = self.native_compile.take().unwrap();
+        let NativeCompileJob {
+            tab: tab_id,
+            revision,
+            file,
+            run_entry,
+            run_args,
+            max_steps,
+            debug,
+            stop_at_entry,
+            run,
+            ..
+        } = job;
+        let Some(i) = self.editor.index_of(tab_id) else {
+            self.state.vm_state = crate::ide::VmExecutionState::Idle;
+            return;
+        };
+        let tab = &mut self.editor.tabs[i];
+        if tab.revision() != revision {
+            self.state.vm_state = crate::ide::VmExecutionState::Idle;
+            self.state.status_message =
+                "Source changed while compiling; run the current revision again".into();
+            return;
+        }
+        if !run {
+            Self::set_analysis(tab, revision, analysis.items, analysis.failure);
+            self.rebuild_problems();
+            self.state.status_message = format!(
+                "Compile: {} error(s), {} warning(s)",
+                self.problems.error_count(),
+                self.problems.warning_count()
+            );
+            return;
+        }
         let errors = analysis.error_count();
         let failure = analysis.failure.clone();
         let program = analysis.program;
@@ -363,19 +508,17 @@ impl IdeDesktopApp {
         }
     }
 
-    /// Recomputes diagnostics for the active buffer now (Check Syntax).
-    fn refresh_diagnostics(&mut self) {
-        let Some(tab) = self.editor.active_tab_mut() else {
+    /// Drops a pending native compile. Its revision was marked as requested,
+    /// so hand it back to the background worker rather than leaving the tab
+    /// "Analysing…" until the next edit.
+    fn cancel_native_compile(&mut self) {
+        let Some(job) = self.native_compile.take() else {
             return;
         };
-        let revision = tab.revision();
-        let analysis = diagnostics::analyze(&tab.title, &tab.content, revision);
-        let id = tab.id;
-        Self::set_analysis(tab, revision, analysis.items, analysis.failure);
-        self.mark_requested(id, revision);
-        self.rebuild_problems();
-        if self.problems.items.is_empty() && self.problems.is_settled() {
-            self.state.status_message = "No problems detected".to_string();
+        if let Some(req) = self.diag_requests.get_mut(&job.tab) {
+            if req.requested == job.revision {
+                req.requested = 0;
+            }
         }
     }
 
@@ -456,10 +599,21 @@ impl IdeDesktopApp {
             if i == self.editor.active_tab_index {
                 self.state.analysis = state;
                 self.state.encoding_label = self.editor.tabs[i].format.label();
+                self.state.firmware_verdict =
+                    self.editor.tabs[i]
+                        .current_firmware()
+                        .map(|f| match &f.failure {
+                            Some(_) => ("Firmware: no verdict".to_string(), true),
+                            None if f.items.is_empty() => {
+                                ("Firmware: Check passed".to_string(), false)
+                            }
+                            None => (format!("Firmware: {} error(s)", f.items.len()), true),
+                        });
             }
         }
         if self.editor.tabs.is_empty() {
             self.state.analysis = AnalysisState::NotAnalyzed;
+            self.state.firmware_verdict = None;
         }
         self.problems.pending = pending;
         self.problems.failures = failures;
@@ -484,7 +638,17 @@ impl IdeDesktopApp {
                 .filter(|(p, rev)| p.tab.is_none_or(|id| current.contains(&(id, *rev))))
                 .map(|(p, _)| p.clone()),
         );
+        let mut firmware_passed = Vec::new();
+        for t in self.editor.tabs.iter_mut() {
+            if let Some(f) = t.current_firmware() {
+                items.extend(f.items.iter().cloned());
+                if f.items.is_empty() && f.failure.is_none() {
+                    firmware_passed.push(t.title.clone());
+                }
+            }
+        }
         self.problems.set_diagnostics(items);
+        self.problems.firmware_passed = firmware_passed;
         self.problems.active_tab_index = self.editor.active_tab_index;
         self.problems_key = current;
         self.refresh_analysis_status();
@@ -589,6 +753,20 @@ impl IdeDesktopApp {
 
     /// Drains worker terminal output, outcomes, and debugger pauses into the UI.
     fn poll_execution(&mut self) {
+        if self.native_stopping {
+            if self.controller.worker_alive() {
+                return;
+            }
+            let _ = self.controller.join_current();
+            self.native_stopping = false;
+            if let Some(ctx) = self.native_restart.take() {
+                self.begin_native_compile(true, false, false, &ctx);
+            }
+        }
+        self.poll_native_compile();
+        if self.native_compile.as_ref().is_some_and(|j| j.run) {
+            return;
+        }
         // Terminal output -> console.
         for line in self.controller.drain_terminal() {
             self.console.print_output(line);
@@ -672,59 +850,21 @@ impl IdeDesktopApp {
         }
     }
 
-    /// Forwards PC keyboard events to the VM when the calculator has focus.
-    fn forward_calc_keys(&mut self, ctx: &egui::Context) {
-        if !self.state.calc_input_focus {
-            return;
-        }
-        let shared = self.controller.shared.clone();
-        ctx.input(|i| {
-            for event in i.events.clone() {
-                match event {
-                    egui::Event::Key {
-                        key,
-                        pressed,
-                        repeat,
-                        ..
-                    } => {
-                        if let Some(code) = egui_key_to_hp(key) {
-                            if pressed && !repeat {
-                                shared.push_key_press(KeyPress {
-                                    code: Some(code),
-                                    ch: None,
-                                });
-                            }
-                            shared.set_key_down(code, pressed);
-                        }
-                    }
-                    egui::Event::Text(text) => {
-                        for ch in text.chars() {
-                            let mut buf = [0u8; 4];
-                            let s = ch.encode_utf8(&mut buf);
-                            let code = crate::keymap::map_char(s);
-                            shared.push_key_press(KeyPress { code, ch: Some(ch) });
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        });
-    }
-
-    /// Maps pointer drags over the display to VM touch coordinates.
-    fn forward_touch(&mut self, ctx: &egui::Context) {
-        if !ctx.input(|i| i.pointer.primary_down()) {
-            self.controller.shared.set_touch(None);
-            return;
-        }
-        let touch = ctx
-            .input(|i| i.pointer.hover_pos())
-            .and_then(|pos| self.display.project_pointer_pos(pos));
-        self.controller.shared.set_touch(touch);
-    }
-
     /// Updates the calculator display texture from the VM framebuffer.
     fn update_display_texture(&mut self, ctx: &egui::Context) {
+        self.display.set_smooth(self.state.smooth_display);
+        if self.state.firmware_backend {
+            if let Some(frame) = self
+                .firmware
+                .as_ref()
+                .and_then(|f| f.latest.lock().unwrap().clone())
+            {
+                self.display
+                    .update_xrgb(ctx, &frame.pixels, frame.generation);
+            }
+            return;
+        }
+        self.display.set_smooth(self.state.smooth_display);
         let screen_gen = self
             .controller
             .shared
@@ -791,49 +931,76 @@ impl IdeDesktopApp {
                     self.editor.close_tab(self.editor.active_tab_index);
                 }
             }
+            IdeAction::RunProgram if self.state.firmware_backend => {
+                self.request_firmware(true, _ctx)
+            }
+            IdeAction::ManagePrograms => {
+                self.program_manager.open = true;
+            }
+            IdeAction::CheckSyntax if self.state.firmware_backend => {
+                // A fresh checker, not the live session: the session must
+                // first load the source through its loader program, which
+                // measured slower (about 10 s against 7 s); boot is only
+                // 0.6 s of a fresh Check. A session Run still reports its
+                // compile verdict to Problems.
+                self.request_checked_source(_ctx);
+                self.state.active_dock_tab = DockTab::Problems;
+                self.state.show_bottom_dock = true;
+            }
+            IdeAction::StartDebugging
+            | IdeAction::StepInto
+            | IdeAction::StepOver
+            | IdeAction::StepOut
+            | IdeAction::ContinueExecution
+                if self.state.firmware_backend =>
+            {
+                self.state.status_message =
+                    "Firmware stepping is not supported; select Native PPL to debug".into();
+            }
+            IdeAction::StopProgram if self.state.firmware_backend => {
+                if let Some(f) = &self.firmware {
+                    f.send(ppl_engine::session::Command::Stop);
+                }
+            }
+            IdeAction::RestartProgram if self.state.firmware_backend => {
+                self.request_firmware(true, _ctx)
+            }
             IdeAction::RunProgram => {
                 if self.state.vm_state == crate::ide::VmExecutionState::Paused {
                     self.handle_action(IdeAction::ContinueExecution, _ctx);
                 } else {
-                    self.run_source(false, false);
+                    self.run_source(false, false, _ctx);
                 }
             }
             IdeAction::StopProgram => {
+                self.cancel_native_compile();
+                // A pending firmware Check stops too (dropping it cancels),
+                // as Stop does for the firmware session.
+                if self.explicit_check.take().is_some() {
+                    self.console.print_diagnostic("Firmware Check cancelled");
+                }
+                self.native_restart = None;
+                self.native_stopping = true;
                 self.controller.stop();
-                let outcome = self.controller.join_current();
                 self.state.vm_state = crate::ide::VmExecutionState::Idle;
                 self.state.paused_line = 0;
                 self.debugger.set_snapshot(None);
-                match outcome {
-                    Some(WorkerOutcome::Error(e)) if e.kind == ppl_vm::ErrorKind::Interrupted => {
-                        self.console
-                            .print_diagnostic("--- Execution stopped by user ---");
-                        self.state.status_message = "Stopped".to_string();
-                    }
-                    Some(WorkerOutcome::Error(e)) => {
-                        self.console
-                            .print_error(format!("--- Execution stopped: {e} ---"));
-                        self.state.status_message = "Stopped with error".to_string();
-                    }
-                    Some(WorkerOutcome::Success { .. }) | None => {
-                        self.console.print_diagnostic("--- Execution stopped ---");
-                        self.state.status_message = "Stopped".to_string();
-                    }
-                }
+                self.console
+                    .print_diagnostic("--- Execution stopped by user ---");
+                self.state.status_message = "Stopped".into();
             }
             IdeAction::RestartProgram => {
+                self.cancel_native_compile();
+                self.native_restart = Some(_ctx.clone());
+                self.native_stopping = true;
                 self.controller.stop();
-                let _ = self.controller.join_current();
-                self.state.vm_state = crate::ide::VmExecutionState::Idle;
+                self.state.vm_state = crate::ide::VmExecutionState::Running;
                 self.state.paused_line = 0;
                 self.debugger.set_snapshot(None);
-                self.state.step_count = 0;
-                self.state.elapsed_time = std::time::Duration::ZERO;
-                self.console.print_diagnostic("--- Run restarted ---");
-                self.run_source(false, false);
+                self.state.status_message = "Restarting…".into();
             }
             IdeAction::StartDebugging => {
-                self.run_source(true, true);
+                self.run_source(true, true, _ctx);
             }
             IdeAction::ContinueExecution => {
                 if self.controller.paused() {
@@ -871,15 +1038,11 @@ impl IdeDesktopApp {
                 }
             }
             IdeAction::CheckSyntax => {
-                self.refresh_diagnostics();
-                let errs = self.problems.error_count();
+                self.request_checked_source(_ctx);
+                self.begin_native_compile(false, false, false, _ctx);
                 self.state.active_dock_tab = DockTab::Problems;
                 self.state.show_bottom_dock = true;
-                self.state.status_message = format!(
-                    "Syntax check: {} error(s), {} warning(s)",
-                    errs,
-                    self.problems.warning_count()
-                );
+                self.state.status_message = "Compiling current source…".into();
             }
             IdeAction::FormatSource => {
                 self.state.status_message =
@@ -896,6 +1059,51 @@ impl IdeDesktopApp {
             }
             IdeAction::ToggleStatusBar => {
                 self.state.show_status_bar = !self.state.show_status_bar;
+            }
+            IdeAction::SetLayout(mode) => {
+                self.keypad.release(&mut self.state);
+                self.controller.shared.clear_held_keys();
+                if let Some(f) = &self.firmware {
+                    f.send(ppl_engine::session::Command::ReleaseAll);
+                }
+                self.state.clear_held_keys();
+                if self.state.layout != mode {
+                    if self.state.layout != crate::ide::layout::WorkspaceLayout::Calculator {
+                        self.state.previous_layout = self.state.layout;
+                    }
+                    self.state.layout = mode;
+                }
+                self.state.calc_input_focus = false;
+            }
+            IdeAction::SetCalculatorMode(mode) => {
+                self.keypad.release(&mut self.state);
+                self.state.calculator_mode = mode;
+                self.state.show_calculator = true;
+            }
+            IdeAction::SelectBackend(firmware) => {
+                if !self.state.firmware_backend {
+                    self.native_vm_state = self.state.vm_state.clone();
+                }
+                self.controller.shared.clear_held_keys();
+                self.state.clear_held_keys();
+                if let Some(f) = &self.firmware {
+                    f.send(ppl_engine::session::Command::ReleaseAll);
+                }
+                self.state.firmware_backend = firmware;
+                self.state.vm_state = if firmware {
+                    self.firmware_state.clone()
+                } else {
+                    self.native_vm_state.clone()
+                };
+                self.display.texture = None;
+                self.last_touch = None;
+                if firmware {
+                    self.ensure_firmware(_ctx);
+                }
+                self.display.last_generation = u64::MAX;
+            }
+            IdeAction::ShowShortcuts => {
+                self.dialogs.show_shortcuts = true;
             }
             IdeAction::ResetLayout => {
                 self.state.reset_layout();
@@ -978,7 +1186,10 @@ impl eframe::App for IdeDesktopApp {
                 let _ = std::fs::create_dir_all(parent);
             }
             if let Ok(json) = serde_json::to_string_pretty(&p) {
-                let _ = std::fs::write(path, json);
+                let temporary = path.with_extension("json.tmp");
+                if std::fs::write(&temporary, json).is_ok() {
+                    let _ = std::fs::rename(temporary, path);
+                }
             }
         }
     }
@@ -1013,7 +1224,6 @@ impl eframe::App for IdeDesktopApp {
 
         // Forward VM input while the calculator panel holds keyboard focus.
         self.forward_calc_keys(ctx);
-        self.forward_touch(ctx);
 
         // Top Panel: Menu Bar
         egui::TopBottomPanel::top("menu_bar")
@@ -1024,7 +1234,7 @@ impl eframe::App for IdeDesktopApp {
 
         // Top Panel: Action Toolbar
         egui::TopBottomPanel::top("toolbar")
-            .exact_height(28.0)
+            .exact_height(40.0)
             .show(ctx, |ui| {
                 self.toolbar.render(ui, &mut self.state);
             });
@@ -1038,132 +1248,50 @@ impl eframe::App for IdeDesktopApp {
                 });
         }
 
-        // Panel limits relative to the window, so the editor always keeps
-        // most of the space and nothing is pushed off-screen when the
-        // window shrinks.
-        let screen = ctx.screen_rect();
-        let explorer_max = (screen.width() * 0.22).max(120.0);
-        let calculator_min = (screen.width() * 0.25).clamp(200.0, 320.0);
-        let calculator_max = (screen.width() * 0.32).max(calculator_min);
-        let dock_max =
-            (screen.height() * if screen.height() < 700.0 { 0.3 } else { 0.45 }).max(80.0);
-
-        // Bottom Panel: Dockable Tabs (Output, Problems, Variables, Call Stack)
-        if self.state.show_bottom_dock {
-            let dock = egui::TopBottomPanel::bottom("bottom_dock")
-                .resizable(true)
-                .min_height(80.0)
-                .max_height(dock_max)
-                .default_height(self.state.bottom_height.min(dock_max))
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 0.0;
-                        for tab in [
-                            DockTab::Output,
-                            DockTab::Problems,
-                            DockTab::Variables,
-                            DockTab::CallStack,
-                        ] {
-                            let title = match tab {
-                                DockTab::Output => {
-                                    format!("Output ({})", self.console.messages.len())
-                                }
-                                DockTab::Problems => self.problems.title(),
-                                DockTab::Variables => "Variables".to_string(),
-                                DockTab::CallStack => "Call Stack".to_string(),
-                            };
-                            if dock_tab_button(ui, &title, self.state.active_dock_tab == tab) {
-                                self.state.active_dock_tab = tab;
-                            }
-                        }
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui
-                                .small_button("×")
-                                .on_hover_text("Hide Dock (Ctrl+J)")
-                                .clicked()
-                            {
-                                self.state.show_bottom_dock = false;
-                            }
-                        });
-                    });
-                    ui.add(egui::Separator::default().spacing(4.0));
-
-                    match self.state.active_dock_tab {
-                        DockTab::Output => self.console.render(ui, &mut self.state),
-                        DockTab::Problems => self.problems.render(ui, &mut self.state),
-                        DockTab::Variables => self.debugger.render_variables(ui, &mut self.state),
-                        DockTab::CallStack => self.debugger.render_call_stack(ui, &mut self.state),
-                    }
-                });
-            self.state.bottom_height = dock.response.rect.height();
-        }
-
-        // Left Panel: Program Explorer
-        if self.state.show_explorer {
-            let panel = egui::SidePanel::left("left_explorer")
-                .resizable(true)
-                .min_width(120.0)
-                .max_width(explorer_max)
-                .default_width(self.state.explorer_width.min(explorer_max))
-                .show(ctx, |ui| {
-                    self.explorer.render(ui, &mut self.state);
-                });
-            self.state.explorer_width = panel.response.rect.width();
-        }
-
-        // Right Panel: Calculator Display & Keypad
-        if self.state.show_calculator {
-            let panel = egui::SidePanel::right("right_calculator")
-                .resizable(true)
-                .min_width(calculator_min)
-                .max_width(calculator_max)
-                .default_width(
-                    self.state
-                        .calculator_width
-                        .clamp(calculator_min, calculator_max),
-                )
-                .show(ctx, |ui| {
-                    egui::ScrollArea::vertical()
-                        .id_salt("calculator_scroll")
-                        .auto_shrink([false, false])
-                        .show(ui, |ui| {
-                            self.update_display_texture_ui(ui);
-                            self.display.render(ui, &mut self.state);
-                            ui.add_space(6.0);
-                            self.keypad.render(ui, &mut self.state);
-                        });
-                    // Keypad clicks become VM key presses; On stops the program.
-                    self.keypad.last_clicked_key = None;
-                    for code in self.state.key_events.drain(..) {
-                        self.state.calc_input_focus = true;
-                        if code == 46 {
-                            self.controller.stop();
-                        } else {
-                            self.controller.shared.push_key(code);
-                        }
-                    }
-                });
-            self.state.calculator_width = panel.response.rect.width();
-        }
-
-        // Center Panel: Editor Tabs. Clicking into the editor releases
-        // calculator keyboard focus (see editor.rs), so typing code never
-        // reaches the VM.
-        egui::CentralPanel::default()
-            .frame(egui::Frame::NONE.fill(crate::theme::editor::BG))
-            .show(ctx, |ui| {
-                self.editor.render(ui, &mut self.state);
-            });
+        self.render_workspace(ctx);
+        self.forward_touch(ctx);
 
         // Focus transition: clear held keys when focus is lost.
         if (self.last_calc_input_focus || prev_calc_focus) && !self.state.calc_input_focus {
+            self.keypad.release(&mut self.state);
             self.controller.shared.clear_held_keys();
+            self.controller.shared.set_touch(None);
             self.state.clear_held_keys();
+            if let Some(f) = &self.firmware {
+                f.send(ppl_engine::session::Command::ReleaseAll);
+                if let Some(t) = self.last_touch.take() {
+                    f.send(ppl_engine::session::Command::Touch {
+                        status: 8,
+                        x: t.x as u16,
+                        y: t.y as u16,
+                    });
+                }
+            }
+            self.last_touch = None;
+            self.deferred_touch_end = None;
+            self.touch_start_time = None;
+            self.prev_shift_held = false;
+            self.prev_alpha_held = false;
         }
         self.last_calc_input_focus = self.state.calc_input_focus;
 
         // Poll the worker (terminal output, outcomes, debugger pauses).
+        let selected_firmware_state = self.firmware_state.clone();
+        if self.state.firmware_backend {
+            self.state.vm_state = self.native_vm_state.clone();
+        }
         self.poll_execution();
+        self.native_vm_state = self.state.vm_state.clone();
+        if self.state.firmware_backend {
+            self.state.vm_state = selected_firmware_state;
+        }
+        self.poll_firmware();
+        self.poll_checked_source();
+        let active_source = self
+            .editor
+            .active_tab()
+            .map(|tab| (tab.title.as_str(), tab.content.as_str()));
+        self.program_manager.show(ctx, active_source);
 
         // Modal Dialogs (also editor-aware: find/replace, go-to-line).
         self.dialogs.render(ctx, &mut self.state, &mut self.editor);
@@ -1172,10 +1300,7 @@ impl eframe::App for IdeDesktopApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
 
-        // Keep the UI live while the VM runs.
-        if self.controller.worker_alive() || self.state.paused_line != 0 {
-            ctx.request_repaint_after(std::time::Duration::from_millis(50));
-        }
+        // Workers wake the UI on output, display changes, completion and debug pauses.
 
         // Unsaved-changes guard on window close.
         if ctx.input(|i| i.viewport().close_requested()) {
@@ -1189,6 +1314,9 @@ impl eframe::App for IdeDesktopApp {
             }
         }
 
+        if !self.state.pending_actions.is_empty() {
+            ctx.request_repaint();
+        }
         // Scripted automation (Xvfb smoke tests).
         crate::ide::automation::maybe_pump(self, ctx);
     }
@@ -1196,13 +1324,8 @@ impl eframe::App for IdeDesktopApp {
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // Stop the worker on the way out (the handle's Drop also interrupts).
         self.controller.stop();
-        let _ = self.controller.join_current();
-    }
-}
-
-impl IdeDesktopApp {
-    fn update_display_texture_ui(&mut self, ui: &mut egui::Ui) {
-        self.update_display_texture(ui.ctx());
+        self.controller.reap_async();
+        self.firmware = None;
     }
 }
 
@@ -1243,11 +1366,20 @@ fn dock_tab_button(ui: &mut egui::Ui, title: &str, active: bool) -> bool {
 /// Launches the full native desktop IDE window.
 pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     let automation = crate::ide::automation::Automation::from_env();
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([1440.0, 960.0])
+        .with_min_inner_size([800.0, 500.0])
+        .with_title("HP Prime PPL Emulator & Native IDE");
+    if let (Ok(x_str), Ok(y_str)) = (
+        std::env::var("PPL_WINDOW_POS_X"),
+        std::env::var("PPL_WINDOW_POS_Y"),
+    ) {
+        if let (Ok(x), Ok(y)) = (x_str.parse::<f32>(), y_str.parse::<f32>()) {
+            viewport = viewport.with_position([x, y]);
+        }
+    }
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1200.0, 800.0])
-            .with_min_inner_size([800.0, 500.0])
-            .with_title("HP Prime PPL Emulator & Native IDE"),
+        viewport,
         ..Default::default()
     };
     eframe::run_native(
@@ -1319,7 +1451,7 @@ mod tests {
         app.state.reset_layout();
         assert!(app.state.show_explorer);
         assert!(app.state.show_calculator);
-        assert_eq!(app.state.explorer_width, 240.0);
+        assert_eq!(app.state.explorer_width, 220.0);
     }
 
     #[test]
@@ -1350,12 +1482,26 @@ mod tests {
 
         // Valid program
         app.handle_action(IdeAction::CheckSyntax, &ctx);
+        for _ in 0..1000 {
+            app.poll_native_compile();
+            if app.native_compile.is_none() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert_eq!(app.problems.items.len(), 0);
 
         // Invalid program
         app.editor.active_tab_mut().unwrap().content =
             "EXPORT ERR() BEGIN LOCAL x := ; END;".to_string();
         app.handle_action(IdeAction::CheckSyntax, &ctx);
+        for _ in 0..1000 {
+            app.poll_native_compile();
+            if app.native_compile.is_none() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert!(!app.problems.items.is_empty());
         assert_eq!(app.state.active_dock_tab, DockTab::Problems);
         assert!(app.state.show_bottom_dock);
@@ -1452,6 +1598,13 @@ mod tests {
         let ctx = egui::Context::default();
         app.editor.active_tab_mut().unwrap().content = "EXPORT ASK()\nBEGIN\n  LOCAL r;\n  INPUT(r,\"T\",\"r=\",\"help\",1,5);\n  IF r > 99 THEN RETURN SOLVE(X^2-1, X, 2); END;\n  RETURN append({1}, r);\nEND;\n".to_string();
         app.handle_action(IdeAction::CheckSyntax, &ctx);
+        for _ in 0..1000 {
+            app.poll_native_compile();
+            if app.native_compile.is_none() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
         let classes: Vec<_> = app.problems.items.iter().map(|p| p.class).collect();
         assert!(!classes.is_empty());
         assert!(
@@ -1590,7 +1743,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             (item.line, item.class),
-            (3, ppl_syntax::DiagnosticClass::Syntax)
+            (5, ppl_syntax::DiagnosticClass::Syntax)
         );
     }
 
@@ -1744,5 +1897,164 @@ mod tests {
         }
         let _ = app.controller.join_current();
         assert!(app.console.plain_text().contains("returned 42"));
+    }
+
+    #[test]
+    fn test_dual_backend_state_preservation() {
+        let ctx = egui::Context::default();
+        let mut app = IdeDesktopApp::default();
+        app.editor.active_tab_mut().unwrap().content =
+            "EXPORT TEST()\nBEGIN\n PRINT(\"Dual-backend\");\nEND;\n".into();
+        app.editor.active_tab_mut().unwrap().breakpoints.insert(3);
+        app.console.print_diagnostic("Pre-switch log");
+
+        // Verify initial Native PPL state
+        assert!(!app.state.firmware_backend);
+        app.state.vm_state = crate::ide::VmExecutionState::Paused;
+
+        // Switch to G1 Firmware
+        app.handle_action(IdeAction::SelectBackend(true), &ctx);
+        assert!(app.state.firmware_backend);
+        assert_eq!(app.state.vm_state, crate::ide::VmExecutionState::Idle);
+        // Breakpoints, console, and display reset sentinel are preserved
+        assert!(app.editor.active_tab().unwrap().breakpoints.contains(&3));
+        assert!(app.console.plain_text().contains("Pre-switch log"));
+        assert_eq!(app.display.last_generation, u64::MAX);
+
+        // Simulate firmware execution state change
+        app.firmware_state = crate::ide::VmExecutionState::Running;
+        app.poll_firmware();
+        assert_eq!(app.state.vm_state, crate::ide::VmExecutionState::Running);
+
+        // Switch back to Native PPL
+        app.handle_action(IdeAction::SelectBackend(false), &ctx);
+        assert!(!app.state.firmware_backend);
+        // Native state restored to Paused!
+        assert_eq!(app.state.vm_state, crate::ide::VmExecutionState::Paused);
+        assert!(app.editor.active_tab().unwrap().breakpoints.contains(&3));
+        assert!(app.console.plain_text().contains("Pre-switch log"));
+        assert_eq!(app.display.last_generation, u64::MAX);
+    }
+}
+
+#[cfg(test)]
+mod layout_and_persistence_tests {
+    use super::*;
+    use crate::ide::layout::WorkspaceLayout;
+
+    #[test]
+    fn test_layout_transitions_and_escape_restore() {
+        let mut app = IdeDesktopApp::default();
+        let ctx = egui::Context::default();
+
+        assert_eq!(app.state.layout, WorkspaceLayout::Split);
+        assert_eq!(app.state.previous_layout, WorkspaceLayout::Split);
+
+        // 1. Transition Split -> Calculator
+        app.handle_action(IdeAction::SetLayout(WorkspaceLayout::Calculator), &ctx);
+        assert_eq!(app.state.layout, WorkspaceLayout::Calculator);
+        assert_eq!(app.state.previous_layout, WorkspaceLayout::Split);
+
+        // 2. Escape restores Split when calc_input_focus is false
+        app.state.calc_input_focus = false;
+        let mut raw = egui::RawInput::default();
+        raw.events.push(egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        let _ = ctx.run(raw, |_| {});
+        app.menu_bar.handle_shortcuts(&ctx, &mut app.state);
+        let actions = app.state.take_actions();
+        assert_eq!(actions, vec![IdeAction::SetLayout(WorkspaceLayout::Split)]);
+        for a in actions {
+            app.handle_action(a, &ctx);
+        }
+        assert_eq!(app.state.layout, WorkspaceLayout::Split);
+
+        // 3. Transition Editor Focus -> Calculator
+        app.handle_action(IdeAction::SetLayout(WorkspaceLayout::Editor), &ctx);
+        assert_eq!(app.state.layout, WorkspaceLayout::Editor);
+        assert_eq!(app.state.previous_layout, WorkspaceLayout::Split);
+
+        app.handle_action(IdeAction::SetLayout(WorkspaceLayout::Calculator), &ctx);
+        assert_eq!(app.state.layout, WorkspaceLayout::Calculator);
+        assert_eq!(app.state.previous_layout, WorkspaceLayout::Editor);
+
+        // 4. Repeated Calculator calls never overwrite previous_layout
+        app.handle_action(IdeAction::SetLayout(WorkspaceLayout::Calculator), &ctx);
+        assert_eq!(app.state.previous_layout, WorkspaceLayout::Editor);
+
+        // 5. Escape restores Editor
+        let mut raw = egui::RawInput::default();
+        raw.events.push(egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        let _ = ctx.run(raw, |_| {});
+        app.menu_bar.handle_shortcuts(&ctx, &mut app.state);
+        let actions = app.state.take_actions();
+        assert_eq!(actions, vec![IdeAction::SetLayout(WorkspaceLayout::Editor)]);
+        for a in actions {
+            app.handle_action(a, &ctx);
+        }
+        assert_eq!(app.state.layout, WorkspaceLayout::Editor);
+    }
+
+    #[test]
+    fn test_escape_does_not_restore_layout_when_calc_focused() {
+        let mut app = IdeDesktopApp::default();
+        let ctx = egui::Context::default();
+
+        app.handle_action(IdeAction::SetLayout(WorkspaceLayout::Calculator), &ctx);
+        app.state.calc_input_focus = true;
+
+        let mut raw = egui::RawInput::default();
+        raw.events.push(egui::Event::Key {
+            key: egui::Key::Escape,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        let _ = ctx.run(raw, |_| {});
+        app.menu_bar.handle_shortcuts(&ctx, &mut app.state);
+        let actions = app.state.take_actions();
+        assert!(
+            actions.is_empty(),
+            "Escape must be consumed by calculator, not restore layout"
+        );
+    }
+
+    #[test]
+    fn test_clamping_isolation_and_persistence() {
+        let state = IdeAppState {
+            calculator_width: 450.0,
+            explorer_width: 250.0,
+            ..Default::default()
+        };
+
+        // Narrow width clamping limits
+        let limits = crate::ide::layout::PanelLimits::for_width(700.0, true);
+        assert!(limits.calculator_max < 450.0);
+
+        // Persistent serialization must retain the original preferred values
+        let p = state.to_persistent();
+        assert_eq!(p.calculator_width, 450.0);
+        assert_eq!(p.explorer_width, 250.0);
+    }
+
+    #[test]
+    fn test_sanitization_of_corrupt_previous_layout() {
+        let mut state = IdeAppState::default();
+        let mut p = state.to_persistent();
+        p.previous_layout = WorkspaceLayout::Calculator;
+        state.apply_persistent(&p);
+        assert_eq!(state.previous_layout, WorkspaceLayout::Split);
     }
 }

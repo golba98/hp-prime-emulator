@@ -164,6 +164,12 @@ impl Default for Observer {
     }
 }
 impl Observer {
+    pub fn reset(&self) {
+        *self.0.lock().unwrap() = Inner {
+            trace: RuntimeTrace::default(),
+            program_context: None,
+        };
+    }
     pub fn snapshot(&self) -> RuntimeTrace {
         self.0.lock().unwrap().trace.clone()
     }
@@ -297,6 +303,37 @@ impl Observer {
             g.trace.terminal = Some(status);
             g.trace.reason = Some(reason.into());
         }
+    }
+    /// Finalize only a fully observed user-function return, shared by batch and live sessions.
+    pub fn finish_observed(&self) -> ExecutionStatus {
+        let snapshot = self.snapshot();
+        let Some(c) = snapshot.invocations.last() else {
+            return ExecutionStatus::Unsupported;
+        };
+        let status = if c.ended_ms.is_none()
+            || !c.unavailable.is_empty()
+            || c.truncated
+            || c.result.as_ref().is_none_or(|v| v.value.is_none())
+            || c.calls
+                .first()
+                .is_none_or(|f| f.arguments.iter().any(|a| a.value.is_none()))
+            || c.output
+                .iter()
+                .any(|o| o.value.as_ref().is_some_and(|v| v.value.is_none()))
+        {
+            ExecutionStatus::Unsupported
+        } else if !c.body_entered {
+            ExecutionStatus::InvalidArguments
+        } else if matches!(
+            c.result.as_ref().and_then(|v| v.value.as_ref()),
+            Some(crate::runtime_value::FirmwareValue::Error { .. })
+        ) {
+            ExecutionStatus::RuntimeError
+        } else {
+            ExecutionStatus::Completed
+        };
+        self.finish_invocation(status);
+        status
     }
     pub fn finish_invocation(&self, status: ExecutionStatus) {
         if let Some(c) = self.0.lock().unwrap().trace.invocations.last_mut() {
@@ -438,7 +475,7 @@ impl Observer {
                 }
                 let started = Instant::now();
                 match LcdView::locate(mem, *shared.lcd_object.lock().unwrap())
-                    .and_then(|v| v.capture(mem))
+                    .and_then(|v| v.capture_from_hook(mem))
                 {
                     Ok(frame) => c.frame = Some(frame),
                     Err(e) => c.capture_error = Some(e.to_string()),

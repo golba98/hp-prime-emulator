@@ -1,0 +1,8 @@
+EXPORT DPNOSEMI4()
+BEGIN
+ LOCAL i:=0;
+ REPEAT
+  i:=i+1
+ UNTIL i>2;
+ RETURN i;
+END;

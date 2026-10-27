@@ -1,0 +1,9 @@
+EXPORT DPNOSEMI3(x)
+BEGIN
+ IF x>0 THEN
+  x:=1
+ ELSE
+  x:=2;
+ END;
+ RETURN x;
+END;

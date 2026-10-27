@@ -30,8 +30,14 @@ pub enum AutoStep {
     /// Close the active tab.
     CloseTab,
     Run,
+    /// Compile · F7: native analysis plus the configured firmware Check.
+    Check,
+    /// Wait until no Check (fresh checker, native compile, or firmware
+    /// session request) is pending, with a timeout in ms.
+    WaitCheck(u64),
     Debug,
     Stop,
+    Restart,
     Continue,
     StepInto,
     StepOver,
@@ -79,8 +85,14 @@ pub enum AutoStep {
     SelectTab(usize),
     /// Show a bottom dock tab: "output", "problems", "variables", "callstack".
     Dock(String),
+    /// Record the observable state under a label; every snapshot is
+    /// included in the final dump.
+    Snapshot(String),
     /// Dump state JSON to the dump path and close the window.
     Exit,
+    Layout(String),
+    CalculatorMode(String),
+    Backend(bool),
 }
 
 pub struct Automation {
@@ -95,6 +107,8 @@ pub struct Automation {
     pending_screenshot: Option<PathBuf>,
     /// Sizes and scale observed at each window screenshot, for the dump.
     captures: Vec<serde_json::Value>,
+    /// Labelled intermediate states (`snapshot` steps), for the dump.
+    snapshots: Vec<serde_json::Value>,
 }
 
 impl Automation {
@@ -128,8 +142,12 @@ impl Automation {
                     "save_as" => AutoStep::SaveAs(get_path("path").unwrap_or_default()),
                     "close_tab" => AutoStep::CloseTab,
                     "run" => AutoStep::Run,
+                    "check" => AutoStep::Check,
+                    "snapshot" => AutoStep::Snapshot(get_str("label")),
+                    "wait_check" => AutoStep::WaitCheck(get_ms("timeout_ms")),
                     "debug" => AutoStep::Debug,
                     "stop" => AutoStep::Stop,
+                    "restart" => AutoStep::Restart,
                     "continue" => AutoStep::Continue,
                     "step_into" => AutoStep::StepInto,
                     "step_over" => AutoStep::StepOver,
@@ -185,6 +203,9 @@ impl Automation {
                         AutoStep::WindowScreenshot(get_path("path").unwrap_or_default())
                     }
                     "exit" => AutoStep::Exit,
+                    "layout" => AutoStep::Layout(get_str("mode")),
+                    "calculator_mode" => AutoStep::CalculatorMode(get_str("mode")),
+                    "backend" => AutoStep::Backend(get_str("engine") == "firmware"),
                     other => {
                         eprintln!("automation: unknown step `{other}`; skipping");
                         continue;
@@ -201,6 +222,7 @@ impl Automation {
             pending_events: Vec::new(),
             pending_screenshot: None,
             captures: Vec::new(),
+            snapshots: Vec::new(),
         })
     }
 
@@ -267,17 +289,13 @@ impl Automation {
                 return;
             }
             match step {
-                AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) => {
+                AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) | AutoStep::WaitCheck(_) => {
                     let deadline = self.wait_deadline.get_or_insert_with(Instant::now);
-                    let ms = match &self.steps[self.next] {
-                        AutoStep::WaitIdle(ms) => *ms,
-                        AutoStep::WaitPaused(ms) => *ms,
+                    let (ms, done) = match &self.steps[self.next] {
+                        AutoStep::WaitIdle(ms) => (*ms, !app.execution_busy()),
+                        AutoStep::WaitPaused(ms) => (*ms, app.controller.paused()),
+                        AutoStep::WaitCheck(ms) => (*ms, !app.check_pending()),
                         _ => unreachable!(),
-                    };
-                    let done = if matches!(self.steps[self.next], AutoStep::WaitIdle(_)) {
-                        !app.controller.worker_alive()
-                    } else {
-                        app.controller.paused()
                     };
                     if done {
                         self.wait_deadline = None;
@@ -339,8 +357,10 @@ impl Automation {
                 app.editor.close_tab(app.editor.active_tab_index);
             }
             AutoStep::Run => app.handle_action(IdeAction::RunProgram, ctx),
+            AutoStep::Check => app.handle_action(IdeAction::CheckSyntax, ctx),
             AutoStep::Debug => app.handle_action(IdeAction::StartDebugging, ctx),
             AutoStep::Stop => app.handle_action(IdeAction::StopProgram, ctx),
+            AutoStep::Restart => app.handle_action(IdeAction::RestartProgram, ctx),
             AutoStep::Continue => app.handle_action(IdeAction::ContinueExecution, ctx),
             AutoStep::StepInto => app.handle_action(IdeAction::StepInto, ctx),
             AutoStep::StepOver => app.handle_action(IdeAction::StepOver, ctx),
@@ -368,7 +388,9 @@ impl Automation {
                 }
                 app.handle_action(IdeAction::RunProgram, ctx);
             }
-            AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) => unreachable!("handled in pump"),
+            AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) | AutoStep::WaitCheck(_) => {
+                unreachable!("handled in pump")
+            }
             AutoStep::Screenshot(path) => {
                 let grob = app
                     .controller
@@ -446,6 +468,34 @@ impl Automation {
                     _ => DockTab::Output,
                 };
             }
+            AutoStep::Layout(mode) => app.handle_action(
+                IdeAction::SetLayout(match mode.as_str() {
+                    "editor" => super::layout::WorkspaceLayout::Editor,
+                    "calculator" => super::layout::WorkspaceLayout::Calculator,
+                    _ => super::layout::WorkspaceLayout::Split,
+                }),
+                ctx,
+            ),
+            AutoStep::CalculatorMode(mode) => app.handle_action(
+                IdeAction::SetCalculatorMode(if mode == "screen" {
+                    super::layout::CalculatorMode::ScreenOnly
+                } else {
+                    super::layout::CalculatorMode::Full
+                }),
+                ctx,
+            ),
+            AutoStep::Backend(firmware) => {
+                app.handle_action(IdeAction::SelectBackend(firmware), ctx)
+            }
+            AutoStep::Snapshot(label) => {
+                let mut state: serde_json::Value =
+                    serde_json::from_str(&self.dump_state(app, ctx)).unwrap_or_default();
+                if let Some(o) = state.as_object_mut() {
+                    o.remove("snapshots");
+                }
+                self.snapshots
+                    .push(serde_json::json!({"label": label, "state": state}));
+            }
             AutoStep::Exit => self.finish(app, ctx),
         }
     }
@@ -490,10 +540,23 @@ impl Automation {
                             "message": d.message,
                             "code": d.code,
                             "class": d.class.label(),
+                            "provenance": d.provenance,
                             "is_error": matches!(d.severity, ppl_syntax::diag::Severity::Error),
                         })
                     })
                     .collect();
+                let revision = t.revision();
+                let firmware = t.current_firmware().map(|f| {
+                    json!({
+                        "revision": f.revision,
+                        "failure": f.failure,
+                        "items": f.items.iter().map(|d| json!({
+                            "line": d.line, "col": d.col, "message": d.message,
+                            "provenance": d.provenance,
+                            "span": [d.span.start, d.span.end],
+                        })).collect::<Vec<_>>(),
+                    })
+                });
                 json!({
                     "title": t.title,
                     "modified": t.modified,
@@ -501,7 +564,9 @@ impl Automation {
                     "content": t.content,
                     "breakpoints": t.breakpoints.iter().collect::<Vec<_>>(),
                     "analysis_state": analysis_state,
+                    "revision": revision,
                     "diagnostics": diagnostics,
+                    "firmware": firmware,
                     "cache": {
                         "analyses": t.doc.stats.analyses,
                         "layouts": t.doc.stats.layouts,
@@ -548,9 +613,17 @@ impl Automation {
             "problems": app.problems.items.iter().map(|p| json!({
                 "line": p.line, "col": p.col, "message": p.message,
                 "code": p.code, "class": p.class.label(), "file": p.file,
+                "provenance": p.provenance,
+                "tab": p.tab.map(|t| format!("{t:?}")),
                 "is_error": matches!(p.severity, ppl_syntax::diag::Severity::Error),
             })).collect::<Vec<_>>(),
             "problems_title": app.problems.title(),
+            "problems_empty_message": app.problems.empty_message(),
+            "status_analysis": state.analysis.label(),
+            "status_firmware": state.firmware_verdict.as_ref().map(|v| v.0.clone()),
+            "firmware_passed": app.problems.firmware_passed,
+            "firmware_status": app.firmware_status,
+            "check_pending": app.check_pending(),
             "analysis": format!("{:?}", state.analysis),
             "editor_font_size": state.editor_font_size,
             "panel_sizes": {
@@ -566,6 +639,7 @@ impl Automation {
                 st.cursor.char_range().map(|r| r.primary.index)
             }),
             "window_captures": self.captures,
+            "snapshots": self.snapshots,
             "window": {
                 "screen_points": [ctx.screen_rect().width(), ctx.screen_rect().height()],
                 "pixels_per_point": ctx.pixels_per_point(),

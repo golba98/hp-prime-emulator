@@ -210,6 +210,7 @@ impl Owner {
             Request::Capture { .. } => "capture",
             Request::Program { .. } => "program_show",
             Request::Inventory => "programs_list",
+            Request::Manage { .. } => "program_management",
             Request::Stop => "control_stop",
         };
         let mut report = base(op);
@@ -273,6 +274,21 @@ impl Owner {
                         }
                     }
                 }
+                Request::Manage {
+                    device_serial_id,
+                    action,
+                } => {
+                    let result = ppl_programs::service::handle(
+                        self.prime()?,
+                        device_serial_id,
+                        action,
+                        &ppl_programs::delete_store::Store::new(Path::new(
+                            super::device_delete::DEFAULT_DELETE_DIR,
+                        )),
+                    )?;
+                    report["result"] = result;
+                    report["status"] = json!("valid");
+                }
                 Request::Inventory => {
                     let inventory = self.prime()?.receive_inventory()?;
                     let programs:Vec<_> = inventory.records.iter().filter(|f| f.ty == FileType::Program)
@@ -332,7 +348,7 @@ pub fn handles(opts: &DeviceOpts) -> bool {
                 | DeviceAction::Debug(_)
         )
 }
-fn request(opts: &DeviceOpts, req: &Request) -> Response {
+pub(super) fn request(opts: &DeviceOpts, req: &Request) -> Response {
     if let Some(path) = &opts.control_socket {
         #[cfg(unix)]
         let result = (|| -> std::io::Result<Response> {

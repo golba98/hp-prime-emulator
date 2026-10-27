@@ -255,6 +255,11 @@ pub enum DeleteEvent {
     Polling { attempt: u32, of: u32 },
     /// The result note appeared.
     NoteSeen,
+    /// Transport evidence after one EB attempt, before independent verification.
+    Submitted {
+        index: usize,
+        state: SubmissionState,
+    },
     /// Verification probing started.
     Verifying,
 }
@@ -616,7 +621,6 @@ pub fn verify_deleted_with(
     base: Option<&Baseline>,
 ) -> Result<Vec<TargetStatus>, DeviceError> {
     let exchange_start = p.log.len();
-    let names: Vec<String> = targets.iter().map(|t| t.name.clone()).collect();
     let mut log = Vec::new();
     let mut present: Vec<bool> = vec![false; targets.len()];
     let live = |p: &mut Prime| -> Result<(), DeviceError> {
@@ -636,12 +640,12 @@ pub fn verify_deleted_with(
         }
         live(p)?;
         if base.is_some() && round == 0 {
-            p.ensure_quiet(exchange_start, &names)?;
+            observe_late_targets(p, exchange_start, targets, &mut present)?;
         }
     }
     // A late F7 discarded beside a live control is still evidence; never
     // convert it into absence just because the original request timed out.
-    p.ensure_quiet(exchange_start, &names)?;
+    observe_late_targets(p, exchange_start, targets, &mut present)?;
     Ok(present
         .iter()
         .map(|&seen| {
@@ -789,6 +793,31 @@ pub struct DeleteGuard {
     baseline: Option<Baseline>,
 }
 
+/// Late target data disproves absence, rather than turning known presence into
+/// an unknown deletion. Unrelated or incomplete traffic never proves absence.
+fn observe_late_targets(
+    p: &Prime,
+    start: usize,
+    targets: &[DeleteTarget],
+    present: &mut [bool],
+) -> Result<(), DeviceError> {
+    let drained: Vec<_> = p.log[start..].iter().filter(|e| e.drained).collect();
+    for file in crate::late::files(&drained, p.report_size)? {
+        let Some(index) = targets
+            .iter()
+            .position(|t| t.ty == file.ty && t.name == file.name)
+        else {
+            return Err(DeviceError::Inconclusive(format!(
+                "unmatched late {}:{} during deletion verification",
+                file.ty.label(),
+                file.name
+            )));
+        };
+        present[index] = true;
+    }
+    Ok(())
+}
+
 /// Validate a prepared request and bind its immutable snapshot to this connection.
 /// The caller must durably record backups and authorization before consuming it.
 pub fn authorize_usb_deletion(
@@ -833,6 +862,16 @@ pub fn authorize_usb_deletion(
 pub struct DirectDeleteReport {
     pub targets: Vec<TargetResult>,
     pub error: Option<String>,
+    /// Per-target transport evidence, independent of later verification.
+    pub submission: Vec<SubmissionState>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubmissionState {
+    NotSent,
+    PossiblySent,
+    Sent,
 }
 
 /// Submit each backed-up target once, then independently reconcile every outcome.
@@ -880,7 +919,9 @@ where
         }
     }
     let mut error = None;
-    for b in &guard.backups {
+    let mut submission = vec![SubmissionState::NotSent; guard.backups.len()];
+    for (index, b) in guard.backups.iter().enumerate() {
+        let write_start = p.log.len();
         let send = (|| {
             anchor(p, &guard.control, 2, &mut log, guard.baseline.as_ref())?;
             if probe_present(p, b.ty, &b.name, 2, &mut log, false)? != b.data {
@@ -895,6 +936,26 @@ where
             )?;
             p.delete_object(b.ty, &b.name)
         })();
+        // write_report journals an attempt BEFORE touching the transport. A
+        // failed/short write is possibly applied, never safely retryable.
+        let attempted = p.log[write_start..].iter().any(|e| {
+            e.outgoing
+                && e.bytes.get(1) == Some(&0)
+                && e.bytes.get(2) == Some(&crate::CMD_DELETE_OBJECT)
+        });
+        submission[index] = if attempted {
+            if send.is_ok() {
+                SubmissionState::Sent
+            } else {
+                SubmissionState::PossiblySent
+            }
+        } else {
+            SubmissionState::NotSent
+        };
+        on_event(DeleteEvent::Submitted {
+            index,
+            state: submission[index],
+        });
         if let Err(e) = send {
             error = Some(e.to_string());
             break;
@@ -912,6 +973,7 @@ where
         }
     };
     Ok(DirectDeleteReport {
+        submission,
         targets: targets
             .into_iter()
             .zip(statuses)

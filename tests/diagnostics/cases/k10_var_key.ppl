@@ -1,0 +1,5 @@
+EXPORT DPK10()
+BEGIN
+ LOCAL key:=4;
+ RETURN key+1;
+END;

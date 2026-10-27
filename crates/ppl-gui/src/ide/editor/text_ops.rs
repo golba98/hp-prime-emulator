@@ -145,7 +145,8 @@ pub struct BlockEffect {
 /// identifiers (`BEGINNER`) never count.
 pub fn block_effect(line: &str) -> BlockEffect {
     let mut d = Diagnostics::default();
-    let toks = lex(line, &mut d);
+    let mut toks = lex(line, &mut d);
+    ppl_syntax::parser::resolve_soft_keywords(&mut toks);
     let mut depth = 0i32;
     let mut min_depth = 0i32;
     let mut leads_with_closer = false;

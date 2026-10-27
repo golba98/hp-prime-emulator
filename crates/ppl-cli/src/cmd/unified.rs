@@ -99,6 +99,9 @@ pub struct RunCommand {
 }
 #[derive(Debug, Args)]
 pub struct CheckCommand {
+    /// Report independent native and configured local-firmware checks.
+    #[arg(long, conflicts_with = "engine")]
+    pub all_backends: bool,
     #[command(flatten)]
     pub native: CheckOpts,
     #[command(flatten)]
@@ -315,7 +318,74 @@ pub fn check(c: CheckCommand) -> u8 {
     let CheckCommand {
         native: o,
         options: e,
+        all_backends,
     } = c;
+    if all_backends {
+        let result = (|| -> Result<ppl_engine::checking::CheckReport, String> {
+            if let (Some(input), Some(output)) = (o.file.as_ref(), e.report.as_ref()) {
+                if same_path(input, output) {
+                    return Err("report path aliases source".into());
+                }
+            }
+            if o.dump_bytecode
+                || o.deny_warnings
+                || e.runtime_keys.is_some()
+                || e.args_format.is_some()
+            {
+                return Err("combined checking does not support bytecode, warning-policy, or runtime options".into());
+            }
+            let source = load(o.file.as_deref(), o.code.as_deref())?;
+            let configured = if e.firmware_flags() {
+                Some(firmware_options(&e, None, "[]".into(), None, None)?)
+            } else {
+                ppl_engine::checking::configured_firmware()
+            };
+            Ok(ppl_engine::checking::check(
+                source,
+                configured.as_ref(),
+                &Cancellation::default(),
+            ))
+        })();
+        return match result {
+            Ok(report) => {
+                let code = if report.accepted() { 0 } else { 1 };
+                let json = serde_json::to_string_pretty(&report).unwrap();
+                if let Some(path) = &e.report {
+                    if let Err(error) = std::fs::write(path, &json) {
+                        eprintln!("error: {error}");
+                        return 5;
+                    }
+                }
+                if e.json {
+                    println!("{json}");
+                } else {
+                    println!(
+                        "Native: {:?}; local firmware: {}; physical Check: not performed",
+                        report.native.status, report.firmware_status
+                    );
+                    for result in std::iter::once(&report.native).chain(report.firmware.iter()) {
+                        for d in &result.diagnostics {
+                            eprintln!(
+                                "{}:{}:{}: {}",
+                                d.source,
+                                d.line.map_or("?".into(), |v| v.to_string()),
+                                d.column.map_or("?".into(), |v| v.to_string()),
+                                d.message.as_deref().unwrap_or("diagnostic without message")
+                            );
+                        }
+                        if let Some(e) = &result.error {
+                            eprintln!("{:?}: {}", result.engine, e.message);
+                        }
+                    }
+                }
+                code
+            }
+            Err(error) => {
+                eprintln!("error: {error}");
+                2
+            }
+        };
+    }
     if e.legacy() {
         return run::check(o);
     }

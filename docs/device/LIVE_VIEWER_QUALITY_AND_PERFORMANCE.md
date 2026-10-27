@@ -1,5 +1,89 @@
 # Live viewer quality and performance — 2026-10-25
 
+## Official-reference investigation and corrected result
+
+**The colored glyph artifacts in the preserved physical screenshots are fixed.**
+The official Connectivity Kit constructor selects QImage format 11 (RGB555),
+and its compositor copies decoded PNG byte pairs as little-endian words. The
+previous Rust decoder read those bytes as big-endian RGB565. Both byte order
+and channel layout were wrong; smoothing was unrelated to the cause.
+
+The proof is present independently in the official PE32 and PE64 builds. The
+embedded producer's 5/5/5 packing corroborates it, but no producer routine is
+misrepresented as firmware 15157. Full native source detail remains 320×240;
+fast remains 160×120. Nearest/linear scaling and the softbuffer renderer are
+retained. Generic GROB RGB565 comparison arithmetic is unchanged.
+
+Earlier independent Pillow tests shared the incorrect format assumption. Their
+zero-mismatch result demonstrated that two decoders agreed and that the renderer
+reproduced those decoded values. It did **not** establish correct colors. The
+historical conclusion below that these artifacts necessarily originated upstream
+of decoding is superseded for these fixtures.
+
+### Independent verification and visible evidence
+
+- System Qt5 `QImage::Format_RGB555` agrees with the conversion for all 65,536
+  possible input words, including the unused high bit.
+- Preserved physical full and fast fixtures match independent Pillow and actual
+  system Qt5 conversions with zero mismatches across 76,800 / 19,200 pixels.
+- Independently expanded expected images match Rust surfaces exactly in both
+  modes. The actual corrected X11 window and its 1000×600 resize have zero pixel
+  mismatches. The isolated GUI also passes pause/resume, snapshot and close.
+- A literal byte fixture distinguishes LE RGB555 from all three incorrect
+  combinations of byte order and RGB565/RGB555 layout. Transactional patch tests
+  cover changed, overlapping, full, origin and unchanged updates.
+- The preserved full fixture changes 76,761 output pixel values under the correct
+  interpretation. This is not a performance score or a new physical capture.
+
+Local private evidence:
+
+- [Before: former decoder, same bytes](../../artifacts/live-mirror/official-software-20261025/interpretation-565.png)
+- [After: corrected Rust surface](../../artifacts/live-mirror/official-software-20261025/full-corrected/after.png)
+- [Independent source](../../artifacts/live-mirror/official-software-20261025/full-corrected/independent-source.png)
+- [Actual X11 viewer](../../artifacts/live-mirror/official-software-20261025/xvfb-corrected/displayed.png)
+- [Actual resized viewer](../../artifacts/live-mirror/official-software-20261025/xvfb-corrected/resized.png)
+
+The after images show clean neutral glyphs and the red error icon, without
+invented color substitutions or discarded native pixels. The before image is
+an offline reproduction, not an official Windows screenshot. Private source
+images remain ignored and were not rewritten.
+
+### Physical performance and capability boundary
+
+No new hardware requests were authorized or performed. The historical full
+baseline remains approximately 0.950 responses/s and fast 2.579 responses/s.
+The source-format correction does not reduce the approximately one-second
+full-frame pre-response wait. The regular official service loop sleeps 200 ms;
+this is static scheduling evidence, not a measured Windows capture rate.
+Virtual Calculator's local 25 ms timer does not imply any physical USB FPS.
+
+The saved FC04 visual report is still `screen_did_not_change`, so physical
+changed-screen reconstruction and sustained acceptance remain unverified.
+The legacy acknowledgement flag can no longer bypass the normal streaming gate.
+A separate bounded stream diagnostic checks reviewed visual fixtures, limits
+FC04 attempts/time, validates references, and checks exact-identity recovery.
+It cannot grant production permission, including after synthetic tests pass.
+
+### Validation and remaining work
+
+Hardware-isolated workspace all-target tests: **1,282 passed, zero failed,
+four ignored**. Workspace Clippy with warnings denied passes. Python research,
+script-contract and independent-oracle tests pass. The complete original pinned
+trace remains reproducible, and the new four-binary trace reproduces exactly.
+Tests needing proprietary firmware still do not establish asset-enabled boot
+acceptance; historical m4a/m4b failures remain unchanged.
+
+Official Windows acquisition of the same physical screen, a simultaneous LCD
+photograph, real changed-screen FC04, sustained recovery, end-to-end physical
+latency and native Wayland output remain unverified. A disposable Windows VM was
+prepared and booted without physical USB; Setup compatibility failures prevented
+claiming an official application runtime experiment. All evidence and exact
+bounded next steps are in the [central investigation](../reverse-engineering/HP_OFFICIAL_SOFTWARE_ARCHITECTURE.md)
+and [comparison](../reverse-engineering/HP_VS_RUST_SCREEN_COMPARISON.md).
+
+## Preserved historical report — color conclusions superseded above
+
+
 ## Result and scope
 
 The default nearest viewer now uses centered integer scaling in physical pixels.

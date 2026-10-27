@@ -42,6 +42,7 @@ struct State {
     reply_delay: u64,
     /// Per-name `F8` reply delay (ms) overriding `reply_delay`.
     late: HashMap<String, u64>,
+    duplicate: HashSet<String>,
     /// Names whose `F8` is answered with a non-`F7` message.
     bogus: HashSet<String>,
     corrupt: HashSet<String>,
@@ -97,6 +98,7 @@ impl Mock {
             fc_reply: None,
             reply_delay: 5,
             late: HashMap::new(),
+            duplicate: HashSet::new(),
             bogus: HashSet::new(),
             corrupt: HashSet::new(),
             ignored_eb: HashSet::new(),
@@ -235,6 +237,9 @@ impl State {
                         reply[8] ^= 1;
                     }
                     self.queue_reply(at, &reply);
+                    if self.duplicate.contains(&req.name) {
+                        self.queue_reply(at + 20, &reply);
+                    }
                 }
                 // Absent: no reply, as observed on the G1.
             }
@@ -490,7 +495,7 @@ fn preflight_inconclusive_on_stale_input() {
     let mut p = mock.prime();
     let err = preflight(&mut p, "ZZT_ABC").unwrap_err();
     assert!(
-        matches!(&err, DeviceError::Inconclusive(m) if m.contains("late")),
+        matches!(&err, DeviceError::Inconclusive(m) if m.contains("queued")),
         "{err}"
     );
 }
@@ -732,7 +737,9 @@ fn oversize_program_is_refused_before_any_f7() {
     let guard = p.preflight_new_names(&refs, None).unwrap();
     let src = "A".repeat(MAX_PROGRAM_PAYLOAD / 2 + 1);
     let err = p.send_new_program(guard, &src).unwrap_err();
-    assert!(matches!(err, DeviceError::Refused(m) if m.contains("silently drops")));
+    assert!(
+        matches!(err, DeviceError::Refused(m) if m.contains("conservative G1 legacy upload policy"))
+    );
     assert!(mock.f7_messages().is_empty());
 }
 
@@ -820,8 +827,14 @@ fn non_f7_reply_is_protocol_error_not_absence() {
         .probe_file(FileType::Program, "ZZT_Q", PROBE_TIMEOUT)
         .unwrap_err();
     assert!(matches!(err, DeviceError::Protocol(_)), "{err}");
+    let before = mock.cmds().len();
     let err = p.request_file(FileType::Program, "ZZT_Q").unwrap_err();
-    assert!(matches!(err, DeviceError::Protocol(_)), "{err}");
+    assert!(matches!(err, DeviceError::Inconclusive(_)), "{err}");
+    assert_eq!(
+        mock.cmds().len(),
+        before,
+        "retired connection sends nothing"
+    );
 }
 
 #[test]
@@ -1882,7 +1895,10 @@ fn deletion_absence_rejects_late_target_replies_drained_beside_live_control() {
     let mock = Mock::with_control().object(FileType::Program, "ZZT_SLOW", DEL_SRC);
     mock.st().late.insert("ZZT_SLOW".into(), 8020);
     let mut p = mock.prime();
-    assert!(verify_deleted(&mut p, &[DeleteTarget::program("ZZT_SLOW")], &control()).is_err());
+    assert_eq!(
+        verify_deleted(&mut p, &[DeleteTarget::program("ZZT_SLOW")], &control()).unwrap(),
+        vec![TargetStatus::StillPresent]
+    );
     assert!(mock.st().objects.contains_key("ZZT_SLOW"));
 }
 
@@ -2014,7 +2030,7 @@ fn user_program_payload_limit_is_enforced_before_any_f7() {
     let over = "A".repeat(MAX_PROGRAM_PAYLOAD / 2 + 1);
     assert!(matches!(
         check_program_payload("X", &over),
-        Err(DeviceError::Refused(m)) if m.contains("silently drops")
+        Err(DeviceError::Refused(m)) if m.contains("conservative G1 legacy upload policy")
     ));
 
     let mock = Mock::new();
@@ -2392,4 +2408,76 @@ fn screenshot_protocol_error_when_reply_lacks_png() {
 
     let err = p.screenshot(8).unwrap_err();
     assert!(matches!(err, DeviceError::Protocol(_)));
+}
+
+#[test]
+fn tracing_does_not_consume_immediate_responses() {
+    let mock = Mock::new();
+    mock.st().reply_delay = 0;
+    let mut prime = mock.prime();
+    prime.trace_enabled = true;
+    assert_eq!(prime.check_ready().unwrap(), vec![READY_REPLY]);
+}
+
+#[test]
+fn predelete_late_reply_is_not_a_submitted_deletion() {
+    let mock = Mock::with_control().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut prime = mock.prime();
+    let deletion = crate::prepare_deletion_with(
+        &mut prime,
+        &[DeleteTarget::program("FIREWORKS")],
+        &control(),
+        NamePolicy::User,
+        None,
+    )
+    .unwrap();
+    mock.st().duplicate.insert("FIREWORKS".into());
+    let guard = authorize_usb_deletion(&prime, &deletion, &control()).unwrap();
+    let report = delete_via_usb(&mut prime, guard, |_| {}).unwrap();
+    assert_eq!(eb_count(&mock), 0);
+    assert!(report.error.is_some());
+    // A refusal before EB must not become an indeterminate submitted operation.
+    assert!(
+        report
+            .submission
+            .iter()
+            .all(|s| *s == crate::delete::SubmissionState::NotSent)
+    );
+}
+
+#[test]
+fn physical_sequence_reset_at_9f_retires_connection_without_any_mutation() {
+    struct ResetWire {
+        mock: Mock,
+        received: usize,
+    }
+    impl Transport for ResetWire {
+        fn write(&mut self, r: &[u8]) -> Result<usize> {
+            self.mock.write(r)
+        }
+        fn read_timeout(&mut self, b: &mut [u8], timeout: i32) -> Result<usize> {
+            let n = self.mock.read_timeout(b, timeout)?;
+            if n > 0 {
+                self.received += 1;
+                if self.received == 160 {
+                    b[0] = 0;
+                }
+            }
+            Ok(n)
+        }
+    }
+    let mock = Mock::new().object(FileType::Program, "FIREWORKS", &"x".repeat(7383));
+    let mut prime = Prime::with_transport(
+        detected("mock-reset"),
+        Box::new(ResetWire {
+            mock: mock.clone(),
+            received: 0,
+        }),
+    );
+    let error = prime.read_program_exact("FIREWORKS").unwrap_err();
+    assert!(error.to_string().contains("expected 9F"), "{error}");
+    let before = mock.cmds();
+    assert!(prime.check_ready().is_err());
+    assert_eq!(before, mock.cmds());
+    assert!(!mock.cmds().iter().any(|c| matches!(*c, 0xf7 | 0xeb | 0xec)));
 }

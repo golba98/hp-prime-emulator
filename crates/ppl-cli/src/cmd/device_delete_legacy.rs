@@ -178,6 +178,7 @@ pub fn import(
         class: "test".into(),
         authorization: None,
         requested_utc: None,
+        submission: Vec::new(),
     };
     store.create(&op, &backups)?;
     Ok(op)

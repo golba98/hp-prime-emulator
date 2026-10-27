@@ -402,14 +402,19 @@ pub mod f08_boundary {
     use super::*;
 
     #[test]
-    fn test_f08_b1_mixed_case_keyword_is_ident() {
+    fn test_f08_b1_mixed_case_keyword_is_soft_keyword() {
+        // The original firmware accepts keywords in any letter case
+        // (diagnostic corpus h01, k01, k02); the spelling is kept so the
+        // parser can still read the word as a name.
         let src = "Export local Begin";
         let mut diags = Diagnostics::default();
         let toks = ppl_syntax::lexer::lex(src, &mut diags);
         assert_eq!(toks.len(), 4);
         assert_eq!(toks.last().unwrap().tok, ppl_syntax::lexer::Tok::Eof);
-        for t in &toks[..3] {
-            assert!(matches!(t.tok, ppl_syntax::lexer::Tok::Ident(_)));
+        for (t, spelling) in toks[..3].iter().zip(["Export", "local", "Begin"]) {
+            assert!(matches!(t.tok, ppl_syntax::lexer::Tok::Kw(_)));
+            assert_eq!(t.soft.as_deref(), Some(spelling));
+            assert_eq!(&src[t.span.start as usize..t.span.end as usize], spelling);
         }
     }
 

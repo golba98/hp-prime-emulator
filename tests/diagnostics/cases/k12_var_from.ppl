@@ -1,0 +1,5 @@
+EXPORT DPK12()
+BEGIN
+ LOCAL from:=4;
+ RETURN from+1;
+END;

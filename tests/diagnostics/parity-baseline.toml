@@ -1,0 +1,303 @@
+# Measured outcome of every diagnostic corpus case (native analyzer vs the
+# local original-firmware reference). The ratchet test fails when a measured
+# outcome differs: update an entry only together with the change that moves it.
+
+[[expect]]
+id = "v01_hello"
+outcome = "match"
+
+[[expect]]
+id = "v02_locals_loops"
+outcome = "match"
+
+[[expect]]
+id = "v03_lists_matrices"
+outcome = "match"
+
+[[expect]]
+id = "v04_nested_control"
+outcome = "match"
+
+[[expect]]
+id = "v05_multi_functions"
+outcome = "match"
+
+[[expect]]
+id = "v06_unicode_ops"
+outcome = "match"
+
+[[expect]]
+id = "v07_blit_explicit"
+outcome = "match"
+
+[[expect]]
+id = "r01_runtime_div_zero"
+outcome = "match"
+
+[[expect]]
+id = "e01_missing_end"
+outcome = "match"
+
+[[expect]]
+id = "e02_nested_missing_end"
+outcome = "match"
+
+[[expect]]
+id = "e03_repeat_end"
+outcome = "match"
+
+[[expect]]
+id = "e04_invalid_identifier"
+outcome = "match"
+
+[[expect]]
+id = "e05_local_no_name"
+outcome = "match"
+
+[[expect]]
+id = "e06_blit_zero_args"
+outcome = "match"
+
+[[expect]]
+id = "e07_builtin_arity"
+outcome = "match"
+
+[[expect]]
+id = "e08_undefined_function"
+outcome = "match"
+
+[[expect]]
+id = "e09_undeclared_variable"
+outcome = "match"
+
+[[expect]]
+id = "e10_malformed_expression"
+outcome = "match"
+
+[[expect]]
+id = "e11_invalid_operator"
+outcome = "match"
+
+[[expect]]
+id = "e12_unclosed_paren"
+outcome = "match"
+
+[[expect]]
+id = "e13_unclosed_string"
+outcome = "match"
+
+[[expect]]
+id = "e14_error_in_second_function"
+outcome = "match"
+
+[[expect]]
+id = "e15_multiple_errors"
+outcome = "match"
+
+[[expect]]
+id = "e16_missing_semicolon_between"
+outcome = "match"
+
+[[expect]]
+id = "e17_if_without_then"
+outcome = "match"
+
+[[expect]]
+id = "h01_lowercase_keywords"
+outcome = "match"
+
+[[expect]]
+id = "h02_implicit_multiplication"
+outcome = "match"
+
+[[expect]]
+id = "h03_no_semicolon_before_end"
+outcome = "match"
+
+[[expect]]
+id = "h04_no_semicolon_before_nested_end"
+outcome = "match"
+
+[[expect]]
+id = "h05_no_semicolon_before_else"
+outcome = "match"
+
+[[expect]]
+id = "h06_no_semicolon_before_until"
+outcome = "match"
+
+[[expect]]
+id = "h07_lowercase_control"
+outcome = "match"
+
+[[expect]]
+id = "h08_lowercase_mod_variable"
+outcome = "match"
+
+[[expect]]
+id = "h09_final_end_without_semicolon"
+outcome = "match"
+
+[[expect]]
+id = "e18_blit_zero_args"
+outcome = "match"
+
+[[expect]]
+id = "h10_function_end_without_semicolon_before_next"
+outcome = "match"
+
+[[expect]]
+id = "h11_nested_end_without_semicolon"
+outcome = "match"
+
+[[expect]]
+id = "h12_assignment_without_semicolon_before_function_end"
+outcome = "match"
+
+[[expect]]
+id = "h13_return_without_semicolon_in_if"
+outcome = "match"
+
+[[expect]]
+id = "k01_title_case_keywords"
+outcome = "match"
+
+[[expect]]
+id = "k02_odd_case_keywords"
+outcome = "match"
+
+[[expect]]
+id = "k03_lowercase_for_downto_step"
+outcome = "match"
+
+[[expect]]
+id = "k04_lowercase_repeat_while_break"
+outcome = "match"
+
+[[expect]]
+id = "k05_lowercase_case_iferr"
+outcome = "match"
+
+[[expect]]
+id = "k06_lowercase_mod_div_operators"
+outcome = "match"
+
+[[expect]]
+id = "k07_lowercase_logical_operators"
+outcome = "match"
+
+[[expect]]
+id = "k08_var_div"
+outcome = "match"
+
+[[expect]]
+id = "k09_var_step"
+outcome = "match"
+
+[[expect]]
+id = "k10_var_key"
+outcome = "match"
+
+[[expect]]
+id = "k11_var_to"
+outcome = "match"
+
+[[expect]]
+id = "k12_var_from"
+outcome = "match"
+
+[[expect]]
+id = "k13_var_default"
+outcome = "match"
+
+[[expect]]
+id = "k14_var_kill"
+outcome = "match"
+
+[[expect]]
+id = "k15_var_and"
+outcome = "match"
+
+[[expect]]
+id = "k16_var_not"
+outcome = "match"
+
+[[expect]]
+id = "k17_var_begin"
+outcome = "match"
+
+[[expect]]
+id = "k18_var_end"
+outcome = "match"
+
+[[expect]]
+id = "k19_var_do"
+outcome = "match"
+
+[[expect]]
+id = "k20_var_case"
+outcome = "match"
+
+[[expect]]
+id = "k21_mod_variable_and_operator"
+outcome = "match"
+
+[[expect]]
+id = "k22_var_upper_mod"
+outcome = "match"
+
+[[expect]]
+id = "k23_var_title_mod"
+outcome = "match"
+
+[[expect]]
+id = "k24_unicode_before_lowercase"
+outcome = "match"
+
+[[expect]]
+id = "k25_lowercase_or_operator"
+outcome = "match"
+
+[[expect]]
+id = "k26_lowercase_xor_operator"
+outcome = "match"
+
+[[expect]]
+id = "k27_lowercase_and_operator"
+outcome = "match"
+
+[[expect]]
+id = "k28_title_case_mod_operator"
+outcome = "match"
+
+[[expect]]
+id = "k29_title_case_and_operator"
+outcome = "match"
+
+[[expect]]
+id = "k30_lowercase_end_assigned_at_statement_start"
+outcome = "match"
+
+[[expect]]
+id = "k31_lowercase_not_call"
+outcome = "match"
+
+[[expect]]
+id = "k32_lowercase_div_after_variable"
+outcome = "match"
+
+[[expect]]
+id = "k33_title_case_div_operator"
+outcome = "match"
+
+[[expect]]
+id = "k34_title_case_not_operator"
+outcome = "match"
+
+[[expect]]
+id = "k35_lowercase_end_variable_before_semicolon"
+outcome = "match"
+
+[[expect]]
+id = "k36_lowercase_end_assignment_only"
+outcome = "match"

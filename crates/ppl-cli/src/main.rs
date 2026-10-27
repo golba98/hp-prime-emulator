@@ -31,6 +31,8 @@ enum Command {
     Gui(cmd::gui::GuiOpts),
     /// Generate test corpora, run campaigns, import real-world programs.
     Test(cmd::test::TestOpts),
+    /// Compare editor diagnostics with authentic HP Prime Check results.
+    DiagParity(cmd::diag_parity::DiagParityOpts),
 }
 
 const SUBCOMMANDS: &[&str] = &[
@@ -42,6 +44,7 @@ const SUBCOMMANDS: &[&str] = &[
     "device",
     "compare",
     "test",
+    "diag-parity",
     "help",
     "-h",
     "--help",
@@ -153,6 +156,7 @@ fn main() -> ExitCode {
         Command::Debug(o) => cmd::debug::run(o),
         Command::Gui(o) => cmd::gui::run(o),
         Command::Test(o) => cmd::test::run(o),
+        Command::DiagParity(o) => cmd::diag_parity::run(o),
     };
     ExitCode::from(code)
 }

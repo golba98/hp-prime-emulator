@@ -1,9 +1,32 @@
-# Developer scripts
+# Developer guide
 
 The scripts support the Rust workspace, offline protocol research, and explicit
 hardware acceptance work. Established CLI paths remain stable. Python tools
 require Python 3.10 or newer; they can be imported without running their CLIs,
 opening displays, loading native libraries, or starting subprocesses.
+
+## Workspace
+
+| Crate | Purpose |
+|---|---|
+| `ppl-math` | Decimal arithmetic and HP numeric types |
+| `ppl-syntax` | Source loading, program containers, lexer, parser, diagnostics |
+| `ppl-compiler` | Semantic analysis and native bytecode generation |
+| `ppl-vm` | Native execution, values, builtins, host interface |
+| `ppl-graphics` | Headless graphics and PNG output |
+| `ppl-engine` | Shared results and native/firmware orchestration |
+| `prime-emulator` | ARM firmware execution, guest storage, compiler and runtime |
+| `ppl-gui` | Native editor, diagnostics, execution and calculator display |
+| `ppl-cli` | The `ppl` command |
+| `ppl-device` | Optional, explicit USB calculator communication |
+| `ppl-compat` | Compatibility suites and evidence reporting |
+| `ppl-bench` | Benchmarks |
+
+
+Ordinary tests do not require proprietary firmware. Firmware tests require local
+assets and explicit configuration; a skipped test is not evidence of guest
+execution. See the [firmware CLI guide](../emulator/M8_UNIFIED_CLI_REPORT.md)
+for setup, result fields, and limitations.
 
 ## Layout
 
@@ -36,6 +59,9 @@ in `research/ck_screen_replay.py`.
 | `device/verify_automated_deletion.py` | Opt-in physical acceptance using guarded Rust CLI commands; Python standard library and `ppl` | Hardware-testing documentation; creates fresh `ZZT_*` objects, backs up/verifies deletion, records command output and `summary.json` |
 | `research/ck_inspect.py` | Read-only PE32/PE32+ sections, imports, strings, disassembly, xrefs, pointers, RTTI and Qt metadata | Trace generator, research docs and manual investigation; Capstone needed only for disassembly/xrefs; text and optional provenance JSON |
 | `research/ck_trace_evidence.py` | Reproduce pinned Connectivity Kit analysis without executing vendor code | HID trace documentation; imports `ck_inspect.PE`, requires Capstone; creates a new directory containing `.asm`, `tables.txt`, and `manifest.json` |
+| `research/official_archives.py` | Offline Burn/CAB/MSI extraction with bounds, fresh directories and PE provenance | `7z` required; never installs vendor code |
+| `research/official_screen_trace.py` | Reproduce constructor, virtual framebuffer and Windows raster evidence | Four input hashes checked before writing disassembly and manifest |
+| `research/qt555_oracle.py` | Independent conversion through the host distribution's Qt5 QImage | Linux C++ ABI and system Qt5Gui; never loads vendor DLLs |
 | `research/ck_screen_replay.py` | Assemble saved HID reports, validate FC PNG envelopes, optionally compose patches in memory | Project-trace documentation and tests; standard library for inspection, Pillow for replay; JSON metadata/hashes on stdout |
 
 `lib/x11.py` owns shared native signatures, display connections, window-tree/title
@@ -103,7 +129,7 @@ fields are compatibility-sensitive.
 Replay consumes logs in **argument order**. It requires one FC request and a
 complete ordered response per log, validates length/CRC and discards HID padding.
 A format change requires a new full-origin baseline. The 16-bit grayscale PNG
-path represents packed RGB565, not ordinary grayscale. Scaling and partial
+path represents little-endian packed RGB555, not ordinary grayscale. Scaling and partial
 third-width coverage follow the recovered viewer. Output contains metadata and
 hashes; no calculator pixels are written by replay.
 
@@ -137,7 +163,7 @@ The GUI example must already be built for this fixture-only acceptance check:
 scripts/emulator/run.sh build --release -p ppl-gui --example mirror_diagnostics
 bwrap --bind / / --dev /dev --unshare-net --die-with-parent -- \
   python3 scripts/device/mirror_xvfb_smoke.py \
-  --fixture tests/fixtures/prime-rgb565.png --out-dir /tmp/prime-xvfb-new
+  --fixture tests/fixtures/prime-rgb555-le.png --out-dir /tmp/prime-xvfb-new
 ```
 
 The default binary is the existing shared target's

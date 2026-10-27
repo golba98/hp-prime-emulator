@@ -150,7 +150,9 @@ struct Identity {
     program: String,
     source_sha256: Option<String>,
 }
-fn diagnostic(v: &Value) -> Diagnostic {
+/// Converts a runner diagnostic (JSON) to an engine diagnostic. Shared by
+/// the fresh checker and the live session so both map fields identically.
+pub fn diagnostic(v: &Value) -> Diagnostic {
     Diagnostic {
         source: v["source"].as_str().unwrap_or("guest-firmware").into(),
         severity: v["severity"].as_str().unwrap_or("error").into(),
