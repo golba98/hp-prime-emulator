@@ -1,0 +1,48 @@
+{
+  "source_commit": "eeeb4f8602dc46304aeb551755d1753d08528f92",
+  "rustc": "1.96.0 (ac68faa20 2026-05-25)",
+  "target_directory": "dedicated hpprgm-file-compat-target",
+  "notes": "Workspace uses default firmware guards; the two explicit firmware commands above were run with local firmware assets configured. No physical device access.",
+  "checks": [
+    {
+      "name": "workspace",
+      "command": "cargo test --workspace",
+      "passed": 1458,
+      "failed": 0,
+      "ignored": 6,
+      "log_sha256": "2c5dc88d453551deff34e71ed4842cf21f49728932bbc99667c0c10845fc0fb6"
+    },
+    {
+      "name": "firmware-regressions",
+      "command": "cargo test -p prime-emulator --release --test firmware_boot --test firmware_display --test firmware_compiler --test firmware_programs -- --test-threads=1",
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "c37d482e469e38533780ec415e0ca156f2ab6da9a42d8a93b7d0d447b47dc88b"
+    },
+    {
+      "name": "firmware-file-compat",
+      "command": "cargo test -p prime-emulator --release --test firmware_file_compat -- --ignored --test-threads=1",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "b084a9a1ccd9783d0f44d40c53b937f7341b44b7eb3733283ea0ec7670c638f4"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "log_sha256": "6ce7077d4336aba9aaebc5884dddc9ed06cafbd9b037ad46472fff6fc51d1120"
+    },
+    {
+      "name": "format",
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0
+    },
+    {
+      "name": "fixture-reproduction",
+      "command": "python tests/hpprgm/generate.py; git diff --exit-code -- tests/hpprgm/cases.json tests/hpprgm/files tests/hpprgm/sources",
+      "exit_code": 0
+    }
+  ]
+}

@@ -143,3 +143,50 @@ fn single_byte_mutations_never_panic_or_change_accepted_bytes_on_reserialization
         }
     }
 }
+
+#[test]
+fn firmware_references_are_current_and_cannot_silently_shrink() {
+    let reference: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(corpus::root().join("reference/local-firmware-g1-2.4.2.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(reference["provenance"], "local-firmware");
+    assert_eq!(
+        reference["firmware_sha256"],
+        "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+    );
+    let recorded = reference["cases"].as_array().unwrap();
+    let fixtures: Vec<_> = corpus::cases().into_iter().filter(|c| c.firmware).collect();
+    assert!(
+        recorded.len() >= 26,
+        "do not relax the observed firmware coverage floor"
+    );
+    assert_eq!(recorded.len(), fixtures.len());
+    for c in fixtures {
+        let matches: Vec<_> = recorded.iter().filter(|r| r["id"] == c.id).collect();
+        assert_eq!(matches.len(), 1, "{} needs one authentic reference", c.id);
+        let r = matches[0];
+        assert_eq!(r["input_sha256"], c.sha256, "{} reference stale", c.id);
+        let raw = c.source.unwrap();
+        let stored = if c.container {
+            raw.clone()
+        } else {
+            raw.replace("\r\n", "\n").replace('\r', "\n")
+        };
+        assert_eq!(r["original_source_sha256"], sha256::hex(raw.as_bytes()));
+        assert_eq!(r["stored_source_sha256"], sha256::hex(stored.as_bytes()));
+        let sessions = r["sessions"].as_array().unwrap();
+        assert_eq!(sessions.len(), 2);
+        for session in sessions {
+            assert_eq!(session["stored_source_sha256"], r["stored_source_sha256"]);
+            for state in [
+                "recognized_by_firmware",
+                "visible_in_catalog",
+                "opened_in_editor",
+                "source_verified",
+            ] {
+                assert_eq!(session["states"][state]["ok"], true, "{} {state}", c.id);
+            }
+        }
+    }
+}
