@@ -1,0 +1,4 @@
+EXPORT LP03()
+BEGIN
+ RETURN "abc\";
+END;

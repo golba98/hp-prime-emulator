@@ -1,0 +1,4 @@
+EXPORT DPK06()
+BEGIN
+ RETURN (7 mod 3)+(7 div 2);
+END;

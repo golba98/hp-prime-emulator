@@ -1,0 +1,6 @@
+EXPORT DPK36()
+BEGIN
+ LOCAL end:=4;
+ end:=5;
+ RETURN 1;
+END;

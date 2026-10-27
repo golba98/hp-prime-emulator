@@ -1,0 +1,5 @@
+EXPORT DPK35()
+BEGIN
+ LOCAL end:=4;
+ RETURN end;
+END;

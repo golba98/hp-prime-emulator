@@ -86,18 +86,30 @@ fn frames(source: &str) -> (Vec<(u64, Vec<u32>)>, Vec<u32>) {
     (recorded, final_pixels)
 }
 #[test]
-fn removal_of_invalid_blits_preserves_every_wait_frame_and_exit_screen() {
+fn removal_of_invalid_blits_keeps_the_animation_and_the_original_is_rejected() {
     let corrected = include_str!("../../../examples/FIREWORKS.hpprgm");
     let marker = "// G0 already displays drawing; no blit is required.";
     assert_eq!(corrected.matches(marker).count(), 2);
-    let prior_native = corrected.replace(marker, "BLIT_P();");
-    let (before, final_before) = frames(&prior_native);
-    let (after, final_after) = frames(corrected);
-    assert_eq!(before.len(), 61);
+    // The pre-repair calls no longer compile natively, agreeing with the
+    // original firmware (tests/diagnostics case e06_blit_zero_args). The
+    // frame-by-frame equivalence with the old native no-op was measured
+    // before that rule changed (docs/device/PROGRAM_CHECK_AND_DIAGNOSTICS.md).
+    let original = corrected.replace(marker, "BLIT_P();");
+    let file = ppl_syntax::SourceFile::new("FIREWORKS", original.as_str());
+    let (program, diagnostics) = ppl_compiler::compile_source(&file, &Default::default());
+    assert!(program.is_none());
+    assert_eq!(
+        diagnostics
+            .items
+            .iter()
+            .filter(|d| d.code == "wrong-arg-count")
+            .count(),
+        2
+    );
+    let (after, _) = frames(corrected);
+    assert_eq!(after.len(), 61);
     assert!(
-        before.windows(2).filter(|w| w[0].1 != w[1].1).count() > 10,
+        after.windows(2).filter(|w| w[0].1 != w[1].1).count() > 10,
         "simulation must actually animate"
     );
-    assert_eq!(before, after);
-    assert_eq!(final_before, final_after);
 }

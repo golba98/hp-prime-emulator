@@ -1,0 +1,6 @@
+EXPORT LP12()
+BEGIN
+ IF 1
+  RETURN 1;
+ END;
+END;

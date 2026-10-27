@@ -164,12 +164,12 @@ impl AnalysisState {
     /// Short status-bar text.
     pub fn label(&self) -> String {
         match self {
-            AnalysisState::NotAnalyzed => "PPL: not analysed".into(),
-            AnalysisState::Queued | AnalysisState::Analyzing => "PPL: analysing…".into(),
-            AnalysisState::Valid => "PPL: valid".into(),
-            AnalysisState::ValidWithWarnings(n) => format!("PPL: valid, {n} warning(s)"),
-            AnalysisState::Invalid { errors, .. } => format!("PPL: {errors} error(s)"),
-            AnalysisState::AnalysisFailed(_) => "PPL: analysis failed".into(),
+            AnalysisState::NotAnalyzed => "Native: not analysed".into(),
+            AnalysisState::Queued | AnalysisState::Analyzing => "Native: analysing…".into(),
+            AnalysisState::Valid => "Native: valid".into(),
+            AnalysisState::ValidWithWarnings(n) => format!("Native: valid, {n} warning(s)"),
+            AnalysisState::Invalid { errors, .. } => format!("Native: {errors} error(s)"),
+            AnalysisState::AnalysisFailed(_) => "Native: analysis failed".into(),
         }
     }
 }
@@ -277,6 +277,9 @@ pub struct IdeAppState {
     pub vm_state: VmExecutionState,
     /// Compiler verdict for the active tab's current text.
     pub analysis: AnalysisState,
+    /// Original-firmware Check verdict for the active tab's current text,
+    /// when one is held: (status-bar text, is an error).
+    pub firmware_verdict: Option<(String, bool)>,
     /// Encoding of the active tab's file, as saved back.
     pub encoding_label: String,
     pub step_count: u64,
@@ -323,6 +326,7 @@ impl Default for IdeAppState {
             recent_files: Vec::new(),
             vm_state: VmExecutionState::Idle,
             analysis: AnalysisState::NotAnalyzed,
+            firmware_verdict: None,
             encoding_label: "UTF-8".into(),
             step_count: 0,
             elapsed_time: Duration::ZERO,

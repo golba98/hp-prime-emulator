@@ -254,11 +254,31 @@ fn test_all_event_variants_round_trip() {
             request: 12345,
             success: true,
             message: "Compilation succeeded".into(),
+            check: None,
         },
         Event::Result {
             request: 67890,
             success: false,
             message: "Syntax error on line 4".into(),
+            check: None,
+        },
+        Event::Result {
+            request: 67891,
+            success: false,
+            message: "Error: Syntax Error".into(),
+            check: Some(session::CheckVerdict {
+                accepted: false,
+                source_sha256: "00".repeat(32),
+                diagnostics: vec![ppl_engine::Diagnostic {
+                    source: "guest-firmware".into(),
+                    severity: "error".into(),
+                    code: None,
+                    message: Some("Error: Syntax Error".into()),
+                    line: Some(3),
+                    column: Some(9),
+                    raw_position: Some(serde_json::json!({"line": 3, "offset_utf16": 30})),
+                }],
+            }),
         },
         Event::Error {
             message: "Fatal guest fault at 0x00010000".into(),
@@ -294,14 +314,16 @@ fn test_all_event_variants_round_trip() {
                     request: r1,
                     success: s1,
                     message: m1,
+                    check: c1,
                 },
                 Packet::Event(Event::Result {
                     request: r2,
                     success: s2,
                     message: m2,
+                    check: c2,
                 }),
             ) => {
-                assert_eq!((r1, s1, m1), (&r2, &s2, &m2));
+                assert_eq!((r1, s1, m1, c1), (&r2, &s2, &m2, &c2));
             }
             (Event::Error { message: m1 }, Packet::Event(Event::Error { message: m2 })) => {
                 assert_eq!(m1, &m2);

@@ -1,0 +1,5 @@
+export DPK24()
+begin
+ local θ:=π; if θ≥3 then return θ; end;
+ return 0;
+end;

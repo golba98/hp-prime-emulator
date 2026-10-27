@@ -37,7 +37,7 @@ impl Default for CompileOptions {
 }
 
 pub fn compile(program: &Program, opts: &CompileOptions) -> (Option<CompiledProgram>, Diagnostics) {
-    let mut c = Compiler::new(opts.clone());
+    let mut c = Compiler::new(opts.clone(), &program.punctuation);
     c.collect(program);
     c.compile_items(program);
     let has_errors = c.diags.has_errors();
@@ -86,8 +86,9 @@ struct LocalInfo {
     hidden: bool,
 }
 
-struct Compiler {
+struct Compiler<'a> {
     opts: CompileOptions,
+    punctuation: &'a [Punctuation],
     diags: Diagnostics,
     consts: Vec<Const>,
     globals: Vec<GlobalSlot>,
@@ -175,10 +176,11 @@ fn canonical_system_name(name: &str) -> String {
     }
 }
 
-impl Compiler {
-    fn new(opts: CompileOptions) -> Compiler {
+impl<'a> Compiler<'a> {
+    fn new(opts: CompileOptions, punctuation: &'a [Punctuation]) -> Self {
         Compiler {
             opts,
+            punctuation,
             diags: Diagnostics::default(),
             consts: Vec::new(),
             globals: Vec::new(),
@@ -1251,6 +1253,38 @@ impl Compiler {
         self.cur.emit(Op::Zero, span);
     }
 
+    fn arity_location(&self, callee: &Expr, min: u8, max: u8, argc: usize) -> Option<Span> {
+        // Search only an erroneous call's existing tokens. Valid calls need
+        // no lookup, allocation, extra lexer pass or per-call metadata.
+        let start = self
+            .punctuation
+            .partition_point(|t| t.span.start < callee.span.end);
+        if self.punctuation.get(start)?.kind != PunctuationKind::Open {
+            return None;
+        }
+        let mut depth = 1usize;
+        let mut commas = 0usize;
+        for token in &self.punctuation[start + 1..] {
+            match token.kind {
+                PunctuationKind::Open => depth += 1,
+                PunctuationKind::Close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return (argc < usize::from(min)).then_some(token.span);
+                    }
+                }
+                PunctuationKind::Comma if depth == 1 => {
+                    commas += 1;
+                    if argc > usize::from(max) && commas == usize::from(max) {
+                        return Some(token.span);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     fn call(&mut self, callee: &Expr, args: &[Expr], span: Span) {
         let ExprKind::Ident(name) = &callee.kind else {
             // `L(1)(2)`: index the result.
@@ -1371,9 +1405,13 @@ impl Compiler {
             return;
         };
         if !spec.accepts(args.len()) {
+            // Firmware stops at the close for missing arguments, or at the
+            // comma introducing the first excess argument. Token spans keep
+            // this exact even with whitespace, comments and nested calls.
+            let at = self.arity_location(callee, spec.min, spec.max, args.len());
             self.error(
                 "wrong-arg-count",
-                span,
+                at.unwrap_or(span),
                 format!(
                     "{} expects {} argument(s), got {}",
                     spec.name,

@@ -79,7 +79,14 @@ impl DiagnosticItem {
     }
 
     /// Missing firmware positions remain unknown (zero), not a fabricated line 1.
-    pub fn from_engine(d: &ppl_engine::Diagnostic, title: &str) -> Self {
+    /// `text` is the checked source, used to place the editor marker.
+    pub fn from_engine(d: &ppl_engine::Diagnostic, title: &str, text: &str) -> Self {
+        let span = match (d.line, d.column) {
+            (Some(line), Some(col)) if line > 0 && col > 0 => {
+                span_at(text, line as usize, col as usize)
+            }
+            _ => Span::default(),
+        };
         Self {
             severity: match d.severity.as_str() {
                 "warning" => Severity::Warning,
@@ -100,7 +107,7 @@ impl DiagnosticItem {
             unverified: false,
             line: d.line.unwrap_or(0) as usize,
             col: d.column.unwrap_or(0) as usize,
-            span: Span::default(),
+            span,
             file: title.into(),
             tab: None,
         }
@@ -112,6 +119,24 @@ impl DiagnosticItem {
             Severity::Warning => "Warning",
             Severity::Note => "Note",
         }
+    }
+}
+
+/// The one-character byte span at a 1-based line and character column of
+/// `text` (LF lines). A column past the end of its line marks the line end.
+fn span_at(text: &str, line: usize, col: usize) -> Span {
+    let Some(start) = (line == 1)
+        .then_some(0)
+        .or_else(|| text.match_indices('\n').nth(line - 2).map(|(i, _)| i + 1))
+    else {
+        return Span::new(text.len(), text.len());
+    };
+    let rest = &text[start..];
+    let line_len = rest.find('\n').unwrap_or(rest.len());
+    let mut chars = rest[..line_len].char_indices().skip(col - 1);
+    match chars.next() {
+        Some((i, c)) => Span::new(start + i, start + i + c.len_utf8()),
+        None => Span::new(start + line_len, start + line_len),
     }
 }
 
@@ -310,6 +335,37 @@ impl Drop for DiagnosticsWorker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn firmware_positions_map_to_byte_spans() {
+        let text = "AB\n π≠x;\nZ";
+        let slice = |sp: Span| &text[sp.start as usize..sp.end as usize];
+        assert_eq!(slice(span_at(text, 1, 2)), "B");
+        assert_eq!(slice(span_at(text, 2, 2)), "π");
+        assert_eq!(slice(span_at(text, 2, 3)), "≠");
+        assert_eq!(slice(span_at(text, 3, 1)), "Z");
+        // Past the end of a line: an empty span at that line's end.
+        let end = span_at(text, 1, 9);
+        assert_eq!((end.start, end.end), (2, 2));
+        // A line past the end of the text: the end of the text.
+        assert_eq!(span_at(text, 9, 1).start as usize, text.len());
+    }
+
+    #[test]
+    fn firmware_items_without_a_location_stay_unlocated() {
+        let d = ppl_engine::Diagnostic {
+            source: "guest-firmware".into(),
+            severity: "error".into(),
+            code: None,
+            message: Some("Error: Syntax Error".into()),
+            line: None,
+            column: None,
+            raw_position: None,
+        };
+        let item = DiagnosticItem::from_engine(&d, "T", "EXPORT T()\n");
+        assert_eq!((item.line, item.col, item.span), (0, 0, Span::default()));
+        assert_eq!(item.provenance, "guest-firmware");
+    }
 
     #[test]
     fn items_carry_class_position_and_hint() {

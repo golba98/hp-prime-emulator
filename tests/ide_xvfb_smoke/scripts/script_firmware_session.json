@@ -1,0 +1,301 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/firmware_session.json",
+ "steps": [
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "new_program",
+   "name": "FWCHK"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT FWCHK()\nBEGIN\n LOCAL θ:=π;\n RETURN θ+(π*2;\nEND;\n"
+  },
+  {
+   "step": "dock",
+   "tab": "problems"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "snapshot",
+   "label": "native-only"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_1_native.png"
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "snapshot",
+   "label": "checked-rejected"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_2_checked.png"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 15000
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT FWCHK()\nBEGIN\n LOCAL θ:=π;\n RETURN θ+(π*2);\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "snapshot",
+   "label": "edited"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_3_edited.png"
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "snapshot",
+   "label": "checked-passed"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_4_passed.png"
+  },
+  {
+   "step": "new_program",
+   "name": "FWTWO"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT FWTWO()\nBEGIN\n BLIT_P();\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "snapshot",
+   "label": "second-tab-checked"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_5_tab2.png"
+  },
+  {
+   "step": "select_tab",
+   "index": 1
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "snapshot",
+   "label": "first-tab-again"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_6_tab1.png"
+  },
+  {
+   "step": "select_tab",
+   "index": 2
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 600
+  },
+  {
+   "step": "snapshot",
+   "label": "repeated"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_7_repeated.png"
+  },
+  {
+   "step": "check"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "snapshot",
+   "label": "stopped-during-check"
+  },
+  {
+   "step": "select_tab",
+   "index": 1
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "snapshot",
+   "label": "ran"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_8_ran.png"
+  },
+  {
+   "step": "restart"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "snapshot",
+   "label": "restarted"
+  },
+  {
+   "step": "select_tab",
+   "index": 2
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT FWTWO()\nBEGIN\n BLIT_P();\nEND;\n\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "snapshot",
+   "label": "session-run-edited"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_check",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "snapshot",
+   "label": "session-run-rejected"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/firmware_session_9_run_rejected.png"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

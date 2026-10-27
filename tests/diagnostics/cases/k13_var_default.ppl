@@ -1,0 +1,5 @@
+EXPORT DPK13()
+BEGIN
+ LOCAL default:=4;
+ RETURN default+1;
+END;

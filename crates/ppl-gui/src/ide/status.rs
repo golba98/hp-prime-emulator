@@ -49,6 +49,15 @@ impl IdePanel for StatusBar {
             if let AnalysisState::AnalysisFailed(reason) = &state.analysis {
                 analysis.on_hover_text(reason);
             }
+            if let Some((text, is_error)) = &state.firmware_verdict {
+                ui.add(egui::Separator::default().vertical());
+                ui.label(
+                    RichText::new(text)
+                        .size(11.0)
+                        .color(if *is_error { ACCENT_RED } else { ACCENT_GREEN }),
+                )
+                .on_hover_text("Original G1 firmware 2.4.2 Check in the local emulator, not a physical calculator");
+            }
 
             ui.add(egui::Separator::default().vertical());
 

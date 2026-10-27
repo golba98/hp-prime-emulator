@@ -136,15 +136,26 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     // The main thread blocked in a wait is the UI at rest (key scripts
     // only send the next input then).
     let main = ctx.thread_id == 0;
+    // Host guest calls run here, at the main loop's wait for the next event
+    // (see `guest_call`); the wait is then re-entered from scratch.
+    let call_point = main && ctx.args.caller_pc == crate::guest_call::MAIN_WAIT_CALLER;
+    if call_point && inject_call(ctx)? {
+        return Ok(0);
+    }
     if main {
         ctx.shared.set_main_waiting(true);
     }
     let signaled = {
         let _parked = ctx.mem.snapshot_gate.park();
-        ev.wait(timeout, &|| ctx.shared.stopping())
+        ev.wait(timeout, &|| {
+            ctx.shared.stopping() || (call_point && ctx.shared.guest_calls.pending())
+        })
     };
     if main {
         ctx.shared.set_main_waiting(false);
+    }
+    if !signaled && call_point && ctx.shared.guest_calls.pending() && inject_call(ctx)? {
+        return Ok(0);
     }
     if signaled {
         ctx.trace.sync_event(
@@ -161,6 +172,23 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         return Ok(super::sync::WAIT_RESULT_RESOLVED);
     }
     Ok(super::sync::WAIT_RESULT_TIMEOUT)
+}
+
+/// Starts the pending guest call, if any; true when the registers now enter
+/// it (the SVC's normal return must then be skipped).
+fn inject_call(ctx: &mut SvcCtx) -> Result<bool, HandlerFault> {
+    match ctx.shared.guest_calls.inject(ctx.uc, ctx.mem) {
+        Ok(true) => {
+            ctx.redirected = true;
+            Ok(true)
+        }
+        Ok(false) => Ok(false),
+        Err(e) => {
+            ctx.trace
+                .fault(format!("guest call: {e}"), ctx.args.caller_pc);
+            Ok(false)
+        }
+    }
 }
 
 pub fn os_set_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {

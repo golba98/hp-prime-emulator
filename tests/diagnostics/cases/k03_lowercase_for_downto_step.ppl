@@ -1,0 +1,7 @@
+EXPORT DPK03()
+BEGIN
+ LOCAL i,s:=0;
+ for i from 10 downto 1 step 2 do s:=s+i; end;
+ for i from 1 to 9 step 3 do s:=s+i; end;
+ RETURN s;
+END;

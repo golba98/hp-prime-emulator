@@ -1,0 +1,4 @@
+EXPORT DPK31()
+BEGIN
+ RETURN not(0);
+END;

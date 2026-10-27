@@ -1,0 +1,5 @@
+EXPORT LP22()
+BEGIN
+ LOCAL end:=4;
+ RETURN end+1;
+END;

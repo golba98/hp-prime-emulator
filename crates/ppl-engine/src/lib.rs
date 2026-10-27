@@ -2,6 +2,8 @@
 pub mod arguments;
 pub mod checking;
 #[cfg(target_os = "linux")]
+pub mod direct_check;
+#[cfg(target_os = "linux")]
 pub mod firmware;
 #[cfg(not(target_os = "linux"))]
 #[path = "firmware_unsupported.rs"]
@@ -81,7 +83,7 @@ impl Cancellation {
         self.0.load(Ordering::Acquire)
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Diagnostic {
     pub source: String,
     pub severity: String,

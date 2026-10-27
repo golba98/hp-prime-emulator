@@ -1,0 +1,27 @@
+# Diagnostic parity reference observed on a physical HP Prime G1.
+#
+# No physical observations have been recorded yet. The calculator offers no
+# remote Check, so each entry needs a manual procedure; nothing here may be
+# derived from the emulator, the local firmware or the native analyzer.
+#
+# Manual procedure for one case (requires the user's explicit approval for
+# the upload, per AGENTS.md):
+#
+#   1. ppl device send ZZT_DP_<N> tests/diagnostics/cases/<id>.ppl
+#      (a new ZZT_ name; existing programs are never overwritten).
+#   2. On the calculator: Shift+1 (Program Catalog), select ZZT_DP_<N>,
+#      Edit, then Check.
+#   3. ppl device screenshot artifacts/diagnostic-parity/physical/<id>.png
+#      (read-only) while the result dialog is visible.
+#   4. ppl device ui inspect (passive OCR) or transcribe the dialog text exactly.
+#   5. Add a [[result]] below with the verdict, the message as displayed,
+#      the line (when shown), source_sha256 of the case file, and `artifact`
+#      pointing at the screenshot.
+#   6. Remove ZZT_DP_<N> with the existing ZZT cleanup workflow.
+#
+# Note the calculator's firmware build next to each entry; the local
+# firmware reference is G1 2.4.2, which differs from this device's build.
+
+schema_version = 1
+evidence = "physical-device"
+description = "HP Prime G1 (physical), Program Editor Check, transcribed from screenshots."

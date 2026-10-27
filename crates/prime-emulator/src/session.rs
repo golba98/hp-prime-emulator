@@ -170,11 +170,12 @@ impl LiveSession {
                 },
                 Command::Stop => {
                     device.script = None;
-                    if let Some(request) = device.jobs.cancel() {
+                    if let Some(request) = device.jobs.cancel(mem, shared) {
                         self.event(Event::Result {
                             request,
                             success: false,
                             message: "Firmware operation cancelled".into(),
+                            check: None,
                         });
                         self.event(Event::Phase {
                             phase: "ready".into(),
@@ -201,6 +202,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }
@@ -226,6 +228,23 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
+                        }),
+                    }
+                }
+                Command::DirectCheck { request, source } => {
+                    match device
+                        .jobs
+                        .start_direct(request, source, mem, shared, trace)
+                    {
+                        Ok(()) => self.event(Event::Phase {
+                            phase: "compiling".into(),
+                        }),
+                        Err(message) => self.event(Event::Result {
+                            request,
+                            success: false,
+                            message,
+                            check: None,
                         }),
                     }
                 }
@@ -253,6 +272,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }
