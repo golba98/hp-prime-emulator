@@ -1,0 +1,4 @@
+EXPORT UNICODE()
+BEGIN
+ PRINT("≥ → é Σ π 日本語");
+END;

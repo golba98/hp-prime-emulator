@@ -1,0 +1,1 @@
+EXPORT BAD() BEGIN PRINT("Ã("); END;
