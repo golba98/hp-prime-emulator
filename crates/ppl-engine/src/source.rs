@@ -1,4 +1,5 @@
 //! Strict representation detection. This module never parses PPL syntax.
+pub use ppl_syntax::source::{DecodedProgram, FileError, decode_program, decode_text};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -44,50 +45,11 @@ impl Source {
         Self::decode(text.as_bytes().to_vec(), None, name.into())
     }
     pub fn decode(bytes: Vec<u8>, path: Option<PathBuf>, name: String) -> Result<Self, String> {
-        let container = bytes.starts_with(&ppl_syntax::hpprgm::MAGIC.to_le_bytes());
-        let (raw, encoding) = if container {
-            let c =
-                ppl_syntax::hpprgm::parse(&bytes).map_err(|e| format!("invalid container: {e}"))?;
-            (
-                c.source().map_err(|e| e.to_string())?.source,
-                "utf-16le-container",
-            )
-        } else if bytes.starts_with(&[255, 254]) || bytes.starts_with(&[254, 255]) {
-            let be = bytes[0] == 254;
-            let b = &bytes[2..];
-            if b.len() % 2 != 0 {
-                return Err("odd UTF-16 byte count".into());
-            }
-            let units: Vec<_> = b
-                .chunks_exact(2)
-                .map(|x| {
-                    if be {
-                        u16::from_be_bytes([x[0], x[1]])
-                    } else {
-                        u16::from_le_bytes([x[0], x[1]])
-                    }
-                })
-                .collect();
-            (
-                String::from_utf16(&units).map_err(|e| e.to_string())?,
-                if be { "utf-16be" } else { "utf-16le" },
-            )
-        } else {
-            (
-                String::from_utf8(
-                    bytes
-                        .strip_prefix(&[239, 187, 191])
-                        .unwrap_or(&bytes)
-                        .to_vec(),
-                )
-                .map_err(|e| format!("invalid UTF-8: {e}"))?,
-                "utf-8",
-            )
-        };
-        if raw.contains('\0') {
-            return Err("NUL in source text".into());
-        }
-        let text = raw.replace("\r\n", "\n").replace('\r', "\n");
+        let decoded = decode_program(&bytes).map_err(|e| e.to_string())?;
+        let container = decoded.container;
+        let encoding = decoded.encoding;
+        let raw = decoded.original_text;
+        let text = decoded.text;
         let transformations = if raw != text {
             vec!["line endings normalized to LF".into()]
         } else {

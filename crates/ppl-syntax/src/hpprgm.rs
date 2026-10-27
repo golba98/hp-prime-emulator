@@ -61,6 +61,7 @@ pub enum Error {
     BadHeader { offset: usize, detail: String },
     BadLength { offset: usize, len: u32 },
     GroupOverrun { offset: usize },
+    NestingTooDeep { offset: usize },
     MissingSource,
     DuplicateSource,
     BadSource { offset: usize, detail: String },
@@ -87,6 +88,9 @@ impl fmt::Display for Error {
             }
             Error::GroupOverrun { offset } => {
                 write!(f, "group at {offset:#x}: objects overrun the group")
+            }
+            Error::NestingTooDeep { offset } => {
+                write!(f, "container nesting exceeds 128 levels at {offset:#x}")
             }
             Error::MissingSource => write!(f, "no source section (type {SECTION_FILES:#010x})"),
             Error::DuplicateSource => write!(f, "more than one source section"),
@@ -210,7 +214,10 @@ fn u32_at(d: &[u8], at: usize) -> Result<u32, Error> {
     Ok(u32::from_le_bytes(b.try_into().unwrap()))
 }
 
-fn parse_objects(d: &[u8], mut at: usize, end: usize) -> Result<Vec<Object>, Error> {
+fn parse_objects(d: &[u8], mut at: usize, end: usize, depth: usize) -> Result<Vec<Object>, Error> {
+    if depth > 128 {
+        return Err(Error::NestingTooDeep { offset: at });
+    }
     let mut out = Vec::new();
     while at < end {
         if end - at < 8 {
@@ -229,11 +236,14 @@ fn parse_objects(d: &[u8], mut at: usize, end: usize) -> Result<Vec<Object>, Err
             let mut groups = Vec::new();
             let mut g = at + 8;
             while g < obj_end {
+                if obj_end - g < 4 {
+                    return Err(Error::GroupOverrun { offset: g });
+                }
                 let glen = u32_at(d, g)? as usize;
                 if glen > obj_end - g - 4 {
                     return Err(Error::GroupOverrun { offset: g });
                 }
-                groups.push(parse_objects(d, g + 4, g + 4 + glen)?);
+                groups.push(parse_objects(d, g + 4, g + 4 + glen, depth + 1)?);
                 g += 4 + glen;
             }
             Body::List(groups)
@@ -266,7 +276,7 @@ pub fn parse(d: &[u8]) -> Result<Container, Error> {
             });
         }
     }
-    let objects = parse_objects(d, 12, d.len())?;
+    let objects = parse_objects(d, 12, d.len(), 0)?;
     for (i, want) in HEADER_INTS.iter().enumerate() {
         match objects.get(i) {
             Some(o) if o.ty == *want && o.payload().is_some_and(|p| p.len() == 4) => {}
