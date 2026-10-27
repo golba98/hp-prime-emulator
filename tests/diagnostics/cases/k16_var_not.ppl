@@ -1,0 +1,5 @@
+EXPORT DPK16()
+BEGIN
+ LOCAL not:=4;
+ RETURN not+1;
+END;

@@ -1,0 +1,7 @@
+EXPORT DPLISTS()
+BEGIN
+ LOCAL l:={1,2,3}, m:=[[1,2],[3,4]];
+ l(2):=5;
+ m(1,2):=7;
+ RETURN SIZE(l)+l(2)+m(1,2);
+END;

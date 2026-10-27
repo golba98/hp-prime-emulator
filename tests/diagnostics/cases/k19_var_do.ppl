@@ -1,0 +1,5 @@
+EXPORT DPK19()
+BEGIN
+ LOCAL do:=4;
+ RETURN do+1;
+END;

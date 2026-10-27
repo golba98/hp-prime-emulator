@@ -698,3 +698,326 @@ fn measure_analysis_latency() {
         app.editor.tabs.len()
     );
 }
+
+/// A firmware Check report for the adapter: a test fixture of the result
+/// shape, not a firmware observation.
+fn firmware_check(
+    status: ppl_engine::Status,
+    at: Option<(u32, u32)>,
+) -> ppl_engine::checking::CheckReport {
+    let mut native =
+        ppl_engine::Report::new(ppl_engine::Engine::Native, ppl_engine::Operation::Check);
+    native.status = ppl_engine::Status::Success;
+    let mut firmware =
+        ppl_engine::Report::new(ppl_engine::Engine::Firmware, ppl_engine::Operation::Check);
+    firmware.status = status;
+    firmware.diagnostics = at
+        .map(|(line, column)| ppl_engine::Diagnostic {
+            source: "guest-firmware".into(),
+            severity: "error".into(),
+            code: None,
+            message: Some("Error: Syntax Error".into()),
+            line: Some(line),
+            column: Some(column),
+            raw_position: None,
+        })
+        .into_iter()
+        .collect();
+    ppl_engine::checking::CheckReport {
+        schema_version: 1,
+        source_sha256: String::new(),
+        native,
+        firmware: Some(firmware),
+        firmware_status: String::new(),
+        physical_check_executed: false,
+    }
+}
+
+const BLIT_ZERO: &str = "EXPORT DEMO()\nBEGIN\n BLIT_P(π);\nEND;\n";
+
+#[test]
+fn firmware_check_items_are_marked_where_problems_lists_them() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    let (id, revision, title) = {
+        let tab = app.editor.active_tab_mut().unwrap();
+        (tab.id, tab.revision(), tab.title.clone())
+    };
+    let report = firmware_check(ppl_engine::Status::InvalidSource, Some((3, 9)));
+    app.apply_firmware_check(id, revision, &title, Ok(report));
+
+    let listed: Vec<_> = app
+        .problems
+        .items
+        .iter()
+        .filter(|i| i.provenance == "guest-firmware")
+        .cloned()
+        .collect();
+    assert_eq!(listed.len(), 1, "{:#?}", app.problems.items);
+    // The editor draws exactly the firmware items Problems lists, at the
+    // reported character (`π` is two bytes, so the span is byte-accurate).
+    let tab = app.editor.active_tab_mut().unwrap();
+    let marked = tab.current_firmware().unwrap().items.clone();
+    assert_eq!(marked, listed);
+    let span = marked[0].span;
+    assert_eq!(&tab.content[span.start as usize..span.end as usize], "π");
+    assert!(app.problems.firmware_passed.is_empty());
+
+    // Any edit retires the firmware result with the revision it checked.
+    app.editor.active_tab_mut().unwrap().content.push(' ');
+    settle(&mut app, &ctx);
+    assert!(
+        app.problems
+            .items
+            .iter()
+            .all(|i| i.provenance != "guest-firmware")
+    );
+}
+
+#[test]
+fn firmware_results_for_older_revisions_are_dropped() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    let (id, revision, title) = {
+        let tab = app.editor.active_tab_mut().unwrap();
+        (tab.id, tab.revision(), tab.title.clone())
+    };
+    app.editor.active_tab_mut().unwrap().content = VALID.to_string();
+    settle(&mut app, &ctx);
+    let report = firmware_check(ppl_engine::Status::InvalidSource, Some((3, 9)));
+    app.apply_firmware_check(id, revision, &title, Ok(report));
+    assert!(app.editor.active_tab_mut().unwrap().firmware.is_none());
+    assert!(app.problems.items.is_empty());
+}
+
+#[test]
+fn only_a_firmware_success_is_reported_as_firmware_verified() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(VALID);
+    settle(&mut app, &ctx);
+    assert!(app.problems.is_settled());
+    assert!(
+        app.problems
+            .empty_message()
+            .contains("not firmware-verified")
+    );
+    let (id, revision, title) = {
+        let tab = app.editor.active_tab_mut().unwrap();
+        (tab.id, tab.revision(), tab.title.clone())
+    };
+
+    // No verdict (e.g. a timeout) is neither a pass nor a source error.
+    let report = firmware_check(ppl_engine::Status::TimedOut, None);
+    app.apply_firmware_check(id, revision, &title, Ok(report));
+    assert!(app.problems.firmware_passed.is_empty());
+    assert!(app.problems.items.is_empty());
+
+    let report = firmware_check(ppl_engine::Status::Success, None);
+    app.apply_firmware_check(id, revision, &title, Ok(report));
+    assert_eq!(app.problems.firmware_passed, vec![title]);
+    assert!(
+        app.problems
+            .empty_message()
+            .contains("Original-firmware Check passed")
+    );
+}
+
+#[test]
+fn stopping_a_pending_compile_does_not_leave_the_tab_analysing() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(VALID);
+    app.begin_native_compile(false, false, false, &ctx);
+    assert!(app.native_compile.is_some());
+    app.handle_action(IdeAction::StopProgram, &ctx);
+    assert!(app.native_compile.is_none());
+    // The background worker takes over the revision the compile was for.
+    settle(&mut app, &ctx);
+    assert_eq!(app.state.analysis, AnalysisState::Valid);
+}
+
+/// A live-session verdict for `text`: a test fixture of the result shape,
+/// not a firmware observation.
+fn session_verdict(text: &str, at: Option<(u32, u32)>) -> ppl_engine::session::CheckVerdict {
+    ppl_engine::session::CheckVerdict {
+        accepted: at.is_none(),
+        source_sha256: ppl_engine::source::hash(text.as_bytes()),
+        diagnostics: at
+            .map(|(line, column)| ppl_engine::Diagnostic {
+                source: "guest-firmware".into(),
+                severity: "error".into(),
+                code: None,
+                message: Some("Error: Syntax Error".into()),
+                line: Some(line),
+                column: Some(column),
+                raw_position: None,
+            })
+            .into_iter()
+            .collect(),
+    }
+}
+
+/// Registers a session request for the active tab, as `request_firmware`
+/// does, without starting a firmware process.
+fn pend_session_request(app: &mut IdeDesktopApp, request: u64) -> (TabId, String) {
+    let tab = app.editor.active_tab_mut().unwrap();
+    let key = (tab.id, tab.revision(), tab.title.clone());
+    let out = (key.0, tab.content.clone());
+    app.firmware_pending.insert(request, key);
+    out
+}
+
+#[test]
+fn session_rejection_is_marked_where_problems_lists_it() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    let (_, text) = pend_session_request(&mut app, 7);
+    app.apply_session_check(7, Some(session_verdict(&text, Some((3, 9)))), "Error");
+    let listed: Vec<_> = app
+        .problems
+        .items
+        .iter()
+        .filter(|i| i.provenance == "guest-firmware")
+        .cloned()
+        .collect();
+    assert_eq!(listed.len(), 1, "{:#?}", app.problems.items);
+    let tab = app.editor.active_tab_mut().unwrap();
+    let marked = tab.current_firmware().unwrap().items.clone();
+    assert_eq!(marked, listed);
+    let span = marked[0].span;
+    assert_eq!(&tab.content[span.start as usize..span.end as usize], "π");
+    assert!(app.firmware_pending.is_empty());
+}
+
+#[test]
+fn session_results_land_only_on_the_tab_that_sent_them() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    let (sender, text) = pend_session_request(&mut app, 1);
+    app.editor.new_tab("OTHER.ppl", VALID);
+    settle(&mut app, &ctx);
+    let other = app.editor.active_tab().unwrap().id;
+    assert_ne!(sender, other);
+    app.apply_session_check(1, Some(session_verdict(&text, Some((3, 9)))), "Error");
+    let index = app.editor.index_of(other).unwrap();
+    assert!(app.editor.tabs[index].current_firmware().is_none());
+    let firmware: Vec<_> = app
+        .problems
+        .items
+        .iter()
+        .filter(|i| i.provenance == "guest-firmware")
+        .collect();
+    assert_eq!(firmware.len(), 1);
+    assert_eq!(firmware[0].tab, Some(sender));
+}
+
+#[test]
+fn session_results_for_an_edited_revision_or_other_source_are_dropped() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    let (_, text) = pend_session_request(&mut app, 1);
+    app.editor.active_tab_mut().unwrap().content.push(' ');
+    settle(&mut app, &ctx);
+    app.apply_session_check(1, Some(session_verdict(&text, Some((3, 9)))), "Error");
+    assert!(
+        app.editor
+            .active_tab_mut()
+            .unwrap()
+            .current_firmware()
+            .is_none()
+    );
+
+    // A verdict whose source hash is not the text sent is not applied.
+    let (_, text) = pend_session_request(&mut app, 2);
+    let other = format!("{text}\n");
+    app.apply_session_check(2, Some(session_verdict(&other, Some((3, 9)))), "Error");
+    assert!(
+        app.editor
+            .active_tab_mut()
+            .unwrap()
+            .current_firmware()
+            .is_none()
+    );
+    assert!(
+        app.problems
+            .items
+            .iter()
+            .all(|i| i.provenance != "guest-firmware")
+    );
+}
+
+#[test]
+fn a_session_result_without_a_verdict_is_never_a_pass() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(VALID);
+    settle(&mut app, &ctx);
+    let title = app.editor.active_tab().unwrap().title.clone();
+
+    // Cancelled (Stop) or busy: no verdict, not passed; the request is done.
+    pend_session_request(&mut app, 1);
+    app.apply_session_check(1, None, "Firmware operation cancelled");
+    assert!(app.firmware_pending.is_empty());
+    assert!(app.problems.firmware_passed.is_empty());
+    let tab = app.editor.active_tab_mut().unwrap();
+    assert!(tab.current_firmware().unwrap().failure.is_some());
+
+    let (_, text) = pend_session_request(&mut app, 2);
+    app.apply_session_check(2, Some(session_verdict(&text, None)), "compiled");
+    assert_eq!(app.problems.firmware_passed, vec![title.clone()]);
+
+    // A later request that reaches no verdict keeps the verdict held for
+    // the same revision.
+    pend_session_request(&mut app, 3);
+    app.apply_session_check(3, None, "The firmware is busy");
+    assert_eq!(app.problems.firmware_passed, vec![title]);
+
+    // Results for unknown requests are ignored.
+    app.apply_session_check(99, Some(session_verdict("x", Some((1, 1)))), "Error");
+    assert!(app.problems.items.is_empty());
+}
+
+#[test]
+fn a_closed_session_settles_every_pending_request_without_a_verdict() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(VALID);
+    settle(&mut app, &ctx);
+    pend_session_request(&mut app, 4);
+    assert!(app.check_pending());
+    app.apply_session_check(4, None, "Local firmware session closed");
+    assert!(!app.check_pending());
+    assert!(app.problems.firmware_passed.is_empty());
+}
+
+#[test]
+fn stop_cancels_a_pending_firmware_check() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(VALID);
+    app.request_checked_source(&ctx);
+    assert!(app.check_pending());
+    app.handle_action(IdeAction::StopProgram, &ctx);
+    assert!(app.explicit_check.is_none());
+}
+
+#[test]
+fn the_status_bar_names_the_firmware_verdict_separately() {
+    let ctx = egui::Context::default();
+    let mut app = app_with(BLIT_ZERO);
+    settle(&mut app, &ctx);
+    app.refresh_analysis_status();
+    assert!(app.state.analysis.label().starts_with("Native: "));
+    assert_eq!(app.state.firmware_verdict, None);
+    let (_, text) = pend_session_request(&mut app, 1);
+    app.apply_session_check(1, Some(session_verdict(&text, Some((3, 9)))), "Error");
+    app.refresh_analysis_status();
+    assert_eq!(
+        app.state.firmware_verdict,
+        Some(("Firmware: 1 error(s)".to_string(), true))
+    );
+    // An edit retires it with the revision it checked.
+    app.editor.active_tab_mut().unwrap().content.push(' ');
+    app.refresh_analysis_status();
+    assert_eq!(app.state.firmware_verdict, None);
+}

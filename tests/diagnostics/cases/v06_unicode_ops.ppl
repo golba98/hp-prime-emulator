@@ -1,0 +1,8 @@
+EXPORT DPUNI()
+BEGIN
+ LOCAL a:=1, b:=2, c;
+ IF a≠b AND a≤b AND b≥a THEN
+  π*2▶c;
+ END;
+ RETURN c;
+END;

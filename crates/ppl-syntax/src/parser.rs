@@ -38,6 +38,32 @@ pub fn parse(src: &str) -> (Program, Diagnostics) {
     (program, diags)
 }
 
+/// Applies the parser's reading of soft keywords (see [`Token::soft`]) to
+/// `tokens`, which may include comments: each soft keyword the parser reads
+/// as a name becomes [`Tok::Ident`], so highlighting and indentation agree
+/// with the analyzer.
+pub fn resolve_soft_keywords(tokens: &mut [Token]) {
+    if tokens.iter().all(|t| t.soft.is_none()) {
+        return;
+    }
+    let code: Vec<usize> = (0..tokens.len())
+        .filter(|&i| tokens[i].tok != Tok::Comment)
+        .collect();
+    let mut p = Parser {
+        toks: code.iter().map(|&i| tokens[i].clone()).collect(),
+        pos: 0,
+        diags: Diagnostics::default(),
+        prev_end: 0,
+    };
+    p.program();
+    for (resolved, &i) in p.toks.into_iter().zip(&code) {
+        if let (Tok::Ident(name), Some(_)) = (resolved.tok, &tokens[i].soft) {
+            tokens[i].tok = Tok::Ident(name);
+            tokens[i].soft = None;
+        }
+    }
+}
+
 struct Parser {
     toks: Vec<Token>,
     pos: usize,
@@ -84,6 +110,58 @@ impl Parser {
         matches!(self.peek(), Tok::Kw(x) if *x == k)
     }
 
+    /// The token at `pos + k` is a soft keyword (a keyword spelled in other
+    /// than upper case; see [`Token::soft`]).
+    fn soft_at(&self, k: usize) -> bool {
+        let i = (self.pos + k).min(self.toks.len() - 1);
+        self.toks[i].soft.is_some()
+    }
+
+    /// The current token as written, for messages: `div`, not `DIV`.
+    fn found(&self) -> String {
+        match &self.toks[self.pos].soft {
+            Some(spelling) => format!("`{spelling}`"),
+            None => self.peek().describe(),
+        }
+    }
+
+    /// Reads the current token as a name when it is a soft keyword. The
+    /// original firmware accepts `LOCAL begin`, `RETURN end+1` and
+    /// `end:=5` (diagnostic corpus k08-k23, k36).
+    fn soft_to_ident(&mut self) {
+        let t = &mut self.toks[self.pos];
+        if let Some(name) = t.soft.take() {
+            t.tok = Tok::Ident(name);
+        }
+    }
+
+    /// The current soft keyword is used as a value: assigned, or followed by
+    /// an operator that needs a left operand (`end+1`, `default:=2`). A
+    /// soft END before `;` still closes its block (k35).
+    fn soft_operand(&self) -> bool {
+        self.soft_at(0)
+            && matches!(
+                self.peek_at(1),
+                Tok::Assign
+                    | Tok::Plus
+                    | Tok::Star
+                    | Tok::Slash
+                    | Tok::Caret
+                    | Tok::Eq
+                    | Tok::EqEq
+                    | Tok::Ne
+                    | Tok::Lt
+                    | Tok::Le
+                    | Tok::Gt
+                    | Tok::Ge
+                    | Tok::Store
+                    | Tok::LBracket
+                    | Tok::Squared
+                    | Tok::Cubed
+                    | Tok::Bang
+            )
+    }
+
     fn eat(&mut self, t: &Tok) -> bool {
         if self.peek() == t {
             self.advance();
@@ -115,6 +193,7 @@ impl Parser {
     }
 
     fn ident(&mut self, what: &str) -> Option<Ident> {
+        self.soft_to_ident();
         match self.peek().clone() {
             Tok::Ident(name) => {
                 let span = self.advance().span;
@@ -255,6 +334,7 @@ impl Parser {
         start: Span,
         items: &mut Vec<Item>,
     ) {
+        self.soft_to_ident();
         let is_header = matches!(self.peek(), Tok::Ident(_) | Tok::Number(_))
             && (*self.peek_at(1) == Tok::LParen
                 || (matches!(self.peek(), Tok::Number(_))
@@ -310,7 +390,7 @@ impl Parser {
                     span,
                     format!(
                         "expected `;` after variable declaration, found {}",
-                        self.peek().describe()
+                        self.found()
                     ),
                 );
                 self.recover();
@@ -366,7 +446,7 @@ impl Parser {
             span,
             format!(
                 "expected BEGIN after function header, found {}",
-                self.peek().describe()
+                self.found()
             ),
         );
         self.recover();
@@ -414,7 +494,22 @@ impl Parser {
             return None;
         }
         let body = self.stmts_until(&[K::End]);
-        if !self.eat_kw(K::End) {
+        if self.eat_kw(K::End) {
+            // The original firmware rejects a function END that is not
+            // followed by `;`, at the next token (diagnostic corpus h09, h10).
+            if *self.peek() != Tok::Semi {
+                let at = self.span();
+                self.error(
+                    "missing-semicolon",
+                    at,
+                    format!(
+                        "missing semicolon: expected `;` after the END of `{}`",
+                        name.name
+                    ),
+                )
+                .hint = Some("write END; to close a function".into());
+            }
+        } else {
             let span = self.span();
             self.unclosed(begin, "BEGIN", span);
         }
@@ -430,7 +525,7 @@ impl Parser {
     }
 
     fn unclosed(&mut self, open: Span, what: &str, at: Span) {
-        let found = self.peek().describe();
+        let found = self.found();
         self.error(
             "unclosed-block",
             open,
@@ -445,6 +540,9 @@ impl Parser {
         let mut out = Vec::new();
         loop {
             while self.eat(&Tok::Semi) {}
+            if self.soft_operand() {
+                self.soft_to_ident();
+            }
             match self.peek() {
                 Tok::Eof => break,
                 Tok::Kw(k) if terms.contains(k) || BLOCK_END.contains(k) => break,
@@ -463,6 +561,7 @@ impl Parser {
                     | StmtKind::Kill
             );
             let stmt_span = stmt.span;
+            let is_return = matches!(stmt.kind, StmtKind::Return(_));
             out.push(stmt);
             if self.pos == before {
                 // No progress: skip the offending token.
@@ -471,6 +570,17 @@ impl Parser {
             }
             match self.peek() {
                 Tok::Semi => {}
+                // The original firmware rejects RETURN without `;` before
+                // END, at the END (diagnostic corpus h03, h13); other
+                // statements may omit it (h04, h12).
+                Tok::Kw(K::End) if is_return => {
+                    let at = self.span();
+                    self.error(
+                        "missing-semicolon",
+                        at,
+                        "missing semicolon: expected `;` after RETURN before `END`",
+                    );
+                }
                 Tok::Kw(k) if terms.contains(k) || BLOCK_END.contains(k) => {
                     if simple {
                         let span = Span {
@@ -480,17 +590,14 @@ impl Parser {
                         self.warn(
                             "missing-semicolon-before-end",
                             span,
-                            format!("missing semicolon before {}", self.peek().describe()),
+                            format!("missing semicolon before {}", self.found()),
                         )
                         .unverified = true;
                     }
                 }
                 Tok::Eof => {}
                 other => {
-                    let msg = format!(
-                        "missing semicolon: expected `;` before {}",
-                        other.describe()
-                    );
+                    let msg = format!("missing semicolon: expected `;` before {}", self.found());
                     let span = Span {
                         start: stmt_span.end,
                         end: stmt_span.end,
@@ -517,6 +624,10 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Stmt {
+        // `end:=5`: a soft keyword being assigned is a name (k36).
+        if *self.peek_at(1) == Tok::Assign {
+            self.soft_to_ident();
+        }
         let start = self.span();
         let kind = match self.peek().clone() {
             Tok::Kw(K::Begin) => {
@@ -556,7 +667,7 @@ impl Parser {
                 let body = self.stmts_until(&[K::Until]);
                 if !self.eat_kw(K::Until) {
                     let span = self.span();
-                    let found = self.peek().describe();
+                    let found = self.found();
                     self.error(
                         "expected-until",
                         span,
@@ -642,7 +753,7 @@ impl Parser {
 
     fn stmt_ends(&self) -> bool {
         matches!(self.peek(), Tok::Semi | Tok::Eof)
-            || matches!(self.peek(), Tok::Kw(k) if BLOCK_END.contains(k))
+            || matches!(self.peek(), Tok::Kw(k) if BLOCK_END.contains(k)) && !self.soft_operand()
     }
 
     fn close_end(&mut self, open: Span, what: &str) {
@@ -706,10 +817,7 @@ impl Parser {
             self.error(
                 "expected-then",
                 span,
-                format!(
-                    "malformed IF: expected THEN, found {}",
-                    self.peek().describe()
-                ),
+                format!("malformed IF: expected THEN, found {}", self.found()),
             );
         }
         let then_body = self.stmts_until(&[K::Else, K::End]);
@@ -812,7 +920,7 @@ impl Parser {
         }
         if !self.eat_kw(K::Do) {
             let span = self.span();
-            let found = self.peek().describe();
+            let found = self.found();
             self.error(
                 "expected-do",
                 span,
@@ -891,7 +999,9 @@ impl Parser {
     }
 
     fn not_expr(&mut self) -> Expr {
-        if self.at_kw(K::Not) {
+        // Only upper-case NOT is the operator: the firmware reads `not` and
+        // `Not` as names (k07, k16, k34).
+        if self.at_kw(K::Not) && !self.soft_at(0) {
             let start = self.advance().span;
             let e = self.not_expr();
             let span = start.to(e.span);
@@ -941,8 +1051,10 @@ impl Parser {
             let op = match self.peek() {
                 Tok::Star => BinOp::Mul,
                 Tok::Slash => BinOp::Div,
+                // MOD, AND, OR and XOR are operators in any letter case
+                // (k06, k21, k25-k29); DIV only in upper case (k32, k33).
                 Tok::Kw(K::Mod) => BinOp::Mod,
-                Tok::Kw(K::Div) => BinOp::IntDiv,
+                Tok::Kw(K::Div) if !self.soft_at(0) => BinOp::IntDiv,
                 _ => return l,
             };
             self.advance();
@@ -1049,7 +1161,7 @@ impl Parser {
             }
             if !self.eat(&close) {
                 let span = self.span();
-                let found = self.peek().describe();
+                let found = self.found();
                 self.error(
                     "unclosed-delimiter",
                     open_span,
@@ -1069,6 +1181,7 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Expr {
+        self.soft_to_ident();
         let t = self.advance();
         let span = t.span;
         let kind = match t.tok {
@@ -1107,7 +1220,7 @@ impl Parser {
                     };
                 }
                 if !self.eat(&Tok::RParen) {
-                    let found = self.peek().describe();
+                    let found = self.found();
                     self.error(
                         "unclosed-delimiter",
                         span,

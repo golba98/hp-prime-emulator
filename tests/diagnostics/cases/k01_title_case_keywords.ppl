@@ -1,0 +1,5 @@
+Export DPK01(n)
+Begin
+ Local x:=n;
+ If x>0 Then Return x; Else Return 0; End;
+End;

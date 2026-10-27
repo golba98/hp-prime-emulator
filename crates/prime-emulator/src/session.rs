@@ -175,6 +175,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message: "Firmware operation cancelled".into(),
+                            check: None,
                         });
                         self.event(Event::Phase {
                             phase: "ready".into(),
@@ -201,6 +202,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }
@@ -226,6 +228,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }
@@ -253,6 +256,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }

@@ -81,7 +81,7 @@ impl Cancellation {
         self.0.load(Ordering::Acquire)
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Diagnostic {
     pub source: String,
     pub severity: String,

@@ -45,7 +45,8 @@ The program still runs on every other path (see
 | `unknown-escape` | Warning, unverified | |
 | `invalid-character`, `malformed-integer`, `invalid-identifier` | Error | `%` followed by `(` or a capital letter is an identifier (`%(x,y)`, `%CHANGE`, `%TOTAL` are documented). |
 | `expected-*`, `unexpected-token`, `unexpected-keyword`, `unclosed-delimiter`, `unclosed-block`, `missing-semicolon`, `trailing-comma`, `invalid-top-level`, `nested-function`, `export-header-parens`, `export-header-semicolon`, `local-missing-comma`, `return-outside-function` | Error | |
-| `equals-statement`, `for-assign-form`, `missing-semicolon-before-end` | Warning | |
+| `equals-statement`, `for-assign-form`, `missing-semicolon-before-end` | Warning | `missing-semicolon-before-end`: the original firmware accepts these forms (diagnostic corpus h04–h06, h12). |
+| `missing-semicolon` after RETURN before END, and after a function's END | Error | Firmware-backed: original G1 2.4.2 Check rejects both (diagnostic corpus h03, h09, h10, h13). |
 
 ### Semantic (compiler)
 
@@ -103,6 +104,28 @@ These documented forms were rejected as `wrong-arg-count` before:
 | `TRIANGLE_P` | 6–12 | 0–15 | Only the 7-argument coordinate form is drawn; other forms raise "unsupported" |
 | `STRING` | 1–3 | 1–5 | Separator and size-limit arguments raise "unsupported" |
 | `EDITMAT` | 1–2 | 1–3 | Unsupported command |
+
+## Firmware-backed rulings
+
+`docs/compatibility/diagnostic-parity.md` compares these rules with the
+original G1 firmware's Program Editor Check (local emulation) over the
+`tests/diagnostics` corpus. Corrections made from that evidence:
+
+| Rule | Was | Now | Evidence |
+|---|---|---|---|
+| `BLIT_P` / `BLIT` arity | 0–11 | 1–11 (srcG is required) | Firmware rejects `BLIT_P()` and `BLIT()` (e06, e18) |
+| RETURN before END | warning (unverified) | `missing-semicolon` error at the END | h03, h13 rejected; h04, h12 (other statements) accepted |
+| Function END without `;` | accepted | `missing-semicolon` error at the next token | h09, h10 rejected |
+| Keyword letter case | upper case only; `begin`, `End` were names | any ASCII case where the grammar expects the keyword; other than upper case it is a *soft* keyword that reads as a name in name and operand positions | h01, h07, k01–k05, k24 accepted; `LOCAL begin/end/do/case/step/key/…` and `end:=5` accepted (k08–k20, k23, k36) |
+| Operator keywords | upper case only | `MOD`, `AND`, `OR`, `XOR` in any case; `DIV` and `NOT` in upper case only (`div`, `Not` are names) | k06, k21, k25–k29 accepted; k07, k32–k34 rejected |
+| Upper-case keyword as a name | rejected | unchanged (upper-case keywords are reserved) | k22 rejected |
+
+Soft keywords are resolved by the parser (`Token::soft`,
+`parser::resolve_soft_keywords`), and the highlighter and auto-indent apply
+the same resolution, so `LOCAL begin:=4` colours `begin` as a variable. The
+source is never rewritten: tokens keep their original spelling and byte
+spans. A lower-case `end` before `;` still closes its block (k35), and a
+soft keyword followed by `:=` or an operator is a name (k30, k36).
 
 ## Verification status
 

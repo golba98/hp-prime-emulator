@@ -1,0 +1,6 @@
+EXPORT DPNESTNS(x)
+BEGIN
+ IF x>0 THEN
+  x:=1;
+ END
+END;

@@ -1,0 +1,5 @@
+EXPORT DPASSIGNNS()
+BEGIN
+ LOCAL x;
+ x:=1
+END;

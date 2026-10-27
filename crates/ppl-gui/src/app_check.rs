@@ -57,14 +57,20 @@ impl IdeDesktopApp {
             return;
         };
         self.explicit_check = None;
-        let Some(index) = self.editor.index_of(id) else {
-            return;
-        };
-        if self.editor.tabs[index].revision() != revision {
+        self.apply_firmware_check(id, revision, &title, result);
+    }
+    /// Records a fresh-checker result for `revision` on its tab; dropped
+    /// when the tab is gone or its text has changed since.
+    pub(super) fn apply_firmware_check(
+        &mut self,
+        id: TabId,
+        revision: u64,
+        title: &str,
+        result: Result<checking::CheckReport, String>,
+    ) {
+        if !self.tab_at_revision(id, revision) {
             return;
         }
-        self.firmware_problems
-            .retain(|(item, _)| item.tab != Some(id));
         match result {
             Ok(report) => {
                 self.console.print_diagnostic(format!(
@@ -72,21 +78,86 @@ impl IdeDesktopApp {
                     report.native.status, report.firmware_status
                 ));
                 if let Some(firmware) = report.firmware {
-                    for diagnostic in &firmware.diagnostics {
-                        let mut item = DiagnosticItem::from_engine(diagnostic, &title);
-                        item.tab = Some(id);
-                        self.firmware_problems.push((item, revision));
-                    }
-                    if let Some(error) = firmware.error {
-                        self.console
-                            .print_error(format!("Local firmware checker: {}", error.message));
-                    }
+                    // Only success and invalid_source are firmware verdicts.
+                    let failure = match firmware.status {
+                        ppl_engine::Status::Success | ppl_engine::Status::InvalidSource => None,
+                        status => Some(
+                            firmware
+                                .error
+                                .as_ref()
+                                .map(|e| e.message.clone())
+                                .unwrap_or_else(|| format!("{status:?}")),
+                        ),
+                    };
+                    self.record_firmware_analysis(
+                        id,
+                        revision,
+                        title,
+                        &firmware.diagnostics,
+                        failure,
+                    );
+                } else if let Some(i) = self.editor.index_of(id) {
+                    self.editor.tabs[i].firmware = None;
                 }
             }
             Err(error) => self
                 .console
                 .print_error(format!("Source not checked: {error}")),
         }
+        self.rebuild_problems();
+    }
+
+    /// A Check is still running: the fresh checker, a native compile, or a
+    /// firmware session request.
+    pub(crate) fn check_pending(&self) -> bool {
+        self.explicit_check.is_some()
+            || self.native_compile.is_some()
+            || !self.firmware_pending.is_empty()
+    }
+
+    fn tab_at_revision(&mut self, id: TabId, revision: u64) -> bool {
+        match self.editor.index_of(id) {
+            Some(i) => self.editor.tabs[i].revision() == revision,
+            None => false,
+        }
+    }
+
+    /// Stores a firmware verdict for `revision` of tab `id`, from either the
+    /// fresh checker or the live session. `failure` means no verdict was
+    /// reached; empty diagnostics without a failure mean the Check passed.
+    pub(super) fn record_firmware_analysis(
+        &mut self,
+        id: TabId,
+        revision: u64,
+        title: &str,
+        diagnostics: &[ppl_engine::Diagnostic],
+        failure: Option<String>,
+    ) {
+        if !self.tab_at_revision(id, revision) {
+            return;
+        }
+        if let Some(error) = &failure {
+            self.console
+                .print_error(format!("Local firmware checker: {error}"));
+        }
+        let Some(index) = self.editor.index_of(id) else {
+            return;
+        };
+        let tab = &mut self.editor.tabs[index];
+        let mut items: Vec<DiagnosticItem> = diagnostics
+            .iter()
+            .map(|d| {
+                let mut item = DiagnosticItem::from_engine(d, title, &tab.content);
+                item.tab = Some(id);
+                item
+            })
+            .collect();
+        items.sort_by_key(|i| (i.line, i.col));
+        tab.firmware = Some(crate::ide::editor::TabAnalysis {
+            revision,
+            items,
+            failure,
+        });
         self.rebuild_problems();
     }
 }

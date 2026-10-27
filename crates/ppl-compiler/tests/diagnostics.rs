@@ -329,3 +329,122 @@ fn malformed_control_flow_is_still_rejected() {
         assert_eq!(d.class(), DiagnosticClass::Syntax, "{src}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Rules backed by original-firmware Check evidence
+// (tests/diagnostics/reference/local-firmware-g1-2.4.2.toml).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn blit_p_requires_a_source_grob() {
+    // Firmware: `BLIT_P();` is rejected (case e06_blit_zero_args), while
+    // `BLIT_P(G0,G0)` is accepted (v07_blit_explicit).
+    let c = check("EXPORT T2()\nBEGIN\n BLIT_P();\nEND;\n");
+    assert!(!c.compiled);
+    let d = c.find("wrong-arg-count");
+    assert_eq!(d.severity, Severity::Error);
+    assert_eq!(c.line_col(d), (3, 2));
+    let bare = check("EXPORT T2()\nBEGIN\n BLIT_P;\nEND;\n");
+    assert!(!bare.compiled);
+    bare.find("wrong-arg-count");
+    check("EXPORT T2()\nBEGIN\n BLIT_P(G0,G0);\nEND;\n").assert_valid_with_compat_only();
+}
+
+#[test]
+fn blit_requires_a_source_grob() {
+    // Firmware: `BLIT();` is rejected (case e18_blit_zero_args).
+    let c = check("EXPORT T2()\nBEGIN\n BLIT();\nEND;\n");
+    assert!(!c.compiled);
+    assert_eq!(c.find("wrong-arg-count").severity, Severity::Error);
+}
+
+#[test]
+fn function_end_must_be_followed_by_a_semicolon() {
+    // Firmware: a function's END without `;` is rejected at the next token,
+    // both at end of file (h09, 5:1) and before the next function (h10, 6:1).
+    let c = check("EXPORT T2()\nBEGIN\n RETURN 1;\nEND\n");
+    assert!(!c.compiled);
+    let d = c.find("missing-semicolon");
+    assert_eq!(d.severity, Severity::Error);
+    assert_eq!(c.line_col(d), (5, 1));
+    let c = check("EXPORT T2()\nBEGIN\n RETURN 1;\nEND\n\nEXPORT T3()\nBEGIN\n RETURN 2;\nEND;\n");
+    assert!(!c.compiled);
+    assert_eq!(c.line_col(c.find("missing-semicolon")), (6, 1));
+    // A nested block's END needs no `;` before the function's END (h11).
+    check("EXPORT T2(x)\nBEGIN\n IF x>0 THEN\n  x:=1;\n END\nEND;\n")
+        .assert_valid_with_compat_only();
+}
+
+#[test]
+fn return_needs_its_semicolon_before_end() {
+    // Firmware: RETURN without `;` before END is rejected at the END, both
+    // for the function's END (h03, 4:1) and a block's END (h13, 5:2).
+    let c = check("EXPORT T2()\nBEGIN\n RETURN 1\nEND;\n");
+    assert!(!c.compiled);
+    let d = c.find("missing-semicolon");
+    assert_eq!(d.severity, Severity::Error);
+    assert_eq!(c.line_col(d), (4, 1));
+    let c = check("EXPORT T2(x)\nBEGIN\n IF x>0 THEN\n  RETURN 1\n END;\n RETURN 0;\nEND;\n");
+    assert!(!c.compiled);
+    assert_eq!(c.line_col(c.find("missing-semicolon")), (5, 2));
+    // Other statements may omit it (h04, h12): only a warning remains.
+    let c = check("EXPORT T2()\nBEGIN\n LOCAL x;\n x:=1\nEND;\n");
+    assert!(c.compiled, "{:#?}", c.diags);
+}
+
+fn body(stmts: &str) -> String {
+    format!("EXPORT T2()\nBEGIN\n{stmts}\nEND;\n")
+}
+
+#[test]
+fn keywords_are_accepted_in_any_letter_case() {
+    // Firmware: h01, h07, k01-k05, k24 are accepted.
+    for src in [
+        "export T2()\nbegin\n return 1;\nend;\n",
+        "Export T2(n)\nBegin\n Local x:=n;\n If x>0 Then Return x; Else Return 0; End;\nEnd;\n",
+        "ExPoRt T2()\nbEgIn\n rEtUrN 1;\nEnD;\n",
+        &body(" LOCAL i,s:=0;\n for i from 10 downto 1 step 2 do s:=s+i; end;\n RETURN s;"),
+        &body(
+            " LOCAL i:=0;\n repeat i:=i+1; until i>5;\n while 1 do i:=i+1; if i>9 then break; end; continue; end;\n RETURN i;",
+        ),
+        "export T2()\nbegin\n local θ:=π; if θ≥3 then return θ; end;\n return 0;\nend;\n",
+    ] {
+        let c = check(src);
+        assert!(c.compiled, "{src}: {:#?}", c.diags);
+    }
+}
+
+#[test]
+fn keyword_words_not_in_upper_case_stay_usable_as_names() {
+    // Firmware: h08, k08-k21, k23 and k36 are accepted.
+    for word in [
+        "mod", "div", "step", "key", "to", "from", "default", "kill", "and", "not", "begin", "end",
+        "do", "case", "Mod",
+    ] {
+        let src = body(&format!(" LOCAL {word}:=4;\n RETURN {word}+1;"));
+        let c = check(&src);
+        assert!(c.compiled, "{word}: {:#?}", c.diags);
+    }
+    assert!(check(&body(" LOCAL mod:=3;\n RETURN 7 mod mod;")).compiled);
+    assert!(check(&body(" LOCAL end:=4;\n end:=5;\n RETURN 1;")).compiled);
+}
+
+#[test]
+fn operator_keywords_follow_the_firmware_letter_case_rules() {
+    // Firmware: MOD, AND, OR, XOR in any case are operators (k21, k25-k29);
+    // DIV and NOT only in upper case (k06, k07, k32-k34).
+    for expr in [
+        "7 mod 3", "7 Mod 3", "1 and 1", "1 And 1", "0 or 1", "1 xor 0",
+    ] {
+        let c = check(&body(&format!(" RETURN {expr};")));
+        assert!(c.compiled, "{expr}: {:#?}", c.diags);
+    }
+    for expr in ["7 div 2", "7 Div 2", "not 0", "Not 0", "1 and not 0"] {
+        let c = check(&body(&format!(" RETURN {expr};")));
+        assert!(!c.compiled, "{expr} must be rejected");
+    }
+    // Upper-case keywords are reserved (k22), and a lower-case END before
+    // `;` still closes the block (k35).
+    assert!(!check(&body(" LOCAL MOD:=3;\n RETURN MOD+1;")).compiled);
+    assert!(!check(&body(" LOCAL end:=4;\n RETURN end;")).compiled);
+}

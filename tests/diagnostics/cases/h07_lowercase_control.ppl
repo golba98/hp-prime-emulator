@@ -1,0 +1,9 @@
+export DPLOWCTL(n)
+begin
+ local i, s:=0;
+ for i from 1 to n do
+  if i>2 then s:=s+i; else s:=s-1; end;
+ end;
+ while s>100 do s:=s-100; end;
+ return s;
+end;

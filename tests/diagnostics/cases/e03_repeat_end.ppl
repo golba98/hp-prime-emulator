@@ -1,0 +1,8 @@
+EXPORT DPREPEAT()
+BEGIN
+ LOCAL i:=0;
+ REPEAT
+  i:=i+1;
+ END;
+ RETURN i;
+END;

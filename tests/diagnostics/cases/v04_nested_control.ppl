@@ -1,0 +1,14 @@
+EXPORT DPNEST(x)
+BEGIN
+ LOCAL r:=0;
+ IF x>0 THEN
+  CASE
+   IF x==1 THEN r:=10; END;
+   IF x==2 THEN r:=20; END;
+   DEFAULT r:=30;
+  END;
+ ELSE
+  IFERR r:=1/x; THEN r:=-1; ELSE r:=r+1; END;
+ END;
+ RETURN r;
+END;

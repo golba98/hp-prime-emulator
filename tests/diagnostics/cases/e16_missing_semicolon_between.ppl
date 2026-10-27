@@ -1,0 +1,6 @@
+EXPORT DPSEMI()
+BEGIN
+ LOCAL a
+ a:=1;
+ RETURN a;
+END;

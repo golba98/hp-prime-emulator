@@ -24,6 +24,9 @@ pub struct ProblemsPanel {
     pub pending: Vec<String>,
     /// Open files the compiler failed on internally: `(file, reason)`.
     pub failures: Vec<(String, String)>,
+    /// Open files whose current text passed an explicit original-firmware
+    /// Check (local emulation, not the physical calculator).
+    pub firmware_passed: Vec<String>,
     /// Screen rect of each visible row's message, in display order (for
     /// pointer-driven tests).
     pub(crate) row_rects: Vec<egui::Rect>,
@@ -58,6 +61,20 @@ impl ProblemsPanel {
     /// empty list really means "no problems".
     pub fn is_settled(&self) -> bool {
         self.pending.is_empty() && self.failures.is_empty()
+    }
+
+    /// What an empty, settled list means. Native analysis alone is never
+    /// presented as the calculator's verdict.
+    pub fn empty_message(&self) -> String {
+        if self.firmware_passed.is_empty() {
+            "No problems detected by the native analyzer (not firmware-verified).".into()
+        } else {
+            format!(
+                "No problems detected. Original-firmware Check passed for {} \
+                 (local emulation, not a physical calculator).",
+                self.firmware_passed.join(", ")
+            )
+        }
     }
 
     /// The dock tab title. The count is only claimed once settled.
@@ -170,7 +187,7 @@ impl IdePanel for ProblemsPanel {
             if self.items.is_empty() {
                 if self.is_settled() {
                     ui.centered_and_justified(|ui| {
-                        ui.label(RichText::new("No problems detected.").color(TEXT_MUTED));
+                        ui.label(RichText::new(self.empty_message()).color(TEXT_MUTED));
                     });
                 }
                 return;

@@ -1,0 +1,14 @@
+EXPORT DPLOOPS()
+BEGIN
+ LOCAL i, s:=0;
+ FOR i FROM 1 TO 10 DO
+  s:=s+i;
+ END;
+ WHILE s>0 DO
+  s:=s-7;
+ END;
+ REPEAT
+  s:=s+1;
+ UNTIL s>=3;
+ RETURN s;
+END;

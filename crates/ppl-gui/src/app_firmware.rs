@@ -21,6 +21,10 @@ impl IdeDesktopApp {
             return;
         };
         self.firmware_request += 1;
+        self.firmware_pending.insert(
+            self.firmware_request,
+            (tab.id, tab.revision(), tab.title.clone()),
+        );
         let command = if run {
             Command::Run {
                 request: self.firmware_request,
@@ -37,8 +41,13 @@ impl IdeDesktopApp {
         if let Some(f) = &self.firmware {
             f.send(command);
         }
-        self.firmware_state = crate::ide::VmExecutionState::Running;
-        self.state.vm_state = self.firmware_state.clone();
+        // A Check is not a program run: like the native Check, it leaves
+        // the VM state alone; its verdict goes to Problems.
+        if run {
+            self.firmware_runs.insert(self.firmware_request);
+            self.firmware_state = crate::ide::VmExecutionState::Running;
+            self.state.vm_state = self.firmware_state.clone();
+        }
     }
     pub(super) fn poll_firmware(&mut self) {
         let events = self.firmware.as_ref().map(|f| f.poll()).unwrap_or_default();
@@ -60,8 +69,11 @@ impl IdeDesktopApp {
                     request,
                     success,
                     message,
+                    check,
                 } => {
-                    if request == self.firmware_request {
+                    self.apply_session_check(request, check, &message);
+                    let was_run = self.firmware_runs.remove(&request);
+                    if request == self.firmware_request && was_run {
                         self.firmware_state = if success {
                             crate::ide::VmExecutionState::Terminated
                         } else {
@@ -81,6 +93,12 @@ impl IdeDesktopApp {
                     self.console.print_error(message);
                 }
                 Event::Closed { message } => {
+                    // Requests the closed session never answered reach no verdict.
+                    let pending: Vec<u64> = self.firmware_pending.keys().copied().collect();
+                    for request in pending {
+                        self.apply_session_check(request, None, &message);
+                    }
+                    self.firmware_runs.clear();
                     if !matches!(self.firmware_state, crate::ide::VmExecutionState::Error(_)) {
                         self.firmware_status = message;
                         self.firmware_state = crate::ide::VmExecutionState::Idle;
@@ -91,6 +109,42 @@ impl IdeDesktopApp {
         }
         if self.state.firmware_backend {
             self.state.vm_state = self.firmware_state.clone();
+        }
+    }
+    /// Applies the firmware compiler's verdict from a session result to the
+    /// tab revision that request sent. A result without a verdict never
+    /// replaces a verdict already held for that revision.
+    pub(super) fn apply_session_check(
+        &mut self,
+        request: u64,
+        check: Option<ppl_engine::session::CheckVerdict>,
+        message: &str,
+    ) {
+        let Some((id, revision, title)) = self.firmware_pending.remove(&request) else {
+            return;
+        };
+        match check {
+            Some(verdict) => {
+                let sent = self
+                    .editor
+                    .index_of(id)
+                    .map(|i| ppl_engine::source::hash(self.editor.tabs[i].content.as_bytes()));
+                if sent.as_deref() != Some(verdict.source_sha256.as_str()) {
+                    return;
+                }
+                self.record_firmware_analysis(id, revision, &title, &verdict.diagnostics, None);
+            }
+            None => {
+                let held = self.editor.index_of(id).is_some_and(|i| {
+                    self.editor.tabs[i]
+                        .firmware
+                        .as_ref()
+                        .is_some_and(|f| f.revision == revision && f.failure.is_none())
+                });
+                if !held {
+                    self.record_firmware_analysis(id, revision, &title, &[], Some(message.into()));
+                }
+            }
         }
     }
     pub(super) fn send_calc_transition(&mut self, code: i64, down: bool) {

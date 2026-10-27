@@ -9,7 +9,7 @@ use crate::{
     services::SharedState,
     trace::TraceHub,
 };
-use ppl_engine::session::Event;
+use ppl_engine::session::{CheckVerdict, Event};
 use std::{
     path::Path,
     time::{Duration, Instant},
@@ -37,6 +37,10 @@ pub struct Job {
     started: Instant,
     execution_started: Option<Instant>,
     reported_running: bool,
+    /// The validated firmware Check verdict on `source`, once observed.
+    check: Option<CheckVerdict>,
+    /// Each finished UI script: stage, finish time and per-key timings.
+    timeline: Vec<serde_json::Value>,
 }
 pub struct Request {
     pub request: u64,
@@ -49,6 +53,8 @@ pub struct Jobs {
     pub active: Option<Job>,
     loader_context: Option<u32>,
     catalog: Vec<String>,
+    /// The catalog order last read from the guest's program reads.
+    observed: Vec<String>,
     seen_fs: usize,
 }
 impl Jobs {
@@ -57,6 +63,7 @@ impl Jobs {
             active: None,
             loader_context: None,
             catalog: Vec::new(),
+            observed: Vec::new(),
             seen_fs: 0,
         }
     }
@@ -159,6 +166,8 @@ impl Jobs {
             started: Instant::now(),
             execution_started: None,
             reported_running: false,
+            check: None,
+            timeline: Vec::new(),
         };
         if stage == Stage::CheckLoader {
             self.check_script(&mut job, "ZZT_LOADER", trace)?;
@@ -205,9 +214,9 @@ impl Jobs {
                 }
             }
         }
-        if names.len() != import::list_programs(&shared.data_dir).len() {
-            return Err("The current firmware catalog order could not be verified".into());
-        }
+        let expected = import::list_programs(&shared.data_dir);
+        let names = catalog_order(&self.observed, names, &expected)?;
+        self.observed = names.clone();
         self.catalog = names;
         let name = if job.stage == Stage::CheckLoader {
             "ZZT_LOADER"
@@ -295,6 +304,7 @@ impl Jobs {
                     request: job.request,
                     success: true,
                     message,
+                    check: job.check,
                 },
             ],
             Err(message) => {
@@ -307,6 +317,7 @@ impl Jobs {
                         request: job.request,
                         success: false,
                         message,
+                        check: job.check,
                     },
                 ]
             }
@@ -327,7 +338,19 @@ impl Jobs {
             match script.tick(mem, shared) {
                 Tick::Continue => return Ok(None),
                 Tick::Failed(e) => return Err(e),
-                Tick::Done => job.script = None,
+                Tick::Done => {
+                    job.timeline.push(serde_json::json!({
+                        "stage": stage_name(job.stage, job.catalog_open),
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "keys": script.report().keys.iter().map(|k| serde_json::json!({
+                            "name": k.name,
+                            "queued_ms": k.queued_ms,
+                            "first_change_ms": k.first_change_latency_ms,
+                            "settled_ms": k.settled_ms,
+                        })).collect::<Vec<_>>(),
+                    }));
+                    job.script = None
+                }
             }
         }
         if job.catalog_open {
@@ -369,6 +392,23 @@ impl Jobs {
                 if container.source().map_err(|e| e.to_string())?.source != job.source {
                     return Err("The firmware did not preserve this exact source revision".into());
                 }
+                // A verdict only after the observation and the stored source
+                // both match this job's source; the position comes from the
+                // same mapping as the fresh checker's.
+                let accepted = c.return_value == Some(1);
+                let diagnostics = if accepted {
+                    vec![]
+                } else {
+                    let d = checkprog::firmware_diagnostic(&job.source, c);
+                    vec![ppl_engine::firmware::diagnostic(
+                        &serde_json::to_value(d).map_err(|e| e.to_string())?,
+                    )]
+                };
+                job.check = Some(CheckVerdict {
+                    accepted,
+                    source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                    diagnostics,
+                });
                 if c.return_value != Some(1) {
                     return Err(c
                         .message
@@ -463,6 +503,50 @@ impl Jobs {
         Ok(None)
     }
 }
+/// The on-screen catalog order, from the programs the guest read while
+/// showing it. A full read gives the order directly. The catalog re-reads
+/// only programs changed since it was last shown and lists them first, in
+/// the order it reads them, ahead of the unchanged ones (as
+/// `refresh_catalog` assumes for writes). A wrong order taps another row,
+/// which `checkprog::validate` rejects because its parser source differs, so
+/// it fails without a verdict rather than misattributing one.
+fn catalog_order(
+    previous: &[String],
+    mut read: Vec<String>,
+    expected: &[String],
+) -> Result<Vec<String>, String> {
+    let has = |list: &[String], n: &str| list.iter().any(|x| x.eq_ignore_ascii_case(n));
+    if read.len() == expected.len() {
+        return Ok(read);
+    }
+    let previous_complete =
+        previous.len() == expected.len() && expected.iter().all(|e| has(previous, e));
+    if read.is_empty() || !previous_complete || !read.iter().all(|n| has(previous, n)) {
+        return Err(format!(
+            "The current firmware catalog order could not be verified \
+             (observed {read:?}, expected {} programs)",
+            expected.len()
+        ));
+    }
+    let unchanged: Vec<String> = previous
+        .iter()
+        .filter(|p| !has(&read, p))
+        .cloned()
+        .collect();
+    read.extend(unchanged);
+    Ok(read)
+}
+fn stage_name(stage: Stage, catalog: bool) -> &'static str {
+    match (stage, catalog) {
+        (Stage::CheckLoader, true) => "open-catalog-for-loader",
+        (Stage::CheckLoader, false) => "check-loader",
+        (Stage::Load, _) => "run-loader",
+        (Stage::CheckTarget, true) => "open-catalog",
+        (Stage::CheckTarget, false) => "check-source",
+        (Stage::Invoke, _) => "invoke",
+        (Stage::Execute, _) => "execute",
+    }
+}
 fn read_program(data: &Path, name: &str) -> Result<hpprgm::Container, String> {
     read_program_path(&data.join(format!("C/DATA/{name}.hpprgm")))
 }
@@ -478,11 +562,40 @@ fn script(keys: Vec<keys::Key>) -> ScriptDriver {
     })
 }
 fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool, message: &str) {
-    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot())});
+    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot())});
     let dir = shared.data_dir.join("ide-reports");
     if std::fs::create_dir_all(&dir).is_ok() {
         if let Ok(bytes) = serde_json::to_vec_pretty(&report) {
             let _ = std::fs::write(dir.join(format!("request-{}.json", job.request)), bytes);
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::catalog_order;
+    fn v(names: &[&str]) -> Vec<String> {
+        names.iter().map(|n| n.to_string()).collect()
+    }
+    #[test]
+    fn a_full_read_is_the_catalog_order() {
+        let all = v(&["ZZT_LOADER", "ZZT_IDE"]);
+        assert_eq!(catalog_order(&[], all.clone(), &all), Ok(all));
+    }
+    #[test]
+    fn re_read_programs_come_first_ahead_of_unchanged_ones() {
+        let expected = v(&["ZZT_IDE", "ZZT_LOADER", "A"]);
+        let previous = v(&["A", "ZZT_LOADER", "ZZT_IDE"]);
+        assert_eq!(
+            catalog_order(&previous, v(&["ZZT_IDE"]), &expected),
+            Ok(v(&["ZZT_IDE", "A", "ZZT_LOADER"]))
+        );
+    }
+    #[test]
+    fn an_unverifiable_order_is_refused() {
+        let expected = v(&["ZZT_IDE", "ZZT_LOADER"]);
+        // Nothing read, no complete earlier order, or an unknown program.
+        assert!(catalog_order(&expected, vec![], &expected).is_err());
+        assert!(catalog_order(&v(&["ZZT_IDE"]), v(&["ZZT_IDE"]), &expected).is_err());
+        assert!(catalog_order(&expected, v(&["OTHER"]), &expected).is_err());
     }
 }
