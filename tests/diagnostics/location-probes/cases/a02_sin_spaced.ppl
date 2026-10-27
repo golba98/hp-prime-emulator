@@ -1,0 +1,4 @@
+EXPORT LP27()
+BEGIN
+ RETURN (SIN(1 , 2));
+END;

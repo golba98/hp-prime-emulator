@@ -81,7 +81,7 @@ fn invalid_sources_report_errors_at_their_positions() {
     for (src, want) in [
         (
             UNCLOSED_IF,
-            vec![("unclosed-block", 2, 1), ("unclosed-block", 4, 3)],
+            vec![("unclosed-block", 5, 1), ("unclosed-block", 5, 1)],
         ),
         (MISSING_VALUE, vec![("expected-expression", 4, 8)]),
     ] {
@@ -280,8 +280,8 @@ fn run_never_executes_an_old_program_when_the_source_no_longer_compiles() {
     assert_eq!(app.state.vm_state, crate::ide::VmExecutionState::Idle);
     assert!(matches!(app.state.analysis, AnalysisState::Invalid { .. }));
     assert_eq!(app.state.active_dock_tab, DockTab::Problems);
-    // The cursor goes to the first error: undeclared `a` (line 4, col 3;
-    // the missing value at col 8 is the second error).
+    // Syntax checking precedes name resolution: the cursor goes to the
+    // missing value at line 4, col 8, before considering undeclared `a`.
     let errors: Vec<_> = app
         .problems
         .items
@@ -289,19 +289,10 @@ fn run_never_executes_an_old_program_when_the_source_no_longer_compiles() {
         .filter(|p| p.severity == Severity::Error)
         .map(|p| (p.code.clone(), p.line, p.col))
         .collect();
-    assert_eq!(
-        errors,
-        vec![
-            ("undeclared-identifier".to_string(), 4, 3),
-            ("expected-expression".to_string(), 4, 8)
-        ]
-    );
+    assert_eq!(errors, vec![("expected-expression".to_string(), 4, 8)]);
     let tab = app.editor.active_tab().unwrap();
     let jump = tab.pending_jump.expect("cursor moved to the error");
-    assert_eq!(
-        &tab.content.chars().skip(jump).take(4).collect::<String>(),
-        "a :="
-    );
+    assert_eq!(tab.content.chars().nth(jump), Some(';'));
 
     // Fixed source runs, and it is the new program that runs.
     app.editor.active_tab_mut().unwrap().content =

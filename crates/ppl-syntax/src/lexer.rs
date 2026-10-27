@@ -248,6 +248,8 @@ pub fn lex(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
 
 /// Like [`lex`], but also emits a [`Tok::Comment`] token for every `//`
 /// comment, so editors can classify every byte from one token stream.
+/// Unterminated strings recover at their opening line for highlighting;
+/// compiler lexing instead consumes the literal through EOF.
 pub fn lex_with_trivia(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
     lex_inner(src, diags, true)
 }
@@ -411,22 +413,26 @@ impl Lexer<'_> {
         let mut newlines = 0usize;
         loop {
             let Some(c) = self.peek(0) else {
-                // Unclosed at end of file. Multi-line strings are legal, so
-                // the literal formally runs to EOF, but that would swallow
-                // every later statement. Recover at the end of the opening
-                // line instead: the error points at the literal and the
-                // rest of the program is still lexed, parsed and
-                // highlighted normally.
-                self.pos = open_pos + 1;
-                while self.peek(0).is_some_and(|c| c != '\n') {
-                    self.pos += 1;
+                // Firmware consumes an unterminated multiline literal up
+                // to EOF. The highlighting lexer alone recovers at the
+                // opening line so subsequent code can still be coloured.
+                if self.trivia {
+                    self.pos = open_pos + 1;
+                    while self.peek(0).is_some_and(|c| c != '\n') {
+                        self.pos += 1;
+                    }
                 }
                 let end = self.offset();
+                let at = if self.trivia {
+                    Span::new(start, end.max(start + 1))
+                } else {
+                    Span::new(end, end)
+                };
                 diags.push(
                     Diagnostic::error(
                         Category::Lexer,
                         "unclosed-string",
-                        Span::new(start, end.max(start + 1)),
+                        at,
                         "unclosed string literal",
                     )
                     .with_hint("add the closing `\"`"),

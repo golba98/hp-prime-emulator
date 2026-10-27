@@ -80,7 +80,7 @@ fn input_with_seven_arguments_is_still_an_error() {
     let d = c.find("wrong-arg-count");
     assert_eq!(d.class(), DiagnosticClass::Semantic);
     assert_eq!(d.severity, Severity::Error);
-    assert_eq!(c.line_col(d), (4, 3));
+    assert_eq!(c.line_col(d), (4, 26));
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn wrong_builtin_arity_is_semantic() {
     let d = c.find("wrong-arg-count");
     assert_eq!(
         (d.class(), c.line_col(d)),
-        (DiagnosticClass::Semantic, (3, 3))
+        (DiagnosticClass::Semantic, (3, 10))
     );
 }
 
@@ -207,24 +207,17 @@ fn malformed_source_gives_syntax_errors() {
 }
 
 #[test]
-fn unclosed_string_error_stays_on_its_line() {
+fn unclosed_string_error_points_at_eof() {
     let src = "EXPORT PROG()\nBEGIN\n  PRINT(\"oops);\n  PRINT(2);\nEND;\n";
     let c = check(src);
     assert!(!c.compiled);
     let d = c.find("unclosed-string");
     assert_eq!(d.class(), DiagnosticClass::Syntax);
-    assert_eq!(c.line_col(d), (3, 9));
-    // The span covers the rest of line 3 only.
-    let end = c.file.line_col(d.span.end);
-    assert_eq!(end.line, 3);
-    // Later lines are still parsed: no cascade of errors after line 3
-    // other than the unbalanced `(` the missing quote really causes.
-    let after: Vec<_> = c
-        .diags
-        .iter()
-        .filter(|d| d.is_error() && c.line_col(d).0 > 5)
-        .collect();
-    assert!(after.is_empty(), "{after:#?}");
+    assert_eq!(c.line_col(d), (6, 1));
+    assert_eq!(d.span.start as usize, src.len());
+    assert_eq!(d.span.start, d.span.end);
+    // Compiler lexing follows the legal multiline-string grammar to EOF;
+    // highlighting recovery is covered separately in highlight's tests.
 }
 
 #[test]
@@ -343,7 +336,7 @@ fn blit_p_requires_a_source_grob() {
     assert!(!c.compiled);
     let d = c.find("wrong-arg-count");
     assert_eq!(d.severity, Severity::Error);
-    assert_eq!(c.line_col(d), (3, 2));
+    assert_eq!(c.line_col(d), (3, 9));
     let bare = check("EXPORT T2()\nBEGIN\n BLIT_P;\nEND;\n");
     assert!(!bare.compiled);
     bare.find("wrong-arg-count");

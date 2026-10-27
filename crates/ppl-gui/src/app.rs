@@ -1743,7 +1743,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             (item.line, item.class),
-            (3, ppl_syntax::DiagnosticClass::Syntax)
+            (5, ppl_syntax::DiagnosticClass::Syntax)
         );
     }
 

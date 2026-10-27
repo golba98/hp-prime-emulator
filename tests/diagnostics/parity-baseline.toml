@@ -36,13 +36,11 @@ outcome = "match"
 
 [[expect]]
 id = "e01_missing_end"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e02_nested_missing_end"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e03_repeat_end"
@@ -58,13 +56,11 @@ outcome = "match"
 
 [[expect]]
 id = "e06_blit_zero_args"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e07_builtin_arity"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e08_undefined_function"
@@ -84,18 +80,15 @@ outcome = "match"
 
 [[expect]]
 id = "e12_unclosed_paren"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e13_unclosed_string"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e14_error_in_second_function"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "e15_multiple_errors"
@@ -147,8 +140,7 @@ outcome = "match"
 
 [[expect]]
 id = "e18_blit_zero_args"
-outcome = "location-differs"
-note = "Firmware reports where its parser stopped; native points at the start of the construct."
+outcome = "match"
 
 [[expect]]
 id = "h10_function_end_without_semicolon_before_next"
@@ -188,13 +180,11 @@ outcome = "match"
 
 [[expect]]
 id = "k06_lowercase_mod_div_operators"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k07_lowercase_logical_operators"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k08_var_div"
@@ -254,8 +244,7 @@ outcome = "match"
 
 [[expect]]
 id = "k22_var_upper_mod"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k23_var_title_mod"
@@ -287,8 +276,7 @@ outcome = "match"
 
 [[expect]]
 id = "k30_lowercase_end_assigned_at_statement_start"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k31_lowercase_not_call"
@@ -296,23 +284,19 @@ outcome = "match"
 
 [[expect]]
 id = "k32_lowercase_div_after_variable"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k33_title_case_div_operator"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k34_title_case_not_operator"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k35_lowercase_end_variable_before_semicolon"
-outcome = "location-differs"
-note = "Both reject; the firmware reports where its parser stopped."
+outcome = "match"
 
 [[expect]]
 id = "k36_lowercase_end_assignment_only"

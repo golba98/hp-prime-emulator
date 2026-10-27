@@ -21,7 +21,7 @@ const FIRMWARE_SHA256: &str = "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aa
 /// The corpus may grow but never shrink below this.
 const MIN_CASES: usize = 75;
 /// Cases whose native verdict and first-error position both match.
-const MIN_MATCHES: usize = 59;
+const MIN_MATCHES: usize = 75;
 
 fn corpus_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/diagnostics")
@@ -124,4 +124,31 @@ fn native_verdicts_agree_with_the_firmware_whatever_the_baseline_says() {
         report.cases.iter().all(|c| c.outcome.verdict_agrees()),
         "every case needs a usable reference"
     );
+}
+
+#[test]
+fn location_probe_references_are_current_and_match_native() {
+    for name in ["location-probes", "location-arity-controls"] {
+        let dir = corpus_dir().join(name);
+        let corpus = load_corpus(&dir).unwrap();
+        let reference = ReferenceFile::load(&dir.join("reference.toml")).unwrap();
+        assert_eq!(reference.evidence, "local-firmware");
+        assert_eq!(reference.firmware_sha256.as_deref(), Some(FIRMWARE_SHA256));
+        assert_eq!(reference.results.len(), corpus.cases.len());
+        for case in &corpus.cases {
+            assert_eq!(
+                reference.get(&case.spec.id).unwrap().source_sha256,
+                case.source_sha256
+            );
+        }
+        let report = run_parity(&corpus, &reference);
+        assert!(
+            report
+                .cases
+                .iter()
+                .all(|case| case.outcome == Outcome::Match),
+            "{}",
+            report.to_markdown()
+        );
+    }
 }

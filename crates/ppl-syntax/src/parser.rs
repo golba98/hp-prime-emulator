@@ -32,7 +32,25 @@ pub fn parse(src: &str) -> (Program, Diagnostics) {
         diags,
         prev_end: 0,
     };
-    let program = p.program();
+    let mut program = p.program();
+    // Compact existing lexer spans as tokens are released, rather than
+    // allocating metadata throughout recursive parsing or keeping strings.
+    program.punctuation = p
+        .toks
+        .into_iter()
+        .filter_map(|token| {
+            let kind = match token.tok {
+                Tok::LParen | Tok::LBrace | Tok::LBracket => PunctuationKind::Open,
+                Tok::RParen | Tok::RBrace | Tok::RBracket => PunctuationKind::Close,
+                Tok::Comma => PunctuationKind::Comma,
+                _ => return None,
+            };
+            Some(Punctuation {
+                kind,
+                span: token.span,
+            })
+        })
+        .collect();
     let mut diags = p.diags;
     diags.sort();
     (program, diags)
@@ -306,6 +324,17 @@ impl Parser {
                     let _ = self.stmts_until(&[K::End]);
                     self.eat_kw(K::End);
                 }
+                Tok::Kw(K::End) => {
+                    // Firmware consumes an unclaimed END before reporting
+                    // its error (usually at the following semicolon).
+                    self.advance();
+                    self.error(
+                        "invalid-top-level",
+                        self.span(),
+                        "unexpected END outside a block",
+                    );
+                    self.recover();
+                }
                 other => {
                     let span = self.span();
                     self.error("invalid-top-level", span, format!("invalid top-level token: {}", other.describe()))
@@ -324,7 +353,11 @@ impl Parser {
                 }
             }
         }
-        Program { items, pragmas }
+        Program {
+            items,
+            pragmas,
+            punctuation: Vec::new(),
+        }
     }
 
     fn header_or_globals(
@@ -528,10 +561,10 @@ impl Parser {
         let found = self.found();
         self.error(
             "unclosed-block",
-            open,
+            at,
             format!("missing END: unclosed {what} block (found {found})"),
         )
-        .hint = Some(format!("add END; to close the {what} at {}", at.start));
+        .hint = Some(format!("add END; to close the {what} at {}", open.start));
     }
 
     // ---- statements ---------------------------------------------------
@@ -561,7 +594,7 @@ impl Parser {
                     | StmtKind::Kill
             );
             let stmt_span = stmt.span;
-            let is_return = matches!(stmt.kind, StmtKind::Return(_));
+            let return_with_value = matches!(stmt.kind, StmtKind::Return(Some(_)));
             out.push(stmt);
             if self.pos == before {
                 // No progress: skip the offending token.
@@ -570,10 +603,9 @@ impl Parser {
             }
             match self.peek() {
                 Tok::Semi => {}
-                // The original firmware rejects RETURN without `;` before
-                // END, at the END (diagnostic corpus h03, h13); other
-                // statements may omit it (h04, h12).
-                Tok::Kw(K::End) if is_return => {
+                // A value RETURN needs `;` before END (h03, h13), but an
+                // empty RETURN may omit it (location probes r01, r05).
+                Tok::Kw(K::End) if return_with_value => {
                     let at = self.span();
                     self.error(
                         "missing-semicolon",
@@ -598,10 +630,6 @@ impl Parser {
                 Tok::Eof => {}
                 other => {
                     let msg = format!("missing semicolon: expected `;` before {}", self.found());
-                    let span = Span {
-                        start: stmt_span.end,
-                        end: stmt_span.end,
-                    };
                     match other {
                         Tok::RParen | Tok::RBrace | Tok::RBracket => {
                             let s = self.span();
@@ -613,7 +641,7 @@ impl Parser {
                             );
                         }
                         _ => {
-                            self.error("missing-semicolon", span, msg);
+                            self.error("missing-semicolon", self.span(), msg);
                         }
                     }
                     self.recover();
@@ -766,6 +794,11 @@ impl Parser {
     fn local_decl(&mut self, start: Span) -> StmtKind {
         let mut vars = Vec::new();
         loop {
+            // MOD may be declared even in upper case, but expression
+            // grammar still treats it as an operator (probes m01-m06).
+            if self.at_kw(K::Mod) && !self.soft_at(0) {
+                self.toks[self.pos].tok = Tok::Ident(K::Mod.as_str().into());
+            }
             let Some(name) = self.ident("variable name") else {
                 self.recover();
                 break;
@@ -1143,7 +1176,6 @@ impl Parser {
 
     /// Comma-separated arguments up to `close` (already past the opener).
     fn args(&mut self, close: Tok, open: &str) -> Vec<Expr> {
-        let open_span = self.prev_span();
         let mut out = Vec::new();
         if self.eat(&close) {
             return out;
@@ -1164,17 +1196,12 @@ impl Parser {
                 let found = self.found();
                 self.error(
                     "unclosed-delimiter",
-                    open_span,
+                    span,
                     format!(
                         "unclosed `{open}`: expected `{}` but found {found}",
                         close_symbol(&close)
                     ),
-                )
-                .span = Span {
-                    start: open_span.start.saturating_sub(1),
-                    end: open_span.start,
-                };
-                let _ = span;
+                );
             }
             return out;
         }
@@ -1189,6 +1216,14 @@ impl Parser {
             Tok::HashInt(h) => ExprKind::HashInt(h),
             Tok::Str(s) => ExprKind::Str(s),
             Tok::Ident(i) => ExprKind::Ident(i),
+            Tok::Kw(K::Mod) => {
+                self.error(
+                    "expected-expression",
+                    self.span(),
+                    "MOD needs a left operand",
+                );
+                ExprKind::Error
+            }
             Tok::Quoted(text) => {
                 let (inner, d) = parse_expression(&text);
                 for mut x in d.items {
@@ -1211,7 +1246,11 @@ impl Parser {
                 if self.eat(&Tok::Comma) {
                     let im = self.expr();
                     if !self.eat(&Tok::RParen) {
-                        self.error("unclosed-delimiter", span, "unclosed `(`: expected `)`");
+                        self.error(
+                            "unclosed-delimiter",
+                            self.span(),
+                            "unclosed `(`: expected `)`",
+                        );
                     }
                     let full = span.to(self.prev_span());
                     return Expr {
@@ -1223,7 +1262,7 @@ impl Parser {
                     let found = self.found();
                     self.error(
                         "unclosed-delimiter",
-                        span,
+                        self.span(),
                         format!("unclosed `(`: expected `)` but found {found}"),
                     );
                 }
