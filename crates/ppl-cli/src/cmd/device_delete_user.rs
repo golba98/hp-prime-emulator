@@ -14,6 +14,8 @@ pub(super) enum Authorization {
     Typed { interactive: bool },
     /// `--yes`: no stdin, scoped to the one named object on this device.
     Yes,
+    /// Read-only preflight; no backup, authorization or submission.
+    DryRun,
 }
 
 /// Prints human progress lines; `[OK]` is written only after a step has
@@ -217,6 +219,7 @@ pub(super) fn execute_user(
     let (serial, info) = identity(&mut p)?;
     let auth = match auth_mode {
         AuthMode::Yes => Authorization::Yes,
+        AuthMode::DryRun => Authorization::DryRun,
         AuthMode::Typed => Authorization::Typed {
             interactive: !json_output && std::io::stdin().is_terminal(),
         },
@@ -243,6 +246,7 @@ pub(super) fn execute_user(
 pub(super) enum AuthMode {
     Typed,
     Yes,
+    DryRun,
 }
 
 /// Everything after the device has been opened and identified. Input and
@@ -261,6 +265,9 @@ pub(super) fn perform_user(
     prompt_out: &mut impl std::io::Write,
     progress: &mut Progress<'_>,
 ) -> Result<(Value, u8), DeviceError> {
+    if targets.len() != 1 {
+        return Err(refused("deletion requires exactly one target"));
+    }
     if !direct_profile(p, info) {
         return Err(refused(
             "unsupported device: deleting ordinary objects needs the hardware-verified USB delete \
@@ -269,7 +276,8 @@ pub(super) fn perform_user(
     }
     let target = &targets[0];
     progress.line(&format!(
-        "HP Prime G1\nFirmware: build {}\n\nTarget: {} {}\n",
+        "HP Prime G1\nDevice: {}\nFirmware: build {}\n\nTarget: {} {}\n",
+        serial,
         info.build.map_or("unknown".into(), |b| b.to_string()),
         target.ty.label(),
         target.name
@@ -279,7 +287,13 @@ pub(super) fn perform_user(
     let control = choose_anchor(p, explicit_control, settings_verified)?;
     progress.ok(&format!("Liveness anchor verified ({control})"));
     let store = Store::new(delete_dir);
-    let _journal_lock = store.lock()?;
+    // Dry-run does not create a directory or lock file; its journal check is
+    // advisory and the real operation repeats it while holding the lock.
+    let _journal_lock = if matches!(auth, Authorization::DryRun) {
+        None
+    } else {
+        Some(store.lock()?)
+    };
     store.reject_pending(serial, targets)?;
     let deletion = ppl_device::prepare_deletion_with(
         p,
@@ -293,6 +307,53 @@ pub(super) fn perform_user(
         "{} contents verified (two reads, CRC valid)",
         capitalize(target.ty.label())
     ));
+    if matches!(auth, Authorization::DryRun) {
+        let backup = &deletion.backups[0];
+        let sha256 = ppl_compat::sha256_hex(&backup.data);
+        if let Some(path) = log_path {
+            std::fs::write(path, p.log_text())
+                .map_err(|e| DeviceError::Refused(format!("cannot save dry-run USB log: {e}")))?;
+        }
+        progress.line(&format!(
+            "Dry run: would delete {} {} ({} bytes, SHA-256 {}). No deletion was sent.",
+            target.ty.label(),
+            target.name,
+            backup.data.len(),
+            sha256
+        ));
+        let wire_format = info.raw.get(1).copied().unwrap_or(1);
+        let mutation_wire_format_supported = wire_format == 1 || wire_format == 3;
+        if !mutation_wire_format_supported {
+            progress.line(
+                "Deletion is unavailable in the current wire format; these checks are read-only.",
+            );
+        }
+        return Ok((
+            json!({
+                "result": "dry_run",
+                "status": "dry_run",
+                "object": target.name,
+                "type": target.ty.label(),
+                "device_serial_id": serial,
+                "firmware_build": info.build,
+                "wire_format": info.raw.get(1),
+                "mutation_wire_format_supported": mutation_wire_format_supported,
+                "liveness_anchor": control.to_string(),
+                "bytes": backup.data.len(),
+                "sha256": sha256,
+                "backup_created": false,
+                "deletion_confirmed": false,
+                "execution_confirmed": false,
+                "submission_state": "not_sent",
+            }),
+            exit::OK,
+        ));
+    }
+    if !matches!(info.raw.get(1), Some(&1) | Some(&3)) {
+        return Err(refused(
+            "USB deletion requires verified wire format 1 or 3; other formats are read-only",
+        ));
+    }
     let now = ppl_compat::utc_now();
     let mut op = Operation {
         schema_version: 1,
@@ -400,6 +461,7 @@ pub(super) fn perform_user(
                 backup: &backup_path,
             },
         ),
+        Authorization::DryRun => unreachable!("dry run returns before authorization"),
     };
     let method = match method {
         Ok(m) => m,
@@ -583,19 +645,18 @@ mod tests {
     }
 
     #[test]
-    fn classification_separates_test_and_ordinary_objects() {
+    fn program_classification_always_requires_one_explicit_target() {
         let c = control();
         let (p, t) = classify(FileType::Program, &names(&["FIREWORKS"]), &c, false).unwrap();
         assert_eq!((p, t[0].name.as_str()), (NamePolicy::User, "FIREWORKS"));
         let (p, _) = classify(FileType::Note, &names(&["MyNote"]), &c, false).unwrap();
         assert_eq!(p, NamePolicy::User);
-        let (p, t) = classify(FileType::Program, &names(&["ZZT_A", "ZZT_B"]), &c, false).unwrap();
-        assert_eq!((p, t.len()), (NamePolicy::Test, 2));
+        assert!(classify(FileType::Program, &names(&["ZZT_A", "ZZT_B"]), &c, false).is_err());
         assert_eq!(
             classify(FileType::Program, &names(&["ZZT_TEST"]), &c, false)
                 .unwrap()
                 .0,
-            NamePolicy::Test
+            NamePolicy::User
         );
         for bad in [
             names(&["FIREWORKS", "HELLO"]),

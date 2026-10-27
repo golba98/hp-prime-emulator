@@ -1908,11 +1908,13 @@ fn usb_delete_removes_objects_without_any_upload() {
             .iter()
             .all(|t| t.status == TargetStatus::ConfirmedDeleted)
     );
-    // Only F8 probes and the EB messages themselves were sent.
+    // Only identity and F8 probes and the EB messages themselves were sent.
     let cmds = mock.cmds();
     assert!(
-        cmds.iter()
-            .all(|c| *c == CMD_REQ_FILE || *c == crate::CMD_DELETE_OBJECT),
+        cmds.iter().all(|c| matches!(
+            *c,
+            CMD_REQ_FILE | crate::CMD_DELETE_OBJECT | crate::CMD_GET_INFO
+        )),
         "unexpected traffic: {:02X?}",
         cmds
     );
@@ -1964,6 +1966,34 @@ fn deletion_guard_rejects_another_connection_even_with_the_same_path() {
     let mut second = mock.prime();
     assert!(delete_via_usb(&mut second, guard, |_| {}).is_err());
     assert!(!mock.cmds().contains(&CMD_DELETE_OBJECT));
+}
+
+#[test]
+fn direct_deletion_refuses_unverified_mode1_before_any_write() {
+    let mock = Mock::with_control().object(FileType::Program, "ZZT_TEST", DEL_SRC);
+    let mut p = mock.prime();
+    let deletion =
+        prepare_deletion(&mut p, &[DeleteTarget::program("ZZT_TEST")], &control()).unwrap();
+    let guard = authorize_usb_deletion(&p, &deletion, &control()).unwrap();
+    p.mode = crate::TransportMode::Mode1;
+    let before = p.log.len();
+    let error = delete_via_usb(&mut p, guard, |_| {}).unwrap_err();
+    assert!(error.to_string().contains("legacy transport"));
+    assert_eq!(p.log.len(), before);
+    assert!(mock.st().objects.contains_key("ZZT_TEST"));
+}
+
+#[test]
+fn direct_deletion_refuses_unverified_firmware_at_submission() {
+    let mock = Mock::with_control().object(FileType::Program, "ZZT_TEST", DEL_SRC);
+    let mut p = mock.prime();
+    let deletion =
+        prepare_deletion(&mut p, &[DeleteTarget::program("ZZT_TEST")], &control()).unwrap();
+    let guard = authorize_usb_deletion(&p, &deletion, &control()).unwrap();
+    mock.st().fa_reply = Some(fa_raw_with_build("0000000000", 15158));
+    assert!(delete_via_usb(&mut p, guard, |_| {}).is_err());
+    assert!(!mock.cmds().contains(&CMD_DELETE_OBJECT));
+    assert!(mock.st().objects.contains_key("ZZT_TEST"));
 }
 
 #[test]
@@ -2477,6 +2507,30 @@ fn silent_anchor_or_silent_identity_never_counts_as_deletion() {
 }
 
 #[test]
+fn incorrect_ready_reply_and_malformed_target_cannot_authorize_deletion() {
+    let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    let targets = [DeleteTarget::program("FIREWORKS")];
+    mock.st().ff_reply = Some(0x42);
+    assert!(
+        crate::prepare_deletion_with(&mut p, &targets, &anchor(), NamePolicy::User, Some(&base))
+            .is_err()
+    );
+    assert_eq!(eb_count(&mock), 0);
+
+    let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
+    let mut p = mock.prime();
+    let base = baseline(&mut p);
+    mock.st().bogus.insert("FIREWORKS".into());
+    assert!(
+        crate::prepare_deletion_with(&mut p, &targets, &anchor(), NamePolicy::User, Some(&base))
+            .is_err()
+    );
+    assert_eq!(eb_count(&mock), 0);
+}
+
+#[test]
 fn device_swap_after_baseline_is_refused_before_eb() {
     let mock = anchored().object(FileType::Program, "FIREWORKS", DEL_SRC);
     let mut p = mock.prime();
@@ -2755,4 +2809,115 @@ fn program_exceeding_extended_maximum_is_refused() {
     assert!(
         matches!(err, DeviceError::Refused(m) if m.contains("extended transport maximum policy"))
     );
+}
+
+#[test]
+fn settings_uses_evidenced_names_type_and_preserves_opaque_payload() {
+    use crate::settings::SettingsKind;
+    for (kind, name) in [
+        (SettingsKind::Home, "calc.hpsettings"),
+        (SettingsKind::Cas, "cas.hpsettings"),
+    ] {
+        let mock = Mock::new().object(FileType::Settings, name, "synthetic binary snapshot");
+        let mut p = mock.prime();
+        let file = p.read_settings(kind).unwrap();
+        assert_eq!(file.data, utf16("synthetic binary snapshot"));
+        assert!(file.crc_ok);
+        assert_eq!(mock.f8_names(), [name]);
+        assert!(
+            !mock
+                .cmds()
+                .iter()
+                .any(|c| matches!(*c, CMD_DELETE_OBJECT | CMD_FILE | CMD_KEY))
+        );
+    }
+}
+#[test]
+fn settings_empty_reply_is_preserved_and_invalid_replies_are_rejected() {
+    use crate::settings::SettingsKind;
+    let mock = Mock::new().object(FileType::Settings, "calc.hpsettings", "");
+    assert!(
+        mock.prime()
+            .read_settings(SettingsKind::Home)
+            .unwrap()
+            .data
+            .is_empty()
+    );
+    let mock = Mock::new().object(FileType::Program, "calc.hpsettings", "wrong type");
+    assert!(mock.prime().read_settings(SettingsKind::Home).is_err());
+    let mock = Mock::new().object(FileType::Settings, "calc.hpsettings", "corrupted");
+    mock.st().corrupt.insert("calc.hpsettings".into());
+    assert!(mock.prime().read_settings(SettingsKind::Home).is_err());
+    assert!(
+        Mock::new()
+            .prime()
+            .read_settings(SettingsKind::Home)
+            .is_err()
+    );
+    let mock = Mock::new().with_build(15158);
+    assert!(mock.prime().read_settings(SettingsKind::Home).is_err());
+    assert!(!mock.cmds().contains(&CMD_REQ_FILE));
+}
+
+#[test]
+fn official_format_three_identity_and_file_crc_rules_are_distinct() {
+    // Synthetic envelope variant, based on the observed FA 03 identity reply.
+    let mock = Mock::new();
+    mock.st().fa_reply.as_mut().unwrap()[1] = 3;
+    let info = mock.prime().info().unwrap();
+    assert_eq!(info.build, Some(15157));
+    assert_eq!(info.version.as_deref(), Some("V0.050.640"));
+    let mut raw = encode_file_message(CMD_FILE, FileType::Program, "ZZT_A", &[0, 0]);
+    raw[1] = 3;
+    assert!(crate::program::decode_record(&raw).is_err());
+    assert!(!decode_file_message(&raw).unwrap().crc_ok);
+}
+
+#[test]
+fn direct_deletion_supports_format_three_at_submission() {
+    use crate::delete::SubmissionState;
+    let mock = Mock::with_control().object(FileType::Program, "ZZT_TEST", DEL_SRC);
+    let mut p = mock.prime();
+    let deletion =
+        prepare_deletion(&mut p, &[DeleteTarget::program("ZZT_TEST")], &control()).unwrap();
+    let guard = authorize_usb_deletion(&p, &deletion, &control()).unwrap();
+    mock.st().fa_reply.as_mut().unwrap()[1] = 3;
+    let report = delete_via_usb(&mut p, guard, |_| {}).expect("format 3 usb delete");
+    assert_eq!(report.targets[0].status, TargetStatus::ConfirmedDeleted);
+    assert_eq!(report.submission[0], SubmissionState::Sent);
+    let st = mock.st();
+    let eb = st
+        .messages
+        .iter()
+        .find(|m| m[0] == crate::CMD_DELETE_OBJECT)
+        .expect("format 3 EB message");
+    let expect = crate::files::encode_file_message_format(
+        crate::CMD_DELETE_OBJECT,
+        3,
+        FileType::Program,
+        "ZZT_TEST",
+        &[],
+    );
+    assert_eq!(eb, &expect);
+    assert_eq!(eb[1], 3);
+    assert!(!st.objects.contains_key("ZZT_TEST"));
+}
+
+#[test]
+fn direct_deletion_refuses_unsupported_wire_formats_at_submission_without_eb() {
+    for bad_fmt in [0, 2, 4, 255] {
+        let mock = Mock::with_control().object(FileType::Program, "ZZT_TEST", DEL_SRC);
+        let mut p = mock.prime();
+        let deletion =
+            prepare_deletion(&mut p, &[DeleteTarget::program("ZZT_TEST")], &control()).unwrap();
+        let guard = authorize_usb_deletion(&p, &deletion, &control()).unwrap();
+        mock.st().fa_reply.as_mut().unwrap()[1] = bad_fmt;
+        let error = delete_via_usb(&mut p, guard, |_| {}).unwrap_err();
+        assert!(
+            error.to_string().contains("wire format")
+                || error.to_string().contains("unexpected reply header")
+        );
+        assert!(!mock.cmds().contains(&CMD_DELETE_OBJECT));
+        assert!(mock.st().objects.contains_key("ZZT_TEST"));
+    }
 }

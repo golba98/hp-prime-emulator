@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "suite": "cleanup",
+  "group": null,
+  "program": "ZZT_DEL901",
+  "note": "ZZT_DEL901R",
+  "channel": "note",
+  "case_ids": [],
+  "short_ids": [],
+  "source": "EXPORT ZZT_DEL901()\nBEGIN\n  RETURN 901;\nEND;\n",
+  "sha256": "a3cdd3674cc4a8143e7641c8d1a4243c2b61be650eea087fd4481a05e820e927",
+  "created_at_utc": "2026-10-26T22:54:20Z",
+  "uploaded_at_utc": null,
+  "preflight_log": [],
+  "device": null,
+  "status": "uploaded",
+  "blocked_reason": null
+}

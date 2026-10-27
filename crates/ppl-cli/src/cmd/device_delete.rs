@@ -25,8 +25,7 @@ pub const DEFAULT_DELETE_DIR: &str = "artifacts/delete";
 /// One command, no calculator interaction: `ppl device delete program
 /// FIREWORKS --yes`. The object is read twice, backed up raw to disk,
 /// deleted with one native USB delete command and verified absent. Without
-/// --yes you must type the exact name. Objects named ZZT_* are disposable
-/// test objects and may instead be authorized by a creation receipt.
+/// --yes you must type the exact name, including for ZZT_* programs.
 /// Lists, matrices, real/complex variables and other types are unsupported.
 #[derive(Subcommand, Debug)]
 pub enum DeleteAction {
@@ -37,9 +36,8 @@ pub enum DeleteAction {
     /// upload receipt). Without --yes you must type the exact name; --json
     /// alone never authorizes. A raw backup is saved first, one native USB
     /// delete is sent (never retried), and absence is verified against a
-    /// liveness anchor (built-in settings object, or --control). ZZT_* names are disposable test
-    /// objects: several may be given and a creation receipt can authorize
-    /// them; --manual-run and --prepare-only apply to those only.
+    /// liveness anchor (built-in settings object, or --control). ZZT_* names
+    /// follow the same single-target and confirmation rules.
     Program {
         names: Vec<String>,
         /// Liveness anchor `type:name` (default: built-in settings object when
@@ -54,14 +52,17 @@ pub enum DeleteAction {
             conflicts_with_all = ["manual_run", "prepare_only"]
         )]
         yes: bool,
+        /// Check the target without authorizing or sending a deletion.
+        #[arg(long, conflicts_with_all = ["yes", "manual_run", "prepare_only"])]
+        dry_run: bool,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=3600))]
         timeout_secs: Option<u64>,
         #[arg(long, value_parser = clap::value_parser!(u64).range(1..=60))]
         poll_secs: Option<u64>,
-        /// Upload a verified helper only; no deletion or remote keys.
+        /// Legacy option; unavailable for program deletion.
         #[arg(long, conflicts_with = "manual_run")]
         prepare_only: bool,
-        /// Use the established helper workflow and wait for one manual Run press.
+        /// Legacy option; unavailable for program deletion.
         #[arg(long)]
         manual_run: bool,
         #[arg(long, default_value = ppl_compat::DEFAULT_RUNS_DIR)]
@@ -73,7 +74,7 @@ pub enum DeleteAction {
     ///
     /// An ordinary name deletes exactly that one note after you type its
     /// exact name; a companion note is never deleted implicitly. ZZT_* names
-    /// are disposable test objects (see `delete program --help`).
+    /// are disposable test objects using the legacy receipt workflow.
     Note {
         names: Vec<String>,
         #[arg(long)]
@@ -120,9 +121,8 @@ pub enum DeleteAction {
     },
 }
 
-/// Chooses the naming/authorization class for a deletion request.
-/// ZZT_* names are disposable test objects; everything else is an ordinary
-/// object that is deleted alone and only after typed confirmation.
+/// Program requests always use the single-target user authorization path.
+/// Legacy ZZT_* note requests retain their existing receipt workflow.
 fn classify(
     ty: FileType,
     names: &[String],
@@ -130,11 +130,11 @@ fn classify(
     yes: bool,
 ) -> Result<(ppl_device::NamePolicy, Vec<DeleteTarget>), DeviceError> {
     use ppl_device::NamePolicy;
-    if yes {
-        // Explicit authorization names exactly one object, whatever its
-        // prefix; it never goes through the receipt/ledger path.
+    if yes || ty == FileType::Program {
+        // A program names exactly one object, whatever its prefix; it never
+        // goes through the receipt/ledger path.
         if names.len() != 1 {
-            return Err(refused("--yes deletes exactly one named program"));
+            return Err(refused("delete program requires exactly one named program"));
         }
         ppl_device::validate_object_name(ty, &names[0])?;
         if names[0].eq_ignore_ascii_case(&control.name) {
@@ -297,11 +297,13 @@ fn execute(
     selected: Option<&str>,
     log_path: Option<&Path>,
 ) -> Result<(Value, u8), DeviceError> {
+    let dry_run = matches!(action, DeleteAction::Program { dry_run: true, .. });
     match action {
         DeleteAction::Program {
             names,
             control,
             yes,
+            dry_run: _,
             timeout_secs,
             poll_secs,
             prepare_only,
@@ -341,13 +343,15 @@ fn execute(
             if policy == ppl_device::NamePolicy::User {
                 if *manual_run || *prepare_only {
                     return Err(refused(
-                        "--manual-run and --prepare-only apply to ZZT_ test objects only",
+                        "--manual-run and --prepare-only are unavailable for this target",
                     ));
                 }
                 return user::execute_user(
                     targets,
                     explicit_control,
-                    if *yes {
+                    if dry_run {
+                        user::AuthMode::DryRun
+                    } else if *yes {
                         user::AuthMode::Yes
                     } else {
                         user::AuthMode::Typed

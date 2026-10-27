@@ -139,6 +139,7 @@ impl crate::Prime {
         first: Duration,
     ) -> Result<Vec<u8>> {
         let mut assembled = Vec::new();
+        let mut expected_sequence = 2u8;
         let mut expected_len: Option<usize> = None;
         let mut in_msg_id: Option<u32> = None;
         let chunk_size = self.report_size - 1;
@@ -173,16 +174,32 @@ impl crate::Prime {
                 return self.recv_message_legacy_from(None, what, first, Some(rep));
             }
             if seq == 0x01 {
+                if !assembled.is_empty() {
+                    return Err(DeviceError::Protocol(
+                        "mode-1 header interrupted an incomplete message".into(),
+                    ));
+                }
                 if rep.len() < 9 {
                     return Err(DeviceError::Protocol("short mode-1 header report".into()));
                 }
                 let mid = u32::from_le_bytes(rep[1..5].try_into().unwrap());
                 let total = u32::from_le_bytes(rep[5..9].try_into().unwrap()) as usize;
+                if total == 0 || total > crate::inventory::MAX_MESSAGE {
+                    return Err(DeviceError::Protocol(
+                        "mode-1 message length exceeds bounds".into(),
+                    ));
+                }
                 in_msg_id = Some(mid);
                 expected_len = Some(total);
                 let chunk_len = (rep.len() - 9).min(total);
                 assembled.extend_from_slice(&rep[9..9 + chunk_len]);
             } else if (2..=0xFD).contains(&seq) {
+                if seq != expected_sequence {
+                    return Err(DeviceError::Protocol(format!(
+                        "mode-1 sequence mismatch: got {seq:02x}, expected {expected_sequence:02x}"
+                    )));
+                }
+                expected_sequence = if seq == 0xfd { 2 } else { seq + 1 };
                 let Some(total) = expected_len else {
                     return Err(DeviceError::Protocol(format!(
                         "mode-1 continuation report (seq 0x{seq:02x}) before header"
@@ -294,6 +311,52 @@ impl Acknowledgement {
 mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
+
+    #[test]
+    fn receive_rejects_sequence_gaps_restarted_headers_and_excessive_lengths() {
+        use std::collections::VecDeque;
+        struct Wire(VecDeque<Vec<u8>>);
+        impl crate::Transport for Wire {
+            fn write(&mut self, report: &[u8]) -> Result<usize> {
+                Ok(report.len())
+            }
+            fn read_timeout(&mut self, out: &mut [u8], _: i32) -> Result<usize> {
+                if let Some(report) = self.0.pop_front() {
+                    out[..report.len()].copy_from_slice(&report);
+                    Ok(report.len())
+                } else {
+                    Ok(0)
+                }
+            }
+        }
+        let mut gap = frames(1, &[0; 200]).unwrap();
+        gap[1][0] = 3;
+        let mut restart = frames(1, &[0; 200]).unwrap();
+        restart[1] = restart[0].clone();
+        let mut huge = frames(1, &[0; 1]).unwrap();
+        huge[0][5..9].copy_from_slice(&u32::MAX.to_le_bytes());
+        for reports in [gap, restart, huge] {
+            let detected = crate::Detected {
+                vendor_id: 0x03f0,
+                product_id: 0x1541,
+                model: "mock",
+                path: "offline".into(),
+                manufacturer: None,
+                product: None,
+                serial: None,
+                release: 0,
+                interface: 0,
+            };
+            let mut prime = crate::Prime::with_transport(detected, Box::new(Wire(reports.into())));
+            prime.mode = crate::TransportMode::Mode1;
+            assert!(
+                prime
+                    .recv_message(0xf7, "synthetic", Duration::from_millis(1))
+                    .is_err()
+            );
+            assert!(prime.require_healthy().is_err());
+        }
+    }
 
     #[test]
     fn matches_actual_official_instructions_across_wrap_and_large_objects() {

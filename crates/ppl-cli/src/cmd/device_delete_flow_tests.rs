@@ -11,6 +11,10 @@ struct Memory {
     replies: VecDeque<Vec<u8>>,
     commands: Vec<u8>,
     ignore_delete: bool,
+    disconnect_during_delete: bool,
+    disconnected: bool,
+    wire_format: Option<u8>,
+    last_eb: Option<Vec<u8>>,
 }
 fn utf16(s: &str) -> Vec<u8> {
     s.encode_utf16().flat_map(u16::to_le_bytes).collect()
@@ -29,6 +33,9 @@ struct Wire(Arc<Mutex<Memory>>);
 impl Transport for Wire {
     fn write(&mut self, report: &[u8]) -> ppl_device::Result<usize> {
         let mut m = self.0.lock().unwrap();
+        if m.disconnected {
+            return Err(DeviceError::Hid("mock disconnected".into()));
+        }
         m.input.extend_from_slice(&report[2..]);
         let complete = if matches!(
             m.input.first(),
@@ -47,7 +54,8 @@ impl Transport for Wire {
             match cmd {
                 ppl_device::CMD_CHECK_READY => m.reply(&[ppl_device::READY_REPLY]),
                 ppl_device::CMD_GET_INFO => {
-                    let mut raw = vec![0xFA, 0x01, 0, 0, 0, 0x6C];
+                    let fmt = m.wire_format.unwrap_or(1);
+                    let mut raw = vec![0xFA, fmt, 0, 0, 0, 0x6C];
                     let mut body = vec![0u8; 108];
                     body[65] = 0x30;
                     body[68..76].copy_from_slice(&[0x24, 0x20, 0x01, 0x39, 0x35, 0x3B, 0, 0]);
@@ -72,9 +80,14 @@ impl Transport for Wire {
                     m.objects.insert((f.ty.code(), f.name), f.data);
                 }
                 ppl_device::CMD_DELETE_OBJECT => {
+                    m.last_eb = Some(msg.clone());
                     let f = ppl_device::files::decode_file_message(&msg).unwrap();
                     if !m.ignore_delete {
                         m.objects.remove(&(f.ty.code(), f.name));
+                    }
+                    if m.disconnect_during_delete {
+                        m.disconnected = true;
+                        return Err(DeviceError::Hid("mock disconnected during delete".into()));
                     }
                 }
                 _ => panic!("unexpected command {cmd:02x}"),
@@ -83,7 +96,11 @@ impl Transport for Wire {
         Ok(report.len())
     }
     fn read_timeout(&mut self, buf: &mut [u8], _: i32) -> ppl_device::Result<usize> {
-        if let Some(frame) = self.0.lock().unwrap().replies.pop_front() {
+        let mut m = self.0.lock().unwrap();
+        if m.disconnected {
+            return Err(DeviceError::Hid("mock disconnected".into()));
+        }
+        if let Some(frame) = m.replies.pop_front() {
             buf[..frame.len()].copy_from_slice(&frame);
             Ok(frame.len())
         } else {
@@ -464,8 +481,12 @@ fn ordinary_fixture() -> (Prime, Arc<Mutex<Memory>>, PathBuf) {
 }
 
 fn info() -> ppl_device::CalcInfo {
+    info_with_format(1)
+}
+
+fn info_with_format(fmt: u8) -> ppl_device::CalcInfo {
     ppl_device::CalcInfo::parse(&{
-        let mut raw = vec![0xFA, 0x01, 0, 0, 0, 0x6C];
+        let mut raw = vec![0xFA, fmt, 0, 0, 0, 0x6C];
         let mut body = vec![0u8; 108];
         body[65] = 0x30;
         body[68..76].copy_from_slice(&[0x24, 0x20, 0x01, 0x39, 0x35, 0x3B, 0, 0]);
@@ -487,6 +508,31 @@ fn run_with(
     typed: &str,
     progress: &mut Vec<u8>,
 ) -> Result<(Value, u8), DeviceError> {
+    run_with_custom_info(
+        p,
+        &info(),
+        ty,
+        name,
+        dir,
+        auth,
+        settings_verified,
+        typed,
+        progress,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_with_custom_info(
+    p: &mut Prime,
+    calc_info: &ppl_device::CalcInfo,
+    ty: FileType,
+    name: &str,
+    dir: &Path,
+    auth: user::Authorization,
+    settings_verified: bool,
+    typed: &str,
+    progress: &mut Vec<u8>,
+) -> Result<(Value, u8), DeviceError> {
     let t = [DeleteTarget {
         ty,
         name: name.into(),
@@ -494,7 +540,7 @@ fn run_with(
     user::perform_user(
         p,
         SERIAL,
-        &info(),
+        calc_info,
         &t,
         None,
         settings_verified,
@@ -524,6 +570,134 @@ fn run_user(
         typed,
         &mut Vec::new(),
     )
+}
+
+#[test]
+fn dry_run_reads_target_twice_without_backup_authorization_or_mutation() {
+    let (mut p, m, dir) = ordinary_fixture();
+    let before = m.lock().unwrap().objects.clone();
+    let mut progress = Vec::new();
+    let (result, code) = run_with(
+        &mut p,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::DryRun,
+        true,
+        "",
+        &mut progress,
+    )
+    .unwrap();
+    assert_eq!(code, exit::OK);
+    assert_eq!(result["result"], "dry_run");
+    assert_eq!(result["submission_state"], "not_sent");
+    assert_eq!(result["backup_created"], false);
+    assert!(
+        String::from_utf8(progress)
+            .unwrap()
+            .contains("would delete program FIREWORKS")
+    );
+    assert!(!dir.exists());
+    let state = m.lock().unwrap();
+    assert_eq!(state.objects, before);
+    assert!(!state.commands.contains(&ppl_device::CMD_DELETE_OBJECT));
+    assert!(!state.commands.contains(&ppl_device::CMD_FILE));
+    assert!(!state.commands.contains(&ppl_device::CMD_KEY));
+    assert!(
+        state
+            .commands
+            .iter()
+            .filter(|&&c| c == ppl_device::CMD_REQ_FILE)
+            .count()
+            >= 4
+    );
+}
+
+#[test]
+fn dry_run_missing_target_is_refused_without_mutation() {
+    let (mut p, m, dir) = ordinary_fixture();
+    let result = run_with(
+        &mut p,
+        FileType::Program,
+        "MISSING",
+        &dir,
+        user::Authorization::DryRun,
+        true,
+        "",
+        &mut Vec::new(),
+    );
+    assert!(result.is_err());
+    assert!(!dir.exists());
+    assert_eq!(eb_sent(&m), 0);
+}
+
+#[test]
+fn dry_run_writes_requested_usb_log_without_deletion() {
+    let (mut p, m, dir) = ordinary_fixture();
+    std::fs::create_dir_all(&dir).unwrap();
+    let log = dir.join("dry-run.log");
+    let result = user::perform_user(
+        &mut p,
+        SERIAL,
+        &info(),
+        &[DeleteTarget::program("FIREWORKS")],
+        None,
+        true,
+        user::Authorization::DryRun,
+        (&dir.join("runs"), &dir.join("store"), Some(&log)),
+        &mut "".as_bytes(),
+        &mut Vec::new(),
+        &mut user::Progress(None),
+    )
+    .unwrap();
+    assert_eq!(result.0["result"], "dry_run");
+    let text = std::fs::read_to_string(log).unwrap();
+    assert!(text.contains("host→calc"));
+    assert_eq!(eb_sent(&m), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn disconnected_delete_is_uncertain_and_pending_journal_blocks_retry() {
+    let (mut p, m, dir) = ordinary_fixture();
+    m.lock().unwrap().disconnect_during_delete = true;
+    let (result, code) = run_with(
+        &mut p,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::Yes,
+        true,
+        "",
+        &mut Vec::new(),
+    )
+    .unwrap();
+    assert_ne!(code, exit::OK);
+    assert_eq!(result["submission_state"], "possibly_sent");
+    assert_eq!(result["deletion_confirmed"], false);
+    assert_eq!(eb_sent(&m), 1);
+
+    // Reconnect the mock to test the durable pending-operation guard.
+    {
+        let mut state = m.lock().unwrap();
+        state.disconnected = false;
+        state.disconnect_during_delete = false;
+    }
+    let mut reconnected = Prime::with_transport(p.detected.clone(), Box::new(Wire(m.clone())));
+    let retry = run_with(
+        &mut reconnected,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::Yes,
+        true,
+        "",
+        &mut Vec::new(),
+    );
+    assert!(retry.is_err());
+    assert_eq!(eb_sent(&m), 1);
+    assert!(m.lock().unwrap().objects.contains_key(&(6, "HELLO".into())));
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 fn eb_sent(m: &Arc<Mutex<Memory>>) -> usize {
@@ -872,9 +1046,99 @@ fn yes_flag_classification_is_exactly_one_program() {
             "{bad:?}"
         );
     }
-    // Without --yes a ZZT name keeps the receipt/test path.
+    // Without --yes a ZZT program still requires explicit confirmation.
     assert_eq!(
         classify(FileType::Program, &one, &c, false).unwrap().0,
-        ppl_device::NamePolicy::Test
+        ppl_device::NamePolicy::User
     );
+}
+
+#[test]
+fn dry_run_and_real_deletion_support_format_three() {
+    let (mut p, m, dir) = ordinary_fixture();
+    m.lock().unwrap().wire_format = Some(3);
+    let info3 = info_with_format(3);
+    let mut progress = Vec::new();
+    let (result, code) = run_with_custom_info(
+        &mut p,
+        &info3,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::DryRun,
+        true,
+        "",
+        &mut progress,
+    )
+    .unwrap();
+    assert_eq!(code, exit::OK);
+    assert_eq!(result["result"], "dry_run");
+    assert_eq!(result["wire_format"], 3);
+    assert_eq!(result["mutation_wire_format_supported"], true);
+    assert_eq!(eb_sent(&m), 0);
+
+    // Real deletion in format 3:
+    let (real_result, real_code) = run_with_custom_info(
+        &mut p,
+        &info3,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::Yes,
+        true,
+        "",
+        &mut progress,
+    )
+    .unwrap();
+    assert_eq!(real_code, exit::OK);
+    assert_eq!(real_result["result"], "confirmed_deleted");
+    assert_eq!(eb_sent(&m), 1);
+    let eb = m.lock().unwrap().last_eb.clone().expect("EB sent");
+    assert_eq!(eb[0], ppl_device::CMD_DELETE_OBJECT);
+    assert_eq!(eb[1], 3);
+    assert!(
+        !m.lock()
+            .unwrap()
+            .objects
+            .contains_key(&(6, "FIREWORKS".into()))
+    );
+}
+
+#[test]
+fn dry_run_and_real_deletion_refuse_unsupported_wire_formats() {
+    let (mut p, m, dir) = ordinary_fixture();
+    let info4 = info_with_format(4);
+    let mut progress = Vec::new();
+    let (result, code) = run_with_custom_info(
+        &mut p,
+        &info4,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::DryRun,
+        true,
+        "",
+        &mut progress,
+    )
+    .unwrap();
+    assert_eq!(code, exit::OK);
+    assert_eq!(result["result"], "dry_run");
+    assert_eq!(result["wire_format"], 4);
+    assert_eq!(result["mutation_wire_format_supported"], false);
+    assert_eq!(eb_sent(&m), 0);
+
+    let err = run_with_custom_info(
+        &mut p,
+        &info4,
+        FileType::Program,
+        "FIREWORKS",
+        &dir,
+        user::Authorization::Yes,
+        true,
+        "",
+        &mut progress,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("wire format"));
+    assert_eq!(eb_sent(&m), 0);
 }
