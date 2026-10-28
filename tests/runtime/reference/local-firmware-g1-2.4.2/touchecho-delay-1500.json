@@ -1,0 +1,9 @@
+{
+  "provenance": "local-firmware",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "case": "touchecho",
+  "label": "DELAY:1500",
+  "pixels_sha256": "cf69386acd9a93f163620462f7f3b2eab53d9bad0ba01b2a4762ac18476499e0",
+  "source_sha256": "39b0bed565c9a0fe48afc24fa18e183533b4a375aafc89dc07e842759c1cf21f",
+  "recorded_by": "prime-emulator app-suite --record"
+}

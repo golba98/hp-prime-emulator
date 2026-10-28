@@ -1,0 +1,230 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/firmware_runtime.json",
+ "steps": [
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "new_program",
+   "name": "LISTRT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT LISTRT()\nBEGIN\n RETURN {1,2};\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "list"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_1_list.png"
+  },
+  {
+   "step": "new_program",
+   "name": "KEYRT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT KEYRT()\nBEGIN\n RECT_P(0,0,319,239,RGB(0,0,0));\n TEXTOUT_P(\"Press a key\",100,110,2,RGB(255,255,255));\n RETURN WAIT(-1);\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "key-running"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_2_key_prompt.png"
+  },
+  {
+   "step": "calc_key",
+   "code": 30
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "key-done"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_3_key_done.png"
+  },
+  {
+   "step": "new_program",
+   "name": "TOUCHRT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT TOUCHRT()\nBEGIN\n LOCAL e;\n RECT_P(0,0,319,239,RGB(255,255,0));\n TEXTOUT_P(\"Tap the screen\",90,110,2,RGB(0,0,0));\n e:=WAIT(-1);\n RETURN {B→R(e(1)),B→R(e(2)),B→R(e(3))};\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "touch-running"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_4_touch_prompt.png"
+  },
+  {
+   "step": "calc_touch",
+   "status": 1,
+   "x": 100,
+   "y": 50
+  },
+  {
+   "step": "wait_ms",
+   "ms": 400
+  },
+  {
+   "step": "calc_touch",
+   "status": 8,
+   "x": 100,
+   "y": 50
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "touch-done"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_5_touch_done.png"
+  },
+  {
+   "step": "new_program",
+   "name": "LOOPRT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT LOOPRT()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 3000
+  },
+  {
+   "step": "snapshot",
+   "label": "loop-running"
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "loop-stopped"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/fw_runtime_6_stopped.png"
+  },
+  {
+   "step": "new_program",
+   "name": "AGAIN"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT AGAIN()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "after-stop"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

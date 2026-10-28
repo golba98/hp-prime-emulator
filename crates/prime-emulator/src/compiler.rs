@@ -18,6 +18,10 @@ pub const PARSE_RETURN: u32 = 0x306b_b8e0;
 pub const CHECK_RETURN: u32 = 0x308f_2c94;
 pub const DIALOG_ENTRY: u32 = 0x3068_5b28;
 pub const DIALOG_TEXT: u32 = 0x3068_5b54;
+/// Return address of the compiler call inside `Programs(name):=source`
+/// (`0x30B43FDC`), which sets a program's source and compiles it with
+/// Check's arguments.
+pub const ASSIGN_RETURN: u32 = 0x30b4_407c;
 pub const MAX_SOURCE_UNITS: usize = 1_048_576;
 pub const MAX_CHECKS: usize = 64;
 
@@ -29,6 +33,10 @@ pub struct CompilerTrace {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CheckObservation {
+    /// `None` for the Program Editor's Check; `assign` for the compile in
+    /// `Programs(name):=source`; `direct` for a host guest call.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub sequence: usize,
     pub step: Option<usize>,
     pub thread: u32,
@@ -41,6 +49,7 @@ pub struct CheckObservation {
     pub result_va: Option<u32>,
     pub return_value: Option<u32>,
     /// Only read on failure. On success the last two stack words are stale.
+    /// Set by the host for `direct` compiles from the call's result record.
     pub raw_position: Option<RawPosition>,
     pub sources: Vec<ObservedSource>,
     /// Raw parser statuses, not a documented diagnostic-code namespace.
@@ -69,9 +78,16 @@ pub struct ObservedSource {
 }
 
 #[derive(Default)]
-pub struct Observer(Mutex<CompilerTrace>);
+pub struct Observer(Mutex<CompilerTrace>, std::sync::atomic::AtomicU32);
 
 impl Observer {
+    pub fn reset(&self) {
+        *self.0.lock().unwrap() = CompilerTrace::default();
+    }
+    /// Compiler entries returning here are host guest calls (`direct`).
+    pub fn set_direct_return(&self, va: u32) {
+        self.1.store(va, std::sync::atomic::Ordering::Relaxed);
+    }
     pub fn snapshot(&self) -> CompilerTrace {
         self.0.lock().unwrap().clone()
     }
@@ -102,7 +118,43 @@ impl Observer {
             });
             return Ok(());
         }
-        // Only the current UI Check, on its own guest thread, may own data.
+        if pc == COMPILE_ENTRY {
+            let lr = reg(RegisterARM::LR)?;
+            let direct = self.1.load(std::sync::atomic::Ordering::Relaxed);
+            let kind = if direct != 0 && lr == direct {
+                Some("direct")
+            } else if lr == ASSIGN_RETURN {
+                Some("assign")
+            } else {
+                None
+            };
+            if let Some(kind) = kind {
+                if log.checks.len() == MAX_CHECKS {
+                    log.dropped += 1;
+                    return Ok(());
+                }
+                let sequence = log.checks.len();
+                let mut c = CheckObservation {
+                    kind: Some(kind.into()),
+                    sequence,
+                    thread,
+                    step: trace.script_step(),
+                    started_ms: trace.elapsed_secs() * 1000.0,
+                    cpsr: reg(RegisterARM::CPSR)?,
+                    compiler_entered: true,
+                    program_va: Some(reg(RegisterARM::R0)?),
+                    result_va: Some(reg(RegisterARM::R3)?),
+                    heap_before: Some(mem.heap_stats()),
+                    ..Default::default()
+                };
+                if reg(RegisterARM::R1)? != 1 || reg(RegisterARM::R2)? != 0 {
+                    c.errors.push("unrecognized compiler arguments".into());
+                }
+                log.checks.push(c);
+                return Ok(());
+            }
+        }
+        // Only the current compile, on its own guest thread, may own data.
         let Some(c) = log.checks.last_mut().filter(|c| c.thread == thread) else {
             return Ok(());
         };
@@ -142,6 +194,10 @@ impl Observer {
                     return Err("parser observation limit exceeded".into());
                 }
                 c.parser_returns.push(reg(RegisterARM::R0)?);
+            }
+            ASSIGN_RETURN if c.kind.as_deref() == Some("assign") && c.return_value.is_none() => {
+                c.return_value = Some(reg(RegisterARM::R0)?);
+                c.returned_ms = Some(trace.elapsed_secs() * 1000.0);
             }
             CHECK_RETURN if c.compiler_entered && c.return_value.is_none() => {
                 let result = reg(RegisterARM::R0)?;
@@ -232,6 +288,7 @@ pub fn install(
         SOURCE_CALL,
         PARSE_RETURN,
         CHECK_RETURN,
+        ASSIGN_RETURN,
         DIALOG_ENTRY,
         DIALOG_TEXT,
     ] {

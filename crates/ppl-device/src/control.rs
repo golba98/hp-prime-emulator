@@ -1,5 +1,5 @@
 //! Bounded local IPC for one exclusive device owner. There is deliberately no
-//! raw USB, key injection, overwrite, deletion, or execution RPC.
+//! raw USB, key injection, implicit overwrite, or execution RPC.
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io::{self, Read, Write};
@@ -21,11 +21,54 @@ pub const MAX_PAYLOAD: usize = 16 * 1024 * 1024;
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     Status,
-    Capture { format: u8 },
-    Program { name: String },
+    Capture {
+        format: u8,
+    },
+    Program {
+        name: String,
+    },
     Inventory,
+    /// Typed, explicitly authorized program management; no raw USB operation.
+    Manage {
+        device_serial_id: String,
+        action: ManagementAction,
+    },
     Stop,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ManagementAction {
+    Create {
+        name: String,
+        source: String,
+        confirmation_sha256: String,
+    },
+    PrepareReplacement {
+        name: String,
+        source: String,
+    },
+    ApplyReplacement {
+        operation_id: String,
+        confirmation_new_sha256: String,
+    },
+    VerifyReplacement {
+        operation_id: String,
+    },
+    VerifyUpload {
+        operation_id: String,
+    },
+    VerifyDelete {
+        operation_id: String,
+    },
+    PrepareDelete {
+        name: String,
+    },
+    ApplyDelete {
+        operation_id: String,
+        confirmation_old_sha256: String,
+    },
+}
+
 #[derive(Debug)]
 pub struct Response {
     pub report: Value,
@@ -105,6 +148,14 @@ pub fn validate_private_directory(path: &Path) -> io::Result<()> {
     }
     Ok(())
 }
+#[cfg(not(unix))]
+pub fn call(_path: &std::path::Path, _request: &Request) -> io::Result<Response> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "exclusive-owner socket IPC requires Unix; select direct exclusive HID access",
+    ))
+}
+
 #[cfg(unix)]
 pub fn call(path: &Path, request: &Request) -> io::Result<Response> {
     validate_private_directory(

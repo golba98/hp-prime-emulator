@@ -248,8 +248,10 @@ builtins! {
     Arc "ARC" 3..=7 Graphics Approximate;
     TextoutP "TEXTOUT_P" 3..=8 Graphics Approximate;
     Textout "TEXTOUT" 3..=8 Graphics Approximate;
-    BlitP "BLIT_P" 0..=11 Graphics Implemented;
-    Blit "BLIT" 0..=11 Graphics Approximate;
+    // srcG is required: the original firmware rejects `BLIT_P()` and
+    // `BLIT()` (diagnostic corpus e06, e18).
+    BlitP "BLIT_P" 1..=11 Graphics Implemented;
+    Blit "BLIT" 1..=11 Graphics Approximate;
     DimgrobP "DIMGROB_P" 2..=4 Graphics Implemented;
     Dimgrob "DIMGROB" 2..=4 Graphics Approximate;
     SubgrobP "SUBGROB_P" 2..=6 Graphics Implemented;

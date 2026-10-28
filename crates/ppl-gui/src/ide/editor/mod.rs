@@ -316,6 +316,20 @@ fn tab_button(
 impl IdePanel for EditorArea {
     fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+        if !state.calc_input_focus
+            && ui.input(|i| i.modifiers.command && i.key_pressed(Key::Tab))
+            && !self.tabs.is_empty()
+        {
+            let backwards = ui.input(|i| i.modifiers.shift);
+            self.active_tab_index = (self.active_tab_index
+                + self.tabs.len()
+                + if backwards { self.tabs.len() - 1 } else { 1 })
+                % self.tabs.len();
+            ui.input_mut(|i| {
+                i.events
+                    .retain(|e| !matches!(e, egui::Event::Key { key: Key::Tab, .. }))
+            });
+        }
         self.tab_strip(ui, state);
 
         if self.tabs.is_empty() {

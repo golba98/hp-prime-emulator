@@ -69,6 +69,7 @@ fn run(env: &Env, data: &Path, keys: &str, shots: &Path) -> (Outcome, RunReport)
         script: Some(ScriptConfig {
             keys: parse_keys(keys).unwrap(),
             screenshot_dir: Some(shots.to_path_buf()),
+            start_with_keys: false,
             ..ScriptConfig::default()
         }),
         storage_diff: true,

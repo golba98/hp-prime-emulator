@@ -1,0 +1,6 @@
+EXPORT DPK30()
+BEGIN
+ LOCAL end:=4;
+ end:=end+1;
+ RETURN end;
+END;

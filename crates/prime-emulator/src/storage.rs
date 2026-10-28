@@ -40,6 +40,34 @@ pub fn snapshot(root: &Path) -> Snapshot {
     out
 }
 
+/// Complete snapshot for transactional callers: unreadable directories/files
+/// are errors, never evidence that unrelated files stayed unchanged.
+pub fn try_snapshot(root: &Path) -> std::io::Result<Snapshot> {
+    let mut out = Snapshot::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let ty = entry.file_type()?;
+            if ty.is_dir() {
+                stack.push(path);
+            } else if ty.is_file() {
+                let bytes = std::fs::read(&path)?;
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap()
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/");
+                out.insert(rel, (bytes.len() as u64, crate::sha256::hex(&bytes)));
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct FileChange {
     pub path: String,

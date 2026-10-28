@@ -50,6 +50,25 @@ impl MenuBar {
                 }
             }
 
+            if state.calc_input_focus {
+                return;
+            }
+
+            // Restore previous layout when Escape is pressed in Expanded Calculator mode
+            // without calculator input focus.
+            if state.layout == super::layout::WorkspaceLayout::Calculator
+                && i.key_pressed(Key::Escape)
+            {
+                let target = if state.previous_layout != super::layout::WorkspaceLayout::Calculator
+                {
+                    state.previous_layout
+                } else {
+                    super::layout::WorkspaceLayout::Split
+                };
+                state.queue_action(IdeAction::SetLayout(target));
+                return;
+            }
+
             // Function keys
             if i.key_pressed(Key::F5) {
                 if i.modifiers.shift {
@@ -340,6 +359,22 @@ impl IdePanel for MenuBar {
                     ui.close();
                 }
                 ui.separator();
+                ui.menu_button("Layout Mode", |ui| {
+                    for (mode, title) in [
+                        (super::layout::WorkspaceLayout::Split, "Editor + Calculator"),
+                        (super::layout::WorkspaceLayout::Editor, "Editor Focus"),
+                        (
+                            super::layout::WorkspaceLayout::Calculator,
+                            "Expanded Calculator",
+                        ),
+                    ] {
+                        if ui.selectable_label(state.layout == mode, title).clicked() {
+                            state.queue_action(IdeAction::SetLayout(mode));
+                            ui.close();
+                        }
+                    }
+                });
+                ui.separator();
                 if ui.button("Dock: Output (Alt+1)").clicked() {
                     state.show_bottom_dock = true;
                     state.active_dock_tab = DockTab::Output;
@@ -381,9 +416,12 @@ impl IdePanel for MenuBar {
 
             // Tools Menu
             ui.menu_button("Tools", |ui| {
-                if ui.button("Detect USB Hardware").clicked() {
+                if ui.button("Physical calculator programs…").clicked() {
+                    state.queue_action(IdeAction::ManagePrograms);
                     ui.close();
                 }
+                ui.separator();
+                ui.label("USB tools are available through the ppl device CLI");
                 if ui.button("Take Screenshot").clicked() {
                     state.queue_action(IdeAction::TakeScreenshot);
                     ui.close();
@@ -397,10 +435,12 @@ impl IdePanel for MenuBar {
 
             // Help Menu
             ui.menu_button("Help", |ui| {
-                if ui.button("Built-in PPL Reference").clicked() {
+                if ui.button("PPL completion reference · Ctrl+Space").clicked() {
+                    state.queue_action(IdeAction::Edit(super::EditCommand::TriggerCompletion));
                     ui.close();
                 }
                 if ui.button("Keyboard Shortcuts").clicked() {
+                    state.queue_action(IdeAction::ShowShortcuts);
                     ui.close();
                 }
                 ui.separator();

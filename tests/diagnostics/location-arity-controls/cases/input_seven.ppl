@@ -1,0 +1,5 @@
+EXPORT ASK()
+BEGIN
+  LOCAL r;
+  INPUT(r,"t","l","h",1,5,9);
+END;

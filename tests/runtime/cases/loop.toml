@@ -1,0 +1,11 @@
+id = "loop"
+category = "lifecycle"
+description = "Non-terminating program is interrupted at the execution deadline"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/LOOP.ppl"
+source_sha256 = "684397287b0d393d9fd7e26b0c45aec45eb80b03e0034cb5cf2e9b0713cba5f2"
+entry = "LOOP"
+execution_timeout_s = 1.0
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "timed_out"

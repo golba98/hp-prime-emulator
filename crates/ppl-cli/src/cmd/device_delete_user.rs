@@ -138,11 +138,25 @@ fn finish(
             .ok()
             .map(|d| d.join(format!("{}-{}.bin", op.targets[0].ty, op.targets[0].name)))
     );
-    v["submission_state"] = json!(match op.state.as_str() {
-        "prepared" | "not_submitted" => "not_sent",
-        "submitting" => "sending",
-        _ => "submitted",
-    });
+    v["submission_state"] = json!(
+        if matches!(op.state.as_str(), "prepared" | "not_submitted") {
+            "not_sent"
+        } else if op
+            .submission
+            .contains(&ppl_device::delete::SubmissionState::PossiblySent)
+        {
+            "possibly_sent"
+        } else if op
+            .submission
+            .contains(&ppl_device::delete::SubmissionState::Sent)
+        {
+            "submitted"
+        } else if op.state == "submitting" {
+            "sending"
+        } else {
+            "unknown"
+        }
+    );
     v["verification"] = json!(if op.confirmed() {
         "absence_confirmed"
     } else {
@@ -265,6 +279,7 @@ pub(super) fn perform_user(
     let control = choose_anchor(p, explicit_control, settings_verified)?;
     progress.ok(&format!("Liveness anchor verified ({control})"));
     let store = Store::new(delete_dir);
+    let _journal_lock = store.lock()?;
     store.reject_pending(serial, targets)?;
     let deletion = ppl_device::prepare_deletion_with(
         p,
@@ -314,6 +329,7 @@ pub(super) fn perform_user(
         class: "user".into(),
         authorization: None,
         requested_utc: Some(now.clone()),
+        submission: Vec::new(),
     };
     let b = &deletion.backups[0];
     // 1. Persist and re-read the raw backup (plus metadata) before anything
@@ -423,13 +439,20 @@ pub(super) fn perform_user(
     progress.ok("Deletion authorized");
     // 4. One EB, then independent absence verification. An Err from here
     // means nothing was transmitted (all sends happen inside Ok).
-    let result = ppl_device::authorize_usb_deletion(p, &deletion, &control)
-        .and_then(|guard| ppl_device::delete_via_usb(p, guard, |_| {}));
+    let result = ppl_programs::submit_deletion(p, &deletion, &store, &mut op);
     match result {
         Ok(report) => {
-            if report.error.is_none() {
+            if report
+                .submission
+                .contains(&ppl_device::delete::SubmissionState::Sent)
+            {
                 progress.ok("Native USB delete submitted");
             }
+            let never_sent = report
+                .submission
+                .iter()
+                .all(|s| *s == ppl_device::delete::SubmissionState::NotSent);
+            op.submission = report.submission;
             apply_statuses(
                 &mut op,
                 &report
@@ -439,7 +462,9 @@ pub(super) fn perform_user(
                     .collect::<Vec<_>>(),
             );
             op.error = report.error;
-            op.state = if op.confirmed() {
+            op.state = if never_sent {
+                "not_submitted"
+            } else if op.confirmed() {
                 "completed"
             } else {
                 "unresolved"
@@ -648,6 +673,7 @@ mod tests {
             class: "user".into(),
             authorization: None,
             requested_utc: None,
+            submission: Vec::new(),
         };
         (Store::new(&dir.join("store")), op, b)
     }

@@ -1,0 +1,459 @@
+# PPL diagnostic parity corpus.
+#
+# Each case is a small UTF-8, LF source. `intent` describes what the case
+# probes; it is a proposal, not an expected result. Expected results come
+# only from reference files under reference/, captured from authoritative
+# backends (see docs/compatibility/diagnostic-parity.md).
+#
+# Changing a source invalidates its reference (the hash no longer matches):
+# re-capture before relying on it.
+
+[[case]]
+id = "v01_hello"
+file = "cases/v01_hello.ppl"
+category = "valid"
+intent = "Minimal EXPORT function returning a value."
+
+[[case]]
+id = "v02_locals_loops"
+file = "cases/v02_locals_loops.ppl"
+category = "valid"
+intent = "LOCAL with initialiser, FOR/FROM/TO/DO, WHILE and REPEAT/UNTIL."
+
+[[case]]
+id = "v03_lists_matrices"
+file = "cases/v03_lists_matrices.ppl"
+category = "valid"
+intent = "List and matrix literals, element assignment l(2):= and m(1,2):=, SIZE."
+
+[[case]]
+id = "v04_nested_control"
+file = "cases/v04_nested_control.ppl"
+category = "valid"
+intent = "IF/ELSE containing CASE with DEFAULT and IFERR/THEN/ELSE."
+
+[[case]]
+id = "v05_multi_functions"
+file = "cases/v05_multi_functions.ppl"
+category = "valid"
+intent = "Forward declaration of a non-exported helper called before its definition."
+
+[[case]]
+id = "v06_unicode_ops"
+file = "cases/v06_unicode_ops.ppl"
+category = "valid"
+intent = "Unicode operators ≠ ≤ ≥, π and ▶ store."
+
+[[case]]
+id = "v07_blit_explicit"
+file = "cases/v07_blit_explicit.ppl"
+category = "valid"
+intent = "BLIT_P(G0,G0): explicit target and source GROB."
+
+[[case]]
+id = "r01_runtime_div_zero"
+file = "cases/r01_runtime_div_zero.ppl"
+category = "runtime-only"
+intent = "1/0 is a runtime error; Check is expected to accept it (compile-time vs runtime)."
+
+[[case]]
+id = "e01_missing_end"
+file = "cases/e01_missing_end.ppl"
+category = "missing-end"
+intent = "Function body never closed with END;."
+
+[[case]]
+id = "e02_nested_missing_end"
+file = "cases/e02_nested_missing_end.ppl"
+category = "missing-end"
+intent = "IF inside FOR lacks its own END; outer blocks are short one END."
+
+[[case]]
+id = "e03_repeat_end"
+file = "cases/e03_repeat_end.ppl"
+category = "bad-nesting"
+intent = "REPEAT closed by END instead of UNTIL."
+
+[[case]]
+id = "e04_invalid_identifier"
+file = "cases/e04_invalid_identifier.ppl"
+category = "invalid-identifier"
+intent = "LOCAL name starting with a digit."
+
+[[case]]
+id = "e05_local_no_name"
+file = "cases/e05_local_no_name.ppl"
+category = "invalid-identifier"
+intent = "LOCAL := ; with no variable name (same shape as the earlier BROKEN firmware probe)."
+
+[[case]]
+id = "e06_blit_zero_args"
+file = "cases/e06_blit_zero_args.ppl"
+category = "incorrect-call"
+intent = "BLIT_P() with no arguments; earlier firmware probe rejected it."
+
+[[case]]
+id = "e07_builtin_arity"
+file = "cases/e07_builtin_arity.ppl"
+category = "incorrect-call"
+intent = "SIN called with two arguments."
+
+[[case]]
+id = "e08_undefined_function"
+file = "cases/e08_undefined_function.ppl"
+category = "undefined-name"
+intent = "Call to a function that is defined nowhere."
+
+[[case]]
+id = "e09_undeclared_variable"
+file = "cases/e09_undeclared_variable.ppl"
+category = "undefined-name"
+intent = "Lower-case undeclared name used in an expression (may be a CAS symbol on the calculator)."
+
+[[case]]
+id = "e10_malformed_expression"
+file = "cases/e10_malformed_expression.ppl"
+category = "malformed-expression"
+intent = "Binary operator followed by another operator: 1+*2."
+
+[[case]]
+id = "e11_invalid_operator"
+file = "cases/e11_invalid_operator.ppl"
+category = "invalid-operator"
+intent = "** is not a PPL operator."
+
+[[case]]
+id = "e12_unclosed_paren"
+file = "cases/e12_unclosed_paren.ppl"
+category = "malformed-expression"
+intent = "Unclosed parenthesis before ;."
+
+[[case]]
+id = "e13_unclosed_string"
+file = "cases/e13_unclosed_string.ppl"
+category = "malformed-expression"
+intent = "String literal never closed."
+
+[[case]]
+id = "e14_error_in_second_function"
+file = "cases/e14_error_in_second_function.ppl"
+category = "nested-error"
+intent = "Valid first function; syntax error inside the second function."
+
+[[case]]
+id = "e15_multiple_errors"
+file = "cases/e15_multiple_errors.ppl"
+category = "multiple-errors"
+intent = "Two independent syntax errors; which one each backend reports first."
+
+[[case]]
+id = "e16_missing_semicolon_between"
+file = "cases/e16_missing_semicolon_between.ppl"
+category = "missing-semicolon"
+intent = "LOCAL declaration without ; before the next statement."
+
+[[case]]
+id = "e17_if_without_then"
+file = "cases/e17_if_without_then.ppl"
+category = "bad-nesting"
+intent = "IF condition without THEN."
+
+[[case]]
+id = "h01_lowercase_keywords"
+file = "cases/h01_lowercase_keywords.ppl"
+category = "hypothesis"
+intent = "Lower-case export/begin/return/end: native recognises upper-case keywords only."
+
+[[case]]
+id = "h02_implicit_multiplication"
+file = "cases/h02_implicit_multiplication.ppl"
+category = "hypothesis"
+intent = "Implicit multiplication 2x: native rejects it."
+
+[[case]]
+id = "h03_no_semicolon_before_end"
+file = "cases/h03_no_semicolon_before_end.ppl"
+category = "hypothesis"
+intent = "No ; before END: native only warns (unverified rule)."
+
+[[case]]
+id = "h04_no_semicolon_before_nested_end"
+file = "cases/h04_no_semicolon_before_nested_end.ppl"
+category = "hypothesis"
+intent = "No ; before the END of an IF block."
+
+[[case]]
+id = "h05_no_semicolon_before_else"
+file = "cases/h05_no_semicolon_before_else.ppl"
+category = "hypothesis"
+intent = "No ; before ELSE."
+
+[[case]]
+id = "h06_no_semicolon_before_until"
+file = "cases/h06_no_semicolon_before_until.ppl"
+category = "hypothesis"
+intent = "No ; before UNTIL."
+
+[[case]]
+id = "h07_lowercase_control"
+file = "cases/h07_lowercase_control.ppl"
+category = "hypothesis"
+intent = "Lower-case local/for/from/to/do/if/then/else/while/end/return."
+
+[[case]]
+id = "h08_lowercase_mod_variable"
+file = "cases/h08_lowercase_mod_variable.ppl"
+category = "hypothesis"
+intent = "Lower-case `mod` as a LOCAL variable name (native lexes keywords upper-case only for this reason)."
+
+[[case]]
+id = "h09_final_end_without_semicolon"
+file = "cases/h09_final_end_without_semicolon.ppl"
+category = "hypothesis"
+intent = "Function closed by END with no trailing ;."
+
+[[case]]
+id = "e18_blit_zero_args"
+file = "cases/e18_blit_zero_args.ppl"
+category = "incorrect-call"
+intent = "BLIT() with no arguments (Cartesian twin of BLIT_P)."
+
+[[case]]
+id = "h10_function_end_without_semicolon_before_next"
+file = "cases/h10_function_end_without_semicolon_before_next.ppl"
+category = "hypothesis"
+intent = "Function END without ; directly followed by another EXPORT function."
+
+[[case]]
+id = "h11_nested_end_without_semicolon"
+file = "cases/h11_nested_end_without_semicolon.ppl"
+category = "hypothesis"
+intent = "IF block END without ; directly before the function's END."
+
+[[case]]
+id = "h12_assignment_without_semicolon_before_function_end"
+file = "cases/h12_assignment_without_semicolon_before_function_end.ppl"
+category = "hypothesis"
+intent = "Assignment without ; before the function's END (separates h03: RETURN vs function level)."
+
+[[case]]
+id = "h13_return_without_semicolon_in_if"
+file = "cases/h13_return_without_semicolon_in_if.ppl"
+category = "hypothesis"
+intent = "RETURN without ; before an IF block's END (separates h03: RETURN vs function level)."
+
+[[case]]
+id = "k01_title_case_keywords"
+file = "cases/k01_title_case_keywords.ppl"
+category = "keyword-case"
+intent = "Title-case keywords (Export, Begin, Local, If, Then, Else, End, Return)."
+
+[[case]]
+id = "k02_odd_case_keywords"
+file = "cases/k02_odd_case_keywords.ppl"
+category = "keyword-case"
+intent = "Mixed-case keyword spellings (ExPoRt, bEgIn, rEtUrN, EnD)."
+
+[[case]]
+id = "k03_lowercase_for_downto_step"
+file = "cases/k03_lowercase_for_downto_step.ppl"
+category = "keyword-case"
+intent = "Lower-case for/from/to/downto/step/do/end."
+
+[[case]]
+id = "k04_lowercase_repeat_while_break"
+file = "cases/k04_lowercase_repeat_while_break.ppl"
+category = "keyword-case"
+intent = "Lower-case repeat/until, while/do, break, continue."
+
+[[case]]
+id = "k05_lowercase_case_iferr"
+file = "cases/k05_lowercase_case_iferr.ppl"
+category = "keyword-case"
+intent = "Lower-case case/if/then/default/end and iferr/then/else."
+
+[[case]]
+id = "k06_lowercase_mod_div_operators"
+file = "cases/k06_lowercase_mod_div_operators.ppl"
+category = "keyword-case"
+intent = "Lower-case mod and div used as infix operators."
+
+[[case]]
+id = "k07_lowercase_logical_operators"
+file = "cases/k07_lowercase_logical_operators.ppl"
+category = "keyword-case"
+intent = "Lower-case and/or/xor/not used as logical operators."
+
+[[case]]
+id = "k08_var_div"
+file = "cases/k08_var_div.ppl"
+category = "keyword-case"
+intent = "Lower-case div as a variable name."
+
+[[case]]
+id = "k09_var_step"
+file = "cases/k09_var_step.ppl"
+category = "keyword-case"
+intent = "Lower-case step as a variable name."
+
+[[case]]
+id = "k10_var_key"
+file = "cases/k10_var_key.ppl"
+category = "keyword-case"
+intent = "Lower-case key as a variable name."
+
+[[case]]
+id = "k11_var_to"
+file = "cases/k11_var_to.ppl"
+category = "keyword-case"
+intent = "Lower-case to as a variable name."
+
+[[case]]
+id = "k12_var_from"
+file = "cases/k12_var_from.ppl"
+category = "keyword-case"
+intent = "Lower-case from as a variable name."
+
+[[case]]
+id = "k13_var_default"
+file = "cases/k13_var_default.ppl"
+category = "keyword-case"
+intent = "Lower-case default as a variable name."
+
+[[case]]
+id = "k14_var_kill"
+file = "cases/k14_var_kill.ppl"
+category = "keyword-case"
+intent = "Lower-case kill as a variable name."
+
+[[case]]
+id = "k15_var_and"
+file = "cases/k15_var_and.ppl"
+category = "keyword-case"
+intent = "Lower-case and as a variable name."
+
+[[case]]
+id = "k16_var_not"
+file = "cases/k16_var_not.ppl"
+category = "keyword-case"
+intent = "Lower-case not as a variable name."
+
+[[case]]
+id = "k17_var_begin"
+file = "cases/k17_var_begin.ppl"
+category = "keyword-case"
+intent = "Lower-case begin as a variable name."
+
+[[case]]
+id = "k18_var_end"
+file = "cases/k18_var_end.ppl"
+category = "keyword-case"
+intent = "Lower-case end as a variable name."
+
+[[case]]
+id = "k19_var_do"
+file = "cases/k19_var_do.ppl"
+category = "keyword-case"
+intent = "Lower-case do as a variable name."
+
+[[case]]
+id = "k20_var_case"
+file = "cases/k20_var_case.ppl"
+category = "keyword-case"
+intent = "Lower-case case as a variable name."
+
+[[case]]
+id = "k21_mod_variable_and_operator"
+file = "cases/k21_mod_variable_and_operator.ppl"
+category = "keyword-case"
+intent = "Lower-case mod as both a variable and the operator in one expression."
+
+[[case]]
+id = "k22_var_upper_mod"
+file = "cases/k22_var_upper_mod.ppl"
+category = "keyword-case"
+intent = "Upper-case MOD as a variable name."
+
+[[case]]
+id = "k23_var_title_mod"
+file = "cases/k23_var_title_mod.ppl"
+category = "keyword-case"
+intent = "Title-case Mod as a variable name."
+
+[[case]]
+id = "k24_unicode_before_lowercase"
+file = "cases/k24_unicode_before_lowercase.ppl"
+category = "keyword-case"
+intent = "Lower-case keywords after multi-byte characters (column/offset units)."
+
+[[case]]
+id = "k25_lowercase_or_operator"
+file = "cases/k25_lowercase_or_operator.ppl"
+category = "keyword-case"
+intent = "Lower-case or as an infix operator."
+
+[[case]]
+id = "k26_lowercase_xor_operator"
+file = "cases/k26_lowercase_xor_operator.ppl"
+category = "keyword-case"
+intent = "Lower-case xor as an infix operator."
+
+[[case]]
+id = "k27_lowercase_and_operator"
+file = "cases/k27_lowercase_and_operator.ppl"
+category = "keyword-case"
+intent = "Lower-case and as an infix operator on its own."
+
+[[case]]
+id = "k28_title_case_mod_operator"
+file = "cases/k28_title_case_mod_operator.ppl"
+category = "keyword-case"
+intent = "Title-case Mod as an infix operator."
+
+[[case]]
+id = "k29_title_case_and_operator"
+file = "cases/k29_title_case_and_operator.ppl"
+category = "keyword-case"
+intent = "Title-case And as an infix operator."
+
+[[case]]
+id = "k30_lowercase_end_assigned_at_statement_start"
+file = "cases/k30_lowercase_end_assigned_at_statement_start.ppl"
+category = "keyword-case"
+intent = "Lower-case end declared as a variable, then assigned at the start of a statement."
+
+[[case]]
+id = "k31_lowercase_not_call"
+file = "cases/k31_lowercase_not_call.ppl"
+category = "keyword-case"
+intent = "Lower-case not written as a call, not(0)."
+
+[[case]]
+id = "k32_lowercase_div_after_variable"
+file = "cases/k32_lowercase_div_after_variable.ppl"
+category = "keyword-case"
+intent = "Lower-case div after an operand, alone (no mod in the line)."
+
+[[case]]
+id = "k33_title_case_div_operator"
+file = "cases/k33_title_case_div_operator.ppl"
+category = "keyword-case"
+intent = "Title-case Div as an infix operator."
+
+[[case]]
+id = "k34_title_case_not_operator"
+file = "cases/k34_title_case_not_operator.ppl"
+category = "keyword-case"
+intent = "Title-case Not as a prefix operator."
+
+[[case]]
+id = "k35_lowercase_end_variable_before_semicolon"
+file = "cases/k35_lowercase_end_variable_before_semicolon.ppl"
+category = "keyword-case"
+intent = "Lower-case end variable returned directly before ; (RETURN end;)."
+
+[[case]]
+id = "k36_lowercase_end_assignment_only"
+file = "cases/k36_lowercase_end_assignment_only.ppl"
+category = "keyword-case"
+intent = "Lower-case end variable assigned at the start of a statement, never read before ;."

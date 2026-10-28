@@ -1,8 +1,8 @@
 //! 320×240 GROB framebuffer display container with nearest-neighbor scaling.
 
-use super::{IdeAction, IdeAppState, IdePanel};
-use crate::theme::{ACCENT_BLUE, BORDER_CRISP, TEXT_MUTED};
-use egui::{Color32, ColorImage, Rect, RichText, Stroke, StrokeKind, TextureOptions, Vec2};
+use super::{IdeAppState, IdePanel};
+use crate::theme::{ACCENT_BLUE, BORDER_CRISP};
+use egui::{Color32, ColorImage, Rect, Stroke, StrokeKind, TextureOptions, Vec2};
 use ppl_graphics::Grob;
 
 /// Container hosting the 320×240 calculator screen.
@@ -10,6 +10,7 @@ pub struct CalculatorDisplay {
     pub texture: Option<egui::TextureHandle>,
     pub last_generation: u64,
     pub zoom_mode: ZoomMode,
+    pub smooth: bool,
     /// Screen rect in window coordinates, for touch mapping.
     pub last_display_rect: Rect,
 }
@@ -20,6 +21,7 @@ impl Default for CalculatorDisplay {
             texture: None,
             last_generation: 0,
             zoom_mode: ZoomMode::default(),
+            smooth: false,
             last_display_rect: Rect::NOTHING,
         }
     }
@@ -83,112 +85,103 @@ impl CalculatorDisplay {
 
         let image = ColorImage::new([width, height], pixels);
 
+        let options = self.texture_options();
         if let Some(tex) = &mut self.texture {
-            tex.set(image, TextureOptions::NEAREST);
+            tex.set(image, options);
         } else {
-            self.texture = Some(ctx.load_texture("calc_screen", image, TextureOptions::NEAREST));
+            self.texture = Some(ctx.load_texture("calc_screen", image, self.texture_options()));
         }
 
         self.last_generation = generation;
     }
 }
 
+impl CalculatorDisplay {
+    fn texture_options(&self) -> TextureOptions {
+        if self.smooth {
+            TextureOptions::LINEAR
+        } else {
+            TextureOptions::NEAREST
+        }
+    }
+    pub fn set_smooth(&mut self, smooth: bool) {
+        if self.smooth != smooth {
+            self.smooth = smooth;
+            self.last_generation = u64::MAX;
+        }
+    }
+    /// Firmware pixels are 0x00RRGGBB, not the packed physical USB format.
+    pub fn update_xrgb(&mut self, ctx: &egui::Context, pixels: &[u32], generation: u64) {
+        if pixels.len() != 320 * 240
+            || (self.last_generation != u64::MAX
+                && self.last_generation >= generation
+                && self.texture.is_some())
+        {
+            return;
+        }
+        let image = ColorImage::new(
+            [320, 240],
+            pixels
+                .iter()
+                .map(|p| Color32::from_rgb((p >> 16) as u8, (p >> 8) as u8, *p as u8))
+                .collect(),
+        );
+        let options = self.texture_options();
+        if let Some(tex) = &mut self.texture {
+            tex.set(image, options);
+        } else {
+            self.texture = Some(ctx.load_texture("calc_screen", image, options));
+        }
+        self.last_generation = generation;
+    }
+    pub fn paint_at(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState, rect: Rect) {
+        self.last_display_rect = rect;
+        state.display_scale = rect.width() / 320.0;
+        let response = ui.interact(
+            rect,
+            ui.id().with("lcd_touch"),
+            egui::Sense::click_and_drag(),
+        );
+        if response.is_pointer_button_down_on() {
+            state.calc_input_focus = true;
+            ui.ctx().memory_mut(|m| {
+                if let Some(id) = m.focused() {
+                    m.surrender_focus(id);
+                }
+            });
+        }
+        ui.painter().rect_filled(rect, 0.0, Color32::BLACK);
+        if let Some(texture) = &self.texture {
+            ui.painter().image(
+                texture.id(),
+                rect,
+                Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                Color32::WHITE,
+            );
+        }
+        ui.painter().rect_stroke(
+            rect,
+            0.0,
+            Stroke::new(
+                1.0,
+                if state.calc_input_focus {
+                    ACCENT_BLUE.gamma_multiply(0.6)
+                } else {
+                    BORDER_CRISP
+                },
+            ),
+            StrokeKind::Outside,
+        );
+    }
+}
 impl IdePanel for CalculatorDisplay {
     fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
-        ui.vertical(|ui| {
-            // Header
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("🖩 HP PRIME G1 SCREEN").strong().size(12.0));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui
-                        .small_button("📷")
-                        .on_hover_text("Save Screenshot (PNG)")
-                        .clicked()
-                    {
-                        state.queue_action(IdeAction::TakeScreenshot);
-                    }
-
-                    // Zoom selector
-                    ui.selectable_value(&mut self.zoom_mode, ZoomMode::Fit, "Fit");
-                    ui.selectable_value(&mut self.zoom_mode, ZoomMode::Scale2x, "2x");
-                    ui.selectable_value(&mut self.zoom_mode, ZoomMode::Scale1x, "1x");
-                });
-            });
-
-            ui.add(egui::Separator::default().spacing(4.0));
-
-            // Screen Frame Bezel Area
-            // Narrow panels scale the screen down instead of clipping it.
-            let available_width = ui.available_width().max(168.0);
-            let (target_w, target_h) = match self.zoom_mode {
-                ZoomMode::Scale1x => (320.0, 240.0),
-                ZoomMode::Scale2x => (320.0 * 2.0, 240.0 * 2.0),
-                ZoomMode::Fit => {
-                    let w = (available_width - 8.0).max(160.0);
-                    let h = w * (240.0 / 320.0);
-                    (w, h)
-                }
-            };
-
-            let (rect, response) = ui.allocate_exact_size(
-                Vec2::new(available_width, target_h + 12.0),
-                egui::Sense::click_and_drag(),
-            );
-
-            // Centered display rectangle
-            let eff_w = target_w.min(available_width - 8.0);
-            let eff_h = eff_w * (240.0 / 320.0);
-            let display_rect = Rect::from_center_size(rect.center(), Vec2::new(eff_w, eff_h));
-
-            // Update display scale for status bar accuracy
-            state.display_scale = eff_w / 320.0;
-
-            // Outer Bezel
-            ui.painter()
-                .rect_filled(rect, 0.0, crate::theme::BG_EXTREME);
-            ui.painter().rect_stroke(
-                rect,
-                0.0,
-                Stroke::new(1.0_f32, BORDER_CRISP),
-                StrokeKind::Inside,
-            );
-
-            // Record the display rect for touch mapping and focus.
-            self.last_display_rect = display_rect;
-            if response.clicked() || response.dragged() {
-                state.calc_input_focus = true;
-            }
-
-            // Inner Display
-            if let Some(texture) = &self.texture {
-                ui.painter().image(
-                    texture.id(),
-                    display_rect,
-                    Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    Color32::WHITE,
-                );
-            } else {
-                // Placeholder when no program is running yet
-                ui.painter()
-                    .rect_filled(display_rect, 0.0, Color32::from_rgb(0x10, 0x14, 0x18));
-                let center = display_rect.center();
-                ui.painter().text(
-                    center,
-                    egui::Align2::CENTER_CENTER,
-                    "320×240 Framebuffer\n(Ready for execution)",
-                    egui::FontId::monospace(12.0),
-                    TEXT_MUTED,
-                );
-            }
-
-            let border_stroke = if state.calc_input_focus {
-                Stroke::new(1.0_f32, ACCENT_BLUE)
-            } else {
-                Stroke::new(1.0_f32, Color32::from_rgb(0x35, 0x3B, 0x41))
-            };
-            ui.painter()
-                .rect_stroke(display_rect, 0.0, border_stroke, StrokeKind::Inside);
-        });
+        let available = ui.available_size();
+        let width = available.x.min(available.y * 4.0 / 3.0).max(1.0);
+        let size = Vec2::new(width, width * 0.75);
+        let rect = Rect::from_center_size(ui.available_rect_before_wrap().center(), size);
+        self.paint_at(ui, state, rect);
+        ui.allocate_space(available);
     }
 }
 
@@ -241,5 +234,34 @@ mod tests {
                 .project_pointer_pos(egui::pos2(500.0, 200.0))
                 .is_none()
         );
+    }
+
+    #[test]
+    fn test_update_xrgb_monotonic_generation() {
+        let ctx = egui::Context::default();
+        let mut display = CalculatorDisplay::new();
+        let pixels1 = vec![0x00FF0000; 320 * 240]; // Red
+        display.update_xrgb(&ctx, &pixels1, 10);
+        assert_eq!(display.last_generation, 10);
+        assert!(display.texture.is_some());
+
+        // Stale frame (generation 5 < 10) must be dropped
+        let pixels_old = vec![0x0000FF00; 320 * 240];
+        display.update_xrgb(&ctx, &pixels_old, 5);
+        assert_eq!(display.last_generation, 10);
+
+        // Same generation (10 == 10) must be skipped (no redundant texture updates)
+        display.update_xrgb(&ctx, &pixels_old, 10);
+        assert_eq!(display.last_generation, 10);
+
+        // Newer generation (15 > 10) is accepted
+        let pixels_new = vec![0x000000FF; 320 * 240];
+        display.update_xrgb(&ctx, &pixels_new, 15);
+        assert_eq!(display.last_generation, 15);
+
+        // Reset sentinel u64::MAX (used on backend switch) allows any subsequent generation
+        display.last_generation = u64::MAX;
+        display.update_xrgb(&ctx, &pixels1, 2);
+        assert_eq!(display.last_generation, 2);
     }
 }

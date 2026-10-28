@@ -21,7 +21,7 @@ use super::completion::{self, CompletionItem, CompletionState};
 use super::document::LineIndex;
 use super::gutter::{self, GutterInput};
 use super::input;
-use super::tab::{EditorTab, TabId};
+use super::tab::{EditorTab, TabAnalysis, TabId};
 use crate::ide::diagnostics::DiagnosticItem;
 use crate::ide::syntax::CodeStyle;
 use crate::ide::{IdeAction, IdeAppState};
@@ -110,6 +110,19 @@ pub struct ViewInput<'a> {
     pub find: Option<FindHighlight<'a>>,
 }
 
+/// Items of `analysis` while its revision is the document's, unchanged
+/// this frame.
+fn current_items(
+    analysis: &Option<TabAnalysis>,
+    revision: u64,
+    changed: bool,
+) -> &[DiagnosticItem] {
+    match analysis {
+        Some(a) if a.revision == revision && !changed => &a.items,
+        _ => &[],
+    }
+}
+
 /// Shows `tab` filling the available space.
 pub fn show(
     ui: &mut egui::Ui,
@@ -125,7 +138,7 @@ pub fn show(
     tab.sync();
 
     // 1. Editor keys, before TextEdit sees them.
-    let focused = ctx.memory(|m| m.has_focus(id));
+    let focused = !state.calc_input_focus && ctx.memory(|m| m.has_focus(id));
     let mut explicit_completion = false;
     if focused {
         let lines = tab.doc.lines().clone();
@@ -186,6 +199,7 @@ pub fn show(
         content,
         doc,
         analysis: tab_analysis,
+        firmware: tab_firmware,
         breakpoints,
         ..
     } = tab;
@@ -220,10 +234,20 @@ pub fn show(
                         .show(ui)
                 })
                 .inner;
-            let diagnostics: &[DiagnosticItem] = match tab_analysis {
-                Some(a) if a.revision == doc_revision && !output.response.changed() => &a.items,
-                _ => &[],
-            };
+            let changed = output.response.changed();
+            let current = |a| current_items(a, doc_revision, changed);
+            // Firmware Check results are marked like native ones, so the
+            // editor and the Problems panel show the same problems.
+            let merged: std::borrow::Cow<'_, [DiagnosticItem]> =
+                match (current(tab_analysis), current(tab_firmware)) {
+                    (native, []) => native.into(),
+                    (native, firmware) => {
+                        let mut all = [native, firmware].concat();
+                        all.sort_by_key(|d| (d.line, d.col));
+                        all.into()
+                    }
+                };
+            let diagnostics: &[DiagnosticItem] = &merged;
             let galley = output.galley.clone();
             let gpos = output.galley_pos;
             let has_focus = output.response.has_focus();
@@ -239,6 +263,21 @@ pub fn show(
             });
 
             // Keystrokes that changed the text through TextEdit itself.
+            output.response.context_menu(|ui| {
+                for (label, command) in [
+                    ("Undo", crate::ide::EditCommand::Undo),
+                    ("Redo", crate::ide::EditCommand::Redo),
+                    ("Cut", crate::ide::EditCommand::Cut),
+                    ("Copy", crate::ide::EditCommand::Copy),
+                    ("Paste", crate::ide::EditCommand::Paste),
+                    ("Select All", crate::ide::EditCommand::SelectAll),
+                ] {
+                    if ui.button(label).clicked() {
+                        state.queue_action(IdeAction::Edit(command));
+                        ui.close();
+                    }
+                }
+            });
             if output.response.changed() {
                 typed_word = ui.input(|i| {
                     i.events.iter().any(|e| {
@@ -329,6 +368,22 @@ pub fn show(
                     }
                 }
             }
+            // Indentation guides visit only visible rows and share the cached galley.
+            for line in rows.clone() {
+                let leading = content
+                    .get(lines.line_bytes(line))
+                    .unwrap_or("")
+                    .chars()
+                    .take_while(|c| *c == ' ')
+                    .count();
+                for column in (2..leading).step_by(2) {
+                    let r = caret(&galley, gpos, line, column);
+                    bg.push(Shape::line_segment(
+                        [r.left_top(), r.left_bottom()],
+                        Stroke::new(1.0 / ui.pixels_per_point(), crate::theme::BORDER_CRISP),
+                    ));
+                }
+            }
             ui.painter().set(bg_idx, Shape::Vec(bg));
 
             // --- diagnostics (on top) ------------------------------------
@@ -410,7 +465,10 @@ pub fn show(
         });
 
     // Focus indicator.
-    let focused_now = ctx.memory(|m| m.has_focus(id));
+    if ui.rect_contains_pointer(outer) && ui.input(|i| i.pointer.primary_pressed()) {
+        state.calc_input_focus = false;
+    }
+    let focused_now = !state.calc_input_focus && ctx.memory(|m| m.has_focus(id));
     if focused_now {
         state.calc_input_focus = false;
         ui.painter().rect_stroke(

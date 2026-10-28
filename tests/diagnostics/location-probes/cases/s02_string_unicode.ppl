@@ -1,0 +1,5 @@
+EXPORT LP02()
+BEGIN
+ // π 😀
+ RETURN "abc;
+END;

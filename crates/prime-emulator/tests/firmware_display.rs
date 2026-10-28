@@ -76,6 +76,7 @@ fn run_script(env: &Env, keys: &str, lcd_watch: bool) -> (Outcome, RunReport, te
         script: Some(ScriptConfig {
             keys: parse_keys(keys).unwrap(),
             screenshot_dir: Some(tmp.path().join("shots")),
+            start_with_keys: false,
             ..ScriptConfig::default()
         }),
         lcd_watch,

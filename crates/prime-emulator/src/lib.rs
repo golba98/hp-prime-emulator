@@ -12,12 +12,16 @@
 //! - [`trace`]: bounded structured diagnostics (human + JSONL)
 //! - [`runner`]: boot orchestration, limits, heartbeat detection, report
 
+pub mod appsuite;
 pub mod calcverify;
 pub mod checkprog;
 pub mod compiler;
+pub mod direct;
 pub mod display;
 pub mod engine;
 pub mod firmware;
+pub mod framediff;
+pub mod guest_call;
 pub mod hpprgm;
 pub mod import;
 pub mod keys;
@@ -29,6 +33,7 @@ pub mod runtime;
 pub mod runtime_value;
 pub mod script;
 pub mod services;
+pub mod session;
 pub mod sha256;
 pub mod storage;
 pub mod trace;

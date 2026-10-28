@@ -6,7 +6,7 @@ use super::files::PrimeFile;
 use super::guard::fnv64;
 
 /// One raw report, recorded for the reverse-engineering log.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Exchange {
     pub outgoing: bool,
     pub bytes: Vec<u8>,

@@ -100,7 +100,7 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
     let compile_start = Instant::now();
     let (program, diags) = ppl_compiler::compile_source(&file, &Default::default());
     let compile_s = compile_start.elapsed().as_secs_f64();
-    r.diagnostics=diags.items.iter().map(|d|{let lc=file.line_col(d.span.start);Diagnostic{source:"native-compiler".into(),severity:if d.is_error(){"error"}else{"warning"}.into(),code:Some(d.code.into()),message:Some(d.message.clone()),line:Some(lc.line),column:Some(lc.col),raw_position:Some(json!({"start_byte":d.span.start,"end_byte":d.span.end,"hint":d.hint,"unverified":d.unverified}))}}).collect();
+    r.diagnostics=diags.items.iter().map(|d|{let lc=file.line_col(d.span.start);Diagnostic{source:"native-compiler".into(),severity:if d.is_error(){"error"}else{"warning"}.into(),code:Some(d.code.into()),message:Some(d.message.clone()),line:Some(lc.line),column:Some(lc.col),raw_position:Some(json!({"start_byte":d.span.start,"end_byte":d.span.end,"hint":d.hint,"unverified":d.unverified,"class":format!("{:?}",d.class())}))}}).collect();
     r.compilation_status = Some(
         if program.is_some() && !source.text.trim().is_empty() {
             "valid"

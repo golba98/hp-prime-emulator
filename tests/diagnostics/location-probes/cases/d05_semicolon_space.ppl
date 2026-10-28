@@ -1,0 +1,4 @@
+EXPORT LP34()
+BEGIN
+ RETURN 7   div 2;
+END;

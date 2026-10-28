@@ -342,12 +342,12 @@ BEGIN
     RECT_P(0, 222, 319, 239, RGB(5, 5, 15));
     LINE_P(0, 221, 319, 221, RGB(25, 25, 45));
 
-    BLIT_P();
+    // G0 already displays drawing; no blit is required.
     WAIT(0.01);
   END;
 
   // Exit screen
   RECT_P(0, 0, 319, 239, RGB(0, 0, 0));
   TEXTOUT_P("SHOW ENDED", 100, 110, 2, RGB(255, 200, 50));
-  BLIT_P();
+  // G0 already displays drawing; no blit is required.
 END;

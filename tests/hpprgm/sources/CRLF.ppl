@@ -1,0 +1,4 @@
+EXPORT CRLF()
+BEGIN
+ PRINT("≥ é 😀");
+END;

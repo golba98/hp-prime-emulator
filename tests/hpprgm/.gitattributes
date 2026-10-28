@@ -1,0 +1,3 @@
+# These are byte-exact fixtures, including BOMs and deliberate CR/CRLF data.
+files/** -text
+sources/** -text

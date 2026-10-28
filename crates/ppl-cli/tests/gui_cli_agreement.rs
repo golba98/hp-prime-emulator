@@ -10,12 +10,29 @@ use ppl_gui::ide::editor::EditorTab;
 use ppl_syntax::Severity;
 
 const PPL: &str = env!("CARGO_BIN_EXE_ppl");
+/// The CLI with the default engine pinned to native, independent of any
+/// firmware configured on the developer's machine (config file or env).
+fn native_ppl() -> Command {
+    let mut c = Command::new(PPL);
+    c.env("PPL_ENGINE", "native")
+        .env("PPL_CONFIG", "/nonexistent/ppl-test-config.toml");
+    for asset in [
+        "PPL_FIRMWARE",
+        "PPL_OS_ROM",
+        "PPL_FACTORY_A",
+        "PPL_FIRMWARE_RUNNER",
+        "PPL_FIRMWARE_INIT_DATA",
+    ] {
+        c.env_remove(asset);
+    }
+    c
+}
 
 type Finding = (String, String, u32, u32);
 
 /// Findings printed by `ppl check FILE`.
 fn cli_findings(path: &Path) -> Vec<Finding> {
-    let out = Command::new(PPL)
+    let out = native_ppl()
         .args(["check", path.to_str().unwrap()])
         .env("NO_COLOR", "1")
         .output()

@@ -76,6 +76,9 @@ pub struct SvcCtx<'a, 'e> {
     pub trace: &'a TraceHub,
     /// Emulator-side thread identity of the engine that trapped.
     pub thread_id: u32,
+    /// The handler redirected the registers into a host guest call; the SVC
+    /// return convention must not be applied.
+    pub redirected: bool,
 }
 
 impl SvcCtx<'_, '_> {
@@ -106,6 +109,7 @@ impl SvcCtx<'_, '_> {
     /// Block the calling guest thread like the real OS would, but bounded so
     /// a headless run cannot hang forever without diagnostics.
     pub fn bounded_sleep(&self, ms: u64) {
+        let _parked = self.mem.snapshot_gate.park();
         std::thread::sleep(Duration::from_millis(ms));
     }
 }
@@ -243,6 +247,8 @@ pub enum UnsupportedPolicy {
 pub struct SharedState {
     /// Root directory serving the guest's drive letters (`A:\` etc.).
     pub data_dir: PathBuf,
+    /// Host-requested guest calls on the UI thread (`guest_call`).
+    pub guest_calls: crate::guest_call::GuestCalls,
     /// Host-side input event queue consumed by the GetEvent service.
     /// Entries are (status, key_code0) pairs in the verified UIMultipressEvent
     /// semantics: status 16 = key down, 0x100000 = key up.
@@ -451,6 +457,7 @@ impl SharedState {
             input_thread: std::sync::atomic::AtomicU32::new(u32::MAX),
             last_getevent_chain: Mutex::new([0; 3]),
             program_record: Mutex::new(None),
+            guest_calls: Default::default(),
             event_type_filter: std::sync::atomic::AtomicU32::new(0),
             vfs: fs::Vfs::new(data_dir.clone()),
             sync_objects: Mutex::new(HashMap::new()),
@@ -749,6 +756,17 @@ impl SharedState {
         &self.firmware_guest_path
     }
 
+    pub fn push_key_transition(&self, key_code: u16, down: bool) {
+        self.input_events.lock().unwrap().push_back(InputEvent {
+            status: if down {
+                UI_EVENT_TYPE_KEY
+            } else {
+                UI_EVENT_TYPE_KEY_UP
+            },
+            key_code0: key_code,
+        });
+    }
+
     pub fn push_key_press(&self, key_code: u16) {
         let mut q = self.input_events.lock().unwrap();
         q.push_back(InputEvent {
@@ -801,6 +819,17 @@ pub fn dispatch(
     }
     let imm = mem.read_u32(pc - 4)?;
     let svc_id = imm & 0xFFFFF;
+    // Return trap of a host guest call: restore the interrupted context.
+    if svc_id == crate::guest_call::RETURN_SVC {
+        return match shared.guest_calls.complete(uc, mem) {
+            Ok(true) => Ok(DispatchOutcome::Handled),
+            Ok(false) => Err(MemoryError {
+                va: pc,
+                msg: "guest-call return trap with no call in progress".into(),
+            }),
+            Err(e) => Err(MemoryError { va: pc, msg: e }),
+        };
+    }
     let caller_pc = mem.read_u32(sp)?;
     let stack_slots = [
         mem.read_u32(sp.wrapping_add(8)).unwrap_or(0),
@@ -830,6 +859,7 @@ pub fn dispatch(
     );
 
     let handler = entry.and_then(|e| e.handler);
+    let mut redirected = false;
     let result = match handler {
         Some(handler) => {
             let mut ctx = SvcCtx {
@@ -839,8 +869,11 @@ pub fn dispatch(
                 shared,
                 trace,
                 thread_id,
+                redirected: false,
             };
-            match handler(&mut ctx) {
+            let r = handler(&mut ctx);
+            redirected = ctx.redirected;
+            match r {
                 Ok(v) => v,
                 Err(HandlerFault(e)) => {
                     let (live, blocks, largest_free) = mem.heap_stats();
@@ -861,6 +894,11 @@ pub fn dispatch(
         None => 0,
     };
 
+    // The handler entered a host guest call; its return trap restores this
+    // SVC's context and re-executes it (see `guest_call`).
+    if redirected {
+        return Ok(DispatchOutcome::Handled);
+    }
     // Verified return convention: r0 = result, sp += 8, pc = [sp].
     uc.reg_write(RegisterARM::R0, result as u64)
         .map_err(|e| MemoryError {

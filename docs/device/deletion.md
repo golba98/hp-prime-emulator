@@ -1,5 +1,10 @@
 # Deleting programs and notes on HP Prime G1
 
+Current shared-manager behavior and evidence boundaries are documented in
+[DELETE_TRANSACTION_RECOVERY.md](DELETE_TRANSACTION_RECOVERY.md). The historical measurements below are retained;
+claims about an exact firmware size limit or legacy pending-state handling are
+superseded by that report.
+
 **Physically verified on 2026-10-23:** G1 `03f0:1541`, firmware build
 `15157`, boot `V0.050.640`. Programs and notes can be deleted directly over
 USB, without opening the Program Catalog or pressing Run.

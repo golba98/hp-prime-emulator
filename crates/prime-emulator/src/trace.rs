@@ -99,6 +99,7 @@ pub struct TraceHub {
     code_ring: Mutex<std::collections::VecDeque<u32>>,
     /// Total watchpoint hits (the log itself is capped by `watch_hit`).
     watch_count: Mutex<u64>,
+    probe_count: Mutex<u64>,
     /// (svc_id, caller_pc) -> invocation count; the raw data behind both the
     /// "unsupported services" report and heartbeat detection.
     call_sites: Mutex<HashMap<(u32, u32), u64>>,
@@ -138,6 +139,7 @@ impl TraceHub {
             seq: AtomicU64::new(0),
             code_ring: Mutex::new(std::collections::VecDeque::new()),
             watch_count: Mutex::new(0),
+            probe_count: Mutex::new(0),
             call_sites: Mutex::new(HashMap::new()),
             svc_totals: Mutex::new(HashMap::new()),
             fs_log: Mutex::new(Vec::new()),
@@ -344,17 +346,39 @@ impl TraceHub {
     }
 
     /// Bounded watchpoint hit log (first occurrences only).
-    pub fn watch_hit(&self, addr: u32, size: usize, value: u32, pc: u32) {
+    pub fn watch_hit(&self, addr: u32, size: usize, value: u32, pc: u32, lr: u32) {
         let mut hits = self.watch_count.lock().unwrap();
         *hits += 1;
         if *hits <= 64 {
             self.record(
                 EventKind::Info,
                 format!(
-                    "watch: write {addr:#010X} ({size} bytes) = {value:#010X} at pc={pc:#010X}"
+                    "watch: write {addr:#010X} ({size} bytes) = {value:#010X} at pc={pc:#010X} lr={lr:#010X}"
                 ),
-                json!({ "addr": addr, "size": size, "value": value, "pc": pc }),
+                json!({ "addr": addr, "size": size, "value": value, "pc": pc, "lr": lr }),
             );
+        }
+    }
+
+    /// A `PRIME_PROBE_PCS` hit: r0-r4, lr, sp (bounded log).
+    pub fn probe(&self, pc: u32, thread: u32, regs: [u32; 7]) {
+        let mut hits = self.probe_count.lock().unwrap();
+        *hits += 1;
+        if *hits <= 4096 {
+            let [r0, r1, r2, r3, r4, lr, sp] = regs;
+            self.record(
+                EventKind::Info,
+                format!(
+                    "probe {pc:#010X} t{thread} r0={r0:#010X} r1={r1:#010X} r2={r2:#010X} \
+                     r3={r3:#010X} r4={r4:#010X} lr={lr:#010X} sp={sp:#010X}"
+                ),
+                json!({ "probe": pc, "thread": thread, "r0": r0, "r1": r1, "r2": r2,
+                        "r3": r3, "r4": r4, "lr": lr, "sp": sp }),
+            );
+            // Probes are read after sessions that may end abruptly.
+            if let Some(w) = self.jsonl.lock().unwrap().as_mut() {
+                let _ = w.flush();
+            }
         }
     }
 

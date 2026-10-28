@@ -6,6 +6,7 @@ pub mod device;
 pub mod device_delete;
 mod device_delete_legacy;
 mod device_delete_store;
+pub mod diag_parity;
 pub mod gui;
 pub mod run;
 pub mod test;
@@ -24,3 +25,6 @@ mod device_inspect;
 pub mod unified;
 
 mod device_incremental;
+mod device_incremental_stream;
+
+mod program_management;

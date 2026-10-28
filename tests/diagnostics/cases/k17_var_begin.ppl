@@ -1,0 +1,5 @@
+EXPORT DPK17()
+BEGIN
+ LOCAL begin:=4;
+ RETURN begin+1;
+END;

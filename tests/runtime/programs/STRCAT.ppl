@@ -1,0 +1,4 @@
+EXPORT STRCAT()
+BEGIN
+  RETURN "Prime "+"G1 "+STRING(2+2)+" éΣ";
+END;

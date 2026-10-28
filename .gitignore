@@ -86,3 +86,14 @@ out.png
 
 # Reviewed live-viewer investigation and validation report.
 !docs/device/LIVE_VIEWER_QUALITY_AND_PERFORMANCE.md
+
+# Public findings only; vendor binaries and private captures remain ignored.
+!docs/reverse-engineering/HP_OFFICIAL_SOFTWARE_ARCHITECTURE.md
+!docs/reverse-engineering/CONNECTIVITY_KIT_SCREEN_PIPELINE.md
+!docs/reverse-engineering/VIRTUAL_CALCULATOR_ARCHITECTURE.md
+!docs/reverse-engineering/HP_VS_RUST_SCREEN_COMPARISON.md
+
+# Reviewed program-management documentation.
+!docs/device/PROGRAM_TRANSFER_AND_LIMITS.md
+!docs/device/DELETE_TRANSACTION_RECOVERY.md
+!docs/device/PROGRAM_CHECK_AND_DIAGNOSTICS.md

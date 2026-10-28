@@ -1,4 +1,4 @@
-//! Transactional RGB565 screenshot composition. No transport access.
+//! Transactional RGB555 screenshot composition. No transport access.
 use crate::{Grob, PrimeScreenshotDecoder, ScreenshotDecodeTimings};
 use std::sync::Arc;
 
@@ -77,7 +77,7 @@ impl IncrementalFramebuffer {
             || &png[8..16] != b"\0\0\0\rIHDR"
             || png[24..26] != [16, 0]
         {
-            return Err("incremental RGB565 requires grayscale16 PNG".into());
+            return Err("incremental RGB555 requires grayscale16 PNG".into());
         }
         let w = u32::from_be_bytes(png[16..20].try_into().unwrap()) as usize;
         let h = u32::from_be_bytes(png[20..24].try_into().unwrap()) as usize;
@@ -144,17 +144,17 @@ mod tests {
             .write_image_data(
                 &pixels
                     .iter()
-                    .flat_map(|v| v.to_be_bytes())
+                    .flat_map(|v| v.to_le_bytes())
                     .collect::<Vec<_>>(),
             )
             .unwrap();
         bytes
     }
     fn color(v: u16) -> u32 {
-        let r = u32::from((v >> 11) & 31);
-        let g = u32::from((v >> 5) & 63);
+        let r = u32::from((v >> 10) & 31);
+        let g = u32::from((v >> 5) & 31);
         let b = u32::from(v & 31);
-        (((r << 3) | (r >> 2)) << 16) | (((g << 2) | (g >> 4)) << 8) | ((b << 3) | (b >> 2))
+        (((r << 3) | (r >> 2)) << 16) | (((g << 3) | (g >> 2)) << 8) | ((b << 3) | (b >> 2))
     }
     #[test]
     fn every_pixel_matches_independent_expected_canvas_after_each_patch() {
@@ -250,7 +250,7 @@ mod tests {
 mod palette_tests {
     use super::*;
     #[test]
-    fn general_palette_decode_preserves_palette_and_incremental_rgb565_rejects_it() {
+    fn general_palette_decode_preserves_palette_and_incremental_rgb555_rejects_it() {
         let mut bytes = Vec::new();
         let mut enc = png::Encoder::new(&mut bytes, 2, 1);
         enc.set_color(png::ColorType::Indexed);

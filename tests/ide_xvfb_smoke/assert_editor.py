@@ -70,8 +70,8 @@ def main():
     broken = tab(d, "BROKEN.ppl")
     errs = [x for x in broken["diagnostics"] if x["is_error"]]
     check(
-        "unclosed string is a syntax error on its own line",
-        any(x["code"] == "unclosed-string" and x["class"] == "Syntax" and x["line"] == 3 for x in errs),
+        "unclosed string points to the firmware EOF stopping position",
+        any(x["code"] == "unclosed-string" and x["class"] == "Syntax" and x["line"] == 6 and x["col"] == 1 for x in errs),
         str(broken["diagnostics"]),
     )
     check(

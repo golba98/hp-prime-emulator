@@ -1,0 +1,5 @@
+EXPORT DPK14()
+BEGIN
+ LOCAL kill:=4;
+ RETURN kill+1;
+END;

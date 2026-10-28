@@ -182,6 +182,10 @@ pub struct EditorTab {
     /// The compiler's last result for this buffer, tagged with the revision
     /// it analysed. Only shown while that revision is current.
     pub analysis: Option<TabAnalysis>,
+    /// The last explicit original-firmware Check of this buffer, tagged with
+    /// the revision it checked. `failure` means the firmware gave no verdict;
+    /// no items and no failure means the firmware accepted that revision.
+    pub firmware: Option<TabAnalysis>,
     pub breakpoints: BTreeSet<usize>,
     /// Pending cursor jump (char index) applied on the next frame.
     pub pending_jump: Option<usize>,
@@ -208,6 +212,7 @@ impl EditorTab {
             content,
             modified: false,
             analysis: None,
+            firmware: None,
             breakpoints: BTreeSet::new(),
             pending_jump: None,
             pending_select: None,
@@ -261,6 +266,12 @@ impl EditorTab {
     /// so results computed for older text are never shown.
     pub fn current_diagnostics(&mut self) -> &[DiagnosticItem] {
         self.current_analysis().map_or(&[], |a| &a.items)
+    }
+
+    /// The original-firmware Check of the current revision, if any.
+    pub fn current_firmware(&mut self) -> Option<&TabAnalysis> {
+        let rev = self.revision();
+        self.firmware.as_ref().filter(|a| a.revision == rev)
     }
 
     /// Content revision: advances on every real change (see [`Self::sync`]).

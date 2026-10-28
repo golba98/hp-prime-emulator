@@ -1,0 +1,203 @@
+[[case]]
+id = "s01_string_no_newline"
+file = "cases/s01_string_no_newline.ppl"
+category = "location-probe"
+intent = "Native location parity: s01_string_no_newline"
+
+[[case]]
+id = "s02_string_unicode"
+file = "cases/s02_string_unicode.ppl"
+category = "location-probe"
+intent = "Native location parity: s02_string_unicode"
+
+[[case]]
+id = "s03_string_escape"
+file = "cases/s03_string_escape.ppl"
+category = "location-probe"
+intent = "Native location parity: s03_string_escape"
+
+[[case]]
+id = "s04_string_closed"
+file = "cases/s04_string_closed.ppl"
+category = "location-probe"
+intent = "Native location parity: s04_string_closed"
+
+[[case]]
+id = "c01_not_missing_operator"
+file = "cases/c01_not_missing_operator.ppl"
+category = "location-probe"
+intent = "Native location parity: c01_not_missing_operator"
+
+[[case]]
+id = "c02_declared_not"
+file = "cases/c02_declared_not.ppl"
+category = "location-probe"
+intent = "Native location parity: c02_declared_not"
+
+[[case]]
+id = "c03_declared_not_valid"
+file = "cases/c03_declared_not_valid.ppl"
+category = "location-probe"
+intent = "Native location parity: c03_declared_not_valid"
+
+[[case]]
+id = "c04_upper_not"
+file = "cases/c04_upper_not.ppl"
+category = "location-probe"
+intent = "Native location parity: c04_upper_not"
+
+[[case]]
+id = "c05_nested_not"
+file = "cases/c05_nested_not.ppl"
+category = "location-probe"
+intent = "Native location parity: c05_nested_not"
+
+[[case]]
+id = "c06_earlier_unknown"
+file = "cases/c06_earlier_unknown.ppl"
+category = "location-probe"
+intent = "Native location parity: c06_earlier_unknown"
+
+[[case]]
+id = "c07_adjacent_numbers"
+file = "cases/c07_adjacent_numbers.ppl"
+category = "location-probe"
+intent = "Native location parity: c07_adjacent_numbers"
+
+[[case]]
+id = "c08_missing_then"
+file = "cases/c08_missing_then.ppl"
+category = "location-probe"
+intent = "Native location parity: c08_missing_then"
+
+[[case]]
+id = "c09_undeclared_not"
+file = "cases/c09_undeclared_not.ppl"
+category = "location-probe"
+intent = "Native location parity: c09_undeclared_not"
+
+[[case]]
+id = "m01_mod_declaration"
+file = "cases/m01_mod_declaration.ppl"
+category = "location-probe"
+intent = "Native location parity: m01_mod_declaration"
+
+[[case]]
+id = "m02_mod_no_init"
+file = "cases/m02_mod_no_init.ppl"
+category = "location-probe"
+intent = "Native location parity: m02_mod_no_init"
+
+[[case]]
+id = "m03_mod_assignment"
+file = "cases/m03_mod_assignment.ppl"
+category = "location-probe"
+intent = "Native location parity: m03_mod_assignment"
+
+[[case]]
+id = "m04_mod_expression"
+file = "cases/m04_mod_expression.ppl"
+category = "location-probe"
+intent = "Native location parity: m04_mod_expression"
+
+[[case]]
+id = "m05_mod_bare"
+file = "cases/m05_mod_bare.ppl"
+category = "location-probe"
+intent = "Native location parity: m05_mod_bare"
+
+[[case]]
+id = "m06_mod_call"
+file = "cases/m06_mod_call.ppl"
+category = "location-probe"
+intent = "Native location parity: m06_mod_call"
+
+[[case]]
+id = "r01_empty_return_upper"
+file = "cases/r01_empty_return_upper.ppl"
+category = "location-probe"
+intent = "Native location parity: r01_empty_return_upper"
+
+[[case]]
+id = "r02_empty_return_lower"
+file = "cases/r02_empty_return_lower.ppl"
+category = "location-probe"
+intent = "Native location parity: r02_empty_return_lower"
+
+[[case]]
+id = "r03_end_value"
+file = "cases/r03_end_value.ppl"
+category = "location-probe"
+intent = "Native location parity: r03_end_value"
+
+[[case]]
+id = "r04_empty_return_semi"
+file = "cases/r04_empty_return_semi.ppl"
+category = "location-probe"
+intent = "Native location parity: r04_empty_return_semi"
+
+[[case]]
+id = "r05_empty_return_nested"
+file = "cases/r05_empty_return_nested.ppl"
+category = "location-probe"
+intent = "Native location parity: r05_empty_return_nested"
+
+[[case]]
+id = "r06_extra_end"
+file = "cases/r06_extra_end.ppl"
+category = "location-probe"
+intent = "Native location parity: r06_extra_end"
+
+[[case]]
+id = "a01_sin_empty"
+file = "cases/a01_sin_empty.ppl"
+category = "location-probe"
+intent = "Native location parity: a01_sin_empty"
+
+[[case]]
+id = "a02_sin_spaced"
+file = "cases/a02_sin_spaced.ppl"
+category = "location-probe"
+intent = "Native location parity: a02_sin_spaced"
+
+[[case]]
+id = "a03_nested_sin"
+file = "cases/a03_nested_sin.ppl"
+category = "location-probe"
+intent = "Native location parity: a03_nested_sin"
+
+[[case]]
+id = "a04_blit_spaced"
+file = "cases/a04_blit_spaced.ppl"
+category = "location-probe"
+intent = "Native location parity: a04_blit_spaced"
+
+[[case]]
+id = "d01_call_delimiter"
+file = "cases/d01_call_delimiter.ppl"
+category = "location-probe"
+intent = "Native location parity: d01_call_delimiter"
+
+[[case]]
+id = "d02_list_delimiter"
+file = "cases/d02_list_delimiter.ppl"
+category = "location-probe"
+intent = "Native location parity: d02_list_delimiter"
+
+[[case]]
+id = "d03_complex_delimiter"
+file = "cases/d03_complex_delimiter.ppl"
+category = "location-probe"
+intent = "Native location parity: d03_complex_delimiter"
+
+[[case]]
+id = "d04_nested_missing_end"
+file = "cases/d04_nested_missing_end.ppl"
+category = "location-probe"
+intent = "Native location parity: d04_nested_missing_end"
+
+[[case]]
+id = "d05_semicolon_space"
+file = "cases/d05_semicolon_space.ppl"
+category = "location-probe"
+intent = "Native location parity: d05_semicolon_space"

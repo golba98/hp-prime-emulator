@@ -143,7 +143,7 @@ fn value_details(val: &Value, fmt: FormatOptions) -> (&'static str, VariableDeta
 ///
 /// The UI sets breakpoints and posts commands; the worker's [`WorkerDebugger`]
 /// consults breakpoints, publishes pause snapshots, and blocks on commands.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct VmBridge {
     /// Breakpoint line numbers (1-based) shared with the editor gutter.
     pub breakpoints: Mutex<BTreeSet<usize>>,
@@ -159,13 +159,24 @@ pub struct VmBridge {
     pub stop_at_entry: AtomicBool,
     /// The source being debugged (set before the worker spawns).
     source: Mutex<Option<SourceFile>>,
+    wake_ui: Mutex<Option<Box<dyn Fn() + Send>>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+impl std::fmt::Debug for VmBridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VmBridge").finish_non_exhaustive()
+    }
+}
+
 impl VmBridge {
+    pub fn set_wake_ui(&self, wake: impl Fn() + Send + 'static) {
+        *lock(&self.wake_ui) = Some(Box::new(wake));
+    }
+
     pub fn new() -> Arc<Self> {
         Arc::new(Self::default())
     }
@@ -353,6 +364,9 @@ impl Debugger for WorkerDebugger {
         *lock(&self.bridge.pause_snapshot) = Some(snapshot);
         self.bridge.pause_generation.fetch_add(1, Ordering::SeqCst);
         self.bridge.paused_line.store(line as u64, Ordering::SeqCst);
+        if let Some(wake) = lock(&self.bridge.wake_ui).as_ref() {
+            wake();
+        }
 
         let cmd = match self.bridge.wait_command(&self.interrupt) {
             Some(cmd) => cmd,
@@ -448,6 +462,16 @@ impl ExecutionController {
         self.shared.interrupt();
         // Wake a paused debugger so it observes the interrupt and aborts.
         self.bridge.post_command(DebugCommand::Stop);
+    }
+
+    /// Close-time cleanup belongs to a reaper, never the UI event loop.
+    pub fn reap_async(&mut self) {
+        if let Some(mut worker) = self.worker.take() {
+            worker.interrupt();
+            std::thread::spawn(move || {
+                let _ = worker.join_timeout(Duration::from_secs(2));
+            });
+        }
     }
 
     /// Interrupts and joins (bounded) the current worker, if any.

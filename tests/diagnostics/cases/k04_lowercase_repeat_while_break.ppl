@@ -1,0 +1,7 @@
+EXPORT DPK04()
+BEGIN
+ LOCAL i:=0;
+ repeat i:=i+1; until i>5;
+ while 1 do i:=i+1; if i>9 then break; end; continue; end;
+ RETURN i;
+END;

@@ -1,290 +1,362 @@
-//! Virtual calculator keypad grid supporting 0–50 HP Prime key layout.
-
+//! Proportional HP Prime G1 keys, with press/release pointer capture.
+mod definitions;
 use super::{IdeAppState, IdePanel};
-use crate::theme::*;
-use egui::{Color32, RichText, Stroke, Vec2};
+pub use definitions::KEYS;
+use egui::{Color32, FontId, Pos2, Rect, Sense, Stroke, Vec2};
 
-/// Representation of a single button on the virtual keypad.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct KeyDef {
     pub label: &'static str,
     pub code: i64,
-    pub bg_color: Color32,
-    pub fg_color: Color32,
+    pub device_code: u16,
+    pub secondary: &'static str,
+    pub alpha: &'static str,
+    /// Absolute coordinates in the 381×797 reference device.
+    pub bounds: [f32; 4],
 }
-
 impl KeyDef {
-    pub const fn func(label: &'static str, code: i64) -> Self {
-        Self {
-            label,
-            code,
-            bg_color: CALC_KEY_FN_BG,
-            fg_color: CALC_KEY_FN_FG,
-        }
+    pub fn rect(&self, origin: Pos2, scale: f32) -> Rect {
+        Rect::from_min_max(
+            origin + Vec2::new(self.bounds[0], self.bounds[1]) * scale,
+            origin + Vec2::new(self.bounds[2], self.bounds[3]) * scale,
+        )
     }
-
-    pub const fn num(label: &'static str, code: i64) -> Self {
-        Self {
-            label,
-            code,
-            bg_color: CALC_KEY_NUM_BG,
-            fg_color: CALC_KEY_NUM_FG,
-        }
-    }
-
-    pub const fn special(label: &'static str, code: i64, bg: Color32, fg: Color32) -> Self {
-        Self {
-            label,
-            code,
-            bg_color: bg,
-            fg_color: fg,
-        }
+    pub fn directional(&self) -> bool {
+        matches!(self.code, 2 | 7 | 8 | 12)
     }
 }
 
-/// Keypad container on the right side panel below the screen.
 #[derive(Debug, Default)]
 pub struct VirtualKeypad {
     pub last_clicked_key: Option<i64>,
+    captured: Option<i64>,
 }
-
 impl VirtualKeypad {
     pub fn new() -> Self {
         Self::default()
     }
-}
-
-// 0–50 HP Prime Grid layout rows
-pub const ROW_1: [KeyDef; 5] = [
-    KeyDef::func("Apps", 0),
-    KeyDef::func("Symb", 1),
-    KeyDef::func("▲", 2),
-    KeyDef::func("Help", 3),
-    KeyDef::func("Esc", 4),
-];
-
-pub const ROW_2: [KeyDef; 5] = [
-    KeyDef::func("Home", 5),
-    KeyDef::func("Plot", 6),
-    KeyDef::func("◀", 7),
-    KeyDef::func("▶", 8),
-    KeyDef::func("View", 9),
-];
-
-pub const ROW_3: [KeyDef; 5] = [
-    KeyDef::func("CAS", 10),
-    KeyDef::func("Num", 11),
-    KeyDef::func("▼", 12),
-    KeyDef::func("Menu", 13),
-    KeyDef::func("Vars", 14),
-];
-
-pub const ROW_4: [KeyDef; 5] = [
-    KeyDef::func("Toolbox", 15),
-    KeyDef::func("Templ", 16),
-    KeyDef::func("X,T,θ", 17),
-    KeyDef::func("a b/c", 18),
-    KeyDef::func("Del", 19),
-];
-
-pub const ROW_5: [KeyDef; 5] = [
-    KeyDef::func("x^y", 20),
-    KeyDef::func("SIN", 21),
-    KeyDef::func("COS", 22),
-    KeyDef::func("TAN", 23),
-    KeyDef::func("LN", 24),
-];
-
-pub const ROW_6: [KeyDef; 5] = [
-    KeyDef::func("LOG", 25),
-    KeyDef::func("x²", 26),
-    KeyDef::func("+/-", 27),
-    KeyDef::func("( )", 28),
-    KeyDef::func(",", 29),
-];
-
-pub const ROW_7: [KeyDef; 5] = [
-    KeyDef::func("EEX", 31),
-    KeyDef::num("7", 32),
-    KeyDef::num("8", 33),
-    KeyDef::num("9", 34),
-    KeyDef::func("÷", 35),
-];
-
-pub const ROW_8: [KeyDef; 5] = [
-    KeyDef::special("Alpha", 36, CALC_KEY_ALPHA, Color32::WHITE),
-    KeyDef::num("4", 37),
-    KeyDef::num("5", 38),
-    KeyDef::num("6", 39),
-    KeyDef::func("×", 40),
-];
-
-pub const ROW_9: [KeyDef; 5] = [
-    KeyDef::special("Shift", 41, CALC_KEY_SHIFT, Color32::WHITE),
-    KeyDef::num("1", 42),
-    KeyDef::num("2", 43),
-    KeyDef::num("3", 44),
-    KeyDef::func("-", 45),
-];
-
-pub const ROW_10: [KeyDef; 5] = [
-    KeyDef::special("On", 46, CALC_KEY_ON, Color32::WHITE),
-    KeyDef::num("0", 47),
-    KeyDef::num(".", 48),
-    KeyDef::func("Ans", 49),
-    KeyDef::func("+", 50),
-];
-
-pub const KEY_ENTER_DEF: KeyDef = KeyDef::special("Enter", 30, CALC_KEY_ENTER, Color32::WHITE);
-
-impl IdePanel for VirtualKeypad {
-    fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
-        ui.vertical(|ui| {
-            ui.label(RichText::new("VIRTUAL KEYPAD (0–50)").strong().size(12.0));
-            ui.add(egui::Separator::default().spacing(4.0));
-
-            let key_height = 24.0;
-            let cluster_1 = [&ROW_1[..], &ROW_2[..], &ROW_3[..]];
-            let cluster_2 = [&ROW_4[..], &ROW_5[..], &ROW_6[..]];
-            let cluster_3 = [&ROW_7[..], &ROW_8[..], &ROW_9[..], &ROW_10[..]];
-
-            egui::ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    let avail_width = ui.available_width() - 8.0;
-                    let col_width = (avail_width / 5.0).max(40.0);
-
-                    // Cluster 1: Function Rows 1–3 (Apps, Symb, D-pad, CAS, Num, View, Menu, Vars)
-                    for row in cluster_1 {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(2.0, 2.0);
-                            for key in row {
-                                let btn = egui::Button::new(
-                                    RichText::new(key.label)
-                                        .color(key.fg_color)
-                                        .size(11.0)
-                                        .strong(),
-                                )
-                                .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
-                                .min_size(Vec2::new(col_width - 2.0, key_height));
-
-                                if ui.add(btn).clicked() {
-                                    state.calc_input_focus = true;
-                                    state.push_key_event(key.code);
-                                    self.last_clicked_key = Some(key.code);
-                                }
-                            }
-                        });
-                    }
-
-                    // Spacer between Function & Math clusters
-                    ui.add_space(4.0);
-
-                    // Cluster 2: Math Rows 4–6 (Toolbox, Trig, Log, Powers, Parens)
-                    for row in cluster_2 {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(2.0, 2.0);
-                            for key in row {
-                                let btn = egui::Button::new(
-                                    RichText::new(key.label)
-                                        .color(key.fg_color)
-                                        .size(11.0)
-                                        .strong(),
-                                )
-                                .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
-                                .min_size(Vec2::new(col_width - 2.0, key_height));
-
-                                if ui.add(btn).clicked() {
-                                    state.calc_input_focus = true;
-                                    state.push_key_event(key.code);
-                                    self.last_clicked_key = Some(key.code);
-                                }
-                            }
-                        });
-                    }
-
-                    // Spacer between Math & Number clusters
-                    ui.add_space(4.0);
-
-                    // Cluster 3: Number Rows 7–10 (EEX, Digits 0–9, Alpha, Shift, On, + - × ÷)
-                    for row in cluster_3 {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(2.0, 2.0);
-                            for key in row {
-                                let btn = egui::Button::new(
-                                    RichText::new(key.label)
-                                        .color(key.fg_color)
-                                        .size(11.0)
-                                        .strong(),
-                                )
-                                .fill(key.bg_color)
-                                .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
-                                .min_size(Vec2::new(col_width - 2.0, key_height));
-
-                                if ui.add(btn).clicked() {
-                                    state.calc_input_focus = true;
-                                    state.push_key_event(key.code);
-                                    self.last_clicked_key = Some(key.code);
-                                }
-                            }
-                        });
-                    }
-
-                    // Spacer before Enter cluster
-                    ui.add_space(4.0);
-
-                    // Cluster 4: Enter Key spanning full width
-                    let enter_btn = egui::Button::new(
-                        RichText::new("Enter")
-                            .color(KEY_ENTER_DEF.fg_color)
-                            .size(13.0)
-                            .strong(),
-                    )
-                    .fill(KEY_ENTER_DEF.bg_color)
-                    .stroke(Stroke::new(1.0_f32, BORDER_CRISP))
-                    .min_size(Vec2::new(avail_width, 28.0));
-
-                    if ui.add(enter_btn).clicked() {
-                        state.calc_input_focus = true;
-                        state.push_key_event(KEY_ENTER_DEF.code);
-                        self.last_clicked_key = Some(KEY_ENTER_DEF.code);
+    pub fn release(&mut self, state: &mut IdeAppState) {
+        if let Some(code) = self.captured.take() {
+            state.set_key_down(code, false);
+            state.key_transitions.push((code, false));
+        }
+    }
+    pub fn paint_at(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &mut IdeAppState,
+        origin: Pos2,
+        scale: f32,
+    ) {
+        let enabled = if state.firmware_backend {
+            state.firmware_input_enabled
+        } else {
+            matches!(
+                state.vm_state,
+                super::VmExecutionState::Running | super::VmExecutionState::Paused
+            )
+        };
+        let p = ui.painter();
+        let pos = |x, y| origin + Vec2::new(x, y) * scale;
+        // The physical navigation mechanism has four directions, no center key.
+        let center = pos(187.0, 367.0);
+        p.circle_filled(center, 42.0 * scale, crate::theme::CALC_DPAD_RIM);
+        p.circle_filled(center, 38.5 * scale, crate::theme::CALC_DPAD_BODY);
+        // Center dead-zone pivot cap
+        p.circle_filled(center, 9.5 * scale, crate::theme::CALC_DPAD_PIVOT);
+        p.circle_stroke(
+            center,
+            9.5 * scale,
+            Stroke::new(scale, crate::theme::CALC_DPAD_PIVOT_STROKE),
+        );
+        for (code, x, y) in [
+            (2, 187.0, 332.0),
+            (7, 153.0, 367.0),
+            (8, 221.0, 367.0),
+            (12, 187.0, 402.0),
+        ] {
+            let active = state.keys_down.contains(&code);
+            p.circle_filled(
+                pos(x, y),
+                2.5 * scale,
+                if active {
+                    crate::theme::CALC_DPAD_MARKER_ACTIVE
+                } else {
+                    crate::theme::CALC_DPAD_MARKER
+                },
+            );
+        }
+        let input = ui.input(|i| {
+            (
+                i.pointer.primary_pressed(),
+                i.pointer.primary_down(),
+                i.pointer.interact_pos(),
+                i.focused,
+            )
+        });
+        if !input.1 || !input.3 {
+            self.release(state);
+        }
+        for key in &KEYS {
+            let rect = key.rect(origin, scale);
+            let response = ui.interact(rect, ui.id().with(("g1-key", key.code)), Sense::hover());
+            let over = enabled
+                && input.2.is_some_and(|pos| {
+                    if key.directional() {
+                        navigation_at(pos, center, scale) == Some(key.code)
+                    } else {
+                        rect.contains(pos)
                     }
                 });
-        });
+            if input.0 && over && self.captured.is_none() {
+                self.captured = Some(key.code);
+                state.calc_input_focus = true;
+                ui.ctx().memory_mut(|m| {
+                    if let Some(id) = m.focused() {
+                        m.surrender_focus(id);
+                    }
+                });
+                state.set_key_down(key.code, true);
+                state.key_transitions.push((key.code, true));
+                state.push_key_event(key.code);
+                self.last_clicked_key = Some(key.code);
+            }
+            let pressed = state.keys_down.contains(&key.code);
+            if key.directional() {
+                if pressed || over {
+                    ui.painter().rect_filled(
+                        rect.shrink(scale * 2.0),
+                        8.0 * scale,
+                        Color32::from_white_alpha(if pressed { 40 } else { 15 }),
+                    );
+                }
+                response.on_hover_text(key.label);
+                continue;
+            }
+            let upper = key.code < 14;
+            let fill = if upper {
+                Color32::from_gray(if pressed {
+                    65
+                } else if over {
+                    58
+                } else {
+                    39
+                })
+            } else {
+                Color32::from_gray(if pressed {
+                    190
+                } else if over {
+                    244
+                } else {
+                    226
+                })
+            };
+            let p = ui.painter();
+            p.rect_filled(
+                rect,
+                4.0 * scale,
+                Color32::from_gray(if upper { 80 } else { 110 }),
+            );
+            p.rect_filled(rect.shrink(1.5 * scale), 3.0 * scale, fill);
+            p.line_segment(
+                [
+                    rect.left_top() + Vec2::splat(3.0 * scale),
+                    rect.right_top() + Vec2::new(-3.0, 3.0) * scale,
+                ],
+                Stroke::new(scale, Color32::from_gray(if upper { 100 } else { 255 })),
+            );
+            let primary = if upper {
+                Color32::from_gray(245)
+            } else {
+                Color32::from_gray(29)
+            };
+            let blue = if upper {
+                crate::theme::CALC_KEY_FN_SEC
+            } else {
+                crate::theme::CALC_KEY_NUM_SEC
+            };
+            let orange = crate::theme::CALC_KEY_ALPHA_FG;
+            let label_y = if key.secondary.is_empty() { 0.5 } else { 0.32 };
+            let label_size = if upper {
+                13.0
+            } else if (32..=50).contains(&key.code) && !matches!(key.code, 36 | 41 | 46) {
+                24.0
+            } else if key.code == 17 {
+                14.0
+            } else {
+                16.0
+            };
+            let label = match key.code {
+                15 => "▱",
+                16 => "∑√▦",
+                5 => "⌂",
+                _ => key.label,
+            };
+            if matches!(key.code, 36 | 41) {
+                let band = Rect::from_min_size(
+                    rect.min + Vec2::splat(3.0 * scale),
+                    Vec2::new(rect.width() - 6.0 * scale, rect.height() * 0.48),
+                );
+                p.rect_filled(
+                    band,
+                    2.0 * scale,
+                    if key.code == 36 {
+                        crate::theme::CALC_KEY_ALPHA
+                    } else {
+                        crate::theme::CALC_KEY_SHIFT
+                    },
+                );
+                p.text(
+                    band.center(),
+                    egui::Align2::CENTER_CENTER,
+                    label,
+                    FontId::proportional(14.0 * scale),
+                    Color32::WHITE,
+                );
+            } else if key.code == 15 {
+                let icon = Rect::from_center_size(
+                    Pos2::new(rect.center().x, rect.top() + 13.0 * scale),
+                    Vec2::new(28.0, 14.0) * scale,
+                );
+                p.rect_filled(icon, 1.0 * scale, primary);
+                p.rect_stroke(
+                    Rect::from_center_size(icon.center_top(), Vec2::new(10.0, 5.0) * scale),
+                    1.0 * scale,
+                    Stroke::new(1.5 * scale, primary),
+                    egui::StrokeKind::Inside,
+                );
+                p.line_segment(
+                    [icon.left_center(), icon.right_center()],
+                    Stroke::new(scale, Color32::from_gray(226)),
+                );
+                p.rect_filled(
+                    Rect::from_center_size(icon.center(), Vec2::new(4.0, 3.0) * scale),
+                    0.0,
+                    Color32::WHITE,
+                );
+            } else if key.code == 5 {
+                let c = Pos2::new(rect.center().x, rect.top() + 12.0 * scale);
+                let s = Stroke::new(1.5 * scale, primary);
+                p.line_segment(
+                    [
+                        c + Vec2::new(-9.0, 1.0) * scale,
+                        c + Vec2::new(0.0, -7.0) * scale,
+                    ],
+                    s,
+                );
+                p.line_segment(
+                    [
+                        c + Vec2::new(0.0, -7.0) * scale,
+                        c + Vec2::new(9.0, 1.0) * scale,
+                    ],
+                    s,
+                );
+                p.rect_stroke(
+                    Rect::from_min_max(
+                        c + Vec2::new(-6.0, 0.0) * scale,
+                        c + Vec2::new(6.0, 8.0) * scale,
+                    ),
+                    0.0,
+                    s,
+                    egui::StrokeKind::Inside,
+                );
+            } else {
+                p.text(
+                    Pos2::new(rect.center().x, rect.top() + rect.height() * label_y),
+                    egui::Align2::CENTER_CENTER,
+                    label,
+                    FontId::proportional(label_size * scale),
+                    primary,
+                );
+            }
+            if !key.secondary.is_empty() {
+                let align = if key.alpha.is_empty() {
+                    egui::Align2::CENTER_CENTER
+                } else {
+                    egui::Align2::LEFT_CENTER
+                };
+                let x = if key.alpha.is_empty() {
+                    rect.center().x
+                } else {
+                    rect.left() + 4.0 * scale
+                };
+                p.text(
+                    Pos2::new(x, rect.bottom() - 8.0 * scale),
+                    align,
+                    key.secondary,
+                    FontId::proportional(11.5 * scale),
+                    blue,
+                );
+            }
+            if !key.alpha.is_empty() {
+                p.text(
+                    Pos2::new(rect.right() - 3.0 * scale, rect.bottom() - 8.0 * scale),
+                    egui::Align2::RIGHT_CENTER,
+                    key.alpha,
+                    FontId::proportional(11.5 * scale),
+                    orange,
+                );
+            }
+            response.on_hover_text(if enabled {format!("{} · HP key {}",key.label,key.code)}else if state.firmware_backend {"Calculator input is reserved while the firmware compiles".into()}else {"Run a Native PPL program to use GETKEY / ISKEYDOWN, or select G1 Firmware for calculator interaction".into()});
+            if !enabled {
+                ui.painter()
+                    .rect_filled(rect, 3.0 * scale, Color32::from_black_alpha(75));
+            }
+        }
     }
+}
+impl IdePanel for VirtualKeypad {
+    fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
+        let scale = (ui.available_width() / 381.0).max(0.1);
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(381.0, 435.0) * scale, Sense::hover());
+        self.paint_at(ui, state, rect.min - Vec2::new(0.0, 314.0) * scale, scale);
+    }
+}
+
+/// Four physical navigation sectors; the center has no click action.
+pub fn navigation_at(point: Pos2, center: Pos2, scale: f32) -> Option<i64> {
+    let d = (point - center) / scale;
+    let radius = d.length();
+    if !(10.0..=42.0).contains(&radius) {
+        return None;
+    }
+    Some(if d.x.abs() > d.y.abs() {
+        if d.x < 0.0 { 7 } else { 8 }
+    } else if d.y < 0.0 {
+        2
+    } else {
+        12
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn test_all_51_keydefs_valid() {
-        let mut codes = std::collections::HashSet::new();
-        let rows = [
-            &ROW_1[..],
-            &ROW_2[..],
-            &ROW_3[..],
-            &ROW_4[..],
-            &ROW_5[..],
-            &ROW_6[..],
-            &ROW_7[..],
-            &ROW_8[..],
-            &ROW_9[..],
-            &ROW_10[..],
-        ];
-        for row in rows {
-            for key in row {
-                assert!((0..=50).contains(&key.code));
-                assert!(!codes.contains(&key.code));
-                codes.insert(key.code);
+    fn authentic_geometry_and_codes_are_complete() {
+        let mut seen = std::collections::HashSet::new();
+        for key in KEYS {
+            assert!(seen.insert(key.code));
+            let r = key.rect(Pos2::ZERO, 1.0);
+            assert!(r.is_positive() && r.right() <= 381.0 && r.bottom() <= 797.0);
+            for other in KEYS
+                .iter()
+                .filter(|k| k.code > key.code && !k.directional() && !key.directional())
+            {
+                assert!(
+                    !r.intersects(other.rect(Pos2::ZERO, 1.0)),
+                    "{} overlaps {}",
+                    key.label,
+                    other.label
+                );
             }
         }
-        assert_eq!(KEY_ENTER_DEF.code, 30);
-        assert!(!codes.contains(&30));
-        codes.insert(30);
-        assert_eq!(codes.len(), 51);
+        assert_eq!(seen.len(), 51);
+        assert_eq!(KEYS[5].device_code, 0xE047);
+        assert_eq!(KEYS[30].bounds, [242.0, 516.0, 347.0, 555.0]);
+        assert!(
+            KEYS[30].rect(Pos2::ZERO, 1.0).width() > 2.0 * KEYS[26].rect(Pos2::ZERO, 1.0).width()
+        );
+        assert!(KEYS[32].rect(Pos2::ZERO, 1.0).width() > KEYS[31].rect(Pos2::ZERO, 1.0).width());
     }
 }

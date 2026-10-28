@@ -1,0 +1,12 @@
+id = "fact"
+category = "functions"
+description = "Recursive user function"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/FACT.ppl"
+source_sha256 = "871d0a34e8bf4c5211f1e971cd4ddce741946b61de537d613cc918649e753fff"
+entry = "FACT"
+args = '[5]'
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "120"
