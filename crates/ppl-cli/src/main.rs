@@ -29,6 +29,9 @@ enum Command {
     Debug(cmd::debug::DebugOpts),
     /// Launch the native graphical calculator window.
     Gui(cmd::gui::GuiOpts),
+    /// Open a program on the authentic-firmware calculator: imports it,
+    /// runs the firmware Check, and offers Run with keyboard/touch input.
+    Show(cmd::gui::ShowOpts),
     /// Generate test corpora, run campaigns, import real-world programs.
     Test(cmd::test::TestOpts),
     /// Compare editor diagnostics with authentic HP Prime Check results.
@@ -40,6 +43,7 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "commands",
     "gui",
+    "show",
     "debug",
     "device",
     "compare",
@@ -155,6 +159,7 @@ fn main() -> ExitCode {
         Command::Compare(o) => cmd::compare::run(o),
         Command::Debug(o) => cmd::debug::run(o),
         Command::Gui(o) => cmd::gui::run(o),
+        Command::Show(o) => cmd::gui::show(o),
         Command::Test(o) => cmd::test::run(o),
         Command::DiagParity(o) => cmd::diag_parity::run(o),
     };

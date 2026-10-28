@@ -1,0 +1,17 @@
+id = "touchecho"
+category = "touch"
+description = "WAIT(-1) returns the touch event at the tapped position (integer elements converted with B→R)"
+program = "../programs/TOUCHECHO.ppl"
+source_sha256 = "39b0bed565c9a0fe48afc24fa18e183533b4a375aafc89dc07e842759c1cf21f"
+entry = "TOUCHECHO"
+runtime_keys = "DELAY:1500,TAP:100:50"
+known_gaps = ["WAIT(-1) returns #-integers (observed tag 0x11/0x40, shown {#0:64h, #64:−16h, #32:−16h}); the host does not decode integers yet"]
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "{0, 100, 50}"
+
+[[checkpoint]]
+label = "DELAY:1500"
+reference = "reference/local-firmware-g1-2.4.2/touchecho-delay-1500.png"

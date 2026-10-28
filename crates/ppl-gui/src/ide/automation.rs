@@ -56,6 +56,9 @@ pub enum AutoStep {
     WaitIdle(u64),
     /// Wait until the debugger is paused, with a timeout in ms.
     WaitPaused(u64),
+    /// Wait until the live firmware reports the program running (entered
+    /// its body and not yet returned), with a timeout in ms.
+    WaitRunning(u64),
     /// Save the emulated screen to a PNG.
     Screenshot(PathBuf),
     /// Give the code editor keyboard focus.
@@ -93,6 +96,15 @@ pub enum AutoStep {
     Layout(String),
     CalculatorMode(String),
     Backend(bool),
+    /// Press and release one calculator key (HP physical code 0-50) through
+    /// the same path as the on-screen keypad (firmware or native backend).
+    CalcKey(i64),
+    /// One firmware touch sample (1 down, 2 move, 8 up), as the mouse sends.
+    CalcTouch {
+        status: u32,
+        x: u16,
+        y: u16,
+    },
 }
 
 pub struct Automation {
@@ -165,6 +177,7 @@ impl Automation {
                     },
                     "wait_idle" => AutoStep::WaitIdle(get_ms("timeout_ms")),
                     "wait_paused" => AutoStep::WaitPaused(get_ms("timeout_ms")),
+                    "wait_running" => AutoStep::WaitRunning(get_ms("timeout_ms")),
                     "screenshot" => AutoStep::Screenshot(get_path("path").unwrap_or_default()),
                     "focus_editor" => AutoStep::FocusEditor,
                     "type" => AutoStep::Type(get_str("text")),
@@ -206,6 +219,14 @@ impl Automation {
                     "layout" => AutoStep::Layout(get_str("mode")),
                     "calculator_mode" => AutoStep::CalculatorMode(get_str("mode")),
                     "backend" => AutoStep::Backend(get_str("engine") == "firmware"),
+                    "calc_key" => {
+                        AutoStep::CalcKey(s.get("code").and_then(|v| v.as_i64()).unwrap_or(-1))
+                    }
+                    "calc_touch" => AutoStep::CalcTouch {
+                        status: s.get("status").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+                        x: s.get("x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                        y: s.get("y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                    },
                     other => {
                         eprintln!("automation: unknown step `{other}`; skipping");
                         continue;
@@ -289,12 +310,16 @@ impl Automation {
                 return;
             }
             match step {
-                AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) | AutoStep::WaitCheck(_) => {
+                AutoStep::WaitIdle(_)
+                | AutoStep::WaitPaused(_)
+                | AutoStep::WaitCheck(_)
+                | AutoStep::WaitRunning(_) => {
                     let deadline = self.wait_deadline.get_or_insert_with(Instant::now);
                     let (ms, done) = match &self.steps[self.next] {
                         AutoStep::WaitIdle(ms) => (*ms, !app.execution_busy()),
                         AutoStep::WaitPaused(ms) => (*ms, app.controller.paused()),
                         AutoStep::WaitCheck(ms) => (*ms, !app.check_pending()),
+                        AutoStep::WaitRunning(ms) => (*ms, app.firmware_running()),
                         _ => unreachable!(),
                     };
                     if done {
@@ -388,8 +413,42 @@ impl Automation {
                 }
                 app.handle_action(IdeAction::RunProgram, ctx);
             }
-            AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) | AutoStep::WaitCheck(_) => {
+            AutoStep::WaitIdle(_)
+            | AutoStep::WaitPaused(_)
+            | AutoStep::WaitCheck(_)
+            | AutoStep::WaitRunning(_) => {
                 unreachable!("handled in pump")
+            }
+            AutoStep::Screenshot(path) if app.state.firmware_backend => {
+                // The firmware LCD as last streamed by the live session.
+                let frame = app
+                    .firmware
+                    .as_ref()
+                    .and_then(|f| f.latest.lock().unwrap_or_else(|e| e.into_inner()).clone());
+                app.state.status_message = match frame {
+                    Some(frame) => {
+                        let rgba: Vec<u8> = frame
+                            .pixels
+                            .iter()
+                            .flat_map(|p| [(p >> 16) as u8, (p >> 8) as u8, *p as u8, 255])
+                            .collect();
+                        let image = egui::ColorImage::from_rgba_unmultiplied([320, 240], &rgba);
+                        match save_color_image(&image, &path) {
+                            Ok(()) => format!("Screenshot saved to {}", path.display()),
+                            Err(e) => format!("Screenshot failed: {e}"),
+                        }
+                    }
+                    None => "Screenshot failed: no firmware frame yet".into(),
+                };
+            }
+            AutoStep::CalcKey(code) => {
+                app.send_calc_transition(code, true);
+                app.send_calc_transition(code, false);
+            }
+            AutoStep::CalcTouch { status, x, y } => {
+                if let Some(f) = &app.firmware {
+                    f.send(ppl_engine::session::Command::Touch { status, x, y });
+                }
             }
             AutoStep::Screenshot(path) => {
                 let grob = app

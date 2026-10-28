@@ -166,6 +166,7 @@ fn run_once(cfg: &CalcVerifyConfig, label: &str, expression: &str) -> Result<Run
             boot_timeout: cfg.boot_timeout,
             key_timeout: cfg.key_timeout,
             screenshot_dir: Some(dir.join("shots")),
+            start_with_keys: false,
         }),
         screenshot: Some(dir.join("result.png")),
         lcd_watch: cfg.lcd_watch,

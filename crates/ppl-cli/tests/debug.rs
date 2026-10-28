@@ -52,9 +52,11 @@ fn temp_program(src: &str, ext: &str) -> PathBuf {
 /// Runs `ppl <args>` feeding `chunks` to stdin (with `delay` between
 /// chunks), then closes stdin. Fails if the process outlives `timeout`.
 fn run_ppl(args: &[&str], chunks: &[&str], delay: Duration, timeout: Duration) -> Out {
+    // Native engine regardless of firmware configured on this machine.
     let mut child = Command::new(PPL)
         .args(args)
         .env("NO_COLOR", "1")
+        .env("PPL_ENGINE", "native")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

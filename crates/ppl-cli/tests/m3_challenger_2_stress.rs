@@ -90,9 +90,18 @@ fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
 // SECTION 1: LAZY BOOT INVARIANT EMPIRICAL STRESS TESTS
 // ============================================================================
 
+/// An IDE whose firmware backend can never reach the developer's configured
+/// firmware: a selected backend fails as "not configured" before any
+/// calculator profile is created in their data folder.
+fn isolated_app() -> IdeDesktopApp {
+    let mut app = IdeDesktopApp::default();
+    app.state.firmware.firmware = "/nonexistent/ppl-test/armfir.elf".into();
+    app
+}
+
 #[test]
 fn test_lazy_boot_default_instance_zero_side_effects() {
-    let app = IdeDesktopApp::default();
+    let app = isolated_app();
 
     // 1. Firmware client must be completely absent (None)
     assert!(
@@ -116,7 +125,7 @@ fn test_lazy_boot_default_instance_zero_side_effects() {
 #[test]
 fn test_lazy_boot_persisted_firmware_backend_never_spawns_on_init() {
     // Simulate loading saved preferences where the user previously had firmware backend active.
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
     let persistent = PersistentPanelState {
         firmware_backend: true,
         ..Default::default()
@@ -140,7 +149,7 @@ fn test_lazy_boot_persisted_firmware_backend_never_spawns_on_init() {
 
 #[test]
 fn test_lazy_boot_idle_frames_never_trigger_spawn() {
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
     app.state.firmware_backend = true;
 
     // Simulate 100 UI frames without user interaction.
@@ -165,7 +174,7 @@ fn test_lazy_boot_idle_frames_never_trigger_spawn() {
 
 #[test]
 fn test_lazy_boot_editor_operations_never_trigger_spawn() {
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
     let ctx = egui::Context::default();
     app.state.firmware_backend = true;
 
@@ -188,7 +197,7 @@ fn test_lazy_boot_editor_operations_never_trigger_spawn() {
 
 #[test]
 fn test_lazy_boot_native_backend_calculator_input_never_spawns_firmware() {
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
     let ctx = egui::Context::default();
 
     // With Native PPL active (firmware_backend == false)
@@ -213,7 +222,7 @@ fn test_lazy_boot_native_backend_calculator_input_never_spawns_firmware() {
 
 #[test]
 fn test_lazy_boot_explicit_action_triggers_firmware_on_demand() {
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
     let ctx = egui::Context::default();
 
     assert!(!app.state.firmware_backend);
@@ -503,7 +512,7 @@ fn test_stale_pending_directory_cleanup() {
 #[test]
 fn test_dual_backend_state_preservation_basic() {
     let ctx = egui::Context::default();
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
 
     // Setup Native PPL state
     if let Some(tab) = app.editor.active_tab_mut() {
@@ -578,7 +587,7 @@ fn test_dual_backend_state_preservation_basic() {
 #[test]
 fn test_dual_backend_rapid_switching_stress_loop_500() {
     let ctx = egui::Context::default();
-    let mut app = IdeDesktopApp::default();
+    let mut app = isolated_app();
 
     if let Some(tab) = app.editor.active_tab_mut() {
         tab.content = "EXPORT STRESS()\nBEGIN\n  PRINT(\"Stress\");\nEND;\n".into();

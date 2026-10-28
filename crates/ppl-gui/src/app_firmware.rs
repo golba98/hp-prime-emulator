@@ -55,6 +55,7 @@ impl IdeDesktopApp {
             match event {
                 Event::Phase { phase } => {
                     self.state.firmware_input_enabled = phase != "compiling";
+                    self.firmware_program_running = phase == "running";
                     self.firmware_status = match phase.as_str() {
                         "running" => "Running in the local G1 firmware",
                         "compiling" => "Compiling in the live G1 session…",
@@ -72,6 +73,7 @@ impl IdeDesktopApp {
                     check,
                 } => {
                     self.apply_session_check(request, check, &message);
+                    self.firmware_program_running = false;
                     let was_run = self.firmware_runs.remove(&request);
                     if request == self.firmware_request && was_run {
                         self.firmware_state = if success {
@@ -147,7 +149,11 @@ impl IdeDesktopApp {
             }
         }
     }
-    pub(super) fn send_calc_transition(&mut self, code: i64, down: bool) {
+    /// The live firmware has entered the program body and not returned.
+    pub(crate) fn firmware_running(&self) -> bool {
+        self.state.firmware_backend && self.firmware_program_running
+    }
+    pub(crate) fn send_calc_transition(&mut self, code: i64, down: bool) {
         if self.state.firmware_backend {
             if let (Some(f), Some(mapping)) = (
                 &self.firmware,

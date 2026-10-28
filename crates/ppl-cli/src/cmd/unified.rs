@@ -1,7 +1,10 @@
 //! CLI presentation and engine dispatch. GUI/debug retain their existing paths.
 use super::run::{self, Angle, CheckOpts, PrintMode, RunOpts};
 use clap::{Args, ValueEnum};
-use ppl_engine::{Cancellation, Engine, Operation, Report, Status, source::Source};
+use ppl_engine::{
+    Cancellation, Engine, Operation, Report, Status, firmware_options::AssetPaths, source::Source,
+};
+use std::io::IsTerminal;
 use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -18,7 +21,10 @@ pub enum ArgsFormat {
 }
 #[derive(Debug, Args, Default)]
 pub struct EngineOptions {
-    /// Compiler/runtime engine; native when omitted.
+    /// Compiler/runtime engine. When omitted: the authentic firmware if its
+    /// assets are configured (flags, PPL_* variables, or
+    /// ~/.config/hp-prime-emulator/firmware.toml) and no native-only option
+    /// is used; otherwise native. `PPL_ENGINE=native|firmware` overrides.
     #[arg(long, value_enum)]
     pub engine: Option<EngineChoice>,
     /// Emit one versioned JSON result on stdout.
@@ -127,12 +133,40 @@ fn load(file: Option<&Path>, code: Option<&str>) -> Result<Source, String> {
         .map_err(|e| e.to_string())?;
     Source::text(&text, "<stdin>")
 }
-fn env_path(flag: &Option<PathBuf>, name: &str) -> Option<PathBuf> {
-    flag.clone().or_else(|| {
-        std::env::var_os(name)
-            .filter(|s| !s.is_empty())
-            .map(PathBuf::from)
-    })
+fn assets(o: &EngineOptions) -> Result<AssetPaths, String> {
+    AssetPaths {
+        runner: o.firmware_runner.clone(),
+        firmware: o.firmware.clone(),
+        os_rom: o.os_rom.clone(),
+        factory_a: o.factory_a.clone(),
+        init_data: o.init_data.clone(),
+    }
+    .resolve()
+}
+/// Engine for a request that named none. Returns `None` to keep the
+/// historical native behaviour (and its output) unchanged.
+fn default_engine(native_only: bool) -> Option<EngineChoice> {
+    match std::env::var("PPL_ENGINE").ok().as_deref() {
+        Some("native") => return None,
+        Some("firmware") => return Some(EngineChoice::Firmware),
+        _ => {}
+    }
+    if native_only {
+        return None;
+    }
+    match AssetPaths::default().resolve() {
+        Ok(paths) if paths.configured() => Some(EngineChoice::Firmware),
+        Ok(_) => {
+            if std::io::stderr().is_terminal() {
+                eprintln!("Engine: native (firmware not configured)");
+            }
+            None
+        }
+        Err(error) => {
+            eprintln!("warning: ignoring firmware configuration: {error}");
+            None
+        }
+    }
 }
 fn duration(value: Option<f64>, default: f64) -> Result<Duration, String> {
     Duration::try_from_secs_f64(value.unwrap_or(default))
@@ -147,12 +181,13 @@ fn firmware_options(
     png: Option<PathBuf>,
     max_time: Option<f64>,
 ) -> Result<ppl_engine::firmware::Options, String> {
+    let paths = assets(o)?;
     Ok(ppl_engine::firmware::Options {
-        runner: env_path(&o.firmware_runner, "PPL_FIRMWARE_RUNNER"),
-        firmware: env_path(&o.firmware, "PPL_FIRMWARE"),
-        os_rom: env_path(&o.os_rom, "PPL_OS_ROM"),
-        factory_a: env_path(&o.factory_a, "PPL_FACTORY_A"),
-        init_data: env_path(&o.init_data, "PPL_FIRMWARE_INIT_DATA"),
+        runner: paths.runner,
+        firmware: paths.firmware,
+        os_rom: paths.os_rom,
+        factory_a: paths.factory_a,
+        init_data: paths.init_data,
         artifacts_dir: o.artifacts_dir.clone(),
         program_name: o.program_name.clone(),
         entry,
@@ -188,8 +223,27 @@ pub fn run(c: RunCommand) -> u8 {
     let frontend_started = Instant::now();
     let RunCommand {
         native: o,
-        options: e,
+        options: mut e,
     } = c;
+    if e.engine.is_none() {
+        let explicit_native_setting = std::env::args().any(|a| {
+            a == "--angle" || a.starts_with("--angle=") || a == "--seed" || a.starts_with("--seed=")
+        });
+        // Native-only controls and legacy PPL-syntax arguments keep native.
+        e.engine = default_engine(
+            o.no_time_limit
+                || o.max_steps.is_some()
+                || o.max_depth.is_some()
+                || o.keys.is_some()
+                || !o.inputs.is_empty()
+                || !o.choices.is_empty()
+                || o.angle != Angle::Rad
+                || o.seed != 0x5EED
+                || o.warnings
+                || explicit_native_setting
+                || o.args.is_some() && e.args_format != Some(ArgsFormat::Json),
+        );
+    }
     if e.legacy() && !o.no_time_limit && o.max_time.is_some_and(|t| !t.is_finite()) {
         eprintln!("error: --max-time must be finite");
         return 2;
@@ -317,9 +371,12 @@ pub fn check(c: CheckCommand) -> u8 {
     let frontend_started = Instant::now();
     let CheckCommand {
         native: o,
-        options: e,
+        options: mut e,
         all_backends,
     } = c;
+    if e.engine.is_none() && !all_backends {
+        e.engine = default_engine(o.dump_bytecode || o.deny_warnings);
+    }
     if all_backends {
         let result = (|| -> Result<ppl_engine::checking::CheckReport, String> {
             if let (Some(input), Some(output)) = (o.file.as_ref(), e.report.as_ref()) {
@@ -582,6 +639,14 @@ fn finish(
                             .unwrap_or_else(|| v.to_string())
                     });
                 eprintln!("Return: {display}");
+            } else if r.return_representation["kind"] == "undecoded" {
+                eprintln!(
+                    "Return: not decoded by host (firmware tag {}/{})",
+                    r.return_representation["tag"], r.return_representation["subtype"]
+                );
+            }
+            for caveat in &r.caveats {
+                eprintln!("Caveat: {caveat}");
             }
             eprintln!("Time: {:.3} s", r.timings["total_s"].as_f64().unwrap_or(0.));
         }

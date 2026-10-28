@@ -1,0 +1,9 @@
+{
+  "provenance": "local-firmware",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "case": "drawtest",
+  "label": "return",
+  "pixels_sha256": "6287dbc82b8f95d8e527465305c491bc3d87148e1f263810b9a972990bdb34dc",
+  "source_sha256": "affca8faf71e6de0ae85163504644cc549254c3da6a9132b198056845fb17f8f",
+  "recorded_by": "prime-emulator app-suite --record"
+}

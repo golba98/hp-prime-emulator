@@ -1,0 +1,23 @@
+id = "fireworks-g1"
+category = "application"
+description = "FIREWORKS with its three BLIT_P() calls written BLIT_P(G0) so the G1 firmware accepts it (programs/FIREWORKS_G1.hpprgm; no other change): title screen, RANDINT animation, Esc ends the GETKEY loop"
+program = "../programs/FIREWORKS_G1.hpprgm"
+source_sha256 = "39f0626da698b9d3d3d9df2fe5629523365274753ac1b5dec713635a6fdd6334"
+entry = "FIREWORKS"
+runtime_keys = "SNAP:title,DELAY:3000,ESC"
+execution_timeout_s = 60.0
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+expected_failure = "run-program session: opening this 22 KB program in the Program Editor never settles (guest still busy after 120 s / 1.6e9 instructions), while check-program opens and Checks the same source in 7 s / 8.6e7 instructions; not caused by the runtime observer hooks"
+known_gaps = ["Animation frames use RANDINT and wall-clock WAIT; only the title screen is compared exactly"]
+
+[expect]
+outcome = "completed"
+
+[[checkpoint]]
+label = "title"
+reference = "reference/local-firmware-g1-2.4.2/fireworks-g1-title.png"
+
+[[checkpoint]]
+label = "DELAY:3000"
+reference = "reference/local-firmware-g1-2.4.2/fireworks-g1-delay-3000.png"
+nondeterministic = "RANDINT-driven animation frame"

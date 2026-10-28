@@ -88,6 +88,140 @@ fn decode_bcd_and_utf16_without_lossy_replacement() {
     m.write_bytes(0x1008, &[0x3d, 0xd8, 0, 0, 0, 0]).unwrap();
     assert!(runtime_value::decode(&m, 0x1000).value.is_none());
 }
+/// Writes a kind-6 list object in the layout captured from G1 2.4.2.
+fn write_list(m: &GuestMemory, at: u32, subtype: u32, items: &[u32]) {
+    m.write_u32(at, (subtype << 24) | 0x0016_0001).unwrap();
+    m.write_u32(at + 4, items.len() as u32).unwrap();
+    for (i, item) in items.iter().enumerate() {
+        m.write_u32(at + 8 + 4 * i as u32, *item).unwrap();
+    }
+}
+fn write_rational(m: &GuestMemory, at: u32, negative: bool, n: u64, d: u64) {
+    m.write_u32(at, 0x011f_0001).unwrap();
+    m.write_u32(at + 4, negative as u32).unwrap();
+    m.write_bytes(at + 8, &n.to_le_bytes()).unwrap();
+    m.write_bytes(at + 16, &d.to_le_bytes()).unwrap();
+}
+#[test]
+fn decode_guest_lists_from_observed_layout() {
+    let m = memory();
+    // {{1}, -3/2, "a"}: nested list (subtype 0x20), rational, string.
+    write_rational(&m, 0x1100, false, 1, 1);
+    write_list(&m, 0x1200, 0x20, &[0x1100]);
+    write_rational(&m, 0x1300, true, 3, 2);
+    m.write_u32(0x1400, 0x0012_0001).unwrap();
+    m.write_u32(0x1404, 1).unwrap();
+    m.write_bytes(0x1408, &[0x61, 0, 0, 0]).unwrap();
+    write_list(&m, 0x1000, 0, &[0x1200, 0x1300, 0x1400]);
+    let v = runtime_value::decode(&m, 0x1000);
+    let value = v.value.clone().unwrap();
+    assert_eq!(
+        value,
+        FirmwareValue::List {
+            items: vec![
+                FirmwareValue::List {
+                    items: vec![FirmwareValue::Real { value: "1".into() }]
+                },
+                FirmwareValue::Real {
+                    value: "-1.5".into()
+                },
+                FirmwareValue::String { value: "a".into() },
+            ]
+        }
+    );
+    assert_eq!(value.display(), r#"{{1}, -1.5, "a"}"#);
+    assert_eq!(v.bytes.len(), 8 + 4 * 3);
+    write_list(&m, 0x1500, 0, &[]);
+    assert_eq!(
+        runtime_value::decode(&m, 0x1500).value,
+        Some(FirmwareValue::List { items: vec![] })
+    );
+    // Subtype 0x01 (observed live) has the same layout.
+    write_list(&m, 0x1580, 0x01, &[0x1100]);
+    assert_eq!(
+        runtime_value::decode(&m, 0x1580).value.map(|v| v.display()),
+        Some("{1}".into())
+    );
+    // Unobserved subtype, undecodable element, cycle and oversize count all
+    // fail closed for the value (never partially decoded).
+    write_list(&m, 0x1600, 0x10, &[0x1100]);
+    assert!(runtime_value::decode(&m, 0x1600).value.is_none());
+    m.write_u32(0x1700, 0x0009_0001).unwrap();
+    write_list(&m, 0x1800, 0, &[0x1100, 0x1700]);
+    let bad = runtime_value::decode(&m, 0x1800);
+    assert!(bad.value.is_none());
+    assert!(bad.unavailable.unwrap().starts_with("list element 2:"));
+    write_list(&m, 0x1900, 0, &[0x1900]);
+    assert!(runtime_value::decode(&m, 0x1900).value.is_none());
+    m.write_u32(0x1a00, 0x0016_0001).unwrap();
+    m.write_u32(0x1a04, 1_000_000).unwrap();
+    assert!(runtime_value::decode(&m, 0x1a00).value.is_none());
+}
+#[test]
+fn completion_is_separate_from_host_decoding() {
+    use prime_emulator::runtime::classify;
+    use prime_emulator::runtime_value::{ReturnRepresentation, ValueEvidence};
+    let o = Observer::default();
+    o.arm(
+        0x1234,
+        "hash",
+        &ExecutionRequest {
+            entry: "LISTRET".into(),
+            arguments: vec![],
+        },
+        1.0,
+    )
+    .unwrap();
+    assert_eq!(o.finish_observed(), ExecutionStatus::Running);
+    assert!(o.snapshot().invocations[0].status.is_none());
+    let mut c = o.snapshot().invocations[0].clone();
+    c.ended_ms = Some(2.0);
+    c.body_entered = true;
+    let evidence = |tag: Option<u8>, value: Option<FirmwareValue>| ValueEvidence {
+        address: 0x1000,
+        tag,
+        subtype: Some(0),
+        bytes: vec![],
+        unavailable: value
+            .is_none()
+            .then(|| "unverified runtime value tag".into()),
+        value,
+        probe: vec![],
+    };
+    c.result = Some(evidence(Some(0x19), None));
+    let (status, caveats) = classify(&c);
+    assert_eq!(status, ExecutionStatus::Completed);
+    assert!(caveats[0].starts_with("return value not decoded"));
+    assert!(matches!(
+        ReturnRepresentation::of(c.result.as_ref()),
+        ReturnRepresentation::Undecoded {
+            tag: Some(0x19),
+            ..
+        }
+    ));
+    c.result = Some(evidence(
+        Some(0x05),
+        Some(FirmwareValue::Error { raw_code: 4 }),
+    ));
+    assert_eq!(classify(&c).0, ExecutionStatus::RuntimeError);
+    assert_eq!(
+        ReturnRepresentation::of(c.result.as_ref()),
+        ReturnRepresentation::None
+    );
+    // An unreadable header could be an error object: not a success claim.
+    c.result = Some(evidence(None, None));
+    assert_eq!(classify(&c).0, ExecutionStatus::Indeterminate);
+    c.result = None;
+    assert_eq!(classify(&c).0, ExecutionStatus::Indeterminate);
+    c.result = Some(evidence(Some(0), real("7")));
+    c.unavailable.push("hook read failed".into());
+    c.truncated = true;
+    let (status, caveats) = classify(&c);
+    assert_eq!(status, ExecutionStatus::Completed);
+    assert_eq!(caveats.len(), 2);
+    c.body_entered = false;
+    assert_eq!(classify(&c).0, ExecutionStatus::InvalidArguments);
+}
 #[test]
 fn invocation_selection_and_independent_requests() {
     assert!(runtime_value::invocation_keys("HELLO;KILL", &[]).is_err());
@@ -133,6 +267,8 @@ fn outcomes_do_not_conflate_failures() {
         ExecutionStatus::InfrastructureError,
         ExecutionStatus::Unsupported,
         ExecutionStatus::Cancelled,
+        ExecutionStatus::Running,
+        ExecutionStatus::Indeterminate,
     ];
     let mut codes = statuses.map(|s| s.exit_code()).to_vec();
     codes.sort();

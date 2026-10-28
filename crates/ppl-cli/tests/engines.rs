@@ -1,7 +1,24 @@
 use std::process::Command;
 const PPL: &str = env!("CARGO_BIN_EXE_ppl");
+/// The CLI with the default engine pinned to native, independent of any
+/// firmware configured on the developer's machine (config file or env).
+fn native_ppl() -> Command {
+    let mut c = Command::new(PPL);
+    c.env("PPL_ENGINE", "native")
+        .env("PPL_CONFIG", "/nonexistent/ppl-test-config.toml");
+    for asset in [
+        "PPL_FIRMWARE",
+        "PPL_OS_ROM",
+        "PPL_FACTORY_A",
+        "PPL_FIRMWARE_RUNNER",
+        "PPL_FIRMWARE_INIT_DATA",
+    ] {
+        c.env_remove(asset);
+    }
+    c
+}
 fn invoke(args: &[&str]) -> (i32, String, String) {
-    let o = Command::new(PPL).args(args).output().unwrap();
+    let o = native_ppl().args(args).output().unwrap();
     (
         o.status.code().unwrap(),
         String::from_utf8(o.stdout).unwrap(),
@@ -100,7 +117,7 @@ fn source_is_not_overwritten_by_reports_and_pngs() {
         vec!["--engine", "native", "--png"],
         vec!["--png"],
     ] {
-        let mut c = Command::new(PPL);
+        let mut c = native_ppl();
         c.arg("run").arg(&source).args(flags).arg(&source);
         let o = c.output().unwrap();
         assert_eq!(o.status.code(), Some(5));
@@ -112,7 +129,7 @@ fn native_works_outside_checkout_and_ignores_firmware_environment() {
     let d = tempfile::tempdir().unwrap();
     let file = d.path().join("HELLO é.ppl");
     std::fs::write(&file, "EXPORT HELLO() BEGIN RETURN 7; END;").unwrap();
-    let o = Command::new(PPL)
+    let o = native_ppl()
         .current_dir(d.path())
         .env("PPL_FIRMWARE_RUNNER", "/must/not/be/executed")
         .env("PPL_FIRMWARE", "/must/not/be/read")
@@ -131,7 +148,7 @@ fn invalid_containers_and_extreme_malformed_arguments_are_structured() {
     let file = d.path().join("BAD.hpprgm");
     std::fs::write(&file, [0x7c, 0x61, 0x8a, 0xb2, 0, 0, 0, 0]).unwrap();
     for engine in ["native", "firmware"] {
-        let o = Command::new(PPL)
+        let o = native_ppl()
             .args(["check", "--engine", engine, "--json"])
             .arg(&file)
             .output()
@@ -187,7 +204,7 @@ fn native_json_bytecode_limits_and_filename_entry() {
     let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/m8/BSTVisualizer.ppl");
     for extra in [vec![], vec!["--engine", "native", "--json"]] {
-        let out = Command::new(PPL)
+        let out = native_ppl()
             .arg("run")
             .arg(&file)
             .args(&extra)
@@ -250,7 +267,7 @@ fn implicit_and_explicit_native_share_utf16be_and_container_validation() {
         .collect();
     std::fs::write(&path, bytes).unwrap();
     for flags in [vec![], vec!["--engine", "native"]] {
-        let o = Command::new(PPL)
+        let o = native_ppl()
             .arg("check")
             .arg(&path)
             .args(flags)

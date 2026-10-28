@@ -1,0 +1,18 @@
+id = "waiting"
+category = "keyboard"
+description = "WAIT(0) blocks until a key is pressed"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/WAITING.ppl"
+source_sha256 = "2423442d2ccaf1c52ca7b57844bab7199de10eb489da2b3b716d2dacd6c18c30"
+entry = "WAITING"
+runtime_keys = "SNAP:waiting,ENTER"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "7"
+
+[[checkpoint]]
+label = "waiting"
+reference = "reference/local-firmware-g1-2.4.2/waiting-waiting.png"
+mask = "reference/masks/statusbar-clock-battery.png"
+mask_reason = "status-bar clock (host wall-clock through GetSysTime) and battery-charge animation (host power status); 279 of 76800 pixels"

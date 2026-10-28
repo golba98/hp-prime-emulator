@@ -179,6 +179,7 @@ fn run_session(
             boot_timeout: cfg.boot_timeout,
             key_timeout: cfg.key_timeout,
             screenshot_dir: Some(dir.join("shots")),
+            start_with_keys: false,
             ..ScriptConfig::default()
         }),
         storage_diff: true,

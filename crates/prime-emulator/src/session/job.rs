@@ -4,7 +4,7 @@ use crate::{
     checkprog, direct, hpprgm, import, keys,
     memory::GuestMemory,
     runtime::{ExecutionRequest, ExecutionStatus},
-    runtime_value::{self, FirmwareValue},
+    runtime_value::{self, ReturnRepresentation},
     script::{ScriptConfig, ScriptDriver, Tick},
     services::SharedState,
     trace::TraceHub,
@@ -15,6 +15,20 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+/// Sustained idle firmware UI that closes an interrupted invocation.
+const INTERRUPT_SETTLE: Duration = Duration::from_millis(500);
+/// The calculator's ON key, which breaks a running program.
+pub const ON_KEY: u16 = 0x83;
+/// ON presses per interruption, at most one per [`BREAK_RETRY`].
+const BREAK_PRESSES: u32 = 5;
+const BREAK_RETRY: Duration = Duration::from_secs(1);
+/// How long ON is held per press (a short human press).
+const BREAK_HOLD: Duration = Duration::from_millis(200);
+/// How long a Run issued during an interruption waits for it to finish.
+const DEFERRED_LIMIT: Duration = Duration::from_secs(10);
+/// Idle share over [`INTERRUPT_SETTLE`]: the firmware's own timers (every
+/// 183 ms) wake the UI pump, so idleness is never continuous.
+const INTERRUPT_IDLE_SHARE: f64 = 0.8;
 pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
@@ -60,6 +74,17 @@ pub struct Request {
 }
 pub struct Jobs {
     pub active: Option<Job>,
+    /// A running program was interrupted (Stop / ON) at this time; its
+    /// invocation is closed once the firmware is back at an idle UI.
+    interrupted: Option<Instant>,
+    idle_samples: std::collections::VecDeque<(Instant, bool)>,
+    /// ON presses sent for the current interruption, and the latest one.
+    break_presses: (u32, Option<Instant>),
+    /// When the held ON key went down; released after [`BREAK_HOLD`].
+    on_held: Option<Instant>,
+    /// A request that arrived while an interrupted program was still
+    /// stopping; it starts once the firmware is back at an idle UI.
+    deferred: Option<(Request, Instant)>,
     loader_context: Option<u32>,
     catalog: Vec<String>,
     /// The catalog order last read from the guest's program reads.
@@ -73,6 +98,11 @@ impl Jobs {
     pub fn new() -> Self {
         Self {
             active: None,
+            interrupted: None,
+            idle_samples: std::collections::VecDeque::new(),
+            break_presses: (0, None),
+            on_held: None,
+            deferred: None,
             loader_context: None,
             catalog: Vec::new(),
             observed: Vec::new(),
@@ -127,6 +157,14 @@ impl Jobs {
         shared: &SharedState,
         trace: &TraceHub,
     ) -> Result<(), String> {
+        if self.interrupted.is_some()
+            && self.active.is_none()
+            && self.deferred.is_none()
+            && trace.runtime.as_ref().is_some_and(|o| o.unfinished())
+        {
+            self.deferred = Some((request, Instant::now()));
+            return Ok(());
+        }
         let Request {
             request,
             source,
@@ -134,10 +172,7 @@ impl Jobs {
             arguments,
             run,
         } = request;
-        if trace.runtime.as_ref().is_some_and(|o| {
-            let (started, ended) = o.progress();
-            started && !ended
-        }) {
+        if trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
             return Err("The previous firmware program is still stopping".into());
         }
         if self.active.is_some() {
@@ -340,7 +375,119 @@ impl Jobs {
         job.script = Some(script(runtime_value::invocation_keys("ZZTIDELOAD", &[])?));
         Ok(())
     }
+    /// Records that Stop interrupted a running program (the caller sends ON).
+    /// Returns whether a running program was interrupted; ON is then held
+    /// down by the session (and repeated while needed) instead of tapped.
+    pub fn interrupt(&mut self, shared: &SharedState, trace: &TraceHub) -> bool {
+        if !trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
+            return false;
+        }
+        self.interrupted = Some(Instant::now());
+        self.idle_samples.clear();
+        self.break_presses = (0, None);
+        self.press_on(shared);
+        true
+    }
+    /// Holds ON down like a finger does: a program checks for a break
+    /// between statements, and an instantaneous down/up can fall between
+    /// two checks.
+    fn press_on(&mut self, shared: &SharedState) {
+        if self.on_held.is_none() {
+            shared.push_key_transition(ON_KEY, true);
+            self.on_held = Some(Instant::now());
+            self.break_presses = (self.break_presses.0 + 1, Some(Instant::now()));
+        }
+    }
+    fn release_on(&mut self, shared: &SharedState) {
+        if self.on_held.is_some_and(|t| t.elapsed() >= BREAK_HOLD) {
+            shared.push_key_transition(ON_KEY, false);
+            self.on_held = None;
+        }
+    }
+    /// An interrupted program never reaches the evaluator-return hook. It is
+    /// over once the firmware UI pump is parked in GetEvent with no input
+    /// queued and the main thread waiting, now and for
+    /// [`INTERRUPT_IDLE_SHARE`] of the last [`INTERRUPT_SETTLE`]: the firmware
+    /// is back at an idle screen.
+    fn settle_interrupt(&mut self, shared: &SharedState, trace: &TraceHub) {
+        let Some(at) = self.interrupted else {
+            return;
+        };
+        let observer = trace.runtime.as_ref().unwrap();
+        if !observer.unfinished() {
+            self.interrupted = None;
+            return;
+        }
+        let idle = shared.getevent_parked()
+            && shared.main_waiting()
+            && shared.input_events_pending() == 0
+            && shared.touch_pending() == 0;
+        let now = Instant::now();
+        // The firmware takes ON as a key event; one press can arrive while
+        // the program is between checks and be missed. While the main thread
+        // stays busy, press ON again, as a user would on the calculator.
+        let (presses, last) = self.break_presses;
+        if !shared.main_waiting()
+            && presses < BREAK_PRESSES
+            && last.is_none_or(|t| t.elapsed() >= BREAK_RETRY)
+        {
+            self.press_on(shared);
+        }
+        self.idle_samples.push_back((now, idle));
+        while self
+            .idle_samples
+            .front()
+            .is_some_and(|(t, _)| now.duration_since(*t) > INTERRUPT_SETTLE)
+        {
+            self.idle_samples.pop_front();
+        }
+        let share = self.idle_samples.iter().filter(|(_, i)| *i).count() as f64
+            / self.idle_samples.len().max(1) as f64;
+        if idle && share >= INTERRUPT_IDLE_SHARE && at.elapsed() >= INTERRUPT_SETTLE {
+            observer.finish_invocation(ExecutionStatus::Cancelled);
+            self.interrupted = None;
+            self.idle_samples.clear();
+        }
+    }
+    /// Starts a deferred request once the interrupted program has ended.
+    /// `None` while it waits, or when it started (the job then ticks).
+    fn start_deferred(&mut self, shared: &SharedState, trace: &TraceHub) -> Option<Vec<Event>> {
+        let (_, since) = self.deferred.as_ref()?;
+        let stopped = !trace.runtime.as_ref().unwrap().unfinished();
+        if !stopped && since.elapsed() < DEFERRED_LIMIT {
+            return None;
+        }
+        let (request, _) = self.deferred.take().unwrap();
+        let id = request.request;
+        let failed = |message: String| {
+            Some(vec![
+                Event::Phase {
+                    phase: "ready".into(),
+                },
+                Event::Result {
+                    request: id,
+                    success: false,
+                    message,
+                    check: None,
+                },
+            ])
+        };
+        if !stopped {
+            return failed(
+                "The previous firmware program did not stop; press Stop again, then Run".into(),
+            );
+        }
+        match self.start(request, shared, trace) {
+            Ok(()) => None,
+            Err(message) => failed(message),
+        }
+    }
     pub fn cancel(&mut self, mem: &GuestMemory, shared: &SharedState) -> Option<u64> {
+        if self.active.is_none()
+            && let Some((request, _)) = self.deferred.take()
+        {
+            return Some(request.request);
+        }
         let job = self.active.take()?;
         if job.stage == Stage::Direct {
             // A call in progress finishes on its own; one not yet started is
@@ -358,6 +505,13 @@ impl Jobs {
         shared: &SharedState,
         trace: &TraceHub,
     ) -> Vec<Event> {
+        self.release_on(shared);
+        self.settle_interrupt(shared, trace);
+        if self.active.is_none()
+            && let Some(events) = self.start_deferred(shared, trace)
+        {
+            return events;
+        }
         let Some(mut job) = self.active.take() else {
             return vec![];
         };
@@ -420,6 +574,20 @@ impl Jobs {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
                 Tick::Continue => return Ok(None),
+                // A program that keeps drawing never lets the invocation's
+                // ENTER settle; once the guest entered the function, its
+                // outcome comes from the runtime observer, not the script.
+                Tick::Failed(e)
+                    if matches!(job.stage, Stage::Invoke | Stage::Execute)
+                        && trace.runtime.as_ref().unwrap().progress().0 =>
+                {
+                    job.timeline.push(serde_json::json!({
+                        "stage": stage_name(job.stage, job.catalog_open),
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "unsettled": e,
+                    }));
+                    job.script = None;
+                }
                 Tick::Failed(e) => return Err(e),
                 Tick::Done => {
                     job.timeline.push(serde_json::json!({
@@ -615,41 +783,63 @@ impl Jobs {
                 job.stage = Stage::Execute;
             }
             Stage::Execute => {
-                if !trace.runtime.as_ref().unwrap().progress().1 {
+                let observer = trace.runtime.as_ref().unwrap();
+                if let Some(status) = observer.terminal_status() {
+                    return Err(format!("Firmware runtime: {status:?}"));
+                }
+                if !observer.progress().1 {
                     return Ok(None);
                 }
-                let runtime = trace.runtime.as_ref().unwrap().snapshot();
+                let status = observer.finish_observed();
+                let runtime = observer.snapshot();
                 let c = runtime
                     .invocations
                     .last()
                     .ok_or("No genuine firmware invocation")?;
-                if c.ended_ms.is_none() {
-                    return Ok(None);
-                }
-                if !c.body_entered || c.truncated || !c.unavailable.is_empty() {
-                    return Err("Incomplete firmware runtime evidence".into());
-                }
-                let status = trace.runtime.as_ref().unwrap().finish_observed();
-                if status != ExecutionStatus::Completed {
-                    return Err(format!(
-                        "Firmware runtime: {status:?}; {}",
-                        c.raw_error_context
-                            .as_deref()
-                            .unwrap_or("see calculator display")
-                    ));
-                }
-                let value = c
-                    .result
-                    .as_ref()
-                    .and_then(|v| v.value.as_ref())
-                    .ok_or("Firmware return value was not captured")?;
-                let value = match value {
-                    FirmwareValue::Real { value } | FirmwareValue::String { value } => {
-                        value.clone()
+                let mut message = match status {
+                    ExecutionStatus::Completed => {
+                        match (
+                            c.result.as_ref().and_then(|v| v.value.as_ref()),
+                            ReturnRepresentation::of(c.result.as_ref()),
+                        ) {
+                            (Some(value), _) => {
+                                format!("G1 firmware returned {}", value.display())
+                            }
+                            (None, ReturnRepresentation::Undecoded { tag, subtype, .. }) => {
+                                format!(
+                                    "G1 firmware completed; return value not decoded by host \
+                                     (tag {:#x}/{:#x})",
+                                    tag.unwrap_or(0),
+                                    subtype.unwrap_or(0)
+                                )
+                            }
+                            (None, _) => "G1 firmware completed".to_string(),
+                        }
                     }
-                    other => format!("{other:?}"),
+                    ExecutionStatus::RuntimeError => {
+                        return Err(format!(
+                            "Firmware runtime error: {}; {}",
+                            c.diagnostic
+                                .as_ref()
+                                .and_then(|d| d.message.as_deref())
+                                .unwrap_or("see calculator display"),
+                            c.raw_error_context
+                                .as_deref()
+                                .unwrap_or("no error context observed")
+                        ));
+                    }
+                    other => {
+                        return Err(format!(
+                            "Firmware runtime: {other:?}; {}",
+                            c.raw_error_context
+                                .as_deref()
+                                .unwrap_or("see calculator display")
+                        ));
+                    }
                 };
-                let message = format!("G1 firmware returned {value}");
+                for caveat in &c.caveats {
+                    message.push_str(&format!("\nCaveat: {caveat}"));
+                }
                 save_report(shared, trace, job, true, &message);
                 return Ok(Some(message));
             }

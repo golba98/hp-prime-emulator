@@ -2,7 +2,6 @@
 //! physical execution are deliberately not part of this service.
 use crate::{Cancellation, Operation, Report, Status, firmware, native, source::Source};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckReport {
@@ -23,17 +22,15 @@ impl CheckReport {
     }
 }
 pub fn configured_firmware() -> Option<firmware::Options> {
-    let path = |key| {
-        std::env::var_os(key)
-            .filter(|s| !s.is_empty())
-            .map(PathBuf::from)
-    };
+    let paths = crate::firmware_options::AssetPaths::default()
+        .resolve()
+        .ok()?;
     let options = firmware::Options {
-        runner: path("PPL_FIRMWARE_RUNNER"),
-        firmware: path("PPL_FIRMWARE"),
-        os_rom: path("PPL_OS_ROM"),
-        factory_a: path("PPL_FACTORY_A"),
-        init_data: path("PPL_FIRMWARE_INIT_DATA"),
+        runner: paths.runner,
+        firmware: paths.firmware,
+        os_rom: paths.os_rom,
+        factory_a: paths.factory_a,
+        init_data: paths.init_data,
         ..Default::default()
     };
     (options.runner.is_some()

@@ -189,6 +189,7 @@ fn outcome(op: Operation, s: &str) -> Option<(Status, i32)> {
         (Operation::Run, "invalid_arguments") => (Status::InvalidArguments, 10),
         (Operation::Run, "guest_execution_fault") => (Status::GuestFault, 1),
         (Operation::Run, "cancelled") => (Status::Cancelled, 130),
+        (Operation::Run, "indeterminate") => (Status::Indeterminate, 12),
         _ => return None,
     })
 }
@@ -622,7 +623,9 @@ fn perform(
             if status == Status::Success
                 && (c["body_entered"] != true
                     || c["ended_ms"].is_null()
-                    || c["result"]["value"].is_null()
+                    // A completed run needs the returned object; its value
+                    // may be undecoded, but its representation tag must exist.
+                    || (c["result"]["value"].is_null() && c["result"]["tag"].is_null())
                     || raw["runtime"]["compile_verified"] != true
                     || raw["compile_status"] != "valid")
             {
@@ -655,6 +658,15 @@ fn perform(
             ));
         }
         r.return_value = raw.get("return_value").filter(|v| !v.is_null()).cloned();
+        r.return_representation = raw["return_representation"].clone();
+        r.caveats = raw["caveats"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|c| c.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
         r.runtime_errors = raw["runtime_errors"]
             .as_array()
             .map(|a| a.iter().map(diagnostic).collect())
@@ -695,7 +707,7 @@ fn perform(
             r.artifacts.push(p);
         }
     }
-    r.backend = json!({"exit_code":captured.code,"report":raw,"ephemeral_paths":!r.work_retained,"stderr":String::from_utf8_lossy(&captured.stderr)});
+    r.backend = json!({"exit_code":captured.code,"display_return":raw["return_display"],"report":raw,"ephemeral_paths":!r.work_retained,"stderr":String::from_utf8_lossy(&captured.stderr)});
     Ok(())
 }
 

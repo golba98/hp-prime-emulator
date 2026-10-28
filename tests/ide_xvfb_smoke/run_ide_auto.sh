@@ -22,7 +22,8 @@ export WINIT_UNIX_BACKEND=x11
 export LIBGL_ALWAYS_SOFTWARE=1
 export NO_COLOR=1
 export PPL_IDE_AUTOMATION="$SCRIPT"
-cd "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator"
+# Run from this checkout (any worktree), not a hard-coded path.
+cd "$(dirname "$(readlink -f "$0")")/../.."
 T0=$(date +%s)
 # The release binary lives in Cargo's target directory, which
 # .cargo/config.toml may move outside the repository; PPL_BIN overrides.

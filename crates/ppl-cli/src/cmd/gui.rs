@@ -103,6 +103,31 @@ impl GuiOpts {
     }
 }
 
+#[derive(Debug, clap::Args)]
+pub struct ShowOpts {
+    /// `.hpprgm` or PPL source to open.
+    pub file: PathBuf,
+    /// Skip the start-up firmware Check.
+    #[arg(long)]
+    pub no_check: bool,
+}
+
+pub fn show(o: ShowOpts) -> u8 {
+    if !o.file.is_file() {
+        eprintln!("error: {} is not a file", o.file.display());
+        return exit::IO;
+    }
+    if let Err(e) = ppl_gui::launch_ide_with(ppl_gui::LaunchOptions {
+        file: Some(o.file),
+        firmware: true,
+        check: !o.no_check,
+    }) {
+        eprintln!("GUI error: {e}");
+        return exit::IO;
+    }
+    exit::OK
+}
+
 pub fn run(o: GuiOpts) -> u8 {
     // If no headless/scripted batch flags are supplied, launch the full interactive desktop IDE.
     if o.code.is_none()

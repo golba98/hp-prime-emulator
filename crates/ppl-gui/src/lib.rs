@@ -16,7 +16,7 @@ pub mod script;
 pub mod theme;
 pub mod window;
 
-pub use app::{IdeDesktopApp, launch_ide};
+pub use app::{IdeDesktopApp, LaunchOptions, launch_ide, launch_ide_with};
 pub use dialog::{KeyPress, ModalDialog, make_dialog};
 pub use host::{GuiHost, GuiSharedState, IdeSharedState};
 pub use ide::execution::worker::{WorkerConfig, WorkerHandle, WorkerOutcome};

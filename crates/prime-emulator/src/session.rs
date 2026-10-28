@@ -170,6 +170,7 @@ impl LiveSession {
                 },
                 Command::Stop => {
                     device.script = None;
+                    let interrupted = device.jobs.interrupt(shared, trace);
                     if let Some(request) = device.jobs.cancel(mem, shared) {
                         self.event(Event::Result {
                             request,
@@ -181,7 +182,9 @@ impl LiveSession {
                             phase: "ready".into(),
                         });
                     }
-                    shared.push_key_press(0x83);
+                    if !interrupted {
+                        shared.push_key_press(job::ON_KEY);
+                    }
                 }
                 Command::LoadSource { request, source } => {
                     match device.jobs.start(

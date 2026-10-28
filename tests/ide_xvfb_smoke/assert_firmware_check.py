@@ -111,7 +111,8 @@ session_backend = "Firmware runtime:" in console or "G1 firmware" in console
 if session_backend:
     # Firmware backend: the Run compiled the exact source (FWCHK stays
     # passed above); its runtime result is reported, not asserted here.
-    runs = [l for l in console.splitlines() if l.startswith(("Firmware runtime", "G1 firmware returned"))]
+    runs = [l for l in console.splitlines()
+            if l.startswith(("Firmware runtime", "G1 firmware returned", "G1 firmware completed"))]
     print("INFO firmware Run results: " + "; ".join(runs))
     check("a firmware Check is not shown as a VM error",
           all("Syntax Error" not in str(s["state"]["vm_state"]) for s in d["snapshots"]

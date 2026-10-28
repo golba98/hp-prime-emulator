@@ -1,0 +1,11 @@
+id = "listnest"
+category = "lists"
+description = "Nested list return"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/LISTS.ppl"
+source_sha256 = "7e23c5c26a6fc5f3834f1eab0747ebf63eb175f8e1f9ac9b4eb1526d332887dc"
+entry = "LISTNEST"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "{{1}, 2}"

@@ -38,6 +38,8 @@ pub struct IdeDesktopApp {
     pub state: IdeAppState,
     pub firmware: Option<crate::ide::firmware::FirmwareClient>,
     pub firmware_status: String,
+    /// A live-session program is between body entry and return.
+    pub firmware_program_running: bool,
     pub program_manager: crate::ide::programs::ProgramManager,
     explicit_check: Option<checking_integration::CheckJob>,
     /// The warm direct firmware checker (started on first Check).
@@ -132,6 +134,7 @@ impl Default for IdeDesktopApp {
             state: IdeAppState::default(),
             firmware: None,
             firmware_status: "Firmware not started".into(),
+            firmware_program_running: false,
             program_manager: Default::default(),
             explicit_check: None,
             direct: Default::default(),
@@ -1364,7 +1367,29 @@ fn dock_tab_button(ui: &mut egui::Ui, title: &str, active: bool) -> bool {
 }
 
 /// Launches the full native desktop IDE window.
+/// How the desktop IDE starts.
+#[derive(Debug, Clone, Default)]
+pub struct LaunchOptions {
+    pub file: Option<PathBuf>,
+    /// Start on the authentic-firmware calculator instead of native.
+    pub firmware: bool,
+    /// Check the opened file once at start (firmware Check when `firmware`).
+    pub check: bool,
+}
+
 pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    launch_ide_with(LaunchOptions {
+        file,
+        ..Default::default()
+    })
+}
+
+pub fn launch_ide_with(options: LaunchOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let LaunchOptions {
+        file,
+        firmware,
+        check,
+    } = options;
     let automation = crate::ide::automation::Automation::from_env();
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1440.0, 960.0])
@@ -1390,6 +1415,12 @@ pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error
             app.automation = automation;
             if let Some(f) = file {
                 app.open_file(f);
+            }
+            if firmware {
+                app.state.queue_action(IdeAction::SelectBackend(true));
+            }
+            if check {
+                app.state.queue_action(IdeAction::CheckSyntax);
             }
             Ok(Box::new(app))
         }),
@@ -1912,6 +1943,9 @@ mod tests {
         assert!(!app.state.firmware_backend);
         app.state.vm_state = crate::ide::VmExecutionState::Paused;
 
+        // Never start the developer's configured firmware (or create a
+        // calculator profile in their data folder) from a unit test.
+        app.state.firmware.firmware = "/nonexistent/ppl-test/armfir.elf".into();
         // Switch to G1 Firmware
         app.handle_action(IdeAction::SelectBackend(true), &ctx);
         assert!(app.state.firmware_backend);

@@ -8,7 +8,7 @@ pub mod firmware;
 #[cfg(not(target_os = "linux"))]
 #[path = "firmware_unsupported.rs"]
 pub mod firmware;
-mod firmware_options;
+pub mod firmware_options;
 pub mod native;
 pub mod session;
 pub mod source;
@@ -51,6 +51,8 @@ pub enum Status {
     MissingResources,
     MissingRunner,
     Cancelled,
+    /// The firmware produced no terminal evidence; never a success claim.
+    Indeterminate,
 }
 impl Status {
     pub fn firmware_exit(self) -> u8 {
@@ -70,6 +72,7 @@ impl Status {
             Self::MissingResources => 12,
             Self::MissingRunner => 13,
             Self::Cancelled => 130,
+            Self::Indeterminate => 14,
         }
     }
 }
@@ -125,6 +128,12 @@ pub struct Report {
     pub runtime_errors: Vec<Diagnostic>,
     pub output: Vec<OutputEvent>,
     pub return_value: Option<Value>,
+    /// Firmware runs: `decoded`, `undecoded` (with tag) or `none`.
+    #[serde(default)]
+    pub return_representation: Value,
+    /// Observation gaps that did not change the firmware-evidenced outcome.
+    #[serde(default)]
+    pub caveats: Vec<String>,
     pub error: Option<EngineError>,
     pub timings: Value,
     pub artifacts: Vec<PathBuf>,
@@ -152,6 +161,8 @@ impl Report {
             runtime_errors: vec![],
             output: vec![],
             return_value: None,
+            return_representation: Value::Null,
+            caveats: vec![],
             error: None,
             timings: serde_json::json!({}),
             artifacts: vec![],
