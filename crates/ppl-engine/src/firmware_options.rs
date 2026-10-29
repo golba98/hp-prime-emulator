@@ -138,14 +138,16 @@ mod tests {
             AssetPaths::from_config(&file).unwrap(),
             AssetPaths::default()
         );
+        let absolute = dir.path().join("absolute-A");
+        let encoded = toml::Value::String(absolute.to_string_lossy().into_owned());
         std::fs::write(
             &file,
-            "firmware = \"fw/armfir.elf\"\nfactory_a = \"/abs/A\"\n",
+            format!("firmware = \"fw/armfir.elf\"\nfactory_a = {encoded}\n"),
         )
         .unwrap();
         let paths = AssetPaths::from_config(&file).unwrap();
         assert_eq!(paths.firmware, Some(dir.path().join("fw/armfir.elf")));
-        assert_eq!(paths.factory_a, Some(PathBuf::from("/abs/A")));
+        assert_eq!(paths.factory_a, Some(absolute));
         assert!(paths.configured());
         std::fs::write(&file, "firmwre = \"typo\"\n").unwrap();
         assert!(AssetPaths::from_config(&file).is_err());
