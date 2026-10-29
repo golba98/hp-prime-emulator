@@ -1,5 +1,7 @@
 //! Offline CLI contracts. These tests never open a physical HID connection.
-use serde_json::{Value, json};
+use serde_json::Value;
+#[cfg(unix)]
+use serde_json::json;
 #[cfg(unix)]
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
