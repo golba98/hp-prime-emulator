@@ -508,7 +508,7 @@
   },
   {
     "id": "NUL",
-    "path": "files/NUL.hpprgm",
+    "path": "files/NUL_BYTES.hpprgm",
     "sha256": "8f64664297861de7b2701d7dcf6dabbdf20edd2df9bda94f89d6a3c36044c865",
     "size": 15,
     "source_file": null,
