@@ -1,3 +1,4 @@
 # HP Prime programs and test fixtures must retain their exact bytes on every platform.
 *.hpprgm -text
 *.HPPRGM -text
+*.ppl -text
