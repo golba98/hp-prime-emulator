@@ -57,6 +57,7 @@ pub struct IdeDesktopApp {
     calc_status_open: bool,
     explicit_check: Option<checking_integration::CheckJob>,
     /// The warm direct firmware checker (started on first Check).
+    #[cfg(target_os = "linux")]
     direct: checking_integration::DirectSlot,
     native_compile: Option<NativeCompileJob>,
     native_stopping: bool,
@@ -162,6 +163,7 @@ impl Default for IdeDesktopApp {
             calc_status: None,
             calc_status_open: false,
             explicit_check: None,
+            #[cfg(target_os = "linux")]
             direct: Default::default(),
             native_compile: None,
             native_stopping: false,
