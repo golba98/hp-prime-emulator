@@ -163,7 +163,7 @@ impl CalculatorDisplay {
             rect,
             0.0,
             Stroke::new(
-                1.0,
+                1.0_f32,
                 if state.calc_input_focus {
                     ACCENT_BLUE.gamma_multiply(0.6)
                 } else {

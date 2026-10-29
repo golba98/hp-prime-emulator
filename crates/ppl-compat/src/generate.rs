@@ -61,8 +61,9 @@ pub const CHECKED_SETTINGS: [&str; 3] = ["HAngle", "HFormat", "HDigits"];
 pub enum Channel {
     /// `PRINT` to the terminal (read back by screenshot).
     Print,
-    /// Accumulated in a string and stored in a new note. The program refuses
-    /// to run if the note already exists (checked before anything else).
+    /// Accumulated in a string and stored in a fresh, preflight-checked note.
+    /// Runtime checkpoint writes replace that owned note. There is no runtime
+    /// existence guard: each independently recorded run needs fresh names.
     Note { note: String },
 }
 

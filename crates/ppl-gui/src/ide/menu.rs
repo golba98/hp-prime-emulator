@@ -14,6 +14,30 @@ impl MenuBar {
 
     /// Checks global keyboard shortcuts and queues corresponding actions.
     pub fn handle_shortcuts(&self, ctx: &egui::Context, state: &mut IdeAppState) {
+        if state.input_owner == super::native::InputOwner::IdeModal {
+            return;
+        }
+        // Consumed, so the editor never sees it; matched on the event's own
+        // modifiers.
+        let send = egui::Modifiers::COMMAND | egui::Modifiers::SHIFT;
+        if ctx.input_mut(|i| i.consume_key(send, Key::U)) {
+            state.queue_action(IdeAction::SendToCalculator);
+        }
+        // Stop remains available while a program/dialog owns calculator focus.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::F5)) {
+            state.queue_action(IdeAction::StopProgram);
+            return;
+        }
+        if !state.firmware_backend
+            && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, Key::F5))
+        {
+            state.queue_action(if state.vm_state == VmExecutionState::Paused {
+                IdeAction::ContinueExecution
+            } else {
+                IdeAction::RunProgram
+            });
+            return;
+        }
         ctx.input(|i| {
             // Hotkeys with Ctrl / Command
             if i.modifiers.command {
@@ -56,7 +80,8 @@ impl MenuBar {
 
             // Restore previous layout when Escape is pressed in Expanded Calculator mode
             // without calculator input focus.
-            if state.layout == super::layout::WorkspaceLayout::Calculator
+            if state.firmware_backend
+                && state.layout == super::layout::WorkspaceLayout::Calculator
                 && i.key_pressed(Key::Escape)
             {
                 let target = if state.previous_layout != super::layout::WorkspaceLayout::Calculator
@@ -116,6 +141,10 @@ impl IdePanel for MenuBar {
                     .clicked()
                 {
                     state.queue_action(IdeAction::OpenFile(None));
+                    ui.close();
+                }
+                if ui.button("Open Folder…").clicked() {
+                    state.queue_action(IdeAction::OpenFolder);
                     ui.close();
                 }
                 if !state.recent_files.is_empty() {
@@ -234,7 +263,14 @@ impl IdePanel for MenuBar {
                     ui.close();
                 }
                 ui.separator();
-                if ui.button("Program Properties...").clicked() {
+                if ui
+                    .add_enabled(
+                        state.device_busy.is_none(),
+                        egui::Button::new("Send to Calculator").shortcut_text("Ctrl+Shift+U"),
+                    )
+                    .clicked()
+                {
+                    state.queue_action(IdeAction::SendToCalculator);
                     ui.close();
                 }
             });
@@ -281,6 +317,18 @@ impl IdePanel for MenuBar {
                 if ui.add(egui::Button::new("Configure Run...")).clicked() {
                     state.queue_action(IdeAction::ShowRunConfigDialog);
                     ui.close();
+                }
+                ui.separator();
+                ui.label(egui::RichText::new("Engine").small());
+                for (firmware, title) in [(false, "Native PPL"), (true, "G1 Firmware")] {
+                    if ui
+                        .radio(state.firmware_backend == firmware, title)
+                        .clicked()
+                        && state.firmware_backend != firmware
+                    {
+                        state.queue_action(IdeAction::SelectBackend(firmware));
+                        ui.close();
+                    }
                 }
             });
 
@@ -353,6 +401,12 @@ impl IdePanel for MenuBar {
                     ui.close();
                 }
                 if ui
+                    .checkbox(&mut state.show_compare, "Compare Screens Panel")
+                    .clicked()
+                {
+                    ui.close();
+                }
+                if ui
                     .checkbox(&mut state.show_status_bar, "Status Bar")
                     .clicked()
                 {
@@ -416,13 +470,27 @@ impl IdePanel for MenuBar {
 
             // Tools Menu
             ui.menu_button("Tools", |ui| {
-                if ui.button("Physical calculator programs…").clicked() {
+                let idle = state.device_busy.is_none();
+                if ui
+                    .add_enabled(idle, egui::Button::new("Calculator Status…"))
+                    .clicked()
+                {
+                    state.queue_action(IdeAction::ShowCalculatorStatus);
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(idle, egui::Button::new("Compare Screens with Calculator…"))
+                    .clicked()
+                {
+                    state.queue_action(IdeAction::CompareScreens);
+                    ui.close();
+                }
+                if ui.button("Advanced: Program Management…").clicked() {
                     state.queue_action(IdeAction::ManagePrograms);
                     ui.close();
                 }
                 ui.separator();
-                ui.label("USB tools are available through the ppl device CLI");
-                if ui.button("Take Screenshot").clicked() {
+                if ui.button("Save Emulator Screenshot…").clicked() {
                     state.queue_action(IdeAction::TakeScreenshot);
                     ui.close();
                 }

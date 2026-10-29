@@ -3,6 +3,7 @@ use crate::runtime::{ExecutionRequest, ExecutionStatus, RuntimeTrace};
 use crate::runtime_value::{FirmwareValue, ReturnRepresentation};
 use crate::{
     checkprog::{self, CheckConfig, CheckReport},
+    display::Frame,
     hpprgm,
     keys::{self, Key},
     memory::GuestMemory,
@@ -139,6 +140,7 @@ pub struct Driver {
     /// Runtime-input key records already turned into checkpoints.
     checkpoints_seen: usize,
     step: Option<usize>,
+    check_evidence: Option<(crate::script::ScriptReport, Option<Frame>)>,
 }
 impl Driver {
     pub fn new(plan: Plan) -> Self {
@@ -157,12 +159,24 @@ impl Driver {
             published_entry: None,
             checkpoints_seen: 0,
             step: None,
+            check_evidence: None,
         }
     }
     pub fn current_step(&self) -> Option<usize> {
         self.step
     }
+    pub fn check_evidence(&self) -> Option<(crate::script::ScriptReport, Option<Frame>)> {
+        match &self.phase {
+            Phase::Checking(driver) => {
+                Some((driver.report().clone(), driver.last_frame().cloned()))
+            }
+            _ => self.check_evidence.clone(),
+        }
+    }
     fn stop(&mut self, trace: &TraceHub, status: ExecutionStatus, why: impl Into<String>) -> Tick {
+        if let Phase::Checking(driver) = &self.phase {
+            self.check_evidence = Some((driver.report().clone(), driver.last_frame().cloned()));
+        }
         trace.runtime.as_ref().unwrap().terminal(status, why);
         self.plan.control.phase.store(5, Ordering::Release);
         self.phase = Phase::Stopped;
@@ -308,6 +322,8 @@ impl Driver {
                         );
                     }
                     Tick::Done => {
+                        self.check_evidence =
+                            Some((driver.report().clone(), driver.last_frame().cloned()));
                         observer.boot_ms(driver.report().boot_settled_ms);
                         let log = trace.compiler.as_ref().unwrap().snapshot();
                         let c = match checkprog::validate(
@@ -551,7 +567,10 @@ fn perform(
     r.guest_instructions = Some(result.report.instructions);
     r.runtime = result.report.runtime.clone().unwrap_or_default();
     if let Err(e) = checkprog::finish(&mut r.compilation, &p, &result) {
-        r.evidence = format!("compiler/session validation: {e}");
+        r.evidence = match &r.runtime.reason {
+            Some(reason) => format!("{reason}; compiler/session validation: {e}"),
+            None => format!("compiler/session validation: {e}"),
+        };
     }
     if r.compilation.observation.is_some() {
         r.compile_status = Some(r.compilation.status);

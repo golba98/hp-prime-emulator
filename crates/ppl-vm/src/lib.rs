@@ -8,6 +8,7 @@ pub mod host;
 pub mod machine;
 pub mod ops;
 pub mod rng;
+pub mod session;
 pub mod settings;
 pub mod value;
 
@@ -17,5 +18,6 @@ pub use host::{
     parse_key_script,
 };
 pub use machine::{DebugAction, Debugger, Limits, Machine, eval_text_with};
+pub use session::{PortableValue, SessionContext, SessionRun, SessionSnapshot, SourceIdentity};
 pub use settings::{AngleMode, Settings};
 pub use value::Value;

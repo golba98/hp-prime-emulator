@@ -286,7 +286,11 @@ impl Machine {
             return Ok(());
         }
         self.init_done = true;
-        self.execute(INIT_FN, Vec::new()).map(|_| ())
+        let result = self.execute(INIT_FN, Vec::new()).map(|_| ());
+        if result.is_err() {
+            self.init_done = false;
+        }
+        result
     }
 
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {

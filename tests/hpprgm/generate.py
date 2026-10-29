@@ -47,7 +47,8 @@ def container(source, *, unedited=False, cache=False, unknown=False):
 
 def add(ident, source=None, *, data=None, path=None, kind='container', encoding=None,
         name=None, source_mode=False, import_result='ok', firmware=False):
-    path = path or f'files/{ident}.hpprgm'
+    # NUL is a reserved device name on Windows, but remains the stable case ID.
+    path = path or f'files/{"NUL_BYTES" if ident == "NUL" else ident}.hpprgm'
     if data is None:
         data = container(source) if kind == 'container' else source.encode('utf-8')
     p = ROOT / path

@@ -1,0 +1,26 @@
+suite = "g1_rounding_storage_v1"
+description = "Stored-value controls. Equality compares exactly representable twelve-digit neighbours, without rounding the diagnostic result."
+
+[[case]]
+id = "below_boundary"
+expr = "1.2345678901249"
+
+[[case]]
+id = "stored_literal"
+body = "LOCAL x:=1.234567890125; RETURN {x==1.23456789012,x==1.23456789013};"
+
+[[case]]
+id = "stored_positive_sum"
+body = "LOCAL x:=1.23456789012+0.000000000005; RETURN {x==1.23456789012,x==1.23456789013};"
+
+[[case]]
+id = "stored_negative_sum"
+body = "LOCAL x:=-1.23456789012-0.000000000005; RETURN {x==-1.23456789012,x==-1.23456789013};"
+
+[[case]]
+id = "format_does_not_change_storage"
+body = "LOCAL x:=1.234567890125,s; s:=STRING(x); RETURN {x==1.23456789012,x==1.23456789013};"
+
+[[case]]
+id = "long_below_boundary"
+expr = "1.234567890124999999"

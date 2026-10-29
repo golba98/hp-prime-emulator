@@ -235,7 +235,7 @@ pub enum DeviceAction {
     },
     /// Run an uploaded program on the calculator and capture its result
     /// note automatically. Read-only on the device: EC key injection is
-    /// ineffective on G1 firmware 15157, so you press `Run` once and this
+    /// unverified on G1 firmware 15157, so you press `Run` once and this
     /// command handles preflight, completion detection, retrieval,
     /// identity validation and the audit log.
     Run {
@@ -763,12 +763,12 @@ fn run_inner(
         Err(e) => {
             eprintln!("error: {e}");
             if let DeviceError::Inconclusive(_) = e {
-                eprintln!(
-                    "hint: the preflight could not establish that the names are free, so nothing was written. \
-                     Make sure the calculator is on, shows the Home screen, is not busy or in exam mode, and \
-                     that no other program (e.g. Connectivity Kit) holds the USB connection, then retry. \
-                     No control program is required; --control type:name is an optional extra probe."
-                );
+                if let Some(hint) = ppl_programs::user_hint(&e) {
+                    eprintln!(
+                        "hint: the preflight could not establish that the names are free. {hint} \
+                         No control program is required; --control type:name is an optional extra probe."
+                    );
+                }
             }
             exit::IO
         }

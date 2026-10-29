@@ -175,6 +175,65 @@ fn indeterminate_upload_survives_process_restart_and_blocks_retries() {
     assert_eq!(before, m.lock().unwrap().sent.len());
 }
 #[test]
+fn cancelled_replacement_keeps_backup_and_allows_a_fresh_plan() {
+    let (mut p, m, dir, s) = fixture();
+    put(&m, "ZZT_TEST", OLD);
+    let plan = replacement::prepare(&mut p, &image(NEW), &s).unwrap();
+    let id = plan.operation_id.clone();
+    replacement::cancel_prepared(&s, &id).unwrap();
+    let reopened = Store::new(dir.path());
+    assert_eq!(reopened.load(&id).unwrap().state, "not_submitted");
+    assert!(replacement::apply(&mut p, &reopened, &id, true).is_err());
+    let next = replacement::prepare(&mut p, &image(NEW), &reopened).unwrap();
+    assert_ne!(next.operation_id, id);
+    assert_eq!(
+        s.backups(&s.load(&id).unwrap()).unwrap()[0].data,
+        utf16(OLD)
+    );
+    assert_eq!(
+        m.lock().unwrap().objects[&(6, "ZZT_TEST".into())],
+        utf16(OLD)
+    );
+    assert!(
+        !m.lock()
+            .unwrap()
+            .sent
+            .iter()
+            .any(|(c, _)| *c == 0xeb || *c == 0xf7)
+    );
+}
+
+#[test]
+fn cancellation_cannot_clear_authorization_or_uncertain_submission() {
+    use ppl_device::delete::SubmissionState;
+    for mode in 0..3 {
+        let (mut p, m, _dir, s) = fixture();
+        put(&m, "ZZT_TEST", OLD);
+        let plan = replacement::prepare(&mut p, &image(NEW), &s).unwrap();
+        let mut op = s.load(&plan.operation_id).unwrap();
+        match mode {
+            0 => op.authorization = Some("explicit_replacement_plan".into()),
+            1 => op.state = "unresolved".into(),
+            _ => op.submission = vec![SubmissionState::NotSent],
+        }
+        s.save(&op).unwrap();
+        let before = std::fs::read(s.directory(&op.id).unwrap().join("operation.json")).unwrap();
+        assert!(replacement::cancel_prepared(&s, &op.id).is_err());
+        assert_eq!(
+            std::fs::read(s.directory(&op.id).unwrap().join("operation.json")).unwrap(),
+            before
+        );
+        assert!(
+            s.reject_pending(
+                &plan.device.serial_id,
+                &[ppl_device::DeleteTarget::program("ZZT_TEST")]
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
 fn replacement_requires_review_and_changed_destination_never_inherits_authorization() {
     let (mut p, m, _dir, s) = fixture();
     put(&m, "ZZT_TEST", OLD);

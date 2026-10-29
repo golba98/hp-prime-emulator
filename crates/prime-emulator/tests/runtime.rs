@@ -187,6 +187,7 @@ fn completion_is_separate_from_host_decoding() {
             .then(|| "unverified runtime value tag".into()),
         value,
         probe: vec![],
+        representation: None,
     };
     c.result = Some(evidence(Some(0x19), None));
     let (status, caveats) = classify(&c);

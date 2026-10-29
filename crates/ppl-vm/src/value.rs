@@ -222,7 +222,16 @@ impl Value {
             Value::Complex(c) => out.push_str(&c.format(opts)),
             Value::Str(s) => {
                 if nested {
-                    let _ = write!(out, "\"{s}\"");
+                    out.push('"');
+                    // G1 15157 STRING data escapes each embedded double quote
+                    // with character 92. Other escape rules are unmeasured.
+                    for c in s.chars() {
+                        if c == '"' {
+                            out.push('\\');
+                        }
+                        out.push(c);
+                    }
+                    out.push('"');
                 } else {
                     out.push_str(s);
                 }

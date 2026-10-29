@@ -2,8 +2,10 @@
 
 pub mod automation;
 pub mod calculator;
+pub mod compare;
 pub mod console;
 pub mod debugger;
+pub mod device;
 pub mod diagnostics;
 pub mod dialogs;
 pub mod display;
@@ -15,13 +17,15 @@ pub mod icons;
 pub mod keypad;
 pub mod layout;
 pub mod menu;
+pub mod native;
 pub mod problems;
 pub mod programs;
+pub mod send;
 pub mod status;
 pub mod syntax;
 pub mod toolbar;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -56,6 +60,8 @@ pub struct PersistentPanelState {
     pub show_calculator: bool,
     pub show_bottom_dock: bool,
     pub show_status_bar: bool,
+    /// Keep the screen comparison dock visible across restarts.
+    pub show_compare: bool,
     pub active_dock_tab: DockTab,
     pub explorer_width: f32,
     pub calculator_width: f32,
@@ -63,6 +69,11 @@ pub struct PersistentPanelState {
     /// Code editor font size (points). Absent in older layout files.
     #[serde(default = "default_editor_font_size")]
     pub editor_font_size: f32,
+    /// Folder shown in the Explorer (absent: the launch directory).
+    pub workspace_root: Option<PathBuf>,
+    pub recent_files: Vec<PathBuf>,
+    /// Calculator program name each file is sent as.
+    pub send_names: HashMap<PathBuf, String>,
 }
 
 fn default_editor_font_size() -> f32 {
@@ -85,11 +96,15 @@ impl Default for PersistentPanelState {
             show_calculator: true,
             show_bottom_dock: true,
             show_status_bar: true,
+            show_compare: false,
             active_dock_tab: DockTab::Output,
             explorer_width: 220.0,
             calculator_width: 400.0,
             bottom_height: 180.0,
             editor_font_size: default_editor_font_size(),
+            workspace_root: None,
+            recent_files: Vec::new(),
+            send_names: HashMap::new(),
         }
     }
 }
@@ -184,6 +199,12 @@ pub enum IdeAction {
     CloseActiveTab,
     RunProgram,
     StopProgram,
+    /// Dismiss finished Native output without changing its retained outcome/history.
+    DismissOutput,
+    NativeHome,
+    NativeCatalog,
+    NativeSubmit,
+    NativeRunSelected,
     RestartProgram,
     StartDebugging,
     ContinueExecution,
@@ -193,6 +214,18 @@ pub enum IdeAction {
     ToggleBreakpoint(usize),
     CheckSyntax,
     ManagePrograms,
+    /// Save, check and send the active program to the calculator.
+    SendToCalculator,
+    /// Read the connected calculator's identity (read-only).
+    ShowCalculatorStatus,
+    /// Read the calculator's program list (read-only, may be incomplete).
+    ListCalculatorPrograms,
+    /// Read one program from the calculator into a new untitled tab.
+    OpenFromCalculator(String),
+    /// Capture the calculator screen and show it beside the emulator's.
+    CompareScreens,
+    /// Choose the folder shown in the Explorer.
+    OpenFolder,
     FormatSource,
     ToggleExplorer,
     ToggleCalculator,
@@ -247,6 +280,8 @@ pub enum EditCommand {
 /// Global state shared across all IDE panels and desktop components.
 #[derive(Debug)]
 pub struct IdeAppState {
+    pub native: native::NativeUiState,
+    pub input_owner: native::InputOwner,
     pub layout: layout::WorkspaceLayout,
     pub previous_layout: layout::WorkspaceLayout,
     pub calculator_mode: layout::CalculatorMode,
@@ -260,6 +295,8 @@ pub struct IdeAppState {
     pub show_calculator: bool,
     pub show_bottom_dock: bool,
     pub show_status_bar: bool,
+    /// Keep the screen comparison dock visible across restarts.
+    pub show_compare: bool,
 
     // Active bottom dock tab
     pub active_dock_tab: DockTab,
@@ -272,6 +309,13 @@ pub struct IdeAppState {
     // Workspace & file management
     pub workspace_root: Option<PathBuf>,
     pub recent_files: Vec<PathBuf>,
+    /// Calculator program name each file is sent as.
+    pub send_names: HashMap<PathBuf, String>,
+
+    // Physical calculator
+    pub device_status: device::DeviceStatus,
+    /// The device job in progress, if any.
+    pub device_busy: Option<device::Purpose>,
 
     // Execution & metrics
     pub vm_state: VmExecutionState,
@@ -308,6 +352,8 @@ pub struct IdeAppState {
 impl Default for IdeAppState {
     fn default() -> Self {
         Self {
+            native: native::NativeUiState::default(),
+            input_owner: native::InputOwner::Editor,
             layout: layout::WorkspaceLayout::Split,
             previous_layout: layout::WorkspaceLayout::Split,
             calculator_mode: layout::CalculatorMode::Full,
@@ -318,12 +364,16 @@ impl Default for IdeAppState {
             show_calculator: true,
             show_bottom_dock: true,
             show_status_bar: true,
+            show_compare: false,
             active_dock_tab: DockTab::Output,
             explorer_width: 220.0,
             calculator_width: 400.0,
             bottom_height: 180.0,
             workspace_root: std::env::current_dir().ok(),
             recent_files: Vec::new(),
+            send_names: HashMap::new(),
+            device_status: device::DeviceStatus::Unknown,
+            device_busy: None,
             vm_state: VmExecutionState::Idle,
             analysis: AnalysisState::NotAnalyzed,
             firmware_verdict: None,
@@ -359,11 +409,15 @@ impl IdeAppState {
             show_calculator: self.show_calculator,
             show_bottom_dock: self.show_bottom_dock,
             show_status_bar: self.show_status_bar,
+            show_compare: self.show_compare,
             active_dock_tab: self.active_dock_tab,
             explorer_width: self.explorer_width,
             calculator_width: self.calculator_width,
             bottom_height: self.bottom_height,
             editor_font_size: self.editor_font_size,
+            workspace_root: self.workspace_root.clone(),
+            recent_files: self.recent_files.clone(),
+            send_names: self.send_names.clone(),
         }
     }
 
@@ -382,6 +436,7 @@ impl IdeAppState {
         self.show_calculator = p.show_calculator;
         self.show_bottom_dock = p.show_bottom_dock;
         self.show_status_bar = p.show_status_bar;
+        self.show_compare = p.show_compare;
         self.active_dock_tab = p.active_dock_tab;
         self.explorer_width = layout::valid_size(p.explorer_width, 220.0, 160.0, 600.0);
         self.calculator_width = layout::valid_size(p.calculator_width, 400.0, 280.0, 900.0);
@@ -389,6 +444,16 @@ impl IdeAppState {
         self.editor_font_size = p
             .editor_font_size
             .clamp(*EDITOR_FONT_RANGE.start(), *EDITOR_FONT_RANGE.end());
+        if let Some(root) = p.workspace_root.as_ref().filter(|r| r.is_dir()) {
+            self.workspace_root = Some(root.clone());
+        }
+        self.recent_files = p
+            .recent_files
+            .iter()
+            .filter(|f| f.is_file())
+            .cloned()
+            .collect();
+        self.send_names = p.send_names.clone();
     }
 
     /// Resets all panel toggles and sizes to their default desktop layout.
@@ -400,6 +465,7 @@ impl IdeAppState {
         self.show_calculator = true;
         self.show_bottom_dock = true;
         self.show_status_bar = true;
+        self.show_compare = false;
         self.explorer_width = 220.0;
         self.calculator_width = 400.0;
         self.bottom_height = 180.0;
@@ -418,6 +484,18 @@ impl IdeAppState {
     /// Pushes an HP keycode into the application key events queue.
     pub fn push_key_event(&mut self, code: i64) {
         self.key_events.push(code);
+    }
+
+    pub fn can_dismiss_output(&self) -> bool {
+        !self.firmware_backend
+            && matches!(
+                self.native.view,
+                native::NativeView::ProgramOutput | native::NativeView::Error
+            )
+            && matches!(
+                self.vm_state,
+                VmExecutionState::Terminated | VmExecutionState::Error(_)
+            )
     }
 
     /// Sets or clears the held state of a key in the application state.

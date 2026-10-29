@@ -12,13 +12,22 @@ impl IdeDesktopApp {
         let status = if self.state.firmware_backend {
             self.firmware_status.as_str()
         } else {
-            "Native PPL · keypad enabled while running"
+            if self.state.can_dismiss_output() {
+                "Native PPL · Esc returns to the caller"
+            } else {
+                "Native PPL · Home and open IDE programs"
+            }
         };
         ui.label(
             egui::RichText::new(status)
                 .size(11.0)
                 .color(theme::TEXT_MUTED),
-        );
+        )
+        .on_hover_text(if self.state.firmware_backend {
+            "The selected local firmware session handles calculator input."
+        } else {
+            "Native Home and PPL share a session. CAS and built-in calculator apps are unavailable."
+        });
         calculator::show(ui, &mut self.state, &mut self.display, &mut self.keypad);
     }
     pub(super) fn render_workspace(&mut self, ctx: &egui::Context) {
@@ -69,7 +78,18 @@ impl IdeDesktopApp {
                 self.state.explorer_width = panel.response.rect.width();
             }
         }
-        if mode == WorkspaceLayout::Split && self.state.show_calculator {
+        let current_compare = self.current_compare_identity();
+        if self.compare.show(
+            ctx,
+            &mut self.state.show_compare,
+            self.device.busy() == Some(crate::ide::device::Purpose::Screenshot),
+            self.device.busy().is_some(),
+            current_compare.as_ref(),
+        ) {
+            self.begin_compare(ctx);
+        }
+        if mode == WorkspaceLayout::Split && self.state.show_calculator && !self.state.show_compare
+        {
             let width = self.state.calculator_width.min(limits.calculator_max);
             reset_panel_width(ctx, "right_calculator", width);
             let panel = egui::SidePanel::right("right_calculator")
@@ -94,7 +114,11 @@ impl IdeDesktopApp {
                     self.editor.render(ui, &mut self.state);
                 }
             });
-        if !self.state.show_calculator || mode == WorkspaceLayout::Editor {
+        if !self.state.show_calculator
+            || mode == WorkspaceLayout::Editor
+            || (self.state.show_compare && mode == WorkspaceLayout::Split)
+        {
+            self.state.calc_input_focus = false;
             self.keypad.release(&mut self.state);
             self.display.last_display_rect = egui::Rect::NOTHING;
         }
@@ -102,18 +126,22 @@ impl IdeDesktopApp {
         // ISKEYDOWN observes the former, GETKEY consumes the latter exactly once.
         let transitions = std::mem::take(&mut self.state.key_transitions);
         for (code, down) in transitions {
-            self.send_calc_transition(code, down);
+            if self.state.firmware_backend {
+                self.send_calc_transition(code, down);
+            } else if matches!(
+                self.native_input_owner(),
+                crate::ide::native::InputOwner::Program
+                    | crate::ide::native::InputOwner::CalculatorModal
+            ) {
+                self.controller.shared.set_key_down(code, down);
+            }
         }
         let events = std::mem::take(&mut self.state.key_events);
         for code in events {
             if self.state.firmware_backend {
                 continue;
             }
-            if code == 46 {
-                self.controller.stop();
-            } else {
-                self.controller.shared.push_key(code);
-            }
+            self.route_native_press(KeyPress::code(code), "virtual", ctx);
         }
     }
     fn render_bottom_dock(&mut self, ui: &mut egui::Ui) {

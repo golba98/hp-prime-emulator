@@ -39,6 +39,35 @@ pub struct DialogHost {
 }
 
 impl DialogHost {
+    pub fn has_open(&self) -> bool {
+        self.show_about
+            || self.show_shortcuts
+            || self.show_settings
+            || self.show_new_program
+            || self.show_go_to_line
+            || self.show_confirm_close
+            || self.show_run_config
+    }
+
+    /// Cancels one IDE window; it never forwards Escape to the calculator.
+    pub fn cancel_top(&mut self) -> bool {
+        for open in [
+            &mut self.show_confirm_close,
+            &mut self.show_run_config,
+            &mut self.show_go_to_line,
+            &mut self.show_new_program,
+            &mut self.show_settings,
+            &mut self.show_shortcuts,
+            &mut self.show_about,
+        ] {
+            if *open {
+                *open = false;
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn new() -> Self {
         Self {
             new_prog_name: "MYPROG".to_string(),
@@ -94,6 +123,7 @@ impl DialogHost {
                         .show(ui, |ui| {
                             for (keys, action) in [
                                 ("Ctrl+N / O / S", "New / Open / Save"),
+                                ("Ctrl+Shift+U", "Send to calculator"),
                                 ("F7 / F5 / Shift+F5", "Compile / Run / Stop"),
                                 ("Ctrl+F5 / F9", "Restart / Native Debug"),
                                 ("F10 / F11 / Shift+F11", "Step Over / Into / Out"),

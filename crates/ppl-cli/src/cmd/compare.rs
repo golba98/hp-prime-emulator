@@ -28,11 +28,10 @@ use std::time::Duration;
 use clap::{Args, ValueEnum};
 use ppl_compat::{
     Channel, DEFAULT_EVIDENCE_DIR, DEFAULT_RUNS_DIR, DeviceRecord, EvidenceV2, METHOD_NOTE_FETCH,
-    METHOD_SCREENSHOT, Report, RunManifest, RunStatus, Status, Suite, compare_v2,
-    emulate_print_program, generate_device_program, ledger_append, ledger_contains, load_evidence,
-    load_manifest, load_suite, load_suite_evidence, merge_evidence, parse_result_lines,
-    run_emulator, save_evidence_v2, save_manifest, select_cases, serial_fingerprint, sha256_hex,
-    utc_now,
+    METHOD_SCREENSHOT, Report, RunManifest, RunStatus, Status, Suite, emulate_print_program,
+    generate_device_program, ledger_append, ledger_contains, load_evidence, load_manifest,
+    load_suite, load_suite_evidence, parse_result_lines, run_emulator, save_evidence_v2,
+    save_manifest, select_cases, serial_fingerprint, sha256_hex, utc_now,
 };
 use ppl_device::{
     ControlObject, DEFAULT_CONTROL, DeviceError, FileType, Prime, Probe, ReadBack, fresh_test_name,
@@ -616,12 +615,17 @@ fn fetch(o: &CompareOpts, suite: &Suite, m: RunManifest) -> Result<(), Failure> 
         }
         Err(e) => return Err(io_err(format!("fetching `{note}`: {e}"))),
     };
-    let text = file.text();
     let dir = o.evidence_dir.join(&m.suite);
     std::fs::create_dir_all(&dir).map_err(|e| io_err(format!("{}: {e}", dir.display())))?;
     let raw_path = unused_path(&dir, &m.program, ".note.raw");
     std::fs::write(&raw_path, &file.data)
         .map_err(|e| io_err(format!("{}: {e}", raw_path.display())))?;
+    let text = decode_result_note(&file.data).map_err(|e| {
+        io_err(format!(
+            "invalid result note: {e}; raw evidence retained at {}",
+            raw_path.display()
+        ))
+    })?;
     let parsed = parse_result_lines(&text, &m.short_ids).map_err(usage)?;
     let mut ev = EvidenceV2::from_run(&m, &parsed, METHOD_NOTE_FETCH, device, text, &utc_now())
         .map_err(usage)?;
@@ -630,13 +634,52 @@ fn fetch(o: &CompareOpts, suite: &Suite, m: RunManifest) -> Result<(), Failure> 
     finish_evidence(o, suite, m, ev)
 }
 
+/// Decode evidence without the replacement characters used by the legacy UI
+/// helper. Preserve payload whitespace; only the transport's terminal NUL is
+/// removed. Raw bytes are saved before calling this function.
+fn decode_result_note(data: &[u8]) -> Result<String, String> {
+    let data = data.strip_prefix(&[0xff, 0xfe]).unwrap_or(data);
+    if data.len() % 2 != 0 {
+        return Err("odd UTF-16LE byte length".into());
+    }
+    let units: Vec<u16> = data
+        .chunks_exact(2)
+        .map(|p| u16::from_le_bytes([p[0], p[1]]))
+        .collect();
+    let mut text = String::from_utf16(&units).map_err(|e| format!("malformed UTF-16LE: {e}"))?;
+    if text.ends_with('\0') {
+        text.pop();
+    }
+    Ok(text)
+}
+
+#[cfg(test)]
+mod note_decode_tests {
+    use super::decode_result_note;
+
+    #[test]
+    fn preserves_program_observable_quotes_spaces_and_exponent_codepoint() {
+        let value = "@@ZZT|ZZT_T|12345678|0|0|4\nc1|2|\" A ᴇ \"\n@@END\n";
+        let mut bytes = vec![0xff, 0xfe];
+        bytes.extend(value.encode_utf16().flat_map(u16::to_le_bytes));
+        bytes.extend_from_slice(&[0, 0]);
+        assert_eq!(decode_result_note(&bytes).unwrap(), value);
+    }
+
+    #[test]
+    fn corrupt_unicode_never_becomes_a_successful_lossy_transcription() {
+        assert!(decode_result_note(&[1]).is_err());
+        assert!(decode_result_note(&[0, 0xd8]).is_err());
+        assert!(decode_result_note(&[0, 0xdc]).is_err());
+    }
+}
+
 fn offline_compare(o: &CompareOpts, suite: &Suite) -> Result<(), Failure> {
     println!(
         "Running {} emulator cases for suite `{}`...",
         suite.cases.len(),
         suite.suite
     );
-    let emu = run_emulator(suite);
     let mut evs = load_suite_evidence(&o.evidence_dir, &suite.suite).map_err(io_err)?;
     if let Some(path) = &o.evidence {
         let v1 = load_evidence(path).map_err(io_err)?;
@@ -650,10 +693,23 @@ fn offline_compare(o: &CompareOpts, suite: &Suite) -> Result<(), Failure> {
     } else {
         println!("Loaded {} hardware evidence file(s).", evs.len());
     }
-    let merged = merge_evidence(&evs);
-    let report = compare_v2(suite, &emu, &merged);
-    print_report_summary(&report);
-    save_reports(o, &report);
+    let assessment = ppl_compat::assessment::assess(suite, &evs, &o.runs_dir, &o.evidence_dir);
+    for audit in &assessment.audits {
+        if !audit.accepted {
+            println!("Evidence excluded ({}): {}", audit.program, audit.reason);
+        }
+    }
+    println!("Comparison scope: {}", assessment.comparison_scope);
+    print_report_summary(&assessment.report);
+    save_reports(o, &assessment.report);
+    if !o.no_report {
+        let path = o.out_dir.join(format!("assessment-{}.json", suite.suite));
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&assessment).map_err(|e| io_err(e.to_string()))?,
+        )
+        .map_err(|e| io_err(format!("{}: {e}", path.display())))?;
+    }
     Ok(())
 }
 

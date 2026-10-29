@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-use crate::display::LcdView;
+use crate::display::{Frame, LcdView};
 use crate::engine::{CpuThread, FaultReport, StopReason};
 use crate::firmware::{ElfImage, OsRom, regions};
 use crate::memory::GuestMemory;
@@ -250,7 +250,7 @@ impl Outcome {
 
 /// The device thread's view of the key script's end.
 struct DeviceThread {
-    handle: std::thread::JoinHandle<Option<ScriptDriver>>,
+    handle: std::thread::JoinHandle<Option<(ScriptReport, Option<Frame>)>>,
     result: Arc<std::sync::Mutex<Option<Tick>>>,
 }
 
@@ -323,7 +323,21 @@ fn spawn_device_thread(
                 }
                 std::thread::sleep(Duration::from_millis(2));
             }
-            driver
+            let mut evidence = program
+                .and_then(|p| p.check_evidence())
+                .or_else(|| driver.map(|d| (d.report().clone(), d.last_frame().cloned())));
+            // A Check checkpoint is useful for blocked navigation, but is
+            // not the program's final runtime framebuffer.
+            if trace
+                .runtime
+                .as_ref()
+                .is_some_and(|observer| !observer.snapshot().invocations.is_empty())
+            {
+                if let Some((_, frame)) = &mut evidence {
+                    *frame = None;
+                }
+            }
+            evidence
         })
         .expect("spawn device thread");
     DeviceThread { handle, result }
@@ -336,6 +350,38 @@ const DEVICE_TIMER_PERIOD: Duration = Duration::from_micros(61 * 1_000_000 / 60)
 pub struct RunSummary {
     pub report: RunReport,
     pub outcome: Outcome,
+}
+
+fn program_completion_evidence(runtime: Option<crate::runtime::RuntimeTrace>) -> String {
+    match runtime {
+        Some(runtime) => format!(
+            "program controller stopped: {:?}: {}",
+            runtime.terminal,
+            runtime
+                .reason
+                .as_deref()
+                .unwrap_or("no terminal reason recorded")
+        ),
+        None => "program controller stopped without runtime evidence".into(),
+    }
+}
+
+#[cfg(test)]
+mod evidence_tests {
+    use super::*;
+
+    #[test]
+    fn stopped_program_reports_navigation_timeout_without_claiming_key_completion() {
+        let runtime = crate::runtime::RuntimeTrace {
+            terminal: Some(crate::runtime::ExecutionStatus::TimedOut),
+            reason: Some("checking UI: key 1 not settled".into()),
+            ..Default::default()
+        };
+        let evidence = program_completion_evidence(Some(runtime));
+        assert!(evidence.contains("TimedOut"));
+        assert!(evidence.contains("checking UI: key 1 not settled"));
+        assert!(!evidence.contains("delivered and settled"));
+    }
 }
 
 pub fn run(cfg: &RunConfig) -> Result<RunSummary, Box<dyn std::error::Error>> {
@@ -721,10 +767,14 @@ pub fn run_with_session(
                 } else {
                     Outcome::ScriptComplete
                 };
-                evidence = format!(
-                    "key script completed: {} item(s) delivered and settled",
-                    cfg.script.as_ref().map_or(0, |s| s.keys.len())
-                );
+                evidence = if cfg.program.is_some() {
+                    program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
+                } else {
+                    format!(
+                        "key script completed: {} item(s) delivered and settled",
+                        cfg.script.as_ref().map_or(0, |s| s.keys.len())
+                    )
+                };
                 break;
             }
             Some(Tick::Failed(m)) => {
@@ -755,6 +805,11 @@ pub fn run_with_session(
     shared.set_stopping();
     let _ = cpu.take_stop_reason();
     let script = device.handle.join().unwrap_or(None);
+    let evidence = if cfg.program.is_some() && outcome == Outcome::ProgramComplete {
+        program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
+    } else {
+        evidence
+    };
 
     // ── Report ────────────────────────────────────────────────────────
     let svc_calls_total: u64 = trace.svc_totals().iter().map(|(_, c)| *c).sum();
@@ -876,10 +931,10 @@ fn display_report(
     cfg: &RunConfig,
     mem: &GuestMemory,
     shared: &SharedState,
-    script: Option<&ScriptDriver>,
+    script: Option<&(ScriptReport, Option<Frame>)>,
 ) -> DisplayReport {
     let mut out = DisplayReport {
-        script: script.map(|s| s.report().clone()),
+        script: script.map(|(report, _)| report.clone()),
         ..DisplayReport::default()
     };
     if cfg.lcd_watch {
@@ -903,7 +958,7 @@ fn display_report(
     // firmware's idle history repaint mid-flight (M4 observed a partially
     // clipped entry when the run stopped between the settled capture and
     // this read).
-    let frame = match script.and_then(|s| s.last_frame()) {
+    let frame = match script.and_then(|(_, frame)| frame.as_ref()) {
         Some(f) => f.clone(),
         None => match view.capture(mem) {
             Ok(f) => f,
@@ -929,7 +984,7 @@ fn display_report(
         sha256: frame.sha256(),
         unique_colors: frame.unique_colors(),
         changed_vs_previous: script
-            .and_then(|s| s.last_frame())
+            .and_then(|(_, frame)| frame.as_ref())
             .map(|prev| frame.diff(prev, None)),
         png,
     });

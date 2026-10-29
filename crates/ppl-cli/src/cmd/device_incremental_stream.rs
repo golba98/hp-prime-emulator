@@ -127,7 +127,10 @@ pub fn run(selector: Option<&str>, options: &StreamOptions, ipc: bool) -> u8 {
         {
             fs::create_dir_all(parent)?;
         }
+        #[cfg(unix)]
         let mut builder = fs::DirBuilder::new();
+        #[cfg(not(unix))]
+        let builder = fs::DirBuilder::new();
         #[cfg(unix)]
         {
             use std::os::unix::fs::DirBuilderExt;

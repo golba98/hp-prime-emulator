@@ -1,6 +1,7 @@
 //! Bottom status bar displaying cursor coordinates, VM state, and metrics.
 
-use super::{AnalysisState, IdeAppState, IdePanel, VmExecutionState};
+use super::device::DeviceStatus;
+use super::{AnalysisState, IdeAction, IdeAppState, IdePanel, VmExecutionState};
 use crate::theme::{ACCENT_AMBER, ACCENT_BLUE, ACCENT_GREEN, ACCENT_RED, TEXT_MUTED};
 use egui::RichText;
 
@@ -98,12 +99,18 @@ impl IdePanel for StatusBar {
 
             ui.add(egui::Separator::default().vertical());
 
-            // Display resolution and scale
-            let disp_str = format!("Disp: 320×240 ({:.0}x)", state.display_scale);
-            ui.label(RichText::new(disp_str).size(11.0).color(TEXT_MUTED));
+            // Engine selected in the Run menu
+            let engine = if state.firmware_backend {
+                "Engine: G1 Firmware"
+            } else {
+                "Engine: Native"
+            };
+            ui.label(RichText::new(engine).size(11.0).color(TEXT_MUTED));
 
-            // Right-aligned status message
+            // Right-aligned calculator light, then the status message
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                calculator_light(ui, state);
+                ui.add(egui::Separator::default().vertical());
                 ui.label(
                     RichText::new(&state.status_message)
                         .size(11.0)
@@ -111,6 +118,33 @@ impl IdePanel for StatusBar {
                 );
             });
         });
+    }
+}
+
+/// Coloured dot and label for the USB calculator; click for details.
+fn calculator_light(ui: &mut egui::Ui, state: &mut IdeAppState) {
+    let (label, color) = match (&state.device_busy, &state.device_status) {
+        (Some(purpose), _) => (
+            format!("Calculator: {}", purpose.busy_label()),
+            ACCENT_AMBER,
+        ),
+        (None, status @ DeviceStatus::Connected { count: 1, .. }) => (status.label(), ACCENT_GREEN),
+        (None, status @ DeviceStatus::Connected { .. }) => (status.label(), ACCENT_AMBER),
+        (None, status @ DeviceStatus::DetectFailed(_)) => (status.label(), ACCENT_RED),
+        (None, status) => (status.label(), TEXT_MUTED),
+    };
+    let response = ui
+        .add(
+            egui::Label::new(RichText::new(format!("● {label}")).size(11.0).color(color))
+                .sense(egui::Sense::click()),
+        )
+        .on_hover_text(match &state.device_status {
+            DeviceStatus::Connected { model, .. } => format!("{model}. Click for details."),
+            DeviceStatus::DetectFailed(e) => format!("USB enumeration failed: {e}"),
+            _ => "Connect an HP Prime with a USB data cable.".into(),
+        });
+    if response.clicked() && state.device_busy.is_none() && state.device_status.connected() {
+        state.queue_action(IdeAction::ShowCalculatorStatus);
     }
 }
 

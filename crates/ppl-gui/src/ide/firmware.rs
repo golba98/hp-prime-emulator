@@ -32,6 +32,19 @@ pub struct FirmwareClient {
     pub alive: Arc<AtomicBool>,
 }
 impl FirmwareClient {
+    #[cfg(test)]
+    pub(crate) fn with_test_frame(frame: Frame) -> Self {
+        let (tx, _) = mpsc::sync_channel(128);
+        let (_, rx) = mpsc::channel();
+        Self {
+            tx,
+            rx,
+            latest: Arc::new(Mutex::new(Some(frame))),
+            stop: Arc::new(AtomicBool::new(false)),
+            alive: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
     pub fn start(settings: FirmwareSettings, ctx: egui::Context) -> Self {
         let (tx, commands) = mpsc::sync_channel(128);
         let (events, rx) = mpsc::channel();

@@ -371,6 +371,12 @@ fn m7_list_returns_complete_with_decoded_values() {
     assert_eq!(r.return_value, Some(list(vec![num("1"), num("2")])));
     assert_eq!(r.return_representation, ReturnRepresentation::Decoded);
     assert_eq!(r.return_display.as_deref(), Some("{1, 2}"));
+    let c = &r.runtime.invocations[0];
+    assert!(c.body_entered && c.ended_ms.is_some());
+    assert!(c.result.as_ref().unwrap().unavailable.is_none());
+    let graph = c.result.as_ref().unwrap().representation.as_ref().unwrap();
+    assert!(graph.coherent && graph.complete);
+    assert!(r.runtime_errors.is_empty());
     assert!(r.caveats.is_empty(), "{:?}", r.caveats);
     let cases = [
         ("LIST0", list(vec![])),

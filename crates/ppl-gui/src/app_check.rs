@@ -6,6 +6,7 @@
 //! (one firmware boot per Check, about 7 s) gives the verdict instead.
 use super::*;
 use ppl_engine::{checking, source::Source};
+#[cfg(target_os = "linux")]
 use std::sync::{Arc, Mutex};
 pub(super) struct CheckJob {
     pub rx: std::sync::mpsc::Receiver<(TabId, u64, String, CheckOutcome)>,
@@ -19,12 +20,14 @@ pub(super) enum CheckOutcome {
         direct_error: Option<String>,
     },
     /// A direct original-firmware compiler call.
+    #[cfg(target_os = "linux")]
     Direct {
         verdict: ppl_engine::session::CheckVerdict,
         elapsed_ms: f64,
     },
 }
 /// The direct checker's lifecycle (shared with its starter thread).
+#[cfg(target_os = "linux")]
 #[derive(Default)]
 pub(super) enum DirectState {
     #[default]
@@ -36,6 +39,7 @@ pub(super) enum DirectState {
     Unavailable(String),
     Disabled,
 }
+#[cfg(target_os = "linux")]
 pub(super) type DirectSlot = Arc<Mutex<DirectState>>;
 impl Drop for CheckJob {
     fn drop(&mut self) {
@@ -173,6 +177,7 @@ impl IdeDesktopApp {
                 }
                 self.apply_firmware_check(id, revision, &title, *result);
             }
+            #[cfg(target_os = "linux")]
             CheckOutcome::Direct {
                 verdict,
                 elapsed_ms,
@@ -181,6 +186,7 @@ impl IdeDesktopApp {
     }
 
     /// Records a direct original-firmware Check of `revision`.
+    #[cfg(any(target_os = "linux", test))]
     pub(super) fn apply_direct_check(
         &mut self,
         id: TabId,

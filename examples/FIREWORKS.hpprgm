@@ -91,14 +91,18 @@ BEGIN
       END;
     END;
 
-    // Touch input
+    // Touch input: check the container before reading its first pointer.
     m_info := MOUSE;
 
     IF SIZE(m_info) > 0 THEN
-      mx := m_info[1,1];
-      my := m_info[1,2];
+      m_info := m_info[1];
+    END;
 
-      IF m_info[1,5] == 0 THEN
+    IF SIZE(m_info) >= 5 THEN
+      mx := m_info[1];
+      my := m_info[2];
+
+      IF m_info[5] == 0 THEN
         slot := 0;
 
         FOR idx FROM 1 TO RMAX DO

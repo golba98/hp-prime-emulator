@@ -166,8 +166,17 @@ fn invalid_containers_and_extreme_malformed_arguments_are_structured() {
         r#"[{"type":"real","value":"7","extra":1e400}]"#,
         "--json",
     ]);
-    assert_eq!(c, 7, "{o}");
-    serde_json::from_str::<serde_json::Value>(&o).unwrap();
+    // On non-Linux platforms the firmware backend reports platform
+    // unavailability before it can validate firmware-specific arguments.
+    let result: serde_json::Value = serde_json::from_str(&o).unwrap();
+    if cfg!(target_os = "linux") {
+        assert_eq!(c, 7, "{o}");
+        assert_eq!(result["status"], "invalid_arguments");
+    } else {
+        assert_eq!(c, 8, "{o}");
+        assert_eq!(result["status"], "unsupported");
+        assert_eq!(result["error"]["phase"], "platform");
+    }
 }
 #[test]
 fn native_json_bytecode_limits_and_filename_entry() {
