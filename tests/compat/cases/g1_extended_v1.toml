@@ -1,0 +1,51 @@
+suite = "g1_extended_v1"
+description = "Additional coverage selected for gaps, not limited to currently implemented commands. Physical reference required."
+
+[[case]]
+id = "numerical.complex_parts"
+expr = "{RE((2,3)),IM((2,3)),ABS((3,4))}"
+
+[[case]]
+id = "numerical.matrix_product"
+expr = "[[1,2],[3,4]]*[[2,0],[0,2]]"
+
+[[case]]
+id = "language.list_copy"
+body = "LOCAL a:={1,2},b; b:=a; b(1):=99; RETURN {a,b};"
+
+[[case]]
+id = "language.precedence"
+expr = "{-2^2,2^3^2,1+2*3}"
+
+[[case]]
+id = "language.scope_return"
+body = "LOCAL i,s:=0; FOR i FROM 1 TO 5 DO IF i==3 THEN CONTINUE; END; s:=s+i; END; RETURN s;"
+
+[[case]]
+id = "cas.exact_factor"
+expr = 'CAS("factor(x^2-1)")'
+note = "Symbolic expression expected; an approximate numeric substitute is not equivalent."
+
+[[case]]
+id = "cas.exact_rational"
+expr = 'CAS("1/3")'
+
+[[case]]
+id = "cas.symbolic_assumption"
+expr = 'CAS("sqrt(x^2)")'
+note = "Reference requires recorded CAS assumptions; do not infer equivalence from display alone."
+
+[[case]]
+id = "errors.domain"
+expr = "LN(-1)"
+isolate = true
+note = "Requires HComplex reference; generic IFERR alone does not identify the error."
+
+[[case]]
+id = "errors.invalid_index"
+body = "LOCAL a:={1}; RETURN a(5);"
+isolate = true
+
+[[case]]
+id = "numerical.format_boundary"
+expr = "{1E-499,1E499,999999999999}"

@@ -1,9 +1,13 @@
-//! Restrained action groups with vector icons and explicit execution backend.
+//! The main path only: file actions, Run/Stop, and Send to calculator.
+//! Everything else (compile, debug, restart, engine, panels) lives in the
+//! menus, the activity rail and keyboard shortcuts.
 use super::{
     IdeAction, IdeAppState, IdePanel, VmExecutionState,
     icons::{self, Icon},
     layout::{CalculatorMode, WorkspaceLayout},
 };
+use crate::theme::{ACCENT_GREEN, TEXT_MUTED};
+use egui::{RichText, Vec2};
 #[derive(Debug, Default)]
 pub struct ToolBar;
 impl ToolBar {
@@ -11,6 +15,26 @@ impl ToolBar {
         Self
     }
 }
+
+/// Labelled button with a painted icon, for the main Send action.
+fn send_button(ui: &mut egui::Ui, enabled: bool, hint: &str) -> egui::Response {
+    let color = if enabled { ACCENT_GREEN } else { TEXT_MUTED };
+    let response = ui
+        .add_enabled(
+            enabled,
+            egui::Button::new(RichText::new("       Send to calculator").color(color))
+                .min_size(Vec2::new(0.0, 28.0)),
+        )
+        .on_hover_text(hint)
+        .on_disabled_hover_text(hint);
+    let icon = egui::Rect::from_center_size(
+        response.rect.left_center() + Vec2::new(16.0, 0.0),
+        Vec2::splat(16.0),
+    );
+    icons::paint(ui, Icon::Send, icon, color);
+    response
+}
+
 impl IdePanel for ToolBar {
     fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
         ui.horizontal_centered(|ui| {
@@ -33,53 +57,37 @@ impl IdePanel for ToolBar {
                 state.vm_state,
                 VmExecutionState::Running | VmExecutionState::Paused
             );
+            let run_hint = if state.firmware_backend {
+                "Run in the emulator (G1 firmware engine) · F5"
+            } else {
+                "Run in the emulator · F5"
+            };
             for (icon, hint, action, enabled) in [
-                (Icon::Compile, "Compile · F7", IdeAction::CheckSyntax, !busy),
                 (
                     Icon::Run,
-                    "Run / Continue · F5",
+                    run_hint,
                     IdeAction::RunProgram,
                     !matches!(state.vm_state, VmExecutionState::Running),
                 ),
                 (Icon::Stop, "Stop · Shift+F5", IdeAction::StopProgram, busy),
-                (
-                    Icon::Restart,
-                    "Restart program · Ctrl+F5",
-                    IdeAction::RestartProgram,
-                    true,
-                ),
-                (
-                    Icon::Debug,
-                    if state.firmware_backend {
-                        "Firmware stepping is not supported; select Native to debug"
-                    } else {
-                        "Debug · F9"
-                    },
-                    IdeAction::StartDebugging,
-                    !busy && !state.firmware_backend,
-                ),
             ] {
                 if icons::button(ui, icon, hint, enabled, false).clicked() {
                     state.queue_action(action);
                 }
             }
             ui.separator();
-            let previous = state.firmware_backend;
-            let mut selected_backend = previous;
-            egui::ComboBox::from_id_salt("execution_backend")
-                .width(100.0)
-                .selected_text(if previous {
-                    "G1 Firmware"
-                } else {
-                    "Native PPL"
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut selected_backend, false, "Native PPL");
-                    ui.selectable_value(&mut selected_backend, true, "G1 Firmware");
-                });
-            if previous != selected_backend {
-                state.queue_action(IdeAction::SelectBackend(selected_backend));
+            let send_hint = match (&state.device_busy, state.device_status.connected()) {
+                (Some(purpose), _) => format!("Calculator busy: {}", purpose.busy_label()),
+                (None, false) => "Connect the calculator with USB to send · Ctrl+Shift+U".into(),
+                (None, true) => {
+                    "Save, check and send this program to the calculator · Ctrl+Shift+U".into()
+                }
+            };
+            if send_button(ui, state.device_busy.is_none(), &send_hint).clicked() {
+                state.queue_action(IdeAction::SendToCalculator);
             }
+            ui.toggle_value(&mut state.show_compare, "Compare screens")
+                .on_hover_text("Keep a side-by-side emulator / physical G1 comparison panel open");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if icons::button(ui, Icon::Settings, "Settings", true, false).clicked() {
                     state.queue_action(IdeAction::ShowSettingsDialog);
@@ -113,29 +121,6 @@ impl IdePanel for ToolBar {
                         ui.close();
                     }
                 });
-                if icons::button(
-                    ui,
-                    Icon::Calculator,
-                    "Toggle calculator · Ctrl+K",
-                    true,
-                    state.show_calculator,
-                )
-                .clicked()
-                {
-                    state.queue_action(IdeAction::ToggleCalculator);
-                }
-                if ui.available_width() > 90.0
-                    && icons::button(
-                        ui,
-                        Icon::Explorer,
-                        "Toggle explorer · Ctrl+B",
-                        true,
-                        state.show_explorer,
-                    )
-                    .clicked()
-                {
-                    state.queue_action(IdeAction::ToggleExplorer);
-                }
             });
         });
     }

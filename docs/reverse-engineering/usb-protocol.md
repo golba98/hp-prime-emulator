@@ -166,9 +166,12 @@ Investigated per the required protocol-verification procedure:
 4. `FC` screenshots are proven live by the 47 previously verified core cases,
    so a stale framebuffer is not the explanation.
 
-**Verdict: `EC` key injection as framed by hplp with `GETKEY` codes 0–50 does
-not work on this G1 (firmware 2.2.15157).** Either the firmware ignores `EC`
-entirely, or it expects a different (undocumented) payload encoding. hplp
+**Observed result:** the tested `EC` submissions using hplp framing and
+`GETKEY` codes 0–50 produced no visible response on this G1 (firmware
+2.2.15157). These attempts do not identify the failing layer: a matched-state
+manual positive control and an explicit observation interval were not retained.
+USB write completion is not an input acknowledgement. The firmware might ignore
+`EC`, or expect a different payload encoding, but neither explanation is proven. hplp
 itself defines no key-code table (`test_hpcalcs.c` asks the user to "Enter
 key ID"), and no public source documents an alternative encoding. Per the
 project rule (*never invent keycodes*), no speculative encodings were sent.

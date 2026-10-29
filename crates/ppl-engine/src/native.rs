@@ -31,6 +31,7 @@ pub struct Options {
 struct Capture {
     inner: HeadlessHost,
     events: Arc<Mutex<Vec<OutputEvent>>>,
+    dialogs: Arc<Mutex<Vec<String>>>,
 }
 impl Host for Capture {
     fn print(&mut self, t: &str) {
@@ -68,7 +69,13 @@ impl Host for Capture {
         self.inner.touch()
     }
     fn dialog(&mut self, d: &Dialog, g: &Grob) -> Result<DialogResult, RuntimeError> {
-        self.inner.dialog(d, g)
+        let start = self.inner.dialogs.len();
+        let result = self.inner.dialog(d, g);
+        self.dialogs
+            .lock()
+            .unwrap()
+            .extend_from_slice(&self.inner.dialogs[start..]);
+        result
     }
     fn now_ms(&mut self) -> f64 {
         self.inner.now_ms()
@@ -184,9 +191,11 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
     }
     opts.host.interrupt = Some(cancel.0.clone());
     let events = Arc::new(Mutex::new(vec![]));
+    let dialogs = Arc::new(Mutex::new(vec![]));
     let host = Capture {
         inner: opts.host,
         events: events.clone(),
+        dialogs: dialogs.clone(),
     };
     let mut m = Machine::new(Rc::new(program), Box::new(host), opts.settings, opts.limits);
     m.set_seed(opts.seed);
@@ -194,6 +203,7 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
     let result = m.call_function(&entry, args);
     let execution_s = executing.elapsed().as_secs_f64();
     r.output = events.lock().unwrap().clone();
+    r.backend["dialogs"] = json!(*dialogs.lock().unwrap());
     r.backend["steps"] = json!(m.steps());
     match result {
         Ok(value) => {

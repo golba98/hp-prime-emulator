@@ -65,26 +65,53 @@ pub fn show(
         });
     });
     ui.add_space(12.0);
-    let available = ui.available_rect_before_wrap().shrink(8.0);
-    let rect = device_rect(available);
-    let scale = rect.width() / 381.0;
-    let fits = scale >= DEVICE_MIN_SCALE;
-    if state.calculator_mode == CalculatorMode::ScreenOnly || !fits {
-        keypad.release(state);
-        if !fits && state.calculator_mode == CalculatorMode::Full {
-            if ui
-                .button(
-                    egui::RichText::new("Expand for the full keypad")
-                        .size(12.0)
-                        .color(crate::theme::TEXT_MUTED),
-                )
-                .clicked()
-            {
-                state.queue_action(IdeAction::SetLayout(WorkspaceLayout::Calculator));
+    if !state.firmware_backend {
+        ui.horizontal_wrapped(|ui| {
+            let idle = !matches!(
+                state.vm_state,
+                super::VmExecutionState::Running | super::VmExecutionState::Paused
+            );
+            for (label, action) in [
+                ("Home", IdeAction::NativeHome),
+                ("Programs", IdeAction::NativeCatalog),
+            ] {
+                if ui.add_enabled(idle, egui::Button::new(label)).clicked() {
+                    state.queue_action(action);
+                    ui.ctx().request_repaint();
+                }
             }
-            ui.add_space(8.0);
-        }
+            if state.can_dismiss_output()
+                && ui
+                    .button(match state.native.caller {
+                        super::native::NativeCaller::Home => "Back to Home (Esc)",
+                        super::native::NativeCaller::Catalog => "Back to Programs (Esc)",
+                    })
+                    .clicked()
+            {
+                state.queue_action(IdeAction::DismissOutput);
+                ui.ctx().request_repaint();
+            }
+        });
+        ui.add_space(4.0);
+    }
+    if state.calculator_mode == CalculatorMode::ScreenOnly {
+        keypad.release(state);
         display.render(ui, state);
+        return;
+    }
+    let available = ui.available_rect_before_wrap().shrink(8.0);
+    if device_rect(available).width() / DEVICE_SIZE.x < DEVICE_MIN_SCALE
+        && state.layout != WorkspaceLayout::Calculator
+    {
+        if ui.small_button("Expand for larger keys").clicked() {
+            state.queue_action(IdeAction::SetLayout(WorkspaceLayout::Calculator));
+        }
+        ui.add_space(4.0);
+    }
+    let rect = device_rect(ui.available_rect_before_wrap().shrink(8.0));
+    let scale = rect.width() / DEVICE_SIZE.x;
+    if scale <= 0.0 {
+        keypad.release(state);
         return;
     }
     let p = ui.painter();
@@ -140,6 +167,62 @@ mod tests {
             let r = device_rect(available);
             assert!((r.width() / r.height() - 381.0 / 797.0).abs() < 0.0001);
             assert!(available.expand(0.001).contains_rect(r));
+        }
+    }
+
+    #[test]
+    fn full_calculator_keeps_complete_body_in_narrow_and_high_dpi_views() {
+        for pixels_per_point in [0.75, 1.0, 1.5, 2.0, 2.5] {
+            for size in [
+                Vec2::new(240.0, 400.0),
+                Vec2::new(320.0, 500.0),
+                Vec2::new(700.0, 900.0),
+            ] {
+                let ctx = egui::Context::default();
+                ctx.set_pixels_per_point(pixels_per_point);
+                let mut state = IdeAppState::default();
+                let mut display = CalculatorDisplay::new();
+                let mut keypad = VirtualKeypad::new();
+                let viewport = Rect::from_min_size(egui::Pos2::ZERO, size);
+                // Egui applies a requested DPI change at the next frame;
+                // settle it before supplying the measured viewport.
+                let _ = ctx.run(
+                    egui::RawInput {
+                        screen_rect: Some(viewport),
+                        ..Default::default()
+                    },
+                    |_| {},
+                );
+                let _ = ctx.run(
+                    egui::RawInput {
+                        screen_rect: Some(viewport),
+                        ..Default::default()
+                    },
+                    |ctx| {
+                        assert_eq!(ctx.screen_rect(), viewport);
+                        egui::CentralPanel::default()
+                            .show(ctx, |ui| show(ui, &mut state, &mut display, &mut keypad));
+                    },
+                );
+                let lcd = display.last_display_rect;
+                let scale = lcd.width() / 320.0;
+                let body = Rect::from_min_size(
+                    lcd.min - Vec2::new(28.0, 58.0) * scale,
+                    DEVICE_SIZE * scale,
+                );
+                assert!(
+                    viewport.expand(0.01).contains_rect(body),
+                    "{size:?} at {pixels_per_point}: {body:?}"
+                );
+                assert!((lcd.height() - 240.0 * scale).abs() < 0.01);
+                for key in super::super::keypad::KEYS {
+                    assert!(body.expand(0.01).contains_rect(key.rect(body.min, scale)));
+                }
+                if size.x == 240.0 {
+                    assert!(scale < DEVICE_MIN_SCALE);
+                }
+                assert_eq!(state.calculator_mode, CalculatorMode::Full);
+            }
         }
     }
 }

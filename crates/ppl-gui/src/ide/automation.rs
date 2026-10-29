@@ -30,6 +30,8 @@ pub enum AutoStep {
     /// Close the active tab.
     CloseTab,
     Run,
+    /// Read-only emulator / physical calculator screen capture.
+    CompareScreens,
     Debug,
     Stop,
     Continue,
@@ -54,6 +56,13 @@ pub enum AutoStep {
     Screenshot(PathBuf),
     /// Give the code editor keyboard focus.
     FocusEditor,
+    ClickCalculator,
+    ClickCalculatorKey(i64),
+    Snapshot(PathBuf),
+    Detach,
+    NativeHome,
+    NativeCatalog,
+    IdeSettings,
     /// Type text into the focused widget as real keyboard input: `\n`
     /// becomes Enter and `\t` becomes Tab.
     Type(String),
@@ -84,6 +93,7 @@ pub enum AutoStep {
     Layout(String),
     CalculatorMode(String),
     Backend(bool),
+    MaxSteps(u64),
 }
 
 pub struct Automation {
@@ -94,10 +104,12 @@ pub struct Automation {
     dumped: bool,
     /// Input to inject at the start of the next frame.
     pending_events: Vec<egui::Event>,
+    pending_pointer_release: Option<egui::Pos2>,
     /// Window screenshot requested and not yet delivered.
     pending_screenshot: Option<PathBuf>,
     /// Sizes and scale observed at each window screenshot, for the dump.
     captures: Vec<serde_json::Value>,
+    last_pump_frame: Option<u64>,
 }
 
 impl Automation {
@@ -131,6 +143,10 @@ impl Automation {
                     "save_as" => AutoStep::SaveAs(get_path("path").unwrap_or_default()),
                     "close_tab" => AutoStep::CloseTab,
                     "run" => AutoStep::Run,
+                    "max_steps" => AutoStep::MaxSteps(
+                        s.get("limit").and_then(|v| v.as_u64()).unwrap_or(1_000_000),
+                    ),
+                    "compare_screens" => AutoStep::CompareScreens,
                     "debug" => AutoStep::Debug,
                     "stop" => AutoStep::Stop,
                     "continue" => AutoStep::Continue,
@@ -152,6 +168,15 @@ impl Automation {
                     "wait_paused" => AutoStep::WaitPaused(get_ms("timeout_ms")),
                     "screenshot" => AutoStep::Screenshot(get_path("path").unwrap_or_default()),
                     "focus_editor" => AutoStep::FocusEditor,
+                    "click_calculator" | "focus_calculator" => AutoStep::ClickCalculator,
+                    "click_calculator_key" => AutoStep::ClickCalculatorKey(
+                        s.get("code").and_then(|v| v.as_i64()).unwrap_or(-1),
+                    ),
+                    "snapshot" => AutoStep::Snapshot(get_path("path").unwrap_or_default()),
+                    "detach" => AutoStep::Detach,
+                    "native_home" => AutoStep::NativeHome,
+                    "native_catalog" => AutoStep::NativeCatalog,
+                    "ide_settings" => AutoStep::IdeSettings,
                     "type" => AutoStep::Type(get_str("text")),
                     "key" => match egui::Key::from_name(&get_str("key")) {
                         Some(key) => AutoStep::Key {
@@ -205,13 +230,23 @@ impl Automation {
             wait_deadline: None,
             dumped: false,
             pending_events: Vec::new(),
+            pending_pointer_release: None,
             pending_screenshot: None,
             captures: Vec::new(),
+            last_pump_frame: None,
         })
     }
 
     /// Runs at most one non-waiting step per frame.
     pub fn pump(&mut self, app: &mut IdeDesktopApp, ctx: &egui::Context) {
+        // egui may repeat layout passes within one frame. Advancing once per
+        // pass can merge independent scripted key presses into one input
+        // batch, violating the recorder's one-action-per-frame contract.
+        let frame = ctx.cumulative_frame_nr();
+        if self.last_pump_frame == Some(frame) {
+            return;
+        }
+        self.last_pump_frame = Some(frame);
         loop {
             if self.next >= self.steps.len() {
                 // Script finished without an explicit exit: dump and close.
@@ -260,6 +295,12 @@ impl Automation {
                         return;
                     }
                 }
+            }
+            // Consume screenshot responses even after focus loss, but never
+            // advance past keyboard input that could not be delivered.
+            if !ctx.input(|i| i.focused) || !self.pending_events.is_empty() {
+                ctx.request_repaint_after(Duration::from_millis(50));
+                return;
             }
             let step = self.steps[self.next].clone();
             if let AutoStep::WaitMs(ms) = step {
@@ -312,6 +353,8 @@ impl Automation {
 
     fn apply(&mut self, app: &mut IdeDesktopApp, step: AutoStep, ctx: &egui::Context) {
         match step {
+            AutoStep::MaxSteps(limit) => app.dialogs.max_steps_input = limit.to_string(),
+            AutoStep::CompareScreens => app.handle_action(IdeAction::CompareScreens, ctx),
             AutoStep::NewProgram(name) => {
                 app.dialogs.new_prog_name = name;
                 app.handle_action(IdeAction::NewProgram, ctx);
@@ -376,15 +419,17 @@ impl Automation {
             }
             AutoStep::WaitIdle(_) | AutoStep::WaitPaused(_) => unreachable!("handled in pump"),
             AutoStep::Screenshot(path) => {
-                let grob = app
-                    .controller
-                    .shared
-                    .screen
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .clone();
-                let _ = grob.save_png(&path);
-                app.state.status_message = format!("Screenshot saved to {}", path.display());
+                if let Some((grob, _)) = app.capture_compare_frame() {
+                    match grob.save_png(&path) {
+                        Ok(()) => {
+                            app.state.status_message =
+                                format!("Screenshot saved to {}", path.display())
+                        }
+                        Err(e) => app.state.status_message = format!("Screenshot failed: {e}"),
+                    }
+                } else {
+                    app.state.status_message = "No current frame from the selected engine".into();
+                }
             }
             AutoStep::FocusEditor => {
                 if let Some(tab) = app.editor.active_tab() {
@@ -392,6 +437,52 @@ impl Automation {
                     ctx.memory_mut(|m| m.request_focus(id));
                 }
             }
+            AutoStep::ClickCalculator => {
+                let pos = app.display.last_display_rect.center();
+                self.pending_events.extend([
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ]);
+            }
+            AutoStep::ClickCalculatorKey(code) => {
+                if let Some(key) = crate::ide::keypad::KEYS.iter().find(|key| key.code == code) {
+                    let lcd = app.display.last_display_rect;
+                    let scale = lcd.width() / 320.0;
+                    let origin = lcd.min - egui::vec2(28.0, 58.0) * scale;
+                    let pos = key.rect(origin, scale).center();
+                    self.pending_events.extend([
+                        egui::Event::PointerMoved(pos),
+                        egui::Event::PointerButton {
+                            pos,
+                            button: egui::PointerButton::Primary,
+                            pressed: true,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ]);
+                }
+            }
+            AutoStep::Snapshot(path) => {
+                if let Some(parent) = path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::write(path, self.dump_state(app, ctx));
+            }
+            AutoStep::Detach => {
+                if let Some(parent) = self.dump_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let snapshot = self.dump_state(app, ctx);
+                let _ = std::fs::write(&self.dump_path, snapshot);
+                self.dumped = true;
+            }
+            AutoStep::NativeHome => app.handle_action(IdeAction::NativeHome, ctx),
+            AutoStep::NativeCatalog => app.handle_action(IdeAction::NativeCatalog, ctx),
+            AutoStep::IdeSettings => app.handle_action(IdeAction::ShowSettingsDialog, ctx),
             AutoStep::Type(text) => {
                 for ch in text.chars() {
                     self.pending_events.push(match ch {
@@ -412,6 +503,13 @@ impl Automation {
                     m |= egui::Modifiers::COMMAND;
                 }
                 self.pending_events.push(key_event(key, m));
+                self.pending_events.push(egui::Event::Key {
+                    key,
+                    physical_key: None,
+                    pressed: false,
+                    repeat: false,
+                    modifiers: m,
+                });
             }
             AutoStep::Goto(line, col) => {
                 app.handle_action(
@@ -561,6 +659,8 @@ impl Automation {
         json!({
             "vm_state": state.vm_state.label(),
             "status_message": state.status_message,
+            "show_compare": state.show_compare,
+            "screen_comparison": app.compare.snapshot_summary(),
             "cursor_line": state.cursor_line,
             "cursor_col": state.cursor_col,
             "paused_line": state.paused_line,
@@ -592,6 +692,7 @@ impl Automation {
             }),
             "window_captures": self.captures,
             "window": {
+                "focused": ctx.input(|i| i.focused),
                 "screen_points": [ctx.screen_rect().width(), ctx.screen_rect().height()],
                 "pixels_per_point": ctx.pixels_per_point(),
             },
@@ -601,6 +702,15 @@ impl Automation {
                 .map(|p| p.display().to_string()).collect::<Vec<_>>(),
             "screen_generation": app.controller.shared.screen_generation
                 .load(std::sync::atomic::Ordering::SeqCst),
+            "display_generation": app.display.last_generation,
+            "native_view_generation": app.native_display_generation(),
+            "native_session":app.native_input_snapshot(),
+            "calculator_mode": format!("{:?}", state.calculator_mode),
+            "layout": format!("{:?}", state.layout),
+            "lcd_rect": {
+                "min": [app.display.last_display_rect.min.x, app.display.last_display_rect.min.y],
+                "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
+            },
         })
         .to_string()
     }
@@ -633,11 +743,30 @@ fn save_color_image(image: &egui::ColorImage, path: &std::path::Path) -> Result<
 
 /// Injects scripted input at the start of a frame, before any widget reads
 /// it (no-op when not configured).
-pub fn inject_input(app: &mut IdeDesktopApp, ctx: &egui::Context) {
+pub fn inject_raw_input(app: &mut IdeDesktopApp, input: &mut egui::RawInput) {
+    if !input.focused {
+        return;
+    }
     if let Some(auto) = app.automation.as_mut() {
+        if let Some(pos) = auto.pending_pointer_release.take() {
+            input.events.push(egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            });
+        }
         if !auto.pending_events.is_empty() {
             let events = std::mem::take(&mut auto.pending_events);
-            ctx.input_mut(|i| i.events.extend(events));
+            for event in &events {
+                if let egui::Event::PointerButton {
+                    pos, pressed: true, ..
+                } = event
+                {
+                    auto.pending_pointer_release = Some(*pos);
+                }
+            }
+            input.events.extend(events);
         }
     }
 }
@@ -649,5 +778,76 @@ pub fn maybe_pump(app: &mut IdeDesktopApp, ctx: &egui::Context) {
         if !auto.dumped {
             app.automation = Some(auto);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_layout_passes_do_not_merge_independent_input_steps() {
+        let ctx = egui::Context::default();
+        let mut app = IdeDesktopApp::default();
+        let mut automation = Automation {
+            steps: vec![
+                AutoStep::Key {
+                    key: egui::Key::Escape,
+                    shift: false,
+                    command: false,
+                },
+                AutoStep::Key {
+                    key: egui::Key::Enter,
+                    shift: false,
+                    command: false,
+                },
+            ],
+            next: 0,
+            dump_path: PathBuf::new(),
+            wait_deadline: None,
+            dumped: false,
+            pending_events: Vec::new(),
+            pending_pointer_release: None,
+            pending_screenshot: None,
+            captures: Vec::new(),
+            last_pump_frame: None,
+        };
+        let output = ctx.run(Default::default(), |ctx| {
+            automation.pump(&mut app, ctx);
+            ctx.request_discard("exercise a repeated layout pass");
+        });
+        assert!(output.platform_output.num_completed_passes > 1);
+        assert_eq!(automation.next, 1);
+        assert_eq!(automation.pending_events.len(), 2);
+        assert!(automation.pending_events.iter().all(|e| matches!(
+            e,
+            egui::Event::Key {
+                key: egui::Key::Escape,
+                ..
+            }
+        )));
+        automation.pending_events.clear();
+        let _ = ctx.run(Default::default(), |ctx| automation.pump(&mut app, ctx));
+        assert_eq!(automation.next, 2);
+        assert!(automation.pending_events.iter().all(|e| matches!(
+            e,
+            egui::Event::Key {
+                key: egui::Key::Enter,
+                ..
+            }
+        )));
+
+        app.automation = Some(automation);
+        let mut input = egui::RawInput {
+            focused: false,
+            ..Default::default()
+        };
+        inject_raw_input(&mut app, &mut input);
+        assert!(input.events.is_empty());
+        assert_eq!(app.automation.as_ref().unwrap().pending_events.len(), 2);
+        input.focused = true;
+        inject_raw_input(&mut app, &mut input);
+        assert_eq!(input.events.len(), 2);
+        assert!(app.automation.as_ref().unwrap().pending_events.is_empty());
     }
 }

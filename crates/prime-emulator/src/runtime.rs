@@ -463,7 +463,7 @@ impl Observer {
                 {
                     return Ok(());
                 }
-                c.result = Some(runtime_value::decode(mem, reg(RegisterARM::R4)?));
+                c.result = Some(runtime_value::decode_return(mem, reg(RegisterARM::R4)?));
                 c.ended_ms = Some(now);
                 c.heap_after = Some(mem.heap_stats());
                 if shared

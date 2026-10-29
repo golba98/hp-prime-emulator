@@ -14,7 +14,7 @@ use ppl_math::FormatOptions;
 use ppl_syntax::{SourceFile, Span};
 use ppl_vm::{DebugAction, Debugger, Machine, Value};
 
-use super::worker::{WorkerConfig, WorkerHandle, WorkerOutcome};
+use super::worker::{NativeSession, WorkerConfig, WorkerHandle, WorkerOutcome};
 use crate::host::GuiSharedState;
 
 /// How long the debugger waits between interrupt re-checks while paused.
@@ -379,6 +379,7 @@ impl Debugger for WorkerDebugger {
         };
 
         *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
         self.bridge.paused_line.store(0, Ordering::SeqCst);
 
         match cmd {
@@ -416,6 +417,8 @@ pub struct ExecutionController {
     terminal_seen: usize,
     /// Source file of the last run (for error line/col reporting).
     last_file: Option<SourceFile>,
+    session: NativeSession,
+    session_open: bool,
 }
 
 impl Default for ExecutionController {
@@ -436,14 +439,54 @@ impl ExecutionController {
             worker: None,
             terminal_seen: 0,
             last_file: None,
+            session: NativeSession::default(),
+            session_open: true,
         }
     }
 
     pub fn running(&self) -> bool {
-        match &self.worker {
-            Some(w) => !w.is_finished(),
-            None => false,
+        self.session.operation_active()
+            || match &self.worker {
+                Some(w) => !w.is_finished(),
+                None => false,
+            }
+    }
+
+    /// A persistent calculator context exists, independently of an operation.
+    pub fn session_alive(&self) -> bool {
+        self.session_open
+    }
+    pub fn operation_active(&self) -> bool {
+        self.running()
+    }
+    pub fn session_snapshot(&self) -> ppl_vm::SessionSnapshot {
+        self.session.snapshot()
+    }
+
+    pub fn evaluate_home(&mut self, text: &str, max_steps: Option<u64>) -> RunStart {
+        if self.running() {
+            return RunStart::AlreadyRunning;
         }
+        self.shared.reset_for_run();
+        self.terminal_seen = 0;
+        self.is_interrupted.store(false, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::SeqCst);
+        self.bridge.paused_line.store(0, Ordering::SeqCst);
+        *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
+        self.last_file = Some(SourceFile::new("<home>", text));
+        self.session_open = true;
+        self.worker = Some(WorkerHandle::spawn_home(
+            text.into(),
+            self.shared.clone(),
+            self.session.clone(),
+            ppl_vm::Limits {
+                max_steps,
+                max_time: None,
+                ..ppl_vm::Limits::default()
+            },
+        ));
+        RunStart::Started
     }
 
     pub fn paused(&self) -> bool {
@@ -466,6 +509,7 @@ impl ExecutionController {
 
     /// Close-time cleanup belongs to a reaper, never the UI event loop.
     pub fn reap_async(&mut self) {
+        self.session_open = false;
         if let Some(mut worker) = self.worker.take() {
             worker.interrupt();
             std::thread::spawn(move || {
@@ -505,6 +549,60 @@ impl ExecutionController {
         stop_at_entry: bool,
         max_steps: Option<u64>,
     ) -> RunStart {
+        self.start_compiled_in_namespace(
+            &file.name,
+            prog,
+            file,
+            entry,
+            args,
+            debug,
+            stop_at_entry,
+            max_steps,
+            false,
+        )
+    }
+
+    /// Home-origin program calls promote their returned value to Home Ans.
+    /// Catalog launches retain the separate last program result instead.
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_compiled_from_home(
+        &mut self,
+        prog: ppl_compiler::CompiledProgram,
+        file: &SourceFile,
+        entry: &str,
+        args: Option<&str>,
+        debug: bool,
+        stop_at_entry: bool,
+        max_steps: Option<u64>,
+    ) -> RunStart {
+        self.start_compiled_in_namespace(
+            &file.name,
+            prog,
+            file,
+            entry,
+            args,
+            debug,
+            stop_at_entry,
+            max_steps,
+            true,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    /// Explicit source identity, independent of the diagnostic display title.
+    /// Saved files should use their canonical path; unsaved files a stable ID.
+    pub fn start_compiled_in_namespace(
+        &mut self,
+        namespace: &str,
+        prog: ppl_compiler::CompiledProgram,
+        file: &SourceFile,
+        entry: &str,
+        args: Option<&str>,
+        debug: bool,
+        stop_at_entry: bool,
+        max_steps: Option<u64>,
+        promote_ans: bool,
+    ) -> RunStart {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
@@ -539,7 +637,14 @@ impl ExecutionController {
             },
         };
 
-        let worker = WorkerHandle::spawn(config, self.shared.clone());
+        let worker = WorkerHandle::spawn_in_session(
+            config,
+            self.shared.clone(),
+            self.session.clone(),
+            ppl_vm::SourceIdentity::new(namespace, file.text.clone()),
+            promote_ans,
+        );
+        self.session_open = true;
         self.worker = Some(worker);
         self.is_running.store(true, Ordering::SeqCst);
         RunStart::Started
@@ -586,6 +691,216 @@ pub fn make_worker_debugger(bridge: Arc<VmBridge>, interrupt: Arc<AtomicBool>) -
 mod tests {
     use super::*;
     use std::rc::Rc;
+
+    fn finish(controller: &mut ExecutionController) -> WorkerOutcome {
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while controller.operation_active() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "worker did not finish"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        controller.outcome().expect("finished outcome")
+    }
+
+    #[test]
+    fn home_workers_preserve_typed_ans_and_clear_stale_input() {
+        let mut controller = ExecutionController::new();
+        assert!(controller.session_alive());
+        assert!(!controller.operation_active());
+        controller.evaluate_home("2+3", None);
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="5")
+        );
+        assert_eq!(
+            controller.session_snapshot().last_value,
+            Some(ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(5)))
+        );
+        controller.shared.push_key(30);
+        controller.evaluate_home("Ans*2", None);
+        assert!(controller.shared.key_queue.lock().unwrap().is_empty());
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="10")
+        );
+        assert_eq!(controller.session_snapshot().generation, 2);
+        assert!(controller.session_alive());
+    }
+
+    #[test]
+    fn catalog_and_home_launch_origins_control_ans_without_reinitializing_module() {
+        let mut controller = ExecutionController::new();
+        controller.evaluate_home("5", None);
+        finish(&mut controller);
+        let file = SourceFile::new(
+            "counter.ppl",
+            "LOCAL calls:=0; EXPORT TEST() BEGIN calls:=calls+1; RETURN calls; END;",
+        );
+        start(&mut controller, &file);
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="1")
+        );
+        start(&mut controller, &file);
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="2")
+        );
+        assert_eq!(
+            controller.session_snapshot().globals["Ans"],
+            ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(5))
+        );
+        let (program, _) = ppl_compiler::compile_source(&file, &Default::default());
+        controller.start_compiled_from_home(
+            program.unwrap(),
+            &file,
+            "TEST",
+            None,
+            false,
+            false,
+            None,
+        );
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="3")
+        );
+        assert_eq!(
+            controller.session_snapshot().globals["Ans"],
+            ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(3))
+        );
+    }
+
+    #[test]
+    fn waiting_worker_snapshot_is_nonblocking_and_stop_leaves_home_usable() {
+        let mut controller = ExecutionController::new();
+        let file = SourceFile::new(
+            "wait.ppl",
+            "EXPORT TEST() BEGIN A:=17; WAIT(0); RETURN 99; END;",
+        );
+        start(&mut controller, &file);
+        std::thread::sleep(Duration::from_millis(20));
+        assert!(controller.operation_active());
+        let start = std::time::Instant::now();
+        controller.session_snapshot();
+        assert!(start.elapsed() < Duration::from_millis(250));
+        controller.stop();
+        assert!(matches!(finish(&mut controller), WorkerOutcome::Error(_)));
+        controller.evaluate_home("A+Ans", None);
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="17")
+        );
+    }
+
+    #[test]
+    fn no_drawing_operation_presents_retained_graphics_and_terminal() {
+        let mut controller = ExecutionController::new();
+        let draw = SourceFile::new(
+            "draw.ppl",
+            "EXPORT TEST() BEGIN RECT_P(0,0,319,239,RGB(0,0,255),RGB(0,0,255)); RETURN 1; END;",
+        );
+        start(&mut controller, &draw);
+        finish(&mut controller);
+        let graphics = controller.shared.get_frame();
+        assert!(
+            graphics
+                .pixels()
+                .iter()
+                .all(|pixel| *pixel == ppl_graphics::rgb(0, 0, 255))
+        );
+        controller.evaluate_home("5", None);
+        finish(&mut controller);
+        assert_eq!(controller.shared.get_frame().pixels(), graphics.pixels());
+        let print = SourceFile::new(
+            "print.ppl",
+            "EXPORT TEST() BEGIN PRINT(\"kept\"); RETURN 1; END;",
+        );
+        start(&mut controller, &print);
+        finish(&mut controller);
+        let terminal = controller.shared.get_frame();
+        assert_ne!(terminal.pixels(), graphics.pixels());
+        controller.evaluate_home("2+3", None);
+        finish(&mut controller);
+        assert_eq!(controller.shared.get_frame().pixels(), terminal.pixels());
+    }
+
+    #[test]
+    fn home_program_arguments_read_session_values_without_promoting_temporary_results() {
+        let mut controller = ExecutionController::new();
+        controller.evaluate_home("A:=7", None);
+        finish(&mut controller);
+        controller.evaluate_home("5", None);
+        finish(&mut controller);
+        let file = SourceFile::new(
+            "args.ppl",
+            "EXPORT ARGTEST(n,m) BEGIN RETURN {n,m,Ans}; END;",
+        );
+        let (program, _) = ppl_compiler::compile_source(&file, &Default::default());
+        controller.start_compiled_from_home(
+            program.unwrap(),
+            &file,
+            "ARGTEST",
+            Some("Ans,A"),
+            false,
+            false,
+            None,
+        );
+        assert!(
+            matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str=="{5,7,5}")
+        );
+        assert_eq!(controller.session_snapshot().generation, 3);
+        controller.evaluate_home("5", None);
+        finish(&mut controller);
+        let file = SourceFile::new("fail.ppl", "EXPORT ARGFAIL(n) BEGIN RETURN 1/0; END;");
+        let (program, _) = ppl_compiler::compile_source(&file, &Default::default());
+        controller.start_compiled_from_home(
+            program.unwrap(),
+            &file,
+            "ARGFAIL",
+            Some("A:=8"),
+            false,
+            false,
+            None,
+        );
+        assert!(matches!(finish(&mut controller), WorkerOutcome::Error(_)));
+        let snapshot = controller.session_snapshot();
+        assert_eq!(snapshot.generation, 5);
+        assert_eq!(
+            snapshot.globals["Ans"],
+            ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(5))
+        );
+        assert_eq!(
+            snapshot.globals["A"],
+            ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(8))
+        );
+    }
+
+    #[test]
+    fn same_title_and_source_in_distinct_namespaces_do_not_share_module_variables() {
+        let mut controller = ExecutionController::new();
+        let file = SourceFile::new(
+            "same.ppl",
+            "LOCAL calls:=0; EXPORT TEST() BEGIN calls:=calls+1; RETURN calls; END;",
+        );
+        for (namespace, expected) in [
+            ("/first/same.ppl", "1"),
+            ("/second/same.ppl", "1"),
+            ("/first/same.ppl", "2"),
+        ] {
+            let (program, _) = ppl_compiler::compile_source(&file, &Default::default());
+            controller.start_compiled_in_namespace(
+                namespace,
+                program.unwrap(),
+                &file,
+                "TEST",
+                None,
+                false,
+                false,
+                None,
+                false,
+            );
+            assert!(
+                matches!(finish(&mut controller),WorkerOutcome::Success{value_str,..} if value_str==expected)
+            );
+            assert_eq!(controller.last_source_file().unwrap().name, "same.ppl");
+        }
+    }
 
     #[test]
     fn bridge_breakpoint_toggle() {

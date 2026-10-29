@@ -1,0 +1,50 @@
+suite = "g1_exponent_resolution_v1"
+description = "Actual STRING character data and notation boundaries; intended HAngle/HFormat/HDigits0|0|0."
+
+[[case]]
+id = "exact_integer_tie"
+expr = "1234567890125"
+
+[[case]]
+id = "scaled_literal_tie"
+expr = "1.234567890125E20"
+
+[[case]]
+id = "exact_integer_fingerprint"
+body = "LOCAL v:=1234567890125,s; s:=STRING(v); RETURN {TYPE(v),v==1234567890120,v==1234567890130,TYPE(s),SIZE(s),ASC(s)};"
+
+[[case]]
+id = "scaled_literal_fingerprint"
+body = "LOCAL v:=1.234567890125E20,s; s:=STRING(v); RETURN {TYPE(v),v==1.23456789012E20,v==1.23456789013E20,TYPE(s),SIZE(s),ASC(s)};"
+
+[[case]]
+id = "below_integer_boundary"
+body = "LOCAL v:=999999999999,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "integer_boundary"
+body = "LOCAL v:=1E12,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "negative_integer_boundary"
+body = "LOCAL v:=-1E12,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "small_plain_boundary"
+body = "LOCAL v:=1E-12,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "small_scientific_boundary"
+body = "LOCAL v:=1E-13,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "negative_small_scientific"
+body = "LOCAL v:=-1E-13,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "mantissa_small_boundary"
+body = "LOCAL v:=0.0123456789012,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"
+
+[[case]]
+id = "three_digit_exponent"
+body = "LOCAL v:=1E100,s; s:=STRING(v); RETURN {s,SIZE(s),ASC(s)};"

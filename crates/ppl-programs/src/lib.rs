@@ -19,6 +19,31 @@ pub fn disk(error: impl std::fmt::Display) -> DeviceError {
     DeviceError::Hid(error.to_string())
 }
 
+/// Journal and backup directory shared by every frontend, so an operation
+/// started in the IDE can be verified or recovered from the CLI and back.
+pub const DEFAULT_STORE_DIR: &str = "artifacts/delete";
+
+/// Plain-language advice for a device error, shared by the CLI and the IDE.
+/// `None` when the error message already says everything useful.
+pub fn user_hint(error: &DeviceError) -> Option<&'static str> {
+    match error {
+        DeviceError::NotFound => Some(
+            "Connect the calculator with a USB data cable and switch it on. \
+             No HP Prime was found on USB.",
+        ),
+        DeviceError::Inconclusive(_) | DeviceError::Timeout(_) => Some(
+            "The calculator did not answer clearly, so nothing was written. Make sure it is on, \
+             shows the Home screen, is not busy or in exam mode, and that no other program \
+             (e.g. Connectivity Kit) holds the USB connection, then retry.",
+        ),
+        DeviceError::Busy(_) => Some(
+            "Another program or operation is using the calculator. Close Connectivity Kit or \
+             other ppl device commands, then retry.",
+        ),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceIdentity {
     pub serial_id: String,
@@ -384,17 +409,18 @@ mod tests {
     use super::*;
     #[test]
     fn full_fireworks_size_is_not_filesystem_or_hid_size() {
-        let bytes = include_bytes!("../../../examples/FIREWORKS.hpprgm").to_vec();
+        // Pin the sizing vector to the test fixture, not an editable IDE program.
+        let bytes = include_bytes!("../../../tests/fixtures/FIREWORKS.hpprgm").to_vec();
         let image = ProgramImage::new(
             "FIREWORKS",
             Source::decode(bytes, None, "FIREWORKS".into()).unwrap(),
         )
         .unwrap();
-        assert_eq!(image.sizes.file_bytes, 10024);
-        assert_eq!(image.sizes.payload_bytes, 20048);
-        assert_eq!(image.sizes.object_message_bytes, 20076);
-        assert_eq!(image.sizes.hid_reports, 319);
-        assert_eq!(image.sizes.host_report_bytes, 20714);
+        assert_eq!(image.sizes.file_bytes, 10644);
+        assert_eq!(image.sizes.payload_bytes, 21288);
+        assert_eq!(image.sizes.object_message_bytes, 21316);
+        assert_eq!(image.sizes.hid_reports, 339);
+        assert_eq!(image.sizes.host_report_bytes, 21994);
         assert!(image.require_supported().is_err());
     }
     #[test]

@@ -88,3 +88,71 @@ fn native_tagged_values_round_trip_without_losing_width_or_precision() {
         assert_eq!(arguments::encode(&again[0]), arguments::encode(&value));
     }
 }
+
+fn interaction_report(source: &str, inputs: &[&str]) -> Report {
+    ppl_engine::native::execute(
+        Source::text(source, "TRACE").unwrap(),
+        Operation::Run,
+        ppl_engine::native::Options {
+            entry: None,
+            args: "[]".into(),
+            json_arguments: true,
+            host: ppl_vm::HeadlessHost {
+                inputs: inputs
+                    .iter()
+                    .map(|s| ppl_vm::ScriptedInput::parse(s))
+                    .collect(),
+                ..Default::default()
+            },
+            settings: Settings::default(),
+            limits: ppl_vm::Limits::default(),
+            seed: 0,
+            png: None,
+            deny_warnings: false,
+            dump_bytecode: false,
+        },
+        &ppl_engine::Cancellation::default(),
+    )
+}
+
+#[test]
+fn native_report_retains_validation_recovery_and_cancellation_dialogs() {
+    let source = r#"EXPORT TRACE() BEGIN
+      LOCAL n:=0;
+      REPEAT
+        IF INPUT(n,"Base")==0 THEN RETURN; END;
+        IF n<2 THEN MSGBOX("Base too small"); END;
+      UNTIL n>=2;
+      RETURN n;
+    END;"#;
+    let recovered = interaction_report(source, &["1", "16"]);
+    assert_eq!(recovered.status, Status::Success);
+    assert_eq!(recovered.return_value.unwrap()["value"], "16");
+    assert_eq!(
+        recovered.backend["dialogs"],
+        serde_json::json!([
+            "INPUT: Base -> [\"1\"]",
+            "MSGBOX: Base too small",
+            "INPUT: Base -> [\"16\"]"
+        ])
+    );
+    let cancelled = interaction_report(source, &["<ESC>"]);
+    assert_eq!(cancelled.status, Status::Success);
+    assert_eq!(
+        cancelled.backend["dialogs"],
+        serde_json::json!(["INPUT: Base -> cancelled"])
+    );
+}
+
+#[test]
+fn native_report_preserves_prior_dialogs_when_script_exhausts() {
+    let report = interaction_report(
+        "EXPORT TRACE() BEGIN LOCAL n; MSGBOX(\"Start\"); INPUT(n,\"Number\"); END;",
+        &[],
+    );
+    assert_eq!(report.status, Status::TimedOut);
+    assert_eq!(
+        report.backend["dialogs"],
+        serde_json::json!(["MSGBOX: Start"])
+    );
+}

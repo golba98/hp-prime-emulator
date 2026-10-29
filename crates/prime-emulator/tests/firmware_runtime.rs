@@ -356,12 +356,12 @@ fn m7_numeric_input_and_function_name_encoding() {
     }
 }
 #[test]
-fn m7_unverified_return_representation_is_unsupported() {
+fn m7_list_return_is_decoded_from_observed_guest_objects() {
     let Some(e) = env() else { return };
     let r = run(&config(&e, "LISTRET", vec![req("LISTRET", "[]")]));
     assert_eq!(
         r.execution_status,
-        ExecutionStatus::Unsupported,
+        ExecutionStatus::Completed,
         "{}",
         r.evidence
     );
@@ -369,9 +369,16 @@ fn m7_unverified_return_representation_is_unsupported() {
         r.compile_status,
         Some(prime_emulator::checkprog::Status::Valid)
     );
-    assert!(r.return_value.is_none());
+    assert_eq!(
+        r.return_value,
+        Some(FirmwareValue::List {
+            items: vec![real("1").unwrap(), real("2").unwrap()]
+        })
+    );
     let c = &r.runtime.invocations[0];
     assert!(c.body_entered && c.ended_ms.is_some());
-    assert!(c.result.as_ref().unwrap().unavailable.is_some());
+    assert!(c.result.as_ref().unwrap().unavailable.is_none());
+    let graph = c.result.as_ref().unwrap().representation.as_ref().unwrap();
+    assert!(graph.coherent && graph.complete);
     assert!(r.runtime_errors.is_empty());
 }

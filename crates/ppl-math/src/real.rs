@@ -5,8 +5,9 @@
 //! "Numbers"). Each value is kept as `mant × 10^exp` with `mant < 10^12`.
 //!
 //! The four basic operations are computed exactly in 128-bit integers and
-//! rounded once to 12 digits, half away from zero (**unverified** rounding
-//! direction, see `docs/compatibility/matrix.md`). Transcendental functions go
+//! rounded once to 12 digits, nearest with ties to even (observed for stored
+//! literals and addition on physical G1 build 15157). Explicit `ROUND` uses
+//! its separate half-away-from-zero rule. Transcendental functions go
 //! through `f64` and are then rounded to 12 digits. That is at most one unit in
 //! the last place away from a correctly rounded result and is tracked as an
 //! approximation.
@@ -80,10 +81,21 @@ impl Real {
     /// [`Real::from_parts`] with a 64-bit exponent, so callers can pass
     /// exponents far outside the range without wrapping `i32`.
     fn from_parts_wide(neg: bool, coeff: u128, exp: i64) -> Result<Real, MathError> {
+        Self::from_parts_wide_sticky(neg, coeff, exp, false)
+    }
+
+    /// `sticky` records any nonzero tail discarded below `coeff`'s last digit.
+    /// It distinguishes an exact halfway coefficient from a value above it.
+    fn from_parts_wide_sticky(
+        neg: bool,
+        coeff: u128,
+        exp: i64,
+        sticky: bool,
+    ) -> Result<Real, MathError> {
         if coeff == 0 {
             return Ok(Real::ZERO);
         }
-        let (mant, exp) = round_coeff(coeff, exp);
+        let (mant, exp) = round_coeff(coeff, exp, sticky);
         let e10 = exp + digits_u128(mant as u128) as i64 - 1;
         if e10 > MAX_EXP10 as i64 {
             return Err(MathError::Overflow);
@@ -106,7 +118,7 @@ impl Real {
         if coeff == 0 {
             return Real::ZERO;
         }
-        let (mant, exp) = round_coeff(coeff, exp);
+        let (mant, exp) = round_coeff(coeff, exp, false);
         Real {
             neg,
             mant,
@@ -143,8 +155,8 @@ impl Real {
         }
         // `{:.16e}` prints the binary value correctly rounded to 17 digits.
         // `parse` keeps 13 of them and rounds on the 13th, which is exact for
-        // half-away-from-zero rounding unless the 17-digit rounding itself
-        // produced a halfway pattern (`…d50000`) from a value just below it.
+        // nearest/ties-to-even rounding unless the 17-digit rounding itself
+        // produced a halfway pattern (`…d50000`) from a value beside it.
         // Then the exact expansion (at most 767 significant digits for an
         // f64) decides.
         let s = format!("{:.16e}", v);
@@ -198,6 +210,7 @@ impl Real {
         let mut exp: i64 = 0;
         let mut seen_digit = false;
         let mut seen_dot = false;
+        let mut sticky = false;
         for c in body.chars() {
             match c {
                 '0'..='9' => {
@@ -215,8 +228,11 @@ impl Real {
                         if seen_dot {
                             exp -= 1;
                         }
-                    } else if !seen_dot {
-                        exp += 1;
+                    } else {
+                        sticky |= d != 0;
+                        if !seen_dot {
+                            exp += 1;
+                        }
                     }
                 }
                 '.' if !seen_dot => seen_dot = true,
@@ -229,8 +245,9 @@ impl Real {
         if let Some(e) = exp_part {
             exp += parse_exponent(e)?;
         }
-        // 13 digits are kept; from_parts rounds the 13th (half away from zero).
-        Real::from_parts_wide(neg, coeff, exp).ok()
+        // Keep the guard digit and whether later digits are nonzero. Dropping
+        // that tail would turn a just-above-half literal into an exact tie.
+        Real::from_parts_wide_sticky(neg, coeff, exp, sticky).ok()
     }
 
     pub fn is_zero(self) -> bool {
@@ -338,7 +355,12 @@ impl Real {
         const SHIFT: u32 = 25;
         let num = self.mant as u128 * POW10_U128[SHIFT as usize];
         let q = num / o.mant as u128;
-        Real::from_parts(self.neg != o.neg, q, self.exp - o.exp - SHIFT as i32)
+        Real::from_parts_wide_sticky(
+            self.neg != o.neg,
+            q,
+            self.exp as i64 - o.exp as i64 - SHIFT as i64,
+            num % o.mant as u128 != 0,
+        )
     }
 
     /// Total order on values (zero has no sign).
@@ -490,7 +512,8 @@ impl Real {
             // reciprocal is still representable, and rounding x^n first
             // would round twice.
             let k = digits_u128(acc) + DIGITS + 1;
-            return Real::from_parts_wide(neg, recip_scaled(acc, k), -(k as i64) - exp);
+            let (coefficient, sticky) = recip_scaled(acc, k);
+            return Real::from_parts_wide_sticky(neg, coefficient, -(k as i64) - exp, sticky);
         }
         let r = pow_via_log10(self.abs(), n as f64)?;
         Ok(if neg { r.neg() } else { r })
@@ -527,11 +550,8 @@ impl Real {
         }
         // Scale the coefficient to a 36- or 37-digit radicand with an even
         // exponent. The radicand stays below 10^37 < 2^127, and its integer
-        // square root has 18 or 19 digits. Truncating that root and then
-        // rounding half away from zero at 12 digits is the correctly rounded
-        // result: the dropped digits decide the side of the halfway point,
-        // and a true root never lies exactly on it with a nonzero remainder
-        // that the truncation could hide.
+        // square root has 18 or 19 digits. Preserve a nonzero square-root
+        // remainder as a sticky tail when rounding that truncated root.
         let d = digits_u128(self.mant as u128) as i32;
         let mut shift = 36 - d;
         if (self.exp - shift) % 2 != 0 {
@@ -539,7 +559,8 @@ impl Real {
         }
         let m = self.mant as u128 * POW10_U128[shift as usize];
         let exp = self.exp - shift;
-        Real::from_parts(false, isqrt(m), exp / 2)
+        let root = isqrt(m);
+        Real::from_parts_wide_sticky(false, root, exp as i64 / 2, root * root != m)
     }
 
     pub fn exp_e(self) -> Result<Real, MathError> {
@@ -600,9 +621,9 @@ fn isqrt(n: u128) -> u128 {
 /// `floor(10^k / d)` by long division, for `1 <= d < 2^127` and quotients
 /// that fit in `u128`. Each step multiplies the remainder by ten through
 /// repeated addition, so nothing overflows.
-fn recip_scaled(d: u128, k: u32) -> u128 {
+fn recip_scaled(d: u128, k: u32) -> (u128, bool) {
     if d == 1 {
-        return POW10_U128[k as usize];
+        return (POW10_U128[k as usize], false);
     }
     let mut rem: u128 = 1;
     let mut q: u128 = 0;
@@ -619,12 +640,12 @@ fn recip_scaled(d: u128, k: u32) -> u128 {
         q = q * 10 + digit;
         rem = s;
     }
-    q
+    (q, rem != 0)
 }
 
-/// Rounds a non-zero coefficient to at most 12 digits (half away from zero)
-/// and strips trailing zeros.
-fn round_coeff(coeff: u128, exp: i64) -> (u64, i64) {
+/// Rounds a non-zero coefficient to at most 12 digits (nearest/ties-to-even)
+/// and strips trailing zeros. A nonzero discarded tail makes a tie above-half.
+fn round_coeff(coeff: u128, exp: i64, sticky: bool) -> (u64, i64) {
     let mut coeff = coeff;
     let mut exp = exp;
     let d = digits_u128(coeff);
@@ -633,7 +654,8 @@ fn round_coeff(coeff: u128, exp: i64) -> (u64, i64) {
         let p = POW10_U128[drop as usize];
         let q = coeff / p;
         let r = coeff % p;
-        coeff = if r >= p - r { q + 1 } else { q };
+        let round_up = r > p - r || (r == p - r && (sticky || q % 2 != 0));
+        coeff = if round_up { q + 1 } else { q };
         exp += drop as i64;
         if coeff == MANT_LIMIT as u128 {
             coeff /= 10;

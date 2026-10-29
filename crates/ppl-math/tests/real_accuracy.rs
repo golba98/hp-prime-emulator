@@ -255,9 +255,9 @@ fn add_and_subtract_cancellation() {
 
 #[test]
 fn literals_with_more_than_twelve_digits() {
-    assert_eq!(r("1234567890125").to_string(), "1.23456789013E12");
+    assert_eq!(r("1234567890125").to_string(), "1.23456789012E12");
     assert_eq!(r("1234567890124999").to_string(), "1.23456789012E15");
-    assert_eq!(r("0.1234567890125").to_string(), "0.123456789013");
+    assert_eq!(r("0.1234567890125").to_string(), "0.123456789012");
     assert_eq!(r("9.999999999995").to_string(), "10");
     assert_eq!(r("9.999999999994999").to_string(), "9.99999999999");
     assert!(Real::parse("9.999999999995E499").is_none());
@@ -405,7 +405,7 @@ fn from_f64_rounds_the_exact_binary_value() {
         (-6.959_036_012_965, "-6.95903601296"),
         // The double nearest 1.0000000000005 is 1.00000000000050004...
         (1.000_000_000_000_5, "1.00000000000"),
-        // Exact binary ties round away from zero.
+        // These values are exactly retained at twelve significant digits.
         (1.25, "1.25"),
         (0.000_000_000_000_5, "5E-13"),
     ];
@@ -413,6 +413,80 @@ fn from_f64_rounds_the_exact_binary_value() {
         let want = Real::parse(want).unwrap().to_string();
         assert_eq!(Real::from_f64(v).unwrap().to_string(), want, "{v:e}");
     }
+}
+
+#[test]
+fn g1_15157_stored_literal_and_addition_rounding() {
+    // Physical controls: ZZT_CD534F, tag 0bec061e, HAngle/HFormat/HDigits
+    // 0|0|0; stored-value controls ZZT_241F07, tag af198c96. The latter
+    // distinguish value equality from a displayed-string coincidence.
+    for (input, expected) in [
+        ("1.234567890125", "1.23456789012"),
+        ("1.234567890135", "1.23456789014"),
+        ("-1.234567890125", "-1.23456789012"),
+        ("-1.234567890135", "-1.23456789014"),
+        ("1234567890125", "1.23456789012E12"),
+        ("1.234567890125E20", "1.23456789012E20"),
+        ("1.2345678901251", "1.23456789013"),
+        ("1.2345678901249", "1.23456789012"),
+        ("1.234567890124999999", "1.23456789012"),
+    ] {
+        assert_eq!(r(input).to_string(), expected, "{input}");
+    }
+    let low = r("1.23456789012");
+    assert_eq!(r("1.234567890125"), low);
+    assert_eq!(low.add(r("5E-12")).unwrap(), low);
+    assert_eq!(low.neg().sub(r("5E-12")).unwrap(), low.neg());
+    assert_eq!(r("1.234567890125").mantissa_digits(), "123456789012");
+    assert_eq!(r("1.234567890125").raw_exp(), -11);
+    // Explicit ROUND is separate from rounding a stored twelve-digit real.
+    assert_eq!(r("2.5").round_places(0), r("3"));
+    assert_eq!(r("-2.5").round_places(0), r("-3"));
+}
+
+#[test]
+fn nearest_even_keeps_nonzero_tails_beyond_the_guard_digit() {
+    assert_eq!(r("1.23456789012500000000000000000000"), r("1.23456789012"));
+    assert_eq!(r("1.23456789012500000000000000000001"), r("1.23456789013"));
+    assert_eq!(
+        r("-1.23456789012500000000000000000001"),
+        r("-1.23456789013")
+    );
+    assert_eq!(r("1.23456789013500000000000000000000"), r("1.23456789014"));
+    // The truncated quotient is exactly a halfway coefficient with even
+    // retained digit, but the exact rational has a nonzero remainder above
+    // that boundary: 10^25 = 13135513548850*d + 159691933950.
+    let divisor = r("761294940073");
+    assert_eq!(r("1").div(divisor).unwrap(), r("1.31355135489E-12"));
+    assert_eq!(divisor.powi(-1).unwrap(), r("1.31355135489E-12"));
+    // Exact arithmetic ties use the same rounder, including both parities.
+    assert_eq!(
+        r("246913578025").mul(r("5")).unwrap(),
+        r("1.23456789012E12")
+    );
+    assert_eq!(
+        r("1.23456789013").add(r("5E-12")).unwrap(),
+        r("1.23456789014")
+    );
+}
+
+#[test]
+fn binary_conversion_distinguishes_exact_ties_and_their_neighbours() {
+    let tie = 1_234_567_890_125_f64;
+    assert_eq!(Real::from_f64(tie).unwrap(), r("1.23456789012E12"));
+    assert_eq!(Real::from_f64(-tie).unwrap(), r("-1.23456789012E12"));
+    assert_eq!(
+        Real::from_f64(1_234_567_890_135_f64).unwrap(),
+        r("1.23456789014E12")
+    );
+    assert_eq!(
+        Real::from_f64(f64::from_bits(tie.to_bits() - 1)).unwrap(),
+        r("1.23456789012E12")
+    );
+    assert_eq!(
+        Real::from_f64(f64::from_bits(tie.to_bits() + 1)).unwrap(),
+        r("1.23456789013E12")
+    );
 }
 
 // ---------------------------------------------------------------------------

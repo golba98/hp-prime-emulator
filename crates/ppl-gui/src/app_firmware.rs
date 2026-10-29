@@ -111,6 +111,13 @@ impl IdeDesktopApp {
         }
     }
     pub(super) fn forward_calc_keys(&mut self, ctx: &egui::Context) {
+        if !self.state.firmware_backend {
+            self.route_native_keyboard(ctx);
+            return;
+        }
+        if self.state.input_owner == crate::ide::native::InputOwner::IdeModal {
+            return;
+        }
         if !self.state.calc_input_focus {
             return;
         }

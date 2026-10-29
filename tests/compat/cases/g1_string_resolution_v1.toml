@@ -1,0 +1,50 @@
+suite = "g1_string_resolution_v1"
+description = "Fresh exact reproductions and character fingerprints for four disputed strings; intended HAngle/HFormat/HDigits0|0|4."
+
+[[case]]
+id = "type_str_val"
+expr = "\"hello\""
+
+[[case]]
+id = "str_concat_num"
+expr = "\"ab\"+1"
+
+[[case]]
+id = "str_mid"
+expr = "MID(\"hello\", 2, 3)"
+
+[[case]]
+id = "smoke_strcat"
+expr = "\"AB\"+\"C\""
+
+[[case]]
+id = "type_str_val_fingerprint"
+body = "LOCAL v:=\"hello\",s; s:=STRING(v); RETURN {TYPE(v),SIZE(v),ASC(v),TYPE(s),SIZE(s),ASC(s),v==\"hello\"};"
+
+[[case]]
+id = "str_concat_num_fingerprint"
+body = "LOCAL v:=\"ab\"+1,s; s:=STRING(v); RETURN {TYPE(v),SIZE(v),ASC(v),TYPE(s),SIZE(s),ASC(s),v==\"ab1\"};"
+
+[[case]]
+id = "str_mid_fingerprint"
+body = "LOCAL v:=MID(\"hello\", 2, 3),s; s:=STRING(v); RETURN {TYPE(v),SIZE(v),ASC(v),TYPE(s),SIZE(s),ASC(s),v==\"ell\"};"
+
+[[case]]
+id = "smoke_strcat_fingerprint"
+body = "LOCAL v:=\"AB\"+\"C\",s; s:=STRING(v); RETURN {TYPE(v),SIZE(v),ASC(v),TYPE(s),SIZE(s),ASC(s),v==\"ABC\"};"
+
+[[case]]
+id = "empty_string_fingerprint"
+body = "LOCAL s:=STRING(\"\"); RETURN {SIZE(s),ASC(s)};"
+
+[[case]]
+id = "space_literal"
+expr = "\" A \""
+
+[[case]]
+id = "quote_character"
+expr = "CHAR(34)"
+
+[[case]]
+id = "embedded_quote_fingerprint"
+body = "LOCAL v:=\"a\"+CHAR(34)+\"b\",s; s:=STRING(v); RETURN {SIZE(v),ASC(v),SIZE(s),ASC(s)};"

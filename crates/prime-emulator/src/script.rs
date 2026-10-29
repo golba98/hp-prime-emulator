@@ -102,6 +102,30 @@ pub struct ScriptReport {
     pub boot_settled_ms: Option<u64>,
     pub captures: Vec<CaptureRecord>,
     pub keys: Vec<KeyRecord>,
+    /// Last readiness observation, including an unfinished key on failure.
+    pub settlement: Option<SettlementDiagnostics>,
+}
+
+/// Read-only evidence for the individual predicates of the settlement gate.
+#[derive(Debug, Clone, Serialize)]
+pub struct SettlementDiagnostics {
+    pub key_index: Option<usize>,
+    pub key_name: Option<String>,
+    pub delivered_age_ms: Option<u64>,
+    pub pump_idle: bool,
+    pub pump_parked_ms: u64,
+    pub max_pump_parked_ms: u64,
+    pub main_waiting: bool,
+    pub main_wait_share: f64,
+    pub main_samples: usize,
+    pub idle_ms: u64,
+    pub max_idle_ms: u64,
+    pub input_events_pending: usize,
+    pub touch_pending: usize,
+    pub screen_unchanged_ms: u64,
+    pub states_seen: usize,
+    pub last_capture_age_ms: Option<u64>,
+    pub capture_errors: u64,
 }
 
 enum Phase {
@@ -153,9 +177,13 @@ pub struct ScriptDriver {
     /// Since when the UI pump has been continuously parked with empty
     /// input queues.
     idle_since: Option<Instant>,
-    /// Recent `(time, main thread waiting)` observations: the main thread
-    /// runs a timed tick loop, so its rest is measured as a duty cycle.
+    /// Recent `(time, main thread waiting)` observations for diagnostics.
+    /// The guest's periodic housekeeping makes its host waiting share
+    /// depend on CPU speed, so that share is not a readiness predicate.
     main_samples: std::collections::VecDeque<(Instant, bool)>,
+    max_idle: Duration,
+    max_pump_parked: Duration,
+    capture_errors: u64,
     /// Frame of the previous recorded capture.
     prev_capture: Option<Frame>,
     report: ScriptReport,
@@ -163,9 +191,6 @@ pub struct ScriptDriver {
 
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(20);
 const TOUCH_INTERVAL: Duration = Duration::from_millis(16);
-/// Share of the settle window the main thread must spend in its event
-/// wait for the UI to count as at rest.
-const MAIN_WAIT_SHARE: f64 = 0.8;
 /// Distinct states remembered per step (bounded memory).
 const MAX_STATES: usize = 32;
 /// Minimum time a touch step holds its input before the next step. See
@@ -188,6 +213,9 @@ impl ScriptDriver {
             last_new_state: now,
             idle_since: None,
             main_samples: std::collections::VecDeque::new(),
+            max_idle: Duration::ZERO,
+            max_pump_parked: Duration::ZERO,
+            capture_errors: 0,
             prev_capture: None,
             report: ScriptReport {
                 status: "running".into(),
@@ -196,6 +224,7 @@ impl ScriptDriver {
                 boot_settled_ms: None,
                 captures: Vec::new(),
                 keys: Vec::new(),
+                settlement: None,
             },
         }
     }
@@ -233,7 +262,13 @@ impl ScriptDriver {
             return;
         }
         let Some(view) = self.view else { return };
-        let Ok(frame) = view.capture(mem) else { return };
+        let frame = match view.capture(mem) {
+            Ok(frame) => frame,
+            Err(_) => {
+                self.capture_errors += 1;
+                return;
+            }
+        };
         self.last_sample_at = Some(now);
         if let Some(prev) = &self.last {
             if build_mask {
@@ -267,6 +302,9 @@ impl ScriptDriver {
     fn reset_states(&mut self, now: Instant) {
         self.states.clear();
         self.last_new_state = now;
+        self.max_idle = Duration::ZERO;
+        self.max_pump_parked = Duration::ZERO;
+        self.capture_errors = 0;
     }
 
     /// Pixels that alternate between recurring states (returned to after a
@@ -330,9 +368,9 @@ impl ScriptDriver {
         rec
     }
 
-    /// How long the guest UI has been at rest: the pump parked with nothing
-    /// queued throughout, and the main thread waiting at least
-    /// [`MAIN_WAIT_SHARE`] of the time (and right now). Zero otherwise.
+    /// How long the input pump has been parked with nothing queued,
+    /// provided the main thread is currently in its event wait. The
+    /// screen and delivery stability windows are checked separately.
     fn observe_idle(&mut self, shared: &SharedState, now: Instant) -> Duration {
         let window = Duration::from_millis(self.cfg.settle_ms);
         let main = shared.main_waiting();
@@ -349,12 +387,47 @@ impl ScriptDriver {
             return Duration::ZERO;
         }
         let parked_for = now.duration_since(*self.idle_since.get_or_insert(now));
-        let waiting = self.main_samples.iter().filter(|(_, w)| *w).count();
-        let share = waiting as f64 / self.main_samples.len().max(1) as f64;
-        if main && share >= MAIN_WAIT_SHARE {
+        self.max_pump_parked = self.max_pump_parked.max(parked_for);
+        if main {
+            self.max_idle = self.max_idle.max(parked_for);
             parked_for
         } else {
             Duration::ZERO
+        }
+    }
+
+    fn settlement(
+        &self,
+        shared: &SharedState,
+        now: Instant,
+        idle: Duration,
+        pending: Option<&Pending>,
+    ) -> SettlementDiagnostics {
+        let waiting = self.main_samples.iter().filter(|(_, w)| *w).count();
+        SettlementDiagnostics {
+            key_index: pending.map(|p| p.index),
+            key_name: pending.map(|p| self.cfg.keys[p.index].name.clone()),
+            delivered_age_ms: pending
+                .and_then(|p| p.delivered_at)
+                .map(|t| now.duration_since(t).as_millis() as u64),
+            pump_idle: Self::pump_idle(shared),
+            pump_parked_ms: self
+                .idle_since
+                .map_or(0, |t| now.duration_since(t).as_millis() as u64),
+            max_pump_parked_ms: self.max_pump_parked.as_millis() as u64,
+            main_waiting: shared.main_waiting(),
+            main_wait_share: waiting as f64 / self.main_samples.len().max(1) as f64,
+            main_samples: self.main_samples.len(),
+            idle_ms: idle.as_millis() as u64,
+            max_idle_ms: self.max_idle.as_millis() as u64,
+            input_events_pending: shared.input_events_pending(),
+            touch_pending: shared.touch_pending(),
+            screen_unchanged_ms: now.duration_since(self.last_new_state).as_millis() as u64,
+            states_seen: self.states.len(),
+            last_capture_age_ms: self
+                .last_sample_at
+                .map(|t| now.duration_since(t).as_millis() as u64),
+            capture_errors: self.capture_errors,
         }
     }
 
@@ -373,6 +446,7 @@ impl ScriptDriver {
         self.phase = match phase {
             Phase::Boot => {
                 self.sample(mem, now, false);
+                self.report.settlement = Some(self.settlement(shared, now, idle_for, None));
                 if now.duration_since(self.started) > self.cfg.boot_timeout {
                     Phase::Failed(format!(
                         "boot did not reach a stable screen within {:?} (display {}, pump idle {})",
@@ -498,9 +572,15 @@ impl ScriptDriver {
                         && now.duration_since(d) >= settle
                         && now.duration_since(self.last_new_state) >= settle
                 });
+                self.report.settlement = Some(self.settlement(shared, now, idle_for, Some(&p)));
                 if settled {
                     self.finish_key(mem, shared, *p, now)
                 } else if now.duration_since(p.queued_at) > self.cfg.key_timeout {
+                    self.capture(
+                        mem,
+                        format!("failed key {}", p.index),
+                        Some(format!("failed-{:02}.png", p.index)),
+                    );
                     let key = &self.cfg.keys[p.index];
                     Phase::Failed(format!(
                         "key {} ({}, {:#06X}) not settled within {:?}: delivered {}, pump idle {}",
@@ -593,5 +673,39 @@ impl ScriptDriver {
             after,
         });
         Phase::KeyStart { index: p.index + 1 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn housekeeping_duty_cycle_does_not_block_an_idle_input_pump() {
+        let shared = SharedState::new(PathBuf::new(), String::new());
+        shared.set_getevent_parked(true);
+        let mut driver = ScriptDriver::new(ScriptConfig::default());
+        let start = Instant::now();
+        // Slow emulation can spend most host time in periodic main-thread
+        // housekeeping while the catalog and its input pump remain idle.
+        for ms in (0..300).step_by(20) {
+            shared.set_main_waiting(false);
+            assert_eq!(
+                driver.observe_idle(&shared, start + Duration::from_millis(ms)),
+                Duration::ZERO
+            );
+        }
+        shared.set_main_waiting(true);
+        let now = start + Duration::from_millis(300);
+        let idle = driver.observe_idle(&shared, now);
+        assert_eq!(idle, Duration::from_millis(300));
+        let evidence = driver.settlement(&shared, now, idle, None);
+        assert!(evidence.main_wait_share < 0.1);
+        // Guest work and pending inputs still prevent advancing.
+        shared.set_main_waiting(false);
+        assert_eq!(driver.observe_idle(&shared, now), Duration::ZERO);
+        shared.set_main_waiting(true);
+        shared.push_key_press(0x59);
+        assert_eq!(driver.observe_idle(&shared, now), Duration::ZERO);
     }
 }

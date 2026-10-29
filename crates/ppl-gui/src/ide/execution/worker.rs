@@ -11,7 +11,10 @@ use std::time::{Duration, Instant};
 
 use ppl_compiler::CompiledProgram;
 use ppl_vm::error::{ErrorKind, RuntimeError};
-use ppl_vm::{Limits, Machine, Settings, Value, eval_text_with};
+use ppl_vm::{
+    Limits, Machine, SessionContext, SessionSnapshot, Settings, SourceIdentity, Value,
+    eval_text_with,
+};
 
 use super::controller::VmBridge;
 use crate::host::{GuiHost, GuiSharedState};
@@ -62,6 +65,55 @@ impl WorkerConfig {
 /// error or interrupt), e.g. to post `GuiCustomEvent::WorkerFinished`.
 pub type FinishNotifier = Box<dyn FnOnce() + Send + 'static>;
 
+/// Calculator data outlives operation threads. Only portable, Send-safe values
+/// cross that boundary; the live Machine and its Rc values stay on its worker.
+#[derive(Clone)]
+pub struct NativeSession {
+    context: Arc<Mutex<SessionContext>>,
+    published: Arc<Mutex<SessionSnapshot>>,
+    busy: Arc<AtomicBool>,
+}
+impl Default for NativeSession {
+    fn default() -> Self {
+        let context = SessionContext::default();
+        let snapshot = context.snapshot();
+        Self {
+            context: Arc::new(Mutex::new(context)),
+            published: Arc::new(Mutex::new(snapshot)),
+            busy: Arc::new(AtomicBool::new(false)),
+        }
+    }
+}
+impl NativeSession {
+    pub fn operation_active(&self) -> bool {
+        self.busy.load(Ordering::Acquire)
+    }
+    /// Never locks the executing context, so UI polling stays nonblocking.
+    pub fn snapshot(&self) -> SessionSnapshot {
+        self.published
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+    fn perform(&self, run: impl FnOnce(&mut SessionContext) -> WorkerOutcome) -> WorkerOutcome {
+        let mut context = self.context.lock().unwrap_or_else(|e| e.into_inner());
+        let outcome =
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&mut context))) {
+                Ok(out) => out,
+                Err(_) => {
+                    context.record_failure();
+                    WorkerOutcome::Error(RuntimeError::new(
+                        ErrorKind::Unsupported,
+                        "Native worker panicked",
+                    ))
+                }
+            };
+        *self.published.lock().unwrap_or_else(|e| e.into_inner()) = context.snapshot();
+        self.busy.store(false, Ordering::Release);
+        outcome
+    }
+}
+
 /// Handle to a running background worker.
 pub struct WorkerHandle {
     thread: Option<JoinHandle<()>>,
@@ -83,6 +135,44 @@ impl WorkerHandle {
         state: Arc<GuiSharedState>,
         on_finish: Option<FinishNotifier>,
     ) -> Self {
+        Self::spawn_task(state, on_finish, move |state| run_program(config, state))
+    }
+
+    pub fn spawn_in_session(
+        config: WorkerConfig,
+        state: Arc<GuiSharedState>,
+        session: NativeSession,
+        identity: SourceIdentity,
+        promote_ans: bool,
+    ) -> Self {
+        session.busy.store(true, Ordering::Release);
+        Self::spawn_task(state, None, move |state| {
+            session.perform(|context| {
+                run_session_program(config, state, context, identity, promote_ans)
+            })
+        })
+    }
+
+    pub fn spawn_home(
+        text: String,
+        state: Arc<GuiSharedState>,
+        session: NativeSession,
+        limits: Limits,
+    ) -> Self {
+        session.busy.store(true, Ordering::Release);
+        Self::spawn_task(state, None, move |state| {
+            session.perform(|context| {
+                let run = context.evaluate_home(&text, Box::new(GuiHost::new(state)), limits);
+                session_outcome(run, &context.settings)
+            })
+        })
+    }
+
+    fn spawn_task(
+        state: Arc<GuiSharedState>,
+        on_finish: Option<FinishNotifier>,
+        task: impl FnOnce(Arc<GuiSharedState>) -> WorkerOutcome + Send + 'static,
+    ) -> Self {
         let outcome = Arc::new(Mutex::new(None));
         let is_done = Arc::new(AtomicBool::new(false));
 
@@ -94,7 +184,7 @@ impl WorkerHandle {
             .name("ppl-worker".into())
             .spawn(move || {
                 let out = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    run_program(config, state_worker.clone())
+                    task(state_worker.clone())
                 })) {
                     Ok(outcome) => outcome,
                     Err(payload) => {
@@ -222,6 +312,102 @@ fn run_program(config: WorkerConfig, state: Arc<GuiSharedState>) -> WorkerOutcom
         },
         Err(e) => WorkerOutcome::Error(e),
     }
+}
+
+fn session_outcome(run: ppl_vm::SessionRun, settings: &Settings) -> WorkerOutcome {
+    match run.result {
+        Ok(value) => WorkerOutcome::Success {
+            value_str: value.display(settings.format()),
+            steps: run.steps,
+            elapsed: run.elapsed,
+        },
+        Err(error) => WorkerOutcome::Error(error),
+    }
+}
+
+fn run_session_program(
+    config: WorkerConfig,
+    state: Arc<GuiSharedState>,
+    context: &mut SessionContext,
+    identity: SourceIdentity,
+    promote_ans: bool,
+) -> WorkerOutcome {
+    let prog = Rc::new(config.prog);
+    let entry = match prog.pick_entry(config.entry.as_deref()) {
+        Ok(entry) => entry,
+        Err(message) => {
+            context.record_failure();
+            return WorkerOutcome::Error(RuntimeError::new(ErrorKind::Undefined, message));
+        }
+    };
+    let args = match parse_session_args(config.args.as_deref(), context, &state, &config.limits) {
+        Ok(args) => args,
+        Err(error) => {
+            context.record_failure();
+            return WorkerOutcome::Error(error);
+        }
+    };
+    let host = GuiHost::new(state.clone()).with_echo(config.echo);
+    let run = context.run(
+        identity,
+        prog,
+        Box::new(host),
+        config.limits,
+        promote_ans,
+        |machine| {
+            if let Some(bridge) = config.debug {
+                machine.set_debugger(Some(Box::new(super::controller::make_worker_debugger(
+                    bridge,
+                    state.interrupt.clone(),
+                ))));
+            }
+            machine.call_function(&entry, args)
+        },
+    );
+    session_outcome(run, &context.settings)
+}
+
+fn parse_session_args(
+    text: Option<&str>,
+    context: &mut SessionContext,
+    state: &Arc<GuiSharedState>,
+    limits: &Limits,
+) -> ppl_vm::RtResult<Vec<Value>> {
+    let Some(text) = text else {
+        return Ok(Vec::new());
+    };
+    let source = format!("ZZT_ARGUMENTS({text})");
+    let (expr, diags) = ppl_syntax::parse_expression(&source);
+    if diags.has_errors() {
+        return Err(RuntimeError::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "bad argument list: {}",
+                diags.errors().next().unwrap().message
+            ),
+        ));
+    }
+    let ppl_syntax::ast::ExprKind::Call(_, arguments) = expr.kind else {
+        return Err(RuntimeError::new(
+            ErrorKind::InvalidInput,
+            "bad argument list",
+        ));
+    };
+    arguments
+        .iter()
+        .map(|argument| {
+            let text = &source[argument.span.start as usize..argument.span.end as usize];
+            context
+                .evaluate_argument(text, Box::new(GuiHost::new(state.clone())), limits.clone())
+                .map_err(|error| {
+                    // Argument spans belong to the argument evaluator, not the
+                    // callee's editor buffer. Keep its kind and useful context
+                    // without navigating to an unrelated program location.
+                    let detail = format!("bad argument `{text}`: {error}");
+                    RuntimeError::new(error.kind, detail)
+                })
+        })
+        .collect()
 }
 
 fn parse_args(text: Option<&str>, settings: &Settings) -> Result<Vec<Value>, String> {

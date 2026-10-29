@@ -33,6 +33,8 @@ pub struct GuiSharedState {
     pub screen: Mutex<Grob>,
     /// Monotonically increasing counter bumped on each present.
     pub screen_generation: AtomicU64,
+    pub input_epoch: AtomicU64,
+    pub active_dialog: Mutex<Option<Dialog>>,
     /// FIFO queue for `GETKEY`, `WAIT` and dialogs. Entries without an HP
     /// key code (a typed character only) are skipped by `GETKEY`/`WAIT`.
     pub key_queue: Mutex<VecDeque<KeyPress>>,
@@ -67,6 +69,8 @@ impl GuiSharedState {
         Self {
             screen: Mutex::new(Grob::screen()),
             screen_generation: AtomicU64::new(0),
+            input_epoch: AtomicU64::new(0),
+            active_dialog: Mutex::new(None),
             key_queue: Mutex::new(VecDeque::new()),
             held_keys: Mutex::new(HashSet::new()),
             key_condvar: Condvar::new(),
@@ -164,6 +168,7 @@ impl GuiSharedState {
     /// Resets all ephemeral execution state (interrupt flag, terminal lines, key queue,
     /// held keys, touch state) before starting a new run or restarting.
     pub fn reset_for_run(&self) {
+        self.input_epoch.fetch_add(1, Ordering::SeqCst);
         self.reset_interrupt();
         lock(&self.terminal_lines).clear();
         lock(&self.key_queue).clear();
@@ -329,6 +334,16 @@ impl Host for GuiHost {
 
     fn dialog(&mut self, dialog: &Dialog, screen: &Grob) -> Result<DialogResult, RuntimeError> {
         self.check_interrupt()?;
+        struct ActiveDialog(std::sync::Arc<GuiSharedState>);
+        impl Drop for ActiveDialog {
+            fn drop(&mut self) {
+                *lock(&self.0.active_dialog) = None;
+                self.0.input_epoch.fetch_add(1, Ordering::AcqRel);
+            }
+        }
+        self.state.input_epoch.fetch_add(1, Ordering::AcqRel);
+        *lock(&self.state.active_dialog) = Some(dialog.clone());
+        let _active = ActiveDialog(self.state.clone());
         let mut modal = make_dialog(dialog);
         let result = loop {
             self.present(&modal.render(screen), None);

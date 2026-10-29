@@ -10,7 +10,7 @@ fn cli(args: &[&str]) -> std::process::Output {
 fn full_fireworks_inspection_is_structured_and_local() {
     let source = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../examples/FIREWORKS.hpprgm"
+        "/../../tests/fixtures/FIREWORKS.hpprgm"
     );
     let result = cli(&[
         "device",
@@ -24,8 +24,11 @@ fn full_fireworks_inspection_is_structured_and_local() {
     ]);
     assert!(result.status.success());
     let json: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(json["sizes"]["payload_bytes"], 20048);
-    assert_eq!(json["sizes"]["hid_reports"], 319);
+    // The fixed fixture has 10,644 UTF-16 code units. The user's editable
+    // example may change while developing programs in the IDE.
+    assert_eq!(json["sizes"]["utf16_units"], 10644);
+    assert_eq!(json["sizes"]["payload_bytes"], 21288);
+    assert_eq!(json["sizes"]["hid_reports"], 339);
     assert_eq!(json["sizes"]["supported"], false);
     assert_eq!(json["uploaded"], false);
 }

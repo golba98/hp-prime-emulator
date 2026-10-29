@@ -1,11 +1,15 @@
 //! Checked decoding of observed G1 runtime values and lossless numeric input.
 //! This is a representation codec, not a PPL evaluator.
 use crate::{
-    compiler::read_utf16,
     keys::{self, Key},
     memory::GuestMemory,
 };
 use serde::{Deserialize, Serialize};
+
+mod representation;
+pub use representation::{
+    MAX_LIST_DEPTH, MAX_LIST_ITEMS, MAX_VALUE_BYTES, RepresentationGraph, RepresentationNode,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -25,6 +29,42 @@ pub enum FirmwareValue {
     Error {
         raw_code: u8,
     },
+    List {
+        #[serde(rename = "value")]
+        items: Vec<FirmwareValue>,
+    },
+}
+
+impl FirmwareValue {
+    /// Readable host status text; structural comparisons use typed values.
+    pub fn display(&self) -> String {
+        self.render(true)
+    }
+
+    fn render(&self, top: bool) -> String {
+        match self {
+            Self::Real { value } => value.clone(),
+            Self::Rational {
+                negative,
+                numerator,
+                denominator,
+            } => format!(
+                "{}{numerator}/{denominator}",
+                if *negative { "-" } else { "" }
+            ),
+            Self::String { value } if top => value.clone(),
+            Self::String { value } => serde_json::to_string(value).expect("serializable string"),
+            Self::Error { raw_code } => format!("error {raw_code}"),
+            Self::List { items } => format!(
+                "{{{}}}",
+                items
+                    .iter()
+                    .map(|item| item.render(false))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,128 +76,46 @@ pub struct ValueEvidence {
     pub bytes: Vec<u8>,
     pub value: Option<FirmwareValue>,
     pub unavailable: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub representation: Option<RepresentationGraph>,
 }
 
+/// Snapshot an observed object without changing guest values or reference counts.
+/// The existing gate also supports callers already inside an observing hook.
 pub fn decode(mem: &GuestMemory, address: u32) -> ValueEvidence {
-    let result = (|| -> Result<(u8, u8, Vec<u8>, FirmwareValue), String> {
-        if address == 0 || address & 3 != 0 || address.checked_add(32).is_none() {
-            return Err("null or unaligned value pointer".into());
-        }
-        let header = mem.read_u32(address).map_err(|e| e.to_string())?;
-        let tag = (header >> 16) as u8;
-        let sub = (header >> 24) as u8;
-        let kind = tag & 15;
-        let (size, value) = match kind {
-            0 => (16, decimal_real(mem, address)?),
-            15 if sub == 0 => (
-                24,
-                decimal_real(mem, address.checked_add(8).ok_or("value overflow")?)?,
-            ),
-            15 if sub == 1 => {
-                let sign = (mem.read_u32(address + 4).map_err(|e| e.to_string())? & 255) as u8;
-                if sign > 1 {
-                    return Err("unrecognized rational sign".into());
-                }
-                let bytes = mem
-                    .read_bytes_alloc(address + 8, 16)
-                    .map_err(|e| e.to_string())?;
-                let numerator = u64::from_le_bytes(bytes[..8].try_into().unwrap());
-                let denominator = u64::from_le_bytes(bytes[8..].try_into().unwrap());
-                if denominator == 0 {
-                    return Err("zero rational denominator".into());
-                }
-                let value = if let Some(text) = rational_decimal(numerator, denominator, sign != 0)
-                {
-                    FirmwareValue::Real {
-                        value: canonical_decimal(&text)?,
-                    }
-                } else {
-                    FirmwareValue::Rational {
-                        negative: sign != 0,
-                        numerator: numerator.to_string(),
-                        denominator: denominator.to_string(),
-                    }
-                };
-                (24, value)
-            }
-            2 => {
-                let length = mem.read_u32(address + 4).map_err(|e| e.to_string())? as usize;
-                if length > 65536 {
-                    return Err("guest string exceeds capture bound".into());
-                }
-                let value = read_utf16(mem, address + 8, length + 1)?;
-                if value.encode_utf16().count() != length {
-                    return Err("guest string length mismatch".into());
-                }
-                (8, FirmwareValue::String { value })
-            }
-            5 => (8, FirmwareValue::Error { raw_code: sub }),
-            _ => return Err(format!("unverified runtime value tag {tag:#x}/{sub:#x}")),
-        };
-        let bytes = mem
-            .read_bytes_alloc(address, size)
-            .map_err(|e| e.to_string())?;
-        Ok((tag, sub, bytes, value))
-    })();
-    match result {
-        Ok((tag, subtype, bytes, value)) => ValueEvidence {
-            address,
-            tag: Some(tag),
-            subtype: Some(subtype),
-            bytes,
-            value: Some(value),
-            unavailable: None,
-        },
-        Err(e) => {
-            let header = (address != 0 && address & 3 == 0)
-                .then(|| mem.read_u32(address).ok())
-                .flatten();
-            ValueEvidence {
-                address,
-                tag: header.map(|h| (h >> 16) as u8),
-                subtype: header.map(|h| (h >> 24) as u8),
-                bytes: Vec::new(),
-                value: None,
-                unavailable: Some(e),
-            }
-        }
-    }
+    let Some(_snapshot) = mem.snapshot_gate.try_snapshot_from_hook() else {
+        let mut evidence = decode_representation(RepresentationGraph::busy());
+        evidence.address = address;
+        return evidence;
+    };
+    decode_representation(representation::capture(mem, address))
 }
 
-fn decimal_real(mem: &GuestMemory, p: u32) -> Result<FirmwareValue, String> {
-    let bytes = mem.read_bytes_alloc(p, 16).map_err(|e| e.to_string())?;
-    let sign = bytes[3] as i8;
-    if ![-1, 0, 1].contains(&sign) {
-        return Err("unverified decimal sign/special value".into());
+pub fn decode_return(mem: &GuestMemory, address: u32) -> ValueEvidence {
+    decode(mem, address)
+}
+
+/// Replay retained representation bytes without running the firmware again.
+/// This does not upgrade historical results which lack representation bytes.
+pub fn decode_representation(graph: RepresentationGraph) -> ValueEvidence {
+    let root = graph.nodes.first();
+    let address = root.map_or(0, |n| n.address);
+    let header = root
+        .and_then(|n| n.bytes.get(..4))
+        .map(|b| u32::from_le_bytes(b.try_into().unwrap()));
+    let bytes = root
+        .map(|n| n.bytes[..n.bytes.len().min(24)].to_vec())
+        .unwrap_or_default();
+    let result = representation::decode(&graph);
+    ValueEvidence {
+        address,
+        tag: header.map(|h| (h >> 16) as u8),
+        subtype: header.map(|h| (h >> 24) as u8),
+        bytes,
+        value: result.as_ref().ok().cloned(),
+        unavailable: result.err(),
+        representation: Some(graph),
     }
-    let exp = i32::from_le_bytes(bytes[4..8].try_into().unwrap());
-    if !(-499..=499).contains(&exp) {
-        return Err("unverified decimal exponent/special value".into());
-    }
-    let word = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
-    if word & 0xfff != 0 || word >> 60 != 0 {
-        return Err("unverified decimal mantissa flags".into());
-    }
-    if sign == 0 && word != 0 {
-        return Err("inconsistent decimal zero sign".into());
-    }
-    let mut digits = String::new();
-    for n in (0..12).rev() {
-        let d = ((word >> (12 + n * 4)) & 15) as u8;
-        if d > 9 {
-            return Err("non-BCD decimal mantissa".into());
-        }
-        digits.push((b'0' + d) as char);
-    }
-    let text = format!(
-        "{}{}.{}e{exp}",
-        if sign < 0 { "-" } else { "" },
-        &digits[..1],
-        &digits[1..]
-    );
-    Ok(FirmwareValue::Real {
-        value: canonical_decimal(&text)?,
-    })
 }
 
 fn rational_decimal(n: u64, d: u64, negative: bool) -> Option<String> {

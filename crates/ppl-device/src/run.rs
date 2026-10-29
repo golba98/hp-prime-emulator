@@ -1,7 +1,7 @@
 //! Orchestrated execution of an uploaded program on a physical Prime.
 //!
-//! `EC` remote key injection is hardware-verified **ineffective** on the
-//! reference G1 (firmware 2.2.15157; see
+//! `EC` remote key submissions produced no observed transition on the
+//! reference G1; input delivery remains unverified (firmware 2.2.15157; see
 //! `docs/reverse-engineering/usb-protocol.md` §3.7), so the only supported
 //! execution method today is [`ExecutionMethod::ManualRun`]: the controller
 //! automates everything except the single `Run` keypress on the calculator.

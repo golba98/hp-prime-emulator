@@ -72,7 +72,7 @@ impl ProgramManager {
                         &mut prime,
                         &identity.serial_id,
                         &action,
-                        &Store::new(Path::new("artifacts/delete")),
+                        &Store::new(Path::new(ppl_programs::DEFAULT_STORE_DIR)),
                     )
                     .map_err(|e| e.to_string()),
                 }

@@ -113,6 +113,38 @@ pub fn prepare(prime: &mut Prime, image: &ProgramImage, store: &Store) -> Result
     Ok(plan)
 }
 
+/// Retires only a prepared replacement that has never been authorized or
+/// submitted. This is a local journal operation: no calculator is opened.
+/// Backups and source snapshots remain available for inspection.
+pub fn cancel_prepared(store: &Store, id: &str) -> Result<()> {
+    let _lock = store.lock()?;
+    let mut op = store.load(id)?;
+    let plan: Plan = serde_json::from_slice(
+        &std::fs::read(store.directory(id)?.join("replacement.json")).map_err(disk)?,
+    )
+    .map_err(disk)?;
+    if op.state != "prepared"
+        || op.authorization.is_some()
+        || op.requested_utc.is_some()
+        || !op.submission.is_empty()
+        || op.targets.len() != 1
+        || op.targets[0].status != "not_submitted"
+        || plan.operation_id != id
+        || plan.device.serial_id != op.device_serial_id
+        || plan.name != op.targets[0].name
+        || plan.old_sha256 != op.targets[0].sha256
+    {
+        return Err(refused(
+            "only an unauthorized, unsubmitted prepared replacement can be cancelled; reconcile read-only",
+        ));
+    }
+    store.backups(&op)?;
+    op.state = "not_submitted".into();
+    op.error = Some("Replacement cancelled before submission; backup preserved".into());
+    op.updated_utc = ppl_compat::utc_now();
+    store.save(&op)
+}
+
 /// Explicit authorization is supplied by the frontend for exactly this plan.
 /// A prepared plan is the only retryable state; submission intent consumes it.
 pub fn apply(

@@ -4,7 +4,7 @@ use crate::{
     checkprog, hpprgm, import, keys,
     memory::GuestMemory,
     runtime::{ExecutionRequest, ExecutionStatus},
-    runtime_value::{self, FirmwareValue},
+    runtime_value,
     script::{ScriptConfig, ScriptDriver, Tick},
     services::SharedState,
     trace::TraceHub,
@@ -449,12 +449,7 @@ impl Jobs {
                     .as_ref()
                     .and_then(|v| v.value.as_ref())
                     .ok_or("Firmware return value was not captured")?;
-                let value = match value {
-                    FirmwareValue::Real { value } | FirmwareValue::String { value } => {
-                        value.clone()
-                    }
-                    other => format!("{other:?}"),
-                };
+                let value = value.display();
                 let message = format!("G1 firmware returned {value}");
                 save_report(shared, trace, job, true, &message);
                 return Ok(Some(message));

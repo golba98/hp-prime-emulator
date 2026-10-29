@@ -14,6 +14,7 @@ pub enum Icon {
     Calculator,
     Layout,
     Settings,
+    Send,
     Close,
 }
 pub fn button(ui: &mut Ui, icon: Icon, label: &str, enabled: bool, selected: bool) -> Response {
@@ -129,6 +130,14 @@ pub fn paint(ui: &Ui, icon: Icon, r: Rect, c: Color32) {
                     r.center() + v * r.width() * 0.43,
                 );
             }
+        }
+        Icon::Send => {
+            // An arrow into a calculator outline.
+            box_at(at(0.55, 0.05), at(0.95, 0.95));
+            box_at(at(0.63, 0.15), at(0.87, 0.38));
+            line(at(0.02, 0.62), at(0.45, 0.62));
+            line(at(0.45, 0.62), at(0.3, 0.47));
+            line(at(0.45, 0.62), at(0.3, 0.77));
         }
         Icon::Close => {
             line(at(0.25, 0.25), at(0.75, 0.75));

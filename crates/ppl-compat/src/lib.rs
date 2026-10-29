@@ -23,6 +23,7 @@
 //!   ([`manifest`]);
 //! * per-run evidence files keeping raw text, merged per case ([`evidence`]).
 
+pub mod assessment;
 pub mod audit;
 pub mod campaign;
 pub mod cleanup;
@@ -334,6 +335,11 @@ pub(crate) fn case_wrapper_source(c: &Case) -> String {
 }
 
 pub fn run_case(c: &Case) -> Outcome {
+    run_case_with_settings(c, ppl_vm::Settings::default())
+}
+
+/// Evaluate with the settings captured in the reference, not host defaults.
+pub fn run_case_with_settings(c: &Case, settings: ppl_vm::Settings) -> Outcome {
     let src = case_wrapper_source(c);
     let file = ppl_syntax::SourceFile::new(format!("<case {}>", c.id), src);
     let (prog, diags) =
@@ -349,7 +355,7 @@ pub fn run_case(c: &Case) -> Outcome {
     let mut m = ppl_vm::Machine::new(
         Rc::new(prog),
         Box::new(ppl_vm::HeadlessHost::new()),
-        ppl_vm::Settings::default(),
+        settings,
         ppl_vm::Limits {
             max_steps: Some(5_000_000),
             ..ppl_vm::Limits::default()
@@ -460,6 +466,10 @@ pub enum Status {
     Unsupported,
     /// Hardware run did not produce a result for this case.
     Blocked,
+    /// Evidence cannot establish the requested comparison.
+    Inconclusive,
+    /// Repeated references disagree under the same recorded conditions.
+    Unstable,
 }
 
 impl Status {
@@ -471,6 +481,8 @@ impl Status {
             Status::Unverified => "UNVERIFIED",
             Status::Unsupported => "UNSUPPORTED",
             Status::Blocked => "BLOCKED",
+            Status::Inconclusive => "INCONCLUSIVE",
+            Status::Unstable => "UNSTABLE",
         }
     }
 }

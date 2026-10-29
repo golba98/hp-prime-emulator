@@ -48,7 +48,7 @@ impl VirtualKeypad {
         origin: Pos2,
         scale: f32,
     ) {
-        let enabled = if state.firmware_backend {
+        let program_input = if state.firmware_backend {
             state.firmware_input_enabled
         } else {
             matches!(
@@ -98,6 +98,9 @@ impl VirtualKeypad {
             self.release(state);
         }
         for key in &KEYS {
+            let dismiss_output = key.code == crate::keymap::KEY_ESC && state.can_dismiss_output();
+            let enabled =
+                program_input || (!state.firmware_backend && state.native.supports_key(key.code));
             let rect = key.rect(origin, scale);
             let response = ui.interact(rect, ui.id().with(("g1-key", key.code)), Sense::hover());
             let over = enabled
@@ -109,17 +112,17 @@ impl VirtualKeypad {
                     }
                 });
             if input.0 && over && self.captured.is_none() {
-                self.captured = Some(key.code);
                 state.calc_input_focus = true;
                 ui.ctx().memory_mut(|m| {
                     if let Some(id) = m.focused() {
                         m.surrender_focus(id);
                     }
                 });
+                self.last_clicked_key = Some(key.code);
+                self.captured = Some(key.code);
                 state.set_key_down(key.code, true);
                 state.key_transitions.push((key.code, true));
                 state.push_key_event(key.code);
-                self.last_clicked_key = Some(key.code);
             }
             let pressed = state.keys_down.contains(&key.code);
             if key.directional() {
@@ -297,7 +300,7 @@ impl VirtualKeypad {
                     orange,
                 );
             }
-            response.on_hover_text(if enabled {format!("{} · HP key {}",key.label,key.code)}else if state.firmware_backend {"Calculator input is reserved while the firmware compiles".into()}else {"Run a Native PPL program to use GETKEY / ISKEYDOWN, or select G1 Firmware for calculator interaction".into()});
+            response.on_hover_text(if dismiss_output {"Return to the caller; keep the program result and output history".into()} else if enabled {format!("{} · HP key {}",key.label,key.code)}else if state.firmware_backend {"Calculator input is reserved while the firmware compiles".into()}else {"This key is unavailable in Native Home/PPL. CAS and built-in calculator apps are not implemented.".into()});
             if !enabled {
                 ui.painter()
                     .rect_filled(rect, 3.0 * scale, Color32::from_black_alpha(75));
@@ -332,6 +335,64 @@ pub fn navigation_at(point: Pos2, center: Pos2, scale: f32) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pointer_press(state: &mut IdeAppState, code: i64) {
+        let ctx = egui::Context::default();
+        let origin = Pos2::new(10.0, 10.0);
+        let point = KEYS
+            .iter()
+            .find(|key| key.code == code)
+            .unwrap()
+            .rect(origin, 1.0)
+            .center();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(420.0, 850.0))),
+            events: vec![
+                egui::Event::PointerMoved(point),
+                egui::Event::PointerButton {
+                    pos: point,
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        };
+        let mut keypad = VirtualKeypad::new();
+        let _ = ctx.run(input, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| keypad.paint_at(ui, state, origin, 1.0));
+        });
+    }
+
+    #[test]
+    fn finished_native_esc_is_a_view_action_and_running_esc_remains_program_input() {
+        let mut finished = IdeAppState {
+            vm_state: super::super::VmExecutionState::Terminated,
+            ..Default::default()
+        };
+        finished.native.view = super::super::native::NativeView::ProgramOutput;
+        pointer_press(&mut finished, crate::keymap::KEY_ESC);
+        assert!(finished.take_actions().is_empty());
+        assert_eq!(finished.key_events, [crate::keymap::KEY_ESC]);
+        finished.key_events.clear();
+        finished.key_transitions.clear();
+        finished.clear_held_keys();
+        pointer_press(&mut finished, crate::keymap::KEY_ENTER);
+        assert!(finished.take_actions().is_empty() && finished.key_events.is_empty());
+
+        for firmware in [false, true] {
+            let mut running = IdeAppState {
+                firmware_backend: firmware,
+                vm_state: super::super::VmExecutionState::Running,
+                ..Default::default()
+            };
+            pointer_press(&mut running, crate::keymap::KEY_ESC);
+            assert!(running.take_actions().is_empty());
+            assert_eq!(running.key_events, [crate::keymap::KEY_ESC]);
+            assert_eq!(running.key_transitions, [(crate::keymap::KEY_ESC, true)]);
+        }
+    }
+
     #[test]
     fn authentic_geometry_and_codes_are_complete() {
         let mut seen = std::collections::HashSet::new();

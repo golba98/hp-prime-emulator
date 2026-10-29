@@ -1,0 +1,46 @@
+suite = "g1_rounding_v1"
+description = "Distinguish literal parsing, exact integer ties, sticky digits and arithmetic rounding before changing the native number model."
+
+[[group]]
+id = "num_rounding"
+description = "Eight independent rounding observations"
+
+[[case]]
+group = "num_rounding"
+id = "literal_even_positive"
+expr = "1.234567890125"
+
+[[case]]
+group = "num_rounding"
+id = "literal_odd_positive"
+expr = "1.234567890135"
+
+[[case]]
+group = "num_rounding"
+id = "literal_even_negative"
+expr = "-1.234567890125"
+
+[[case]]
+group = "num_rounding"
+id = "literal_odd_negative"
+expr = "-1.234567890135"
+
+[[case]]
+group = "num_rounding"
+id = "exact_integer_tie"
+expr = "1234567890125"
+
+[[case]]
+group = "num_rounding"
+id = "scaled_literal_tie"
+expr = "1.234567890125E20"
+
+[[case]]
+group = "num_rounding"
+id = "sticky_above_tie"
+expr = "1.2345678901251"
+
+[[case]]
+group = "num_rounding"
+id = "arithmetic_tie"
+expr = "1.23456789012+0.000000000005"

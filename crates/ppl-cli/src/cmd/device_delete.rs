@@ -18,7 +18,7 @@ use flow::{cleanup, manual, reconcile, require_device, retire_confirmed};
 #[path = "device_delete_user.rs"]
 mod user;
 
-pub const DEFAULT_DELETE_DIR: &str = "artifacts/delete";
+pub const DEFAULT_DELETE_DIR: &str = ppl_programs::DEFAULT_STORE_DIR;
 
 /// Delete a program or note from a connected HP Prime G1.
 ///

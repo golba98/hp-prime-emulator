@@ -1,0 +1,973 @@
+{
+  "schema_version": 1,
+  "firmware_build": 15751,
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "evidence_class": "Local firmware return-object captures; not physical G1 evidence",
+  "cases": [
+    {
+      "id": "ZZT_L0",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": []
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 8,
+        "logical_items": 0,
+        "nodes": [
+          {
+            "address": 541674240,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L1",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "5"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 36,
+        "logical_items": 1,
+        "nodes": [
+          {
+            "address": 541695152,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              1,
+              0,
+              0,
+              0,
+              224,
+              75,
+              73,
+              32
+            ],
+            "children": [
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541674464,
+            "path": [
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L2",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 64,
+        "logical_items": 2,
+        "nodes": [
+          {
+            "address": 541702752,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              2,
+              0,
+              0,
+              0,
+              208,
+              150,
+              73,
+              32,
+              16,
+              151,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541693648,
+            "path": [
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541693712,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L3",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 92,
+        "logical_items": 3,
+        "nodes": [
+          {
+            "address": 541703808,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              3,
+              0,
+              0,
+              0,
+              128,
+              151,
+              73,
+              32,
+              160,
+              151,
+              73,
+              32,
+              192,
+              151,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2,
+              3
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541693824,
+            "path": [
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541693856,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541693888,
+            "path": [
+              3
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L4",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "-1.5"
+          },
+          {
+            "type": "real",
+            "value": "1e200"
+          },
+          {
+            "type": "real",
+            "value": "0.001"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 92,
+        "logical_items": 3,
+        "nodes": [
+          {
+            "address": 541705040,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              199,
+              73,
+              32,
+              128,
+              152,
+              73,
+              32,
+              160,
+              152,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2,
+              3
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541705984,
+            "path": [
+              1
+            ],
+            "bytes": [
+              1,
+              0,
+              31,
+              1,
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541694080,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              16,
+              1,
+              200,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541694112,
+            "path": [
+              3
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              232,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L5",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "a"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 52,
+        "logical_items": 2,
+        "nodes": [
+          {
+            "address": 541705040,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              2,
+              0,
+              0,
+              0,
+              32,
+              153,
+              73,
+              32,
+              80,
+              153,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541694240,
+            "path": [
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              18,
+              0,
+              1,
+              0,
+              0,
+              0,
+              97,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541694288,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "ZZT_L6",
+      "source_sha256": "7eaec50a7bcd504e623fa93210977ef073f75a9750d0812b89a854ecc11ca7e8",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/layout-capture/report.json",
+      "capture_report_sha256": "5c9922a31074a45130732adcafe309b2c0a8f67f3fe04c397c0d254350905123",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "type": "real",
+            "value": "2"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 76,
+        "logical_items": 3,
+        "nodes": [
+          {
+            "address": 541747920,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              2,
+              0,
+              0,
+              0,
+              96,
+              115,
+              74,
+              32,
+              32,
+              154,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              3
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541750112,
+            "path": [
+              1
+            ],
+            "bytes": [
+              1,
+              0,
+              22,
+              0,
+              1,
+              0,
+              0,
+              0,
+              240,
+              153,
+              73,
+              32
+            ],
+            "children": [
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541694448,
+            "path": [
+              1,
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              152,
+              112,
+              48,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541694496,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    },
+    {
+      "id": "LISTRET",
+      "source_sha256": "bf463ff72338ace2f72ab4f608aff6433e325559fe87ec0c7c1fb9d816de226a",
+      "capture_report": "artifacts/g1-closure/20261028T212023Z/firmware-codec/original-layout-capture/report.json",
+      "capture_report_sha256": "5770727e2074bf5066f3b10bd3bdd9a064241afdac0ba239efa0d7786e729834",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          }
+        ]
+      },
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 64,
+        "logical_items": 2,
+        "nodes": [
+          {
+            "address": 541677488,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              32,
+              2,
+              0,
+              0,
+              0,
+              240,
+              74,
+              73,
+              32,
+              80,
+              77,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541674224,
+            "path": [
+              1
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541674832,
+            "path": [
+              2
+            ],
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      }
+    }
+  ]
+}

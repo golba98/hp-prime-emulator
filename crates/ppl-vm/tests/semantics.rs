@@ -527,6 +527,39 @@ fn string_of_string_is_quoted() {
     assert_eq!(out, v(&["\"abc\"", "5"]));
 }
 
+// Raw note ZZT_F0E093, source71e75578..., tag0c68690f, G1 15157,
+// Home0|0|0: full ASC lists distinguish program data from displayed glyphs.
+#[test]
+fn g1_string_escapes_double_quotes_without_changing_the_original_value() {
+    let out = run_src(
+        &body(
+            r#"
+            LOCAL v:="a"+CHAR(34)+"b",s:=STRING(v),q:=STRING(CHAR(34));
+            PRINT(v);
+            PRINT({SIZE(v),ASC(v),SIZE(s),ASC(s)});
+            PRINT({SIZE(q),ASC(q)});
+            PRINT({SIZE(STRING("")),ASC(STRING(""))});
+            PRINT(STRING(" A "));
+        "#,
+        ),
+        Settings {
+            hdigits: 0,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        out,
+        v(&[
+            "a\"b",
+            "{3,{97,34,98},6,{34,97,92,34,98,34}}",
+            "{4,{34,92,34,34}}",
+            "{2,{34,34}}",
+            "\" A \"",
+        ])
+    );
+}
+
 #[test]
 fn string_of_string_concat_matches_hardware_record() {
     // the exact shape of the device-program record for a string case
