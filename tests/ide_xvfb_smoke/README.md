@@ -54,6 +54,21 @@ python3 assert.py /tmp/ppl-ide-e2e/dump_workflow.json /tmp/ppl-ide-e2e/dump_synt
 | `script_editor.json` | Editor: valid PPL with unemulated commands, a broken program, typed code (auto-indent, pairing), window sweep 800×500 → 3840×2160 with real window screenshots, breakpoint, Problems panel | `assert_editor.py`: only Compatibility diagnostics on valid code; unclosed string is a Syntax error on its line; typed block indented; cursor and layout cache unchanged by every resize |
 | `script_editor_hidpi.json` | The same at `WINIT_X11_SCALE_FACTOR=2` | screenshots are 2× the logical size; cursor and layout cache unchanged |
 
+| `script_firmware_check.json` | Native backend, original-firmware Check (fresh checker): Unicode program rejected at 4:15 beside the native 4:11 → edit → passing Check → second tab → repeated Checks → Stop during a Check → Run, Restart; window screenshots `firmware_check_*.png` | `assert_firmware_check.py`: firmware items listed once and marked on the reported character; edits retire them; tabs never share results; only a firmware pass says so; Stop leaves nothing pending; after the 15 s warm-up, Checks use the direct firmware compiler call, each under 1 s; process samples |
+| `script_firmware_session.json` | The same with the G1 Firmware backend (live session), plus a session Run of a rejected program | `assert_firmware_check.py`: as above, and the session's rejection reaches Problems at the firmware position for the current revision |
+
+The firmware scenarios need the original firmware and must never use the
+user's calculator profile. Run them with an isolated `HOME`,
+`XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `PPL_FIRMWARE_PROFILE` (a copy of the
+initialized data directory; factory A alone stops at first-run setup), the
+`PPL_FIRMWARE*` variables from `docs/compatibility/diagnostic-parity.md`, and
+optionally sample the IDE's runner children to pass as the process log:
+
+```bash
+python3 assert_firmware_check.py /tmp/ppl-ide-e2e/firmware_check.json \
+        [samples.log pids-before.txt pids-after.txt]
+```
+
 Editor scenarios need a large virtual screen:
 
 ```bash

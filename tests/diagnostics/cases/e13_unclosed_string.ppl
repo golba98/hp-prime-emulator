@@ -1,0 +1,4 @@
+EXPORT DPSTR()
+BEGIN
+ RETURN "abc;
+END;

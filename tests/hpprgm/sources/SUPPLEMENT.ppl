@@ -1,0 +1,4 @@
+EXPORT SUPPLEMENT()
+BEGIN
+ PRINT("emoji 😀 and 𝛑");
+END;

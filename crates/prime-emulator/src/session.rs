@@ -170,17 +170,21 @@ impl LiveSession {
                 },
                 Command::Stop => {
                     device.script = None;
-                    if let Some(request) = device.jobs.cancel() {
+                    let interrupted = device.jobs.interrupt(shared, trace);
+                    if let Some(request) = device.jobs.cancel(mem, shared) {
                         self.event(Event::Result {
                             request,
                             success: false,
                             message: "Firmware operation cancelled".into(),
+                            check: None,
                         });
                         self.event(Event::Phase {
                             phase: "ready".into(),
                         });
                     }
-                    shared.push_key_press(0x83);
+                    if !interrupted {
+                        shared.push_key_press(job::ON_KEY);
+                    }
                 }
                 Command::LoadSource { request, source } => {
                     match device.jobs.start(
@@ -201,6 +205,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }
@@ -226,6 +231,23 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
+                        }),
+                    }
+                }
+                Command::DirectCheck { request, source } => {
+                    match device
+                        .jobs
+                        .start_direct(request, source, mem, shared, trace)
+                    {
+                        Ok(()) => self.event(Event::Phase {
+                            phase: "compiling".into(),
+                        }),
+                        Err(message) => self.event(Event::Result {
+                            request,
+                            success: false,
+                            message,
+                            check: None,
                         }),
                     }
                 }
@@ -253,6 +275,7 @@ impl LiveSession {
                             request,
                             success: false,
                             message,
+                            check: None,
                         }),
                     }
                 }

@@ -1,0 +1,13 @@
+id = "square"
+category = "arithmetic"
+description = "Numeric argument and result, repeated in one boot to detect state carry-over"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/SQUARE.ppl"
+source_sha256 = "fb9e02a04f8a114097f98609facb3f6ecf9488ecf410cdc611b9b6c382ddc4d1"
+entry = "SQUARE"
+args = '[7]'
+repeat = 2
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "49"

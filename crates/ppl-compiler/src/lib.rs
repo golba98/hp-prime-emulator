@@ -17,6 +17,12 @@ pub fn compile_source(
     opts: &CompileOptions,
 ) -> (Option<CompiledProgram>, Diagnostics) {
     let (ast, mut diags) = ppl_syntax::parse(&file.text);
+    // The firmware checks syntax before resolving names (location probe
+    // c06_earlier_unknown). Semantic diagnostics from a recovered AST can
+    // otherwise obscure the actual syntax error, even on earlier lines.
+    if diags.has_errors() {
+        return (None, diags);
+    }
     let (prog, sema) = compile(&ast, opts);
     diags.extend(sema);
     diags.sort();

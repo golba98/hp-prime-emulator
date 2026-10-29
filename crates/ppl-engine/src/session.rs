@@ -29,6 +29,13 @@ pub enum Command {
         request: u64,
         source: String,
     },
+    /// Check `source` with the original firmware compiler called directly
+    /// (no calculator UI driving); the verdict comes back in
+    /// `Event::Result.check`.
+    DirectCheck {
+        request: u64,
+        source: String,
+    },
     Run {
         request: u64,
         source: String,
@@ -54,6 +61,11 @@ pub enum Event {
         request: u64,
         success: bool,
         message: String,
+        /// The firmware compiler's verdict on the request's exact source,
+        /// when one was observed. `None` means no verdict (cancelled,
+        /// busy, infrastructure failure), never acceptance or rejection.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        check: Option<CheckVerdict>,
     },
     Error {
         message: String,
@@ -61,6 +73,16 @@ pub enum Event {
     Closed {
         message: String,
     },
+}
+/// An original-firmware Check verdict observed in the live session.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CheckVerdict {
+    pub accepted: bool,
+    /// SHA-256 of the exact source the firmware compiler parsed.
+    pub source_sha256: String,
+    /// The guest's diagnostic for a rejection (one, the first error);
+    /// its position is `None` when it could not be mapped.
+    pub diagnostics: Vec<crate::Diagnostic>,
 }
 #[derive(Debug)]
 pub enum Packet {
@@ -208,6 +230,23 @@ mod tests {
         assert!(
             matches!(read_command(&mut bytes.as_slice()).unwrap(),Command::Compile{request:3,source} if source=="LOCAL θ:=π;")
         );
+    }
+    #[test]
+    fn results_without_a_verdict_keep_the_original_wire_form() {
+        let plain = Event::Result {
+            request: 1,
+            success: false,
+            message: "busy".into(),
+            check: None,
+        };
+        let json = serde_json::to_string(&plain).unwrap();
+        assert!(!json.contains("check"), "{json}");
+        // A peer that predates `check` is read as "no verdict".
+        let old: Event = serde_json::from_str(
+            r#"{"event":"result","request":2,"success":false,"message":"Error: Syntax Error"}"#,
+        )
+        .unwrap();
+        assert!(matches!(old, Event::Result { check: None, .. }));
     }
     #[test]
     fn load_source_and_frame_request_round_trip() {

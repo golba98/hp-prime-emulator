@@ -75,6 +75,15 @@ impl Keyword {
         })
     }
 
+    /// The keyword spelled `s` in any ASCII letter case (`END`, `end`,
+    /// `End`). The text itself is only compared, never rewritten.
+    pub fn from_any_case(s: &str) -> Option<Keyword> {
+        if !s.is_ascii() || s.len() > 8 {
+            return None;
+        }
+        Keyword::from_upper(&s.to_ascii_uppercase())
+    }
+
     pub fn as_str(self) -> &'static str {
         use Keyword::*;
         match self {
@@ -210,6 +219,11 @@ impl Tok {
 pub struct Token {
     pub tok: Tok,
     pub span: Span,
+    /// For a keyword written in other than upper case (`end`, `Begin`),
+    /// its spelling. The firmware reads such a word as the keyword where
+    /// the grammar expects one and as a name elsewhere, so the parser may
+    /// turn it back into an identifier; upper-case keywords are reserved.
+    pub soft: Option<String>,
 }
 
 /// ASCII case-insensitive substring search (byte offset of the match).
@@ -234,6 +248,8 @@ pub fn lex(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
 
 /// Like [`lex`], but also emits a [`Tok::Comment`] token for every `//`
 /// comment, so editors can classify every byte from one token stream.
+/// Unterminated strings recover at their opening line for highlighting;
+/// compiler lexing instead consumes the literal through EOF.
 pub fn lex_with_trivia(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
     lex_inner(src, diags, true)
 }
@@ -275,6 +291,7 @@ impl Lexer<'_> {
         self.out.push(Token {
             tok,
             span: Span::new(start, end),
+            soft: None,
         });
     }
 
@@ -332,6 +349,7 @@ impl Lexer<'_> {
         self.out.push(Token {
             tok: Tok::Eof,
             span: Span::new(end, end),
+            soft: None,
         });
     }
 
@@ -373,14 +391,19 @@ impl Lexer<'_> {
             }
         }
         let text = &self.src[start..self.offset()];
-        // Keywords are recognised in upper case only: real programs use
-        // lower-case `mod` as a variable name (see the linter compatibility
-        // fixtures), so lower-case spellings stay identifiers.
-        let tok = match Keyword::from_upper(text) {
-            Some(k) => Tok::Kw(k),
-            None => Tok::Ident(text.to_string()),
+        // The original firmware accepts keywords in any letter case
+        // (diagnostic corpus h01, h07, k01-k05) but still accepts the
+        // lower- and mixed-case words as names (h08, k08-k23): those are
+        // soft keywords, which the parser resolves by position.
+        let (tok, soft) = match Keyword::from_upper(text) {
+            Some(k) => (Tok::Kw(k), None),
+            None => match Keyword::from_any_case(text) {
+                Some(k) => (Tok::Kw(k), Some(text.to_string())),
+                None => (Tok::Ident(text.to_string()), None),
+            },
         };
         self.push(tok, start);
+        self.out.last_mut().unwrap().soft = soft;
     }
 
     fn string(&mut self, start: usize, diags: &mut Diagnostics) {
@@ -390,22 +413,26 @@ impl Lexer<'_> {
         let mut newlines = 0usize;
         loop {
             let Some(c) = self.peek(0) else {
-                // Unclosed at end of file. Multi-line strings are legal, so
-                // the literal formally runs to EOF, but that would swallow
-                // every later statement. Recover at the end of the opening
-                // line instead: the error points at the literal and the
-                // rest of the program is still lexed, parsed and
-                // highlighted normally.
-                self.pos = open_pos + 1;
-                while self.peek(0).is_some_and(|c| c != '\n') {
-                    self.pos += 1;
+                // Firmware consumes an unterminated multiline literal up
+                // to EOF. The highlighting lexer alone recovers at the
+                // opening line so subsequent code can still be coloured.
+                if self.trivia {
+                    self.pos = open_pos + 1;
+                    while self.peek(0).is_some_and(|c| c != '\n') {
+                        self.pos += 1;
+                    }
                 }
                 let end = self.offset();
+                let at = if self.trivia {
+                    Span::new(start, end.max(start + 1))
+                } else {
+                    Span::new(end, end)
+                };
                 diags.push(
                     Diagnostic::error(
                         Category::Lexer,
                         "unclosed-string",
-                        Span::new(start, end.max(start + 1)),
+                        at,
                         "unclosed string literal",
                     )
                     .with_hint("add the closing `\"`"),
@@ -414,6 +441,7 @@ impl Lexer<'_> {
                 self.out.push(Token {
                     tok: Tok::Str(body),
                     span: Span::new(start, end),
+                    soft: None,
                 });
                 return;
             };
@@ -621,6 +649,26 @@ mod tests {
                 Tok::Eof
             ]
         );
+    }
+
+    #[test]
+    fn keywords_in_any_case_keep_their_spelling_and_span() {
+        let src = "θ begin End MOD mod BEGINNER";
+        let mut d = Diagnostics::default();
+        let t = lex(src, &mut d);
+        let at = |i: usize| &src[t[i].span.start as usize..t[i].span.end as usize];
+        assert_eq!(t[1].tok, Tok::Kw(Keyword::Begin));
+        assert_eq!((t[1].soft.as_deref(), at(1)), (Some("begin"), "begin"));
+        assert_eq!((t[2].soft.as_deref(), at(2)), (Some("End"), "End"));
+        // Upper-case keywords are reserved, not soft.
+        assert_eq!(
+            (t[3].tok.clone(), t[3].soft.clone()),
+            (Tok::Kw(Keyword::Mod), None)
+        );
+        assert_eq!(t[4].soft.as_deref(), Some("mod"));
+        assert_eq!(t[5].tok, Tok::Ident("BEGINNER".into()));
+        // Non-ASCII letters never fold onto a keyword.
+        assert_eq!(Keyword::from_any_case("ıf"), None);
     }
 
     #[test]

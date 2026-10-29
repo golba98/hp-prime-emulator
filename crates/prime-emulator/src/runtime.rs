@@ -38,6 +38,10 @@ pub enum ExecutionStatus {
     InfrastructureError,
     Unsupported,
     Cancelled,
+    /// The function body has not returned yet (live sessions only).
+    Running,
+    /// No terminal firmware evidence was observed; never a success claim.
+    Indeterminate,
 }
 impl ExecutionStatus {
     pub fn exit_code(self) -> i32 {
@@ -52,6 +56,8 @@ impl ExecutionStatus {
             Self::InfrastructureError => 4,
             Self::Unsupported => 8,
             Self::Cancelled => 130,
+            Self::Running => 13,
+            Self::Indeterminate => 12,
         }
     }
 }
@@ -99,6 +105,16 @@ pub struct ErrorEvent {
     pub message: String,
     pub time_ms: f64,
 }
+/// A framebuffer capture taken at a scripted checkpoint while the program
+/// ran (`SNAP:label` / `DELAY:ms`), as the guest drew it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Checkpoint {
+    pub label: String,
+    /// SHA-256 of the raw XRGB pixels (encoder independent).
+    pub pixels_sha256: String,
+    pub png: Option<String>,
+    pub elapsed_ms: u64,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GuestFault {
     pub kind: String,
@@ -127,6 +143,12 @@ pub struct Invocation {
     pub diagnostic: Option<RuntimeDiagnostic>,
     pub status: Option<ExecutionStatus>,
     pub unavailable: Vec<String>,
+    /// Observation gaps that do not change the firmware-evidenced outcome,
+    /// e.g. a returned representation the host cannot decode yet.
+    #[serde(default)]
+    pub caveats: Vec<String>,
+    #[serde(default)]
+    pub checkpoints: Vec<Checkpoint>,
     pub truncated: bool,
     pub heap_before: Option<(usize, usize, usize)>,
     pub heap_after: Option<(usize, usize, usize)>,
@@ -173,6 +195,15 @@ impl Observer {
     pub fn snapshot(&self) -> RuntimeTrace {
         self.0.lock().unwrap().trace.clone()
     }
+    /// The latest invocation entered its function and has neither returned
+    /// nor been given a final status (e.g. an observed interruption).
+    pub fn unfinished(&self) -> bool {
+        let g = self.0.lock().unwrap();
+        g.trace
+            .invocations
+            .last()
+            .is_some_and(|c| c.started_ms.is_some() && c.ended_ms.is_none() && c.status.is_none())
+    }
     pub fn progress(&self) -> (bool, bool) {
         let g = self.0.lock().unwrap();
         g.trace.invocations.last().map_or((false, false), |c| {
@@ -213,7 +244,7 @@ impl Observer {
     ) -> ExecutionStatus {
         let mut g = self.0.lock().unwrap();
         let Some(c) = g.trace.invocations.last_mut() else {
-            return ExecutionStatus::Unsupported;
+            return ExecutionStatus::Indeterminate;
         };
         let status = if let Some(e) = c.errors.last() {
             c.diagnostic = Some(RuntimeDiagnostic {
@@ -227,10 +258,10 @@ impl Observer {
             if arity_mismatch {
                 ExecutionStatus::InvalidArguments
             } else {
-                ExecutionStatus::Unsupported
+                ExecutionStatus::Indeterminate
             }
         } else {
-            ExecutionStatus::Unsupported
+            ExecutionStatus::Indeterminate
         };
         c.status = Some(status);
         if let Ok(frame) =
@@ -279,6 +310,8 @@ impl Observer {
             diagnostic: None,
             status: None,
             unavailable: Vec::new(),
+            caveats: Vec::new(),
+            checkpoints: Vec::new(),
             truncated: false,
             heap_before: None,
             heap_after: None,
@@ -292,6 +325,13 @@ impl Observer {
         });
         Ok(())
     }
+    pub fn checkpoint(&self, checkpoint: Checkpoint) {
+        if let Some(c) = self.0.lock().unwrap().trace.invocations.last_mut()
+            && c.checkpoints.len() < MAX_EVENTS
+        {
+            c.checkpoints.push(checkpoint);
+        }
+    }
     pub fn cache_flags(&self, flags: u32) {
         if let Some(c) = self.0.lock().unwrap().trace.invocations.last_mut() {
             c.export_cache_flags = Some(flags);
@@ -304,34 +344,22 @@ impl Observer {
             g.trace.reason = Some(reason.into());
         }
     }
-    /// Finalize only a fully observed user-function return, shared by batch and live sessions.
+    /// Classify the latest invocation from positive firmware evidence, shared
+    /// by batch and live sessions. Completion requires the root evaluator's
+    /// teardown with a non-error result object; host-side decoding gaps are
+    /// recorded as caveats and never turn a completed run into a failure.
     pub fn finish_observed(&self) -> ExecutionStatus {
         let snapshot = self.snapshot();
         let Some(c) = snapshot.invocations.last() else {
-            return ExecutionStatus::Unsupported;
+            return ExecutionStatus::Indeterminate;
         };
-        let status = if c.ended_ms.is_none()
-            || !c.unavailable.is_empty()
-            || c.truncated
-            || c.result.as_ref().is_none_or(|v| v.value.is_none())
-            || c.calls
-                .first()
-                .is_none_or(|f| f.arguments.iter().any(|a| a.value.is_none()))
-            || c.output
-                .iter()
-                .any(|o| o.value.as_ref().is_some_and(|v| v.value.is_none()))
-        {
-            ExecutionStatus::Unsupported
-        } else if !c.body_entered {
-            ExecutionStatus::InvalidArguments
-        } else if matches!(
-            c.result.as_ref().and_then(|v| v.value.as_ref()),
-            Some(crate::runtime_value::FirmwareValue::Error { .. })
-        ) {
-            ExecutionStatus::RuntimeError
-        } else {
-            ExecutionStatus::Completed
-        };
+        if c.ended_ms.is_none() {
+            return ExecutionStatus::Running;
+        }
+        let (status, caveats) = classify(c);
+        if let Some(c) = self.0.lock().unwrap().trace.invocations.last_mut() {
+            c.caveats = caveats;
+        }
         self.finish_invocation(status);
         status
     }
@@ -590,6 +618,47 @@ impl Observer {
         }
         Ok(())
     }
+}
+
+/// Status and caveats of an invocation whose root evaluator has returned.
+pub fn classify(c: &Invocation) -> (ExecutionStatus, Vec<String>) {
+    let mut caveats = Vec::new();
+    if !c.unavailable.is_empty() {
+        caveats.push(format!("observation errors: {}", c.unavailable.join("; ")));
+    }
+    if c.truncated {
+        caveats.push("event capture truncated at its bound".into());
+    }
+    if let Some(r) = c.result.as_ref().filter(|r| r.value.is_none()) {
+        caveats.push(format!(
+            "return value not decoded: {}",
+            r.unavailable.as_deref().unwrap_or("unknown representation")
+        ));
+    }
+    if c.calls
+        .first()
+        .is_some_and(|f| f.arguments.iter().any(|a| a.value.is_none()))
+    {
+        caveats.push("an argument value was not decoded".into());
+    }
+    if c.output
+        .iter()
+        .any(|o| o.value.as_ref().is_some_and(|v| v.value.is_none()))
+    {
+        caveats.push("a printed value was not decoded".into());
+    }
+    let status = match c.result.as_ref() {
+        _ if !c.body_entered => ExecutionStatus::InvalidArguments,
+        Some(r) if matches!(r.value, Some(FirmwareValue::Error { .. })) => {
+            ExecutionStatus::RuntimeError
+        }
+        // An unreadable header could still be an error object.
+        Some(r) if r.value.is_some() || r.tag.is_some_and(|t| t & 15 != 5) => {
+            ExecutionStatus::Completed
+        }
+        _ => ExecutionStatus::Indeterminate,
+    };
+    (status, caveats)
 }
 
 pub fn install(

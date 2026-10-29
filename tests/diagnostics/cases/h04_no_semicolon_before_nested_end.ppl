@@ -1,0 +1,8 @@
+EXPORT DPNOSEMI2()
+BEGIN
+ LOCAL x:=0;
+ IF x==0 THEN
+  x:=2
+ END;
+ RETURN x;
+END;

@@ -146,6 +146,38 @@ impl CpuThread {
             None
         };
 
+        // Diagnostic register probes (`PRIME_PROBE_PCS=0xADDR,...`): log the
+        // argument registers, LR and SP each time an address executes. For
+        // reverse-engineering call contracts; never installed otherwise.
+        if let Ok(list) = std::env::var("PRIME_PROBE_PCS") {
+            for pc in list
+                .split(',')
+                .filter_map(|a| u32::from_str_radix(a.trim().trim_start_matches("0x"), 16).ok())
+            {
+                let t = trace.clone();
+                engine.add_code_hook(
+                    pc as u64,
+                    pc as u64,
+                    Box::new(move |uc: &mut Unicorn<'_, ()>, _addr: u64, _size: u32| {
+                        let r = |x| uc.reg_read(x).unwrap_or(0) as u32;
+                        t.probe(
+                            pc,
+                            thread_id,
+                            [
+                                r(RegisterARM::R0),
+                                r(RegisterARM::R1),
+                                r(RegisterARM::R2),
+                                r(RegisterARM::R3),
+                                r(RegisterARM::R4),
+                                r(RegisterARM::LR),
+                                r(RegisterARM::SP),
+                            ],
+                        );
+                    }),
+                )?;
+            }
+        }
+
         crate::compiler::install(&mut engine, &mem, &trace, thread_id)?;
         crate::runtime::install(&mut engine, &mem, &shared, &trace, thread_id)?;
 
@@ -217,7 +249,8 @@ impl CpuThread {
                         for &(wa, wsz) in &hs.watches {
                             if addr >= wa && addr < wa.wrapping_add(wsz) {
                                 let pc = uc.reg_read(RegisterARM::PC).unwrap_or(0) as u32;
-                                hs.trace.watch_hit(addr, size, value as u32, pc);
+                                let lr = uc.reg_read(RegisterARM::LR).unwrap_or(0) as u32;
+                                hs.trace.watch_hit(addr, size, value as u32, pc, lr);
                                 break;
                             }
                         }

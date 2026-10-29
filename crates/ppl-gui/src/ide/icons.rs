@@ -42,7 +42,7 @@ pub fn button(ui: &mut Ui, icon: Icon, label: &str, enabled: bool, selected: boo
 }
 pub fn paint(ui: &Ui, icon: Icon, r: Rect, c: Color32) {
     let p = ui.painter();
-    let s = Stroke::new(1.3, c);
+    let s = Stroke::new(1.3_f32, c);
     let at = |x: f32, y: f32| Pos2::new(r.left() + x * r.width(), r.top() + y * r.height());
     let line = |a, b| {
         p.line_segment([a, b], s);

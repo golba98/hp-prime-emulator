@@ -1,6 +1,6 @@
 //! Headless program execution using the existing firmware session pipeline.
 use crate::runtime::{ExecutionRequest, ExecutionStatus, RuntimeTrace};
-use crate::runtime_value::FirmwareValue;
+use crate::runtime_value::{FirmwareValue, ReturnRepresentation};
 use crate::{
     checkprog::{self, CheckConfig, CheckReport},
     display::Frame,
@@ -62,6 +62,9 @@ pub struct ProgramReport {
     pub compilation: CheckReport,
     pub runtime: RuntimeTrace,
     pub return_value: Option<FirmwareValue>,
+    pub return_representation: ReturnRepresentation,
+    pub return_display: Option<String>,
+    pub caveats: Vec<String>,
     pub output: Vec<crate::runtime::OutputEvent>,
     pub runtime_errors: Vec<crate::runtime::RuntimeDiagnostic>,
     pub work_dir: Option<PathBuf>,
@@ -86,6 +89,9 @@ impl ProgramReport {
             compilation,
             runtime: RuntimeTrace::default(),
             return_value: None,
+            return_representation: ReturnRepresentation::None,
+            return_display: None,
+            caveats: Vec::new(),
             output: Vec::new(),
             runtime_errors: Vec::new(),
             work_dir: None,
@@ -131,6 +137,8 @@ pub struct Driver {
     source_hash: String,
     first_failure: Option<ExecutionStatus>,
     published_entry: Option<usize>,
+    /// Runtime-input key records already turned into checkpoints.
+    checkpoints_seen: usize,
     step: Option<usize>,
     check_evidence: Option<(crate::script::ScriptReport, Option<Frame>)>,
 }
@@ -149,6 +157,7 @@ impl Driver {
             source_hash,
             first_failure: None,
             published_entry: None,
+            checkpoints_seen: 0,
             step: None,
             check_evidence: None,
         }
@@ -177,6 +186,8 @@ impl Driver {
         let mut cfg = self.plan.script.clone();
         cfg.keys = keys;
         cfg.screenshot_dir = Some(self.plan.out_dir.join(format!("{label}-{:02}", self.index)));
+        // Runtime input goes to an already running program.
+        cfg.start_with_keys = label == "input";
         ScriptDriver::new(cfg)
     }
     fn invoke(&mut self, trace: &TraceHub) -> Result<(), (ExecutionStatus, String)> {
@@ -364,6 +375,7 @@ impl Driver {
                     } else {
                         let input = (!self.plan.runtime_keys.is_empty())
                             .then(|| self.script(self.plan.runtime_keys.clone(), "input"));
+                        self.checkpoints_seen = 0;
                         self.phase = Phase::Executing(input);
                     }
                 } else {
@@ -392,6 +404,18 @@ impl Driver {
                 } else if let Some(driver) = input {
                     let tick = driver.tick(mem, shared);
                     self.step = driver.current_step();
+                    let script = &self.plan.runtime_keys;
+                    for k in &driver.report().keys[self.checkpoints_seen..] {
+                        if let Some(label) = script.get(k.index).and_then(Key::checkpoint) {
+                            observer.checkpoint(crate::runtime::Checkpoint {
+                                label: label.to_owned(),
+                                pixels_sha256: k.after.sha256.clone(),
+                                png: k.after.png.clone(),
+                                elapsed_ms: k.after.elapsed_ms,
+                            });
+                        }
+                    }
+                    self.checkpoints_seen = driver.report().keys.len();
                     match tick {
                         Tick::Done => *input = None,
                         Tick::Failed(e) => {
@@ -557,13 +581,16 @@ fn perform(
             r.runtime.terminal.unwrap_or(ExecutionStatus::TimedOut)
         }
         Outcome::UnsupportedStop => ExecutionStatus::Unsupported,
-        _ => r.runtime.terminal.unwrap_or(ExecutionStatus::Unsupported),
+        _ => r.runtime.terminal.unwrap_or(ExecutionStatus::Indeterminate),
     };
-    if result
+    let unverified_services: Vec<String> = result
         .report
         .unsupported_hits
         .iter()
-        .any(|h| ![0x10293, 0x102cb].contains(&h.id))
+        .filter(|h| ![0x10293, 0x102cb].contains(&h.id))
+        .map(|h| format!("{:#x}", h.id))
+        .collect();
+    if !unverified_services.is_empty()
         && matches!(
             r.execution_status,
             ExecutionStatus::Completed
@@ -573,7 +600,10 @@ fn perform(
         )
     {
         r.execution_status = ExecutionStatus::Unsupported;
-        r.evidence = "an unverified OS service was reached".into();
+        r.evidence = format!(
+            "an unverified OS service was reached: {}",
+            unverified_services.join(", ")
+        );
     }
     if r.runtime.compile_verified
         && (!r.compilation.source_preserved || r.compilation.status != checkprog::Status::Valid)
@@ -610,6 +640,9 @@ fn perform(
             .as_ref()
             .and_then(|v| v.value.clone())
             .filter(|v| !matches!(v, FirmwareValue::Error { .. }));
+        r.return_representation = ReturnRepresentation::of(c.result.as_ref());
+        r.return_display = r.return_value.as_ref().map(FirmwareValue::display);
+        r.caveats = c.caveats.clone();
         r.output = c.output.clone();
         if let Some(path) = &cfg.screenshot
             && let Some(frame) = &c.frame

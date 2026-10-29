@@ -1,0 +1,5 @@
+EXPORT DPK20()
+BEGIN
+ LOCAL case:=4;
+ RETURN case+1;
+END;

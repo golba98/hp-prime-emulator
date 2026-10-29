@@ -1,0 +1,12 @@
+id = "demo"
+category = "functions"
+description = "Calls a non-exported local function and PRINTs"
+program = "../../../crates/prime-emulator/tests/fixtures/m7/DEMO.ppl"
+source_sha256 = "3ab246c94100d545018306ecbde4399ff4a8673c60b70d89f2a29cd7915576bc"
+entry = "DEMO"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "49"
+output = ["SQUARE(7) = 49"]

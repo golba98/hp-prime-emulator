@@ -1,0 +1,11 @@
+[[case]]
+id = "input_seven"
+file = "cases/input_seven.ppl"
+category = "arity-control"
+intent = "Protect existing diagnostic position assertion"
+
+[[case]]
+id = "print_two"
+file = "cases/print_two.ppl"
+category = "arity-control"
+intent = "Protect existing diagnostic position assertion"

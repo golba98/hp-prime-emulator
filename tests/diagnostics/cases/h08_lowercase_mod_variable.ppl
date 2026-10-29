@@ -1,0 +1,5 @@
+EXPORT DPMODVAR()
+BEGIN
+ LOCAL mod:=3;
+ RETURN mod+1;
+END;

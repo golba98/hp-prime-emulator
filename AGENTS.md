@@ -58,7 +58,7 @@ cargo run --bin ppl -- device screenshot screen.png
 ## Non-Negotiable Rules
 
 1. **Git Restrictions:**
-   - Work strictly on branch `rust-rewrite`.
+   - The canonical project is `/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator`. Work only in your explicitly assigned checkout and branch; never switch branches in another agent's checkout.
    - Never commit, push, merge, reset, or create pull requests without explicit user authorization.
 2. **Physical Hardware Safety:**
    - Connected HP Prime G1 is a real physical device.
@@ -68,3 +68,11 @@ cargo run --bin ppl -- device screenshot screen.png
    - Never perform firmware writes, date/time alterations, or undocumented memory writes.
    - Remote key injection (`EC`) is opt-in only (`--auto-run`) and disabled by default.
    - Hardware results must never be fabricated; only genuine calculator evidence may be tagged as `VERIFIED`.
+
+## Multi-agent ownership and handoff
+
+- Temporary worktrees require a concrete isolation need and registration of owner, branch and task. Completed work returns to the canonical project through Git after explicit handoff.
+- Before writes, consult `docs/development/worktree-ownership.md` and shared Git metadata `agent-claims/`. Claim a checkout by atomic directory creation; record owner, task, branch and checkpoint in `claim.json`. Never overwrite or steal an existing claim based on inactivity or missing processes.
+- Never modify an active agent's checkout. Claude owns runtime parity until a committed checkpoint and explicit handoff; Codex owns canonical consolidation.
+- Cleanup requires a clean status, preserved branch history, explicit owner release, and verified preservation of unique ignored/untracked evidence. Recheck ownership and open files immediately before removal; uncertainty blocks removal.
+- No push or merge into `main` without explicit user authorization. Ownership records are cooperative coordination, not enforcement against concurrent writes.

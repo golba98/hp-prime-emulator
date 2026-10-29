@@ -33,6 +33,10 @@ pub struct ScriptConfig {
     pub key_timeout: Duration,
     /// `initial.png` and `NN_<key>.png` are written here when set.
     pub screenshot_dir: Option<PathBuf>,
+    /// Start with the first item instead of waiting for a settled, idle
+    /// boot screen: input for a running program that never idles (a
+    /// polling `WAIT(-1)` or `GETKEY` loop) must still be delivered.
+    pub start_with_keys: bool,
 }
 
 impl Default for ScriptConfig {
@@ -44,6 +48,7 @@ impl Default for ScriptConfig {
             boot_timeout: Duration::from_secs(60),
             key_timeout: Duration::from_secs(20),
             screenshot_dir: None,
+            start_with_keys: false,
         }
     }
 }
@@ -201,8 +206,12 @@ impl ScriptDriver {
     pub fn new(cfg: ScriptConfig) -> ScriptDriver {
         let now = Instant::now();
         ScriptDriver {
+            phase: if cfg.start_with_keys {
+                Phase::KeyStart { index: 0 }
+            } else {
+                Phase::Boot
+            },
             cfg,
-            phase: Phase::Boot,
             started: now,
             view: None,
             last: None,
@@ -495,6 +504,11 @@ impl ScriptDriver {
                         }
                         _ => return self.fail("framebuffer unreadable before key".into()),
                     };
+                    // Without a boot phase this may be the first frame seen.
+                    if self.last.is_none() {
+                        self.last = Some(before.clone());
+                        self.last_sample_at = Some(now);
+                    }
                     shared.lcd_watch.reset_pcs();
                     self.reset_states(now);
                     let key = &self.cfg.keys[index];
@@ -573,7 +587,14 @@ impl ScriptDriver {
                         && now.duration_since(self.last_new_state) >= settle
                 });
                 self.report.settlement = Some(self.settlement(shared, now, idle_for, Some(&p)));
-                if settled {
+                let delay = self.cfg.keys[p.index].delay();
+                if let Some(delay) = delay {
+                    if now.duration_since(p.queued_at) >= delay {
+                        self.finish_key(mem, shared, *p, now)
+                    } else {
+                        Phase::KeyWait(p)
+                    }
+                } else if settled {
                     self.finish_key(mem, shared, *p, now)
                 } else if now.duration_since(p.queued_at) > self.cfg.key_timeout {
                     self.capture(

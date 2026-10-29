@@ -1,0 +1,5 @@
+EXPORT DPK15()
+BEGIN
+ LOCAL and:=4;
+ RETURN and+1;
+END;

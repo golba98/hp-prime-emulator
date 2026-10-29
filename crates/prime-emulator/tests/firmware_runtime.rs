@@ -3,7 +3,7 @@ use prime_emulator::{
     checkprog::CheckConfig,
     runprog::{self, ExecutionControl, ProgramReport, RunProgramConfig},
     runtime::{ExecutionRequest, ExecutionStatus},
-    runtime_value::{FirmwareValue, parse_arguments},
+    runtime_value::{FirmwareValue, ReturnRepresentation, parse_arguments},
 };
 use std::{
     path::{Path, PathBuf},
@@ -355,30 +355,54 @@ fn m7_numeric_input_and_function_name_encoding() {
         assert_eq!(i.result.as_ref().unwrap().value, real(n));
     }
 }
+fn list(items: Vec<FirmwareValue>) -> FirmwareValue {
+    FirmwareValue::List { items }
+}
+fn num(n: &str) -> FirmwareValue {
+    FirmwareValue::Real { value: n.into() }
+}
+/// Formerly reported Unsupported although the guest returned: completion is
+/// firmware evidence; the list layout was derived from captured guest bytes.
 #[test]
-fn m7_list_return_is_decoded_from_observed_guest_objects() {
+fn m7_list_returns_complete_with_decoded_values() {
     let Some(e) = env() else { return };
     let r = run(&config(&e, "LISTRET", vec![req("LISTRET", "[]")]));
-    assert_eq!(
-        r.execution_status,
-        ExecutionStatus::Completed,
-        "{}",
-        r.evidence
-    );
-    assert_eq!(
-        r.compile_status,
-        Some(prime_emulator::checkprog::Status::Valid)
-    );
-    assert_eq!(
-        r.return_value,
-        Some(FirmwareValue::List {
-            items: vec![real("1").unwrap(), real("2").unwrap()]
-        })
-    );
+    completed(&r);
+    assert_eq!(r.return_value, Some(list(vec![num("1"), num("2")])));
+    assert_eq!(r.return_representation, ReturnRepresentation::Decoded);
+    assert_eq!(r.return_display.as_deref(), Some("{1, 2}"));
     let c = &r.runtime.invocations[0];
     assert!(c.body_entered && c.ended_ms.is_some());
     assert!(c.result.as_ref().unwrap().unavailable.is_none());
     let graph = c.result.as_ref().unwrap().representation.as_ref().unwrap();
     assert!(graph.coherent && graph.complete);
     assert!(r.runtime_errors.is_empty());
+    assert!(r.caveats.is_empty(), "{:?}", r.caveats);
+    let cases = [
+        ("LIST0", list(vec![])),
+        ("LIST3", list(vec![num("1"), num("2"), num("3")])),
+        (
+            "LISTNEG",
+            list(vec![num("-1.5"), num("1e200"), num("0.001")]),
+        ),
+        (
+            "LISTSTR",
+            list(vec![FirmwareValue::String { value: "a".into() }, num("2")]),
+        ),
+        ("LISTNEST", list(vec![list(vec![num("1")]), num("2")])),
+    ];
+    let r = run(&config(
+        &e,
+        "LISTS",
+        cases.iter().map(|(n, _)| req(n, "[]")).collect(),
+    ));
+    completed(&r);
+    for (i, (name, expected)) in r.runtime.invocations.iter().zip(&cases) {
+        assert_eq!(i.status, Some(ExecutionStatus::Completed), "{name}");
+        assert_eq!(
+            i.result.as_ref().unwrap().value.as_ref(),
+            Some(expected),
+            "{name}"
+        );
+    }
 }

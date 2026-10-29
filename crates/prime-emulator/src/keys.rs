@@ -68,6 +68,24 @@ pub struct Key {
     pub touch: TouchSamples,
 }
 
+pub const MAX_DELAY_MS: u64 = 60_000;
+
+impl Key {
+    /// The fixed wait of a `DELAY:ms` item.
+    pub fn delay(&self) -> Option<std::time::Duration> {
+        self.name
+            .strip_prefix("DELAY:")
+            .and_then(|ms| ms.parse().ok())
+            .map(std::time::Duration::from_millis)
+    }
+    /// The label of a `SNAP:label` or `DELAY:ms` checkpoint item.
+    pub fn checkpoint(&self) -> Option<&str> {
+        self.name
+            .strip_prefix("SNAP:")
+            .or_else(|| self.delay().map(|_| self.name.as_str()))
+    }
+}
+
 /// Touch samples `(status, x, y)`: begin, moves, end.
 pub type TouchSamples = Vec<(u32, u16, u16)>;
 
@@ -172,8 +190,10 @@ fn alpha_text(text: &str) -> Result<Vec<Key>, String> {
 /// Parses `"2,+,2,ENTER"`. Items are key names, raw `0xNN` codes,
 /// `TAP:x:y`, `SWIPE:x0:y0:x1:y1[:steps]`, `ALPHA:TEXT` (ALPHA + letter per
 /// character, A-Z), or `IDLE` (send nothing, measure
-/// the screen as for a key: a negative control). A literal comma key is
-/// written `COMMA`.
+/// the screen as for a key: a negative control). `SNAP:label` is a labelled
+/// `IDLE` whose settled capture is a named framebuffer checkpoint;
+/// `DELAY:ms` captures after a fixed time without requiring a stable screen
+/// (animations). A literal comma key is written `COMMA`.
 pub fn parse_keys(script: &str) -> Result<Vec<Key>, String> {
     let mut out = Vec::new();
     for item in script.split(',') {
@@ -194,6 +214,38 @@ pub fn parse_keys(script: &str) -> Result<Vec<Key>, String> {
             .or_else(|| item.strip_prefix("alpha:"))
         {
             out.extend(alpha_text(text)?);
+            continue;
+        }
+        if let Some(label) = item.strip_prefix("SNAP:") {
+            if label.is_empty()
+                || label.len() > 32
+                || !label
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+            {
+                return Err(format!("`{item}`: SNAP labels are 1-32 of [A-Za-z0-9_-]"));
+            }
+            out.push(Key {
+                name: item.to_owned(),
+                code: 0,
+                touch: Vec::new(),
+            });
+            continue;
+        }
+        if let Some(ms) = item.strip_prefix("DELAY:") {
+            if !ms
+                .parse::<u64>()
+                .is_ok_and(|ms| (1..=MAX_DELAY_MS).contains(&ms))
+            {
+                return Err(format!(
+                    "`{item}`: DELAY takes 1-{MAX_DELAY_MS} milliseconds"
+                ));
+            }
+            out.push(Key {
+                name: item.to_owned(),
+                code: 0,
+                touch: Vec::new(),
+            });
             continue;
         }
         if item.eq_ignore_ascii_case("IDLE") {
@@ -229,6 +281,24 @@ pub fn parse_keys(script: &str) -> Result<Vec<Key>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkpoint_items_are_inert_and_labelled() {
+        let keys = parse_keys("SNAP:title,DELAY:1500,ESC").unwrap();
+        assert_eq!(keys[0].code, 0);
+        assert_eq!(keys[0].checkpoint(), Some("title"));
+        assert_eq!(keys[0].delay(), None);
+        assert_eq!(keys[1].code, 0);
+        assert_eq!(
+            keys[1].delay(),
+            Some(std::time::Duration::from_millis(1500))
+        );
+        assert_eq!(keys[1].checkpoint(), Some("DELAY:1500"));
+        assert_eq!(keys[2].checkpoint(), None);
+        for bad in ["SNAP:", "SNAP:a b", "DELAY:0", "DELAY:x", "DELAY:60001"] {
+            assert!(parse_keys(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn alpha_text_expands_to_alpha_plus_letter() {

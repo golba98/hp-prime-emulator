@@ -1,0 +1,11 @@
+id = "ctrlflow"
+category = "control-flow"
+description = "FOR, WHILE, REPEAT, IF and CASE produce a checksum"
+program = "../programs/CTRLFLOW.ppl"
+source_sha256 = "a7ddbe558a2ae374b23afed8f78ef1f1941b102ea71291789640d061df3bae80"
+entry = "CTRLFLOW"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+return_display = "121"

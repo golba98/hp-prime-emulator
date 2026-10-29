@@ -1,0 +1,19 @@
+EXPORT CTRLFLOW()
+BEGIN
+  LOCAL s:=0,i,k:=0;
+  FOR i FROM 1 TO 10 DO
+    s:=s+i;
+  END;
+  WHILE k<5 DO k:=k+1; END;
+  REPEAT k:=k+2; UNTIL k>=11;
+  IF s==55 THEN
+    s:=s*2;
+  ELSE
+    s:=0;
+  END;
+  CASE
+    IF k==11 THEN s:=s+k; END;
+    DEFAULT s:=-1;
+  END;
+  RETURN s;
+END;

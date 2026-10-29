@@ -1,0 +1,5 @@
+EXPORT DPK08()
+BEGIN
+ LOCAL div:=4;
+ RETURN div+1;
+END;

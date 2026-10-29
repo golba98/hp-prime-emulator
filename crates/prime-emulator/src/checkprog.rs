@@ -119,7 +119,7 @@ pub fn validate<'a>(
     let candidates: Vec<_> = trace
         .checks
         .iter()
-        .filter(|c| c.step == Some(step))
+        .filter(|c| c.kind.is_none() && c.step == Some(step))
         .collect();
     if candidates.len() != 1 {
         return Err("expected exactly one Check invocation at this step".into());
@@ -165,6 +165,25 @@ pub fn validate<'a>(
         return Err("unrecognized failed Check presentation".into());
     }
     Ok(c)
+}
+
+/// The diagnostic for a rejected, validated Check of `source`. The position
+/// is mapped from the guest's raw UTF-16 offset; when it cannot be mapped it
+/// stays unavailable rather than being estimated.
+pub fn firmware_diagnostic(source: &str, c: &CheckObservation) -> Diagnostic {
+    let mapped = c
+        .raw_position
+        .as_ref()
+        .and_then(|p| compiler::position(source, p));
+    Diagnostic {
+        severity: "error".into(),
+        code: None,
+        message: c.message.clone(),
+        line: mapped.map(|p| p.0),
+        column: mapped.map(|p| p.1),
+        raw_position: c.raw_position.clone(),
+        source: "guest-firmware".into(),
+    }
 }
 
 pub fn outcome_status(outcome: Outcome) -> Option<Status> {
@@ -486,19 +505,7 @@ pub(crate) fn finish(
         r.status = Status::Valid;
     } else {
         r.status = Status::Invalid;
-        let mapped = c
-            .raw_position
-            .as_ref()
-            .and_then(|p| compiler::position(source, p));
-        r.diagnostics.push(Diagnostic {
-            severity: "error".into(),
-            code: None,
-            message: c.message.clone(),
-            line: mapped.map(|p| p.0),
-            column: mapped.map(|p| p.1),
-            raw_position: c.raw_position.clone(),
-            source: "guest-firmware".into(),
-        });
+        r.diagnostics.push(firmware_diagnostic(source, c));
     }
     r.evidence = "verified UI Check, compiler entry, exact parser source, compiler return and guest dialog; source preserved".into();
     Ok(())

@@ -104,6 +104,22 @@ fn configured(value: &str, variable: &str) -> Option<PathBuf> {
     if let Some(val) = std::env::var_os(variable) {
         return Some(PathBuf::from(val));
     }
+    // The CLI's config file, so `ppl show` and `ppl run` share assets.
+    let config = ppl_engine::firmware_options::AssetPaths::config_file()
+        .and_then(|f| ppl_engine::firmware_options::AssetPaths::from_config(&f).ok());
+    if let Some(mut c) = config {
+        let value = match variable {
+            "PPL_FIRMWARE" => c.firmware.take(),
+            "PPL_FACTORY_A" => c.factory_a.take(),
+            "PPL_FIRMWARE_RUNNER" => c.runner.take(),
+            "PPL_OS_ROM" => c.os_rom.take(),
+            "PPL_FIRMWARE_INIT_DATA" => c.init_data.take(),
+            _ => None,
+        };
+        if value.is_some() {
+            return value;
+        }
+    }
     let fallback = match variable {
         "PPL_FIRMWARE" => "PRIME_TEST_FIRMWARE",
         "PPL_FACTORY_A" => "PRIME_TEST_FACTORY_A",
@@ -131,6 +147,30 @@ fn profile_path(settings: &FirmwareSettings) -> Result<PathBuf, String> {
         return Ok(legacy);
     }
     Ok(data.join("hp-prime-emulator/ide-session"))
+}
+/// Seeds a new calculator profile; an existing profile is never changed.
+/// Initialized data (drives A: and C: after the firmware's first-run setup)
+/// starts at Home; factory A alone stops at the first-run wizard. `A/` is
+/// installed last, so an interrupted seed is completed on the next start.
+fn seed_profile(profile: &Path, factory: &Path, initialized: Option<&Path>) -> Result<(), String> {
+    if profile.join("A").exists() {
+        return Ok(());
+    }
+    let initialized = initialized.filter(|d| d.join("A").is_dir() && d.join("C").is_dir());
+    let sources: Vec<(PathBuf, &str)> = match initialized {
+        Some(data) => vec![(data.join("C"), "C"), (data.join("A"), "A")],
+        None => vec![(factory.to_path_buf(), "A")],
+    };
+    for (source, drive) in sources {
+        if profile.join(drive).exists() {
+            continue;
+        }
+        let temporary = profile.join(format!("{drive}.pending"));
+        let _ = std::fs::remove_dir_all(&temporary);
+        copy_tree(&source, &temporary)?;
+        std::fs::rename(temporary, profile.join(drive)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
     std::fs::create_dir_all(target).map_err(|e| e.to_string())?;
@@ -210,12 +250,11 @@ fn supervise(
         chosen.ok_or_else(|| "All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string())?
     };
 
-    if !profile.join("A").exists() {
-        let temporary = profile.join("A.pending");
-        let _ = std::fs::remove_dir_all(&temporary);
-        copy_tree(&factory, &temporary)?;
-        std::fs::rename(temporary, profile.join("A")).map_err(|e| e.to_string())?;
-    }
+    seed_profile(
+        &profile,
+        &factory,
+        configured("", "PPL_FIRMWARE_INIT_DATA").as_deref(),
+    )?;
     if stop.load(Ordering::Acquire) {
         return Ok(());
     }
@@ -231,7 +270,7 @@ fn supervise(
         .stderr(Stdio::from(
             std::fs::File::create(profile.join("session.log")).map_err(|e| e.to_string())?,
         ));
-    if let Some(rom) = std::env::var_os("PPL_OS_ROM") {
+    if let Some(rom) = configured("", "PPL_OS_ROM") {
         command.arg("--os-rom").arg(rom);
     }
     #[cfg(unix)]
@@ -327,6 +366,42 @@ mod tests {
             configured("/custom/path", "PPL_FIRMWARE"),
             Some(PathBuf::from("/custom/path"))
         );
+    }
+
+    #[test]
+    fn new_profiles_start_from_initialized_data_and_existing_ones_are_kept() {
+        let root = std::env::temp_dir().join(format!("ide-test-seed-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let write = |p: PathBuf, text: &str| {
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, text).unwrap();
+        };
+        let factory = root.join("factory");
+        write(factory.join("FIRSTRUN.INI"), "factory");
+        let data = root.join("data");
+        write(data.join("A/FIRSTRUN.INI"), "initialized");
+        write(data.join("C/DATA/settings"), "home");
+        let fresh = root.join("fresh");
+        seed_profile(&fresh, &factory, Some(&data)).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(fresh.join("A/FIRSTRUN.INI")).unwrap(),
+            "initialized"
+        );
+        assert!(fresh.join("C/DATA/settings").is_file());
+        // Without initialized data: factory A, as before.
+        let plain = root.join("plain");
+        seed_profile(&plain, &factory, None).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(plain.join("A/FIRSTRUN.INI")).unwrap(),
+            "factory"
+        );
+        assert!(!plain.join("C").exists());
+        // An existing profile (the user's calculator) is never touched.
+        write(fresh.join("C/DATA/MYAPP.hpprgm"), "user program");
+        seed_profile(&fresh, &factory, Some(&data)).unwrap();
+        assert!(fresh.join("C/DATA/MYAPP.hpprgm").is_file());
+        assert!(!fresh.join("A.pending").exists());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

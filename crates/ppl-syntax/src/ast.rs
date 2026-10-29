@@ -10,8 +10,23 @@ pub struct Ident {
 
 #[derive(Clone, Debug)]
 pub struct Program {
+    /// Lexer punctuation spans in source order, for native diagnostics.
+    pub punctuation: Vec<Punctuation>,
     pub items: Vec<Item>,
     pub pragmas: Vec<(String, Span)>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PunctuationKind {
+    Open,
+    Close,
+    Comma,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Punctuation {
+    pub kind: PunctuationKind,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug)]

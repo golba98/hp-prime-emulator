@@ -1,0 +1,12 @@
+id = "fireworks"
+category = "application"
+description = "Existing FIREWORKS .hpprgm as published: the G1 firmware rejects BLIT_P() without arguments"
+program = "../../../tests/fixtures/FIREWORKS.hpprgm"
+source_sha256 = "29040d08a71998e7422be1be47e689f0a322e19dec5965bc02f600428b80d45e"
+entry = "FIREWORKS"
+check_only = true
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "compile_error"
+compile_error_at = [73, 10]

@@ -43,6 +43,8 @@ pub struct IdeDesktopApp {
     pub state: IdeAppState,
     pub firmware: Option<crate::ide::firmware::FirmwareClient>,
     pub firmware_status: String,
+    /// A live-session program is between body entry and return.
+    pub firmware_program_running: bool,
     pub program_manager: crate::ide::programs::ProgramManager,
     /// USB presence light and the single device job slot.
     pub device: crate::ide::device::DeviceLink,
@@ -54,7 +56,8 @@ pub struct IdeDesktopApp {
     calc_status: Option<Result<ppl_programs::DeviceIdentity, crate::ide::device::JobError>>,
     calc_status_open: bool,
     explicit_check: Option<checking_integration::CheckJob>,
-    firmware_problems: Vec<(DiagnosticItem, u64)>,
+    /// The warm direct firmware checker (started on first Check).
+    direct: checking_integration::DirectSlot,
     native_compile: Option<NativeCompileJob>,
     native_stopping: bool,
     native_restart: Option<egui::Context>,
@@ -62,6 +65,11 @@ pub struct IdeDesktopApp {
     firmware_state: crate::ide::VmExecutionState,
     native_vm_state: crate::ide::VmExecutionState,
     firmware_request: u64,
+    /// Session requests awaiting a result: request → (tab, revision, title)
+    /// of the exact source sent, so a verdict lands only on that revision.
+    firmware_pending: std::collections::BTreeMap<u64, (TabId, u64, String)>,
+    /// Session requests that run the program (the rest are Checks).
+    firmware_runs: std::collections::BTreeSet<u64>,
     last_touch: Option<ppl_vm::host::Touch>,
     touch_start_time: Option<std::time::Instant>,
     deferred_touch_end: Option<(ppl_vm::host::Touch, std::time::Instant)>,
@@ -143,6 +151,7 @@ impl Default for IdeDesktopApp {
             state: IdeAppState::default(),
             firmware: None,
             firmware_status: "Firmware not started".into(),
+            firmware_program_running: false,
             program_manager: Default::default(),
             device: Default::default(),
             send: Default::default(),
@@ -153,7 +162,7 @@ impl Default for IdeDesktopApp {
             calc_status: None,
             calc_status_open: false,
             explicit_check: None,
-            firmware_problems: Vec::new(),
+            direct: Default::default(),
             native_compile: None,
             native_stopping: false,
             native_restart: None,
@@ -161,6 +170,8 @@ impl Default for IdeDesktopApp {
             firmware_state: crate::ide::VmExecutionState::Idle,
             native_vm_state: crate::ide::VmExecutionState::Idle,
             firmware_request: 0,
+            firmware_pending: Default::default(),
+            firmware_runs: Default::default(),
             last_touch: None,
             touch_start_time: None,
             deferred_touch_end: None,
@@ -584,6 +595,20 @@ impl IdeDesktopApp {
         }
     }
 
+    /// Drops a pending native compile. Its revision was marked as requested,
+    /// so hand it back to the background worker rather than leaving the tab
+    /// "Analysing…" until the next edit.
+    fn cancel_native_compile(&mut self) {
+        let Some(job) = self.native_compile.take() else {
+            return;
+        };
+        if let Some(req) = self.diag_requests.get_mut(&job.tab) {
+            if req.requested == job.revision {
+                req.requested = 0;
+            }
+        }
+    }
+
     /// Records that `revision` of `tab` has been (or is being) analysed, so
     /// the background worker does not compile it again.
     fn mark_requested(&mut self, tab: TabId, revision: u64) {
@@ -661,10 +686,21 @@ impl IdeDesktopApp {
             if i == self.editor.active_tab_index {
                 self.state.analysis = state;
                 self.state.encoding_label = self.editor.tabs[i].format.label();
+                self.state.firmware_verdict =
+                    self.editor.tabs[i]
+                        .current_firmware()
+                        .map(|f| match &f.failure {
+                            Some(_) => ("Firmware: no verdict".to_string(), true),
+                            None if f.items.is_empty() => {
+                                ("Firmware: Check passed".to_string(), false)
+                            }
+                            None => (format!("Firmware: {} error(s)", f.items.len()), true),
+                        });
             }
         }
         if self.editor.tabs.is_empty() {
             self.state.analysis = AnalysisState::NotAnalyzed;
+            self.state.firmware_verdict = None;
         }
         self.problems.pending = pending;
         self.problems.failures = failures;
@@ -689,13 +725,17 @@ impl IdeDesktopApp {
                 .filter(|(p, rev)| p.tab.is_none_or(|id| current.contains(&(id, *rev))))
                 .map(|(p, _)| p.clone()),
         );
-        items.extend(
-            self.firmware_problems
-                .iter()
-                .filter(|(item, rev)| item.tab.is_some_and(|id| current.contains(&(id, *rev))))
-                .map(|(item, _)| item.clone()),
-        );
+        let mut firmware_passed = Vec::new();
+        for t in self.editor.tabs.iter_mut() {
+            if let Some(f) = t.current_firmware() {
+                items.extend(f.items.iter().cloned());
+                if f.items.is_empty() && f.failure.is_none() {
+                    firmware_passed.push(t.title.clone());
+                }
+            }
+        }
         self.problems.set_diagnostics(items);
+        self.problems.firmware_passed = firmware_passed;
         self.problems.active_tab_index = self.editor.active_tab_index;
         self.problems_key = current;
         self.refresh_analysis_status();
@@ -1019,6 +1059,11 @@ impl IdeDesktopApp {
             | IdeAction::CompareScreens
             | IdeAction::OpenFolder => self.handle_device_action(action, _ctx),
             IdeAction::CheckSyntax if self.state.firmware_backend => {
+                // A fresh checker, not the live session: the session must
+                // first load the source through its loader program, which
+                // measured slower (about 10 s against 7 s); boot is only
+                // 0.6 s of a fresh Check. A session Run still reports its
+                // compile verdict to Problems.
                 self.request_checked_source(_ctx);
                 self.state.active_dock_tab = DockTab::Problems;
                 self.state.show_bottom_dock = true;
@@ -1051,6 +1096,7 @@ impl IdeDesktopApp {
             IdeAction::StopProgram => {
                 if !self.controller.worker_alive()
                     && self.native_compile.is_none()
+                    && self.explicit_check.is_none()
                     && self.state.native.operation.is_none()
                     && !matches!(
                         self.state.vm_state,
@@ -1062,7 +1108,13 @@ impl IdeDesktopApp {
                     self.state.status_message = "No program is running".into();
                     return;
                 }
-                self.native_compile = None;
+
+                self.cancel_native_compile();
+                // A pending firmware Check stops too (dropping it cancels),
+                // as Stop does for the firmware session.
+                if self.explicit_check.take().is_some() {
+                    self.console.print_diagnostic("Firmware Check cancelled");
+                }
                 self.native_restart = None;
                 self.native_stopping = true;
                 self.controller.stop();
@@ -1096,7 +1148,7 @@ impl IdeDesktopApp {
             IdeAction::NativeSubmit => self.submit_native_home(_ctx),
             IdeAction::NativeRunSelected => self.run_native_selected(_ctx),
             IdeAction::RestartProgram => {
-                self.native_compile = None;
+                self.cancel_native_compile();
                 self.native_restart = Some(_ctx.clone());
                 self.native_stopping = true;
                 self.controller.stop();
@@ -1508,7 +1560,29 @@ fn dock_tab_button(ui: &mut egui::Ui, title: &str, active: bool) -> bool {
 }
 
 /// Launches the full native desktop IDE window.
+/// How the desktop IDE starts.
+#[derive(Debug, Clone, Default)]
+pub struct LaunchOptions {
+    pub file: Option<PathBuf>,
+    /// Start on the authentic-firmware calculator instead of native.
+    pub firmware: bool,
+    /// Check the opened file once at start (firmware Check when `firmware`).
+    pub check: bool,
+}
+
 pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    launch_ide_with(LaunchOptions {
+        file,
+        ..Default::default()
+    })
+}
+
+pub fn launch_ide_with(options: LaunchOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let LaunchOptions {
+        file,
+        firmware,
+        check,
+    } = options;
     let automation = crate::ide::automation::Automation::from_env();
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1440.0, 960.0])
@@ -1534,6 +1608,12 @@ pub fn launch_ide(file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error
             app.automation = automation;
             if let Some(f) = file {
                 app.open_file(f);
+            }
+            if firmware {
+                app.state.queue_action(IdeAction::SelectBackend(true));
+            }
+            if check {
+                app.state.queue_action(IdeAction::CheckSyntax);
             }
             Ok(Box::new(app))
         }),
@@ -1899,7 +1979,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             (item.line, item.class),
-            (3, ppl_syntax::DiagnosticClass::Syntax)
+            (5, ppl_syntax::DiagnosticClass::Syntax)
         );
     }
 
@@ -2079,6 +2159,9 @@ mod tests {
         assert!(!app.state.firmware_backend);
         app.state.vm_state = crate::ide::VmExecutionState::Paused;
 
+        // Never start the developer's configured firmware (or create a
+        // calculator profile in their data folder) from a unit test.
+        app.state.firmware.firmware = "/nonexistent/ppl-test/armfir.elf".into();
         // Switch to G1 Firmware
         app.handle_action(IdeAction::SelectBackend(true), &ctx);
         assert!(app.state.firmware_backend);

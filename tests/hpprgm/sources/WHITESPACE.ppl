@@ -1,0 +1,5 @@
+EXPORT WHITESPACE()
+BEGIN
+ // comment
+	RETURN 1;  
+END;

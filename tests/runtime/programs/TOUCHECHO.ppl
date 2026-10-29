@@ -1,0 +1,8 @@
+EXPORT TOUCHECHO()
+BEGIN
+  LOCAL e;
+  RECT_P(0,0,319,239,RGB(255,255,0));
+  TEXTOUT_P("Tap the screen",90,110,2,RGB(0,0,0));
+  e:=WAIT(-1);
+  RETURN {B→R(e(1)),B→R(e(2)),B→R(e(3))};
+END;

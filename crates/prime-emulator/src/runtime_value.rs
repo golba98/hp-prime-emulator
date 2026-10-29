@@ -30,7 +30,7 @@ pub enum FirmwareValue {
         raw_code: u8,
     },
     List {
-        #[serde(rename = "value")]
+        #[serde(rename = "value", alias = "items")]
         items: Vec<FirmwareValue>,
     },
 }
@@ -78,6 +78,49 @@ pub struct ValueEvidence {
     pub unavailable: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub representation: Option<RepresentationGraph>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub probe: Vec<ProbeBlock>,
+}
+
+/// What the firmware returned, as far as the host could observe it. A
+/// returned object the host cannot decode is reported, never invented.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ReturnRepresentation {
+    Decoded,
+    Undecoded {
+        tag: Option<u8>,
+        subtype: Option<u8>,
+        reason: String,
+    },
+    /// No returned object, or the result was an error object.
+    None,
+}
+impl ReturnRepresentation {
+    pub fn of(result: Option<&ValueEvidence>) -> Self {
+        match result {
+            Some(ValueEvidence {
+                value: Some(FirmwareValue::Error { .. }),
+                ..
+            })
+            | None => Self::None,
+            Some(ValueEvidence { value: Some(_), .. }) => Self::Decoded,
+            Some(v) => Self::Undecoded {
+                tag: v.tag,
+                subtype: v.subtype,
+                reason: v
+                    .unavailable
+                    .clone()
+                    .unwrap_or_else(|| "unknown representation".into()),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProbeBlock {
+    pub address: u32,
+    pub bytes: Vec<u8>,
 }
 
 /// Snapshot an observed object without changing guest values or reference counts.
@@ -113,7 +156,19 @@ pub fn decode_representation(graph: RepresentationGraph) -> ValueEvidence {
         subtype: header.map(|h| (h >> 24) as u8),
         bytes,
         value: result.as_ref().ok().cloned(),
-        unavailable: result.err(),
+        unavailable: result.as_ref().err().cloned(),
+        probe: if result.is_err() {
+            graph
+                .nodes
+                .iter()
+                .map(|n| ProbeBlock {
+                    address: n.address,
+                    bytes: n.bytes.clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
         representation: Some(graph),
     }
 }

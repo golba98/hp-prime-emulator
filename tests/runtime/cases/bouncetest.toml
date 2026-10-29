@@ -1,0 +1,15 @@
+id = "bouncetest"
+category = "application"
+description = "Existing BounceTest .hpprgm: 40-frame RECT/WAIT animation that ends on its own"
+program = "../../../tests/fixtures/tester.hpprgm"
+source_sha256 = "808a8c0abeea4a5a39f00ca929346afde62ff7501a814fc7ff4081245bad1cd1"
+entry = "BounceTest"
+execution_timeout_s = 30.0
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+[expect]
+outcome = "completed"
+
+[[checkpoint]]
+label = "return"
+reference = "reference/local-firmware-g1-2.4.2/bouncetest-return.png"

@@ -28,6 +28,7 @@ pub mod audit;
 pub mod campaign;
 pub mod cleanup;
 pub mod corpus;
+pub mod diag_parity;
 pub mod evidence;
 pub mod generate;
 pub mod import;

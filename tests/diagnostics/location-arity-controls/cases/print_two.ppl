@@ -1,0 +1,4 @@
+EXPORT PROG()
+BEGIN
+  PRINT(1, 2);
+END;

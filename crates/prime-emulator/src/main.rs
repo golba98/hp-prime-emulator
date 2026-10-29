@@ -57,6 +57,46 @@ enum Cmd {
     /// M5-C/D: import programs into an initialised data directory and
     /// verify them in the firmware's Program Catalog and Program Editor.
     VerifyProgram(VerifyProgramArgs),
+    /// Run the application compatibility suite (tests/runtime) against the
+    /// original firmware and write per-application reports.
+    AppSuite(AppSuiteArgs),
+    /// Compare two framebuffer PNGs: exact pixel parity, then similarity.
+    FrameDiff(FrameDiffArgs),
+}
+
+#[derive(Debug, clap::Args)]
+struct AppSuiteArgs {
+    #[command(flatten)]
+    load: LoadArgs,
+    #[arg(long)]
+    factory_a: std::path::PathBuf,
+    /// Program-free initialized storage, copied before use.
+    #[arg(long)]
+    init_data: Option<std::path::PathBuf>,
+    /// Suite root holding `cases/` and `reference/`.
+    #[arg(long, default_value = "tests/runtime")]
+    suite: std::path::PathBuf,
+    #[arg(long)]
+    out_dir: std::path::PathBuf,
+    /// Run only this case id.
+    #[arg(long)]
+    only: Option<String>,
+    /// Record local-firmware references from runs matching their
+    /// expectations (never physical evidence).
+    #[arg(long)]
+    record: bool,
+}
+
+#[derive(Debug, clap::Args)]
+struct FrameDiffArgs {
+    actual: std::path::PathBuf,
+    reference: std::path::PathBuf,
+    /// PNG whose non-black pixels are ignored.
+    #[arg(long)]
+    mask: Option<std::path::PathBuf>,
+    /// Write a visualization (changed pixels in magenta).
+    #[arg(long)]
+    out: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]
@@ -354,8 +394,66 @@ fn main() {
         Cmd::Import(a) => import(a),
         Cmd::InspectProgram(a) => inspect_program(a),
         Cmd::VerifyProgram(a) => verify_program(a),
+        Cmd::AppSuite(a) => app_suite(a),
+        Cmd::FrameDiff(a) => frame_diff(a),
     };
     std::process::exit(code);
+}
+
+/// Exit 0 when every case passes against local-firmware references, 1 when
+/// any differs, 4 on configuration errors.
+fn app_suite(a: AppSuiteArgs) -> i32 {
+    use prime_emulator::appsuite;
+    let cfg = appsuite::SuiteConfig {
+        root: a.suite,
+        firmware: a.load.firmware,
+        os_rom: a.load.os_rom,
+        factory_a: a.factory_a,
+        init_data: a.init_data,
+        out_dir: a.out_dir,
+        record: a.record,
+    };
+    match appsuite::run_suite(&cfg, a.only.as_deref()) {
+        Ok(results) => {
+            print!("{}", appsuite::summary(&results));
+            if results.iter().all(|r| r.as_expected()) {
+                0
+            } else {
+                1
+            }
+        }
+        Err(e) => {
+            eprintln!("app-suite: {e}");
+            4
+        }
+    }
+}
+
+/// Exit 0 for exact parity, 1 for any difference, 4 on errors.
+fn frame_diff(a: FrameDiffArgs) -> i32 {
+    use prime_emulator::framediff;
+    let result = (|| -> Result<framediff::Comparison, String> {
+        let actual = framediff::load(&a.actual)?;
+        let reference = framediff::load(&a.reference)?;
+        let mask = a.mask.as_deref().map(framediff::load_mask).transpose()?;
+        let c = framediff::compare(&actual, &reference, mask.as_deref())?;
+        if let Some(out) = &a.out {
+            framediff::visualize(&actual, &reference)
+                .save_png(out)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(c)
+    })();
+    match result {
+        Ok(c) => {
+            println!("{}", serde_json::to_string_pretty(&c).unwrap());
+            if c.exact { 0 } else { 1 }
+        }
+        Err(e) => {
+            eprintln!("frame-diff: {e}");
+            4
+        }
+    }
 }
 
 fn run_program(a: RunProgramArgs) -> i32 {
@@ -731,6 +829,7 @@ fn run(a: RunArgs) -> i32 {
                 boot_timeout: std::time::Duration::from_secs_f64(a.boot_timeout_s),
                 key_timeout: std::time::Duration::from_secs_f64(a.key_timeout_s),
                 screenshot_dir: a.screenshot_dir.clone(),
+                start_with_keys: false,
             }),
             Err(e) => {
                 eprintln!("invalid --keys: {e}");

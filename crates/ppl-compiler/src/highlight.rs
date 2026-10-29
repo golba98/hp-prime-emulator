@@ -382,7 +382,8 @@ fn push_string(spans: &mut Vec<HighlightSpan>, src: &str, start: usize, end: usi
 /// Classifies every byte of `src` and collects brackets and symbols.
 pub fn analyze(src: &str) -> SourceAnalysis {
     let mut diags = Diagnostics::default();
-    let toks = lex_with_trivia(src, &mut diags);
+    let mut toks = lex_with_trivia(src, &mut diags);
+    ppl_syntax::parser::resolve_soft_keywords(&mut toks);
     let unclosed = unclosed_literals(&diags);
     let invalid_chars: Vec<(usize, usize)> = diags
         .items
@@ -732,6 +733,16 @@ END;
         assert_eq!(b.bracket_partner(1), Some((1, None)));
         let c = analyze("x)");
         assert_eq!(c.bracket_partner(1), Some((1, None)));
+    }
+
+    #[test]
+    fn soft_keywords_are_coloured_as_the_parser_reads_them() {
+        let k = kinds("export F()\nbegin\n local begin:=4;\n return begin+1;\nend;");
+        assert_eq!(k[0], ("export", TokenKind::Keyword));
+        assert_eq!(k[4], ("begin", TokenKind::Keyword));
+        assert_eq!(k[5], ("local", TokenKind::Keyword));
+        assert_eq!(k[6], ("begin", TokenKind::Variable));
+        assert_eq!(k[11], ("begin", TokenKind::Variable));
     }
 
     #[test]

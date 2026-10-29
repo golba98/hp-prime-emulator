@@ -200,8 +200,13 @@ pub(super) fn decode(graph: &RepresentationGraph) -> Result<FirmwareValue, Strin
     }
     if !graph.complete {
         if let Some(node) = graph.nodes.iter().find(|n| n.unavailable.is_some()) {
+            let prefix = node
+                .path
+                .last()
+                .map(|i| format!("list element {i}: "))
+                .unwrap_or_default();
             return Err(format!(
-                "{}: {}",
+                "{prefix}{}: {}",
                 path_name(&node.path),
                 node.unavailable.as_deref().unwrap()
             ));
@@ -314,9 +319,9 @@ impl Decoder<'_> {
             }
             5 if bytes.len() == 8 => FirmwareValue::Error { raw_code: sub },
             // Independently observed in this checkout's capture-only controls:
-            // subtype 0x00 (constructors) and 0x20 (unchanged LISTRET).
-            // The separate branch's subtype 0x01 remains unverified here.
-            6 if matches!(sub, 0 | 0x20) => {
+            // Subtypes 0x00 and 0x20 are supported by retained captures;
+            // 0x01 is supported by the G1 2.4.2 runtime-parity controls.
+            6 if matches!(sub, 0 | 1 | 0x20) => {
                 if path.len() >= MAX_LIST_DEPTH {
                     return Err("guest list nesting exceeds capture bound".into());
                 }

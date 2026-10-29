@@ -187,10 +187,12 @@ fn unseen_subtypes_and_unknown_children_cannot_become_partial_successes() {
     let mem = memory();
     rational(&mem, 0x1100, 1);
     list(&mem, 0x1000, &[0x1100]);
-    mem.write_u32(0x1000, 0x0116_0001).unwrap();
+    // Subtype 0x01 is covered by the independent G1 2.4.2 controls;
+    // 0x10 remains unobserved and must fail closed.
+    mem.write_u32(0x1000, 0x1016_0001).unwrap();
     let value = runtime_value::decode_return(&mem, 0x1000);
     assert!(value.value.is_none());
-    assert!(value.unavailable.unwrap().contains("0x1"));
+    assert!(value.unavailable.unwrap().contains("0x10"));
     list(&mem, 0x1000, &[0x1100, 0x1200]);
     mem.write_u32(0x1200, 0x0009_0001).unwrap();
     let value = runtime_value::decode_return(&mem, 0x1000);

@@ -11,7 +11,8 @@
 //!
 //! The write is transactional: everything is validated first, the bytes
 //! go to a temporary file in the target directory (fsync), which is then
-//! renamed over the final name (directory fsync). Nothing else in the
+//! installed without clobbering an existing name unless replacement was requested
+//! (directory fsync). Nothing else in the
 //! data directory is touched, and the report proves it with before/after
 //! hashes of the `C:` tree.
 
@@ -57,6 +58,8 @@ pub struct InputInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportReport {
     pub imported: bool,
+    /// Host-file import does not refresh a running firmware catalog.
+    pub catalog_refresh: &'static str,
     pub name: String,
     pub guest_path: String,
     pub host_path: String,
@@ -87,6 +90,8 @@ pub enum ImportError {
     Container(hpprgm::Error),
     Source(String),
     Exists { existing: String },
+    Busy(PathBuf),
+    AmbiguousName(String),
 }
 
 impl std::fmt::Display for ImportError {
@@ -108,6 +113,15 @@ impl std::fmt::Display for ImportError {
             ),
             ImportError::Container(e) => write!(f, "invalid container: {e}"),
             ImportError::Source(e) => write!(f, "invalid source: {e}"),
+            ImportError::Busy(p) => write!(
+                f,
+                "import profile is locked ({}); another importer may be active. After a crashed importer, remove this empty directory only after confirming it has stopped",
+                p.display()
+            ),
+            ImportError::AmbiguousName(name) => write!(
+                f,
+                "multiple case-insensitive program files match `{name}`; refusing ambiguous replacement"
+            ),
             ImportError::Exists { existing } => write!(
                 f,
                 "a program with this name already exists ({existing}); pass --replace to replace it"
@@ -154,60 +168,21 @@ pub struct DecodedSource {
 }
 
 pub fn decode_source(bytes: &[u8]) -> Result<DecodedSource, ImportError> {
-    let utf16 = |b: &[u8], be: bool| -> Result<String, ImportError> {
-        if b.len() % 2 != 0 {
-            return Err(ImportError::Source("odd UTF-16 byte count".into()));
-        }
-        let units: Vec<u16> = b
-            .chunks_exact(2)
-            .map(|c| {
-                if be {
-                    u16::from_be_bytes([c[0], c[1]])
-                } else {
-                    u16::from_le_bytes([c[0], c[1]])
-                }
-            })
-            .collect();
-        String::from_utf16(&units).map_err(|_| ImportError::Source("invalid UTF-16".into()))
-    };
-    let (raw, encoding) = if let Some(b) = bytes.strip_prefix(&[0xFF, 0xFE]) {
-        (utf16(b, false)?, "utf-16le-bom")
-    } else if let Some(b) = bytes.strip_prefix(&[0xFE, 0xFF]) {
-        (utf16(b, true)?, "utf-16be-bom")
-    } else if let Some(b) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
-        (
-            String::from_utf8(b.to_vec())
-                .map_err(|_| ImportError::Source("invalid UTF-8".into()))?,
-            "utf-8-bom",
-        )
-    } else {
-        (
-            String::from_utf8(bytes.to_vec()).map_err(|_| {
-                ImportError::Source("invalid UTF-8 (UTF-16 input needs a BOM)".into())
-            })?,
-            "utf-8",
-        )
-    };
-    if raw.contains('\0') {
-        return Err(ImportError::Source("contains a NUL character".into()));
-    }
-    let crlf = raw.matches("\r\n").count();
-    let cr = raw.matches('\r').count() - crlf;
-    let lf = raw.matches('\n').count() - crlf;
-    let line_endings = match (crlf > 0, cr > 0, lf > 0) {
-        (false, false, _) => "lf",
-        (true, false, false) => "crlf->lf",
-        (false, true, false) => "cr->lf",
-        _ => "mixed->lf",
-    };
-    let text = raw.replace("\r\n", "\n").replace('\r', "\n");
-    if text.trim().is_empty() {
+    let decoded =
+        ppl_engine::source::decode_text(bytes).map_err(|e| ImportError::Source(e.to_string()))?;
+    if decoded.text.trim().is_empty() {
         return Err(ImportError::Source("empty program".into()));
     }
+    let encoding = match (decoded.encoding, decoded.bom) {
+        ("utf-8", true) => "utf-8-bom",
+        ("utf-16le", _) => "utf-16le-bom",
+        ("utf-16be", _) => "utf-16be-bom",
+        _ => "utf-8",
+    };
     Ok(DecodedSource {
-        text,
+        text: decoded.text,
         encoding,
-        line_endings,
+        line_endings: decoded.line_endings,
     })
 }
 
@@ -246,8 +221,47 @@ pub fn list_programs(data_dir: &Path) -> Vec<String> {
     v
 }
 
-fn c_tree_snapshot(data_dir: &Path) -> crate::storage::Snapshot {
-    crate::storage::snapshot(&data_dir.join("C"))
+fn c_tree_snapshot(data_dir: &Path) -> Result<crate::storage::Snapshot, ImportError> {
+    crate::storage::try_snapshot(&data_dir.join("C")).map_err(io)
+}
+
+// A portable, fail-closed interprocess lock. Deliberately outside C: so the
+// firmware never sees it. A crash leaves an empty lock directory; it is never
+// guessed stale or removed by another importer.
+struct ImportLock(PathBuf);
+impl ImportLock {
+    fn acquire(profile: &Path) -> Result<Self, ImportError> {
+        let path = profile.join(".prime-import-lock");
+        match std::fs::create_dir(&path) {
+            Ok(()) => Ok(Self(path)),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(ImportError::Busy(path)),
+            Err(e) => Err(io(e)),
+        }
+    }
+}
+impl Drop for ImportLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir(&self.0);
+    }
+}
+
+fn matching_programs(dir: &Path, name: &str) -> Result<Vec<PathBuf>, ImportError> {
+    let mut matches = Vec::new();
+    for entry in std::fs::read_dir(dir).map_err(io)? {
+        let path = entry.map_err(io)?.path();
+        if path
+            .extension()
+            .and_then(|s| s.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case(EXTENSION))
+            && path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| s.eq_ignore_ascii_case(name))
+        {
+            matches.push(path);
+        }
+    }
+    Ok(matches)
 }
 
 fn fsync_dir(dir: &Path) -> Result<(), ImportError> {
@@ -344,17 +358,24 @@ pub fn prepare(req: &ImportRequest) -> Result<Prepared, ImportError> {
     })
 }
 
-/// Imports one program. On error nothing in the data directory changes
-/// (except the removal of stale importer temp files).
+/// Boot-time host-file import, serialized against other cooperative importers.
+/// Validation/conflict errors write no program bytes. After an installation or
+/// directory-sync error, inspect the final path: a complete program may already
+/// be installed. Stale temporary files are cleaned only while holding the lock.
+/// This lock does not coordinate with a running firmware instance.
 pub fn import(req: &ImportRequest) -> Result<ImportReport, ImportError> {
     let prepared = prepare(req)?;
     let dir = data_dir_of(&req.data_dir);
     if !dir.is_dir() {
         return Err(ImportError::NotInitialized(req.data_dir.clone()));
     }
-    let removed_stale_temps = remove_stale_temps(&dir);
+    let _lock = ImportLock::acquire(&req.data_dir)?;
     let final_path = dir.join(format!("{}.{EXTENSION}", prepared.name));
-    let existing = find_program(&dir, &prepared.name);
+    let matches = matching_programs(&dir, &prepared.name)?;
+    if matches.len() > 1 {
+        return Err(ImportError::AmbiguousName(prepared.name));
+    }
+    let existing = matches.into_iter().next();
     let mut replaced = None;
     if let Some(ex) = &existing {
         if !req.replace {
@@ -362,40 +383,59 @@ pub fn import(req: &ImportRequest) -> Result<ImportReport, ImportError> {
                 existing: ex.display().to_string(),
             });
         }
+        if !std::fs::symlink_metadata(ex)
+            .map_err(io)?
+            .file_type()
+            .is_file()
+        {
+            return Err(ImportError::Io(format!(
+                "{} is not a regular program file",
+                ex.display()
+            )));
+        }
         let old = std::fs::read(ex).map_err(io)?;
         replaced = Some((ex.display().to_string(), crate::sha256::hex(&old)));
     }
-    let before = c_tree_snapshot(&req.data_dir);
-
-    let tmp = dir.join(format!(
-        "{TEMP_PREFIX}{}-{}.tmp",
-        prepared.name,
-        std::process::id()
-    ));
-    let write = || -> std::io::Result<()> {
-        use std::io::Write;
-        let mut f = std::fs::File::create(&tmp)?;
-        f.write_all(&prepared.bytes)?;
-        f.sync_all()
-    };
-    if let Err(e) = write() {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(io(e));
+    let removed_stale_temps = remove_stale_temps(&dir);
+    let before = c_tree_snapshot(&req.data_dir)?;
+    // On a case-insensitive host, different spellings may refer to the same
+    // target. Do not unlink that target after replacing it.
+    let same_target = existing.as_ref().is_some_and(|ex| {
+        std::fs::canonicalize(ex)
+            .ok()
+            .zip(std::fs::canonicalize(&final_path).ok())
+            .is_some_and(|(a, b)| a == b)
+    });
+    use std::io::Write;
+    let mut tmp = tempfile::Builder::new()
+        .prefix(TEMP_PREFIX)
+        .suffix(".tmp")
+        .tempfile_in(&dir)
+        .map_err(io)?;
+    tmp.write_all(&prepared.bytes).map_err(io)?;
+    tmp.as_file().sync_all().map_err(io)?;
+    if req.replace {
+        tmp.persist(&final_path).map_err(|e| io(e.error))?;
+    } else {
+        tmp.persist_noclobber(&final_path).map_err(|e| {
+            if e.error.kind() == std::io::ErrorKind::AlreadyExists {
+                ImportError::Exists {
+                    existing: final_path.display().to_string(),
+                }
+            } else {
+                io(e.error)
+            }
+        })?;
     }
-    if let Err(e) = std::fs::rename(&tmp, &final_path) {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(io(e));
-    }
-    // A differently-cased old file is a second name on a case-sensitive
-    // host: remove it once the new file is in place.
     if let Some(ex) = &existing
         && ex != &final_path
+        && !same_target
     {
         std::fs::remove_file(ex).map_err(io)?;
     }
     fsync_dir(&dir)?;
 
-    let after = c_tree_snapshot(&req.data_dir);
+    let after = c_tree_snapshot(&req.data_dir)?;
     let rel = |p: &Path| {
         p.strip_prefix(req.data_dir.join("C"))
             .map(|r| r.to_string_lossy().replace('\\', "/"))
@@ -413,6 +453,7 @@ pub fn import(req: &ImportRequest) -> Result<ImportReport, ImportError> {
     let written = std::fs::read(&final_path).map_err(io)?;
     Ok(ImportReport {
         imported: true,
+        catalog_refresh: "reboot-required",
         guest_path: format!("C:\\DATA\\{}.{EXTENSION}", prepared.name),
         host_path: final_path.display().to_string(),
         size: written.len() as u64,
