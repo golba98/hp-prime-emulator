@@ -934,13 +934,15 @@ mod tests {
     #[test]
     fn controller_start_and_finish_run() {
         let mut c = ExecutionController::new();
-        let src = "EXPORT TEST() BEGIN PRINT(30); RETURN 1; END;";
+        let src = "EXPORT TEST() BEGIN PRINT(30); WAIT(0); RETURN 1; END;";
         let file = SourceFile::new("test.ppl", src);
         match start(&mut c, &file) {
             RunStart::Started => {}
             other => panic!("expected start, got {other:?}"),
         }
         assert!(c.running());
+        // The waiting program cannot finish before the running-state check.
+        c.shared.push_key(30);
         // Wait for completion (bounded).
         for _ in 0..200 {
             if c.outcome().is_some() {
