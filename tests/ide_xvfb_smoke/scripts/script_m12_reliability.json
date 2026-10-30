@@ -1,0 +1,613 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/reliability/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "firmware_restart"
+  },
+  {
+   "step": "wait_session",
+   "state": "booting",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "snapshot",
+   "label": "c0_booting"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "c0_ready"
+  },
+  {
+   "step": "new_program",
+   "name": "R0A"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R0A()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "c0_run1"
+  },
+  {
+   "step": "new_program",
+   "name": "R0L"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R0L()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "c0_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "R0B"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R0B()\nBEGIN\n RETURN 0+100;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/reliability/c0_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "c0_run2"
+  },
+  {
+   "step": "firmware_shut_down"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_off"
+  },
+  {
+   "step": "firmware_start"
+  },
+  {
+   "step": "wait_session",
+   "state": "booting",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_booting"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_ready"
+  },
+  {
+   "step": "new_program",
+   "name": "R1A"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R1A()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_run1"
+  },
+  {
+   "step": "new_program",
+   "name": "R1L"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R1L()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "R1B"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R1B()\nBEGIN\n RETURN 1+100;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/reliability/c1_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "c1_run2"
+  },
+  {
+   "step": "firmware_restart"
+  },
+  {
+   "step": "wait_session",
+   "state": "booting",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "snapshot",
+   "label": "c2_booting"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "c2_ready"
+  },
+  {
+   "step": "new_program",
+   "name": "R2A"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R2A()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "c2_run1"
+  },
+  {
+   "step": "new_program",
+   "name": "R2L"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R2L()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "c2_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "R2B"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R2B()\nBEGIN\n RETURN 2+100;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/reliability/c2_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "c2_run2"
+  },
+  {
+   "step": "firmware_shut_down"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_off"
+  },
+  {
+   "step": "firmware_start"
+  },
+  {
+   "step": "wait_session",
+   "state": "booting",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_booting"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_ready"
+  },
+  {
+   "step": "new_program",
+   "name": "R3A"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R3A()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_run1"
+  },
+  {
+   "step": "new_program",
+   "name": "R3L"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R3L()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "R3B"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R3B()\nBEGIN\n RETURN 3+100;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/reliability/c3_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "c3_run2"
+  },
+  {
+   "step": "firmware_restart"
+  },
+  {
+   "step": "wait_session",
+   "state": "booting",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "snapshot",
+   "label": "c4_booting"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "c4_ready"
+  },
+  {
+   "step": "new_program",
+   "name": "R4A"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R4A()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "c4_run1"
+  },
+  {
+   "step": "new_program",
+   "name": "R4L"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R4L()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "c4_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "R4B"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT R4B()\nBEGIN\n RETURN 4+100;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/reliability/c4_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "c4_run2"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

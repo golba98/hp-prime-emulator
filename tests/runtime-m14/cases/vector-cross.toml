@@ -1,0 +1,12 @@
+id = "vector-cross"
+category = "vector"
+description = 'M14: STRING(CROSS([1,0,0],[0,1,0])) through the firmware runtime'
+program = "../programs/M14CROS.ppl"
+source_sha256 = "e531641c4e762f4fef8cfc11842c5d41dc97652751814357d541b43c52543941"
+entry = "M14CROS"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "[0,0,1]"

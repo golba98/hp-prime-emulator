@@ -69,6 +69,8 @@ benchmark-results/
 criterion/
 
 # Temporary GUI / emulator screenshots (fixtures under tests/ stay tracked)
+# Documentation screenshots stay local; reports name them by path.
+docs/screenshots/
 *.png.actual
 out.png
 

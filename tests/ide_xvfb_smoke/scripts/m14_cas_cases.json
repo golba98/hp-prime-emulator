@@ -1,0 +1,44 @@
+[
+ {
+  "name": "int",
+  "subject": "int(2*x,x)",
+  "literal": "x\u00b2",
+  "control": "2*x"
+ },
+ {
+  "name": "diff",
+  "subject": "diff(sin(x),x)",
+  "literal": "cos(x)",
+  "control": "sin(x)"
+ },
+ {
+  "name": "factor",
+  "subject": "factor(x\u00b2-1)",
+  "literal": "(x-1)*(x+1)",
+  "control": "x\u00b2-1"
+ },
+ {
+  "name": "solve",
+  "subject": "solve(x\u00b2=4,x)",
+  "literal": "{-2,2}",
+  "control": "{2,3}"
+ },
+ {
+  "name": "fraction",
+  "subject": "1/3>+1/6>",
+  "literal": "1/2>",
+  "control": "1/3>"
+ },
+ {
+  "name": "pi",
+  "subject": "3*\u03c0-\u03c0",
+  "literal": "2*\u03c0",
+  "control": "3*\u03c0"
+ },
+ {
+  "name": "expand",
+  "subject": "expand((x+1)\u00b2)",
+  "literal": "x\u00b2+2*x+1",
+  "control": "x\u00b2+1"
+ }
+]

@@ -1,0 +1,12 @@
+id = "cas-expand"
+category = "cas"
+description = 'M14: STRING(CAS("expand((x+1)^2)")) through the firmware runtime'
+program = "../programs/M14EXPD.ppl"
+source_sha256 = "ba09670530af7a52f8bed4156d8c06b26e5782bd451c28e9c38e537696ed3b62"
+entry = "M14EXPD"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "x^2+2*x+1"

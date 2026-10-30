@@ -69,6 +69,57 @@ python3 assert_firmware_check.py /tmp/ppl-ide-e2e/firmware_check.json \
         [samples.log pids-before.txt pids-after.txt]
 ```
 
+### M12: the G1 Firmware calculator
+
+`run_m12.sh <scenario>` runs `scripts/script_m12_<scenario>.json` (or any
+firmware script given by path) with an isolated `HOME`/XDG, a fresh calculator
+profile seeded from the configured initialized data, the asset paths of
+`~/.config/hp-prime-emulator/firmware.toml` and the workspace's own
+`prime-emulator`. Evidence (dump, LCD frames, window screenshots,
+`session.log`, the profile's program list, helper processes before/after) goes
+to `artifacts/m12/<UTC time>/<scenario>/` (`M12_RUN` overrides).
+
+| Scenario | Exercises |
+|---|---|
+| `boot` | A: start, Ready, Home frame; typed `WAITING` vs the masked Home reference; B: `2+2`, `4`, `2+3` |
+| `exec` | D: editor Run with LCD output and result; E: KEYECHO/TOUCHECHO via the on-screen keypad and an LCD mouse click, frames vs references; F: endless loop, Stop, next Run; H: Native run and back |
+| `catalog` | C: Import to calculator, refusal of an existing name, Program Catalog, open by tap, firmware Check, run by name at Home |
+| `resize` | G: six window sizes and layouts; a TOUCHECHO tap each, at a different pixel (needs `PPL_XVFB_SCREEN=3840x2160x24`) |
+| `reliability` | I: five restart or power-off/on cycles of boot, Run, Stop, Run |
+| `nav` | Ans, history, Home Settings, CAS `1+1`, Apps, an app, Help, short and long key presses |
+| `perf` | FIREWORKS_G1 (10 KB) through the live loader; LCD frame delivery while a program animates; Stop |
+| `onbreak` | The calculator's ON key (on-screen keypad) breaks an IDE run; the next Run works |
+
+```bash
+for s in boot exec catalog nav reliability perf onbreak; do M12_RUN=$PWD/../../artifacts/m12/run ./run_m12.sh $s 900; done
+PPL_XVFB_SCREEN=3840x2160x24 M12_RUN=$PWD/../../artifacts/m12/run ./run_m12.sh resize 900
+python3 assert_m12.py ../../artifacts/m12/run
+```
+
+### M13: storage and power state
+
+`script_m13_*.json` (found by `run_m12.sh m13_<name>`). `M12_PROFILE` keeps
+one calculator profile across runs, for closing and reopening the IDE:
+
+```bash
+R=$PWD/../../artifacts/m13/run; mkdir -p $R/profiles
+for s in m13_persist m13_reopen; do M12_PROFILE=$R/profiles/calc M12_RUN=$R ./run_m12.sh $s 900; done
+M12_RUN=$R ./run_m12.sh m13_crash 900
+M12_PROFILE=$R/profiles/calc M12_RUN=$R ./run_m12.sh m13_reset 900
+python3 assert_m13.py $R
+```
+
+| Scenario | Exercises |
+|---|---|
+| `m13_persist` | Variables, list, matrix, Home setting, Function F1, Home/CAS history, then Power off (sleep) and ON, then Shut down and Start; checks the four screens, Ans and the stored values |
+| `m13_reopen` | A new IDE on the same profile: the same checks |
+| `m13_crash` | The helper killed without OFF (a battery pull), then a reboot |
+| `m13_reset` | Reset memory: backup kept, values and history cleared |
+
+`run_ide_auto.sh` gives the IDE window keyboard focus with `x11_focus.py`:
+Xvfb has no window manager, and the automation only advances while the
+window is focused.
+
 Editor scenarios need a large virtual screen:
 
 ```bash

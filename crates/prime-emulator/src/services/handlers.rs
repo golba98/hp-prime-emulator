@@ -42,6 +42,20 @@ pub fn install(registry: &mut Registry) {
         ServiceStatus::Implemented,
         battery_low_check,
     );
+    // ── Power (fw, M13: Shift+ON writes calc/cas settings, L0-L9, M0-M9
+    //    and app files, then calls _fflushall (0x306AD0D4) and SysPowerOff
+    //    (0x306CB6F0)) ──
+    registry.register_by_name(
+        "SysPowerOff",
+        ServiceStatus::PartiallyImplemented,
+        sys_power_off,
+    );
+    registry.register_by_name(
+        "FSGetDiskRoomState",
+        ServiceStatus::PartiallyImplemented,
+        system2::fs_get_disk_room_state,
+    );
+    registry.register_by_name("_fflushall", ServiceStatus::PartiallyImplemented, fflushall);
 
     // ── Program management (fw: hit at pc 0x30615A94 during M2 run 1;
     //    ref: svc_system.cpp ProgramIsRunningA/W allocate one zeroed 0x250
@@ -542,6 +556,36 @@ fn get_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         ctx.shared.set_getevent_parked(true);
         ctx.bounded_sleep(25);
     }
+}
+
+/// fw (M13): `SysPowerOff()` is the end of the firmware's own OFF path,
+/// after it saved its state. The G1 sleeps until ON is pressed, then the
+/// call returns and the firmware redraws. The calling thread is parked
+/// until ON (consumed by `SharedState::power_filter`) or the run stops.
+/// Partial: the return value's meaning is not verified (0 returned, as
+/// in the M12 diagnostic runs, where the firmware then resumed).
+fn sys_power_off(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    ctx.shared.enter_sleep();
+    ctx.trace.thread_event("SysPowerOff: sleeping until ON");
+    loop {
+        if ctx.shared.take_wake() {
+            ctx.trace.thread_event("SysPowerOff: ON pressed, waking");
+            break;
+        }
+        if ctx.shared.stopping() {
+            ctx.shared.leave_sleep();
+            break;
+        }
+        ctx.bounded_sleep(25);
+    }
+    Ok(0)
+}
+
+/// `_fflushall()` (MS CRT `_flushall`): flush every open stream; returns
+/// the number of open streams. Guest writes reach the host file directly,
+/// so flushing means making written files durable.
+fn fflushall(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    Ok(ctx.shared.vfs.flush_all() as u32)
 }
 
 /// ref: `BatteryLowCheck()` returns 0 (battery OK; -1 low, -2 critical).

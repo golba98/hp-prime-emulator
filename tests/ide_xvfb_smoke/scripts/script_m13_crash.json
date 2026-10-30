@@ -1,0 +1,308 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m13_crash/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "M13SET"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M13SET()\nBEGIN\n A:=5;\n Z:=99;\n L2:={4,5,6};\n M1:=[[1,2],[3,4]];\n HAngle:=1;\n F1:=\"X^2\";\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5,
+    4
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    32,
+    40,
+    39,
+    30
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/home_before.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home_before"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/settings_before.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "settings_before"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/symb_before.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "symb_before"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    10
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/cas_before.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "cas_before"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/home2_before.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home2_before"
+  },
+  {
+   "step": "kill_helper"
+  },
+  {
+   "step": "wait_session",
+   "state": "failed",
+   "timeout_ms": 10000
+  },
+  {
+   "step": "snapshot",
+   "label": "killed"
+  },
+  {
+   "step": "firmware_start"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/home_after_crash.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home_after_crash"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/settings_after_crash.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "settings_after_crash"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/symb_after_crash.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "symb_after_crash"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    10
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/cas_after_crash.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "cas_after_crash"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_crash/home2_after_crash.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home2_after_crash"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

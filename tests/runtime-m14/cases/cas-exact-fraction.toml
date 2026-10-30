@@ -1,0 +1,12 @@
+id = "cas-exact-fraction"
+category = "cas"
+description = 'M14: STRING(CAS("1/3+1/6")) through the firmware runtime'
+program = "../programs/M14FRAC.ppl"
+source_sha256 = "33ceec3694937911209d7571438a5ee25ca63752b1bdcd2c1a60143edb9dc225"
+entry = "M14FRAC"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "1/2"

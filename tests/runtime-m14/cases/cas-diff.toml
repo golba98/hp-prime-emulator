@@ -1,0 +1,12 @@
+id = "cas-diff"
+category = "cas"
+description = 'M14: STRING(CAS("diff(sin(x),x)")) through the firmware runtime'
+program = "../programs/M14DIFF.ppl"
+source_sha256 = "32f304474b99b27367f814796eaa151c639ddea9f3b5c2e391da6e37bea8e479"
+entry = "M14DIFF"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "COS(x)"

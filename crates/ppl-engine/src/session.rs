@@ -1,7 +1,8 @@
 //! Versioned local calculator-session transport. No GUI, USB, or Unicorn dependency.
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
-pub const VERSION: u32 = 1;
+/// 2: `Lifecycle`, `Unsupported` and `Import`. 3: `PowerDown`, `Sleeping`.
+pub const VERSION: u32 = 3;
 pub const MAX_PACKET: usize = 4 * 1024 * 1024;
 pub const FRAME_PIXELS: usize = 320 * 240;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,8 +43,34 @@ pub enum Command {
         entry: Option<String>,
         arguments: String,
     },
+    /// Store `source` as a new calculator program `name` through the
+    /// firmware's own `Programs(name):=` assignment. Refused when a program
+    /// of that name exists; never replaces one.
+    Import {
+        request: u64,
+        name: String,
+        source: String,
+    },
     Stop,
+    /// Switch the calculator off through the firmware's own OFF (which
+    /// saves its state), then end the session. A running program is
+    /// stopped first.
+    PowerDown,
+    /// End the session at once, without the firmware's OFF.
     Shutdown,
+}
+/// The live calculator's state as the session observes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Lifecycle {
+    /// The firmware is starting; its UI has not yet waited for input.
+    Booting,
+    /// The firmware UI is idle, waiting for input.
+    Ready,
+    /// A Stop is breaking a running program.
+    Stopping,
+    /// The firmware switched off (`SysPowerOff`) after saving; ON wakes it.
+    Sleeping,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
@@ -66,6 +93,17 @@ pub enum Event {
         /// busy, infrastructure failure), never acceptance or rejection.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         check: Option<CheckVerdict>,
+    },
+    Lifecycle {
+        state: Lifecycle,
+    },
+    /// The firmware called an OS service the host does not implement, from
+    /// a call site not reported before; the host returned 0 in its place.
+    Unsupported {
+        id: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        caller_pc: u32,
     },
     Error {
         message: String,
@@ -247,6 +285,40 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(old, Event::Result { check: None, .. }));
+    }
+    #[test]
+    fn lifecycle_unsupported_and_import_round_trip() {
+        for event in [
+            Event::Lifecycle {
+                state: Lifecycle::Ready,
+            },
+            Event::Unsupported {
+                id: 0x10123,
+                name: Some("PowerOff".into()),
+                caller_pc: 0x3000_0000,
+            },
+        ] {
+            let mut out = vec![];
+            write_event(&mut out, &event).unwrap();
+            let Packet::Event(back) = read_packet(&mut out.as_slice()).unwrap() else {
+                panic!()
+            };
+            assert_eq!(format!("{back:?}"), format!("{event:?}"));
+        }
+        let mut bytes = vec![];
+        write_command(
+            &mut bytes,
+            &Command::Import {
+                request: 9,
+                name: "M12HELLO".into(),
+                source: "EXPORT M12HELLO() BEGIN END;".into(),
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            read_command(&mut bytes.as_slice()).unwrap(),
+            Command::Import { request: 9, name, .. } if name == "M12HELLO"
+        ));
     }
     #[test]
     fn load_source_and_frame_request_round_trip() {

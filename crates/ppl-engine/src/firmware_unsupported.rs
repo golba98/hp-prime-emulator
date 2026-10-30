@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 pub fn discover_runner(_explicit: Option<&Path>) -> Result<PathBuf, String> {
     Err("the original-firmware backend currently requires Linux".into())
 }
+pub fn kill_process_group(_pid: u32) {}
 pub fn execute(
     source: Source,
     operation: Operation,

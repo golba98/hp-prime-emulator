@@ -1,0 +1,12 @@
+id = "prob-comb"
+category = "probability"
+description = 'M14: COMB(5,2) through the firmware runtime'
+program = "../programs/M14COMB.ppl"
+source_sha256 = "e043f97d04d4d8e0e22b1c877a02414e5bda8166f7f536618aa472c788bac6a5"
+entry = "M14COMB"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "10"

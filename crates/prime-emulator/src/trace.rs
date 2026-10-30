@@ -104,6 +104,9 @@ pub struct TraceHub {
     /// "unsupported services" report and heartbeat detection.
     call_sites: Mutex<HashMap<(u32, u32), u64>>,
     svc_totals: Mutex<HashMap<u32, u64>>,
+    /// First hit of each unsupported (svc_id, caller_pc), in order: the
+    /// live session reports each one, since ZeroReturn substitutes a result.
+    unsupported_sites: Mutex<Vec<(u32, Option<String>, u32)>>,
     /// `--trace-fs` events (bounded at [`FS_LOG_CAP`]).
     fs_log: Mutex<Vec<serde_json::Value>>,
     fs_dropped: AtomicU64,
@@ -142,6 +145,7 @@ impl TraceHub {
             probe_count: Mutex::new(0),
             call_sites: Mutex::new(HashMap::new()),
             svc_totals: Mutex::new(HashMap::new()),
+            unsupported_sites: Mutex::new(Vec::new()),
             fs_log: Mutex::new(Vec::new()),
             fs_dropped: AtomicU64::new(0),
             script_step: AtomicU64::new(u64::MAX),
@@ -279,6 +283,15 @@ impl TraceHub {
         self.record(EventKind::Limit, detail.into(), json!({}));
     }
 
+    /// Unsupported service call sites first hit after `seen` of them were
+    /// already returned; advances `seen`.
+    pub fn unsupported_sites_since(&self, seen: &mut usize) -> Vec<(u32, Option<String>, u32)> {
+        let sites = self.unsupported_sites.lock().unwrap();
+        let new = sites.get(*seen..).unwrap_or_default().to_vec();
+        *seen = sites.len();
+        new
+    }
+
     pub fn heartbeat(&self, detail: impl Into<String>) {
         self.record(EventKind::Heartbeat, detail.into(), json!({}));
     }
@@ -295,12 +308,18 @@ impl TraceHub {
         thread_id: u32,
     ) {
         *self.svc_totals.lock().unwrap().entry(id).or_insert(0) += 1;
-        *self
-            .call_sites
-            .lock()
-            .unwrap()
-            .entry((id, caller_pc))
-            .or_insert(0) += 1;
+        let first = {
+            let mut sites = self.call_sites.lock().unwrap();
+            let calls = sites.entry((id, caller_pc)).or_insert(0);
+            *calls += 1;
+            *calls == 1
+        };
+        if first && !supported {
+            self.unsupported_sites
+                .lock()
+                .unwrap()
+                .push((id, name.map(str::to_owned), caller_pc));
+        }
         if self.cfg.svc_trace {
             self.record(
                 if supported {

@@ -120,6 +120,49 @@ impl DockTab {
     }
 }
 
+/// The G1 Firmware calculator session, as reported by the live session.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum FirmwareSession {
+    /// No session (never started, or switched off).
+    #[default]
+    Off,
+    /// The firmware is starting; its UI has not yet waited for input.
+    Booting,
+    /// The firmware UI is idle and accepts input and requests.
+    Ready,
+    /// An IDE program is running in the firmware.
+    Running,
+    /// Stop is breaking a running program.
+    Stopping,
+    /// The firmware switched off (its own OFF, state saved); ON wakes it.
+    Sleeping,
+    /// The session started and then ended or failed.
+    Failed(String),
+    /// The session cannot start here (assets, runner, profile, version).
+    Unavailable(String),
+}
+impl FirmwareSession {
+    pub fn label(&self) -> String {
+        match self {
+            Self::Off => "Off".into(),
+            Self::Booting => "Booting".into(),
+            Self::Ready => "Ready".into(),
+            Self::Running => "Running".into(),
+            Self::Stopping => "Stopping".into(),
+            Self::Sleeping => "Sleeping".into(),
+            Self::Failed(m) => format!("Failed: {m}"),
+            Self::Unavailable(m) => format!("Unavailable: {m}"),
+        }
+    }
+    /// A helper process is (or should be) running.
+    pub fn live(&self) -> bool {
+        matches!(
+            self,
+            Self::Booting | Self::Ready | Self::Running | Self::Stopping | Self::Sleeping
+        )
+    }
+}
+
 /// Current status of the PPL VM execution worker.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum VmExecutionState {
@@ -235,6 +278,20 @@ pub enum IdeAction {
     SetLayout(layout::WorkspaceLayout),
     SetCalculatorMode(layout::CalculatorMode),
     SelectBackend(bool),
+    /// Switch on the G1 Firmware calculator (start its session).
+    FirmwareStart,
+    /// The firmware's own OFF (Shift+ON): it saves and sleeps; ON wakes it.
+    FirmwarePowerOff,
+    /// Switch off through the firmware's OFF, then end the session.
+    FirmwareShutDown,
+    /// End the session and boot a fresh one on the same profile.
+    FirmwareRestart,
+    /// Store the active tab as a new program on the firmware calculator.
+    ImportToCalculator,
+    /// Ask to reset the calculator's memory (confirmation dialog).
+    FirmwareReset,
+    /// Reset confirmed: shut down, back the memory up, start fresh.
+    FirmwareResetConfirmed,
     ShowShortcuts,
     ShowAboutDialog,
     ShowSettingsDialog,
@@ -290,6 +347,10 @@ pub struct IdeAppState {
     pub firmware: firmware::FirmwareSettings,
     pub key_transitions: Vec<(i64, bool)>,
     pub firmware_input_enabled: bool,
+    pub firmware_session: FirmwareSession,
+    /// Unsupported OS services the current session substituted:
+    /// (service id, name, caller pc), first hit of each call site.
+    pub firmware_unsupported: Vec<(u32, Option<String>, u32)>,
     // Panel visibility toggles
     pub show_explorer: bool,
     pub show_calculator: bool,
@@ -390,6 +451,8 @@ impl Default for IdeAppState {
             key_events: Vec::new(),
             key_transitions: Vec::new(),
             firmware_input_enabled: true,
+            firmware_session: FirmwareSession::Off,
+            firmware_unsupported: Vec::new(),
             keys_down: HashSet::new(),
             pending_actions: Vec::new(),
         }

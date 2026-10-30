@@ -1,0 +1,323 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/exec/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "ready"
+  },
+  {
+   "step": "new_program",
+   "name": "M12EXEC"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M12EXEC()\nBEGIN\n RECT_P(0,0,319,239,RGB(0,0,96));\n TEXTOUT_P(\"M12 firmware run\",70,100,2,RGB(255,255,255));\n WAIT(0);\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/exec_running.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "exec_running"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/window_exec_running.png"
+  },
+  {
+   "step": "click_calculator_key",
+   "code": 30
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/exec_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "exec_done"
+  },
+  {
+   "step": "new_program",
+   "name": "KEYECHO"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT KEYECHO()\nBEGIN\n  RECT_P(0,0,319,239,RGB(0,0,0));\n  TEXTOUT_P(\"Press a key\",100,110,2,RGB(255,255,255));\n  RETURN WAIT(-1);\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/keyecho.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "keyecho"
+  },
+  {
+   "step": "click_calculator_key",
+   "code": 30
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "snapshot",
+   "label": "keyecho_done"
+  },
+  {
+   "step": "new_program",
+   "name": "TOUCHECHO"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT TOUCHECHO()\nBEGIN\n  LOCAL e;\n  RECT_P(0,0,319,239,RGB(255,255,0));\n  TEXTOUT_P(\"Tap the screen\",90,110,2,RGB(0,0,0));\n  e:=WAIT(-1);\n  RETURN {B\u2192R(e(1)),B\u2192R(e(2)),B\u2192R(e(3))};\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/touchecho.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "touchecho"
+  },
+  {
+   "step": "click_lcd",
+   "x": 100,
+   "y": 50
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "snapshot",
+   "label": "touchecho_done"
+  },
+  {
+   "step": "new_program",
+   "name": "LOOPRT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT LOOPRT()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 2000
+  },
+  {
+   "step": "snapshot",
+   "label": "loop_running"
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "snapshot",
+   "label": "loop_stopping"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/loop_stopped.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "loop_stopped"
+  },
+  {
+   "step": "new_program",
+   "name": "AGAIN"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT AGAIN()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/again_done.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "again_done"
+  },
+  {
+   "step": "backend",
+   "engine": "native"
+  },
+  {
+   "step": "new_program",
+   "name": "M12NAT"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M12NAT()\nBEGIN\n RETURN 5*5;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "native_done"
+  },
+  {
+   "step": "calc_key",
+   "code": 43
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/exec/back_to_firmware.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "back_to_firmware"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

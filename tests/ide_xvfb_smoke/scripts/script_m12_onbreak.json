@@ -1,0 +1,113 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/onbreak/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "ONLOOP"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT ONLOOP()\nBEGIN\n WHILE 1 DO END;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1500
+  },
+  {
+   "step": "snapshot",
+   "label": "running"
+  },
+  {
+   "step": "click_calculator_key",
+   "code": 46
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "after_on"
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/onbreak/after_on_lcd.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "after_on_lcd"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "new_program",
+   "name": "ONAGAIN"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT ONAGAIN()\nBEGIN\n RETURN 6*7;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 200
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "again"
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/onbreak/again_lcd.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "again_lcd"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

@@ -1,0 +1,141 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/perf/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "snapshot",
+   "label": "ready"
+  },
+  {
+   "step": "open",
+   "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/tests/runtime/programs/FIREWORKS_G1.hpprgm"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 500
+  },
+  {
+   "step": "snapshot",
+   "label": "fw_requested"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "fw_running"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "snapshot",
+   "label": "fw_done"
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/perf/fireworks_result.png"
+  },
+  {
+   "step": "new_program",
+   "name": "M12ANIM"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M12ANIM()\nBEGIN\n LOCAL i;\n FOR i FROM 0 TO 599 DO\n  RECT_P(0,0,319,239,RGB(0,0,0));\n  RECT_P(i MOD 300,100,(i MOD 300)+19,119,RGB(255,200,0));\n  WAIT(0.02);\n END;\n RETURN i;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "run_requested"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "running"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1000
+  },
+  {
+   "step": "snapshot",
+   "label": "anim_t0"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 4000
+  },
+  {
+   "step": "snapshot",
+   "label": "anim_t1"
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/perf/animating.png"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/perf/window_animating.png"
+  },
+  {
+   "step": "stop"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 30000
+  },
+  {
+   "step": "snapshot",
+   "label": "stopped"
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/perf/after_stop.png"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

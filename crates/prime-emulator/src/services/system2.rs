@@ -75,14 +75,21 @@ pub fn lcd_on(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     Ok(0)
 }
 
-/// ref: `SetSystemVariable(var = r0, type = r1, value = r2)`: var 89 → -1;
-/// var 6/type 2 → brightness; everything else → 0.
+/// ref: `SetSystemVariable(var = r0, type = r1, value = r2)`: var 6/type 2
+/// → brightness; everything else → 0.
+///
+/// fw (M13): var 89 (`0x59, 0, 0` from 0x308CE570) is read as a getter by
+/// the Memory Manager's Info screen, which shows it as "Memory" in bytes.
+/// The reference returned -1, shown as "Memory: 4.0GB". It is the guest
+/// heap's free bytes. Partial: whether the G1 reports free or total memory
+/// here, and the device figure, are calibrated against the physical G1 in
+/// M15 (the emulated heap is 256 MiB; the G1 has 32 MB of RAM).
 pub fn set_system_variable(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let var = ctx.args.r0;
     let typ = ctx.args.r1;
     let value = ctx.args.r2;
     if var == 89 {
-        return Ok(u32::MAX);
+        return Ok(ctx.mem.heap_free_bytes().min(u32::MAX as usize) as u32);
     }
     if var == 6 && typ == 2 {
         let va = *ctx.shared.lcd_object.lock().unwrap();
@@ -116,6 +123,40 @@ pub fn write_com_debug_msg(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         ctx.trace.thread_event(format!("guest: {fmt}"));
     }
     Ok(0)
+}
+
+/// Emulated user storage capacity (the G1's 256 MiB flash). Provisional:
+/// calibrated against the physical G1's Memory Manager Info in M15.
+pub const STORAGE_CAPACITY: u64 = 256 * 1024 * 1024;
+
+/// fw (M13): `FSGetDiskRoomState(drive = r0, out = r1)`. The Memory
+/// Manager's Info (0x308CE598) zeroes a 0x3C-byte struct, calls this with
+/// drive 0 and, on a 0 return, shows the u32 at +0x34 as "Storage" in
+/// bytes (0 before: the struct was never filled). Partial: only +0x34 is
+/// filled, with the free bytes of the emulated capacity after the profile's
+/// files; the other fields' meaning is not observed.
+pub fn fs_get_disk_room_state(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    let out = ctx.args.r1;
+    let used = dir_bytes(&ctx.shared.data_dir.join("C"));
+    let free = STORAGE_CAPACITY.saturating_sub(used).min(u32::MAX as u64) as u32;
+    ctx.mem
+        .write_bytes(out, &[0u8; 0x3C])
+        .map_err(HandlerFault)?;
+    ctx.mem.write_u32(out + 0x34, free).map_err(HandlerFault)?;
+    Ok(0)
+}
+
+fn dir_bytes(dir: &std::path::Path) -> u64 {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| match e.file_type() {
+            Ok(t) if t.is_dir() => dir_bytes(&e.path()),
+            Ok(_) => e.metadata().map(|m| m.len()).unwrap_or(0),
+            Err(_) => 0,
+        })
+        .sum()
 }
 
 /// ref: `SetAutoPowerOff` is not implemented in the reference; zero-return

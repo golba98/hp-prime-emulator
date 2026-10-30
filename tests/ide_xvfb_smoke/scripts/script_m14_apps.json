@@ -1,0 +1,1843 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m14_apps/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "M14APP"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Function\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "00_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/00_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "00_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/00_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "00_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/00_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "00_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/00_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "00_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Advanced Graphing\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "01_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/01_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "01_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/01_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "01_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/01_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "01_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/01_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "01_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Graph 3D\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "02_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/02_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "02_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/02_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "02_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/02_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "02_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/02_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "02_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Geometry\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "03_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/03_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "03_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/03_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "03_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/03_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "03_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/03_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "03_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Spreadsheet\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "04_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/04_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "04_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/04_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "04_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/04_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "04_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/04_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "04_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Statistics 1Var\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "05_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/05_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "05_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/05_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "05_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/05_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "05_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/05_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "05_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Statistics 2Var\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "06_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/06_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "06_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/06_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "06_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/06_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "06_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/06_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "06_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Inference\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "07_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/07_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "07_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/07_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "07_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/07_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "07_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/07_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "07_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Data Streamer\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "08_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/08_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "08_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/08_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "08_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/08_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "08_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/08_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "08_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Solve\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "09_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/09_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "09_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/09_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "09_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/09_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "09_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/09_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "09_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Linear Solver\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "10_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/10_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "10_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/10_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "10_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/10_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "10_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/10_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "10_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Explorer\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "11_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/11_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "11_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/11_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "11_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/11_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "11_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/11_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "11_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Finance\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "12_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/12_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "12_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/12_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "12_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/12_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "12_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/12_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "12_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Triangle Solver\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "13_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/13_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "13_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/13_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "13_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/13_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "13_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/13_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "13_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Parametric\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "14_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/14_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "14_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/14_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "14_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/14_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "14_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/14_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "14_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Polar\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "15_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/15_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "15_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/15_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "15_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/15_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "15_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/15_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "15_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Sequence\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "16_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/16_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "16_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/16_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "16_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/16_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "16_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/16_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "16_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14APP()\nBEGIN\n STARTAPP(\"Python\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "17_start"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/17_app.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "17_app"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/17_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "17_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/17_plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "17_plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1800
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_apps/17_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "17_num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

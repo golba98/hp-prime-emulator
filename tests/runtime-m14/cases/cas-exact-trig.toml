@@ -1,0 +1,12 @@
+id = "cas-exact-trig"
+category = "cas"
+description = 'M14: STRING(CAS("sin(pi/6)")) through the firmware runtime'
+program = "../programs/M14TRIG.ppl"
+source_sha256 = "2b7279ddaae29e65b34f7903d4917f8ad1f22f1cecb419c413dda52192c5abf4"
+entry = "M14TRIG"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "1/2"

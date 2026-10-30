@@ -5,11 +5,30 @@ use std::{
     process::{Command, Stdio},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         mpsc::{self, Receiver, SyncSender},
     },
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
+/// How long ending a session waits: the firmware's OFF (save, then sleep;
+/// the helper gives up after 30 s) and the helper's exit.
+pub const SHUTDOWN_LIMIT: Duration = Duration::from_secs(40);
+/// Identifies each session started by this process, so the IDE can tell a
+/// replacement session's frames from the previous one's.
+static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
+/// Why a session ended before or during startup.
+enum SessionError {
+    /// Assets, runner, profile lock or helper version: cannot start here.
+    Unavailable(String),
+    /// The session started and then failed.
+    Failed(String),
+}
+impl From<String> for SessionError {
+    fn from(message: String) -> Self {
+        Self::Failed(message)
+    }
+}
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct FirmwareSettings {
@@ -25,27 +44,54 @@ pub struct Frame {
     pub pixels: Arc<[u32]>,
 }
 pub struct FirmwareClient {
+    pub session_id: u64,
     tx: SyncSender<Input>,
     rx: Receiver<Event>,
     pub latest: Arc<Mutex<Option<Frame>>>,
     stop: Arc<AtomicBool>,
     pub alive: Arc<AtomicBool>,
+    /// Why the session could not start, once known.
+    pub unavailable: Arc<Mutex<Option<String>>>,
+    /// The helper's process id, which is also its process group; 0 until
+    /// it is spawned and after it was reaped.
+    child: Arc<AtomicU32>,
+    worker: Option<JoinHandle<()>>,
+    done: Option<Receiver<()>>,
 }
 impl FirmwareClient {
     #[cfg(test)]
     pub(crate) fn with_test_frame(frame: Frame) -> Self {
-        let (tx, _) = mpsc::sync_channel(128);
-        let (_, rx) = mpsc::channel();
-        Self {
+        Self::for_test(Some(frame)).0
+    }
+    /// A client with no helper: the test plays the session, sending its
+    /// events and reading the commands the IDE sends.
+    #[cfg(test)]
+    pub(crate) fn for_test(frame: Option<Frame>) -> (Self, mpsc::Sender<Event>, Receiver<Input>) {
+        let (tx, commands) = mpsc::sync_channel(128);
+        let (events, rx) = mpsc::channel();
+        let client = Self {
+            session_id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
             tx,
             rx,
-            latest: Arc::new(Mutex::new(Some(frame))),
+            latest: Arc::new(Mutex::new(frame)),
             stop: Arc::new(AtomicBool::new(false)),
             alive: Arc::new(AtomicBool::new(true)),
-        }
+            unavailable: Arc::new(Mutex::new(None)),
+            child: Arc::new(AtomicU32::new(0)),
+            worker: None,
+            done: None,
+        };
+        (client, events, commands)
     }
 
-    pub fn start(settings: FirmwareSettings, ctx: egui::Context) -> Self {
+    /// Starts a session. A `previous` session is shut down first on the
+    /// worker thread (it holds the calculator profile's lock), so the UI
+    /// never waits for it.
+    pub fn start(
+        settings: FirmwareSettings,
+        ctx: egui::Context,
+        previous: Option<FirmwareClient>,
+    ) -> Self {
         let (tx, commands) = mpsc::sync_channel(128);
         let (events, rx) = mpsc::channel();
         let latest = Arc::new(Mutex::new(None));
@@ -54,33 +100,82 @@ impl FirmwareClient {
         let stopping = stop.clone();
         let alive = Arc::new(AtomicBool::new(true));
         let living = alive.clone();
-        std::thread::spawn(move || {
+        let unavailable = Arc::new(Mutex::new(None));
+        let reason = unavailable.clone();
+        let child = Arc::new(AtomicU32::new(0));
+        let child_pid = child.clone();
+        let (finished, done) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
             let notify = |event| {
                 let _ = events.send(event);
                 ctx.request_repaint();
             };
-            if let Err(message) = supervise(
+            if let Some(previous) = previous {
+                previous.shutdown(SHUTDOWN_LIMIT);
+            }
+            let result = supervise(
                 settings,
                 commands,
                 events.clone(),
                 frames,
                 stopping,
                 ctx.clone(),
-            ) {
-                notify(Event::Error { message });
+                child_pid,
+                reason.clone(),
+            );
+            match result {
+                Ok(()) => {}
+                Err(SessionError::Unavailable(message)) => {
+                    *reason.lock().unwrap() = Some(message.clone());
+                    notify(Event::Error { message });
+                }
+                Err(SessionError::Failed(message)) => notify(Event::Error { message }),
             }
             living.store(false, Ordering::Release);
             notify(Event::Closed {
                 message: "Local firmware session closed".into(),
             });
+            let _ = finished.send(());
         });
         Self {
+            session_id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
             tx,
             rx,
             latest,
             stop,
             alive,
+            unavailable,
+            child,
+            worker: Some(worker),
+            done: Some(done),
         }
+    }
+    /// Ends the session and waits up to `limit` for its helper to exit; a
+    /// helper that does not is killed with its process group. Blocking:
+    /// call from a worker thread, or once when the IDE closes.
+    pub fn shutdown(mut self, limit: Duration) {
+        self.stop.store(true, Ordering::Release);
+        let Some(done) = self.done.take() else {
+            return;
+        };
+        if done.recv_timeout(limit).is_err() {
+            ppl_engine::firmware::kill_process_group(self.child.load(Ordering::Acquire));
+            let _ = done.recv_timeout(Duration::from_secs(1));
+        }
+        if let Some(worker) = self.worker.take()
+            && worker.is_finished()
+        {
+            let _ = worker.join();
+        }
+    }
+    /// Kills the helper's process group at once: a battery pull, for
+    /// crash-recovery tests (automation only).
+    pub fn kill_helper(&self) {
+        ppl_engine::firmware::kill_process_group(self.child.load(Ordering::Acquire));
+    }
+    /// Asks the session to end without waiting for it.
+    pub fn request_shutdown(&self) {
+        self.stop.store(true, Ordering::Release);
     }
     pub fn send(&self, command: Input) {
         if self.tx.try_send(command).is_err() {
@@ -92,9 +187,9 @@ impl FirmwareClient {
     }
 }
 impl Drop for FirmwareClient {
+    /// The worker powers the firmware down (its OFF saves) and ends it.
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        let _ = self.tx.try_send(Input::Shutdown);
     }
 }
 fn configured(value: &str, variable: &str) -> Option<PathBuf> {
@@ -148,6 +243,62 @@ fn profile_path(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     }
     Ok(data.join("hp-prime-emulator/ide-session"))
 }
+/// Clears the calculator's memory to its factory state, as a reset does:
+/// the profile (all of its storage) is moved aside to a timestamped backup
+/// folder next to it, which is never deleted, and the next start seeds a
+/// new one. The firmware's own memory-clear key combination is read by
+/// the G1's boot code, which is not emulated, so this is done on the host.
+/// Refused while a session holds the profile.
+pub fn reset_profile(settings: &FirmwareSettings) -> Result<PathBuf, String> {
+    let profile = profile_path(settings)?;
+    if !profile.join("A").exists() {
+        return Err("The calculator has no stored memory to reset".into());
+    }
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(profile.join("session.lock"))
+        .map_err(|e| e.to_string())?;
+    fs2::FileExt::try_lock_exclusive(&lock)
+        .map_err(|_| "The calculator is in use; shut it down first".to_string())?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let name = profile.file_name().unwrap_or_default().to_string_lossy();
+    let backup = profile.with_file_name(format!("{name}.backup-{stamp}"));
+    if backup.exists() {
+        return Err(format!("{} already exists", backup.display()));
+    }
+    drop(lock);
+    std::fs::rename(&profile, &backup).map_err(|e| e.to_string())?;
+    Ok(backup)
+}
+/// Files an interrupted write left in the calculator's storage (a pending
+/// install or an importer temporary). They are reported, never deleted.
+pub fn leftover_files(profile: &Path) -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            if entry.file_type().is_ok_and(|t| t.is_dir()) {
+                if name.ends_with(".pending") {
+                    out.push(path);
+                } else {
+                    walk(&path, out);
+                }
+            } else if name.ends_with(".pending") || name.starts_with(".prime-import-") {
+                out.push(path);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for drive in ["A", "C"] {
+        walk(&profile.join(drive), &mut out);
+    }
+    out
+}
 /// Seeds a new calculator profile; an existing profile is never changed.
 /// Initialized data (drives A: and C: after the firmware's first-run setup)
 /// starts at Home; factory A alone stops at the first-run wizard. `A/` is
@@ -185,6 +336,7 @@ fn copy_tree(source: &Path, target: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+#[allow(clippy::too_many_arguments)]
 fn supervise(
     settings: FirmwareSettings,
     commands: Receiver<Input>,
@@ -192,34 +344,43 @@ fn supervise(
     frames: Arc<Mutex<Option<Frame>>>,
     stop: Arc<AtomicBool>,
     ctx: egui::Context,
-) -> Result<(), String> {
+    child_pid: Arc<AtomicU32>,
+    unavailable: Arc<Mutex<Option<String>>>,
+) -> Result<(), SessionError> {
+    let unavailable_err = SessionError::Unavailable;
     let runner = ppl_engine::firmware::discover_runner(
         configured(&settings.runner, "PPL_FIRMWARE_RUNNER").as_deref(),
-    )?;
-    let firmware=configured(&settings.firmware,"PPL_FIRMWARE").ok_or("Choose the G1 armfir.elf and factory A directory in Settings, or configure PPL_FIRMWARE and PPL_FACTORY_A")?;
-    let factory = configured(&settings.factory_a, "PPL_FACTORY_A")
-        .ok_or("Choose the factory A directory in Settings, or set PPL_FACTORY_A")?;
+    )
+    .map_err(unavailable_err)?;
+    let firmware = configured(&settings.firmware, "PPL_FIRMWARE").ok_or_else(|| {
+        unavailable_err("Choose the G1 armfir.elf and factory A directory in Settings, or configure PPL_FIRMWARE and PPL_FACTORY_A".into())
+    })?;
+    let factory = configured(&settings.factory_a, "PPL_FACTORY_A").ok_or_else(|| {
+        unavailable_err("Choose the factory A directory in Settings, or set PPL_FACTORY_A".into())
+    })?;
     if !firmware.is_file() || !factory.join("programs/misc/armfir.dat").is_file() {
-        return Err("The firmware ELF or factory resources are missing".into());
+        return Err(unavailable_err(
+            "The firmware ELF or factory resources are missing".into(),
+        ));
     }
     let explicit_profile = !settings.profile.trim().is_empty()
         || std::env::var_os("PPL_FIRMWARE_PROFILE").is_some()
         || std::env::var_os("PPL_PROFILE").is_some();
-    let base_profile = profile_path(&settings)?;
+    let base_profile = profile_path(&settings).map_err(unavailable_err)?;
 
     let (profile, lock) = if explicit_profile {
-        std::fs::create_dir_all(&base_profile).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&base_profile).map_err(|e| unavailable_err(e.to_string()))?;
         let file = std::fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .write(true)
             .open(base_profile.join("session.lock"))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| unavailable_err(e.to_string()))?;
         fs2::FileExt::try_lock_exclusive(&file).map_err(|_| {
-            format!(
+            unavailable_err(format!(
                 "Calculator profile at '{}' is locked by another running session",
                 base_profile.display()
-            )
+            ))
         })?;
         (base_profile, file)
     } else {
@@ -247,14 +408,29 @@ fn supervise(
                 }
             }
         }
-        chosen.ok_or_else(|| "All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string())?
+        chosen.ok_or_else(|| unavailable_err("All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string()))?
     };
 
     seed_profile(
         &profile,
         &factory,
         configured("", "PPL_FIRMWARE_INIT_DATA").as_deref(),
-    )?;
+    )
+    .map_err(unavailable_err)?;
+    let leftovers = leftover_files(&profile);
+    if !leftovers.is_empty() {
+        let _ = events.send(Event::Status {
+            message: format!(
+                "Calculator storage: {} unfinished file(s) from an interrupted write, kept as they are: {}",
+                leftovers.len(),
+                leftovers
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        });
+    }
     if stop.load(Ordering::Acquire) {
         return Ok(());
     }
@@ -278,7 +454,10 @@ fn supervise(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
-    let mut child = command.spawn().map_err(|e| e.to_string())?;
+    let mut child = command
+        .spawn()
+        .map_err(|e| unavailable_err(e.to_string()))?;
+    child_pid.store(child.id(), Ordering::Release);
     let mut stdin = child.stdin.take().unwrap();
     let mut stdout = child.stdout.take().unwrap();
     let reader_stop = stop.clone();
@@ -301,9 +480,13 @@ fn supervise(
                     }
                 }
                 Ok(Packet::Event(Event::Hello { version })) if version != session::VERSION => {
-                    let _ = events.send(Event::Error {
-                        message: "Incompatible local firmware helper; rebuild the workspace".into(),
-                    });
+                    let message = format!(
+                        "Incompatible local firmware helper (protocol {version}, IDE {}); \
+                         rebuild or reinstall prime-emulator",
+                        session::VERSION
+                    );
+                    *unavailable.lock().unwrap() = Some(message.clone());
+                    let _ = events.send(Event::Error { message });
                     reader_stop.store(true, Ordering::Release);
                 }
                 Ok(Packet::Event(event)) => {
@@ -336,23 +519,42 @@ fn supervise(
             Err(mpsc::RecvTimeoutError::Timeout) => {}
         }
         if child.try_wait().map_err(|e| e.to_string())?.is_some() {
+            if failure.is_none() && !stop.load(Ordering::Acquire) {
+                failure = Some("The local firmware helper exited unexpectedly".into());
+            }
             break;
         }
     }
-    let _ = session::write_command(&mut stdin, &Input::Shutdown);
-    drop(stdin);
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while child.try_wait().ok().flatten().is_none() && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(10));
+    // The firmware's own OFF saves its state, then the helper exits. Only
+    // a helper that does not (stuck, or already failing) is ended hard.
+    let exited = |child: &mut std::process::Child, limit: Duration| {
+        let deadline = Instant::now() + limit;
+        while child.try_wait().ok().flatten().is_none() {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        true
+    };
+    let powered_down = failure.is_none()
+        && session::write_command(&mut stdin, &Input::PowerDown).is_ok()
+        && exited(&mut child, SHUTDOWN_LIMIT - Duration::from_secs(5));
+    if !powered_down {
+        let _ = session::write_command(&mut stdin, &Input::Shutdown);
+        exited(&mut child, Duration::from_secs(2));
     }
+    drop(stdin);
+    // The helper's whole process group: it may have started children.
+    ppl_engine::firmware::kill_process_group(child.id());
     let _ = child.kill();
     let _ = child.wait();
+    child_pid.store(0, Ordering::Release);
     let _ = reader.join();
     drop(lock);
-    if let Some(e) = failure {
-        Err(e)
-    } else {
-        Ok(())
+    match failure {
+        Some(e) => Err(SessionError::Failed(e)),
+        None => Ok(()),
     }
 }
 
@@ -401,6 +603,60 @@ mod tests {
         seed_profile(&fresh, &factory, Some(&data)).unwrap();
         assert!(fresh.join("C/DATA/MYAPP.hpprgm").is_file());
         assert!(!fresh.join("A.pending").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_memory_reset_keeps_the_old_memory_and_respects_a_running_session() {
+        let root = std::env::temp_dir().join(format!("ide-test-reset-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let profile = root.join("calc");
+        std::fs::create_dir_all(profile.join("C/DATA")).unwrap();
+        std::fs::create_dir_all(profile.join("A")).unwrap();
+        std::fs::write(profile.join("C/DATA/MINE.hpprgm"), "user program").unwrap();
+        let settings = FirmwareSettings {
+            profile: profile.display().to_string(),
+            ..Default::default()
+        };
+        // A running session holds the lock: nothing moves.
+        let held = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(profile.join("session.lock"))
+            .unwrap();
+        fs2::FileExt::try_lock_exclusive(&held).unwrap();
+        assert!(reset_profile(&settings).is_err());
+        assert!(profile.join("C/DATA/MINE.hpprgm").is_file());
+        drop(held);
+        let backup = reset_profile(&settings).unwrap();
+        assert!(!profile.exists(), "the next start seeds a fresh profile");
+        assert_eq!(
+            std::fs::read_to_string(backup.join("C/DATA/MINE.hpprgm")).unwrap(),
+            "user program"
+        );
+        assert!(reset_profile(&settings).is_err(), "nothing left to reset");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn interrupted_writes_are_found_and_ordinary_files_are_not() {
+        let root = std::env::temp_dir().join(format!("ide-test-leftover-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let data = root.join("C/DATA");
+        std::fs::create_dir_all(data.join("&Function.hpappdir")).unwrap();
+        std::fs::create_dir_all(root.join("A")).unwrap();
+        for f in [
+            "A.hpprgm",
+            ".prime-import-1",
+            "&Function.hpappdir/ZZT_IDE_SOURCE.pending",
+        ] {
+            std::fs::write(data.join(f), "x").unwrap();
+        }
+        let mut found = leftover_files(&root);
+        found.sort();
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().all(|p| !p.ends_with("A.hpprgm")));
         let _ = std::fs::remove_dir_all(&root);
     }
 

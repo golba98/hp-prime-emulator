@@ -1,0 +1,4 @@
+EXPORT M14FACT()
+BEGIN
+ RETURN STRING(CAS("factor(x^2-1)"));
+END;

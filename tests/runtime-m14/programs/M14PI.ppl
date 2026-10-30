@@ -1,0 +1,4 @@
+EXPORT M14PI()
+BEGIN
+ RETURN STRING(CAS("3*pi-pi"));
+END;

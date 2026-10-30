@@ -1,0 +1,12 @@
+id = "cas-limit"
+category = "cas"
+description = 'M14: STRING(CAS("limit(sin(x)/x,x,0)")) through the firmware runtime'
+program = "../programs/M14LIM.ppl"
+source_sha256 = "d2a6ecb5b102e2cb3c32972283eb93f0a853fe28e9eff5f87452d092c50423df"
+entry = "M14LIM"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "1"

@@ -1,0 +1,347 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/resize/dump.json",
+ "steps": [
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "TOUCHECHO"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT TOUCHECHO()\nBEGIN\n  LOCAL e;\n  RECT_P(0,0,319,239,RGB(255,255,0));\n  TEXTOUT_P(\"Tap the screen\",90,110,2,RGB(0,0,0));\n  e:=WAIT(-1);\n  RETURN {B\u2192R(e(1)),B\u2192R(e(2)),B\u2192R(e(3))};\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "resize",
+   "width": 800,
+   "height": 600
+  },
+  {
+   "step": "layout",
+   "mode": "split"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "full"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_0_800x600.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_0_1_1_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 1,
+   "y": 1
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_0_1_1"
+  },
+  {
+   "step": "resize",
+   "width": 1280,
+   "height": 900
+  },
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "full"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_1_1280x900.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_1_318_238_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 318,
+   "y": 238
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_1_318_238"
+  },
+  {
+   "step": "resize",
+   "width": 1920,
+   "height": 1080
+  },
+  {
+   "step": "layout",
+   "mode": "split"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "screen"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_2_1920x1080.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_2_160_120_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 160,
+   "y": 120
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_2_160_120"
+  },
+  {
+   "step": "resize",
+   "width": 3840,
+   "height": 2160
+  },
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "screen"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_3_3840x2160.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_3_37_201_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 37,
+   "y": 201
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_3_37_201"
+  },
+  {
+   "step": "resize",
+   "width": 1000,
+   "height": 700
+  },
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "full"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_4_1000x700.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_4_250_30_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 250,
+   "y": 30
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_4_250_30"
+  },
+  {
+   "step": "resize",
+   "width": 2560,
+   "height": 1440
+  },
+  {
+   "step": "layout",
+   "mode": "split"
+  },
+  {
+   "step": "calculator_mode",
+   "mode": "full"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 800
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/resize/window_5_2560x1440.png"
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_running",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 1200
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_5_300_10_before"
+  },
+  {
+   "step": "click_lcd",
+   "x": 300,
+   "y": 10
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 60000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "snapshot",
+   "label": "tap_5_300_10"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

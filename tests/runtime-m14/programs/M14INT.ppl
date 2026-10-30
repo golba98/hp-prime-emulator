@@ -1,0 +1,4 @@
+EXPORT M14INT()
+BEGIN
+ RETURN STRING(CAS("int(2*x,x)"));
+END;

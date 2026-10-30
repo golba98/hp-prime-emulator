@@ -20,6 +20,8 @@ pub struct DialogHost {
     pub confirm_close_all: bool,
     /// Set when the user confirmed closing ALL programs (app quit).
     pub close_all_confirmed: bool,
+    /// Confirm resetting the G1 Firmware calculator's memory.
+    pub show_confirm_reset: bool,
 
     // Dialog inputs
     pub new_prog_name: String,
@@ -46,12 +48,14 @@ impl DialogHost {
             || self.show_new_program
             || self.show_go_to_line
             || self.show_confirm_close
+            || self.show_confirm_reset
             || self.show_run_config
     }
 
     /// Cancels one IDE window; it never forwards Escape to the calculator.
     pub fn cancel_top(&mut self) -> bool {
         for open in [
+            &mut self.show_confirm_reset,
             &mut self.show_confirm_close,
             &mut self.show_run_config,
             &mut self.show_go_to_line,
@@ -370,6 +374,40 @@ impl DialogHost {
                 open = false;
             }
             self.show_run_config = open;
+        }
+
+        // Calculator memory reset confirmation.
+        if self.show_confirm_reset {
+            let mut open = true;
+            let mut decided = false;
+            Window::new("Reset Calculator Memory")
+                .collapsible(false)
+                .resizable(false)
+                .open(&mut open)
+                .show(ctx, |ui| {
+                    ui.label(
+                        "This returns the G1 Firmware calculator to its factory memory: \
+                         variables, history, settings, programs and app data.",
+                    );
+                    ui.label(
+                        RichText::new(
+                            "The current memory is kept in a backup folder next to it; \
+                             nothing is deleted.",
+                        )
+                        .color(TEXT_MUTED),
+                    );
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("Reset Memory").clicked() {
+                            state.queue_action(IdeAction::FirmwareResetConfirmed);
+                            decided = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            decided = true;
+                        }
+                    });
+                });
+            self.show_confirm_reset = open && !decided;
         }
 
         // Unsaved-changes close confirmation.

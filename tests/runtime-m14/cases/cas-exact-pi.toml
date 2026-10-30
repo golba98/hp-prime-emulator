@@ -1,0 +1,13 @@
+id = "cas-exact-pi"
+category = "cas"
+description = 'M14: STRING(CAS("3*pi-pi")) through the firmware runtime'
+program = "../programs/M14PI.ppl"
+source_sha256 = "ba81b3082d7a5cb199cd13f65b27942229beb3d48e1bfdd3f72b3b57a1fb8052"
+entry = "M14PI"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+expected_failure = "PPL CAS() returns 3*π-π unsimplified; the CAS view returns 2*π. M15 compares with the G1"
+
+[expect]
+outcome = "completed"
+return_display = "2*π"

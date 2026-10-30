@@ -18,6 +18,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Kills a helper started in its own process group (`process_group(0)`),
+/// with every process it started. Used when a helper missed its shutdown.
+pub fn kill_process_group(pid: u32) {
+    if pid != 0 {
+        let _ = killpg(Pid::from_raw(pid as i32), Signal::SIGKILL);
+    }
+}
 fn executable(p: &Path) -> bool {
     p.is_file()
         && p.metadata()
