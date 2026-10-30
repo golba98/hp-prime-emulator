@@ -1,0 +1,4 @@
+EXPORT M14DIFF()
+BEGIN
+ RETURN STRING(CAS("diff(sin(x),x)"));
+END;

@@ -1,0 +1,4 @@
+EXPORT M14SIMP()
+BEGIN
+ RETURN STRING(CAS("simplify((x^2-1)/(x-1))"));
+END;

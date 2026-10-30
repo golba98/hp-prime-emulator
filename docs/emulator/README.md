@@ -5,7 +5,8 @@ exposes genuine firmware compilation and execution alongside the independent
 native Rust engine. Firmware assets are supplied locally and are not distributed.
 
 Start with the [unified CLI report](M8_UNIFIED_CLI_REPORT.md). Firmware execution
-currently requires Linux. The native IDE continues to use the native engine.
+currently requires Linux. The desktop IDE offers both engines: Native PPL, and
+G1 Firmware, a live original-firmware calculator ([M12](M12_FULL_CALCULATOR_REPORT.md)).
 
 ## Implementation milestones
 
@@ -16,6 +17,10 @@ currently requires Linux. The native IDE continues to use the native engine.
 | [M6](M6_FIRMWARE_COMPILER_REPORT.md) | Original PPL compiler and diagnostics |
 | [M7](M7_FIRMWARE_RUNTIME_REPORT.md) | Runtime, arguments, output, graphics and errors |
 | [M8](M8_UNIFIED_CLI_REPORT.md) | Unified CLI, source identity and managed execution |
+| [M12](M12_FULL_CALCULATOR_REPORT.md) | G1 Firmware calculator mode in the IDE: session lifecycle, import, input, evidence suite |
+| [M15](M15_PARITY_REPORT.md) | Physical-G1 parity: version-matched 15157 firmware, three-way runner, 77 recorded device results (0 mismatches on the matched build), pending device batch |
+| [M14](M14_FUNCTIONALITY_REPORT.md) | The firmware's CAS, graphing, all 18 apps and app computations through the UI; maths data types through the runtime |
+| [M13](M13_STORAGE_POWER_REPORT.md) | Storage and power: the firmware's own OFF/sleep/wake, shut down, persistence across restarts, memory reset, memory figures |
 
 Reports record evidence and limitations at each milestone. Earlier blockers and
 plans below are historical; consult later reports for their resolution. Raw guest

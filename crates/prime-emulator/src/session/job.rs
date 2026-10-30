@@ -29,11 +29,65 @@ const DEFERRED_LIMIT: Duration = Duration::from_secs(10);
 /// Idle share over [`INTERRUPT_SETTLE`]: the firmware's own timers (every
 /// 183 ms) wake the UI pump, so idleness is never continuous.
 const INTERRUPT_IDLE_SHARE: f64 = 0.8;
-pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Reserved source loader. It reads the attachment in chunks: one byte list
+/// of a whole larger program (FIREWORKS_G1, 10 KB: about 21 000 bytes of
+/// UTF-16) fails in the firmware with "Error: Insufficient memory". Each
+/// chunk becomes text with one `CHAR(list)`: appending character by
+/// character took over 20 s for that program.
+pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL n:=Function.AFilesB(\"ZZT_IDE_SOURCE\");\n LOCAL s:=\"\";\n LOCAL o,b,c,i;\n FOR o FROM 0 TO n-1 STEP 4096 DO\n  b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",o,MIN(4096,n-o));\n  c:={};\n  FOR i FROM 1 TO SIZE(b)/2 DO\n   c(i):=b(2*i-1)+256*b(2*i);\n  END;\n  s:=s+CHAR(c);\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// The first loader (M10), which IDE profiles may still hold; the session
+/// replaces exactly this text with [`LOADER`] before boot.
+pub const LOADER_V1: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Reserved importer: stores ZZT_IDE's source as a new program whose name
+/// the host passes in an app attachment (`Programs(name):=`).
+pub const IMPORTER: &str = "EXPORT ZZTIDEIMPORT()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_NAME\",0,Function.AFilesB(\"ZZT_IDE_NAME\"));\n LOCAL n:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  n:=n+CHAR(b(i)+256*b(i+1));\n END;\n Programs(n):=Programs(\"ZZT_IDE\");\n RETURN SIZE(n);\nEND;\n";
+/// Share of idle samples over a sliding [`INTERRUPT_SETTLE`] window: the
+/// firmware UI is idle when its pump is parked in GetEvent with no input
+/// queued and the main thread waiting.
+#[derive(Default)]
+pub struct IdleMeter {
+    samples: std::collections::VecDeque<(Instant, bool)>,
+}
+impl IdleMeter {
+    pub fn idle_now(shared: &SharedState) -> bool {
+        shared.getevent_parked()
+            && shared.main_waiting()
+            && shared.input_events_pending() == 0
+            && shared.touch_pending() == 0
+    }
+    /// Records a sample. True when the UI is idle now and for
+    /// [`INTERRUPT_IDLE_SHARE`] of a window covering [`INTERRUPT_SETTLE`].
+    pub fn settled(&mut self, shared: &SharedState) -> bool {
+        let now = Instant::now();
+        let idle = Self::idle_now(shared);
+        self.samples.push_back((now, idle));
+        while self
+            .samples
+            .front()
+            .is_some_and(|(t, _)| now.duration_since(*t) > INTERRUPT_SETTLE)
+        {
+            self.samples.pop_front();
+        }
+        let covered = self
+            .samples
+            .front()
+            .is_some_and(|(t, _)| now.duration_since(*t) >= INTERRUPT_SETTLE.mul_f64(0.8));
+        let share = self.samples.iter().filter(|(_, i)| *i).count() as f64
+            / self.samples.len().max(1) as f64;
+        idle && covered && share >= INTERRUPT_IDLE_SHARE
+    }
+    pub fn clear(&mut self) {
+        self.samples.clear();
+    }
+}
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
     CheckLoader,
     Load,
+    /// Check the reserved importer once, to learn its program context.
+    CheckImporter,
+    /// The importer stores the loaded source under the requested name.
+    Import,
     CheckTarget,
     Invoke,
     Execute,
@@ -43,6 +97,8 @@ enum Stage {
 pub struct Job {
     pub request: u64,
     source: String,
+    /// The new program name of an Import request.
+    import: Option<String>,
     entry: Option<String>,
     arguments: String,
     run: bool,
@@ -71,13 +127,15 @@ pub struct Request {
     pub entry: Option<String>,
     pub arguments: String,
     pub run: bool,
+    /// Store the source as this new program instead of checking it.
+    pub import: Option<String>,
 }
 pub struct Jobs {
     pub active: Option<Job>,
     /// A running program was interrupted (Stop / ON) at this time; its
     /// invocation is closed once the firmware is back at an idle UI.
     interrupted: Option<Instant>,
-    idle_samples: std::collections::VecDeque<(Instant, bool)>,
+    idle: IdleMeter,
     /// ON presses sent for the current interruption, and the latest one.
     break_presses: (u32, Option<Instant>),
     /// When the held ON key went down; released after [`BREAK_HOLD`].
@@ -86,10 +144,17 @@ pub struct Jobs {
     /// stopping; it starts once the firmware is back at an idle UI.
     deferred: Option<(Request, Instant)>,
     loader_context: Option<u32>,
+    importer_context: Option<u32>,
     catalog: Vec<String>,
     /// The catalog order last read from the guest's program reads.
     observed: Vec<String>,
     seen_fs: usize,
+    /// File-service events already examined for catalog reads made while no
+    /// job ran (the user browsing the Program Catalog), the reads of the
+    /// current burst, and when the last one was.
+    user_seen: usize,
+    user_burst: Vec<String>,
+    user_last: Option<Instant>,
     /// ZZT_IDE's program context, learned from the firmware's own compile in
     /// `Programs("ZZT_IDE"):=source` during a loader run.
     direct_ctx: Option<u32>,
@@ -99,19 +164,27 @@ impl Jobs {
         Self {
             active: None,
             interrupted: None,
-            idle_samples: std::collections::VecDeque::new(),
+            idle: IdleMeter::default(),
             break_presses: (0, None),
             on_held: None,
             deferred: None,
             loader_context: None,
+            importer_context: None,
             catalog: Vec::new(),
             observed: Vec::new(),
             seen_fs: 0,
+            user_seen: 0,
+            user_burst: Vec::new(),
+            user_last: None,
             direct_ctx: None,
         }
     }
     pub fn accepts_input(&self) -> bool {
         self.active.as_ref().is_none_or(|j| j.reported_running)
+    }
+    /// A Stop is still breaking a running program.
+    pub fn interrupting(&self) -> bool {
+        self.interrupted.is_some()
     }
     fn refresh_catalog(&mut self, shared: &SharedState, trace: &TraceHub) {
         let all = import::list_programs(&shared.data_dir);
@@ -151,6 +224,42 @@ impl Jobs {
         }
         self.seen_fs = events.len();
     }
+    /// Learns the catalog order from catalog listings the user opened while
+    /// no job ran: the firmware reads every program the first time it shows
+    /// its catalog and later only changed ones, so a job opening a catalog
+    /// the user already saw reads nothing new.
+    fn observe_user_catalog(&mut self, shared: &SharedState, trace: &TraceHub) {
+        let (events, _) = trace.fs_log();
+        if self.active.is_some() {
+            self.user_seen = events.len();
+            self.user_burst.clear();
+            return;
+        }
+        for event in events.iter().skip(self.user_seen) {
+            if let Some(name) = catalog_read(event)
+                && !self
+                    .user_burst
+                    .iter()
+                    .any(|n| n.eq_ignore_ascii_case(&name))
+            {
+                self.user_burst.push(name);
+                self.user_last = Some(Instant::now());
+            }
+        }
+        self.user_seen = events.len();
+        if self
+            .user_last
+            .is_some_and(|t| t.elapsed() >= USER_CATALOG_QUIET)
+        {
+            let read = std::mem::take(&mut self.user_burst);
+            self.user_last = None;
+            let expected = import::list_programs(&shared.data_dir);
+            if let Ok(order) = catalog_order(&self.observed, read, &expected) {
+                self.observed = order.clone();
+                self.catalog = order;
+            }
+        }
+    }
     pub fn start(
         &mut self,
         request: Request,
@@ -171,6 +280,7 @@ impl Jobs {
             entry,
             arguments,
             run,
+            import,
         } = request;
         if trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
             return Err("The previous firmware program is still stopping".into());
@@ -179,6 +289,17 @@ impl Jobs {
             return Err("The firmware is busy; stop the current operation first".into());
         }
         hpprgm::build_program(&source).map_err(|e| e.to_string())?;
+        if let Some(name) = &import {
+            validate_import(&shared.data_dir, name)?;
+            let importer = read_program(&shared.data_dir, "ZZT_IMPORT")?;
+            if importer.source().map_err(|e| e.to_string())?.source != IMPORTER {
+                return Err(
+                    "The reserved ZZT_IMPORT program was modified; use a new IDE calculator profile"
+                        .into(),
+                );
+            }
+            write_attachment(&shared.data_dir, "ZZT_IDE_NAME", name)?;
+        }
         let loader = read_program(&shared.data_dir, "ZZT_LOADER")?;
         if loader.source().map_err(|e| e.to_string())?.source != LOADER {
             return Err(
@@ -186,14 +307,7 @@ impl Jobs {
                     .into(),
             );
         }
-        let attachment = shared
-            .data_dir
-            .join("C/DATA/&Function.hpappdir/ZZT_IDE_SOURCE");
-        std::fs::create_dir_all(attachment.parent().unwrap()).map_err(|e| e.to_string())?;
-        let bytes: Vec<u8> = source.encode_utf16().flat_map(u16::to_le_bytes).collect();
-        std::fs::write(attachment.with_extension("pending"), bytes).map_err(|e| e.to_string())?;
-        std::fs::rename(attachment.with_extension("pending"), attachment)
-            .map_err(|e| e.to_string())?;
+        write_attachment(&shared.data_dir, "ZZT_IDE_SOURCE", &source)?;
         self.refresh_catalog(shared, trace);
         let stage = if self.loader_context.is_some() {
             Stage::Load
@@ -203,6 +317,7 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            import,
             entry,
             arguments,
             run,
@@ -252,28 +367,24 @@ impl Jobs {
                     .into(),
             );
         }
-        let mut names = Vec::new();
-        for event in events.iter().skip(job.catalog_start) {
-            if event["op"] == "wfopen" && event["mode"] == "rb+" {
-                if let Some(name) = event["path"]
-                    .as_str()
-                    .and_then(|p| p.rsplit('\\').next())
-                    .and_then(|p| p.strip_suffix(".hpprgm"))
-                {
-                    if !names.iter().any(|n: &String| n.eq_ignore_ascii_case(name)) {
-                        names.push(name.to_string());
-                    }
-                }
+        let mut names: Vec<String> = Vec::new();
+        for name in events
+            .iter()
+            .skip(job.catalog_start)
+            .filter_map(catalog_read)
+        {
+            if !names.iter().any(|n| n.eq_ignore_ascii_case(&name)) {
+                names.push(name);
             }
         }
         let expected = import::list_programs(&shared.data_dir);
         let names = catalog_order(&self.observed, names, &expected)?;
         self.observed = names.clone();
         self.catalog = names;
-        let name = if job.stage == Stage::CheckLoader {
-            "ZZT_LOADER"
-        } else {
-            "ZZT_IDE"
+        let name = match job.stage {
+            Stage::CheckLoader => "ZZT_LOADER",
+            Stage::CheckImporter => "ZZT_IMPORT",
+            _ => "ZZT_IDE",
         };
         let row = self
             .catalog
@@ -320,6 +431,7 @@ impl Jobs {
                     entry: None,
                     arguments: String::new(),
                     run: false,
+                    import: None,
                 },
                 shared,
                 trace,
@@ -334,6 +446,7 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            import: None,
             entry: None,
             arguments: String::new(),
             run: false,
@@ -358,22 +471,21 @@ impl Jobs {
     }
     fn load_script(&self, job: &mut Job, trace: &TraceHub) -> Result<(), String> {
         // The loader's `Programs():=` compile identifies ZZT_IDE's context.
-        trace.compiler.as_ref().unwrap().reset();
-        let observer = trace.runtime.as_ref().unwrap();
-        observer.reset();
-        observer.compiled();
-        observer.arm(
-            self.loader_context.ok_or("Loader has not been compiled")?,
-            &crate::sha256::hex(LOADER.as_bytes()),
-            &ExecutionRequest {
-                entry: "ZZTIDELOAD".into(),
-                arguments: vec![],
-            },
-            trace.elapsed_secs() * 1000.0,
-        )?;
-        observer.cache_flags(1);
-        job.script = Some(script(runtime_value::invocation_keys("ZZTIDELOAD", &[])?));
-        Ok(())
+        let context = self.loader_context.ok_or("Loader has not been compiled")?;
+        invoke_reserved(job, trace, context, LOADER, "ZZTIDELOAD")
+    }
+    /// Starts the importer, or its one-time Check, after the source loaded.
+    fn import_script(&self, job: &mut Job, trace: &TraceHub) -> Result<(), String> {
+        match self.importer_context {
+            Some(context) => {
+                job.stage = Stage::Import;
+                invoke_reserved(job, trace, context, IMPORTER, "ZZTIDEIMPORT")
+            }
+            None => {
+                job.stage = Stage::CheckImporter;
+                self.check_script(job, "ZZT_IMPORT", trace)
+            }
+        }
     }
     /// Records that Stop interrupted a running program (the caller sends ON).
     /// Returns whether a running program was interrupted; ON is then held
@@ -383,7 +495,7 @@ impl Jobs {
             return false;
         }
         self.interrupted = Some(Instant::now());
-        self.idle_samples.clear();
+        self.idle.clear();
         self.break_presses = (0, None);
         self.press_on(shared);
         true
@@ -418,11 +530,6 @@ impl Jobs {
             self.interrupted = None;
             return;
         }
-        let idle = shared.getevent_parked()
-            && shared.main_waiting()
-            && shared.input_events_pending() == 0
-            && shared.touch_pending() == 0;
-        let now = Instant::now();
         // The firmware takes ON as a key event; one press can arrive while
         // the program is between checks and be missed. While the main thread
         // stays busy, press ON again, as a user would on the calculator.
@@ -433,20 +540,10 @@ impl Jobs {
         {
             self.press_on(shared);
         }
-        self.idle_samples.push_back((now, idle));
-        while self
-            .idle_samples
-            .front()
-            .is_some_and(|(t, _)| now.duration_since(*t) > INTERRUPT_SETTLE)
-        {
-            self.idle_samples.pop_front();
-        }
-        let share = self.idle_samples.iter().filter(|(_, i)| *i).count() as f64
-            / self.idle_samples.len().max(1) as f64;
-        if idle && share >= INTERRUPT_IDLE_SHARE && at.elapsed() >= INTERRUPT_SETTLE {
+        if self.idle.settled(shared) && at.elapsed() >= INTERRUPT_SETTLE {
             observer.finish_invocation(ExecutionStatus::Cancelled);
             self.interrupted = None;
-            self.idle_samples.clear();
+            self.idle.clear();
         }
     }
     /// Starts a deferred request once the interrupted program has ended.
@@ -507,6 +604,7 @@ impl Jobs {
     ) -> Vec<Event> {
         self.release_on(shared);
         self.settle_interrupt(shared, trace);
+        self.observe_user_catalog(shared, trace);
         if self.active.is_none()
             && let Some(events) = self.start_deferred(shared, trace)
         {
@@ -574,12 +672,16 @@ impl Jobs {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
                 Tick::Continue => return Ok(None),
-                // A program that keeps drawing never lets the invocation's
-                // ENTER settle; once the guest entered the function, its
-                // outcome comes from the runtime observer, not the script.
+                // A program that keeps drawing, or a helper that runs long
+                // (the loader with a large source), never lets the
+                // invocation's ENTER settle; once the guest entered the
+                // function, its outcome comes from the runtime observer, not
+                // the script.
                 Tick::Failed(e)
-                    if matches!(job.stage, Stage::Invoke | Stage::Execute)
-                        && trace.runtime.as_ref().unwrap().progress().0 =>
+                    if matches!(
+                        job.stage,
+                        Stage::Invoke | Stage::Execute | Stage::Load | Stage::Import
+                    ) && trace.runtime.as_ref().unwrap().progress().0 =>
                 {
                     job.timeline.push(serde_json::json!({
                         "stage": stage_name(job.stage, job.catalog_open),
@@ -587,6 +689,15 @@ impl Jobs {
                         "unsettled": e,
                     }));
                     job.script = None;
+                }
+                // The screen never settles while the calculator itself runs a
+                // program (one started on it, e.g. ENTER repeating the last
+                // Home entry): say so instead of only reporting the timeout.
+                Tick::Failed(e) if !shared.main_waiting() => {
+                    return Err(format!(
+                        "{e}; the calculator is busy (a program started on the \
+                         calculator may be running: press Stop or ON first)"
+                    ));
                 }
                 Tick::Failed(e) => return Err(e),
                 Tick::Done => {
@@ -653,8 +764,49 @@ impl Jobs {
                     self.direct_ctx = Some(*ctx);
                     return begin_direct(job, *ctx, mem, shared, trace).map(|()| None);
                 }
+                if job.import.is_some() {
+                    self.import_script(job, trace)?;
+                    return Ok(None);
+                }
                 job.stage = Stage::CheckTarget;
                 self.check_script(job, "ZZT_IDE", trace)?;
+            }
+            Stage::CheckImporter => {
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                let c = checkprog::validate(&observations, IMPORTER, job.check_step)?;
+                if c.return_value != Some(1) {
+                    return Err("The genuine firmware rejected the IDE program importer".into());
+                }
+                self.importer_context = c.program_va;
+                self.import_script(job, trace)?;
+            }
+            Stage::Import => {
+                let runtime = trace.runtime.as_ref().unwrap().snapshot();
+                let c = runtime
+                    .invocations
+                    .last()
+                    .ok_or("Importer invocation was not observed")?;
+                if c.ended_ms.is_none() {
+                    return Ok(None);
+                }
+                let status = trace.runtime.as_ref().unwrap().finish_observed();
+                if status != ExecutionStatus::Completed || !c.body_entered {
+                    return Err(format!("Program import failed: {status:?}"));
+                }
+                let name = job.import.clone().unwrap_or_default();
+                let stored = read_program(&shared.data_dir, &name)
+                    .map_err(|e| format!("The firmware did not store program {name}: {e}"))?;
+                if stored.source().map_err(|e| e.to_string())?.source != job.source {
+                    return Err(format!(
+                        "The firmware stored {name} with a different source revision"
+                    ));
+                }
+                self.refresh_catalog(shared, trace);
+                let message = format!(
+                    "G1 firmware stored the current source as program {name} (Program Catalog)"
+                );
+                save_report(shared, trace, job, true, &message);
+                return Ok(Some(message));
             }
             Stage::Direct => {
                 let out = job
@@ -865,6 +1017,10 @@ fn catalog_order(
     }
     let previous_complete =
         previous.len() == expected.len() && expected.iter().all(|e| has(previous, e));
+    // Nothing re-read: nothing changed since the complete order was seen.
+    if read.is_empty() && previous_complete {
+        return Ok(previous.to_vec());
+    }
     if read.is_empty() || !previous_complete || !read.iter().all(|n| has(previous, n)) {
         return Err(format!(
             "The current firmware catalog order could not be verified \
@@ -880,11 +1036,27 @@ fn catalog_order(
     read.extend(unchanged);
     Ok(read)
 }
+/// A user catalog listing has ended when the firmware read no program for this long.
+const USER_CATALOG_QUIET: Duration = Duration::from_millis(500);
+/// The program a catalog listing read (`rb+` open of `C:\DATA\NAME.hpprgm`).
+fn catalog_read(event: &serde_json::Value) -> Option<String> {
+    if event["op"] != "wfopen" || event["mode"] != "rb+" {
+        return None;
+    }
+    event["path"]
+        .as_str()
+        .and_then(|p| p.rsplit('\\').next())
+        .and_then(|p| p.strip_suffix(".hpprgm"))
+        .map(str::to_owned)
+}
 fn stage_name(stage: Stage, catalog: bool) -> &'static str {
     match (stage, catalog) {
         (Stage::CheckLoader, true) => "open-catalog-for-loader",
         (Stage::CheckLoader, false) => "check-loader",
         (Stage::Load, _) => "run-loader",
+        (Stage::CheckImporter, true) => "open-catalog-for-importer",
+        (Stage::CheckImporter, false) => "check-importer",
+        (Stage::Import, _) => "run-importer",
         (Stage::CheckTarget, true) => "open-catalog",
         (Stage::CheckTarget, false) => "check-source",
         (Stage::Invoke, _) => "invoke",
@@ -925,6 +1097,57 @@ fn begin_direct(
     job.direct_started = Some(Instant::now());
     Ok(())
 }
+/// Arms the runtime observer for a reserved helper program and types its
+/// invocation at Home.
+fn invoke_reserved(
+    job: &mut Job,
+    trace: &TraceHub,
+    context: u32,
+    source: &str,
+    entry: &str,
+) -> Result<(), String> {
+    trace.compiler.as_ref().unwrap().reset();
+    let observer = trace.runtime.as_ref().unwrap();
+    observer.reset();
+    observer.compiled();
+    observer.arm(
+        context,
+        &crate::sha256::hex(source.as_bytes()),
+        &ExecutionRequest {
+            entry: entry.into(),
+            arguments: vec![],
+        },
+        trace.elapsed_secs() * 1000.0,
+    )?;
+    observer.cache_flags(1);
+    job.script = Some(script(runtime_value::invocation_keys(entry, &[])?));
+    Ok(())
+}
+/// Installs `text` (UTF-16LE) as a `Function` app attachment for the guest.
+fn write_attachment(data: &Path, name: &str, text: &str) -> Result<(), String> {
+    let attachment = data.join("C/DATA/&Function.hpappdir").join(name);
+    std::fs::create_dir_all(attachment.parent().unwrap()).map_err(|e| e.to_string())?;
+    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    std::fs::write(attachment.with_extension("pending"), bytes).map_err(|e| e.to_string())?;
+    std::fs::rename(attachment.with_extension("pending"), attachment).map_err(|e| e.to_string())
+}
+/// An import creates a new, ordinary program: never a reserved name, never
+/// one the calculator already holds.
+pub fn validate_import(data: &Path, name: &str) -> Result<(), String> {
+    import::validate_name(name).map_err(|e| e.to_string())?;
+    if name.to_ascii_uppercase().starts_with("ZZT_") {
+        return Err("ZZT_ names are reserved for the IDE's helper programs".into());
+    }
+    if import::list_programs(data)
+        .iter()
+        .any(|n| n.eq_ignore_ascii_case(name))
+    {
+        return Err(format!(
+            "The calculator already has a program named {name}; it was not changed"
+        ));
+    }
+    Ok(())
+}
 fn read_program(data: &Path, name: &str) -> Result<hpprgm::Container, String> {
     read_program_path(&data.join(format!("C/DATA/{name}.hpprgm")))
 }
@@ -950,7 +1173,18 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 }
 #[cfg(test)]
 mod tests {
-    use super::catalog_order;
+    use super::{catalog_order, validate_import};
+    #[test]
+    fn imports_never_reuse_existing_or_reserved_names() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("C/DATA");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("MYAPP.hpprgm"), b"x").unwrap();
+        assert!(validate_import(root.path(), "M12HELLO").is_ok());
+        for refused in ["MYAPP", "myapp", "ZZT_IDE", "zzt_x", "", "1ABC", "A B"] {
+            assert!(validate_import(root.path(), refused).is_err(), "{refused}");
+        }
+    }
     fn v(names: &[&str]) -> Vec<String> {
         names.iter().map(|n| n.to_string()).collect()
     }
@@ -969,10 +1203,19 @@ mod tests {
         );
     }
     #[test]
+    fn nothing_re_read_keeps_a_complete_earlier_order() {
+        // The user already listed the catalog; nothing changed since.
+        let expected = v(&["ZZT_IDE", "ZZT_LOADER"]);
+        let previous = v(&["ZZT_LOADER", "ZZT_IDE"]);
+        assert_eq!(catalog_order(&previous, vec![], &expected), Ok(previous));
+    }
+    #[test]
     fn an_unverifiable_order_is_refused() {
         let expected = v(&["ZZT_IDE", "ZZT_LOADER"]);
-        // Nothing read, no complete earlier order, or an unknown program.
-        assert!(catalog_order(&expected, vec![], &expected).is_err());
+        // Nothing read without a complete earlier order, no complete earlier
+        // order, or an unknown program.
+        assert!(catalog_order(&[], vec![], &expected).is_err());
+        assert!(catalog_order(&v(&["ZZT_IDE"]), vec![], &expected).is_err());
         assert!(catalog_order(&v(&["ZZT_IDE"]), v(&["ZZT_IDE"]), &expected).is_err());
         assert!(catalog_order(&expected, v(&["OTHER"]), &expected).is_err());
     }

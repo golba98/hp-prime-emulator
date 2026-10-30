@@ -1,0 +1,390 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m14_appwork/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "M14WORK"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14WORK()\nBEGIN\n D1:={1,2,3,4};\n STARTAPP(\"Statistics 1Var\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/s1v_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "s1v_num"
+  },
+  {
+   "step": "click_lcd",
+   "x": 293,
+   "y": 229
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/s1v_stats.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "s1v_stats"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14WORK()\nBEGIN\n STARTAPP(\"Solve\");\n E1:=\"X^2=4\";\n CHECK(1);\n X:=1;\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/solve_symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/solve_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_num"
+  },
+  {
+   "step": "click_lcd",
+   "x": 293,
+   "y": 229
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/solve_solved.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_solved"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14WORK()\nBEGIN\n C1:={1,2,3,4};\n C2:={3,5,7,9};\n STARTAPP(\"Statistics 2Var\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/s2v_num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "s2v_num"
+  },
+  {
+   "step": "click_lcd",
+   "x": 293,
+   "y": 229
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/s2v_stats.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "s2v_stats"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14WORK()\nBEGIN\n STARTAPP(\"Spreadsheet\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    38,
+    30
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/sheet_a1.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "sheet_a1"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    48,
+    36,
+    14,
+    42,
+    40,
+    43,
+    30
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/sheet_a2.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "sheet_a2"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14WORK()\nBEGIN\n STARTAPP(\"Linear Solver\");\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/lin_open.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "lin_open"
+  },
+  {
+   "step": "click_lcd",
+   "x": 78,
+   "y": 229
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/lin_2x2.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "lin_2x2"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    42,
+    30,
+    42,
+    30,
+    44,
+    30,
+    42,
+    30,
+    27,
+    42,
+    30,
+    42,
+    30
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1200,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_appwork/lin_solved.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "lin_solved"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    4,
+    4,
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

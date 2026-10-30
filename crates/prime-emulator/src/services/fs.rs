@@ -191,8 +191,27 @@ impl Vfs {
         Some(handle)
     }
 
+    /// Closes a handle. A written file is made durable first: the guest's
+    /// storage is the calculator's flash, which survives power loss.
     pub fn close(&self, handle: u32) -> bool {
-        self.files.lock().unwrap().remove(&handle).is_some()
+        match self.files.lock().unwrap().remove(&handle) {
+            Some(vf) => {
+                if vf.writable {
+                    let _ = vf.file.sync_all();
+                }
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Makes every open written file durable; returns the open stream count.
+    pub fn flush_all(&self) -> usize {
+        let files = self.files.lock().unwrap();
+        for vf in files.values().filter(|vf| vf.writable) {
+            let _ = vf.file.sync_all();
+        }
+        files.len()
     }
 
     fn with<T>(&self, handle: u32, f: impl FnOnce(&mut VFile) -> Option<T>) -> Option<T> {

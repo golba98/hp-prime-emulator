@@ -1,0 +1,219 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m14_function/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "new_program",
+   "name": "M14FN"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M14FN()\nBEGIN\n F1:=\"X^2\";\n F2:=\"X+1\";\n CHECK(1);\n CHECK(2);\n RETURN 1;\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    1
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1000,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/symb.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "symb"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    6
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1500,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/plot.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "plot"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    8,
+    8,
+    8,
+    8,
+    8
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1000,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/trace_right.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "trace_right"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    50
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1500,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/zoom_in.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "zoom_in"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    45
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    45
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1500,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/zoom_out.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "zoom_out"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    11
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1000,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/num.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "num"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    12,
+    12
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1000,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/num_down.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "num_down"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 250
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 1000,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_function/home.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

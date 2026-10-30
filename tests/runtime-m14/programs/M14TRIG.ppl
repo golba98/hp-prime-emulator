@@ -1,0 +1,4 @@
+EXPORT M14TRIG()
+BEGIN
+ RETURN STRING(CAS("sin(pi/6)"));
+END;

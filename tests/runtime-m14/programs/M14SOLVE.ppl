@@ -1,0 +1,4 @@
+EXPORT M14SOLVE()
+BEGIN
+ RETURN STRING(CAS("solve(x^2-4=0,x)"));
+END;

@@ -1,0 +1,13 @@
+id = "cas-symbolic"
+category = "cas"
+description = 'M14: STRING(CAS("subst(a*x+b,x=2)")) through the firmware runtime'
+program = "../programs/M14SUBS.ppl"
+source_sha256 = "80d744babd0e8577cece186c334d3de548b6005168438b5d0e62b3a843ea99f3"
+entry = "M14SUBS"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+expected_failure = "PPL CAS() returns a*2+b unsimplified; M15 compares with the G1"
+
+[expect]
+outcome = "completed"
+return_display = "2*a+b"

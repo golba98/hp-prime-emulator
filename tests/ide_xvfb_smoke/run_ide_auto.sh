@@ -30,8 +30,13 @@ T0=$(date +%s)
 TARGET_DIR="$(cargo metadata --format-version 1 --no-deps 2>/dev/null \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null)"
 PPL_BIN="${PPL_BIN:-${TARGET_DIR:-./target}/release/ppl}"
+# Without a window manager nothing focuses the window; the automation only
+# advances while it is focused.
+python3 tests/ide_xvfb_smoke/x11_focus.py "HP Prime PPL Emulator" "$TIMEOUT" &
+FOCUS_PID=$!
 timeout "$TIMEOUT" "$PPL_BIN" gui >/tmp/ppl-ide-e2e/ide_run.log 2>&1
 CODE=$?
+kill "$FOCUS_PID" 2>/dev/null
 T1=$(date +%s)
 kill -TERM "$XVFB_PID" 2>/dev/null
 echo "exit=$CODE elapsed=$((T1-T0))s display=$DISP screen=$SCREEN scale=${WINIT_X11_SCALE_FACTOR:-native}"

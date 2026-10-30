@@ -1,0 +1,12 @@
+id = "matrix-det"
+category = "matrix"
+description = 'M14: DET([[1,2],[3,4]]) through the firmware runtime'
+program = "../programs/M14MDET.ppl"
+source_sha256 = "203151ee04123dbd258f72df5f2653f195e9d9e512b8afd809c70f347dd4a879"
+entry = "M14MDET"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "-2"

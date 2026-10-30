@@ -1,0 +1,12 @@
+id = "prob-normal"
+category = "probability"
+description = 'M14: NORMALD_CDF(0) through the firmware runtime'
+program = "../programs/M14NORM.ppl"
+source_sha256 = "25cd74a817ff1b19adf9888f87d67d9c6b3057ab7969dbe7655b57c9ba978755"
+entry = "M14NORM"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "0.5"

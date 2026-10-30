@@ -1,0 +1,136 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m13_reset/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_reset/home_before_reset.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home_before_reset"
+  },
+  {
+   "step": "firmware_reset"
+  },
+  {
+   "step": "wait_session",
+   "state": "off",
+   "timeout_ms": 5000
+  },
+  {
+   "step": "wait_ms",
+   "ms": 8000
+  },
+  {
+   "step": "snapshot",
+   "label": "reset_done"
+  },
+  {
+   "step": "firmware_start"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_reset/home_after_reset.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "home_after_reset"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 15000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m13_reset/settings_after_reset.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "settings_after_reset"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    5
+   ],
+   "gap_ms": 200
+  },
+  {
+   "step": "new_program",
+   "name": "M13GET0"
+  },
+  {
+   "step": "set_content",
+   "content": "EXPORT M13GET0()\nBEGIN\n RETURN {A,Z,HAngle};\nEND;\n"
+  },
+  {
+   "step": "wait_ms",
+   "ms": 300
+  },
+  {
+   "step": "run"
+  },
+  {
+   "step": "wait_idle",
+   "timeout_ms": 240000
+  },
+  {
+   "step": "snapshot",
+   "label": "get_after_reset"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

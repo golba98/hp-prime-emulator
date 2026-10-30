@@ -1,0 +1,62 @@
+# M15: open questions from M14 and the M15 parity run, answered with the
+# note channel (raw text read back; no screenshot transcription).
+suite = "m15_open_v1"
+description = "M15 open cases: string quoting, 1/3 representation, (1/3)*3, CAS() results in a Home program"
+
+[[group]]
+id = "open"
+description = "All open cases (one program)"
+
+[[case]]
+id = "str_plain"
+group = "open"
+expr = "\"ABC\""
+note = "STRING of a string: quoted or not on the G1 (transcripts dropped quotes)"
+
+[[case]]
+id = "third"
+group = "open"
+expr = "1/3"
+note = "Type and STRING of 1/3 (local 15751 returns an exact-looking 1/3 object)"
+
+[[case]]
+id = "third_times_three"
+group = "open"
+expr = "(1/3)*3"
+note = "0.999999999999 on G1 15157 and local 15157; 1 on local 15751"
+
+[[group]]
+id = "cas_int"
+description = "cas_int alone (CAS() may change CAS state)"
+
+[[case]]
+id = "cas_int"
+group = "cas_int"
+isolate = true
+mutates = ["CAS"]
+expr = "CAS(\"int(2*x,x)\")"
+note = "Local: 2*x^2/2 through CAS() in a Home program; the CAS view gives x^2"
+
+[[group]]
+id = "cas_pi"
+description = "cas_pi alone (CAS() may change CAS state)"
+
+[[case]]
+id = "cas_pi"
+group = "cas_pi"
+isolate = true
+mutates = ["CAS"]
+expr = "CAS(\"3*pi-pi\")"
+note = "Local: 3*π-π unsimplified through CAS()"
+
+[[group]]
+id = "cas_subst"
+description = "cas_subst alone (CAS() may change CAS state)"
+
+[[case]]
+id = "cas_subst"
+group = "cas_subst"
+isolate = true
+mutates = ["CAS"]
+expr = "CAS(\"subst(a*x+b,x=2)\")"
+note = "Local: a*2+b"

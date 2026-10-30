@@ -1,0 +1,4 @@
+EXPORT M14SUBS()
+BEGIN
+ RETURN STRING(CAS("subst(a*x+b,x=2)"));
+END;

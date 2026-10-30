@@ -244,6 +244,23 @@ pub enum UnsupportedPolicy {
 }
 
 /// Host-side state shared by all service handlers and guest threads.
+/// The ON key's device code: it breaks programs and wakes a sleeping G1.
+pub const ON_KEY_CODE: u16 = 0x83;
+
+/// Power state behind `SysPowerOff`. The firmware's own OFF (Shift+ON)
+/// saves its state, flushes its files and calls `SysPowerOff`; the G1 then
+/// sleeps until ON is pressed and the call returns.
+#[derive(Debug, Default)]
+pub struct Power {
+    pub sleeping: bool,
+    /// ON was pressed while sleeping; the sleeping call returns.
+    wake: bool,
+    /// The waking ON press is consumed: its release is not delivered either.
+    swallow_on_up: bool,
+    /// Completed sleeps (evidence for the session).
+    pub sleeps: u64,
+}
+
 pub struct SharedState {
     /// Root directory serving the guest's drive letters (`A:\` etc.).
     pub data_dir: PathBuf,
@@ -256,6 +273,8 @@ pub struct SharedState {
     /// Set by the runner when limits are reached so blocking handlers can
     /// unwind instead of hanging the run loop.
     pub stopping: std::sync::atomic::AtomicBool,
+    /// Sleep/wake (`SysPowerOff`).
+    pub power: Mutex<Power>,
     /// Guest-visible path of the running firmware image (the path the
     /// firmware was loaded from, in guest drive-letter form).
     pub firmware_guest_path: String,
@@ -487,7 +506,55 @@ impl SharedState {
             threads: Mutex::new(HashMap::new()),
             next_thread_id: AtomicU64::new(1),
             stopping: std::sync::atomic::AtomicBool::new(false),
+            power: Mutex::new(Power::default()),
         }
+    }
+
+    /// The firmware entered `SysPowerOff`.
+    pub fn enter_sleep(&self) {
+        let mut p = self.power.lock().unwrap();
+        p.sleeping = true;
+        p.wake = false;
+    }
+    /// ON was pressed since the sleep began; ends the sleep.
+    pub fn take_wake(&self) -> bool {
+        let mut p = self.power.lock().unwrap();
+        if p.wake {
+            p.wake = false;
+            p.sleeping = false;
+            p.sleeps += 1;
+            true
+        } else {
+            false
+        }
+    }
+    /// Ends a sleep without ON (the run is stopping).
+    pub fn leave_sleep(&self) {
+        self.power.lock().unwrap().sleeping = false;
+    }
+    pub fn sleeping(&self) -> bool {
+        self.power.lock().unwrap().sleeping
+    }
+    /// Completed sleeps (each ended by ON).
+    pub fn sleeps(&self) -> u64 {
+        self.power.lock().unwrap().sleeps
+    }
+    /// While asleep only ON acts, and only to wake: the key is not delivered
+    /// to the firmware. Returns whether the transition was consumed.
+    fn power_filter(&self, key_code: u16, down: bool) -> bool {
+        let mut p = self.power.lock().unwrap();
+        if key_code == ON_KEY_CODE && !down && p.swallow_on_up {
+            p.swallow_on_up = false;
+            return true;
+        }
+        if !p.sleeping {
+            return false;
+        }
+        if key_code == ON_KEY_CODE && down {
+            p.wake = true;
+            p.swallow_on_up = true;
+        }
+        true
     }
 
     pub fn alloc_thread_id(&self) -> u32 {
@@ -757,6 +824,9 @@ impl SharedState {
     }
 
     pub fn push_key_transition(&self, key_code: u16, down: bool) {
+        if self.power_filter(key_code, down) {
+            return;
+        }
         self.input_events.lock().unwrap().push_back(InputEvent {
             status: if down {
                 UI_EVENT_TYPE_KEY
@@ -768,6 +838,10 @@ impl SharedState {
     }
 
     pub fn push_key_press(&self, key_code: u16) {
+        if self.power_filter(key_code, true) {
+            self.power_filter(key_code, false);
+            return;
+        }
         let mut q = self.input_events.lock().unwrap();
         q.push_back(InputEvent {
             status: UI_EVENT_TYPE_KEY,
@@ -926,4 +1000,47 @@ pub fn dispatch(
 
 fn reg(uc: &Unicorn<'_, ()>, r: RegisterARM) -> u32 {
     uc.reg_read(r).expect("unicorn register read") as u32
+}
+
+#[cfg(test)]
+mod power_tests {
+    use super::*;
+    fn queued(s: &SharedState) -> Vec<(u32, u16)> {
+        s.pop_input_events(64)
+            .into_iter()
+            .map(|e| (e.status, e.key_code0))
+            .collect()
+    }
+    #[test]
+    fn asleep_only_on_acts_and_only_to_wake() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.push_key_press(0x5A);
+        assert_eq!(queued(&s).len(), 2, "awake: keys reach the firmware");
+        s.enter_sleep();
+        assert!(s.sleeping());
+        s.push_key_transition(0x5A, true);
+        s.push_key_transition(0x5A, false);
+        assert!(queued(&s).is_empty(), "asleep: other keys do nothing");
+        assert!(!s.take_wake());
+        s.push_key_transition(ON_KEY_CODE, true);
+        assert!(s.take_wake());
+        assert!(!s.sleeping());
+        assert_eq!(s.sleeps(), 1);
+        // The waking press is consumed with its release.
+        s.push_key_transition(ON_KEY_CODE, false);
+        assert!(queued(&s).is_empty());
+        // Awake again: ON is an ordinary key (it breaks programs).
+        s.push_key_transition(ON_KEY_CODE, true);
+        assert_eq!(queued(&s), vec![(UI_EVENT_TYPE_KEY, ON_KEY_CODE)]);
+    }
+    #[test]
+    fn a_press_while_asleep_wakes_without_reaching_the_firmware() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.enter_sleep();
+        s.push_key_press(ON_KEY_CODE);
+        assert!(s.take_wake());
+        assert!(queued(&s).is_empty());
+        s.push_key_press(ON_KEY_CODE);
+        assert_eq!(queued(&s).len(), 2);
+    }
 }

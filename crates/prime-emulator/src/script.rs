@@ -146,6 +146,9 @@ struct Pending {
     index: usize,
     before: Frame,
     delivered_before: u32,
+    /// Completed sleeps when the key was queued (ON wakes are not GetEvent
+    /// deliveries).
+    sleeps_before: u64,
     /// Touch samples still to send, and touch deliveries to wait for.
     touch_left: std::collections::VecDeque<crate::services::TouchSample>,
     touch_target: u64,
@@ -521,6 +524,7 @@ impl ScriptDriver {
                         index,
                         before,
                         delivered_before: shared.input_delivered(),
+                        sleeps_before: shared.sleeps(),
                         touch_target: shared.touch_delivered() + touch_left.len() as u64,
                         touch_left,
                         last_touch_push: None,
@@ -551,7 +555,9 @@ impl ScriptDriver {
                 let delivered = if item.code == 0 && item.touch.is_empty() {
                     true // IDLE: nothing to deliver
                 } else if item.touch.is_empty() {
+                    // ON while the G1 sleeps is taken by the power logic.
                     shared.input_delivered() > p.delivered_before
+                        || shared.sleeps() > p.sleeps_before
                 } else {
                     p.touch_left.is_empty() && shared.touch_delivered() >= p.touch_target
                 };
@@ -581,10 +587,13 @@ impl ScriptDriver {
                 } else {
                     Duration::from_millis(self.cfg.settle_ms).max(TOUCH_COMMIT_HOLD)
                 };
+                // A key that put the firmware to sleep (OFF) is done: the
+                // UI does not run again until ON.
                 let settled = p.delivered_at.is_some_and(|d| {
-                    idle_for >= settle
-                        && now.duration_since(d) >= settle
-                        && now.duration_since(self.last_new_state) >= settle
+                    shared.sleeping()
+                        || (idle_for >= settle
+                            && now.duration_since(d) >= settle
+                            && now.duration_since(self.last_new_state) >= settle)
                 });
                 self.report.settlement = Some(self.settlement(shared, now, idle_for, Some(&p)));
                 let delay = self.cfg.keys[p.index].delay();

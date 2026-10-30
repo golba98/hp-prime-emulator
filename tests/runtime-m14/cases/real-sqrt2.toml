@@ -1,0 +1,12 @@
+id = "real-sqrt2"
+category = "real"
+description = 'M14: 2^0.5 through the firmware runtime'
+program = "../programs/M14SQR2.ppl"
+source_sha256 = "390e66f691094646da7c399272ff8c81653d9fb798e779c4319983d177e946b2"
+entry = "M14SQR2"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "1.41421356237"

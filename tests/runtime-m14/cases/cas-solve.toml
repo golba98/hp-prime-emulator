@@ -1,0 +1,12 @@
+id = "cas-solve"
+category = "cas"
+description = 'M14: STRING(CAS("solve(x^2-4=0,x)")) through the firmware runtime'
+program = "../programs/M14SOLVE.ppl"
+source_sha256 = "f38996375832dd5241ab3d477a88030b547d1d65e46c3e2674242185e0cc42ab"
+entry = "M14SOLVE"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "{−2,2}"

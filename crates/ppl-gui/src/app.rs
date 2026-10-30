@@ -42,6 +42,20 @@ use crate::theme;
 pub struct IdeDesktopApp {
     pub state: IdeAppState,
     pub firmware: Option<crate::ide::firmware::FirmwareClient>,
+    /// A switched-off session whose helper may still be exiting; the next
+    /// Start waits for it, since it holds the calculator profile.
+    firmware_retired: Option<crate::ide::firmware::FirmwareClient>,
+    /// The session whose frames the LCD texture shows.
+    display_session: u64,
+    /// The current session's last error, reported if it then closes.
+    firmware_error: Option<String>,
+    /// Import requests awaiting their result.
+    firmware_imports: std::collections::BTreeSet<u64>,
+    /// A memory reset in progress (it waits for the helper to save and exit).
+    firmware_reset: Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf, String>>>,
+    /// The user stopped the running firmware program; its cancelled
+    /// result ends the run, it is not an error.
+    firmware_stop_requested: bool,
     pub firmware_status: String,
     /// A live-session program is between body entry and return.
     pub firmware_program_running: bool,
@@ -151,6 +165,12 @@ impl Default for IdeDesktopApp {
         Self {
             state: IdeAppState::default(),
             firmware: None,
+            firmware_retired: None,
+            display_session: 0,
+            firmware_error: None,
+            firmware_imports: Default::default(),
+            firmware_reset: None,
+            firmware_stop_requested: false,
             firmware_status: "Firmware not started".into(),
             firmware_program_running: false,
             program_manager: Default::default(),
@@ -981,11 +1001,18 @@ impl IdeDesktopApp {
     fn update_display_texture(&mut self, ctx: &egui::Context) {
         self.display.set_smooth(self.state.smooth_display);
         if self.state.firmware_backend {
-            if let Some(frame) = self
-                .firmware
-                .as_ref()
-                .and_then(|f| f.latest.lock().unwrap().clone())
-            {
+            let Some(f) = &self.firmware else {
+                // Switched off: the LCD is dark.
+                self.display.texture = None;
+                return;
+            };
+            // A replacement session numbers its frames from 1 again.
+            if f.session_id != self.display_session {
+                self.display_session = f.session_id;
+                self.display.texture = None;
+                self.display.last_generation = u64::MAX;
+            }
+            if let Some(frame) = f.latest.lock().unwrap().clone() {
                 self.display
                     .update_xrgb(ctx, &frame.pixels, frame.generation);
             }
@@ -1082,6 +1109,7 @@ impl IdeDesktopApp {
             }
             IdeAction::StopProgram if self.state.firmware_backend => {
                 if let Some(f) = &self.firmware {
+                    self.firmware_stop_requested = !self.firmware_runs.is_empty();
                     f.send(ppl_engine::session::Command::Stop);
                 }
             }
@@ -1262,6 +1290,13 @@ impl IdeDesktopApp {
                 }
                 self.display.last_generation = u64::MAX;
             }
+            IdeAction::FirmwareStart => self.power_on_firmware(_ctx),
+            IdeAction::FirmwarePowerOff => self.sleep_firmware(),
+            IdeAction::FirmwareShutDown => self.shut_down_firmware(),
+            IdeAction::FirmwareRestart => self.restart_firmware(_ctx),
+            IdeAction::ImportToCalculator => self.import_to_calculator(_ctx),
+            IdeAction::FirmwareReset => self.dialogs.show_confirm_reset = true,
+            IdeAction::FirmwareResetConfirmed => self.reset_firmware_memory(_ctx),
             IdeAction::ShowShortcuts => {
                 self.dialogs.show_shortcuts = true;
             }
@@ -1523,7 +1558,13 @@ impl eframe::App for IdeDesktopApp {
         // Stop the worker on the way out (the handle's Drop also interrupts).
         self.controller.stop();
         self.controller.reap_async();
-        self.firmware = None;
+        // Wait (bounded) for the firmware helpers, so none outlives the IDE.
+        for client in [self.firmware.take(), self.firmware_retired.take()]
+            .into_iter()
+            .flatten()
+        {
+            client.shutdown(crate::ide::firmware::SHUTDOWN_LIMIT);
+        }
     }
 }
 

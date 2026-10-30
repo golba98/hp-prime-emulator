@@ -1,0 +1,4 @@
+EXPORT M14LIM()
+BEGIN
+ RETURN STRING(CAS("limit(sin(x)/x,x,0)"));
+END;

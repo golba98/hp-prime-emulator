@@ -115,7 +115,40 @@ pub enum AutoStep {
         x: u16,
         y: u16,
     },
+    FirmwareStart,
+    FirmwarePowerOff,
+    FirmwareShutDown,
+    /// Kill the firmware helper outright (a battery pull; crash tests).
+    KillHelper,
+    /// Reset the calculator's memory (as if the dialog was confirmed).
+    FirmwareReset,
+    FirmwareRestart,
+    /// Import the active tab into the firmware calculator under its name.
+    Import,
+    /// Wait until the firmware session state's label starts with this
+    /// (case-insensitive, e.g. "ready", "unavailable"), with a timeout in ms.
+    WaitSession(String, u64),
+    /// Wait until the firmware LCD below the status bar has not changed for
+    /// `quiet` ms, with a timeout in ms.
+    WaitLcdSettled {
+        quiet: u64,
+        timeout: u64,
+    },
+    /// Click the LCD with the mouse at a firmware pixel (real pointer path:
+    /// projection, touch down, minimum tap, release).
+    ClickLcd(u16, u16),
+    /// Wait until no firmware session request (Run, Check, Import) is
+    /// unanswered, with a timeout in ms.
+    WaitFirmware(u64),
+    /// Give the calculator the keyboard, as clicking it does, without a tap.
+    CalcFocus,
+    /// One calculator key transition (HP physical code), for long presses.
+    CalcKeyTransition(i64, bool),
 }
+
+/// LCD rows above this are the firmware status bar (clock, battery), which
+/// host time and power status change on their own.
+const STATUS_BAR_ROWS: usize = 20;
 
 pub struct Automation {
     pub steps: Vec<AutoStep>,
@@ -133,6 +166,12 @@ pub struct Automation {
     last_pump_frame: Option<u64>,
     /// Labelled intermediate states (`snapshot` steps), for the dump.
     snapshots: Vec<serde_json::Value>,
+    /// The LCD below the status bar at the last change, and when.
+    lcd_watch: Option<(Vec<u32>, Instant)>,
+    /// Indices of wait steps that timed out, for the dump.
+    timeouts: Vec<usize>,
+    /// When the script started: snapshots are timed from here.
+    started: Instant,
 }
 
 impl Automation {
@@ -254,6 +293,47 @@ impl Automation {
                         x: s.get("x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
                         y: s.get("y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
                     },
+                    // Several keys, each followed by `gap_ms` (default 150).
+                    "calc_keys" => {
+                        let gap = s.get("gap_ms").and_then(|v| v.as_u64()).unwrap_or(150);
+                        for code in s
+                            .get("codes")
+                            .and_then(|v| v.as_array())
+                            .into_iter()
+                            .flatten()
+                            .filter_map(|c| c.as_i64())
+                        {
+                            steps.push(AutoStep::CalcKey(code));
+                            steps.push(AutoStep::WaitMs(gap));
+                        }
+                        continue;
+                    }
+                    // Press, hold for `ms`, release: a long press.
+                    "calc_key_hold" => {
+                        let code = s.get("code").and_then(|v| v.as_i64()).unwrap_or(-1);
+                        steps.push(AutoStep::CalcKeyTransition(code, true));
+                        steps.push(AutoStep::WaitMs(get_ms("ms")));
+                        steps.push(AutoStep::CalcKeyTransition(code, false));
+                        continue;
+                    }
+                    "wait_firmware" => AutoStep::WaitFirmware(get_ms("timeout_ms")),
+                    "calc_focus" => AutoStep::CalcFocus,
+                    "firmware_start" => AutoStep::FirmwareStart,
+                    "firmware_power_off" => AutoStep::FirmwarePowerOff,
+                    "firmware_shut_down" => AutoStep::FirmwareShutDown,
+                    "kill_helper" => AutoStep::KillHelper,
+                    "firmware_reset" => AutoStep::FirmwareReset,
+                    "firmware_restart" => AutoStep::FirmwareRestart,
+                    "import" => AutoStep::Import,
+                    "wait_session" => AutoStep::WaitSession(get_str("state"), get_ms("timeout_ms")),
+                    "wait_lcd_settled" => AutoStep::WaitLcdSettled {
+                        quiet: s.get("quiet_ms").and_then(|v| v.as_u64()).unwrap_or(800),
+                        timeout: get_ms("timeout_ms"),
+                    },
+                    "click_lcd" => AutoStep::ClickLcd(
+                        s.get("x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                        s.get("y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                    ),
                     other => {
                         eprintln!("automation: unknown step `{other}`; skipping");
                         continue;
@@ -273,7 +353,28 @@ impl Automation {
             captures: Vec::new(),
             last_pump_frame: None,
             snapshots: Vec::new(),
+            lcd_watch: None,
+            timeouts: Vec::new(),
+            started: Instant::now(),
         })
+    }
+    /// The firmware LCD below the status bar has not changed for `quiet`.
+    fn lcd_quiet(&mut self, app: &IdeDesktopApp, quiet: Duration) -> bool {
+        let Some(frame) = app
+            .firmware
+            .as_ref()
+            .and_then(|f| f.latest.lock().unwrap_or_else(|e| e.into_inner()).clone())
+        else {
+            return false;
+        };
+        let body = &frame.pixels[STATUS_BAR_ROWS * 320..];
+        match &self.lcd_watch {
+            Some((last, since)) if last.as_slice() == body => since.elapsed() >= quiet,
+            _ => {
+                self.lcd_watch = Some((body.to_vec(), Instant::now()));
+                false
+            }
+        }
     }
 
     /// Runs at most one non-waiting step per frame.
@@ -356,23 +457,41 @@ impl Automation {
                 AutoStep::WaitIdle(_)
                 | AutoStep::WaitPaused(_)
                 | AutoStep::WaitCheck(_)
-                | AutoStep::WaitRunning(_) => {
-                    let deadline = self.wait_deadline.get_or_insert_with(Instant::now);
+                | AutoStep::WaitRunning(_)
+                | AutoStep::WaitSession(..)
+                | AutoStep::WaitFirmware(_)
+                | AutoStep::WaitLcdSettled { .. } => {
+                    let deadline = *self.wait_deadline.get_or_insert_with(Instant::now);
                     let (ms, done) = match &self.steps[self.next] {
                         AutoStep::WaitIdle(ms) => (*ms, !app.execution_busy()),
                         AutoStep::WaitPaused(ms) => (*ms, app.controller.paused()),
                         AutoStep::WaitCheck(ms) => (*ms, !app.check_pending()),
                         AutoStep::WaitRunning(ms) => (*ms, app.firmware_running()),
+                        AutoStep::WaitSession(state, ms) => (
+                            *ms,
+                            app.state
+                                .firmware_session
+                                .label()
+                                .to_ascii_lowercase()
+                                .starts_with(&state.to_ascii_lowercase()),
+                        ),
+                        AutoStep::WaitFirmware(ms) => (*ms, !app.firmware_requests_pending()),
+                        AutoStep::WaitLcdSettled { quiet, timeout } => {
+                            (*timeout, self.lcd_quiet(app, Duration::from_millis(*quiet)))
+                        }
                         _ => unreachable!(),
                     };
                     if done {
                         self.wait_deadline = None;
+                        self.lcd_watch = None;
                         self.next += 1;
                         continue;
                     }
                     if deadline.elapsed() > Duration::from_millis(ms) {
                         eprintln!("automation: wait step {} timed out; continuing", self.next);
+                        self.timeouts.push(self.next);
                         self.wait_deadline = None;
+                        self.lcd_watch = None;
                         self.next += 1;
                         continue;
                     }
@@ -461,8 +580,48 @@ impl Automation {
             AutoStep::WaitIdle(_)
             | AutoStep::WaitPaused(_)
             | AutoStep::WaitCheck(_)
-            | AutoStep::WaitRunning(_) => {
+            | AutoStep::WaitRunning(_)
+            | AutoStep::WaitSession(..)
+            | AutoStep::WaitFirmware(_)
+            | AutoStep::WaitLcdSettled { .. } => {
                 unreachable!("handled in pump")
+            }
+            AutoStep::CalcKeyTransition(code, down) => {
+                app.state.set_key_down(code, down);
+                app.send_calc_transition(code, down);
+            }
+            AutoStep::CalcFocus => {
+                app.state.calc_input_focus = true;
+                ctx.memory_mut(|m| {
+                    if let Some(id) = m.focused() {
+                        m.surrender_focus(id);
+                    }
+                });
+            }
+            AutoStep::FirmwareStart => app.handle_action(IdeAction::FirmwareStart, ctx),
+            AutoStep::FirmwarePowerOff => app.handle_action(IdeAction::FirmwarePowerOff, ctx),
+            AutoStep::FirmwareShutDown => app.handle_action(IdeAction::FirmwareShutDown, ctx),
+            AutoStep::FirmwareReset => app.handle_action(IdeAction::FirmwareResetConfirmed, ctx),
+            AutoStep::KillHelper => {
+                if let Some(f) = &app.firmware {
+                    f.kill_helper();
+                }
+            }
+            AutoStep::FirmwareRestart => app.handle_action(IdeAction::FirmwareRestart, ctx),
+            AutoStep::Import => app.handle_action(IdeAction::ImportToCalculator, ctx),
+            AutoStep::ClickLcd(x, y) => {
+                let rect = app.display.last_display_rect;
+                let scale = rect.width() / 320.0;
+                let pos = rect.min + egui::vec2(x as f32 + 0.5, y as f32 + 0.5) * scale;
+                self.pending_events.extend([
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ]);
             }
             AutoStep::Screenshot(path) if app.state.firmware_backend => {
                 // The firmware LCD as last streamed by the live session.
@@ -652,8 +811,12 @@ impl Automation {
                 if let Some(o) = state.as_object_mut() {
                     o.remove("snapshots");
                 }
-                self.snapshots
-                    .push(serde_json::json!({"label": label, "state": state}));
+                self.snapshots.push(serde_json::json!({
+                    "label": label,
+                    "t_ms": self.started.elapsed().as_millis() as u64,
+                    "ui_frame": ctx.cumulative_frame_nr(),
+                    "state": state,
+                }));
             }
             AutoStep::Exit => self.finish(app, ctx),
         }
@@ -757,7 +920,7 @@ impl Automation {
             None => json!({"kind": "none"}),
         };
 
-        json!({
+        let mut dump = json!({
             "vm_state": state.vm_state.label(),
             "status_message": state.status_message,
             "show_compare": state.show_compare,
@@ -821,8 +984,39 @@ impl Automation {
                 "min": [app.display.last_display_rect.min.x, app.display.last_display_rect.min.y],
                 "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
             },
-        })
-        .to_string()
+        });
+        // M12: the firmware session (added separately: json! recursion).
+        let frame_generation = app.firmware.as_ref().and_then(|f| {
+            f.latest
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+                .map(|fr| fr.generation)
+        });
+        let unsupported: Vec<_> = state
+            .firmware_unsupported
+            .iter()
+            .map(|(id, name, pc)| json!({"id": id, "name": name, "caller_pc": pc}))
+            .collect();
+        for (key, value) in [
+            ("firmware_session", json!(state.firmware_session.label())),
+            (
+                "firmware_session_id",
+                json!(app.firmware.as_ref().map(|f| f.session_id)),
+            ),
+            ("firmware_alive", json!(app.firmware_alive())),
+            ("firmware_frame_generation", json!(frame_generation)),
+            ("firmware_unsupported", json!(unsupported)),
+            (
+                "keys_down",
+                json!(state.keys_down.iter().collect::<Vec<_>>()),
+            ),
+            ("calc_input_focus", json!(state.calc_input_focus)),
+            ("wait_timeouts", json!(self.timeouts)),
+        ] {
+            dump[key] = value;
+        }
+        dump.to_string()
     }
 }
 
@@ -922,6 +1116,9 @@ mod tests {
             captures: Vec::new(),
             last_pump_frame: None,
             snapshots: Vec::new(),
+            lcd_watch: None,
+            timeouts: Vec::new(),
+            started: Instant::now(),
         };
         let output = ctx.run(Default::default(), |ctx| {
             automation.pump(&mut app, ctx);

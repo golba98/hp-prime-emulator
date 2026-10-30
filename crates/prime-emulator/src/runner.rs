@@ -268,6 +268,8 @@ fn spawn_device_thread(
     let out = result.clone();
     let ui_timers = cfg.ui_timers;
     let inject_key = cfg.inject_key;
+    let max_seconds = cfg.max_seconds;
+    let started = Instant::now();
     let mut driver = cfg
         .program
         .is_none()
@@ -320,6 +322,15 @@ fn spawn_device_thread(
                             *out.lock().unwrap() = Some(t);
                         }
                     }
+                }
+                // The run loop is parked with the firmware in SysPowerOff;
+                // end a sleeping run here once its script finished or its
+                // time is up.
+                if shared.sleeping()
+                    && (!script_running && driver.is_some()
+                        || started.elapsed().as_secs_f64() >= max_seconds)
+                {
+                    shared.set_stopping();
                 }
                 std::thread::sleep(Duration::from_millis(2));
             }

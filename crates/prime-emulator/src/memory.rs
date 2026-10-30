@@ -242,6 +242,12 @@ impl GuestMemory {
         self.heap_size
     }
 
+    /// Heap bytes not currently allocated (fragmentation not considered).
+    pub fn heap_free_bytes(&self) -> usize {
+        self.heap_size
+            .saturating_sub(self.heap.lock().unwrap().total_allocated)
+    }
+
     pub fn heap_alloc(&self, size: usize) -> MemResult<u32> {
         let off = self.heap.lock().unwrap().alloc(size).ok_or(MemoryError {
             va: 0,

@@ -1,0 +1,12 @@
+id = "list-nested"
+category = "lists"
+description = 'M14: {{1,{2,3}},4} through the firmware runtime'
+program = "../programs/M14NEST.ppl"
+source_sha256 = "b5d0f640b0397e8776a98cff97b984ef6edc0be903dbea8480d6836b963a53ab"
+entry = "M14NEST"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "{{1, {2, 3}}, 4}"

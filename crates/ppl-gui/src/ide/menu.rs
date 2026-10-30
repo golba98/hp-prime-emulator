@@ -17,6 +17,15 @@ impl MenuBar {
         if state.input_owner == super::native::InputOwner::IdeModal {
             return;
         }
+        // The firmware calculator owns the keyboard while focused (Ctrl is
+        // its Alpha key): only Stop stays an IDE shortcut. Clicking the
+        // editor returns the keyboard to the IDE.
+        if state.firmware_backend && state.calc_input_focus {
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, Key::F5)) {
+                state.queue_action(IdeAction::StopProgram);
+            }
+            return;
+        }
         // Consumed, so the editor never sees it; matched on the event's own
         // modifiers.
         let send = egui::Modifiers::COMMAND | egui::Modifiers::SHIFT;
@@ -330,6 +339,16 @@ impl IdePanel for MenuBar {
                         ui.close();
                     }
                 }
+                if state.firmware_backend {
+                    ui.separator();
+                    ui.label(egui::RichText::new("G1 Firmware calculator").small());
+                    for (enabled, title, action) in super::calculator::session_actions(state) {
+                        if ui.add_enabled(enabled, egui::Button::new(title)).clicked() {
+                            state.queue_action(action);
+                            ui.close();
+                        }
+                    }
+                }
             });
 
             // Debug Menu
@@ -518,5 +537,50 @@ impl IdePanel for MenuBar {
                 }
             });
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn a_focused_firmware_calculator_keeps_ide_shortcuts_away() {
+        let ctx = egui::Context::default();
+        let menu = MenuBar;
+        let mut state = IdeAppState {
+            firmware_backend: true,
+            calc_input_focus: true,
+            ..Default::default()
+        };
+        let press = |key, modifiers| egui::RawInput {
+            events: vec![egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            }],
+            modifiers,
+            ..Default::default()
+        };
+        for (key, m) in [
+            (Key::S, egui::Modifiers::COMMAND),
+            (Key::N, egui::Modifiers::COMMAND),
+            (Key::F5, egui::Modifiers::NONE),
+            (Key::F7, egui::Modifiers::NONE),
+        ] {
+            let _ = ctx.run(press(key, m), |ctx| menu.handle_shortcuts(ctx, &mut state));
+            assert!(state.take_actions().is_empty(), "{key:?}");
+        }
+        let _ = ctx.run(press(Key::F5, egui::Modifiers::SHIFT), |ctx| {
+            menu.handle_shortcuts(ctx, &mut state)
+        });
+        assert_eq!(state.take_actions(), vec![IdeAction::StopProgram]);
+        // The editor owns the keyboard again: IDE shortcuts work.
+        state.calc_input_focus = false;
+        let _ = ctx.run(press(Key::S, egui::Modifiers::COMMAND), |ctx| {
+            menu.handle_shortcuts(ctx, &mut state)
+        });
+        assert_eq!(state.take_actions(), vec![IdeAction::SaveActiveFile]);
     }
 }

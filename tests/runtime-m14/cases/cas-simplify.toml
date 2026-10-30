@@ -1,0 +1,12 @@
+id = "cas-simplify"
+category = "cas"
+description = 'M14: STRING(CAS("simplify((x^2-1)/(x-1))")) through the firmware runtime'
+program = "../programs/M14SIMP.ppl"
+source_sha256 = "8805f5cbdba89ac0d076d5ed5d3790cbe076ca740b21df21802b2fda6bc1b977"
+entry = "M14SIMP"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "x+1"

@@ -1,0 +1,12 @@
+id = "matrix-inverse"
+category = "matrix"
+description = 'M14: STRING([[1,2],[3,4]]^(-1)) through the firmware runtime'
+program = "../programs/M14MINV.ppl"
+source_sha256 = "9ce82d903b6f1195ba72e883acf315383966c3a2b845539a2b9cb2d547f60295"
+entry = "M14MINV"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "[[−2,1],[1.5,−0.5]]"

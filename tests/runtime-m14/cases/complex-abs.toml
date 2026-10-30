@@ -1,0 +1,12 @@
+id = "complex-abs"
+category = "complex"
+description = 'M14: ABS(3+4*i) through the firmware runtime'
+program = "../programs/M14CABS.ppl"
+source_sha256 = "23bca9f0bf2bb4ce7e77ca8a0db22068a81eda2556f32b864a257cfb1851844a"
+entry = "M14CABS"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "5"

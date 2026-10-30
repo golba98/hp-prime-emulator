@@ -1,0 +1,12 @@
+id = "matrix-multiply"
+category = "matrix"
+description = 'M14: STRING([[1,2],[3,4]]*[[0,1],[1,0]]) through the firmware runtime'
+program = "../programs/M14MMUL.ppl"
+source_sha256 = "693e623a247d56681e2e595e0554bca2d530bbfd63c3683068d6cd844c113ac7"
+entry = "M14MMUL"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "[[2,1],[4,3]]"

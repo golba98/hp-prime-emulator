@@ -1,0 +1,650 @@
+{
+ "dump": "/tmp/ppl-ide-e2e/m12/m14_cas/dump.json",
+ "steps": [
+  {
+   "step": "layout",
+   "mode": "calculator"
+  },
+  {
+   "step": "backend",
+   "engine": "firmware"
+  },
+  {
+   "step": "wait_session",
+   "state": "ready",
+   "timeout_ms": 180000
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    10
+   ],
+   "gap_ms": 300
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/cas_open.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "cas_open"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    23,
+    36,
+    28,
+    36,
+    35,
+    28,
+    43,
+    40,
+    17,
+    29,
+    17,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/int_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "int_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    17,
+    26,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/int_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "int_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    43,
+    40,
+    17,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/int_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "int_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    17,
+    36,
+    23,
+    36,
+    20,
+    36,
+    20,
+    28,
+    36,
+    34,
+    36,
+    23,
+    36,
+    28,
+    28,
+    17,
+    8,
+    29,
+    17,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/diff_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "diff_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    16,
+    36,
+    29,
+    36,
+    34,
+    28,
+    17,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/diff_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "diff_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    34,
+    36,
+    23,
+    36,
+    28,
+    28,
+    17,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/diff_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "diff_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    20,
+    36,
+    14,
+    36,
+    16,
+    36,
+    35,
+    36,
+    29,
+    36,
+    33,
+    28,
+    17,
+    26,
+    45,
+    42,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/factor_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "factor_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    28,
+    17,
+    45,
+    42,
+    8,
+    40,
+    28,
+    17,
+    50,
+    42,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/factor_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "factor_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    17,
+    26,
+    45,
+    42,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/factor_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "factor_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    34,
+    36,
+    29,
+    36,
+    26,
+    36,
+    38,
+    36,
+    18,
+    28,
+    17,
+    26,
+    41,
+    48,
+    37,
+    29,
+    17,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/solve_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    33,
+    45,
+    43,
+    29,
+    43,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/solve_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    41,
+    33,
+    43,
+    29,
+    44,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/solve_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "solve_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    42,
+    35,
+    44,
+    8,
+    50,
+    42,
+    35,
+    39,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/fraction_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "fraction_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    42,
+    35,
+    43,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/fraction_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "fraction_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    42,
+    35,
+    44,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/fraction_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "fraction_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    44,
+    40,
+    41,
+    44,
+    45,
+    41,
+    44,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/pi_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "pi_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    43,
+    40,
+    41,
+    44,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/pi_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "pi_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    44,
+    40,
+    41,
+    44,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/pi_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "pi_control"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    36,
+    18,
+    17,
+    36,
+    31,
+    36,
+    14,
+    36,
+    28,
+    36,
+    17,
+    28,
+    28,
+    17,
+    50,
+    42,
+    8,
+    26,
+    8,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/expand_subject.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "expand_subject"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    17,
+    26,
+    50,
+    43,
+    40,
+    17,
+    50,
+    42,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/expand_literal.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "expand_literal"
+  },
+  {
+   "step": "calc_keys",
+   "codes": [
+    17,
+    26,
+    50,
+    42,
+    30
+   ],
+   "gap_ms": 180
+  },
+  {
+   "step": "wait_lcd_settled",
+   "quiet_ms": 800,
+   "timeout_ms": 20000
+  },
+  {
+   "step": "screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/expand_control.png"
+  },
+  {
+   "step": "snapshot",
+   "label": "expand_control"
+  },
+  {
+   "step": "window_screenshot",
+   "path": "/tmp/ppl-ide-e2e/m12/m14_cas/window_cas.png"
+  },
+  {
+   "step": "exit"
+  }
+ ]
+}

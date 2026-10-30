@@ -1,0 +1,4 @@
+EXPORT M14EXPD()
+BEGIN
+ RETURN STRING(CAS("expand((x+1)^2)"));
+END;

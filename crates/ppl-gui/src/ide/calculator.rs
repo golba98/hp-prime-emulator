@@ -1,12 +1,102 @@
 //! Housing, LCD and keys share a single uniform reference transform.
 use super::{
-    IdeAction, IdeAppState, IdePanel,
+    FirmwareSession, IdeAction, IdeAppState, IdePanel,
     display::CalculatorDisplay,
     keypad::VirtualKeypad,
     layout::{CalculatorMode, DEVICE_MIN_SCALE, WorkspaceLayout},
 };
 use egui::{Color32, Rect, Stroke, StrokeKind, Vec2};
 pub const DEVICE_SIZE: Vec2 = Vec2::new(381.0, 797.0);
+/// The G1 Firmware session controls: (enabled, title, action).
+pub fn session_actions(state: &IdeAppState) -> [(bool, &'static str, IdeAction); 6] {
+    let session = &state.firmware_session;
+    let asleep = *session == FirmwareSession::Sleeping;
+    [
+        (
+            !session.live() || asleep,
+            if asleep { "Power on" } else { "Start" },
+            IdeAction::FirmwareStart,
+        ),
+        (
+            matches!(session, FirmwareSession::Ready | FirmwareSession::Running),
+            "Power off",
+            IdeAction::FirmwarePowerOff,
+        ),
+        (session.live(), "Shut down", IdeAction::FirmwareShutDown),
+        (
+            *session != FirmwareSession::Off,
+            "Restart",
+            IdeAction::FirmwareRestart,
+        ),
+        (
+            *session == FirmwareSession::Ready,
+            "Import to calculator",
+            IdeAction::ImportToCalculator,
+        ),
+        (
+            !matches!(
+                session,
+                FirmwareSession::Running | FirmwareSession::Stopping
+            ),
+            "Reset memory…",
+            IdeAction::FirmwareReset,
+        ),
+    ]
+}
+pub fn session_color(session: &FirmwareSession) -> Color32 {
+    use crate::theme::{ACCENT_AMBER, ACCENT_BLUE, ACCENT_GREEN, ACCENT_RED, TEXT_MUTED};
+    match session {
+        FirmwareSession::Off | FirmwareSession::Sleeping => TEXT_MUTED,
+        FirmwareSession::Booting | FirmwareSession::Stopping => ACCENT_AMBER,
+        FirmwareSession::Ready => ACCENT_GREEN,
+        FirmwareSession::Running => ACCENT_BLUE,
+        FirmwareSession::Failed(_) | FirmwareSession::Unavailable(_) => ACCENT_RED,
+    }
+}
+/// State chip, session controls and the unsupported-service count.
+fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
+    ui.horizontal_wrapped(|ui| {
+        let session = state.firmware_session.clone();
+        let (dot, _) = ui.allocate_exact_size(Vec2::splat(10.0), egui::Sense::hover());
+        ui.painter()
+            .circle_filled(dot.center(), 4.0, session_color(&session));
+        let short = match &session {
+            FirmwareSession::Failed(_) => "Failed".to_string(),
+            FirmwareSession::Unavailable(_) => "Unavailable".to_string(),
+            other => other.label(),
+        };
+        ui.label(egui::RichText::new(short).size(11.5).strong())
+            .on_hover_text(session.label());
+        for (enabled, title, action) in session_actions(state) {
+            if ui
+                .add_enabled(enabled, egui::Button::new(title).small())
+                .clicked()
+            {
+                state.queue_action(action);
+                ui.ctx().request_repaint();
+            }
+        }
+        let unsupported = state.firmware_unsupported.len();
+        if unsupported > 0 {
+            let text = format!("{unsupported} unsupported OS service call site(s)");
+            ui.label(
+                egui::RichText::new(format!("⚠ {unsupported} SVC"))
+                    .size(11.0)
+                    .color(crate::theme::ACCENT_AMBER),
+            )
+            .on_hover_ui(|ui| {
+                ui.label(text);
+                for (id, name, pc) in state.firmware_unsupported.iter().take(24) {
+                    ui.monospace(format!(
+                        "{id:#07X} {} @ {pc:#010X}",
+                        name.as_deref().unwrap_or("unnamed")
+                    ));
+                }
+                ui.label("The emulator returned 0 for each; behaviour that depends on them is not authentic.");
+            });
+        }
+    });
+}
 pub fn device_rect(available: Rect) -> Rect {
     let scale = (available.width() / DEVICE_SIZE.x)
         .min(available.height() / DEVICE_SIZE.y)
@@ -92,6 +182,9 @@ pub fn show(
                 ui.ctx().request_repaint();
             }
         });
+        ui.add_space(4.0);
+    } else {
+        session_bar(ui, state);
         ui.add_space(4.0);
     }
     if state.calculator_mode == CalculatorMode::ScreenOnly {

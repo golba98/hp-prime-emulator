@@ -1,0 +1,12 @@
+id = "home-fnroot"
+category = "solve"
+description = 'M14: FNROOT(X^2-4,X,1) through the firmware runtime'
+program = "../programs/M14ROOT.ppl"
+source_sha256 = "1d6056caa24d3b57857f1c98ac25195ae60b5ddda64c56b7baae8fb21dbee27b"
+entry = "M14ROOT"
+initial_state = 'fresh boot; factory A drive + program-free initialized C: (init-data); program imported as C:\DATA\<NAME>.hpprgm'
+
+
+[expect]
+outcome = "completed"
+return_display = "2"
