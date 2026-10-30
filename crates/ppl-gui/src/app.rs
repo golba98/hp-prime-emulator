@@ -277,9 +277,18 @@ pub(crate) fn egui_key_to_hp(key: egui::Key) -> Option<i64> {
 }
 
 impl IdeDesktopApp {
+    /// The IDE as the window opens it: no program is open until the user
+    /// creates or opens one (or one is given on the command line).
+    pub(crate) fn for_window() -> Self {
+        Self {
+            editor: EditorArea::empty(),
+            ..Self::default()
+        }
+    }
+
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         theme::apply_theme(&cc.egui_ctx);
-        let mut app = Self::default();
+        let mut app = Self::for_window();
         let path = default_layout_config_path();
         if let Some(p) = load_panel_preferences(cc.storage, path.as_deref()) {
             app.state.apply_persistent(&p);
@@ -1696,6 +1705,27 @@ mod tests {
         assert_eq!(app.state.vm_state, crate::ide::VmExecutionState::Idle);
         assert_eq!(app.editor.tabs.len(), 1);
         assert_eq!(app.editor.tabs[0].title, "DEMO.ppl");
+    }
+
+    #[test]
+    fn the_ide_window_starts_without_an_open_program() {
+        let ctx = egui::Context::default();
+        let mut app = IdeDesktopApp::for_window();
+        assert!(app.editor.tabs.is_empty());
+        assert!(app.editor.active_tab().is_none());
+        // Run and Check with nothing open do nothing rather than fail.
+        app.handle_action(IdeAction::RunProgram, &ctx);
+        app.handle_action(IdeAction::CheckSyntax, &ctx);
+        assert!(app.editor.tabs.is_empty());
+        // A program opened from the command line is the only tab.
+        let dir = std::env::temp_dir().join(format!("ide-start-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("MINE.ppl");
+        std::fs::write(&file, "EXPORT MINE()\nBEGIN\n RETURN 1;\nEND;\n").unwrap();
+        app.open_file(file);
+        assert_eq!(app.editor.tabs.len(), 1);
+        assert_eq!(app.editor.tabs[0].title, "MINE.ppl");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

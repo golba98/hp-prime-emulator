@@ -58,6 +58,8 @@ pub struct EditorArea {
     revealed_tab: Option<TabId>,
 }
 
+/// One sample program: the fixture unit tests build on. The IDE window
+/// starts with [`EditorArea::empty`].
 impl Default for EditorArea {
     fn default() -> Self {
         let default_source = "EXPORT DEMO()\nBEGIN\n  PRINT(\"HP Prime PPL Emulator\");\nEND;\n";
@@ -74,6 +76,14 @@ impl Default for EditorArea {
 impl EditorArea {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// No programs open: the editor shows how to create or open one.
+    pub fn empty() -> Self {
+        Self {
+            tabs: Vec::new(),
+            ..Self::default()
+        }
     }
 
     pub fn active_tab(&self) -> Option<&EditorTab> {
