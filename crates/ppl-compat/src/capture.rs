@@ -18,7 +18,7 @@ use serde_json::Value;
 use crate::{
     DeviceRecord,
     differential::{
-        self, BackendId, BackendRun, Comparison, LoadedScenario, Observation, Provenance, RunStatus,
+        self, BackendId, BackendRun, Comparison, LoadedScenario, Observation, RunStatus,
     },
     sha256_hex,
 };
@@ -48,6 +48,12 @@ pub struct CapturePlan {
     pub source_sha256: String,
     /// Resolved source; file-based scenarios need no later source-file lookup.
     pub source: String,
+    /// All resolved initial named sources, never unresolved paths.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sources: BTreeMap<String, String>,
+    /// Initial/default/edit source digests used by the shared scenario identity.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub source_manifest: BTreeMap<String, String>,
     /// Full shared specification, including settings, expectations and constraints.
     pub scenario: Value,
     pub steps: Vec<PlannedStep>,
@@ -78,6 +84,8 @@ impl CapturePlan {
             fixture_sha256: s.fixture_sha256.clone(),
             source_sha256: s.source_sha256.clone(),
             source: s.source.clone(),
+            sources: s.sources.clone(),
+            source_manifest: s.source_manifest(),
             scenario,
             steps,
         };
@@ -93,20 +101,60 @@ impl CapturePlan {
         if self.scenario_id.is_empty() || self.scenario["id"] != self.scenario_id {
             return Err("capture scenario identity differs".into());
         }
-        let _: differential::Scenario = serde_json::from_value(self.scenario.clone())
-            .map_err(|e| format!("invalid shared scenario specification: {e}"))?;
-        if self.source.len() > MAX_DOCUMENT_BYTES {
-            return Err("capture source exceeds 16 MiB".into());
+        if self
+            .sources
+            .values()
+            .map(String::len)
+            .try_fold(self.source.len(), |n, len| n.checked_add(len))
+            .is_none_or(|total| total > MAX_DOCUMENT_BYTES)
+        {
+            return Err("capture source manifest exceeds 16 MiB".into());
         }
         if let Some(source) = self.scenario["program"]["source"].as_str()
-            && source != self.source
+            && ppl_engine::source::Source::text(source, &self.scenario_id)?.text != self.source
         {
             return Err("capture source differs from embedded scenario source".into());
         }
         digest(&self.fixture_sha256)?;
         digest(&self.source_sha256)?;
-        if sha256_hex(self.source.as_bytes()) != self.source_sha256 {
-            return Err("capture source hash differs".into());
+        // Resolve the specification entirely from frozen text. Validation of a
+        // sealed capture must not reopen mutable relative source files.
+        let mut frozen = self.scenario.clone();
+        frozen["program"] = serde_json::json!({"source":self.source,"file":null});
+        let declared = frozen.get_mut("programs").and_then(Value::as_object_mut);
+        match declared {
+            Some(programs) => {
+                if programs.len() != self.sources.len() {
+                    return Err("missing or extra frozen named source".into());
+                }
+                for (name, program) in programs {
+                    let source = self
+                        .sources
+                        .get(name)
+                        .ok_or("missing frozen named source")?;
+                    if let Some(original) = program["source"].as_str()
+                        && ppl_engine::source::Source::text(original, name)?.text != *source
+                    {
+                        return Err(
+                            "frozen named source differs from embedded scenario source".into()
+                        );
+                    }
+                    *program = serde_json::json!({"source":source,"file":null});
+                }
+            }
+            None if !self.sources.is_empty() => return Err("extra frozen named source".into()),
+            None => {}
+        }
+        let spec: differential::Scenario = serde_json::from_value(frozen)
+            .map_err(|e| format!("invalid shared scenario specification: {e}"))?;
+        let loaded = LoadedScenario::from_spec(spec, Path::new("."), self.fixture_sha256.clone())?;
+        if loaded.source_sha256 != self.source_sha256
+            || loaded.sources != self.sources
+            || (!self.source_manifest.is_empty()
+                && loaded.source_manifest() != self.source_manifest)
+            || (self.scenario["schema_version"] != 1 && self.source_manifest.is_empty())
+        {
+            return Err("capture source/manifest hash differs".into());
         }
         if self.steps.is_empty() || self.steps.len() > MAX_STEPS {
             return Err("capture requires 1..=1024 steps".into());
@@ -134,7 +182,22 @@ impl CapturePlan {
 
     pub fn verify_scenario(&self, s: &LoadedScenario) -> Result<(), String> {
         s.verify_identity()?;
-        let expected = Self::prepare(s, &self.capture_id)?;
+        let mut expected = Self::prepare(s, &self.capture_id)?;
+        if self.scenario["schema_version"] == 1 && self.source_manifest.is_empty() {
+            // Initial schema-1 capture plans predate named-source manifests.
+            expected.source_manifest.clear();
+            if self.scenario.get("programs").is_none()
+                && expected.scenario["programs"]
+                    .as_object()
+                    .is_some_and(|p| p.is_empty())
+            {
+                expected
+                    .scenario
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("programs");
+            }
+        }
         if self.sha256()? != expected.sha256()? {
             return Err("capture plan differs from the supplied scenario/source".into());
         }
@@ -588,33 +651,25 @@ impl SealedCapture {
     fn backend_run(&self, s: &LoadedScenario) -> Result<BackendRun, String> {
         self.plan().verify_scenario(s)?;
         let r = self.recording();
-        Ok(BackendRun {
-            backend: BackendId::PhysicalCapture,
-            status: RunStatus::Complete,
-            reason: None,
-            provenance: Provenance {
-                origin: match r.origin {
-                    CaptureOrigin::ManualPhysical => "manual-physical-scenario",
-                    CaptureOrigin::ControlledMock => "controlled-mock-capture",
-                }
-                .into(),
-                source_sha256: self.plan().source_sha256.clone(),
-                fixture_sha256: self.plan().fixture_sha256.clone(),
-                firmware_build: r.device.firmware_build,
-                firmware_sha256: None,
-                capture_sha256: Some(self.sha256.clone()),
-                evidence_scope: "exact-declared-scenario-observations".into(),
-            },
-            observations: r
-                .steps
-                .iter()
-                .map(|step| Observation {
-                    step: step.step.clone(),
-                    data: step.data.clone(),
-                })
-                .collect(),
-            raw_reports: vec![serde_json::to_value(r).map_err(|e| e.to_string())?],
-        })
+        let mut run = BackendRun::new(BackendId::PhysicalCapture, s);
+        run.provenance.origin = match r.origin {
+            CaptureOrigin::ManualPhysical => "manual-physical-scenario",
+            CaptureOrigin::ControlledMock => "controlled-mock-capture",
+        }
+        .into();
+        run.provenance.firmware_build = r.device.firmware_build;
+        run.provenance.capture_sha256 = Some(self.sha256.clone());
+        run.provenance.evidence_scope = "exact-declared-scenario-observations".into();
+        run.observations = r
+            .steps
+            .iter()
+            .map(|step| Observation {
+                step: step.step.clone(),
+                data: step.data.clone(),
+            })
+            .collect();
+        run.raw_reports = vec![serde_json::to_value(r).map_err(|e| e.to_string())?];
+        Ok(run)
     }
 }
 
@@ -679,9 +734,12 @@ pub fn seal_bytes(
     sync_dir(&target)?;
     atomic_new(&output.join("capture.json"), &manifest)?;
     sync_dir(output)?;
-    if let Some(parent) = output.parent() {
-        sync_dir(parent)?;
-    }
+    sync_dir(
+        output
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new(".")),
+    )?;
     SealedCapture::load(output)
 }
 

@@ -159,6 +159,96 @@ fn source_or_fixture_edits_cannot_reuse_capture() {
 }
 
 #[test]
+fn shared_loader_source_normalization_is_preserved() {
+    let mut spec = scenario("arithmetic").scenario;
+    spec.program.source = Some("EXPORT MAIN()\r\nBEGIN\r\n RETURN 1;\r\nEND;".into());
+    let loaded =
+        LoadedScenario::from_spec(spec, Path::new("."), sha256_hex(b"CRLF fixture")).unwrap();
+    let plan = CapturePlan::prepare(&loaded, "NORMALIZED_MOCK").unwrap();
+    assert!(!plan.source.contains('\r'));
+    plan.verify_scenario(&loaded).unwrap();
+}
+
+#[test]
+fn original_single_program_plan_shape_remains_valid() {
+    let s = scenario("arithmetic");
+    let mut plan = CapturePlan::prepare(&s, "LEGACY_PLAN_MOCK").unwrap();
+    plan.sources.clear();
+    plan.source_manifest.clear();
+    plan.scenario.as_object_mut().unwrap().remove("programs");
+    plan.validate().unwrap();
+    plan.verify_scenario(&s).unwrap();
+}
+
+#[test]
+fn all_named_file_sources_are_frozen_and_secondary_changes_refused() {
+    let tmp = tempfile::tempdir().unwrap();
+    fs::write(
+        tmp.path().join("a.hpprgm"),
+        "EXPORT MAIN() BEGIN RETURN 1; END;",
+    )
+    .unwrap();
+    fs::write(
+        tmp.path().join("b.hpprgm"),
+        "EXPORT MAIN() BEGIN RETURN 2; END;",
+    )
+    .unwrap();
+    let fixture = tmp.path().join("scenario.toml");
+    fs::write(
+        &fixture,
+        r#"schema_version=2
+id="frozen-two-files"
+[programs.ZZT_A]
+file="a.hpprgm"
+[programs.ZZT_B]
+file="b.hpprgm"
+[[steps]]
+action="import"
+id="import_a"
+program="ZZT_A"
+[[steps]]
+action="import"
+id="import_b"
+program="ZZT_B"
+"#,
+    )
+    .unwrap();
+    let s = LoadedScenario::load(&fixture).unwrap();
+    let plan = CapturePlan::prepare(&s, "MULTI_SOURCE_MOCK").unwrap();
+    assert_eq!(plan.sources.len(), 2);
+    assert_eq!(plan.source_manifest, s.source_manifest());
+    assert!(plan.source.is_empty());
+    fs::remove_file(tmp.path().join("a.hpprgm")).unwrap();
+    fs::remove_file(tmp.path().join("b.hpprgm")).unwrap();
+    plan.validate().unwrap(); // No source filesystem lookup at validation time.
+    plan.verify_scenario(&s).unwrap();
+    let mut changed = plan.clone();
+    changed.sources.get_mut("ZZT_B").unwrap().push(' ');
+    assert!(changed.validate().is_err());
+    let mut missing = plan.clone();
+    missing.sources.remove("ZZT_B");
+    assert!(missing.validate().is_err());
+    let mut manifest = plan;
+    manifest.source_manifest.remove("ZZT_B");
+    assert!(manifest.validate().is_err());
+}
+
+#[test]
+fn schema2_mock_captures_stateful_multiple_program_execution() {
+    let (s, plan, capture, backend) = pending("m16/stateful");
+    assert_eq!(plan.sources.len(), 2);
+    let tmp = tempfile::tempdir().unwrap();
+    let sealed = seal_test(&plan, &capture, &tmp.path().join("stateful")).unwrap();
+    let report = compare_capture(&s, &sealed, backend).unwrap();
+    assert!(
+        report.comparison.passed,
+        "{:?}",
+        report.comparison.mismatches
+    );
+    assert_eq!(report.category, VerificationCategory::Untested);
+}
+
+#[test]
 fn flipping_mock_origin_cannot_qualify_a_physical_capture() {
     let (_, p, mut c, _) = pending("arithmetic");
     c.recording.origin = CaptureOrigin::ManualPhysical;
@@ -244,6 +334,15 @@ fn missing_reordered_and_undelivered_steps_refused() {
     assert!(r.validate(&p).is_err());
     r = c.recording.clone();
     r.steps[0].action_sha256 = sha256_hex(b"other action");
+    assert!(r.validate(&p).is_err());
+    r = c.recording.clone();
+    r.steps.swap(0, 1);
+    assert!(r.validate(&p).is_err());
+    r = c.recording.clone();
+    r.steps[1] = r.steps[0].clone();
+    assert!(r.validate(&p).is_err());
+    r = c.recording.clone();
+    r.steps.push(r.steps[0].clone());
     assert!(r.validate(&p).is_err());
 }
 #[test]

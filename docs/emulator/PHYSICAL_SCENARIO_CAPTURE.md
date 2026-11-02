@@ -31,6 +31,13 @@ the existing differential comparison engine. Types, strings, errors, lists,
 matrices, state and pixels retain their exact representation; there is no
 new whitespace, numeric or error normalization.
 
+Schema-2 named programs are frozen as resolved source text, alongside the
+shared initial/default/edit source-hash manifest. Their aggregate identity
+covers every named program and edit. Validation never reopens a captured
+relative source-file path. Missing/extra or changed secondary sources and
+changed source manifests fail validation. Schema-1 single-program scenarios
+and initial schema-1 capture plans retain their original source identity.
+
 CLI exit codes are 0 for a valid/matching result, 1 for a semantic mismatch,
 and 2 for invalid input or infrastructure errors. JSON stdout includes the
 verification category and detailed backend, step and JSON-pointer mismatches.
@@ -166,7 +173,18 @@ mismatches, source edits, stale transcripts, identity changes, cancelled input,
 incomplete/changed steps, path rejection, corruption, interrupted publication,
 symlinks, PNG allocation limits and immutable plan publication. Raw FA parser
 tests use synthetic bytes and produce no physical evidence. CLI tests verify
-offline preparation, overwrite refusal and incomplete-bundle errors.
+offline preparation, overwrite refusal and incomplete-bundle errors. A real
+subprocess CLI test exercises prepare → seal → validate → compare with relative
+paths and controlled mock observations; it covers a publication bug where a
+bare relative output name caused a spurious parent-directory sync failure.
+
+The capture-specific checks comprise 21 unit tests, two CLI command tests and
+one subprocess CLI cycle. Formatting and `cargo clippy -p ppl-compat -p ppl-cli
+--all-targets -- -D warnings` pass. The initial single-program checkpoint also
+passed all 113 `ppl-compat` tests. After schema-2 integration, the ordinary
+`ppl-compat` run passes 123 tests. That run does not enable the optional real
+firmware scenarios; actual M16 workspace/firmware validation is recorded
+separately by the coordinator.
 
 No new physical-device claim, automated USB capture, full-system backend or
 cryptographic hardware attestation is implemented here.
