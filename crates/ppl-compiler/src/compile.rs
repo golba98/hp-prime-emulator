@@ -1434,8 +1434,8 @@ impl<'a> Compiler<'a> {
         }
         match spec.builtin {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
-            // Firmware EDITMAT writes back only calculator matrix variables.
-            // A LOCAL matrix variable behaves like a value expression.
+            // Firmware EDITMAT writes back bare M0–M9 names, even when
+            // locally declared. Other local names are value expressions.
             Builtin::Editmat
                 if args.first().is_some_and(|arg| {
                     matches!(&arg.kind, ExprKind::Ident(name) if name.len() == 2

@@ -10,14 +10,20 @@ Implemented and integrated: consumption-paced Run, exact-source prepared cache,
 validated reuse of firmware assignment compilation, native AFiles source
 transfer, safe OFF storage recovery and profile locks, Native INPUT defaults /
 layout / pages, Native EDITMAT, setup resource validation and pickers, allocation
-failure handling and an experimental heap budget. Keyboard feedback-based text
-entry is finishing isolated validation before integration.
+failure handling and an experimental heap budget. Firmware-observed desktop text entry is also integrated, with atomic paste
+validation and Home/CAS/editor case control.
 
-Latest completed integrated workspace checkpoint: 1632 passed / 0 failed /
-6 ignored. Actual firmware boot, imports, normal OFF and crash recovery passed;
-77 historical reference results replayed without mismatches. Native and firmware
-pixel-geometry captures both match 76,800 expected pixels. Final integrated GUI
-and controlled performance verification are pending the keyboard handoff.
+Final integrated validation: **1663 Rust tests passed, 0 failed, 6 ignored**;
+formatting and Clippy with warnings denied passed. All 14 actual GUI scenarios
+completed without wait timeouts; 138 automated GUI assertions passed. Actual
+firmware boot, import/execution, loader migrations, OFF and crash recovery
+passed. All 77 historical physical-reference results were reproduced (68 exact,
+4 partial, 5 transcription-based), without new physical measurements.
+
+Controlled identical-source benchmark: successful 10 KB Run **34.511 → 2.982 s**;
+unchanged rerun **34.542 → 1.427 s**; tiny rerun **11.839 → 0.751 s**;
+edit → Check → Run **66.484 → 3.132 s**. Single quiet-machine samples;
+methodology, hashes, CPU times and complete case table are below.
 
 This report keeps the chronological engineering record below. Statements in
 "First increment" describe that checkpoint; later sections supersede them.
@@ -286,3 +292,148 @@ Pre-keyboard integrated Clippy with warnings denied is clean.
 The new IDE status messages follow actual loader/check/import/invocation
 transitions, with no artificial progress timer. Native/firmware pixel captures
 and source/capture hashes are retained in `evidence/pixel-geometry/`.
+
+### Desktop typing integrated
+
+`993b6d3` integrates protocol v4 Text packets, observed firmware Alpha/Shift
+state, context-correct mixed-case entry, transport batching, bounded paste,
+paired delimiters and proper modifier release. Whole unsupported pastes are
+rejected before delivery; newlines and pasted powers are rejected rather than
+executed or reinterpreted. Source editing in the IDE remains the multiline
+workflow. Details and limits: `DESKTOP_TYPING.md`.
+
+Component results: 65 emulator / 302 GUI tests passed (2 ignored), clean fmt /
+Clippy, actual 15751 GUI 10/10. Attempted 15157 live GUI was blocked before
+input by the existing compiler observer's firmware-version restriction. This
+does not invalidate the separate catalog-driven 77-case replay, but it means
+desktop typing is not verified on 15157. Unknown indicator screens fail closed;
+firmware selection-to-system clipboard and exhaustive catalog/dialog behavior
+remain unsupported or untested.
+
+Final baseline binary is rebuilt from pristine committed `3399675`, not the
+intermediate handoff-only binary used for exploratory measurements. The same
+13-case benchmark script is running against it and the integrated helper with
+other builds and firmware sessions idle. Source/helper hashes and CPU time are
+retained in each run's `results.json`.
+
+## Controlled integrated performance result
+
+Pristine baseline `3399675` versus integrated `993b6d3`, Rust 1.96.0 release,
+Intel i7-13700 / Linux 7.2.13, same local firmware 15751 and initial storage.
+One sample per case, with other builds and emulator sessions idle; this is not
+a statistical latency distribution. All 13 expected results/verdicts passed
+on both revisions, with identical source hashes. Times are helper request to
+Result, excluding IDE dispatch/rendering. The 10,160-byte successful fixture
+is comment-heavy and measures source-transfer/preparation, not complex runtime
+computation. Original FIREWORKS is tracked separately because of its m_info error.
+
+| Workload | Before wall (s) | After wall (s) | Before CPU (s) | After CPU (s) |
+|---|---:|---:|---:|---:|
+| tiny_cold | 16.872 | 7.147 | 4.880 | 2.620 |
+| tiny_repeat | 11.839 | 0.751 | 3.040 | 0.290 |
+| small_math | 14.774 | 2.280 | 3.910 | 1.090 |
+| medium | 17.876 | 2.858 | 7.660 | 1.220 |
+| large_cold | 34.511 | 2.982 | 24.830 | 1.390 |
+| large_repeat | 34.542 | 1.427 | 25.260 | 0.670 |
+| edited_check | 31.330 | 1.725 | 24.210 | 0.930 |
+| edited_run | 35.154 | 1.407 | 25.330 | 0.710 |
+| alternate_tiny | 12.684 | 2.809 | 3.900 | 1.420 |
+| syntax_error | 10.287 | 6.894 | 3.240 | 2.660 |
+| after_error_tiny | 13.117 | 2.657 | 4.080 | 1.270 |
+| tiny_after_restart | 18.212 | 8.032 | 6.080 | 3.340 |
+| repeat_after_restart | 12.828 | 1.027 | 3.890 | 0.450 |
+
+Edit → Check → Run combined: 66.484 → 3.132 seconds. Initial boot was
+1.049 → 1.256 seconds; post-OFF boot 1.079 → 1.420 seconds. Recovery adds
+validated storage snapshots at startup/OFF, not hidden background Run work.
+
+Committed evidence: `evidence/overhaul-benchmark/{before,after}.json` and
+`baseline-provenance.json`, including source/helper hashes, CPU times and stage
+reports. Full disposable profiles/reports remain under
+`artifacts/overhaul/benchmark-{before-339,after-integrated}` (ignored; contain
+user-supplied proprietary resources). Reproduction: `scripts/emulator/BENCHMARKS.md`.
+
+## Final integrated verification and boundaries
+
+All independent contributions were cherry-picked into the canonical feature
+branch, with the session typing/loader export conflict resolved. The writer
+join, first-OFF recovery counter fix, helper locks and cache invalidation hooks
+remain integrated. No push, publication, deployment, physical-device write or
+proprietary binary change was performed. Existing program fixtures and recorded
+physical evidence have no diff against the starting checkpoint.
+
+Validation (final production code, local firmware 15751 where applicable):
+
+- Workspace: **1663 passed, 0 failed, 6 ignored**. `cargo fmt --all -- --check`
+  and `cargo clippy --workspace --all-targets -- -D warnings` passed. One new
+  test needed formatting; it was corrected. Logs:
+  `/tmp/overhaul-final-{workspace,clippy,fmt}.log`.
+- Explicit firmware integration: boot heartbeat, both loader migrations,
+  Unicode source, large import, unchanged-source globals retained, normal OFF,
+  two actual kill/recover scenarios and terminal event delivery all passed.
+  `/tmp/overhaul-final-real-firmware.log`.
+- Actual IDE/Xvfb: **14 scenarios, zero wait timeouts, 138/138 assertions**:
+  boot/restart/Stop/performance 24, CAS/graph/apps 59, persistence/crash/reset 40,
+  repeat/equality 5, context-aware typing/paste 10. All 18 built-in apps opened;
+  computation captures matched existing local-firmware references. No helper
+  outlived the tested IDE. Setup dialog was captured and visually inspected.
+  Evidence: `artifacts/overhaul/gui-integrated`, assertion logs
+  `/tmp/overhaul-gui-*-assert.log`.
+- GUI performance on the original scenario: FIREWORKS Run→body **42.1 → 7.6 s**,
+  following small animation **13.8 → 2.7 s**, boot **2.0 → 2.1 s**, approximately
+  **30 changed LCD frames/s** while animating. The historical baseline and
+  final samples use the same scenario but are not repeated statistical trials.
+  FIREWORKS still reaches its pre-existing `m_info(1,1)` Invalid input error;
+  only body-entry latency is claimed for that program. The separate successful
+  10 KB benchmark above returns 42 and has no such error.
+- New pixel geometry: Native and firmware match all 76,800 expected pixels;
+  checker regression tests pass. Native EDITMAT captures include six observed
+  firmware cases, including special writeback for `LOCAL M1`; the corresponding
+  Native regression passes. No new physical-device parity claim.
+
+### Remaining technical limits and exact next work
+
+1. **Input:** verified Home/CAS/editor behavior relies on captured firmware
+   status glyphs. Unknown/custom screens fail closed. Lowercase Alpha lock,
+   exhaustive catalog/dialog entry, arbitrary selection-to-system clipboard,
+   multiline firmware-editor paste and linear-to-template power conversion
+   need further context/selection observations. Multiline PPL belongs in the
+   IDE source editor; unsafe clipboard input is explicitly rejected. Do not
+   enable these paths by guessing key sequences.
+2. **Performance:** first-session loader preparation still costs about 7–8 s;
+   syntax rejection can require the older catalog/direct diagnostic fallback.
+   Investigate validated loader-state reuse across restart and invalid-source
+   diagnostics after catalog growth, retaining exact source/context evidence.
+   Rebenchmark computationally complex large programs separately from the
+   comment-heavy transfer fixture, and collect repeated timing distributions.
+3. **Recovery:** only startup storage baselines and completed OFF generations
+   are recoverable. Unsaved activity since OFF can be lost; no periodic autosave
+   or live CPU/RAM restoration is claimed. Guest threads use host thread,
+   mutex/condition-variable, guest-call and file-handle state; restoring RAM and
+   Unicorn registers alone would be inconsistent. Periodic forced OFF also
+   needs a validated UI context to avoid changing an unfinished edit/dialog.
+   Next: model those states or prove safe save contexts, then add controlled
+   autosave and storage-retention policy. Current generations are retained
+   without pruning, and recovery failure preserves existing data.
+4. **Native:** EVAL's CAS evaluation and STARTAPP's calculator applications
+   still require Firmware mode, with explicit compatibility warnings and
+   runtime diagnostics. Native EDITMAT edits fixed-size cells; structural
+   menus and touch are not implemented. INPUT checkbox/radio/choose controls
+   and exact firmware layout rounding remain outside verified support.
+5. **Parity/memory:** new graphics/input/app/persistence results are local
+   firmware comparisons. Physical G1 captures are still needed for those
+   areas, touch, resource limits and shutdown behavior. The 32 MiB option is an
+   allocation budget, not total physical RAM: maps, stacks and host resources
+   are separate. The live IDE compiler observer currently rejects firmware
+   15157; the separate catalog-driven historical replay works. Extend that
+   observer only with version-matched evidence; never bypass its guard.
+6. **Setup/platforms:** resource pickers, validation, saved configuration and
+   actionable unavailable/helper-version errors are implemented. Firmware mode
+   remains Linux-only and requires user-supplied resources. Automatic packaging,
+   OS dependency installation and other-platform firmware ports are not claimed.
+   Build/install matching `ppl` and `prime-emulator` binaries: desktop Text uses
+   session protocol **4**, and older helpers are rejected with an explanation.
+
+These boundaries are not represented as full hardware equivalence or complete
+implementation of every HP service. The completed changes deliver a practical
+faster edit/check/run path while retaining explicit Native/Firmware distinctions.

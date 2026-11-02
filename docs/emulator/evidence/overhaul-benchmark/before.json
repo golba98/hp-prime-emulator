@@ -1,0 +1,3786 @@
+{
+  "helper": "/tmp/prime-overhaul-baseline-helper",
+  "helper_sha256": "8f10e04868789e33ef361901a7984d5a25d95c4537d73804f3fae120fd09f9cf",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "platform": "Linux-7.2.13-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "clock": "time.monotonic request write to matching Result event",
+  "cpu_clock": "/proc/pid/stat user+system ticks when available",
+  "samples_per_case": 1,
+  "verification": "local firmware only; no physical calculator",
+  "boot_seconds": [
+    1.0491767450002953,
+    1.0785079589986708
+  ],
+  "results": [
+    {
+      "case": "tiny_cold",
+      "request": 1,
+      "elapsed_seconds": 16.871782913998686,
+      "cpu_seconds": 4.88,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 1,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 1838.5273789999999,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 334
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 337,
+              "settled_ms": 509
+            },
+            {
+              "first_change_ms": 22,
+              "name": "SHIFT",
+              "queued_ms": 512,
+              "settled_ms": 686
+            },
+            {
+              "first_change_ms": 89,
+              "name": "1",
+              "queued_ms": 690,
+              "settled_ms": 930
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 933,
+              "settled_ms": 1835
+            }
+          ],
+          "stage": "open-catalog-for-loader"
+        },
+        {
+          "done_ms": 5235.269072,
+          "keys": [
+            {
+              "first_change_ms": 748,
+              "name": "TAP:100:94",
+              "queued_ms": 176,
+              "settled_ms": 1526
+            },
+            {
+              "first_change_ms": 122,
+              "name": "TAP:293:229",
+              "queued_ms": 1530,
+              "settled_ms": 2593
+            },
+            {
+              "first_change_ms": 79,
+              "name": "ENTER",
+              "queued_ms": 2596,
+              "settled_ms": 2826
+            },
+            {
+              "first_change_ms": 62,
+              "name": "HOME",
+              "queued_ms": 2829,
+              "settled_ms": 3043
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3046,
+              "settled_ms": 3220
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3223,
+              "settled_ms": 3393
+            }
+          ],
+          "stage": "check-loader"
+        },
+        {
+          "done_ms": 9691.556986,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 342
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 345,
+              "settled_ms": 518
+            },
+            {
+              "first_change_ms": 24,
+              "name": "ALPHA",
+              "queued_ms": 521,
+              "settled_ms": 698
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 701,
+              "settled_ms": 899
+            },
+            {
+              "first_change_ms": 41,
+              "name": "ALPHA",
+              "queued_ms": 902,
+              "settled_ms": 1095
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x5A",
+              "queued_ms": 1098,
+              "settled_ms": 1272
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 1275,
+              "settled_ms": 1447
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x54",
+              "queued_ms": 1450,
+              "settled_ms": 1622
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 1625,
+              "settled_ms": 1797
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x49",
+              "queued_ms": 1800,
+              "settled_ms": 1974
+            },
+            {
+              "first_change_ms": 18,
+              "name": "ALPHA",
+              "queued_ms": 1978,
+              "settled_ms": 2148
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x44",
+              "queued_ms": 2151,
+              "settled_ms": 2325
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 2328,
+              "settled_ms": 2500
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x45",
+              "queued_ms": 2503,
+              "settled_ms": 2675
+            },
+            {
+              "first_change_ms": 22,
+              "name": "ALPHA",
+              "queued_ms": 2678,
+              "settled_ms": 2852
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x4C",
+              "queued_ms": 2855,
+              "settled_ms": 3027
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 3031,
+              "settled_ms": 3203
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x4F",
+              "queued_ms": 3206,
+              "settled_ms": 3378
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 3381,
+              "settled_ms": 3553
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x41",
+              "queued_ms": 3557,
+              "settled_ms": 3832
+            },
+            {
+              "first_change_ms": 41,
+              "name": "ALPHA",
+              "queued_ms": 3836,
+              "settled_ms": 4029
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x44",
+              "queued_ms": 4032,
+              "settled_ms": 4206
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 4209,
+              "settled_ms": 4453
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 11506.989345999998,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 332
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 335,
+              "settled_ms": 506
+            },
+            {
+              "first_change_ms": 39,
+              "name": "SHIFT",
+              "queued_ms": 510,
+              "settled_ms": 702
+            },
+            {
+              "first_change_ms": 65,
+              "name": "1",
+              "queued_ms": 706,
+              "settled_ms": 922
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 925,
+              "settled_ms": 1812
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 14687.843237,
+          "keys": [
+            {
+              "first_change_ms": 534,
+              "name": "TAP:100:73",
+              "queued_ms": 158,
+              "settled_ms": 1294
+            },
+            {
+              "first_change_ms": 75,
+              "name": "TAP:293:229",
+              "queued_ms": 1298,
+              "settled_ms": 2404
+            },
+            {
+              "first_change_ms": 60,
+              "name": "ENTER",
+              "queued_ms": 2407,
+              "settled_ms": 2643
+            },
+            {
+              "first_change_ms": 31,
+              "name": "HOME",
+              "queued_ms": 2647,
+              "settled_ms": 2829
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 2833,
+              "settled_ms": 3004
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3007,
+              "settled_ms": 3177
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 16866.256528,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 172,
+              "settled_ms": 342
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 345,
+              "settled_ms": 519
+            },
+            {
+              "first_change_ms": 22,
+              "name": "ALPHA",
+              "queued_ms": 522,
+              "settled_ms": 696
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x50",
+              "queued_ms": 699,
+              "settled_ms": 874
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 877,
+              "settled_ms": 1072
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x45",
+              "queued_ms": 1075,
+              "settled_ms": 1247
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 1250,
+              "settled_ms": 1422
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x52",
+              "queued_ms": 1425,
+              "settled_ms": 1597
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 1600,
+              "settled_ms": 1772
+            },
+            {
+              "first_change_ms": 24,
+              "name": "0x46",
+              "queued_ms": 1775,
+              "settled_ms": 1951
+            },
+            {
+              "first_change_ms": 68,
+              "name": "ENTER",
+              "queued_ms": 1955,
+              "settled_ms": 2175
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "tiny_repeat",
+      "request": 2,
+      "elapsed_seconds": 11.839042077001068,
+      "cpu_seconds": 3.04,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 2,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 4476.507256,
+          "keys": [
+            {
+              "first_change_ms": 22,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 367
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 370,
+              "settled_ms": 542
+            },
+            {
+              "first_change_ms": 22,
+              "name": "ALPHA",
+              "queued_ms": 545,
+              "settled_ms": 719
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x5A",
+              "queued_ms": 722,
+              "settled_ms": 894
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 897,
+              "settled_ms": 1069
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x5A",
+              "queued_ms": 1072,
+              "settled_ms": 1244
+            },
+            {
+              "first_change_ms": 24,
+              "name": "ALPHA",
+              "queued_ms": 1247,
+              "settled_ms": 1423
+            },
+            {
+              "first_change_ms": 41,
+              "name": "0x54",
+              "queued_ms": 1426,
+              "settled_ms": 1620
+            },
+            {
+              "first_change_ms": 23,
+              "name": "ALPHA",
+              "queued_ms": 1623,
+              "settled_ms": 1797
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x49",
+              "queued_ms": 1800,
+              "settled_ms": 1997
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2001,
+              "settled_ms": 2198
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x44",
+              "queued_ms": 2201,
+              "settled_ms": 2373
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 2376,
+              "settled_ms": 2548
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x45",
+              "queued_ms": 2551,
+              "settled_ms": 2723
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 2727,
+              "settled_ms": 2898
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x4C",
+              "queued_ms": 2901,
+              "settled_ms": 3075
+            },
+            {
+              "first_change_ms": 22,
+              "name": "ALPHA",
+              "queued_ms": 3079,
+              "settled_ms": 3300
+            },
+            {
+              "first_change_ms": 20,
+              "name": "0x4F",
+              "queued_ms": 3303,
+              "settled_ms": 3475
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 3479,
+              "settled_ms": 3651
+            },
+            {
+              "first_change_ms": 24,
+              "name": "0x41",
+              "queued_ms": 3654,
+              "settled_ms": 3830
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3833,
+              "settled_ms": 4030
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 4033,
+              "settled_ms": 4233
+            },
+            {
+              "first_change_ms": 85,
+              "name": "ENTER",
+              "queued_ms": 4236,
+              "settled_ms": 4473
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 6327.344091,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 353
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 356,
+              "settled_ms": 527
+            },
+            {
+              "first_change_ms": 22,
+              "name": "SHIFT",
+              "queued_ms": 530,
+              "settled_ms": 704
+            },
+            {
+              "first_change_ms": 35,
+              "name": "1",
+              "queued_ms": 708,
+              "settled_ms": 915
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 918,
+              "settled_ms": 1847
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 9551.724787,
+          "keys": [
+            {
+              "first_change_ms": 516,
+              "name": "TAP:100:52",
+              "queued_ms": 206,
+              "settled_ms": 1345
+            },
+            {
+              "first_change_ms": 66,
+              "name": "TAP:293:229",
+              "queued_ms": 1348,
+              "settled_ms": 2444
+            },
+            {
+              "first_change_ms": 62,
+              "name": "ENTER",
+              "queued_ms": 2447,
+              "settled_ms": 2661
+            },
+            {
+              "first_change_ms": 54,
+              "name": "HOME",
+              "queued_ms": 2664,
+              "settled_ms": 2870
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 2873,
+              "settled_ms": 3047
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3051,
+              "settled_ms": 3220
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 11836.099752999999,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 344
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 347,
+              "settled_ms": 525
+            },
+            {
+              "first_change_ms": 39,
+              "name": "ALPHA",
+              "queued_ms": 528,
+              "settled_ms": 719
+            },
+            {
+              "first_change_ms": 23,
+              "name": "0x50",
+              "queued_ms": 722,
+              "settled_ms": 896
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 899,
+              "settled_ms": 1098
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x45",
+              "queued_ms": 1102,
+              "settled_ms": 1299
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1302,
+              "settled_ms": 1497
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x52",
+              "queued_ms": 1500,
+              "settled_ms": 1674
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1677,
+              "settled_ms": 1874
+            },
+            {
+              "first_change_ms": 25,
+              "name": "0x46",
+              "queued_ms": 1898,
+              "settled_ms": 2074
+            },
+            {
+              "first_change_ms": 52,
+              "name": "ENTER",
+              "queued_ms": 2077,
+              "settled_ms": 2281
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "small_math",
+      "request": 3,
+      "elapsed_seconds": 14.773906889999125,
+      "cpu_seconds": 3.91,
+      "source_bytes": 90,
+      "source_sha256": "152e2c973d15a35c4dbcba140e988106d6a6e7557fa42e75ef7c12f29cab7218",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 3,
+        "success": true,
+        "message": "G1 firmware returned 5050",
+        "check": {
+          "accepted": true,
+          "source_sha256": "152e2c973d15a35c4dbcba140e988106d6a6e7557fa42e75ef7c12f29cab7218",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 4923.715723,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 166,
+              "settled_ms": 340
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 343,
+              "settled_ms": 537
+            },
+            {
+              "first_change_ms": 20,
+              "name": "ALPHA",
+              "queued_ms": 541,
+              "settled_ms": 715
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 718,
+              "settled_ms": 915
+            },
+            {
+              "first_change_ms": 22,
+              "name": "ALPHA",
+              "queued_ms": 918,
+              "settled_ms": 1092
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x5A",
+              "queued_ms": 1096,
+              "settled_ms": 1295
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1298,
+              "settled_ms": 1496
+            },
+            {
+              "first_change_ms": 44,
+              "name": "0x54",
+              "queued_ms": 1500,
+              "settled_ms": 1695
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1698,
+              "settled_ms": 1895
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 1898,
+              "settled_ms": 2095
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2098,
+              "settled_ms": 2295
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 2299,
+              "settled_ms": 2498
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2501,
+              "settled_ms": 2698
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 2701,
+              "settled_ms": 2898
+            },
+            {
+              "first_change_ms": 25,
+              "name": "ALPHA",
+              "queued_ms": 2922,
+              "settled_ms": 3098
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x4C",
+              "queued_ms": 3101,
+              "settled_ms": 3301
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 3304,
+              "settled_ms": 3623
+            },
+            {
+              "first_change_ms": 24,
+              "name": "0x4F",
+              "queued_ms": 3626,
+              "settled_ms": 3803
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3806,
+              "settled_ms": 4003
+            },
+            {
+              "first_change_ms": 25,
+              "name": "0x41",
+              "queued_ms": 4027,
+              "settled_ms": 4203
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 4206,
+              "settled_ms": 4403
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 4407,
+              "settled_ms": 4606
+            },
+            {
+              "first_change_ms": 159,
+              "name": "ENTER",
+              "queued_ms": 4609,
+              "settled_ms": 4920
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 6740.450509,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 332
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 335,
+              "settled_ms": 510
+            },
+            {
+              "first_change_ms": 43,
+              "name": "SHIFT",
+              "queued_ms": 513,
+              "settled_ms": 708
+            },
+            {
+              "first_change_ms": 58,
+              "name": "1",
+              "queued_ms": 711,
+              "settled_ms": 921
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 924,
+              "settled_ms": 1813
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 10625.058158,
+          "keys": [
+            {
+              "first_change_ms": 537,
+              "name": "TAP:100:52",
+              "queued_ms": 158,
+              "settled_ms": 1829
+            },
+            {
+              "first_change_ms": 119,
+              "name": "TAP:293:229",
+              "queued_ms": 1832,
+              "settled_ms": 2931
+            },
+            {
+              "first_change_ms": 110,
+              "name": "ENTER",
+              "queued_ms": 2935,
+              "settled_ms": 3200
+            },
+            {
+              "first_change_ms": 35,
+              "name": "HOME",
+              "queued_ms": 3204,
+              "settled_ms": 3391
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3395,
+              "settled_ms": 3577
+            },
+            {
+              "first_change_ms": 148,
+              "name": "IDLE",
+              "queued_ms": 3581,
+              "settled_ms": 3880
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 14770.203382,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 346
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 350,
+              "settled_ms": 526
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 529,
+              "settled_ms": 724
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x4D",
+              "queued_ms": 727,
+              "settled_ms": 925
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 950,
+              "settled_ms": 1150
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x41",
+              "queued_ms": 1153,
+              "settled_ms": 1351
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 1354,
+              "settled_ms": 1551
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x54",
+              "queued_ms": 1554,
+              "settled_ms": 1751
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1754,
+              "settled_ms": 1951
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x48",
+              "queued_ms": 1954,
+              "settled_ms": 2153
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 2157,
+              "settled_ms": 2352
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x50",
+              "queued_ms": 2355,
+              "settled_ms": 2553
+            },
+            {
+              "first_change_ms": 44,
+              "name": "ALPHA",
+              "queued_ms": 2557,
+              "settled_ms": 2751
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x45",
+              "queued_ms": 2755,
+              "settled_ms": 2954
+            },
+            {
+              "first_change_ms": 25,
+              "name": "ALPHA",
+              "queued_ms": 2977,
+              "settled_ms": 3155
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x52",
+              "queued_ms": 3159,
+              "settled_ms": 3504
+            },
+            {
+              "first_change_ms": 2,
+              "name": "ALPHA",
+              "queued_ms": 3530,
+              "settled_ms": 3706
+            },
+            {
+              "first_change_ms": 24,
+              "name": "0x46",
+              "queued_ms": 3730,
+              "settled_ms": 3906
+            },
+            {
+              "first_change_ms": 79,
+              "name": "ENTER",
+              "queued_ms": 3910,
+              "settled_ms": 4141
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "medium",
+      "request": 4,
+      "elapsed_seconds": 17.876147420000052,
+      "cpu_seconds": 7.659999999999998,
+      "source_bytes": 1840,
+      "source_sha256": "3ddf93c8f92a8e9964d2c0367d9d8c47f3df399340c4c1b272ef3ffd315f961c",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 4,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "3ddf93c8f92a8e9964d2c0367d9d8c47f3df399340c4c1b272ef3ffd315f961c",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 8670.639559,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 157,
+              "settled_ms": 436
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 440,
+              "settled_ms": 611
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 614,
+              "settled_ms": 809
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x5A",
+              "queued_ms": 813,
+              "settled_ms": 1034
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1038,
+              "settled_ms": 1237
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x5A",
+              "queued_ms": 1240,
+              "settled_ms": 1435
+            },
+            {
+              "first_change_ms": 50,
+              "name": "ALPHA",
+              "queued_ms": 1438,
+              "settled_ms": 1639
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x54",
+              "queued_ms": 1642,
+              "settled_ms": 1839
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1843,
+              "settled_ms": 2037
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 2041,
+              "settled_ms": 2238
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 2241,
+              "settled_ms": 2440
+            },
+            {
+              "first_change_ms": 68,
+              "name": "0x44",
+              "queued_ms": 2443,
+              "settled_ms": 2664
+            },
+            {
+              "first_change_ms": 27,
+              "name": "ALPHA",
+              "queued_ms": 2688,
+              "settled_ms": 2891
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x45",
+              "queued_ms": 2894,
+              "settled_ms": 3216
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 3242,
+              "settled_ms": 3520
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x4C",
+              "queued_ms": 3523,
+              "settled_ms": 3718
+            },
+            {
+              "first_change_ms": 71,
+              "name": "ALPHA",
+              "queued_ms": 3722,
+              "settled_ms": 3944
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x4F",
+              "queued_ms": 3947,
+              "settled_ms": 4169
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 4173,
+              "settled_ms": 4370
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x41",
+              "queued_ms": 4373,
+              "settled_ms": 4572
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 4575,
+              "settled_ms": 4770
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x44",
+              "queued_ms": 4773,
+              "settled_ms": 4970
+            },
+            {
+              "first_change_ms": 754,
+              "name": "ENTER",
+              "queued_ms": 4974,
+              "settled_ms": 8667
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 10488.00945,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 342
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 345,
+              "settled_ms": 520
+            },
+            {
+              "first_change_ms": 46,
+              "name": "SHIFT",
+              "queued_ms": 523,
+              "settled_ms": 720
+            },
+            {
+              "first_change_ms": 54,
+              "name": "1",
+              "queued_ms": 723,
+              "settled_ms": 929
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 932,
+              "settled_ms": 1813
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 14002.359847,
+          "keys": [
+            {
+              "first_change_ms": 584,
+              "name": "TAP:100:52",
+              "queued_ms": 172,
+              "settled_ms": 1359
+            },
+            {
+              "first_change_ms": 162,
+              "name": "TAP:293:229",
+              "queued_ms": 1362,
+              "settled_ms": 2639
+            },
+            {
+              "first_change_ms": 128,
+              "name": "ENTER",
+              "queued_ms": 2642,
+              "settled_ms": 2942
+            },
+            {
+              "first_change_ms": 62,
+              "name": "HOME",
+              "queued_ms": 2945,
+              "settled_ms": 3159
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3163,
+              "settled_ms": 3340
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3343,
+              "settled_ms": 3510
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 17872.628638,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 352
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 355,
+              "settled_ms": 526
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 530,
+              "settled_ms": 814
+            },
+            {
+              "first_change_ms": 60,
+              "name": "0x4D",
+              "queued_ms": 817,
+              "settled_ms": 1051
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 1055,
+              "settled_ms": 1254
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x45",
+              "queued_ms": 1257,
+              "settled_ms": 1456
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1460,
+              "settled_ms": 1657
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x44",
+              "queued_ms": 1660,
+              "settled_ms": 1857
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1860,
+              "settled_ms": 2057
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x50",
+              "queued_ms": 2060,
+              "settled_ms": 2257
+            },
+            {
+              "first_change_ms": 70,
+              "name": "ALPHA",
+              "queued_ms": 2260,
+              "settled_ms": 2482
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 2486,
+              "settled_ms": 2707
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 2711,
+              "settled_ms": 2910
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 2913,
+              "settled_ms": 3259
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 3262,
+              "settled_ms": 3460
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x46",
+              "queued_ms": 3463,
+              "settled_ms": 3662
+            },
+            {
+              "first_change_ms": 50,
+              "name": "ENTER",
+              "queued_ms": 3665,
+              "settled_ms": 3866
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "large_cold",
+      "request": 5,
+      "elapsed_seconds": 34.511154988998896,
+      "cpu_seconds": 24.830000000000002,
+      "source_bytes": 10160,
+      "source_sha256": "8487780c77028587329db32e49178ca0e25098af7672da94ecca52893f939ab2",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 5,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "8487780c77028587329db32e49178ca0e25098af7672da94ecca52893f939ab2",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 24981.655856,
+          "stage": "run-loader",
+          "unsettled": "key 22 (ENTER, 0x000D) not settled within 20s: delivered true, pump idle true"
+        },
+        {
+          "done_ms": 27315.908288,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 211,
+              "settled_ms": 389
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 392,
+              "settled_ms": 563
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 566,
+              "settled_ms": 765
+            },
+            {
+              "first_change_ms": 54,
+              "name": "1",
+              "queued_ms": 769,
+              "settled_ms": 974
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 977,
+              "settled_ms": 1876
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 30862.528312,
+          "keys": [
+            {
+              "first_change_ms": 801,
+              "name": "TAP:100:52",
+              "queued_ms": 179,
+              "settled_ms": 1581
+            },
+            {
+              "first_change_ms": 103,
+              "name": "TAP:293:229",
+              "queued_ms": 1585,
+              "settled_ms": 2643
+            },
+            {
+              "first_change_ms": 143,
+              "name": "ENTER",
+              "queued_ms": 2647,
+              "settled_ms": 2963
+            },
+            {
+              "first_change_ms": 70,
+              "name": "HOME",
+              "queued_ms": 2967,
+              "settled_ms": 3189
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3192,
+              "settled_ms": 3370
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3373,
+              "settled_ms": 3542
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 34507.465703999995,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 350
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 353,
+              "settled_ms": 525
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 528,
+              "settled_ms": 727
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x42",
+              "queued_ms": 730,
+              "settled_ms": 930
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 933,
+              "settled_ms": 1130
+            },
+            {
+              "first_change_ms": 70,
+              "name": "0x49",
+              "queued_ms": 1133,
+              "settled_ms": 1355
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1359,
+              "settled_ms": 1581
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x47",
+              "queued_ms": 1584,
+              "settled_ms": 1783
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1786,
+              "settled_ms": 1980
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x50",
+              "queued_ms": 1984,
+              "settled_ms": 2183
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2186,
+              "settled_ms": 2383
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x45",
+              "queued_ms": 2386,
+              "settled_ms": 2585
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 2588,
+              "settled_ms": 2784
+            },
+            {
+              "first_change_ms": 72,
+              "name": "0x52",
+              "queued_ms": 2787,
+              "settled_ms": 3011
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3014,
+              "settled_ms": 3232
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x46",
+              "queued_ms": 3235,
+              "settled_ms": 3435
+            },
+            {
+              "first_change_ms": 52,
+              "name": "ENTER",
+              "queued_ms": 3438,
+              "settled_ms": 3641
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "large_repeat",
+      "request": 6,
+      "elapsed_seconds": 34.54181591199995,
+      "cpu_seconds": 25.259999999999998,
+      "source_bytes": 10160,
+      "source_sha256": "8487780c77028587329db32e49178ca0e25098af7672da94ecca52893f939ab2",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 6,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "8487780c77028587329db32e49178ca0e25098af7672da94ecca52893f939ab2",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 24934.634828,
+          "stage": "run-loader",
+          "unsettled": "key 22 (ENTER, 0x000D) not settled within 20s: delivered true, pump idle true"
+        },
+        {
+          "done_ms": 27149.931643,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 209,
+              "settled_ms": 390
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 393,
+              "settled_ms": 565
+            },
+            {
+              "first_change_ms": 48,
+              "name": "SHIFT",
+              "queued_ms": 568,
+              "settled_ms": 767
+            },
+            {
+              "first_change_ms": 51,
+              "name": "1",
+              "queued_ms": 771,
+              "settled_ms": 974
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 977,
+              "settled_ms": 1907
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 30817.807911,
+          "keys": [
+            {
+              "first_change_ms": 765,
+              "name": "TAP:100:52",
+              "queued_ms": 174,
+              "settled_ms": 1659
+            },
+            {
+              "first_change_ms": 141,
+              "name": "TAP:293:229",
+              "queued_ms": 1662,
+              "settled_ms": 2763
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 2766,
+              "settled_ms": 3009
+            },
+            {
+              "first_change_ms": 118,
+              "name": "HOME",
+              "queued_ms": 3012,
+              "settled_ms": 3303
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3306,
+              "settled_ms": 3492
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3495,
+              "settled_ms": 3664
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 34538.074496,
+          "keys": [
+            {
+              "first_change_ms": 29,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 359
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 362,
+              "settled_ms": 552
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 556,
+              "settled_ms": 755
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x42",
+              "queued_ms": 758,
+              "settled_ms": 955
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 958,
+              "settled_ms": 1155
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x49",
+              "queued_ms": 1158,
+              "settled_ms": 1357
+            },
+            {
+              "first_change_ms": 74,
+              "name": "ALPHA",
+              "queued_ms": 1360,
+              "settled_ms": 1587
+            },
+            {
+              "first_change_ms": 41,
+              "name": "0x47",
+              "queued_ms": 1590,
+              "settled_ms": 1805
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1809,
+              "settled_ms": 2006
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x50",
+              "queued_ms": 2009,
+              "settled_ms": 2208
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2211,
+              "settled_ms": 2408
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 2411,
+              "settled_ms": 2608
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2611,
+              "settled_ms": 2909
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 2913,
+              "settled_ms": 3110
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 3113,
+              "settled_ms": 3309
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x46",
+              "queued_ms": 3313,
+              "settled_ms": 3510
+            },
+            {
+              "first_change_ms": 51,
+              "name": "ENTER",
+              "queued_ms": 3514,
+              "settled_ms": 3716
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "edited_check",
+      "request": 7,
+      "elapsed_seconds": 31.329832154999167,
+      "cpu_seconds": 24.210000000000008,
+      "source_bytes": 10160,
+      "source_sha256": "6360d65ac62c667083c115c02e11d450369475e7143d51c9cb846afc445fe789",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 7,
+        "success": true,
+        "message": "G1 firmware compiled the exact current source",
+        "check": {
+          "accepted": true,
+          "source_sha256": "6360d65ac62c667083c115c02e11d450369475e7143d51c9cb846afc445fe789",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 24855.250616999998,
+          "stage": "run-loader",
+          "unsettled": "key 22 (ENTER, 0x000D) not settled within 20s: delivered true, pump idle true"
+        },
+        {
+          "done_ms": 27141.483914999997,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 211,
+              "settled_ms": 404
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 407,
+              "settled_ms": 604
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 607,
+              "settled_ms": 806
+            },
+            {
+              "first_change_ms": 51,
+              "name": "1",
+              "queued_ms": 809,
+              "settled_ms": 1012
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 1015,
+              "settled_ms": 1880
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 31328.008123,
+          "keys": [
+            {
+              "first_change_ms": 819,
+              "name": "TAP:100:52",
+              "queued_ms": 170,
+              "settled_ms": 2221
+            },
+            {
+              "first_change_ms": 108,
+              "name": "TAP:293:229",
+              "queued_ms": 2225,
+              "settled_ms": 3306
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 3309,
+              "settled_ms": 3552
+            },
+            {
+              "first_change_ms": 94,
+              "name": "HOME",
+              "queued_ms": 3555,
+              "settled_ms": 3810
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3813,
+              "settled_ms": 4010
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 4013,
+              "settled_ms": 4182
+            }
+          ],
+          "stage": "check-source"
+        }
+      ]
+    },
+    {
+      "case": "edited_run",
+      "request": 8,
+      "elapsed_seconds": 35.15375773800042,
+      "cpu_seconds": 25.33,
+      "source_bytes": 10160,
+      "source_sha256": "6360d65ac62c667083c115c02e11d450369475e7143d51c9cb846afc445fe789",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 8,
+        "success": true,
+        "message": "G1 firmware returned 43",
+        "check": {
+          "accepted": true,
+          "source_sha256": "6360d65ac62c667083c115c02e11d450369475e7143d51c9cb846afc445fe789",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 24744.682309000003,
+          "stage": "run-loader",
+          "unsettled": "key 22 (ENTER, 0x000D) not settled within 20s: delivered true, pump idle true"
+        },
+        {
+          "done_ms": 27555.597964,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 217,
+              "settled_ms": 411
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 415,
+              "settled_ms": 611
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 615,
+              "settled_ms": 888
+            },
+            {
+              "first_change_ms": 50,
+              "name": "1",
+              "queued_ms": 891,
+              "settled_ms": 1093
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 1096,
+              "settled_ms": 2222
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 31209.511102,
+          "keys": [
+            {
+              "first_change_ms": 734,
+              "name": "TAP:100:52",
+              "queued_ms": 168,
+              "settled_ms": 1662
+            },
+            {
+              "first_change_ms": 200,
+              "name": "TAP:293:229",
+              "queued_ms": 1665,
+              "settled_ms": 2770
+            },
+            {
+              "first_change_ms": 89,
+              "name": "ENTER",
+              "queued_ms": 2773,
+              "settled_ms": 3013
+            },
+            {
+              "first_change_ms": 99,
+              "name": "HOME",
+              "queued_ms": 3017,
+              "settled_ms": 3274
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3277,
+              "settled_ms": 3473
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3476,
+              "settled_ms": 3649
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 35149.900777,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 177,
+              "settled_ms": 371
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 374,
+              "settled_ms": 574
+            },
+            {
+              "first_change_ms": 44,
+              "name": "ALPHA",
+              "queued_ms": 578,
+              "settled_ms": 774
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x42",
+              "queued_ms": 777,
+              "settled_ms": 976
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 979,
+              "settled_ms": 1174
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 1177,
+              "settled_ms": 1374
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1377,
+              "settled_ms": 1574
+            },
+            {
+              "first_change_ms": 76,
+              "name": "0x47",
+              "queued_ms": 1577,
+              "settled_ms": 1949
+            },
+            {
+              "first_change_ms": 79,
+              "name": "ALPHA",
+              "queued_ms": 1952,
+              "settled_ms": 2202
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x50",
+              "queued_ms": 2206,
+              "settled_ms": 2403
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2406,
+              "settled_ms": 2603
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 2607,
+              "settled_ms": 2932
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 2935,
+              "settled_ms": 3129
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 3133,
+              "settled_ms": 3330
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 3333,
+              "settled_ms": 3532
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x46",
+              "queued_ms": 3535,
+              "settled_ms": 3734
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ENTER",
+              "queued_ms": 3738,
+              "settled_ms": 3936
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "alternate_tiny",
+      "request": 9,
+      "elapsed_seconds": 12.683847315000094,
+      "cpu_seconds": 3.8999999999999915,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 9,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 5121.523837,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 332
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 335,
+              "settled_ms": 509
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 512,
+              "settled_ms": 711
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x5A",
+              "queued_ms": 715,
+              "settled_ms": 913
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 917,
+              "settled_ms": 1114
+            },
+            {
+              "first_change_ms": 75,
+              "name": "0x5A",
+              "queued_ms": 1117,
+              "settled_ms": 1344
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1347,
+              "settled_ms": 1566
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x54",
+              "queued_ms": 1570,
+              "settled_ms": 1767
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1770,
+              "settled_ms": 1967
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 1970,
+              "settled_ms": 2167
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2170,
+              "settled_ms": 2367
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 2370,
+              "settled_ms": 2569
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2572,
+              "settled_ms": 2843
+            },
+            {
+              "first_change_ms": 22,
+              "name": "0x45",
+              "queued_ms": 2846,
+              "settled_ms": 3045
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3049,
+              "settled_ms": 3246
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x4C",
+              "queued_ms": 3249,
+              "settled_ms": 3446
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3449,
+              "settled_ms": 3646
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x4F",
+              "queued_ms": 3649,
+              "settled_ms": 3848
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3851,
+              "settled_ms": 4049
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x41",
+              "queued_ms": 4052,
+              "settled_ms": 4251
+            },
+            {
+              "first_change_ms": 72,
+              "name": "ALPHA",
+              "queued_ms": 4254,
+              "settled_ms": 4649
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x44",
+              "queued_ms": 4652,
+              "settled_ms": 4874
+            },
+            {
+              "first_change_ms": 89,
+              "name": "ENTER",
+              "queued_ms": 4877,
+              "settled_ms": 5118
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 6953.222129000001,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 353
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 356,
+              "settled_ms": 553
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 556,
+              "settled_ms": 755
+            },
+            {
+              "first_change_ms": 50,
+              "name": "1",
+              "queued_ms": 758,
+              "settled_ms": 960
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 963,
+              "settled_ms": 1828
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 10109.320418,
+          "keys": [
+            {
+              "first_change_ms": 523,
+              "name": "TAP:100:52",
+              "queued_ms": 164,
+              "settled_ms": 1290
+            },
+            {
+              "first_change_ms": 56,
+              "name": "TAP:293:229",
+              "queued_ms": 1293,
+              "settled_ms": 2377
+            },
+            {
+              "first_change_ms": 60,
+              "name": "ENTER",
+              "queued_ms": 2380,
+              "settled_ms": 2592
+            },
+            {
+              "first_change_ms": 52,
+              "name": "HOME",
+              "queued_ms": 2595,
+              "settled_ms": 2799
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 2802,
+              "settled_ms": 2979
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 2982,
+              "settled_ms": 3152
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 12680.133452,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 355
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 358,
+              "settled_ms": 552
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 555,
+              "settled_ms": 753
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x50",
+              "queued_ms": 756,
+              "settled_ms": 955
+            },
+            {
+              "first_change_ms": 72,
+              "name": "ALPHA",
+              "queued_ms": 958,
+              "settled_ms": 1206
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 1210,
+              "settled_ms": 1528
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 1532,
+              "settled_ms": 1757
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 1760,
+              "settled_ms": 1958
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 1961,
+              "settled_ms": 2160
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x46",
+              "queued_ms": 2163,
+              "settled_ms": 2360
+            },
+            {
+              "first_change_ms": 51,
+              "name": "ENTER",
+              "queued_ms": 2363,
+              "settled_ms": 2567
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "syntax_error",
+      "request": 10,
+      "elapsed_seconds": 10.286741107000125,
+      "cpu_seconds": 3.240000000000009,
+      "source_bytes": 36,
+      "source_sha256": "b25cb3e5fe221a3a855464df1ac977111d246d1605f514d454c6adf974b65ca6",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 10,
+        "success": false,
+        "message": "Error: Syntax Error",
+        "check": {
+          "accepted": false,
+          "source_sha256": "b25cb3e5fe221a3a855464df1ac977111d246d1605f514d454c6adf974b65ca6",
+          "diagnostics": [
+            {
+              "source": "guest-firmware",
+              "severity": "error",
+              "code": null,
+              "message": "Error: Syntax Error",
+              "line": 3,
+              "column": 11,
+              "raw_position": {
+                "line": 3,
+                "offset_utf16": 29,
+                "source_index": 0
+              }
+            }
+          ]
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 5095.772273,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 331
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 334,
+              "settled_ms": 508
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 511,
+              "settled_ms": 710
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x5A",
+              "queued_ms": 713,
+              "settled_ms": 912
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 915,
+              "settled_ms": 1112
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x5A",
+              "queued_ms": 1115,
+              "settled_ms": 1314
+            },
+            {
+              "first_change_ms": 73,
+              "name": "ALPHA",
+              "queued_ms": 1317,
+              "settled_ms": 1542
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x54",
+              "queued_ms": 1546,
+              "settled_ms": 1763
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 1766,
+              "settled_ms": 1965
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 1968,
+              "settled_ms": 2165
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2168,
+              "settled_ms": 2365
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 2368,
+              "settled_ms": 2567
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2570,
+              "settled_ms": 2867
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x45",
+              "queued_ms": 2870,
+              "settled_ms": 3069
+            },
+            {
+              "first_change_ms": 28,
+              "name": "ALPHA",
+              "queued_ms": 3072,
+              "settled_ms": 3273
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x4C",
+              "queued_ms": 3276,
+              "settled_ms": 3471
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3474,
+              "settled_ms": 3671
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x4F",
+              "queued_ms": 3674,
+              "settled_ms": 3869
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 3872,
+              "settled_ms": 4071
+            },
+            {
+              "first_change_ms": 74,
+              "name": "0x41",
+              "queued_ms": 4074,
+              "settled_ms": 4301
+            },
+            {
+              "first_change_ms": 41,
+              "name": "ALPHA",
+              "queued_ms": 4304,
+              "settled_ms": 4522
+            },
+            {
+              "first_change_ms": 49,
+              "name": "0x44",
+              "queued_ms": 4525,
+              "settled_ms": 4846
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 4849,
+              "settled_ms": 5092
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 6961.773875000001,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 181,
+              "settled_ms": 375
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 378,
+              "settled_ms": 549
+            },
+            {
+              "first_change_ms": 51,
+              "name": "SHIFT",
+              "queued_ms": 552,
+              "settled_ms": 755
+            },
+            {
+              "first_change_ms": 47,
+              "name": "1",
+              "queued_ms": 758,
+              "settled_ms": 957
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 961,
+              "settled_ms": 1862
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 10285.041031,
+          "keys": [
+            {
+              "first_change_ms": 526,
+              "name": "TAP:100:52",
+              "queued_ms": 177,
+              "settled_ms": 1303
+            },
+            {
+              "first_change_ms": 74,
+              "name": "TAP:293:229",
+              "queued_ms": 1307,
+              "settled_ms": 2392
+            },
+            {
+              "first_change_ms": 60,
+              "name": "ENTER",
+              "queued_ms": 2396,
+              "settled_ms": 2732
+            },
+            {
+              "first_change_ms": 62,
+              "name": "HOME",
+              "queued_ms": 2735,
+              "settled_ms": 2949
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ESC",
+              "queued_ms": 2953,
+              "settled_ms": 3148
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3152,
+              "settled_ms": 3319
+            }
+          ],
+          "stage": "check-source"
+        }
+      ]
+    },
+    {
+      "case": "after_error_tiny",
+      "request": 11,
+      "elapsed_seconds": 13.116590990999612,
+      "cpu_seconds": 4.079999999999998,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 11,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 5133.9724750000005,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 348
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 351,
+              "settled_ms": 548
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 551,
+              "settled_ms": 750
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 753,
+              "settled_ms": 950
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 953,
+              "settled_ms": 1152
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 1155,
+              "settled_ms": 1352
+            },
+            {
+              "first_change_ms": 72,
+              "name": "ALPHA",
+              "queued_ms": 1355,
+              "settled_ms": 1601
+            },
+            {
+              "first_change_ms": 49,
+              "name": "0x54",
+              "queued_ms": 1604,
+              "settled_ms": 1805
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1809,
+              "settled_ms": 2003
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x49",
+              "queued_ms": 2006,
+              "settled_ms": 2205
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2209,
+              "settled_ms": 2405
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x44",
+              "queued_ms": 2409,
+              "settled_ms": 2680
+            },
+            {
+              "first_change_ms": 49,
+              "name": "ALPHA",
+              "queued_ms": 2683,
+              "settled_ms": 2905
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x45",
+              "queued_ms": 2908,
+              "settled_ms": 3107
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3110,
+              "settled_ms": 3308
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x4C",
+              "queued_ms": 3311,
+              "settled_ms": 3508
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 3512,
+              "settled_ms": 3707
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x4F",
+              "queued_ms": 3710,
+              "settled_ms": 3907
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3911,
+              "settled_ms": 4108
+            },
+            {
+              "first_change_ms": 74,
+              "name": "0x41",
+              "queued_ms": 4111,
+              "settled_ms": 4337
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 4340,
+              "settled_ms": 4559
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x44",
+              "queued_ms": 4563,
+              "settled_ms": 4884
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 4887,
+              "settled_ms": 5130
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 7000.121008,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 350
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 353,
+              "settled_ms": 524
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 528,
+              "settled_ms": 726
+            },
+            {
+              "first_change_ms": 51,
+              "name": "1",
+              "queued_ms": 730,
+              "settled_ms": 932
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 936,
+              "settled_ms": 1862
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 10699.489362999999,
+          "keys": [
+            {
+              "first_change_ms": 534,
+              "name": "TAP:100:52",
+              "queued_ms": 268,
+              "settled_ms": 1815
+            },
+            {
+              "first_change_ms": 66,
+              "name": "TAP:293:229",
+              "queued_ms": 1819,
+              "settled_ms": 2918
+            },
+            {
+              "first_change_ms": 60,
+              "name": "ENTER",
+              "queued_ms": 2921,
+              "settled_ms": 3133
+            },
+            {
+              "first_change_ms": 51,
+              "name": "HOME",
+              "queued_ms": 3136,
+              "settled_ms": 3339
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3343,
+              "settled_ms": 3522
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3526,
+              "settled_ms": 3695
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 13113.109821,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 159,
+              "settled_ms": 352
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 355,
+              "settled_ms": 550
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 553,
+              "settled_ms": 753
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x50",
+              "queued_ms": 756,
+              "settled_ms": 953
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 956,
+              "settled_ms": 1153
+            },
+            {
+              "first_change_ms": 72,
+              "name": "0x45",
+              "queued_ms": 1156,
+              "settled_ms": 1401
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 1404,
+              "settled_ms": 1603
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 1607,
+              "settled_ms": 1803
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1806,
+              "settled_ms": 2004
+            },
+            {
+              "first_change_ms": 49,
+              "name": "0x46",
+              "queued_ms": 2007,
+              "settled_ms": 2208
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ENTER",
+              "queued_ms": 2211,
+              "settled_ms": 2410
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "tiny_after_restart",
+      "request": 12,
+      "elapsed_seconds": 18.211767450999105,
+      "cpu_seconds": 6.08,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 12,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 1985.4064799999999,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 342
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 345,
+              "settled_ms": 542
+            },
+            {
+              "first_change_ms": 47,
+              "name": "SHIFT",
+              "queued_ms": 545,
+              "settled_ms": 744
+            },
+            {
+              "first_change_ms": 118,
+              "name": "1",
+              "queued_ms": 747,
+              "settled_ms": 1021
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 1025,
+              "settled_ms": 1982
+            }
+          ],
+          "stage": "open-catalog-for-loader"
+        },
+        {
+          "done_ms": 5512.225587,
+          "keys": [
+            {
+              "first_change_ms": 739,
+              "name": "TAP:100:73",
+              "queued_ms": 177,
+              "settled_ms": 1518
+            },
+            {
+              "first_change_ms": 155,
+              "name": "TAP:293:229",
+              "queued_ms": 1521,
+              "settled_ms": 2620
+            },
+            {
+              "first_change_ms": 132,
+              "name": "ENTER",
+              "queued_ms": 2624,
+              "settled_ms": 2927
+            },
+            {
+              "first_change_ms": 70,
+              "name": "HOME",
+              "queued_ms": 2930,
+              "settled_ms": 3152
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3156,
+              "settled_ms": 3350
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3353,
+              "settled_ms": 3523
+            }
+          ],
+          "stage": "check-loader"
+        },
+        {
+          "done_ms": 10634.449776,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 351
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 355,
+              "settled_ms": 525
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 529,
+              "settled_ms": 727
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 731,
+              "settled_ms": 928
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 931,
+              "settled_ms": 1130
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 1133,
+              "settled_ms": 1329
+            },
+            {
+              "first_change_ms": 74,
+              "name": "ALPHA",
+              "queued_ms": 1333,
+              "settled_ms": 1581
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x54",
+              "queued_ms": 1584,
+              "settled_ms": 1784
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 1787,
+              "settled_ms": 1982
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x49",
+              "queued_ms": 1985,
+              "settled_ms": 2183
+            },
+            {
+              "first_change_ms": 44,
+              "name": "ALPHA",
+              "queued_ms": 2186,
+              "settled_ms": 2382
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x44",
+              "queued_ms": 2386,
+              "settled_ms": 2584
+            },
+            {
+              "first_change_ms": 44,
+              "name": "ALPHA",
+              "queued_ms": 2588,
+              "settled_ms": 2830
+            },
+            {
+              "first_change_ms": 50,
+              "name": "0x45",
+              "queued_ms": 2834,
+              "settled_ms": 3058
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3062,
+              "settled_ms": 3258
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x4C",
+              "queued_ms": 3262,
+              "settled_ms": 3461
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3464,
+              "settled_ms": 3661
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x4F",
+              "queued_ms": 3664,
+              "settled_ms": 3861
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 3865,
+              "settled_ms": 4062
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x41",
+              "queued_ms": 4065,
+              "settled_ms": 4262
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 4265,
+              "settled_ms": 4463
+            },
+            {
+              "first_change_ms": 72,
+              "name": "0x44",
+              "queued_ms": 4467,
+              "settled_ms": 4865
+            },
+            {
+              "first_change_ms": 99,
+              "name": "ENTER",
+              "queued_ms": 4868,
+              "settled_ms": 5118
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 12583.251185,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 465
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 468,
+              "settled_ms": 639
+            },
+            {
+              "first_change_ms": 49,
+              "name": "SHIFT",
+              "queued_ms": 642,
+              "settled_ms": 843
+            },
+            {
+              "first_change_ms": 56,
+              "name": "1",
+              "queued_ms": 846,
+              "settled_ms": 1072
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 1076,
+              "settled_ms": 1945
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 15738.720626999999,
+          "keys": [
+            {
+              "first_change_ms": 532,
+              "name": "TAP:100:73",
+              "queued_ms": 158,
+              "settled_ms": 1292
+            },
+            {
+              "first_change_ms": 91,
+              "name": "TAP:293:229",
+              "queued_ms": 1295,
+              "settled_ms": 2376
+            },
+            {
+              "first_change_ms": 64,
+              "name": "ENTER",
+              "queued_ms": 2379,
+              "settled_ms": 2595
+            },
+            {
+              "first_change_ms": 49,
+              "name": "HOME",
+              "queued_ms": 2599,
+              "settled_ms": 2804
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 2807,
+              "settled_ms": 2978
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 2982,
+              "settled_ms": 3151
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 18206.200615,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 208,
+              "settled_ms": 402
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 406,
+              "settled_ms": 602
+            },
+            {
+              "first_change_ms": 48,
+              "name": "ALPHA",
+              "queued_ms": 605,
+              "settled_ms": 804
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x50",
+              "queued_ms": 807,
+              "settled_ms": 1004
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 1007,
+              "settled_ms": 1206
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x45",
+              "queued_ms": 1209,
+              "settled_ms": 1408
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1411,
+              "settled_ms": 1608
+            },
+            {
+              "first_change_ms": 70,
+              "name": "0x52",
+              "queued_ms": 1611,
+              "settled_ms": 1856
+            },
+            {
+              "first_change_ms": 49,
+              "name": "ALPHA",
+              "queued_ms": 1859,
+              "settled_ms": 2060
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x46",
+              "queued_ms": 2063,
+              "settled_ms": 2258
+            },
+            {
+              "first_change_ms": 52,
+              "name": "ENTER",
+              "queued_ms": 2261,
+              "settled_ms": 2463
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    },
+    {
+      "case": "repeat_after_restart",
+      "request": 13,
+      "elapsed_seconds": 12.827785720000975,
+      "cpu_seconds": 3.8899999999999997,
+      "source_bytes": 37,
+      "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+      "correct": true,
+      "result": {
+        "event": "result",
+        "request": 13,
+        "success": true,
+        "message": "G1 firmware returned 42",
+        "check": {
+          "accepted": true,
+          "source_sha256": "7f24c9254085ff7c94e4c2c2070482d780a04978b8159212c3328139c3ca40cf",
+          "diagnostics": []
+        }
+      },
+      "timeline": [
+        {
+          "done_ms": 5025.5526279999995,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 156,
+              "settled_ms": 336
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 339,
+              "settled_ms": 510
+            },
+            {
+              "first_change_ms": 49,
+              "name": "ALPHA",
+              "queued_ms": 513,
+              "settled_ms": 715
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x5A",
+              "queued_ms": 718,
+              "settled_ms": 915
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 918,
+              "settled_ms": 1117
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x5A",
+              "queued_ms": 1120,
+              "settled_ms": 1315
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 1318,
+              "settled_ms": 1517
+            },
+            {
+              "first_change_ms": 74,
+              "name": "0x54",
+              "queued_ms": 1520,
+              "settled_ms": 1746
+            },
+            {
+              "first_change_ms": 41,
+              "name": "ALPHA",
+              "queued_ms": 1750,
+              "settled_ms": 1967
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x49",
+              "queued_ms": 1971,
+              "settled_ms": 2170
+            },
+            {
+              "first_change_ms": 43,
+              "name": "ALPHA",
+              "queued_ms": 2173,
+              "settled_ms": 2368
+            },
+            {
+              "first_change_ms": 47,
+              "name": "0x44",
+              "queued_ms": 2371,
+              "settled_ms": 2570
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 2573,
+              "settled_ms": 2770
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 2773,
+              "settled_ms": 3069
+            },
+            {
+              "first_change_ms": 47,
+              "name": "ALPHA",
+              "queued_ms": 3073,
+              "settled_ms": 3272
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x4C",
+              "queued_ms": 3275,
+              "settled_ms": 3471
+            },
+            {
+              "first_change_ms": 49,
+              "name": "ALPHA",
+              "queued_ms": 3475,
+              "settled_ms": 3675
+            },
+            {
+              "first_change_ms": 43,
+              "name": "0x4F",
+              "queued_ms": 3679,
+              "settled_ms": 3944
+            },
+            {
+              "first_change_ms": 52,
+              "name": "ALPHA",
+              "queued_ms": 3947,
+              "settled_ms": 4175
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x41",
+              "queued_ms": 4179,
+              "settled_ms": 4376
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 4379,
+              "settled_ms": 4576
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x44",
+              "queued_ms": 4579,
+              "settled_ms": 4776
+            },
+            {
+              "first_change_ms": 91,
+              "name": "ENTER",
+              "queued_ms": 4779,
+              "settled_ms": 5022
+            }
+          ],
+          "stage": "run-loader"
+        },
+        {
+          "done_ms": 6880.56145,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 158,
+              "settled_ms": 350
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 354,
+              "settled_ms": 523
+            },
+            {
+              "first_change_ms": 50,
+              "name": "SHIFT",
+              "queued_ms": 526,
+              "settled_ms": 728
+            },
+            {
+              "first_change_ms": 84,
+              "name": "1",
+              "queued_ms": 731,
+              "settled_ms": 968
+            },
+            {
+              "first_change_ms": null,
+              "name": "SWIPE:160:55:160:210:10",
+              "queued_ms": 971,
+              "settled_ms": 1851
+            }
+          ],
+          "stage": "open-catalog"
+        },
+        {
+          "done_ms": 10312.706601,
+          "keys": [
+            {
+              "first_change_ms": 531,
+              "name": "TAP:100:52",
+              "queued_ms": 158,
+              "settled_ms": 1291
+            },
+            {
+              "first_change_ms": 97,
+              "name": "TAP:293:229",
+              "queued_ms": 1295,
+              "settled_ms": 2655
+            },
+            {
+              "first_change_ms": 60,
+              "name": "ENTER",
+              "queued_ms": 2659,
+              "settled_ms": 2870
+            },
+            {
+              "first_change_ms": 54,
+              "name": "HOME",
+              "queued_ms": 2873,
+              "settled_ms": 3079
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 3082,
+              "settled_ms": 3256
+            },
+            {
+              "first_change_ms": null,
+              "name": "IDLE",
+              "queued_ms": 3259,
+              "settled_ms": 3428
+            }
+          ],
+          "stage": "check-source"
+        },
+        {
+          "done_ms": 12823.99115,
+          "keys": [
+            {
+              "first_change_ms": null,
+              "name": "HOME",
+              "queued_ms": 159,
+              "settled_ms": 329
+            },
+            {
+              "first_change_ms": null,
+              "name": "ESC",
+              "queued_ms": 333,
+              "settled_ms": 629
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 633,
+              "settled_ms": 855
+            },
+            {
+              "first_change_ms": 48,
+              "name": "0x50",
+              "queued_ms": 858,
+              "settled_ms": 1057
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 1061,
+              "settled_ms": 1258
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x45",
+              "queued_ms": 1261,
+              "settled_ms": 1458
+            },
+            {
+              "first_change_ms": 45,
+              "name": "ALPHA",
+              "queued_ms": 1461,
+              "settled_ms": 1658
+            },
+            {
+              "first_change_ms": 45,
+              "name": "0x52",
+              "queued_ms": 1661,
+              "settled_ms": 1858
+            },
+            {
+              "first_change_ms": 46,
+              "name": "ALPHA",
+              "queued_ms": 1861,
+              "settled_ms": 2059
+            },
+            {
+              "first_change_ms": 46,
+              "name": "0x46",
+              "queued_ms": 2062,
+              "settled_ms": 2259
+            },
+            {
+              "first_change_ms": 75,
+              "name": "ENTER",
+              "queued_ms": 2263,
+              "settled_ms": 2507
+            }
+          ],
+          "stage": "invoke"
+        }
+      ]
+    }
+  ]
+}

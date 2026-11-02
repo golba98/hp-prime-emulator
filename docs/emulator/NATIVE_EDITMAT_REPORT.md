@@ -30,8 +30,9 @@ profile or proprietary binary was modified. The firmware ELF SHA-256 was
 `ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39`.
 The observations are explicitly labelled `firmware-only-observed`.
 
-The compiler uses reference writeback only for bare M0–M9 arguments. Local
-variables and matrix expressions use normal value calls. The VM builds an
+The compiler uses reference writeback only for bare M0–M9 arguments. Ordinary local names (for example `a`) and matrix expressions use normal value
+calls. A separately probed `LOCAL M1` still receives writeback, matching the
+firmware's special treatment of bare M0–M9 names. The VM builds an
 edited copy, validates numeric cells, and only returns it after successful OK.
 Cancel returns the original matrix; invalid cells reopen the editor at the
 bad cell without partially updating a calculator matrix variable. Existing VM

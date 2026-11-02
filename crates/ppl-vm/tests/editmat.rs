@@ -22,6 +22,16 @@ fn calculator_matrix_variable_writes_back_and_returns_edited_matrix() {
 }
 
 #[test]
+fn local_matrix_named_m1_keeps_calculator_writeback_semantics() {
+    let result = run(
+        "LOCAL M1:=[[1,2],[3,4]]; LOCAL b:=EDITMAT(M1); RETURN {M1,b};",
+        &["9", "2", "3", "4"],
+    )
+    .unwrap();
+    assert_eq!(text(&result), "{[[9,2],[3,4]],[[9,2],[3,4]]}");
+}
+
+#[test]
 fn local_matrix_is_a_value_not_a_writeback_reference() {
     let result = run(
         "LOCAL a:=[[1,2],[3,4]]; LOCAL b:=EDITMAT(a); RETURN {a,b};",
