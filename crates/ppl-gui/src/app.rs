@@ -108,6 +108,8 @@ pub struct IdeDesktopApp {
     diagnostics: DiagnosticsWorker,
     /// Live-diagnostic bookkeeping per tab.
     diag_requests: HashMap<TabId, DiagRequest>,
+    native_catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
+    native_catalog_key: Vec<(TabId, u64, String, String)>,
     /// Runtime problems from the last run, with the source revision that
     /// ran; shown only while the tab still has that revision.
     runtime_problems: Vec<(DiagnosticItem, u64)>,
@@ -127,6 +129,7 @@ pub struct IdeDesktopApp {
 
 struct NativeCompileJob {
     namespace: String,
+    catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
     tab: TabId,
     revision: u64,
     file: ppl_syntax::SourceFile,
@@ -146,6 +149,7 @@ const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(250);
 #[derive(Debug, Clone)]
 struct RunningProgram {
     namespace: String,
+    catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
     tab: TabId,
     revision: u64,
     file: ppl_syntax::SourceFile,
@@ -214,6 +218,8 @@ impl Default for IdeDesktopApp {
             automation: None,
             diagnostics: DiagnosticsWorker::new(None),
             diag_requests: HashMap::new(),
+            native_catalog: Default::default(),
+            native_catalog_key: Vec::new(),
             runtime_problems: Vec::new(),
             running: None,
             problems_key: Vec::new(),
@@ -402,6 +408,75 @@ impl IdeDesktopApp {
         self.begin_native_compile(true, debug, stop_at_entry, ctx);
     }
 
+    fn refresh_native_sources(&mut self) {
+        let key: Vec<_> = self
+            .editor
+            .tabs
+            .iter_mut()
+            .map(|tab| {
+                (
+                    tab.id,
+                    tab.revision(),
+                    tab.path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default(),
+                    tab.title.clone(),
+                )
+            })
+            .collect();
+        if self.native_catalog_key == key {
+            return;
+        }
+        let mut catalog = diagnostics::CatalogSnapshot {
+            generation: self.native_catalog.generation + 1,
+            ..Default::default()
+        };
+        for tab in &self.editor.tabs {
+            let name = Self::native_namespace(tab);
+            let revision = key.iter().find(|(id, _, _, _)| *id == tab.id).unwrap().1;
+            catalog.sources.insert(
+                name.clone(),
+                ppl_vm::ModuleSource {
+                    identity: ppl_vm::SourceIdentity::new(&name, tab.content.clone()),
+                    source: tab.content.clone(),
+                },
+            );
+            catalog
+                .tabs
+                .insert(name, (tab.id, revision, tab.title.clone()));
+        }
+        for (name, (tab, revision, _)) in &catalog.tabs {
+            if self
+                .native_catalog
+                .tabs
+                .get(name)
+                .is_some_and(|(_, old, _)| old == revision)
+                && let Some(request) = self.diag_requests.get_mut(tab)
+            {
+                request.requested = 0;
+            }
+        }
+        self.native_catalog = std::sync::Arc::new(catalog);
+        self.native_catalog_key = key;
+        // A dependency edit invalidates callers too. Coalesced background
+        // checks are rebuilt from the new immutable snapshot.
+        for tab in &mut self.editor.tabs {
+            tab.analysis = None;
+        }
+    }
+    fn native_namespace(tab: &EditorTab) -> String {
+        tab.path
+            .as_ref()
+            .map(|path| {
+                path.canonicalize()
+                    .unwrap_or_else(|_| path.clone())
+                    .display()
+                    .to_string()
+            })
+            .unwrap_or_else(|| format!("<untitled:{:?}>/{}", tab.id, tab.title))
+    }
+
     fn begin_native_compile(
         &mut self,
         run: bool,
@@ -413,6 +488,8 @@ impl IdeDesktopApp {
             self.state.status_message = "A program is already running (use Stop first)".into();
             return;
         }
+        self.refresh_native_sources();
+        let catalog = self.native_catalog.clone();
         let caller = self.state.native.idle_caller();
         let home_expression = if run {
             self.native_home_expression.take()
@@ -424,30 +501,23 @@ impl IdeDesktopApp {
         };
         let revision = tab.revision();
         let tab_id = tab.id;
-        let source_identity = tab
-            .path
-            .as_ref()
-            .map(|path| {
-                path.canonicalize()
-                    .unwrap_or_else(|_| path.clone())
-                    .display()
-                    .to_string()
-            })
-            .unwrap_or_else(|| format!("<untitled:{:?}>/{}", tab.id, tab.title));
+        let source_identity = Self::native_namespace(tab);
         let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
         let run_entry = tab.run_entry.clone();
         let run_args = Some(tab.run_args.trim().to_owned()).filter(|a| !a.is_empty());
         self.controller.bridge.set_breakpoints(&tab.breakpoints);
         let (tx, result) = std::sync::mpsc::channel();
-        let source = file.clone();
+        let compile_catalog = catalog.clone();
+        let compile_root = source_identity.clone();
         let wake = ctx.clone();
         std::thread::spawn(move || {
-            let analysis = diagnostics::analyze(&source.name, &source.text, revision);
+            let analysis = diagnostics::analyze_catalog(&compile_root, &compile_catalog, revision);
             let _ = tx.send(analysis);
             wake.request_repaint();
         });
         self.native_compile = Some(NativeCompileJob {
             namespace: source_identity,
+            catalog,
             tab: tab_id,
             revision,
             file,
@@ -493,9 +563,11 @@ impl IdeDesktopApp {
         else {
             return;
         };
+        self.refresh_native_sources();
         let job = self.native_compile.take().unwrap();
         let NativeCompileJob {
             namespace,
+            catalog,
             tab: tab_id,
             revision,
             file,
@@ -507,6 +579,18 @@ impl IdeDesktopApp {
             run,
             ..
         } = job;
+        if catalog.generation != self.native_catalog.generation {
+            if run {
+                self.retire_native_compile(
+                    "Open sources changed while compiling; run the current revisions again",
+                );
+            }
+            return;
+        }
+        if debug && analysis.module_count > 1 {
+            self.retire_native_compile("Linked programs support Run and Check; per-module source debugging is not yet available");
+            return;
+        }
         let Some(i) = self.editor.index_of(tab_id) else {
             if run {
                 self.retire_native_compile("Program tab closed while compiling");
@@ -586,7 +670,7 @@ impl IdeDesktopApp {
                 ..
             })
         );
-        let result = self.controller.start_compiled_in_namespace(
+        let result = self.controller.start_compiled_with_catalog(
             &namespace,
             program,
             &file,
@@ -596,11 +680,13 @@ impl IdeDesktopApp {
             stop_at_entry,
             max_steps,
             home_origin,
+            (catalog.sources.len() > 1).then(|| std::sync::Arc::new(catalog.sources.clone())),
         );
         match result {
             crate::ide::execution::RunStart::Started => {
                 self.running = Some(RunningProgram {
                     namespace,
+                    catalog,
                     tab: tab_id,
                     revision,
                     file,
@@ -810,8 +896,15 @@ impl IdeDesktopApp {
     /// Live diagnostics: applies finished checks and queues a check of the
     /// active buffer once it has been unchanged for a short quiet period.
     fn schedule_diagnostics(&mut self, ctx: &egui::Context) {
+        self.refresh_native_sources();
         let mut changed = false;
         for result in self.diagnostics.poll() {
+            if result
+                .catalog_generation
+                .is_some_and(|generation| generation != self.native_catalog.generation)
+            {
+                continue;
+            }
             // Results for closed tabs or older revisions are superseded.
             if let Some(i) = self.editor.index_of(result.tab) {
                 changed |= Self::set_analysis(
@@ -844,8 +937,12 @@ impl IdeDesktopApp {
             }
             let waited = now.duration_since(req.seen_at);
             if i != active || req.requested == 0 || waited >= DIAGNOSTICS_DEBOUNCE {
-                self.diagnostics
-                    .request(tab.id, revision, &tab.title, &tab.content);
+                self.diagnostics.request_catalog(
+                    tab.id,
+                    revision,
+                    Self::native_namespace(tab),
+                    self.native_catalog.clone(),
+                );
                 req.requested = revision;
             } else {
                 ctx.request_repaint_after(DIAGNOSTICS_DEBOUNCE - waited);
@@ -930,12 +1027,33 @@ impl IdeDesktopApp {
                     WorkerOutcome::Error(e) => {
                         let msg = e.to_string();
                         if let Some(run) = &self.running {
-                            let mut item = DiagnosticItem::runtime(&e, &run.file);
-                            item.tab = Some(run.tab);
-                            if let Some(i) = self.editor.index_of(run.tab) {
+                            let source = e
+                                .trace
+                                .first()
+                                .and_then(|frame| frame.module.as_ref())
+                                .and_then(|identity| {
+                                    run.catalog
+                                        .sources
+                                        .get(&identity.name)
+                                        .filter(|m| m.identity.revision == identity.revision)
+                                        .map(|m| (identity, m))
+                                });
+                            let (file, tab, revision) = if let Some((identity, module)) = source {
+                                let (tab, revision, title) = &run.catalog.tabs[&identity.name];
+                                (
+                                    ppl_syntax::SourceFile::new(title, &module.source),
+                                    *tab,
+                                    *revision,
+                                )
+                            } else {
+                                (run.file.clone(), run.tab, run.revision)
+                            };
+                            let mut item = DiagnosticItem::runtime(&e, &file);
+                            item.tab = Some(tab);
+                            if let Some(i) = self.editor.index_of(tab) {
                                 item.file = self.editor.tabs[i].title.clone();
                             }
-                            self.runtime_problems = vec![(item, run.revision)];
+                            self.runtime_problems = vec![(item, revision)];
                             self.rebuild_problems();
                         }
                         self.state.vm_state = crate::ide::VmExecutionState::Error(msg.clone());

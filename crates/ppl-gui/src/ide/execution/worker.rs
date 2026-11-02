@@ -34,6 +34,10 @@ pub enum WorkerOutcome {
 #[derive(Clone)]
 pub struct WorkerConfig {
     pub prog: CompiledProgram,
+    pub catalog: Option<(
+        String,
+        Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    )>,
     pub entry: Option<String>,
     pub args: Option<String>,
     pub settings: Settings,
@@ -50,6 +54,7 @@ impl WorkerConfig {
     pub fn new(prog: CompiledProgram) -> Self {
         Self {
             prog,
+            catalog: None,
             entry: None,
             args: None,
             settings: Settings::default(),
@@ -348,22 +353,43 @@ fn run_session_program(
         }
     };
     let host = GuiHost::new(state.clone()).with_echo(config.echo);
-    let run = context.run(
-        identity,
-        prog,
-        Box::new(host),
-        config.limits,
-        promote_ans,
-        |machine| {
-            if let Some(bridge) = config.debug {
-                machine.set_debugger(Some(Box::new(super::controller::make_worker_debugger(
-                    bridge,
-                    state.interrupt.clone(),
-                ))));
+    let debug_requested = config.debug.is_some();
+    let invoke = |machine: &mut Machine| {
+        machine.initialize_dependencies()?;
+        if let Some(bridge) = config.debug {
+            machine.set_debugger(Some(Box::new(super::controller::make_worker_debugger(
+                bridge,
+                state.interrupt.clone(),
+            ))));
+        }
+        machine.call_function(&entry, args)
+    };
+    let run = if let Some((root, catalog)) = config.catalog {
+        let image = match ppl_vm::link_sources(&catalog, &root) {
+            Ok(image) => image,
+            Err(error) => {
+                context.record_failure();
+                return WorkerOutcome::Error(error);
             }
-            machine.call_function(&entry, args)
-        },
-    );
+        };
+        if debug_requested && image.module_identities().len() > 1 {
+            context.record_failure();
+            return WorkerOutcome::Error(RuntimeError::new(
+                ErrorKind::Unsupported,
+                "per-module source debugging is not yet available for linked programs",
+            ));
+        }
+        context.run_linked(image, Box::new(host), config.limits, promote_ans, invoke)
+    } else {
+        context.run(
+            identity,
+            prog,
+            Box::new(host),
+            config.limits,
+            promote_ans,
+            invoke,
+        )
+    };
     session_outcome(run, &context.settings)
 }
 

@@ -3,7 +3,7 @@ use crate::{ErrorKind, RtResult, RuntimeError, SourceIdentity};
 use ppl_compiler::{Chunk, CompiledProgram, GlobalSlot, Op};
 use std::{collections::BTreeMap, rc::Rc};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ModuleSource {
     pub identity: SourceIdentity,
     pub source: String,

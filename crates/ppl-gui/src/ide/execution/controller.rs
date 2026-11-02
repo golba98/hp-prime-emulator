@@ -603,6 +603,34 @@ impl ExecutionController {
         max_steps: Option<u64>,
         promote_ans: bool,
     ) -> RunStart {
+        self.start_compiled_with_catalog(
+            namespace,
+            prog,
+            file,
+            entry,
+            args,
+            debug,
+            stop_at_entry,
+            max_steps,
+            promote_ans,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_compiled_with_catalog(
+        &mut self,
+        namespace: &str,
+        prog: ppl_compiler::CompiledProgram,
+        file: &SourceFile,
+        entry: &str,
+        args: Option<&str>,
+        debug: bool,
+        stop_at_entry: bool,
+        max_steps: Option<u64>,
+        promote_ans: bool,
+        catalog: Option<std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>>,
+    ) -> RunStart {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
@@ -620,6 +648,7 @@ impl ExecutionController {
 
         let config = WorkerConfig {
             prog,
+            catalog: catalog.map(|sources| (namespace.to_owned(), sources)),
             entry: Some(entry.to_string()),
             args: args.map(str::to_string),
             settings: ppl_vm::Settings::default(),

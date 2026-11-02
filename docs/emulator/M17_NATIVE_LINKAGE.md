@@ -43,5 +43,28 @@ Module warnings and runtime failures retain the original source identity and
 position. Ambiguous exported names are diagnosed before candidate arities.
 Output/report destinations cannot alias any dependency input file. Three actual
 CLI integration tests, ten linkage tests and six engine core tests pass; scoped
-Clippy with warnings denied passes. IDE open-tab catalog wiring and new firmware
-object decoders remain subsequent increments.
+Clippy with warnings denied passes. The IDE now snapshots the open-tab source catalog for Native Run, Check and
+background diagnostics. Dependency edits invalidate callers and supersede any
+in-flight compile; snapshots contain Send-safe owned sources, while the worker
+builds its Rc-linked image locally. Retained module state survives repeated runs,
+and edited dependencies reset independently. A runtime failure in a dependency
+points to that tab's actual original line. An unrelated broken tab still has its
+own Problems entries, without blocking a valid caller.
+
+Five new egui-app regressions cover retained runs, dependency edits and arity
+invalidation, stale compile rejection, callee error positions, explicit debugger
+admission and missing source snapshots. All315GUI library tests pass (2previously
+ignored tests remain ignored). The new native-only Xvfb runner
+`tests/ide_xvfb_smoke/run_m17_native_linkage.sh` passes15assertions with actual
+Root112→114→144after a Leaf edit, an unrelated invalid tab and a callee division
+error at line3. Its rendered screenshot was inspected; the console shows each
+result. Preferences and generated artifacts are isolated under its output path.
+The CLI's three integration tests and scoped warnings-denied Clippy also pass.
+
+Linked multi-module Run and Check are supported. The existing debugger uses one
+source buffer, so linked multi-module Debug is explicitly refused until proper
+module navigation exists; single-module debugging remains available. General
+linkage failures identify the named dependency and report an unavailable source
+position, rather than attaching its span to the caller. Parser diagnostics keep
+their actual codes and positions. The separate M17_TYPED_VALUES.md report records
+the now implemented firmware codecs and genuine local-firmware comparisons.
