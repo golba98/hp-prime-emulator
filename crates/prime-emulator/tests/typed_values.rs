@@ -102,3 +102,46 @@ fn unknown_objects_capture_only_bounded_exact_allocation_without_following_words
     assert_eq!(graph.nodes[0].bytes.len(), 4096);
     assert_eq!(graph.captured_bytes, 4096);
 }
+
+#[test]
+fn known_matrix_allocation_cannot_read_neighbor_objects() {
+    let mut mem = GuestMemory::new();
+    mem.map("heap", 0x10000, 0x10000).unwrap();
+    mem.set_heap(0x10000, 0x10000);
+    let matrix = mem.heap_alloc(16).unwrap();
+    let neighbor = mem.heap_alloc(64).unwrap();
+    assert_eq!(neighbor, matrix + 16);
+    mem.write_u32(matrix, 0x0014_0001).unwrap();
+    mem.write_u32(matrix + 4, 2).unwrap();
+    mem.write_u32(matrix + 8, 2).unwrap();
+    mem.write_u32(matrix + 12, 2).unwrap();
+    let evidence = runtime_value::decode_return(&mem, matrix);
+    assert!(
+        evidence.value.is_none(),
+        "neighbor bytes became a fabricated matrix"
+    );
+    assert!(
+        evidence
+            .unavailable
+            .as_deref()
+            .unwrap()
+            .contains("allocation")
+    );
+    assert_eq!(evidence.representation.unwrap().nodes[0].bytes.len(), 16);
+}
+
+#[test]
+fn mapped_matrix_constants_without_heap_allocation_remain_supported() {
+    let mut mem = GuestMemory::new();
+    mem.map("firmware constants", 0x3060_0000, 4096).unwrap();
+    let matrix = 0x3060_0000;
+    mem.write_u32(matrix, 0x0014_0001).unwrap();
+    mem.write_u32(matrix + 4, 2).unwrap();
+    mem.write_u32(matrix + 8, 1).unwrap();
+    mem.write_u32(matrix + 12, 1).unwrap();
+    let evidence = runtime_value::decode_return(&mem, matrix);
+    assert_eq!(
+        serde_json::to_value(evidence.value).unwrap(),
+        serde_json::json!({"type":"matrix","rows":1,"columns":1,"vector":false,"value":[{"type":"real","value":"0"}]})
+    );
+}

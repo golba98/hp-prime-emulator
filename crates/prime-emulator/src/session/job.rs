@@ -1663,12 +1663,150 @@ fn execution_events(job: &Job, trace: &TraceHub) -> Vec<Event> {
         runtime: serde_json::to_value(&runtime).unwrap(),
         image,
     };
-    vec![Event::Execution {
+    vec![execution_wire_event(Event::Execution {
         request: job.request,
         program: job.stored_name.clone().unwrap_or_else(|| "ZZT_IDE".into()),
         source_sha256: c.source_sha256.clone(),
         observation: Box::new(observation),
-    }]
+    })]
+}
+/// Serialize only bounded wire evidence. The independent local report uses the
+/// original trace, not this projection. Whole typed observations remain intact
+/// unless their complete collection cannot fit; omissions are explicit gaps.
+fn execution_wire_event(mut event: Event) -> Event {
+    if packet_fits(&event) {
+        return event;
+    }
+    let Event::Execution { request, .. } = &event else {
+        return event;
+    };
+    let request = *request;
+    if let Event::Execution { observation, .. } = &mut event {
+        let omitted = strip_raw_value_evidence(&mut observation.runtime);
+        if omitted != 0 {
+            wire_gap(observation, request, "raw_value_representations", omitted);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let invocations = observation.runtime["invocations"]
+            .as_array()
+            .map_or(0, Vec::len);
+        // These are duplicated forensic call histories. Top-level return,
+        // output, diagnostics and source identity remain authoritative.
+        observation.runtime =
+            serde_json::json!({"wire_runtime_summary":true,"invocations_omitted":invocations});
+        wire_gap(observation, request, "runtime_call_history", invocations);
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        if observation.image.take().is_some() {
+            wire_gap(observation, request, "image", 1);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let outputs = observation.output.len();
+        if outputs != 0 {
+            observation.output.clear();
+            wire_gap(observation, request, "complete_output_collection", outputs);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let diagnostics = observation.diagnostics.len();
+        observation.diagnostics.clear();
+        wire_gap(
+            observation,
+            request,
+            "complete_diagnostic_collection",
+            diagnostics,
+        );
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        // A codec-produced return is already <=1MiB. This is a final guard for
+        // another future producer: never send a deceptively partial value.
+        observation.return_value = None;
+        observation.return_representation = serde_json::json!({"kind":"undecoded","reason":"Complete observed return omitted: session transport limit exceeded; inspect the local report if available"});
+        wire_gap(observation, request, "complete_return_value", 1);
+    }
+    event
+}
+fn packet_fits(event: &Event) -> bool {
+    struct Budget(usize);
+    impl std::io::Write for Budget {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self
+                .0
+                .checked_sub(bytes.len())
+                .ok_or_else(|| std::io::Error::other("session packet budget exceeded"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(&mut Budget(ppl_engine::session::MAX_PACKET), event).is_ok()
+}
+fn strip_raw_value_evidence(value: &mut serde_json::Value) -> usize {
+    match value {
+        serde_json::Value::Object(object) => {
+            let mut omitted = 0;
+            if object.contains_key("address")
+                && object.contains_key("unavailable")
+                && object.contains_key("representation")
+            {
+                if let Some(graph) = object
+                    .get_mut("representation")
+                    .map(serde_json::Value::take)
+                    .filter(|v| !v.is_null())
+                {
+                    object.insert("wire_representation_omitted".into(),serde_json::json!({"nodes":graph["nodes"].as_array().map_or(0,Vec::len),"captured_bytes":graph["captured_bytes"],"complete":graph["complete"],"coherent":graph["coherent"]}));
+                    omitted += 1;
+                }
+                // Root address, tag/subtype, readable root prefix and original
+                // unavailable diagnostic remain; duplicated bulk bytes do not.
+                object.insert("probe".into(), serde_json::json!([]));
+            }
+            omitted
+                + object
+                    .values_mut()
+                    .map(strip_raw_value_evidence)
+                    .sum::<usize>()
+        }
+        serde_json::Value::Array(items) => items.iter_mut().map(strip_raw_value_evidence).sum(),
+        _ => 0,
+    }
+}
+fn wire_gap(
+    observation: &mut ppl_engine::session::ExecutionObservation,
+    request: u64,
+    scope: &str,
+    count: usize,
+) {
+    if !observation.runtime.is_object() {
+        observation.runtime = serde_json::json!({});
+    }
+    let object = observation.runtime.as_object_mut().unwrap();
+    let gaps = object
+        .entry("wire_observation_gaps")
+        .or_insert_with(|| serde_json::json!([]));
+    if !gaps.is_array() {
+        *gaps = serde_json::json!([]);
+    }
+    gaps.as_array_mut().unwrap().push(serde_json::json!({"scope":scope,"omitted":count,"reason":"session_packet_budget","local_report_candidate":format!("ide-reports/request-{request}.json")}));
+    observation.diagnostics.push(ppl_engine::Diagnostic {source:"emulator-transport".into(),severity:"warning".into(),code:Some("firmware_observation_gap".into()),message:Some(format!("Execution evidence omitted from wire reply ({scope}, {count}) to fit the session packet limit. Inspect the local report if available; source identity and execution outcome are preserved.")),line:None,column:None,raw_position:None});
 }
 fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool, message: &str) {
     let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot()),"debug":trace.diagnostic_bundle()});
@@ -1681,6 +1819,203 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 }
 #[cfg(test)]
 mod tests {
+    fn oversized_unknown_event() -> ppl_engine::session::Event {
+        use crate::{memory::GuestMemory, runtime_value};
+        use ppl_engine::session::{Event, ExecutionImage, ExecutionObservation};
+        let mut memory = GuestMemory::new();
+        memory
+            .map("synthetic objects", 0x10000, 4 * 1024 * 1024)
+            .unwrap();
+        memory.set_heap(0x10000, 4 * 1024 * 1024);
+        let root = memory.heap_alloc(12).unwrap();
+        let list = memory.heap_alloc(8 + 256 * 4).unwrap();
+        memory.write_u32(root, 0x0016_0001).unwrap();
+        memory.write_u32(root + 4, 1).unwrap();
+        memory.write_u32(root + 8, list).unwrap();
+        memory.write_u32(list, 0x0016_0001).unwrap();
+        memory.write_u32(list + 4, 256).unwrap();
+        for i in 0..256 {
+            let address = memory.heap_alloc(8192).unwrap();
+            memory.write_bytes(address, &[255; 8192]).unwrap();
+            memory.write_u32(address, 0x0009_0001).unwrap();
+            memory.write_u32(list + 8 + i * 4, address).unwrap();
+        }
+        let evidence = runtime_value::decode_return(&memory, root);
+        assert!(evidence.value.is_none());
+        assert!(evidence.representation.as_ref().unwrap().captured_bytes > 1024 * 1024 - 8192);
+        Event::Execution {
+            request: 42,
+            program: "ZZT_WIRE".into(),
+            source_sha256: "exact-source-hash".into(),
+            observation: Box::new(ExecutionObservation {
+                status: "completed".into(),
+                binding: "stored".into(),
+                entry: "WIRE".into(),
+                body_entered: true,
+                completed: true,
+                return_value: None,
+                return_representation: serde_json::to_value(
+                    runtime_value::ReturnRepresentation::of(Some(&evidence)),
+                )
+                .unwrap(),
+                output: vec![],
+                diagnostics: vec![],
+                runtime: serde_json::json!({"invocations":[{"result":evidence,"source_sha256":"exact-source-hash","entry":"WIRE","body_entered":true,"status":"completed"}]}),
+                image: Some(ExecutionImage {
+                    width: 320,
+                    height: 240,
+                    pixels: vec![u32::MAX; 320 * 240],
+                }),
+            }),
+        }
+    }
+    #[test]
+    fn nested_unknown_high_byte_evidence_fits_an_actual_execution_packet() {
+        use ppl_engine::session::{self, Event};
+        let original = oversized_unknown_event();
+        let mut rejected = Vec::new();
+        assert!(
+            session::write_event(&mut rejected, &original).is_err(),
+            "test did not reproduce oversized packet"
+        );
+        let event = super::execution_wire_event(original);
+        let mut bytes = Vec::new();
+        session::write_event(&mut bytes, &event)
+            .expect("unsupported return must keep a correlated execution reply");
+        assert!(bytes.len() <= session::MAX_PACKET + 5);
+        let Event::Execution {
+            request,
+            source_sha256,
+            observation,
+            ..
+        } = event
+        else {
+            panic!("lost execution identity");
+        };
+        assert_eq!(request, 42);
+        assert_eq!(source_sha256, "exact-source-hash");
+        assert!(observation.completed && observation.body_entered);
+        assert!(observation.return_value.is_none());
+        assert_eq!(observation.return_representation["kind"], "undecoded");
+        assert!(
+            observation.return_representation["reason"]
+                .as_str()
+                .unwrap()
+                .contains("unverified")
+        );
+        assert!(
+            observation.image.is_some(),
+            "raw evidence must yield before actual pixels"
+        );
+        assert!(
+            observation.runtime["wire_observation_gaps"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty())
+        );
+        assert!(
+            observation.runtime["invocations"][0]["result"]["bytes"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty()),
+            "root forensic prefix was lost"
+        );
+    }
+    #[test]
+    fn raw_wire_projection_preserves_whole_typed_return_output_and_error_diagnostics() {
+        use ppl_engine::session::{self, Event};
+        let mut event = oversized_unknown_event();
+        let expected = serde_json::json!({"type":"matrix","rows":1,"columns":2,"vector":false,"value":[{"type":"complex","real":"2","imaginary":"3"},{"type":"real","value":"4"}]});
+        if let Event::Execution { observation, .. } = &mut event {
+            // Unknown value is an internal call argument, not the typed return.
+            let capture = observation.runtime["invocations"][0]["result"].take();
+            observation.runtime["invocations"][0]["calls"] =
+                serde_json::json!([{"arguments":[capture]}]);
+            observation.return_value = Some(expected.clone());
+            observation.return_representation = serde_json::json!({"kind":"decoded"});
+            observation.output.push(ppl_engine::OutputEvent {
+                kind: "print".into(),
+                text: Some("entire output".into()),
+                value: None,
+            });
+            observation.diagnostics.push(ppl_engine::Diagnostic {
+                source: "guest-firmware".into(),
+                severity: "error".into(),
+                code: Some("actual_guest_error".into()),
+                message: Some("actual diagnostic".into()),
+                line: Some(7),
+                column: Some(3),
+                raw_position: None,
+            });
+        }
+        let event = super::execution_wire_event(event);
+        session::write_event(&mut Vec::new(), &event).unwrap();
+        let Event::Execution { observation, .. } = event else {
+            panic!();
+        };
+        assert_eq!(observation.return_value, Some(expected));
+        assert_eq!(observation.return_representation["kind"], "decoded");
+        assert_eq!(observation.output.len(), 1);
+        assert_eq!(observation.output[0].text.as_deref(), Some("entire output"));
+        assert_eq!(
+            observation.diagnostics[0].message.as_deref(),
+            Some("actual diagnostic")
+        );
+        assert_eq!(observation.diagnostics[0].line, Some(7));
+        assert!(observation.image.is_some());
+    }
+    #[test]
+    fn oversized_output_collection_is_omitted_whole_with_an_explicit_gap() {
+        use ppl_engine::session::{self, Event};
+        let mut event = oversized_unknown_event();
+        if let Event::Execution { observation, .. } = &mut event {
+            observation.return_value = Some(serde_json::json!({"type":"real","value":"7"}));
+            observation.return_representation = serde_json::json!({"kind":"decoded"});
+            observation.output = (0..80)
+                .map(|_| ppl_engine::OutputEvent {
+                    kind: "print".into(),
+                    text: Some("x".repeat(65536)),
+                    value: None,
+                })
+                .collect();
+        }
+        let event = super::execution_wire_event(event);
+        session::write_event(&mut Vec::new(), &event).unwrap();
+        let Event::Execution { observation, .. } = event else {
+            panic!();
+        };
+        assert_eq!(
+            observation.return_value,
+            Some(serde_json::json!({"type":"real","value":"7"}))
+        );
+        assert!(
+            observation.output.is_empty(),
+            "a partial print stream would pretend to be the full output"
+        );
+        assert!(
+            observation.runtime["wire_observation_gaps"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|gap| gap["scope"] == "complete_output_collection" && gap["omitted"] == 80)
+        );
+        assert!(
+            observation
+                .diagnostics
+                .iter()
+                .any(|d| d.code.as_deref() == Some("firmware_observation_gap"))
+        );
+    }
+    #[test]
+    fn ordinary_wire_events_remain_byte_for_byte_unchanged() {
+        let mut event = oversized_unknown_event();
+        if let ppl_engine::session::Event::Execution { observation, .. } = &mut event {
+            observation.runtime = serde_json::json!({"kept":"unchanged"});
+        }
+        let before = serde_json::to_vec(&event).unwrap();
+        assert_eq!(
+            serde_json::to_vec(&super::execution_wire_event(event)).unwrap(),
+            before
+        );
+    }
     #[test]
     fn diagnostic_context_requires_unique_complete_exact_source() {
         let source = "RETURN 1+;";

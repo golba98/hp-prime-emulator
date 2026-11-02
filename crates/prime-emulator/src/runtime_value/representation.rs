@@ -77,6 +77,16 @@ fn word(bytes: &[u8], offset: usize) -> Result<u32, String> {
 impl Capture<'_> {
     fn read_to(&mut self, index: usize, size: usize) -> Result<(), String> {
         let node = &self.graph.nodes[index];
+        // A mapped heap page is not an object boundary. When this is the
+        // exact base of a known host allocation, never consume its neighbor.
+        // Firmware constants/interior objects still use validated map ranges.
+        if self
+            .mem
+            .heap_size_of(node.address)
+            .is_some_and(|allocated| size > allocated)
+        {
+            return Err("value representation exceeds known allocation envelope".into());
+        }
         let additional = size.saturating_sub(node.bytes.len());
         if additional > MAX_VALUE_BYTES - self.graph.captured_bytes {
             return Err("value representation exceeds 1 MiB capture bound".into());
