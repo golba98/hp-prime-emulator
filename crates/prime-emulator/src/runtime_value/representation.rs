@@ -126,6 +126,17 @@ impl Capture<'_> {
         let (tag, sub) = ((header >> 16) as u8, (header >> 24) as u8);
         let size = match tag & 15 {
             0 => 16,
+            1 if matches!(tag, 0x31 | 0x51 | 0x71 | 0x91) => 16,
+            3 if tag == 0x13 => 32,
+            4 if matches!(tag, 0x14 | 0x94) => {
+                self.read_to(index, 16)?;
+                let (_, _, _, count, stride) = matrix_layout(&self.graph.nodes[index].bytes, tag)?;
+                if count > MAX_LIST_ITEMS - self.graph.logical_items {
+                    return Err("guest matrix exceeds logical item capture bound".into());
+                }
+                self.graph.logical_items += count;
+                16 + count * stride
+            }
             15 if matches!(sub, 0 | 1) => 24,
             2 => {
                 self.read_to(index, 8)?;
@@ -170,7 +181,15 @@ impl Capture<'_> {
                 }
                 return Ok(());
             }
-            _ => return Err(format!("unverified runtime value tag {tag:#x}/{sub:#x}")),
+            _ => {
+                // The evaluator supplies this root/element address. Capture only
+                // its known host-allocation envelope, never follow guessed
+                // pointer words or interpret an unknown representation.
+                if let Some(allocated) = self.mem.heap_size_of(address) {
+                    self.read_to(index, allocated.min(4096))?;
+                }
+                return Err(format!("unverified runtime value tag {tag:#x}/{sub:#x}"));
+            }
         };
         self.read_to(index, size)
     }
@@ -277,6 +296,55 @@ impl Decoder<'_> {
         let kind = tag & 15;
         let value = match kind {
             0 if bytes.len() == 16 => decimal_real(bytes)?,
+            1 if matches!(tag, 0x31 | 0x51 | 0x71 | 0x91) && bytes.len() == 16 => {
+                if !(1..=64).contains(&sub) {
+                    return Err("unverified integer word width".into());
+                }
+                let raw = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+                if sub < 64 && raw >> sub != 0 {
+                    return Err("integer value exceeds its declared width".into());
+                }
+                let literal = match tag {
+                    0x31 => format!("#{raw:b}b"),
+                    0x51 => format!("#{raw:o}o"),
+                    0x71 => format!("#{raw}d"),
+                    0x91 => format!("#{raw:X}h"),
+                    _ => unreachable!(),
+                };
+                let signed = ((raw << (64 - sub)) as i64) >> (64 - sub);
+                FirmwareValue::Integer {
+                    literal,
+                    bits: sub,
+                    unsigned: raw.to_string(),
+                    signed: signed.to_string(),
+                }
+            }
+            3 if tag == 0x13 && bytes.len() == 32 => complex_real(bytes)?,
+            4 if matches!(tag, 0x14 | 0x94) => {
+                let (rows, columns, vector, count, stride) = matrix_layout(bytes, tag)?;
+                if bytes.len() != 16 + count * stride || count > self.remaining_items {
+                    return Err("invalid matrix representation or logical item bound".into());
+                }
+                self.remaining_items -= count;
+                let mut items = Vec::with_capacity(count);
+                for cell in bytes[16..].chunks_exact(stride) {
+                    let real = packed_decimal(&cell[..8])?;
+                    if stride == 16 {
+                        items.push(FirmwareValue::Complex {
+                            real,
+                            imaginary: packed_decimal(&cell[8..])?,
+                        });
+                    } else {
+                        items.push(FirmwareValue::Real { value: real });
+                    }
+                }
+                FirmwareValue::Matrix {
+                    rows,
+                    columns,
+                    vector,
+                    items,
+                }
+            }
             15 if sub == 0 && bytes.len() == 24 => decimal_real(&bytes[8..])?,
             15 if sub == 1 && bytes.len() == 24 => {
                 let sign = bytes[4];
@@ -391,4 +459,61 @@ fn decimal_real(bytes: &[u8]) -> Result<FirmwareValue, String> {
     Ok(FirmwareValue::Real {
         value: canonical_decimal(&text)?,
     })
+}
+
+// Firmware15751 capture controls establish rank, row/column dimensions and
+// row-major inline decimal64 cells. The 0x80 tag bit selects complex cells.
+// The allocator reference count and reserved header bytes are not value data.
+fn matrix_layout(bytes: &[u8], tag: u8) -> Result<(usize, usize, bool, usize, usize), String> {
+    let rank = word(bytes, 4)?;
+    let rows = word(bytes, 8)? as usize;
+    let columns = word(bytes, 12)? as usize;
+    if !matches!(rank, 1 | 2) || rows == 0 || columns == 0 || (rank == 1 && rows != 1) {
+        return Err("unverified matrix rank or dimensions".into());
+    }
+    let count = rows
+        .checked_mul(columns)
+        .filter(|n| *n <= MAX_LIST_ITEMS)
+        .ok_or("matrix exceeds logical item bound")?;
+    Ok((
+        rows,
+        columns,
+        rank == 1,
+        count,
+        if tag == 0x94 { 16 } else { 8 },
+    ))
+}
+
+fn real_component(bytes: &[u8]) -> Result<String, String> {
+    match decimal_real(bytes)? {
+        FirmwareValue::Real { value } => Ok(value),
+        _ => unreachable!(),
+    }
+}
+
+fn complex_real(bytes: &[u8]) -> Result<FirmwareValue, String> {
+    // The first component shares its header with the complex object. The
+    // second is a complete inline decimal object, not a guest pointer.
+    let header = word(bytes, 16)?;
+    if ((header >> 16) as u8) & 15 != 0 {
+        return Err("unverified complex component representation".into());
+    }
+    Ok(FirmwareValue::Complex {
+        real: real_component(&bytes[..16])?,
+        imaginary: real_component(&bytes[16..32])?,
+    })
+}
+
+fn packed_decimal(bytes: &[u8]) -> Result<String, String> {
+    let packed = u64::from_le_bytes(bytes.try_into().map_err(|_| "incomplete decimal64")?);
+    let exp = ((packed as i32) << 20) >> 20;
+    let mantissa = packed & 0x0fff_ffff_ffff_f000;
+    let mut expanded = [0u8; 16];
+    expanded[3] = if packed >> 60 == 9 { 0xff } else { 1 };
+    if !matches!(packed >> 60, 0 | 9) {
+        return Err("unverified decimal64 special flags".into());
+    }
+    expanded[4..8].copy_from_slice(&exp.to_le_bytes());
+    expanded[8..].copy_from_slice(&mantissa.to_le_bytes());
+    real_component(&expanded)
 }

@@ -17,6 +17,23 @@ pub enum FirmwareValue {
     Real {
         value: String,
     },
+    Complex {
+        real: String,
+        imaginary: String,
+    },
+    Integer {
+        literal: String,
+        bits: u8,
+        unsigned: String,
+        signed: String,
+    },
+    Matrix {
+        rows: usize,
+        columns: usize,
+        vector: bool,
+        #[serde(rename = "value")]
+        items: Vec<FirmwareValue>,
+    },
     Rational {
         negative: bool,
         numerator: String,
@@ -44,6 +61,40 @@ impl FirmwareValue {
     fn render(&self, top: bool) -> String {
         match self {
             Self::Real { value } => value.clone(),
+            Self::Complex { real, imaginary } => format!("({real},{imaginary})"),
+            Self::Integer { literal, .. } => literal.clone(),
+            Self::Matrix {
+                rows,
+                columns,
+                vector,
+                items,
+            } => {
+                if *vector {
+                    format!(
+                        "[{}]",
+                        items
+                            .iter()
+                            .map(|v| v.render(false))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    format!(
+                        "[{}]",
+                        (0..*rows)
+                            .map(|row| format!(
+                                "[{}]",
+                                items[row * columns..(row + 1) * columns]
+                                    .iter()
+                                    .map(|v| v.render(false))
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            }
             Self::Rational {
                 negative,
                 numerator,
