@@ -48,3 +48,12 @@ The final report will distinguish implementation handoffs from integrated
 verification. Firmware OFF/checkpoint recovery stays authoritative. Arbitrary
 calculator live restoration remains unsupported. No USB access, physical writes,
 proprietary-image modification or remote publication is authorized or performed.
+
+## Checkpoint admission diagnostics
+
+The strict count-based 80% idle admission rule is unchanged. Failure diagnostics
+now additionally report the observed interval span, largest coordinator sampling
+gap and a time-weighted sample-interval estimate. This estimate holds the last
+sample only until the next observation; it never extrapolates after the final
+sample. It cannot prove the intervening owner state and is explicitly excluded
+from admission. Unequal-sampling and empty/single-sample tests cover this boundary.
