@@ -251,11 +251,32 @@ impl Machine {
 
     /// `(function, span)` for each active frame, innermost first.
     pub fn call_stack(&self) -> Vec<(String, Span)> {
+        self.call_stack_frames()
+            .into_iter()
+            .map(|frame| (frame.function, frame.span))
+            .collect()
+    }
+
+    /// Original source/revision and span for every frame, innermost first.
+    /// Single-source machines have no linked module identity.
+    pub fn call_stack_frames(&self) -> Vec<TraceFrame> {
         self.frames
             .iter()
             .rev()
-            .map(|f| (self.fn_name(f.func).to_string(), self.frame_span(f)))
+            .map(|frame| TraceFrame {
+                module: self.frame_source(frame).cloned(),
+                function: self.fn_name(frame.func).to_owned(),
+                span: self.frame_span(frame),
+            })
             .collect()
+    }
+
+    fn frame_source(&self, frame: &Frame) -> Option<&crate::SourceIdentity> {
+        let (image, _) = self.linked.as_ref()?;
+        image
+            .function_owners
+            .get(frame.func)
+            .map(|&m| &image.modules[m])
     }
 
     /// Local variable names and values of the frame `depth` levels up.
@@ -275,10 +296,20 @@ impl Machine {
 
     /// Program-level variables and calculator variables used by the program.
     pub fn globals(&self) -> Vec<(String, Value)> {
+        self.globals_for_frame(0)
+    }
+
+    /// Shared calculator slots and the selected frame's own file variables.
+    pub fn globals_for_frame(&self, depth: usize) -> Vec<(String, Value)> {
+        if depth > 0 && depth >= self.frames.len() {
+            return Vec::new();
+        }
         if let Some((image, _)) = &self.linked {
             let owner = self
                 .frames
-                .last()
+                .iter()
+                .rev()
+                .nth(depth)
                 .and_then(|f| image.function_owners.get(f.func))
                 .copied()
                 .unwrap_or(image.root);
@@ -358,12 +389,7 @@ impl Machine {
         result
     }
     pub fn current_source(&self) -> Option<&crate::SourceIdentity> {
-        let frame = self.frames.last()?;
-        let (image, _) = self.linked.as_ref()?;
-        image
-            .function_owners
-            .get(frame.func)
-            .map(|&m| &image.modules[m])
+        self.frame_source(self.frames.last()?)
     }
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {
         let idx = self.prog.function_index(name).ok_or_else(|| {

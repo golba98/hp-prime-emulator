@@ -74,7 +74,7 @@ impl PortableValue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SourceIdentity {
     pub name: String,
     pub revision: String,

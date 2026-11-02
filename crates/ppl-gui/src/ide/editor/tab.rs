@@ -173,6 +173,8 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 #[derive(Clone, Debug)]
 pub struct EditorTab {
     pub id: TabId,
+    /// Immutable source shown when a running debugger revision was edited/closed.
+    pub debug_source: Option<ppl_vm::SourceIdentity>,
     pub path: Option<PathBuf>,
     pub title: String,
     pub content: String,
@@ -206,6 +208,7 @@ impl EditorTab {
         let content = content.into();
         Self {
             id: TabId::next(),
+            debug_source: None,
             path: None,
             title: title.into(),
             saved_hash: content_hash(&content),
@@ -301,6 +304,12 @@ impl EditorTab {
 
     /// Saves to `path` (or the tab's own path) in the tab's format.
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), SaveError> {
+        if self.debug_source.is_some() {
+            return Err(SaveError::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "debug source snapshots are read-only; save the original source tab",
+            )));
+        }
         let save_as = path.is_some();
         let target = path
             .or_else(|| self.path.clone())

@@ -286,3 +286,70 @@ fn ambiguous_external_is_reported_before_candidate_argument_counts() {
     let error = link_sources(&sources, "A").err().unwrap();
     assert!(error.detail.contains("ambiguous external"), "{error:?}");
 }
+
+#[test]
+fn linked_debug_frames_and_globals_keep_original_source_revisions() {
+    use std::{cell::RefCell, rc::Rc};
+    struct Inspect(Rc<RefCell<usize>>);
+    impl ppl_vm::Debugger for Inspect {
+        fn on_statement(
+            &mut self,
+            m: &ppl_vm::Machine,
+            function: &str,
+            _: ppl_syntax::Span,
+            _: usize,
+        ) -> ppl_vm::DebugAction {
+            if function == "B::LEAF" {
+                let frames = m.call_stack_frames();
+                assert_eq!(frames[0].module.as_ref().unwrap().name, "B");
+                assert!(
+                    frames[0]
+                        .module
+                        .as_ref()
+                        .unwrap()
+                        .revision
+                        .contains("count:=10")
+                );
+                assert_eq!(frames[1].module.as_ref().unwrap().name, "A");
+                let value = |depth| {
+                    m.globals_for_frame(depth)
+                        .into_iter()
+                        .find(|(name, _)| name == "count")
+                        .unwrap()
+                        .1
+                        .expect_i64("count")
+                        .unwrap()
+                };
+                assert_eq!(value(0), 10);
+                assert_eq!(value(1), 100);
+                assert_eq!(m.locals(0)[0].0, "x");
+                *self.0.borrow_mut() += 1;
+            }
+            ppl_vm::DebugAction::Continue
+        }
+    }
+    let sources = modules(&[
+        (
+            "A",
+            "LOCAL count:=100; EXPORT TOP() BEGIN RETURN LEAF(7)+count; END;",
+        ),
+        (
+            "B",
+            "LOCAL count:=10; EXPORT LEAF(x) BEGIN RETURN x+count; END;",
+        ),
+    ]);
+    let calls = Rc::new(RefCell::new(0));
+    let mut s = SessionContext::default();
+    let result = s.run_linked(
+        link_sources(&sources, "A").unwrap(),
+        Box::new(HeadlessHost::new()),
+        Limits::default(),
+        false,
+        |m| {
+            m.set_debugger(Some(Box::new(Inspect(calls.clone()))));
+            m.call_function("TOP", vec![])
+        },
+    );
+    assert_eq!(n(result.result.unwrap()), 117);
+    assert!(*calls.borrow() > 0);
+}

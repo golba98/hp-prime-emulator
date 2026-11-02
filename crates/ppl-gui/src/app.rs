@@ -413,6 +413,7 @@ impl IdeDesktopApp {
             .editor
             .tabs
             .iter_mut()
+            .filter(|tab| tab.debug_source.is_none())
             .map(|tab| {
                 (
                     tab.id,
@@ -432,7 +433,12 @@ impl IdeDesktopApp {
             generation: self.native_catalog.generation + 1,
             ..Default::default()
         };
-        for tab in &self.editor.tabs {
+        for tab in self
+            .editor
+            .tabs
+            .iter()
+            .filter(|tab| tab.debug_source.is_none())
+        {
             let name = Self::native_namespace(tab);
             let revision = key.iter().find(|(id, _, _, _)| *id == tab.id).unwrap().1;
             catalog.sources.insert(
@@ -505,7 +511,28 @@ impl IdeDesktopApp {
         let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
         let run_entry = tab.run_entry.clone();
         let run_args = Some(tab.run_args.trim().to_owned()).filter(|a| !a.is_empty());
+        if tab.debug_source.is_some() {
+            self.state.status_message =
+                "Debug source snapshots cannot be executed; select the original source tab".into();
+            return;
+        }
         self.controller.bridge.set_breakpoints(&tab.breakpoints);
+        self.controller.bridge.set_source_breakpoints(
+            self.editor
+                .tabs
+                .iter()
+                .filter(|tab| tab.debug_source.is_none())
+                .map(|tab| {
+                    (
+                        ppl_vm::SourceIdentity::new(
+                            Self::native_namespace(tab),
+                            tab.content.clone(),
+                        ),
+                        tab.breakpoints.clone(),
+                    )
+                })
+                .collect(),
+        );
         let (tx, result) = std::sync::mpsc::channel();
         let compile_catalog = catalog.clone();
         let compile_root = source_identity.clone();
@@ -585,10 +612,6 @@ impl IdeDesktopApp {
                     "Open sources changed while compiling; run the current revisions again",
                 );
             }
-            return;
-        }
-        if debug && analysis.module_count > 1 {
-            self.retire_native_compile("Linked programs support Run and Check; per-module source debugging is not yet available");
             return;
         }
         let Some(i) = self.editor.index_of(tab_id) else {
@@ -866,6 +889,10 @@ impl IdeDesktopApp {
         let Some(tab) = self.editor.active_tab() else {
             return;
         };
+        if tab.debug_source.is_some() && !matches!(cmd, E::Copy | E::SelectAll) {
+            self.state.status_message = "Debug source snapshots are read-only".into();
+            return;
+        }
         ctx.memory_mut(|m| m.request_focus(crate::ide::editor::view::edit_id(tab.id)));
         let key = |key: Key, modifiers: Modifiers| Event::Key {
             key,
@@ -1080,12 +1107,18 @@ impl IdeDesktopApp {
             .pause_generation
             .load(std::sync::atomic::Ordering::SeqCst);
         let paused_line = self.controller.paused_line();
+        if !self.controller.worker_alive() {
+            self.debugger.set_snapshot(None);
+            self.state.paused_line = 0;
+            self.state.paused_tab = None;
+        }
         if pause_gen != self.last_pause_gen {
             self.last_pause_gen = pause_gen;
             if paused_line != 0 {
                 self.debugger
                     .set_snapshot(self.controller.bridge.take_pause_snapshot());
                 self.state.paused_line = paused_line;
+                self.select_debug_frame(0, true);
                 self.state.vm_state = crate::ide::VmExecutionState::Paused;
                 self.state.status_message = format!("Paused at line {paused_line}");
                 self.state.active_dock_tab = DockTab::Variables;
@@ -1099,6 +1132,89 @@ impl IdeDesktopApp {
             self.state.paused_line = 0;
             self.debugger.set_snapshot(None);
             self.state.status_message = "Continuing...".to_string();
+        }
+        // Editing or closing the executing source must not leave an execution
+        // arrow on a different revision, even before the next VM pause.
+        if paused_line != 0
+            && let Some(snapshot) = &self.debugger.snapshot
+        {
+            let changed = self
+                .state
+                .paused_tab
+                .and_then(|id| self.editor.index_of(id))
+                .is_none_or(|index| {
+                    let tab = &self.editor.tabs[index];
+                    let identity = snapshot.source.as_ref();
+                    identity.is_some_and(|id| {
+                        self.running
+                            .as_ref()
+                            .and_then(|run| run.catalog.sources.get(&id.name))
+                            .is_none_or(|module| module.source != tab.content)
+                    }) && tab.debug_source.as_ref() != identity
+                });
+            if changed {
+                self.select_debug_frame(0, true);
+            }
+        }
+    }
+
+    /// Navigate only to the captured revision. Edited/closed tabs get an immutable snapshot.
+    fn select_debug_frame(&mut self, index: usize, mark_pause: bool) {
+        let Some(frame) = self
+            .debugger
+            .snapshot
+            .as_ref()
+            .and_then(|s| s.frames.get(index))
+            .cloned()
+        else {
+            return;
+        };
+        let Some(run) = &self.running else {
+            return;
+        };
+        let identity = frame
+            .source
+            .clone()
+            .unwrap_or_else(|| ppl_vm::SourceIdentity::new(&run.namespace, run.file.text.clone()));
+        let Some(module) = run
+            .catalog
+            .sources
+            .get(&identity.name)
+            .filter(|module| module.identity == identity)
+        else {
+            return;
+        };
+        let original = run
+            .catalog
+            .tabs
+            .get(&identity.name)
+            .and_then(|(tab, _, _)| self.editor.index_of(*tab))
+            .filter(|&i| self.editor.tabs[i].content == module.source);
+        let index = original
+            .or_else(|| {
+                self.editor
+                    .tabs
+                    .iter()
+                    .position(|tab| tab.debug_source.as_ref() == Some(&identity))
+            })
+            .unwrap_or_else(|| {
+                let title = run
+                    .catalog
+                    .tabs
+                    .get(&identity.name)
+                    .map_or(identity.name.as_str(), |(_, _, title)| title.as_str());
+                let mut tab = EditorTab::new(format!("{title} [debug snapshot]"), &module.source);
+                tab.debug_source = Some(identity);
+                self.editor.open_tab(tab);
+                self.editor.active_tab_index
+            });
+        self.editor.active_tab_index = index;
+        let tab = &mut self.editor.tabs[index];
+        tab.goto_line(frame.line, frame.col);
+        self.state.cursor_line = frame.line;
+        self.state.cursor_col = frame.col;
+        if mark_pause {
+            self.state.paused_tab = Some(tab.id);
         }
     }
 
@@ -1341,6 +1457,10 @@ impl IdeDesktopApp {
                     .bridge
                     .post_command(crate::ide::execution::DebugCommand::StepOut);
             }
+            IdeAction::SelectDebugFrame(index) => {
+                self.debugger.selected_frame_index = index;
+                self.select_debug_frame(index, false);
+            }
             IdeAction::ToggleBreakpoint(line) => {
                 if let Some(tab) = self.editor.active_tab_mut() {
                     if !tab.breakpoints.remove(&line) {
@@ -1349,6 +1469,18 @@ impl IdeDesktopApp {
                     } else {
                         self.state.status_message = format!("Breakpoint removed at line {line}");
                     }
+                    let identity = tab.debug_source.clone().unwrap_or_else(|| {
+                        ppl_vm::SourceIdentity::new(
+                            Self::native_namespace(tab),
+                            tab.content.clone(),
+                        )
+                    });
+                    self.controller
+                        .bridge
+                        .source_breakpoints
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .insert(identity, tab.breakpoints.clone());
                     self.controller.bridge.set_breakpoints(&tab.breakpoints);
                 }
             }

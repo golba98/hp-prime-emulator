@@ -5,7 +5,7 @@
 //! inspection data, plus the thread-safe [`VmBridge`] the worker's debugger
 //! uses to pause and resume.
 
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
@@ -56,6 +56,7 @@ pub enum DebugCommand {
 /// Snapshot of the VM state when paused at a breakpoint or step.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DebugPauseSnapshot {
+    pub source: Option<ppl_vm::SourceIdentity>,
     pub line: usize,
     pub col: usize,
     pub function: String,
@@ -67,6 +68,8 @@ pub struct DebugPauseSnapshot {
 /// Snapshot of a single call stack frame.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StackFrameSnapshot {
+    pub source: Option<ppl_vm::SourceIdentity>,
+    pub globals: Vec<VariableSnapshot>,
     pub function: String,
     pub line: usize,
     pub col: usize,
@@ -159,6 +162,8 @@ pub struct VmBridge {
     pub stop_at_entry: AtomicBool,
     /// The source being debugged (set before the worker spawns).
     source: Mutex<Option<SourceFile>>,
+    sources: Mutex<BTreeMap<ppl_vm::SourceIdentity, SourceFile>>,
+    pub source_breakpoints: Mutex<BTreeMap<ppl_vm::SourceIdentity, BTreeSet<usize>>>,
     wake_ui: Mutex<Option<Box<dyn Fn() + Send>>>,
 }
 
@@ -190,6 +195,13 @@ impl VmBridge {
         *lock(&self.source) = Some(file);
     }
 
+    pub fn set_source_breakpoints(
+        &self,
+        breakpoints: BTreeMap<ppl_vm::SourceIdentity, BTreeSet<usize>>,
+    ) {
+        *lock(&self.source_breakpoints) = breakpoints;
+    }
+
     fn take_source(&self) -> SourceFile {
         lock(&self.source)
             .clone()
@@ -208,7 +220,14 @@ impl VmBridge {
 
     /// Posts a command to the worker (wakes it if paused).
     pub fn post_command(&self, cmd: DebugCommand) {
-        lock(&self.commands).push_back(cmd);
+        // Clear the old pause before publishing a resume command. The worker
+        // cannot consume it until this lock is released, so a new pause cannot
+        // be erased or mistaken for completion of a subsequent Step action.
+        let mut commands = lock(&self.commands);
+        self.paused_line.store(0, Ordering::SeqCst);
+        *lock(&self.pause_snapshot) = None;
+        commands.push_back(cmd);
+        drop(commands);
         self.commands_wake.notify_all();
     }
 
@@ -257,8 +276,9 @@ enum StepMode {
 pub struct WorkerDebugger {
     bridge: Arc<VmBridge>,
     source: SourceFile,
+    sources: BTreeMap<ppl_vm::SourceIdentity, SourceFile>,
     mode: StepMode,
-    prev_stmt: Option<(usize, usize)>,
+    prev_stmt: Option<(Option<ppl_vm::SourceIdentity>, String, usize, usize)>,
     interrupt: Arc<AtomicBool>,
 }
 
@@ -270,9 +290,11 @@ impl WorkerDebugger {
             StepMode::Continue
         };
         let source = bridge.take_source();
+        let sources = lock(&bridge.sources).clone();
         Self {
             bridge,
             source,
+            sources,
             mode,
             prev_stmt: None,
             interrupt,
@@ -296,44 +318,47 @@ impl WorkerDebugger {
         col: usize,
     ) -> DebugPauseSnapshot {
         let fmt = machine.settings.format();
-        let stack = machine.call_stack();
-        let mut frames = Vec::with_capacity(stack.len());
-        // Frame 0 is the current stop position.
-        frames.push(StackFrameSnapshot {
-            function: function.to_string(),
+        let stack = machine.call_stack_frames();
+        let frames = stack
+            .iter()
+            .enumerate()
+            .map(|(depth, frame)| {
+                let file = frame
+                    .module
+                    .as_ref()
+                    .and_then(|id| self.sources.get(id))
+                    .unwrap_or(&self.source);
+                let lc = file.line_col(frame.span.start);
+                StackFrameSnapshot {
+                    source: frame.module.clone(),
+                    function: frame.function.clone(),
+                    line: if depth == 0 { line } else { lc.line as usize },
+                    col: if depth == 0 { col } else { lc.col as usize },
+                    locals: machine
+                        .locals(depth)
+                        .into_iter()
+                        .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
+                        .collect(),
+                    globals: machine
+                        .globals_for_frame(depth)
+                        .into_iter()
+                        .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
+                        .collect(),
+                }
+            })
+            .collect();
+        DebugPauseSnapshot {
+            source: machine.current_source().cloned(),
             line,
             col,
-            locals: machine
-                .locals(0)
+            function: function.to_owned(),
+            depth: stack.len(),
+            frames,
+            globals: machine
+                .globals()
                 .into_iter()
                 .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
                 .collect(),
-        });
-        for (depth, (name, span)) in stack.iter().enumerate().skip(1) {
-            let lc = self.source.line_col(span.start);
-            frames.push(StackFrameSnapshot {
-                function: name.clone(),
-                line: lc.line as usize,
-                col: lc.col as usize,
-                locals: machine
-                    .locals(depth)
-                    .into_iter()
-                    .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
-                    .collect(),
-            });
-        }
-        let globals = machine
-            .globals()
-            .into_iter()
-            .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
-            .collect();
-        DebugPauseSnapshot {
-            line,
-            col,
-            function: function.to_string(),
-            depth: stack.len(),
-            frames,
-            globals,
         }
     }
 }
@@ -349,11 +374,24 @@ impl Debugger for WorkerDebugger {
         if self.interrupt.load(Ordering::SeqCst) {
             return DebugAction::Abort;
         }
-        let lc = self.source.line_col(span.start);
+        let identity = machine.current_source().cloned();
+        let source = match &identity {
+            Some(id) => match self.sources.get(id) {
+                Some(source) => source,
+                None => return DebugAction::Abort,
+            },
+            None => &self.source,
+        };
+        let lc = source.line_col(span.start);
         let (line, col) = (lc.line as usize, lc.col as usize);
-        let prev = self.prev_stmt.replace((line, depth));
-        let breakpoints = lock(&self.bridge.breakpoints).clone();
-        let at_breakpoint = breakpoints.contains(&line) && prev != Some((line, depth));
+        let location = (identity.clone(), function.to_owned(), line, depth);
+        let prev = self.prev_stmt.replace(location.clone());
+        let at_breakpoint = match &identity {
+            Some(id) => lock(&self.bridge.source_breakpoints)
+                .get(id)
+                .is_some_and(|lines| lines.contains(&line)),
+            None => lock(&self.bridge.breakpoints).contains(&line),
+        } && prev != Some(location);
 
         if !at_breakpoint && !self.should_stop(depth) {
             return DebugAction::Continue;
@@ -362,8 +400,10 @@ impl Debugger for WorkerDebugger {
         // Publish the pause and wait for a UI command.
         let snapshot = self.build_snapshot(machine, function, line, col);
         *lock(&self.bridge.pause_snapshot) = Some(snapshot);
-        self.bridge.pause_generation.fetch_add(1, Ordering::SeqCst);
         self.bridge.paused_line.store(line as u64, Ordering::SeqCst);
+        // Publish the generation last: observing a new generation must also
+        // observe the complete snapshot and its nonzero pause location.
+        self.bridge.pause_generation.fetch_add(1, Ordering::SeqCst);
         if let Some(wake) = lock(&self.bridge.wake_ui).as_ref() {
             wake();
         }
@@ -643,7 +683,22 @@ impl ExecutionController {
             .store(stop_at_entry, Ordering::SeqCst);
         self.bridge.paused_line.store(0, Ordering::SeqCst);
         *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
         self.bridge.set_source(file.clone());
+        *lock(&self.bridge.sources) = catalog
+            .as_ref()
+            .map(|catalog| {
+                catalog
+                    .values()
+                    .map(|module| {
+                        (
+                            module.identity.clone(),
+                            SourceFile::new(&module.identity.name, &module.source),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         self.last_file = Some(file.clone());
 
         let config = WorkerConfig {
@@ -938,6 +993,18 @@ mod tests {
         assert!(bridge.breakpoints.lock().unwrap().contains(&3));
         assert!(!bridge.toggle_breakpoint(3));
         assert!(!bridge.breakpoints.lock().unwrap().contains(&3));
+    }
+
+    #[test]
+    fn posted_step_invalidates_the_old_pause_before_worker_acknowledgement() {
+        let bridge = VmBridge::new();
+        bridge.paused_line.store(7, Ordering::SeqCst);
+        bridge.post_command(DebugCommand::StepInto);
+        assert_eq!(bridge.paused_line(), 0);
+        assert_eq!(
+            lock(&bridge.commands).pop_front(),
+            Some(DebugCommand::StepInto)
+        );
     }
 
     #[test]

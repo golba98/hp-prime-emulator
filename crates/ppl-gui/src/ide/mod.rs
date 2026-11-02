@@ -255,6 +255,7 @@ pub enum IdeAction {
     StepOver,
     StepOut,
     ToggleBreakpoint(usize),
+    SelectDebugFrame(usize),
     CheckSyntax,
     ManagePrograms,
     /// Save, check and send the active program to the calculator.
@@ -396,6 +397,7 @@ pub struct IdeAppState {
     pub status_message: String,
     /// Line the debugger is paused on (0 = none); highlights in the editor.
     pub paused_line: usize,
+    pub paused_tab: Option<editor::TabId>,
     /// When true, PC keyboard input is routed to the VM (calculator focus)
     /// instead of the code editor.
     pub calc_input_focus: bool,
@@ -447,6 +449,7 @@ impl Default for IdeAppState {
             display_scale: 1.0,
             status_message: "Ready".to_string(),
             paused_line: 0,
+            paused_tab: None,
             calc_input_focus: false,
             editor_font_size: default_editor_font_size(),
             key_events: Vec::new(),

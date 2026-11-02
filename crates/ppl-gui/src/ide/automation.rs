@@ -45,6 +45,7 @@ pub enum AutoStep {
     StepOver,
     StepOut,
     Breakpoint(usize),
+    DebugFrame(usize),
     /// Type text into the VM key queue (for INPUT dialogs).
     SendKeys(String),
     /// Press one HP keycode.
@@ -223,6 +224,9 @@ impl Automation {
                     "step_into" => AutoStep::StepInto,
                     "step_over" => AutoStep::StepOver,
                     "step_out" => AutoStep::StepOut,
+                    "debug_frame" => AutoStep::DebugFrame(
+                        s.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                    ),
                     "breakpoint" => AutoStep::Breakpoint(
                         s.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
                     ),
@@ -524,7 +528,11 @@ impl Automation {
                 app.handle_action(IdeAction::OpenFile(Some(path)), ctx);
             }
             AutoStep::SetContent(content) => {
-                if let Some(tab) = app.editor.active_tab_mut() {
+                if let Some(tab) = app
+                    .editor
+                    .active_tab_mut()
+                    .filter(|tab| tab.debug_source.is_none())
+                {
                     tab.content = content;
                     tab.modified = true;
                     app.state.status_message = "Buffer content set".into();
@@ -557,6 +565,9 @@ impl Automation {
             AutoStep::StepInto => app.handle_action(IdeAction::StepInto, ctx),
             AutoStep::StepOver => app.handle_action(IdeAction::StepOver, ctx),
             AutoStep::StepOut => app.handle_action(IdeAction::StepOut, ctx),
+            AutoStep::DebugFrame(index) => {
+                app.handle_action(IdeAction::SelectDebugFrame(index), ctx)
+            }
             AutoStep::Breakpoint(line) => {
                 app.handle_action(IdeAction::ToggleBreakpoint(line), ctx);
             }
@@ -885,6 +896,7 @@ impl Automation {
                 });
                 json!({
                     "title": t.title,
+                    "debug_snapshot": t.debug_source.is_some(),
                     "modified": t.modified,
                     "path": t.path.as_ref().map(|p| p.display().to_string()),
                     "content": t.content,
@@ -932,6 +944,15 @@ impl Automation {
             "cursor_line": state.cursor_line,
             "cursor_col": state.cursor_col,
             "paused_line": state.paused_line,
+            "debug_pause": app.debugger.snapshot.as_ref().map(|snapshot| json!({
+                "source": snapshot.source.as_ref().map(|id| &id.name), "line": snapshot.line, "col": snapshot.col,
+                "function": snapshot.function, "depth": snapshot.depth,
+                "frames": snapshot.frames.iter().map(|frame|json!({
+                    "source":frame.source.as_ref().map(|id|&id.name),"function":frame.function,"line":frame.line,"col":frame.col,
+                    "locals":frame.locals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                    "globals":frame.globals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
+            })),
             "worker_alive": app.controller.worker_alive(),
             "worker_outcome": outcome,
             "console": app.console.messages.iter().map(|m| json!({

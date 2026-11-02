@@ -26,6 +26,7 @@ pub enum DeviceStatus {
     #[default]
     Unknown,
     NotConnected,
+    Disabled,
     Connected {
         model: &'static str,
         count: usize,
@@ -39,6 +40,7 @@ impl DeviceStatus {
         match self {
             DeviceStatus::Unknown => "Calculator: checking…".into(),
             DeviceStatus::NotConnected => "Calculator: not connected".into(),
+            DeviceStatus::Disabled => "Calculator: USB disabled".into(),
             DeviceStatus::Connected { count: 1, .. } => "Calculator ready".into(),
             DeviceStatus::Connected { count, .. } => format!("{count} calculators connected"),
             DeviceStatus::DetectFailed(_) => "Calculator: USB unavailable".into(),
@@ -128,6 +130,10 @@ pub struct DeviceLink {
 impl DeviceLink {
     /// Starts the presence light. It stops by itself once the link is dropped.
     pub fn start_polling(&mut self, ctx: &egui::Context) {
+        if usb_disabled() {
+            self.status = DeviceStatus::Disabled;
+            return;
+        }
         if self.status_rx.is_some() {
             return;
         }
@@ -170,6 +176,10 @@ impl DeviceLink {
         ctx: &egui::Context,
         job: impl FnOnce(&mut Prime) -> JobResult + Send + 'static,
     ) -> bool {
+        if usb_disabled() {
+            self.status = DeviceStatus::Disabled;
+            return false;
+        }
         if self.job.is_some() {
             return false;
         }
@@ -222,9 +232,19 @@ impl DeviceLink {
     }
 }
 
+/// Explicit offline mode for headless IDE tests and development.
+fn usb_disabled() -> bool {
+    std::env::var_os("PPL_IDE_NO_DEVICE").is_some_and(|value| value == "1")
+}
+
 /// Opens the one connected calculator.
 #[cfg(not(test))]
 fn open() -> Result<Prime, JobError> {
+    if usb_disabled() {
+        return Err(
+            DeviceError::Refused("IDE USB access disabled by PPL_IDE_NO_DEVICE=1".into()).into(),
+        );
+    }
     Ok(ppl_programs::open_selected(None)?)
 }
 
