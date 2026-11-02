@@ -19,6 +19,8 @@ enum Command {
     Run(Box<cmd::unified::RunCommand>),
     /// Validate a program without running it.
     Check(cmd::unified::CheckCommand),
+    /// Check local execution setup without booting firmware or accessing USB.
+    Doctor(cmd::doctor::DoctorOpts),
     /// List built-in commands and their emulation status.
     Commands(cmd::commands::CommandsOpts),
     /// Detect and talk to a physical HP Prime over USB.
@@ -42,6 +44,7 @@ const SUBCOMMANDS: &[&str] = &[
     "run",
     "check",
     "commands",
+    "doctor",
     "gui",
     "show",
     "debug",
@@ -154,6 +157,7 @@ fn main() -> ExitCode {
     let code = match cli.command {
         Command::Run(o) => cmd::unified::run(*o),
         Command::Check(o) => cmd::unified::check(o),
+        Command::Doctor(o) => cmd::doctor::run(o),
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),
         Command::Compare(o) => cmd::compare::run(o),

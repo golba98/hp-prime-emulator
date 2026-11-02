@@ -10,6 +10,7 @@ pub mod firmware;
 pub mod firmware;
 pub mod firmware_options;
 pub mod native;
+pub mod preflight;
 pub mod session;
 pub mod source;
 use serde::{Deserialize, Serialize};

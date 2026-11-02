@@ -7,6 +7,7 @@ pub mod device_delete;
 mod device_delete_legacy;
 mod device_delete_store;
 pub mod diag_parity;
+pub mod doctor;
 pub mod gui;
 pub mod run;
 pub mod test;
