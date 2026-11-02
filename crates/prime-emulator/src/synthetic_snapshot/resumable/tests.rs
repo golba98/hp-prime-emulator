@@ -352,3 +352,26 @@ fn terminated_save_or_restore_cannot_partially_publish_or_consume_checkpoint() {
         wait_child(spawn_child(&path, true, "resume"));
     }
 }
+
+#[test]
+fn checksummed_thumb_cpu_state_cannot_restore_an_arm_service_owner() {
+    for blocked in [true, false] {
+        let p = program(false);
+        let mut g = guest(&p, false);
+        let ServiceStop::Waiting(ticket) = g.run_slice(4).unwrap() else {
+            panic!("not waiting")
+        };
+        if !blocked {
+            g.deliver(ticket, event(), 50).unwrap();
+        }
+        let mut snapshot = g.capture(&p).unwrap();
+        snapshot.cpu.manifest.state.cpsr |= 0x20;
+        snapshot.cpu.manifest.manifest_sha256 = snapshot.cpu.manifest.digest().unwrap();
+        // This is valid for the broader M18 CPU contract, but impossible for
+        // either pending or runnable states of this ARM-only service owner.
+        snapshot.cpu.validate(&p).unwrap();
+        assert!(snapshot.restore(&p, "event-port-v1", 50, 2).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        assert!(snapshot.save(&dir.path().join("invalid"), &p).is_err());
+    }
+}

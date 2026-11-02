@@ -74,6 +74,7 @@ pub enum AutoStep {
     NativeCatalog,
     IdeSettings,
     ResearchDiagnostics(String),
+    ResearchRun(String),
     /// Type text into the focused widget as real keyboard input: `\n`
     /// becomes Enter and `\t` becomes Tab.
     Type(String),
@@ -254,6 +255,7 @@ impl Automation {
                     "native_catalog" => AutoStep::NativeCatalog,
                     "ide_settings" => AutoStep::IdeSettings,
                     "research_diagnostics" => AutoStep::ResearchDiagnostics(get_str("build_root")),
+                    "research_run" => AutoStep::ResearchRun(get_str("case")),
                     "type" => AutoStep::Type(get_str("text")),
                     "paste" => AutoStep::Paste(get_str("text")),
                     "key" => match egui::Key::from_name(&get_str("key")) {
@@ -739,6 +741,11 @@ impl Automation {
                 app.state.full_system_build_root = path;
                 app.handle_action(IdeAction::ShowResearchDiagnostics, ctx);
             }
+            AutoStep::ResearchRun(case) => {
+                app.dialogs
+                    .research
+                    .start_case(ctx, &app.state.full_system_build_root, &case);
+            }
             AutoStep::Paste(text) => self.pending_events.push(egui::Event::Paste(text)),
             AutoStep::Type(text) => {
                 for ch in text.chars() {
@@ -1017,6 +1024,7 @@ impl Automation {
             },
         });
         dump["research_diagnostics_open"] = json!(app.dialogs.research.open);
+        dump["research_result"] = json!(app.dialogs.research.execution_result());
         dump["full_system_build_root"] = json!(state.full_system_build_root);
         // M12: the firmware session (added separately: json! recursion).
         let frame_generation = app.firmware.as_ref().and_then(|f| {

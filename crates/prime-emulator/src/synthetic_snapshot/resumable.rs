@@ -52,8 +52,8 @@ struct Services {
 }
 impl Services {
     fn validate(&self, program: &SyntheticProgram, cpu: &CpuState) -> Result<()> {
-        if program.thumb {
-            return Err("resumable synthetic services require ARM code".into());
+        if program.thumb || cpu.cpsr & 0x20 != 0 {
+            return Err("resumable synthetic services require ARM code and CPU state".into());
         }
         if self.binding_epoch == 0
             || self.resource_identity.is_empty()
