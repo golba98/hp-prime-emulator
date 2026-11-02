@@ -156,6 +156,7 @@ def main():
     metadata = {
         "helper": str(helper), "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
         "firmware_sha256": hashlib.sha256((assets / "armfir.elf").read_bytes()).hexdigest(),
+        "os_rom_sha256": hashlib.sha256((assets / "PRIME_OS.ROM").read_bytes()).hexdigest(),
         "platform": platform.platform(), "clock": "time.monotonic request write to matching Result event",
         "cpu_clock": "/proc/pid/stat user+system ticks when available", "samples_per_case": 1,
         "verification": "local firmware only; no physical calculator",

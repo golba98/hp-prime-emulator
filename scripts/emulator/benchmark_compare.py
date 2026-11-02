@@ -11,7 +11,7 @@ def summarize(before, after):
     if not before or len(before) != len(after):
         raise ValueError("equal nonempty before/after trial groups are required")
     baseline = before[0]
-    identity_keys = ["firmware_sha256", "initial_profile_sha256", "script_sha256", "platform"]
+    identity_keys = ["firmware_sha256", "os_rom_sha256", "initial_profile_sha256", "script_sha256", "platform"]
     for key in identity_keys:
         if not baseline.get(key):
             raise ValueError(f"missing comparison identity: {key}")
