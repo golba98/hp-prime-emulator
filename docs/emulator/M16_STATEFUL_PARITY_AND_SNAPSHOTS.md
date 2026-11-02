@@ -67,3 +67,13 @@ zero failures, six ignored** across 93 reported test suites. Log:
 `/tmp/prime-m16-workspace-early.log`. This predates agent integration.
 Baseline release helper preserved at `/tmp/prime-m16-baseline/prime-emulator`,
 SHA-256 `9eceeb68b81daec82650cb19bb72374786c7d983ae6d9b3019d68bcd53f8a6e2`.
+
+M16 follow-up: the preflight now discovers Rust's bundled `rust-lld` as an ARM
+linker. `--build-smoke NEW_DIRECTORY` compiles and links the self-authored smoke,
+validating ELF32/ARM/entry metadata and refusing an existing output directory.
+With TMPDIR on home storage, the local build succeeded with ELF entry
+`0x30000000`, SHA-256
+`617bcd9865c392f24d145f96d5c0d7cfb97a4654c98adfc9e0a6b05032218d76`.
+Execution remains unverified; Python 2 and QEMU are still missing. Three Python
+tests pass, including preservation of existing output directories. This
+supersedes the earlier missing-linker/assembly-only observation above.

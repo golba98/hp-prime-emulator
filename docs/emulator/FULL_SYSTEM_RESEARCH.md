@@ -81,3 +81,13 @@ means all three additional RAM aliases matched; `0xbad00001` means a mismatch.
 The pinned board defaults UART to a null chardev, so the first experiment uses
 a mailbox rather than assuming visible serial output. Timer/IRQ and UART tests
 remain subsequent experiments after the reset/RAM smoke actually runs.
+
+M16 follow-up: the preflight now discovers Rust's bundled `rust-lld` as an ARM
+linker. `--build-smoke NEW_DIRECTORY` compiles and links the self-authored smoke,
+validating ELF32/ARM/entry metadata and refusing an existing output directory.
+With TMPDIR on home storage, the local build succeeded with ELF entry
+`0x30000000`, SHA-256
+`617bcd9865c392f24d145f96d5c0d7cfb97a4654c98adfc9e0a6b05032218d76`.
+Execution remains unverified; Python 2 and QEMU are still missing. Three Python
+tests pass, including preservation of existing output directories. This
+supersedes the earlier missing-linker/assembly-only observation above.

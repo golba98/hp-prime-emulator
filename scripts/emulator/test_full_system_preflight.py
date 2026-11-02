@@ -20,6 +20,15 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(report['artifacts'][0]['status'], 'missing')
             self.assertEqual(len(report['blockers']), 4)
 
+    def test_smoke_build_refuses_existing_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sentinel = root / 'keep'
+            sentinel.write_bytes(b'preserve')
+            with self.assertRaises(FileExistsError):
+                module.build_smoke(root, {})
+            self.assertEqual(sentinel.read_bytes(), b'preserve')
+
     def test_inventory_is_hashed_and_read_only(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
