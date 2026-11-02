@@ -257,7 +257,7 @@ def run(root, output, case, timeout=60, podman='podman', gdb='gdb'):
                         touch(qmp, records, -50, 50000, True)
                         samples['touch_clamped'] = sample(test, 18, deadline)
                         validate_touch(samples['touch_clamped'], 9, 0, 319)
-                        touch(qmp, records, 0, 0, False)
+                        # Reset while both the key and touch are held.
                         key(qmp, records, 'p', True)
                         boot_count = test.read(0x30001100)
                         reset_event(qmp, records)
@@ -270,8 +270,9 @@ def run(root, output, case, timeout=60, podman='podman', gdb='gdb'):
                         # Explicit cancellation releases every injected transition.
                         touch(qmp, records, 0, 0, False)
                         samples['cancelled'] = sample(test, 20, deadline)
-                        if samples['cancelled']['matrix'] != [0]*8:
-                            raise ValueError('cancelled input remained pressed')
+                        if (samples['cancelled']['matrix'] != [0]*8
+                                or bytes.fromhex(samples['cancelled']['touch_hex']) != b'\xff'*20):
+                            raise ValueError('cancelled keyboard/touch input remained pressed')
                         report['observations']['input_samples'] = samples
                     guest_command(test, 99, deadline)
                     wait_word(test, MAILBOX, 0x600d0019, deadline)

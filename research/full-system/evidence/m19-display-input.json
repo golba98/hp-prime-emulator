@@ -604,1181 +604,6 @@
       "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
     },
     {
-      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-1/result.json",
-      "schema_version": 1,
-      "scope": "full_system_synthetic_hardware",
-      "case": "input",
-      "status": "passed",
-      "machine": "hp-prime",
-      "cpu": "arm926",
-      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
-      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
-      "patches": [
-        {
-          "name": "0001-intc-reset-fiq.patch",
-          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
-        },
-        {
-          "name": "0002-s3c2416-timer.patch",
-          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
-        },
-        {
-          "name": "0003-armv5-alignment.patch",
-          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
-        },
-        {
-          "name": "0006-lcd-input.patch",
-          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
-        }
-      ],
-      "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-1/guest/display.elf",
-        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
-        "entry": "0x30000000",
-        "sources": {
-          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
-          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
-          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
-        },
-        "linked": true,
-        "executed": true
-      },
-      "physical_hardware_verified": false,
-      "kernel_boot_verified": false,
-      "guest_cpu_execution_verified": true,
-      "observations": {
-        "initial_pc": 805306368,
-        "initial_mailbox": 0,
-        "stepped_pc": 805306372,
-        "input_samples": {
-          "idle": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_down": {
-            "matrix": [
-              2,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "two_keys": {
-            "matrix": [
-              130,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_up": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "all_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "alias_still_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_down": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_move": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_clamped": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "reset": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "cancelled": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          }
-        },
-        "stopped_pc": 805306380,
-        "halt_address": 805306380,
-        "mailbox": [
-          1611464729,
-          99,
-          99,
-          433150465,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          0,
-          0,
-          0,
-          4294965510,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
-        ],
-        "registers": {
-          "r0": 805310472,
-          "r1": 99,
-          "r2": 73,
-          "r3": 1442840624,
-          "r4": 0,
-          "r5": 0,
-          "r6": 0,
-          "r7": 0,
-          "r8": 0,
-          "r9": 0,
-          "r10": 0,
-          "r11": 0,
-          "r12": 63519
-        },
-        "cpsr": 1610613203
-      },
-      "command": [
-        "podman",
-        "run",
-        "--rm",
-        "--name",
-        "prime-display-qc0f3ft7",
-        "--cidfile",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-1/container.cid",
-        "--network",
-        "none",
-        "--memory",
-        "1g",
-        "--ulimit",
-        "fsize=8388608:8388608",
-        "--userns",
-        "keep-id",
-        "--user",
-        "1000:1000",
-        "--read-only",
-        "--tmpfs",
-        "/tmp:rw,size=32m",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-1:/run:rw,Z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-display-qc0f3ft7:/sockets:rw,Z",
-        "localhost/prime-m17-qemu-xenial",
-        "/build/arm-softmmu/qemu-system-arm",
-        "-M",
-        "hp-prime",
-        "-kernel",
-        "/run/guest/display.elf",
-        "-display",
-        "none",
-        "-monitor",
-        "none",
-        "-serial",
-        "file:/run/uart.log",
-        "-S",
-        "-net",
-        "none",
-        "-gdb",
-        "unix:/sockets/gdb.sock,server,nowait",
-        "-qtest",
-        "unix:/sockets/qtest.sock,server,nowait",
-        "-qtest-log",
-        "/run/qtest.log",
-        "-qmp",
-        "unix:/sockets/qmp.sock,server,nowait",
-        "-d",
-        "in_asm,guest_errors",
-        "-D",
-        "/run/execution.log"
-      ],
-      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
-      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
-      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
-      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
-    },
-    {
-      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-2/result.json",
-      "schema_version": 1,
-      "scope": "full_system_synthetic_hardware",
-      "case": "input",
-      "status": "passed",
-      "machine": "hp-prime",
-      "cpu": "arm926",
-      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
-      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
-      "patches": [
-        {
-          "name": "0001-intc-reset-fiq.patch",
-          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
-        },
-        {
-          "name": "0002-s3c2416-timer.patch",
-          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
-        },
-        {
-          "name": "0003-armv5-alignment.patch",
-          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
-        },
-        {
-          "name": "0006-lcd-input.patch",
-          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
-        }
-      ],
-      "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-2/guest/display.elf",
-        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
-        "entry": "0x30000000",
-        "sources": {
-          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
-          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
-          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
-        },
-        "linked": true,
-        "executed": true
-      },
-      "physical_hardware_verified": false,
-      "kernel_boot_verified": false,
-      "guest_cpu_execution_verified": true,
-      "observations": {
-        "initial_pc": 805306368,
-        "initial_mailbox": 0,
-        "stepped_pc": 805306372,
-        "input_samples": {
-          "idle": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_down": {
-            "matrix": [
-              2,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "two_keys": {
-            "matrix": [
-              130,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_up": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "all_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "alias_still_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_down": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_move": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_clamped": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "reset": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "cancelled": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          }
-        },
-        "stopped_pc": 805306380,
-        "halt_address": 805306380,
-        "mailbox": [
-          1611464729,
-          99,
-          99,
-          433150465,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          0,
-          0,
-          0,
-          4294965510,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
-        ],
-        "registers": {
-          "r0": 805310472,
-          "r1": 99,
-          "r2": 73,
-          "r3": 1442840624,
-          "r4": 0,
-          "r5": 0,
-          "r6": 0,
-          "r7": 0,
-          "r8": 0,
-          "r9": 0,
-          "r10": 0,
-          "r11": 0,
-          "r12": 63519
-        },
-        "cpsr": 1610613203,
-        "uart_hex": "4449"
-      },
-      "command": [
-        "podman",
-        "run",
-        "--rm",
-        "--name",
-        "prime-display-y1nx9ep9",
-        "--cidfile",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-2/container.cid",
-        "--network",
-        "none",
-        "--memory",
-        "1g",
-        "--ulimit",
-        "fsize=8388608:8388608",
-        "--userns",
-        "keep-id",
-        "--user",
-        "1000:1000",
-        "--read-only",
-        "--tmpfs",
-        "/tmp:rw,size=32m",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-2:/run:rw,Z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-display-y1nx9ep9:/sockets:rw,Z",
-        "localhost/prime-m17-qemu-xenial",
-        "/build/arm-softmmu/qemu-system-arm",
-        "-M",
-        "hp-prime",
-        "-kernel",
-        "/run/guest/display.elf",
-        "-display",
-        "none",
-        "-monitor",
-        "none",
-        "-serial",
-        "file:/run/uart.log",
-        "-S",
-        "-net",
-        "none",
-        "-gdb",
-        "unix:/sockets/gdb.sock,server,nowait",
-        "-qtest",
-        "unix:/sockets/qtest.sock,server,nowait",
-        "-qtest-log",
-        "/run/qtest.log",
-        "-qmp",
-        "unix:/sockets/qmp.sock,server,nowait",
-        "-d",
-        "in_asm,guest_errors",
-        "-D",
-        "/run/execution.log"
-      ],
-      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
-      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
-      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
-      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
-    },
-    {
-      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-3/result.json",
-      "schema_version": 1,
-      "scope": "full_system_synthetic_hardware",
-      "case": "input",
-      "status": "passed",
-      "machine": "hp-prime",
-      "cpu": "arm926",
-      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
-      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
-      "patches": [
-        {
-          "name": "0001-intc-reset-fiq.patch",
-          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
-        },
-        {
-          "name": "0002-s3c2416-timer.patch",
-          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
-        },
-        {
-          "name": "0003-armv5-alignment.patch",
-          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
-        },
-        {
-          "name": "0006-lcd-input.patch",
-          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
-        }
-      ],
-      "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-3/guest/display.elf",
-        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
-        "entry": "0x30000000",
-        "sources": {
-          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
-          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
-          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
-        },
-        "linked": true,
-        "executed": true
-      },
-      "physical_hardware_verified": false,
-      "kernel_boot_verified": false,
-      "guest_cpu_execution_verified": true,
-      "observations": {
-        "initial_pc": 805306368,
-        "initial_mailbox": 0,
-        "stepped_pc": 805306372,
-        "input_samples": {
-          "idle": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_down": {
-            "matrix": [
-              2,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "two_keys": {
-            "matrix": [
-              130,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "p_up": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "all_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "alias_still_down": {
-            "matrix": [
-              128,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "aliases_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_down": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_move": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_up": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "touch_clamped": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "reset": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          },
-          "cancelled": {
-            "matrix": [
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
-            "version_hex": "06f9ffff"
-          }
-        },
-        "stopped_pc": 805306380,
-        "halt_address": 805306380,
-        "mailbox": [
-          1611464729,
-          99,
-          99,
-          433150465,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          4294967295,
-          0,
-          0,
-          0,
-          4294965510,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
-        ],
-        "registers": {
-          "r0": 805310472,
-          "r1": 99,
-          "r2": 73,
-          "r3": 1442840624,
-          "r4": 0,
-          "r5": 0,
-          "r6": 0,
-          "r7": 0,
-          "r8": 0,
-          "r9": 0,
-          "r10": 0,
-          "r11": 0,
-          "r12": 63519
-        },
-        "cpsr": 1610613203,
-        "uart_hex": "4449"
-      },
-      "command": [
-        "podman",
-        "run",
-        "--rm",
-        "--name",
-        "prime-display-ahiugxbx",
-        "--cidfile",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-3/container.cid",
-        "--network",
-        "none",
-        "--memory",
-        "1g",
-        "--ulimit",
-        "fsize=8388608:8388608",
-        "--userns",
-        "keep-id",
-        "--user",
-        "1000:1000",
-        "--read-only",
-        "--tmpfs",
-        "/tmp:rw,size=32m",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-m19-display-input-final-3:/run:rw,Z",
-        "-v",
-        "/home/k9-vortex/.cache/prime-display-ahiugxbx:/sockets:rw,Z",
-        "localhost/prime-m17-qemu-xenial",
-        "/build/arm-softmmu/qemu-system-arm",
-        "-M",
-        "hp-prime",
-        "-kernel",
-        "/run/guest/display.elf",
-        "-display",
-        "none",
-        "-monitor",
-        "none",
-        "-serial",
-        "file:/run/uart.log",
-        "-S",
-        "-net",
-        "none",
-        "-gdb",
-        "unix:/sockets/gdb.sock,server,nowait",
-        "-qtest",
-        "unix:/sockets/qtest.sock,server,nowait",
-        "-qtest-log",
-        "/run/qtest.log",
-        "-qmp",
-        "unix:/sockets/qmp.sock,server,nowait",
-        "-d",
-        "in_asm,guest_errors",
-        "-D",
-        "/run/execution.log"
-      ],
-      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
-      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
-      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
-      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
-    },
-    {
       "raw_result": "/home/k9-vortex/.cache/prime-m19-display-model-final-5/result.json",
       "schema_version": 1,
       "case": "lcd_input_model",
@@ -1897,6 +722,1182 @@
         "gpio_reset": true,
         "touch_address_nack": true
       }
+    },
+    {
+      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-4/result.json",
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "input",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-4/guest/display.elf",
+        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
+        "entry": "0x30000000",
+        "sources": {
+          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
+          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
+          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
+        },
+        "linked": true,
+        "executed": true
+      },
+      "physical_hardware_verified": false,
+      "kernel_boot_verified": false,
+      "guest_cpu_execution_verified": true,
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "input_samples": {
+          "idle": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_down": {
+            "matrix": [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "two_keys": {
+            "matrix": [
+              130,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_up": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "all_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "alias_still_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_down": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_move": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_clamped": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "reset": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "cancelled": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          }
+        },
+        "stopped_pc": 805306380,
+        "halt_address": 805306380,
+        "mailbox": [
+          1611464729,
+          99,
+          99,
+          433150465,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          0,
+          0,
+          0,
+          4294965510,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 805310472,
+          "r1": 99,
+          "r2": 73,
+          "r3": 1442840624,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 63519
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4449"
+      },
+      "command": [
+        "podman",
+        "run",
+        "--rm",
+        "--name",
+        "prime-display-4g22d_b_",
+        "--cidfile",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-4/container.cid",
+        "--network",
+        "none",
+        "--memory",
+        "1g",
+        "--ulimit",
+        "fsize=8388608:8388608",
+        "--userns",
+        "keep-id",
+        "--user",
+        "1000:1000",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,size=32m",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-4:/run:rw,Z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-display-4g22d_b_:/sockets:rw,Z",
+        "localhost/prime-m17-qemu-xenial",
+        "/build/arm-softmmu/qemu-system-arm",
+        "-M",
+        "hp-prime",
+        "-kernel",
+        "/run/guest/display.elf",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "file:/run/uart.log",
+        "-S",
+        "-net",
+        "none",
+        "-gdb",
+        "unix:/sockets/gdb.sock,server,nowait",
+        "-qtest",
+        "unix:/sockets/qtest.sock,server,nowait",
+        "-qtest-log",
+        "/run/qtest.log",
+        "-qmp",
+        "unix:/sockets/qmp.sock,server,nowait",
+        "-d",
+        "in_asm,guest_errors",
+        "-D",
+        "/run/execution.log"
+      ],
+      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
+      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
+      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
+      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
+    },
+    {
+      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-5/result.json",
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "input",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-5/guest/display.elf",
+        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
+        "entry": "0x30000000",
+        "sources": {
+          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
+          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
+          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
+        },
+        "linked": true,
+        "executed": true
+      },
+      "physical_hardware_verified": false,
+      "kernel_boot_verified": false,
+      "guest_cpu_execution_verified": true,
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "input_samples": {
+          "idle": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_down": {
+            "matrix": [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "two_keys": {
+            "matrix": [
+              130,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_up": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "all_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "alias_still_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_down": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_move": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_clamped": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "reset": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "cancelled": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          }
+        },
+        "stopped_pc": 805306380,
+        "halt_address": 805306380,
+        "mailbox": [
+          1611464729,
+          99,
+          99,
+          433150465,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          0,
+          0,
+          0,
+          4294965510,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 805310472,
+          "r1": 99,
+          "r2": 73,
+          "r3": 1442840624,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 63519
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4449"
+      },
+      "command": [
+        "podman",
+        "run",
+        "--rm",
+        "--name",
+        "prime-display-605s2mae",
+        "--cidfile",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-5/container.cid",
+        "--network",
+        "none",
+        "--memory",
+        "1g",
+        "--ulimit",
+        "fsize=8388608:8388608",
+        "--userns",
+        "keep-id",
+        "--user",
+        "1000:1000",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,size=32m",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-5:/run:rw,Z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-display-605s2mae:/sockets:rw,Z",
+        "localhost/prime-m17-qemu-xenial",
+        "/build/arm-softmmu/qemu-system-arm",
+        "-M",
+        "hp-prime",
+        "-kernel",
+        "/run/guest/display.elf",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "file:/run/uart.log",
+        "-S",
+        "-net",
+        "none",
+        "-gdb",
+        "unix:/sockets/gdb.sock,server,nowait",
+        "-qtest",
+        "unix:/sockets/qtest.sock,server,nowait",
+        "-qtest-log",
+        "/run/qtest.log",
+        "-qmp",
+        "unix:/sockets/qmp.sock,server,nowait",
+        "-d",
+        "in_asm,guest_errors",
+        "-D",
+        "/run/execution.log"
+      ],
+      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
+      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
+      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
+      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
+    },
+    {
+      "raw_result": "/home/k9-vortex/.cache/prime-m19-display-input-final-6/result.json",
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "input",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m19-display-input-final-6/guest/display.elf",
+        "sha256": "de4ef6e6563859a4794c350e0efc688a8a7cfad3eae6eef4155143f619e69e63",
+        "entry": "0x30000000",
+        "sources": {
+          "display.S": "3517117140572c205bbd4d0f1a15679c88f174588c826de8017c8d471e915c14",
+          "display.c": "244d1223ef6bebe3f2b29df3c8039f612795bc585f6c60d295fa8760a0b8ec6e",
+          "display.ld": "3a3e6647649f33cf277ded1e43fb2e3668b55ef4a4a43940a782f12ddc67f26a"
+        },
+        "linked": true,
+        "executed": true
+      },
+      "physical_hardware_verified": false,
+      "kernel_boot_verified": false,
+      "guest_cpu_execution_verified": true,
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "input_samples": {
+          "idle": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_down": {
+            "matrix": [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "two_keys": {
+            "matrix": [
+              130,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "p_up": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "all_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "alias_still_down": {
+            "matrix": [
+              128,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "aliases_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_down": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "090e0510ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_move": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0a150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_up": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0b150a10ffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "touch_clamped": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "0900130fffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "reset": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          },
+          "cancelled": {
+            "matrix": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "touch_hex": "ffffffffffffffffffffffffffffffffffffffff",
+            "version_hex": "06f9ffff"
+          }
+        },
+        "stopped_pc": 805306380,
+        "halt_address": 805306380,
+        "mailbox": [
+          1611464729,
+          99,
+          99,
+          433150465,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          4294967295,
+          0,
+          0,
+          0,
+          4294965510,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 805310472,
+          "r1": 99,
+          "r2": 73,
+          "r3": 1442840624,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 63519
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4449"
+      },
+      "command": [
+        "podman",
+        "run",
+        "--rm",
+        "--name",
+        "prime-display-v2kqithg",
+        "--cidfile",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-6/container.cid",
+        "--network",
+        "none",
+        "--memory",
+        "1g",
+        "--ulimit",
+        "fsize=8388608:8388608",
+        "--userns",
+        "keep-id",
+        "--user",
+        "1000:1000",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,size=32m",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-build-02/build:/build:ro,z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-m19-display-input-final-6:/run:rw,Z",
+        "-v",
+        "/home/k9-vortex/.cache/prime-display-v2kqithg:/sockets:rw,Z",
+        "localhost/prime-m17-qemu-xenial",
+        "/build/arm-softmmu/qemu-system-arm",
+        "-M",
+        "hp-prime",
+        "-kernel",
+        "/run/guest/display.elf",
+        "-display",
+        "none",
+        "-monitor",
+        "none",
+        "-serial",
+        "file:/run/uart.log",
+        "-S",
+        "-net",
+        "none",
+        "-gdb",
+        "unix:/sockets/gdb.sock,server,nowait",
+        "-qtest",
+        "unix:/sockets/qtest.sock,server,nowait",
+        "-qtest-log",
+        "/run/qtest.log",
+        "-qmp",
+        "unix:/sockets/qmp.sock,server,nowait",
+        "-d",
+        "in_asm,guest_errors",
+        "-D",
+        "/run/execution.log"
+      ],
+      "execution.log_sha256": "cde00fbefea93993261b662ae32af9694babce7880e367cc1d3d5c84218a3faf",
+      "uart.log_sha256": "d2cf7e60688d7bd08acbe83171cb1ca12a29396e0a781d98c3c210773feb20a1",
+      "entry-gdb.log_sha256": "1e13775964feb45521843f31cdc7985f1a6c740686e500843d85767dbc276a42",
+      "terminal-gdb.log_sha256": "5a1d9d24c9f912e35ec30c8a66a2c48d190be2cc0f30b5df73ffd8771c8db1b9"
     }
   ],
   "baseline_failures": [
