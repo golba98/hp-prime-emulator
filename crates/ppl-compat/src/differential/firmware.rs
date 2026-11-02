@@ -238,10 +238,11 @@ fn job_debug(
     {
         return Err("Job diagnostics request/source identity differs".into());
     }
-    report
-        .get("debug")
-        .cloned()
-        .ok_or("Job has no debug bundle".into())
+    let debug = report.get("debug").ok_or("Job has no debug bundle")?;
+    if !debug.is_object() || debug["schema_version"] != 1 || !debug["threads"].is_array() {
+        return Err("Job debug bundle schema is unavailable or invalid".into());
+    }
+    Ok(debug.clone())
 }
 
 fn execution_data(o: &ppl_engine::session::ExecutionObservation) -> serde_json::Value {
@@ -555,7 +556,7 @@ mod forensic_tests {
         std::fs::create_dir(&directory).unwrap();
         let path = directory.join("request-7.json");
         let write = |id, hash| {
-            std::fs::write(&path,serde_json::to_vec(&json!({"request":id,"source_sha256":hash,"debug":{"threads":[{"thread_id":2}],"coherent_machine_snapshot":false}})).unwrap()).unwrap()
+            std::fs::write(&path,serde_json::to_vec(&json!({"request":id,"source_sha256":hash,"debug":{"schema_version":1,"threads":[{"thread_id":2}],"coherent_machine_snapshot":false}})).unwrap()).unwrap()
         };
         write(7, "source");
         let copied = job_debug(temporary.path(), 7, "source").unwrap();
@@ -566,6 +567,22 @@ mod forensic_tests {
         temporary.close().unwrap();
         assert_eq!(copied["threads"][0]["thread_id"], 2);
     }
+    #[test]
+    fn null_debug_data_cannot_claim_a_captured_bundle() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join("ide-reports")).unwrap();
+        std::fs::write(
+            directory.path().join("ide-reports/request-1.json"),
+            br#"{"request":1,"source_sha256":"source","debug":null}"#,
+        )
+        .unwrap();
+        assert!(
+            job_debug(directory.path(), 1, "source")
+                .unwrap_err()
+                .contains("schema")
+        );
+    }
+
     #[test]
     fn oversized_or_missing_reports_are_not_read_as_forensics() {
         let temporary = tempfile::tempdir().unwrap();
