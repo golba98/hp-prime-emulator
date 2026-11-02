@@ -2,12 +2,19 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 /// 2: `Lifecycle`, `Unsupported` and `Import`. 3: `PowerDown`, `Sleeping`.
-pub const VERSION: u32 = 3;
+/// 4: atomic desktop `Text` packets, translated using observed firmware state.
+pub const VERSION: u32 = 4;
 pub const MAX_PACKET: usize = 4 * 1024 * 1024;
 pub const FRAME_PIXELS: usize = 320 * 240;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum Command {
+    /// Bounded, prevalidated desktop text; never interprets newlines as Enter.
+    Text {
+        text: String,
+        #[serde(default)]
+        paste: bool,
+    },
     Key {
         code: u16,
         down: bool,

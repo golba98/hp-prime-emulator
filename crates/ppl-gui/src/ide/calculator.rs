@@ -155,6 +155,14 @@ pub fn show(
                 }
                 ui.separator();
                 ui.checkbox(&mut state.smooth_display, "Smooth LCD scaling");
+                if state.firmware_backend {
+                    ui.separator();
+                    ui.label("Desktop typing follows the firmware Alpha indicator.");
+                    ui.label("Tab: Alpha · Shift+Tab: calculator Shift");
+                    ui.label("Ctrl+V: paste one expression · Esc: cancel queued typing");
+                    ui.label("Right: leave a power/fraction template");
+                    ui.label("Paste PPL source into the IDE editor, then Import.");
+                }
                 if ui.button("Save LCD screenshot…").clicked() {
                     state.queue_action(IdeAction::TakeScreenshot);
                     ui.close();

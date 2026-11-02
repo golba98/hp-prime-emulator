@@ -1,6 +1,7 @@
 //! Long-lived local firmware session, with bounded transport and coherent LCD capture.
 mod job;
 mod repeat;
+mod typing;
 pub use job::{LOADER, LOADER_V1, LOADER_V2};
 
 use crate::{
@@ -30,6 +31,7 @@ struct Device {
     held: HashSet<u16>,
     delivered: HashSet<u16>,
     repeat: repeat::KeyRepeat,
+    typing: typing::Typing,
     script: Option<ScriptDriver>,
     jobs: job::Jobs,
     /// Last lifecycle state reported, and the idle meter that ends Booting.
@@ -84,6 +86,7 @@ impl LiveSession {
                 held: HashSet::new(),
                 delivered: HashSet::new(),
                 repeat: repeat::KeyRepeat::default(),
+                typing: typing::Typing::default(),
                 script: None,
                 jobs: job::Jobs::new(),
                 lifecycle: Lifecycle::Booting,
@@ -246,18 +249,63 @@ impl LiveSession {
             }
         }
         for command in self.commands.lock().unwrap().try_iter().take(128) {
+            if matches!(
+                &command,
+                Command::Run { .. }
+                    | Command::Compile { .. }
+                    | Command::DirectCheck { .. }
+                    | Command::LoadSource { .. }
+                    | Command::Import { .. }
+                    | Command::Script { .. }
+            ) {
+                device.typing.clear();
+            }
             match command {
+                Command::Text { text, paste }
+                    if device.jobs.accepts_input()
+                        && device.script.is_none()
+                        && device.power_down.is_none()
+                        && !shared.sleeping() =>
+                {
+                    device.jobs.invalidate_prepared();
+                    if let Err(message) = if paste {
+                        device.typing.paste(&text)
+                    } else {
+                        device.typing.text(&text)
+                    } {
+                        self.event(Event::Status { message });
+                    }
+                }
+                Command::Text { .. } => self.event(Event::Status {
+                    message:
+                        "Calculator typing is unavailable while firmware is busy or switched off"
+                            .into(),
+                }),
                 Command::Key { code, down }
                     if (code <= 191 || code == 0xE047) && device.jobs.accepts_input() =>
                 {
                     device.jobs.invalidate_prepared();
+                    if code == 0x01 && down && !device.typing.is_empty() {
+                        device.typing.clear();
+                        device.keys.clear();
+                        shared.clear_input_events();
+                        let delivered: Vec<_> = device.delivered.drain().collect();
+                        device
+                            .keys
+                            .extend(delivered.into_iter().map(|code| (code, false)));
+                    }
                     if down {
                         device.held.insert(code);
                     } else {
                         device.held.remove(&code);
                         device.repeat.release(code);
                     }
-                    device.keys.push_back((code, down));
+                    if device.typing.is_empty() {
+                        device.typing.clear();
+                        device.keys.push_back((code, down));
+                    } else {
+                        device.typing.key(code, down);
+                    }
                 }
                 Command::Touch { status, x, y }
                     if matches!(status, 1 | 2 | 8)
@@ -266,12 +314,14 @@ impl LiveSession {
                         && device.jobs.accepts_input() =>
                 {
                     device.jobs.invalidate_prepared();
+                    device.typing.clear();
                     shared.push_touch(TouchSample { status, x, y })
                 }
                 Command::ReleaseAll => {
                     device.held.clear();
                     device.repeat.clear();
                     device.keys.clear();
+                    device.typing.clear();
                     shared.clear_input_events();
                     let held: Vec<u16> = device.delivered.drain().collect();
                     device
@@ -280,6 +330,7 @@ impl LiveSession {
                 }
                 Command::Shutdown => shared.set_stopping(),
                 Command::PowerDown => {
+                    device.typing.clear();
                     device.jobs.invalidate_prepared();
                     device.repeat.clear();
                     if device.power_down.is_none() {
@@ -345,6 +396,7 @@ impl LiveSession {
                     }
                 }
                 Command::Stop => {
+                    device.typing.clear();
                     device.jobs.invalidate_prepared();
                     device.script = None;
                     let interrupted = device.jobs.interrupt(shared, trace);
@@ -468,6 +520,28 @@ impl LiveSession {
                 _ => self.event(Event::Error {
                     message: "Unsupported calculator input".into(),
                 }),
+            }
+        }
+        // Translate only once all preceding physical events were consumed.
+        // The guest owns letter case and templates; observe its status under
+        // the same snapshot gate as LCD capture, never host-side mode flags.
+        if device.keys.is_empty()
+            && !device.typing.is_empty()
+            && shared.input_events_pending() == 0
+            && shared.getevent_parked()
+            && device.jobs.accepts_input()
+            && device.script.is_none()
+        {
+            if let Some(_snapshot) = mem.snapshot_gate.try_snapshot() {
+                if let Ok(view) = LcdView::locate(mem, *shared.lcd_object.lock().unwrap()) {
+                    let mut status = [0u8; 320 * 8 * 4];
+                    if mem.read_bytes(view.fb_va, &mut status).is_ok() {
+                        match device.typing.next(typing::observe(&status)) {
+                            Ok(keys) => device.keys.extend(keys),
+                            Err(message) => self.event(Event::Status { message }),
+                        }
+                    }
+                }
             }
         }
         // One key transition at a time: once the previous event was taken
