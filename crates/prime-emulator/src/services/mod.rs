@@ -58,7 +58,16 @@ impl GuestArgs {
     /// Caller-provided stack argument `i` (0-based): `[sp + 8 + 4*i]`.
     /// The +8 skips the stub's pushed return address and saved r0.
     pub fn stack_arg(&self, mem: &GuestMemory, i: usize) -> MemResult<u32> {
-        mem.read_u32(self.sp + 8 + (i as u32) * 4)
+        let address = u32::try_from(i)
+            .ok()
+            .and_then(|i| i.checked_mul(4))
+            .and_then(|offset| offset.checked_add(8))
+            .and_then(|offset| self.sp.checked_add(offset))
+            .ok_or(MemoryError {
+                va: self.sp,
+                msg: "SVC stack argument address overflow".into(),
+            })?;
+        mem.read_u32(address)
     }
 }
 
@@ -910,6 +919,11 @@ pub fn dispatch(
             Err(e) => Err(MemoryError { va: pc, msg: e }),
         };
     }
+    let caller_sp = sp.checked_add(8).ok_or(MemoryError {
+        va: sp,
+        msg: "SVC return stack address overflow".into(),
+    })?;
+    mem.validate_range(sp, 8)?;
     let caller_pc = mem.read_u32(sp)?;
     let stack_slots = [
         mem.read_u32(sp.wrapping_add(8)).unwrap_or(0),
@@ -965,7 +979,7 @@ pub fn dispatch(
                         ),
                         caller_pc,
                     );
-                    0
+                    return Err(e);
                 }
             }
         }
@@ -985,7 +999,7 @@ pub fn dispatch(
             va: sp,
             msg: format!("write r0: {e}"),
         })?;
-    uc.reg_write(RegisterARM::SP, (sp + 8) as u64)
+    uc.reg_write(RegisterARM::SP, caller_sp as u64)
         .map_err(|e| MemoryError {
             va: sp,
             msg: format!("write sp: {e}"),

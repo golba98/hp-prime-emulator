@@ -211,17 +211,16 @@ impl CpuThread {
                         }
                     }
                     Err(e) => {
-                        hs.trace.fault(format!("SVC dispatch failed: {e}"), 0);
+                        let mut report =
+                            fault_report(uc, &format!("svc-dispatch: {e}"), hs.thread_id);
+                        report.addr = Some(u64::from(e.va));
+                        hs.trace
+                            .fault(format!("SVC dispatch failed: {e}"), report.pc);
+                        if let Some(runtime) = &hs.trace.runtime {
+                            runtime.fault(&report);
+                        }
                         *hs.stop.lock().unwrap() = Some(StopReason::Fault);
-                        *hs.fault.lock().unwrap() = Some(FaultReport {
-                            kind: format!("svc-dispatch: {e}"),
-                            pc: 0,
-                            addr: None,
-                            regs: [0; 16],
-                            cpsr: 0,
-                            thread_id: 0,
-                            last_pcs: Vec::new(),
-                        });
+                        *hs.fault.lock().unwrap() = Some(report);
                         let _ = uc.emu_stop();
                     }
                 }
