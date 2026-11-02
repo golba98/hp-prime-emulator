@@ -79,3 +79,18 @@ tests pass, including preservation of existing output directories. This
 supersedes the earlier missing-linker/assembly-only observation above.
 
 Actual firmware15751 debug run: heartbeat verified (three delivered key events, no faults), 7829 owner-thread register observations across 2 threads. JSONL and report are retained under artifacts/m16/debug-real*. This is HLE-only evidence.
+
+## Integrated capture infrastructure
+
+Commit a18045f integrates immutable offline capture bundles and the new
+`ppl capture prepare/seal/validate/compare` commands. No command opens USB.
+Sealed physical attestations require retained matching raw FA identity replies;
+mock origin cannot be promoted by merely changing a label. Correlated actions,
+confirmed delivery, transcripts, bounded graphics, hashes and artifact paths
+are validated before comparison. Manual attestation is not cryptographic proof
+of hardware authenticity, and no new physical results were collected.
+
+Agent verification passed17 focused capture tests,2 CLI tests and all113
+ppl-compat tests, with formatting and relevant Clippy passing. Coordinator
+capture-filtered tests also passed after integration. Schema2 multi-source
+capture qualification remains pending its explicit integration follow-up.
