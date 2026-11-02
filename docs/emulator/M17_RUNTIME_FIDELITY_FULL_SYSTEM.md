@@ -78,3 +78,22 @@ Final work must integrate all handoffs, verify workspace/GUI/firmware/recovery/
 historical classifications, and run five alternating baseline/current benchmark
 trials with builds and other firmware sessions idle. CPU live restoration and
 kernel boot must remain unclaimed unless genuinely demonstrated.
+
+
+## Coordinator verification checkpoint
+
+Clean-cache coordinator workspace verification passed1,787 tests, zero failures,
+six ignored in normal parallel mode. Source had no cross-checkout edits. An
+earlier shared-target build artifact mismatch was corrected by assigning each
+agent a distinct home-backed CARGO_TARGET_DIR and invalidating only compiler/VM
+generated artifacts before this passing run.
+
+Actual Native/HLE stateful-edit comparison passes22 assertions. All seven raw
+execution reports retain captured request/source-bound diagnostic bundles after
+the disposable profile has been removed (artifacts/m17/forensics-real.json).
+This still uses the preserved M16 helper; later combined M17 tests remain required.
+
+Full-system owner reports one genuine hp-prime smoke execution: entry
+0x30000000, single-step0x30000004, halt0x3000005c, mailbox0x600d0001,
+four alias values0x12345678. Second-run/regressions and integration handoff are
+pending, so no completed hardware increment or kernel boot is claimed yet.
