@@ -39,6 +39,16 @@ pub enum Op {
         func: u32,
         argc: u8,
     },
+    /// A genuine installed external export, resolved by the Native linker.
+    CallExternal {
+        name: u32,
+        argc: u8,
+    },
+    /// Relocated external call in a linked execution image.
+    CallLinked {
+        func: u32,
+        argc: u8,
+    },
     Builtin {
         id: Builtin,
         argc: u8,

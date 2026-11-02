@@ -21,3 +21,6 @@ pub use machine::{DebugAction, Debugger, Limits, Machine, eval_text_with};
 pub use session::{PortableValue, SessionContext, SessionRun, SessionSnapshot, SourceIdentity};
 pub use settings::{AngleMode, Settings};
 pub use value::Value;
+
+pub mod linker;
+pub use linker::{LinkedProgram, ModuleSource, link_sources};

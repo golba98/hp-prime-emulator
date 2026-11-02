@@ -299,22 +299,43 @@ fn run_native_stateful(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun 
             break;
         }
         let data = match step {
-            Step::Import { program, .. } => {
-                if sources.contains_key(program) {
-                    json!({"status":"infrastructure_error","reason":"program already imported"})
+            Step::Import { program, .. } | Step::Edit { program, .. } => {
+                let editing = matches!(step, Step::Edit { .. });
+                if editing != sources.contains_key(program) {
+                    json!({"status":"infrastructure_error","reason":"import collision or edit of missing program"})
                 } else {
-                    sources.insert(program.clone(), s.sources[program].clone());
-                    json!({"status":"success"})
-                }
-            }
-            Step::Edit {
-                program, source, ..
-            } => {
-                if sources.contains_key(program) {
-                    sources.insert(program.clone(), source.clone());
-                    json!({"status":"success"})
-                } else {
-                    json!({"status":"infrastructure_error","reason":"program was not imported"})
+                    let text = if let Step::Edit { source, .. } = step {
+                        ppl_engine::source::Source::text(source, program)
+                            .map(|s| s.text)
+                            .unwrap_or_else(|_| source.clone())
+                    } else {
+                        s.sources[program].clone()
+                    };
+                    if editing {
+                        session.invalidate_module(program);
+                    }
+                    sources.insert(program.clone(), text);
+                    match link_native_sources(&sources, program) {
+                        Err(e) => json!({"status":"compile_error","error":e.to_string()}),
+                        Ok(image) => {
+                            let run = session.run_linked(
+                                image,
+                                Box::new(SharedHost(host.clone())),
+                                Limits::default(),
+                                false,
+                                |m| {
+                                    m.run_init()?;
+                                    Ok(ppl_vm::Value::zero())
+                                },
+                            );
+                            match run.result {
+                                Ok(_) => json!({"status":"success"}),
+                                Err(e) => {
+                                    json!({"status":"runtime_error","error":{"kind":format!("{:?}",e.kind),"message":e.to_string()}})
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Step::RunProgram { program, entry, .. } | Step::Probe { program, entry, .. } => {
@@ -322,18 +343,14 @@ fn run_native_stateful(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun 
                     Step::RunProgram { args, .. } => args.clone(),
                     _ => vec![],
                 };
-                let Some(source) = sources.get(program) else {
+                let Some(_) = sources.get(program) else {
                     report.status = RunStatus::InfrastructureError;
                     report.reason = Some(format!("{program} was not imported"));
                     return report;
                 };
-                let file = ppl_syntax::SourceFile::new(program, source);
-                let (compiled, diags) = ppl_compiler::compile_source(&file, &Default::default());
-                match compiled {
-                    None => {
-                        json!({"status":"compile_error","diagnostics":diags.items.iter().map(|d|json!({"code":d.code,"message":d.message})).collect::<Vec<_>>()})
-                    }
-                    Some(compiled) => {
+                match link_native_sources(&sources, program) {
+                    Err(error) => json!({"status":"compile_error","error":error.to_string()}),
+                    Ok(image) => {
                         let args = match arguments::json_args(
                             &serde_json::to_string(&args).unwrap(),
                             &session.settings,
@@ -346,9 +363,8 @@ fn run_native_stateful(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun 
                             }
                         };
                         host.lock().unwrap().output.clear();
-                        let run = session.run(
-                            SourceIdentity::new(program, crate::sha256_hex(source.as_bytes())),
-                            Rc::new(compiled),
+                        let run = session.run_linked(
+                            image,
                             Box::new(SharedHost(host.clone())),
                             Limits::default(),
                             true,
@@ -408,4 +424,23 @@ pub(super) fn probe_data(value: &Json, names: &[String]) -> Json {
     }
     let variables: BTreeMap<_, _> = names.iter().cloned().zip(items.iter().cloned()).collect();
     json!({"status":"success","variables":variables,"missing":[]})
+}
+
+fn link_native_sources(
+    sources: &BTreeMap<String, String>,
+    root: &str,
+) -> ppl_vm::RtResult<ppl_vm::LinkedProgram> {
+    let modules = sources
+        .iter()
+        .map(|(name, source)| {
+            (
+                name.clone(),
+                ppl_vm::ModuleSource {
+                    identity: SourceIdentity::new(name, crate::sha256_hex(source.as_bytes())),
+                    source: source.clone(),
+                },
+            )
+        })
+        .collect();
+    ppl_vm::link_sources(&modules, root)
 }

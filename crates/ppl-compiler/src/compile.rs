@@ -26,12 +26,15 @@ use crate::catalog::{self, CatalogKind};
 pub struct CompileOptions {
     /// Base used for `#123` literals without a suffix (Home setting).
     pub default_int_base: IntBase,
+    /// Exported functions installed in the caller-owned module catalog.
+    pub external_functions: std::collections::BTreeMap<String, usize>,
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
         CompileOptions {
             default_int_base: IntBase::Hex,
+            external_functions: Default::default(),
         }
     }
 }
@@ -1193,6 +1196,19 @@ impl<'a> Compiler<'a> {
             self.cur.emit(Op::Call { func: id, argc: 0 }, span);
             return;
         }
+        if let Some(&params) = self.opts.external_functions.get(name) {
+            if params != 0 {
+                self.error(
+                    "wrong-arg-count",
+                    span,
+                    format!("{name} expects {params} argument(s), got 0"),
+                );
+            }
+            let idx = self.names.len() as u32;
+            self.names.push(name.into());
+            self.cur.emit(Op::CallExternal { name: idx, argc: 0 }, span);
+            return;
+        }
         if let Some(spec) = builtins::lookup(name) {
             if spec.accepts(0) && spec.ref_args == 0 {
                 return self.builtin(spec.builtin, &[], span);
@@ -1322,6 +1338,28 @@ impl<'a> Compiler<'a> {
             self.cur.emit(
                 Op::Call {
                     func: id,
+                    argc: args.len().min(255) as u8,
+                },
+                span,
+            );
+            return;
+        }
+        if let Some(&params) = self.opts.external_functions.get(name) {
+            if params != args.len() {
+                self.error(
+                    "wrong-arg-count",
+                    span,
+                    format!("{name} expects {params} argument(s), got {}", args.len()),
+                );
+            }
+            for a in args {
+                self.expr(a);
+            }
+            let idx = self.names.len() as u32;
+            self.names.push(name.into());
+            self.cur.emit(
+                Op::CallExternal {
+                    name: idx,
                     argc: args.len().min(255) as u8,
                 },
                 span,
