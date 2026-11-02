@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod component;
+
 const FIRST_HANDLE: u32 = 0x0001_0001;
 
 pub struct VFile {
