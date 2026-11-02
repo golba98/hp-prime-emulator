@@ -681,6 +681,12 @@ pub fn run(
         if let Some(rom) = &os_rom {
             identity.extend(std::fs::read(rom)?);
         }
+        let resources = data_dir.join("A/programs/misc/armfir.dat");
+        if resources.exists() {
+            identity.extend(crate::recovery::resource_hash(&resources)?.as_bytes());
+        } else {
+            identity.extend(b"no-armfir.dat");
+        }
         let (recovery, restored) =
             crate::recovery::Recovery::begin(&data_dir, crate::sha256::hex(&identity))?;
         session.device.lock().unwrap().recovery = Some(Arc::new(recovery));

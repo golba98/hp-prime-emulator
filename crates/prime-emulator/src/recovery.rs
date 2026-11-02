@@ -61,6 +61,10 @@ fn file_hash(source: &Path, target: Option<&Path>) -> io::Result<String> {
     }
     Ok(hash.finalize_hex())
 }
+pub(crate) fn resource_hash(source: &Path) -> io::Result<String> {
+    file_hash(source, None)
+}
+
 fn relative(s: &str) -> bool {
     !s.is_empty()
         && Path::new(s)
