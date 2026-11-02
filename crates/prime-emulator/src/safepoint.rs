@@ -94,10 +94,13 @@ impl SafePoints {
         }
     }
     fn phase(&self, tid: u32, phase: OwnerPhase) {
-        if let Some(o) = self.state.lock().unwrap().owners.get_mut(&tid) {
+        let mut s = self.state.lock().unwrap();
+        if let Some(o) = s.owners.get_mut(&tid) {
             o.phase = phase;
         }
-        self.wake.notify_all();
+        if s.pause.is_some() {
+            self.wake.notify_all();
+        }
     }
     /// Called only by an engine owner, outside emu_start and native callbacks.
     /// Expiry releases every owner even if the inspecting client disappears.
@@ -124,27 +127,34 @@ impl SafePoints {
         self.phase(tid, OwnerPhase::Executing);
     }
     pub fn enter_svc(self: &Arc<Self>, tid: u32, id: u32, pc: u32) -> SvcLease {
-        if let Some(o) = self.state.lock().unwrap().owners.get_mut(&tid) {
+        let mut s = self.state.lock().unwrap();
+        if let Some(o) = s.owners.get_mut(&tid) {
             o.phase = OwnerPhase::SvcEnter;
             o.service_id = Some(id);
-            o.service_name = crate::services::names::service_name(id).map(str::to_owned);
+            // Names are materialized only by observations(), never on this hot path.
+            o.service_name = None;
             o.caller_pc = Some(pc);
             o.blocked_handle = None;
             o.entered_ms = Some(self.start.elapsed().as_secs_f64() * 1000.0);
             o.completed_ms = None;
         }
-        self.wake.notify_all();
+        if s.pause.is_some() {
+            self.wake.notify_all();
+        }
         SvcLease {
             points: self.clone(),
             tid,
         }
     }
     pub fn blocked(self: &Arc<Self>, tid: u32, handle: Option<u32>) -> BlockedLease {
-        if let Some(o) = self.state.lock().unwrap().owners.get_mut(&tid) {
+        let mut s = self.state.lock().unwrap();
+        if let Some(o) = s.owners.get_mut(&tid) {
             o.phase = OwnerPhase::SvcBlocked;
             o.blocked_handle = handle;
         }
-        self.wake.notify_all();
+        if s.pause.is_some() {
+            self.wake.notify_all();
+        }
         BlockedLease {
             points: self.clone(),
             tid,
@@ -161,6 +171,13 @@ impl SafePoints {
             .owners
             .values()
             .cloned()
+            .map(|mut o| {
+                o.service_name = o
+                    .service_id
+                    .and_then(crate::services::names::service_name)
+                    .map(str::to_owned);
+                o
+            })
             .collect()
     }
     pub fn pause(self: &Arc<Self>, budget: Duration) -> Result<PauseLease, String> {
@@ -233,12 +250,25 @@ impl Drop for SvcLease {
             o.phase = OwnerPhase::SvcExit;
             o.completed_ms = Some(self.points.start.elapsed().as_secs_f64() * 1000.0);
         }
-        self.points.wake.notify_all();
+        if s.pause.is_some() {
+            self.points.wake.notify_all();
+        }
     }
 }
 impl Drop for BlockedLease {
     fn drop(&mut self) {
         self.points.phase(self.tid, OwnerPhase::SvcEnter);
+    }
+}
+impl PauseLease {
+    /// Expiring leases never imply that owners are still paused indefinitely.
+    pub fn is_current(&self) -> bool {
+        self.points
+            .state
+            .lock()
+            .unwrap()
+            .pause
+            .is_some_and(|(epoch, deadline)| epoch == self.epoch && Instant::now() < deadline)
     }
 }
 impl Drop for PauseLease {
@@ -259,6 +289,7 @@ mod tests {
         let p = Arc::new(SafePoints::default());
         let _owner = p.register(0);
         let svc = p.enter_svc(0, 65550, 0x1234);
+        assert!(p.state.lock().unwrap().owners[&0].service_name.is_none());
         let blocked = p.blocked(0, Some(9));
         assert!(p.pause(Duration::from_secs(1)).is_err());
         let o = &p.observations()[0];
@@ -292,6 +323,7 @@ mod tests {
         let o = p.observations();
         assert!(o[0].acknowledged_epoch > 0);
         assert_eq!(o[0].phase, OwnerPhase::Boundary);
+        assert!(lease.is_current());
         drop(lease);
         tx.send(()).unwrap();
         handle.join().unwrap();
@@ -330,6 +362,13 @@ mod tests {
         drop(lease);
         rx.recv_timeout(Duration::from_secs(1)).unwrap();
         handle.join().unwrap();
+    }
+    #[test]
+    fn lease_currency_reports_expiry_without_waiting_for_an_owner() {
+        let p = Arc::new(SafePoints::default());
+        let lease = p.pause(Duration::from_millis(1)).unwrap();
+        std::thread::sleep(Duration::from_millis(2));
+        assert!(!lease.is_current());
     }
     #[test]
     fn an_abandoned_pause_expires_instead_of_sticking_an_engine() {

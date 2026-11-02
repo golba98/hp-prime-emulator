@@ -955,7 +955,7 @@ impl LiveSession {
         let pause = shared
             .safe_points
             .pause(crate::memory::snapshot::REQUEST_HOLD);
-        let paused = pause.is_ok();
+
         let mut blockers = vec![
             "complete_cpu_context_export_unimplemented".into(),
             "host_resource_reconstruction_incomplete".into(),
@@ -981,6 +981,13 @@ impl LiveSession {
         {
             blockers.push("input_pending_or_held".into());
         }
+        let owners = shared.safe_points.observations();
+        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
+        let diagnostics = trace.diagnostic_bundle();
+        let paused = pause.as_ref().is_ok_and(|lease| lease.is_current());
+        if pause.is_ok() && !paused {
+            blockers.push("owner_pause_expired_during_inspection".into());
+        }
         let report = SessionInspection {
             version: ppl_engine::inspection::VERSION,
             resource_identity: device
@@ -996,9 +1003,9 @@ impl LiveSession {
                 live_restore_ready: false,
                 blockers,
             },
-            owners: shared.safe_points.observations(),
-            resources: serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()}),
-            diagnostics: trace.diagnostic_bundle(),
+            owners,
+            resources,
+            diagnostics,
         };
         drop(gate);
         drop(pause);
