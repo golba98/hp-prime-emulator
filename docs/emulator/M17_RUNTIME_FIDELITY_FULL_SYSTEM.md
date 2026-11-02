@@ -156,3 +156,39 @@ profile identity covers the validated copied tree, including empty directories;
 changed copies, symlinks and special files are rejected. Five Python regressions
 pass. Final five alternating trials per helper remain pending until agents,
 builds, GUI and other firmware jobs are idle.
+
+## Final integration checkpoint and open input regression
+
+Code through b45f349 passes1,847 workspace tests, zero failures, six ignored;
+formatting and workspace/all-target Clippy pass. All15 Python tooling tests
+pass. Native engine/CLI/IDE catalogs, typed values, inspection, safe-point and
+component contributions are integrated. The exact85 changed implementation/
+documentation paths through that checkpoint are in evidence/m17/changed-files.txt.
+
+The final helper SHA-256 at this checkpoint is
+f94618f650ef94db38d22455644cc03b9affc97a42bd3902824879856cc14307.
+Configured release tests passed10 emulator tests, three retained stateful tests,
+three checkpoint tests and two M17 scenario-driver tests. The latter execute
+all three new fixtures: initialization12, linkage22, typed values17 assertions.
+Fresh-process component validation passes12 tests after fixing FIFO preflight;
+known-allocation and actual oversized-wire regressions pass after their fixes.
+Differential transport warnings cannot become fake runtime errors; omitted
+semantic collections become unobserved, never successful empty observations.
+
+Two earlier110-assertion firmware GUI runs passed, and the new Native linked IDE
+scenario passed15 assertions with visible112/114/144 outputs. However the last
+final-binary GUI run has a real bracket-paste failure: editor_brackets.png shows
+[1] whereas the explicit keypad control shows[1,2]. Its dump reports Desktop
+typing stopped because no Alpha indicator was recognized. Both saved final
+screens have a valid indicator; the unknown observation was transient. Evidence
+is preserved under artifacts/m17/gui-verified/m16_typing. Other final firmware,
+recovery and historical77-reference checks pass. Benchmarking is blocked until
+this failure is explained and fixed; a passing rerun alone is insufficient.
+
+The input translator currently observes a parked GetEvent pump without requiring
+a fresh completed main-UI wait. The memory gate can admit an engine at a slice
+boundary during status-bar redraw; coherence does not prove UI completion.
+The runtime owner is reproducing this ordering and implementing an actual
+main-loop acknowledgement before character translation. The independent GUI
+review is adding an explicit translation-rejection assertion. No arbitrary
+timing increase or pixel-mask relaxation is authorized as a substitute.
