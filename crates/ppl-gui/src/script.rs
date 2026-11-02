@@ -330,6 +330,8 @@ mod tests {
                             current: "1".into(),
                             string_only: false,
                             reset_text: None,
+                            position: None,
+                            page_title: None,
                         },
                         InputField {
                             label: "B".into(),
@@ -337,6 +339,8 @@ mod tests {
                             current: "2".into(),
                             string_only: false,
                             reset_text: None,
+                            position: None,
+                            page_title: None,
                         },
                     ],
                     error: None,

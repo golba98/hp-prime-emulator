@@ -43,6 +43,21 @@ pub struct InputField {
     pub string_only: bool,
     /// Explicit reset value, formatted for this field.
     pub reset_text: Option<String>,
+    /// Horizontal percentages of the 320-pixel screen and a zero-based line.
+    pub position: Option<InputPosition>,
+    /// Page title selected by the VM from INPUT's optional title list.
+    pub page_title: Option<String>,
+}
+
+/// Maximum documented INPUT control lines per page.
+pub const INPUT_LINES_PER_PAGE: usize = 7;
+
+/// Documented INPUT edit-field layout (seven lines per page).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InputPosition {
+    pub start_percent: f64,
+    pub width_percent: f64,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]

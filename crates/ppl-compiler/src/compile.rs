@@ -1505,6 +1505,7 @@ impl<'a> Compiler<'a> {
         // INPUT only: each field's allowed-types expression (`[2]` in
         // `{{A,[2]}}`), aligned with `targets`; `None` allows any type.
         let mut types: Vec<Option<&Expr>> = Vec::new();
+        let mut positions: Vec<Option<&Expr>> = Vec::new();
         match &first.kind {
             ExprKind::List(items) if id == Builtin::Input => {
                 for it in items {
@@ -1514,15 +1515,16 @@ impl<'a> Compiler<'a> {
                             if let Some(t) = resolve(self, &inner[0]) {
                                 targets.push(t);
                                 types.push(inner.get(1));
+                                positions.push(inner.get(2));
                             }
                             if let Some(t) = inner.get(1) {
                                 self.check_input_types(t);
                             }
-                            if inner.len() > 2 {
-                                self.compat_note(
-                                    "input-field-position-ignored",
-                                    inner[2].span.to(inner[inner.len() - 1].span),
-                                    "the emulator's INPUT dialog ignores field position and width",
+                            if inner.len() > 3 {
+                                self.error(
+                                    "input-field-arity",
+                                    inner[3].span.to(inner[inner.len() - 1].span),
+                                    "INPUT fields accept a variable, type specification and optional position",
                                 );
                             }
                         }
@@ -1530,6 +1532,7 @@ impl<'a> Compiler<'a> {
                             if let Some(t) = resolve(self, it) {
                                 targets.push(t);
                                 types.push(None);
+                                positions.push(None);
                             }
                         }
                     }
@@ -1539,6 +1542,7 @@ impl<'a> Compiler<'a> {
                 if let Some(t) = resolve(self, first) {
                     targets.push(t);
                     types.push(None);
+                    positions.push(None);
                 }
             }
         }
@@ -1569,7 +1573,21 @@ impl<'a> Compiler<'a> {
                 }),
                 first.span,
             );
-            argc += 2;
+            // Preserve position expressions rather than silently discarding them.
+            for position in &positions {
+                match position {
+                    Some(e) => {
+                        self.expr(e);
+                        self.cur.emit(Op::MakeList(1), e.span);
+                    }
+                    None => {
+                        self.cur.emit(Op::MakeList(0), first.span);
+                    }
+                }
+            }
+            self.cur
+                .emit(Op::MakeList(positions.len() as u32), first.span);
+            argc += 3;
         }
         for a in &args[1..] {
             self.expr(a);

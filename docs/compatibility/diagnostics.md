@@ -74,7 +74,17 @@ The program still runs on every other path (see
 | `unsupported-value` | Warning | `∞` |
 | `lowercase-command` | Note, unverified | `append(...)`: on the calculator a lower-case name calls the CAS command; the emulator runs the Home command (`APPEND`) |
 | INPUT defaults | Supported subset | Scalar form and one reset/initial value per field are applied. Other default-list cardinalities raise a precise runtime Unsupported error. Native dialog Menu restores explicit reset values; Cancel retains original variables. |
-| `input-field-position-ignored` | Note | `INPUT({{var,[types],{x,width,line}}})`: the field position is accepted but the emulator lays fields out in order |
+| INPUT field positions and page titles | Supported subset | `INPUT({{var,[types],{x,width,line}}})` preserves position expressions. Native edit fields use screen percentages, zero-based lines, seven lines per page and optional title lists. All fields must specify positions or none may. Off-screen widths and fractional/negative lines require Firmware mode; exact firmware clipping and rounding are unverified. Extra field metadata is rejected instead of discarded. |
+
+Native INPUT layout follows the HP Prime User Guide (2018-01-12), printed
+pp. 652–653. Regression tests cover position-expression transfer, seven-line
+paging, per-page titles, cancellation and same-line controls; native dialog
+renders were visually inspected. This is guide-based implementation, not a
+new physical-G1 parity result. Up/Down retains declaration-order navigation;
+missing page titles reuse the first title. Pixel rounding, overlapping
+controls, checkbox/radio/choose controls and firmware spatial navigation
+still need separate comparison. EDITMAT remains unsupported pending a
+validated editor and cancellation contract.
 
 ### Runtime (VM)
 

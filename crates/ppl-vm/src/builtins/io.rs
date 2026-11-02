@@ -5,7 +5,9 @@ use ppl_graphics::{BLACK, WHITE, rgb, text};
 
 use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
-use crate::host::{Dialog, DialogResult, DisplayMode, InputField};
+use crate::host::{
+    Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputField, InputPosition,
+};
 use crate::machine::Machine;
 use crate::value::Value;
 
@@ -226,12 +228,74 @@ fn field_value(m: &Machine, text: &str, current: &Value, allowed: &[i64]) -> Res
     Ok(v)
 }
 
+/// Validate the documented on-screen layout subset before opening a dialog.
+/// Out-of-screen/fractional-line behavior is not hardware verified.
+fn input_positions(value: Option<&Value>, count: usize) -> RtResult<Vec<Option<InputPosition>>> {
+    let Some(Value::List(values)) = value else {
+        return Ok(vec![None; count]);
+    };
+    let invalid = || {
+        RuntimeError::new(
+            ErrorKind::Unsupported,
+            "Native INPUT positions require {start%,width%,line}: on-screen percentages, positive width and a nonnegative integer line; other layouts require Firmware mode",
+        )
+    };
+    let mut positions = Vec::with_capacity(count);
+    for value in values.iter() {
+        let Value::List(optional) = value else {
+            return Err(invalid());
+        };
+        if optional.is_empty() {
+            positions.push(None);
+            continue;
+        }
+        let [Value::List(parts)] = optional.as_slice() else {
+            return Err(invalid());
+        };
+        if parts.len() != 3 {
+            return Err(invalid());
+        }
+        let start_value = parts[0].expect_real("INPUT position")?;
+        let start = start_value.to_f64();
+        let width = parts[1].expect_real("INPUT position")?.to_f64();
+        let line = parts[2].expect_real("INPUT position")?;
+        if start_value.is_negative()
+            || !(0.0..100.0).contains(&start)
+            || !(0.0..=100.0).contains(&width)
+            || width == 0.0
+            || start + width > 100.0
+            || line != line.trunc()
+        {
+            return Err(invalid());
+        }
+        let line = line
+            .to_i64()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(invalid)?;
+        positions.push(Some(InputPosition {
+            start_percent: start,
+            width_percent: width,
+            line,
+        }));
+    }
+    if positions.len() != count {
+        return Err(invalid());
+    }
+    if positions.iter().any(Option::is_some) && positions.iter().any(Option::is_none) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "INPUT positions must be specified for either all fields or none",
+        ));
+    }
+    Ok(positions)
+}
+
 /// `INPUT(var | {vars}, [title], [labels], [help], [reset], [initial])`.
 /// `args[0]` holds the current values of the referenced variables and
 /// `args[1]` (added by the compiler) each field's allowed types.
 /// A rejected entry reopens the dialog with an error instead of stopping
 /// the program, the way the calculator keeps its form open.
-/// The compiler preserves scalar versus list form in hidden argument 2.
+/// Hidden arguments 2 and 3 preserve scalar/list form and field positions.
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
@@ -244,9 +308,15 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let scalar = args
         .get(2)
         .is_some_and(|v| v.expect_i64("INPUT").ok() == Some(1));
-    let title = args.get(3).map(|v| text_of(m, v)).unwrap_or_default();
-    let labels = str_list(m, args.get(4), n);
-    let helps = str_list(m, args.get(5), n);
+    let positions = input_positions(args.get(3), n)?;
+    let titles: Vec<String> = match args.get(4) {
+        Some(Value::List(values)) => values.iter().map(|v| text_of(m, v)).collect(),
+        Some(value) => vec![text_of(m, value)],
+        None => Vec::new(),
+    };
+    let title = titles.first().cloned().unwrap_or_default();
+    let labels = str_list(m, args.get(5), n);
+    let helps = str_list(m, args.get(6), n);
     let defaults = |value: Option<&Value>| -> RtResult<Option<Vec<Value>>> {
         match value {
             None => Ok(None),
@@ -260,8 +330,8 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
             )),
         }
     };
-    let reset = defaults(args.get(6))?;
-    let initial = defaults(args.get(7))?;
+    let reset = defaults(args.get(7))?;
+    let initial = defaults(args.get(8))?;
     let opts = m.settings.format();
     let mut texts: Vec<String> = (0..n)
         .map(|i| {
@@ -287,6 +357,10 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
                 help: helps[i].clone(),
                 current: texts[i].clone(),
                 string_only: allowed[i] == [2],
+                position: positions[i],
+                page_title: titles
+                    .get(positions[i].map_or(i, |p| p.line) / INPUT_LINES_PER_PAGE)
+                    .cloned(),
                 reset_text: reset.as_ref().map(|v| {
                     if allowed[i] == [2] {
                         v[i].display(opts)

@@ -285,7 +285,7 @@ fn typed_input_errors_point_at_the_field() {
 }
 
 #[test]
-fn unknown_input_type_code_warns_and_position_is_noted() {
+fn unknown_input_type_code_warns_and_position_is_supported() {
     let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[7]}});\nEND;\n");
     assert!(c.compiled);
     let d = c.find("input-unknown-type");
@@ -294,7 +294,11 @@ fn unknown_input_type_code_warns_and_position_is_noted() {
     assert_eq!(c.line_col(d), (4, 14));
     let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[2],{20,50,1}}});\nEND;\n");
     c.assert_valid_with_compat_only();
-    c.find("input-field-position-ignored");
+    assert!(
+        !c.diags
+            .iter()
+            .any(|d| d.code == "input-field-position-ignored")
+    );
 }
 
 #[test]
@@ -452,4 +456,11 @@ fn firmware_only_command_hints_are_actionable() {
                 .contains("G1 Firmware mode")
         );
     }
+}
+
+#[test]
+fn input_field_extra_metadata_is_not_silently_discarded() {
+    let c = check("EXPORT PROG() BEGIN LOCAL a; INPUT({{a,[0],{25,50,0},99}}); END;");
+    assert!(!c.compiled);
+    c.find("input-field-arity");
 }

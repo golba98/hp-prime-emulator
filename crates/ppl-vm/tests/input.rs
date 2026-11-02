@@ -111,6 +111,26 @@ impl ppl_vm::Host for EnterHost {
                 ..
             } => {
                 assert!(error.is_none(), "unexpected re-prompt: {error:?}");
+                if title == "inspect_positions" {
+                    assert_eq!(fields.len(), 2);
+                    assert_eq!(
+                        fields[0].position,
+                        Some(ppl_vm::host::InputPosition {
+                            start_percent: 25.0,
+                            width_percent: 50.0,
+                            line: 7,
+                        })
+                    );
+                    assert_eq!(fields[0].page_title.as_deref(), Some("page two"));
+                    assert_eq!(fields[1].position.unwrap().line, 0);
+                    assert_eq!(fields[1].page_title.as_deref(), Some("inspect_positions"));
+                }
+                if title == "inspect_pages" {
+                    assert_eq!(fields.len(), 8);
+                    assert!(fields.iter().all(|f| f.position.is_none()));
+                    assert_eq!(fields[6].page_title.as_deref(), Some("inspect_pages"));
+                    assert_eq!(fields[7].page_title.as_deref(), Some("page two"));
+                }
                 Ok(ppl_vm::DialogResult::Entered(
                     fields
                         .iter()
@@ -312,4 +332,66 @@ fn reset_metadata_preserves_scalar_and_multiple_field_values() {
         ),
         "{1,2}"
     );
+}
+
+#[test]
+fn positioned_fields_preserve_expressions_titles_and_variable_order() {
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=11,b:=22,pos:={25,50,7}; INPUT({{a,[0],pos},{b,[0],{25,50,0}}},{\"inspect_positions\",\"page two\"}); RETURN {a,b};"
+        ),
+        "{11,22}"
+    );
+}
+
+#[test]
+fn unpositioned_eighth_field_gets_second_page_title() {
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a,b,c,d,e,f,g,h; INPUT({a,b,c,d,e,f,g,h},{\"inspect_pages\",\"page two\"}); RETURN 1;"
+        ),
+        "1"
+    );
+}
+
+#[test]
+fn mixed_and_unsupported_positions_fail_before_opening_dialog() {
+    let mut r = Run::new(
+        "<positions>",
+        &prog("LOCAL a,b; INPUT({{a,[0],{25,50,0}},b});"),
+    );
+    let err = r.call("TEST_PROG", &[]).unwrap_err();
+    assert_eq!(err.kind, ErrorKind::BadArgValue);
+    assert!(err.detail.contains("all fields or none"));
+    for position in [
+        "0",
+        "{}",
+        "{25,50}",
+        "{-1,50,0}",
+        "{-1E-499,50,0}",
+        "{25,0,0}",
+        "{75,50,0}",
+        "{25,50,-1}",
+        "{25,50,0.5}",
+        "{25,50,1E100}",
+    ] {
+        let mut r = Run::new(
+            "<positions>",
+            &prog(&format!("LOCAL a; INPUT({{{{a,[0],{position}}}}});")),
+        );
+        let err = r.call("TEST_PROG", &[]).unwrap_err();
+        assert_eq!(err.kind, ErrorKind::Unsupported, "{position}: {err:?}");
+        assert!(err.detail.contains("Firmware mode"));
+    }
+}
+
+#[test]
+fn positioned_cancel_retains_original_variables() {
+    let mut r = Run::new(
+        "<positions>",
+        &prog(
+            "LOCAL a:=5,b:=8; LOCAL ok:=INPUT({{a,[0],{25,50,0}},{b,[0],{25,50,7}}},{\"One\",\"Two\"},{},{},{1,2},{3,4}); RETURN {ok,a,b};",
+        ),
+    );
+    assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "{0,5,8}");
 }

@@ -585,6 +585,8 @@ mod tests {
                 current: current.into(),
                 string_only,
                 reset_text: None,
+                position: None,
+                page_title: None,
             }],
             error: None,
             focus: 0,
