@@ -1,0 +1,935 @@
+--- a/hw/block/s3c2416_nand.c
++++ b/hw/block/s3c2416_nand.c
+@@ -1,2 +1,11 @@
+-﻿#include "qemu/osdep.h"
+-#include "qemu-common.h"
++/*
++ * Bounded S3C2416 NAND research subset.
++ * Copyright (c) 2026 HP Prime emulator contributors.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ *
++ * Samsung S3C2416 User's Manual rev1.10 chapter7 defines the controller
++ * interface. The EC/DA 2KiB+64, 64-page/block profile is the fork's synthetic
++ * chip, not a measurement of the G1. Busy durations are configurable research
++ * inputs, not hardware timing claims. No boot-ROM ECC layout is assumed.
++ */
++#include "qemu/osdep.h"
+@@ -4,0 +14,5 @@
++#include "hw/arm/s3c2416.h"
++#include "sysemu/block-backend.h"
++#include "sysemu/blockdev.h"
++#include "sysemu/sysemu.h"
++#include "qemu/timer.h"
+@@ -6,2 +20 @@
+-#include "hw/boards.h"
+-
++#include "qapi/error.h"
+@@ -10,3 +23,35 @@
+-#define PRIME_NAND(obj) OBJECT_CHECK(s3c2416_nand_state, (obj), TYPE_PRIME_NAND)
+-
+-
++#define NAND_STATE(obj) OBJECT_CHECK(PrimeNand, (obj), TYPE_PRIME_NAND)
++#define PAGE 2048
++#define OOB 64
++#define TOTAL (PAGE + OOB)
++#define PAGES 131072
++#define BLOCK_PAGES 64
++#define MODE 1
++#define CE0 2
++#define MAIN_LOCK (1u << 7)
++#define SPARE_LOCK (1u << 6)
++#define SOFT_LOCK (1u << 16)
++#define TIGHT_LOCK (1u << 17)
++
++enum Phase { IDLE, ID_ADDR, ID_DATA, READ_ADDR, READ_CONFIRM, READ_DATA,
++             PROGRAM_ADDR, PROGRAM_DATA, ERASE_ADDR, STATUS, INVALID,
++             RANDOM_ADDR, RANDOM_CONFIRM };
++enum Operation { NONE, READ_OP, PROGRAM_OP, ERASE_OP };
++typedef struct PrimeNand {
++    SysBusDevice parent_obj;
++    MemoryRegion iomem;
++    BlockBackend *blk;
++    uint8_t *memory;
++    bool interleaved, readonly;
++    uint32_t conf, cont, command, address, start, end, stat;
++    uint32_t ecc_input[2];
++    ECCState main_ecc;
++    uint32_t ecc_error;
++    uint8_t buffer[TOTAL], address_bytes[5];
++    unsigned cycles, column, row, count, id_offset;
++    enum Phase phase;
++    enum Operation operation;
++    bool failed, read_valid;
++    QEMUTimer *timer;
++    uint64_t read_ns, program_ns, erase_ns;
++} PrimeNand;
+@@ -14,2 +59,19 @@
+-#define NFCE0(s) (s->NFCONT & (1u << 1))
+-#define NFCONF_OFF 0x0
++/* Byte-accurate bounded accesses; raw+OOB and main-only images are distinct. */
++static int storage_read(PrimeNand *s, unsigned row, uint8_t *data)
++{
++    int result;
++    if (row >= PAGES) {
++        return -EINVAL;
++    }
++    if (!s->blk) {
++        memcpy(data, s->memory + (uint64_t)row * TOTAL, TOTAL);
++        return 0;
++    }
++    if (s->interleaved) {
++        result = blk_pread(s->blk, (uint64_t)row * TOTAL, data, TOTAL);
++        return result < 0 ? result : 0;
++    }
++    memset(data + PAGE, 0xff, OOB);
++    result = blk_pread(s->blk, (uint64_t)row * PAGE, data, PAGE);
++    return result < 0 ? result : 0;
++}
+@@ -17,23 +79,17 @@
+-#define NFCONT_OFF 0x4
+-#define S3C_NFCONT_MODE		(1 << 0)	/* NAND flash controller operating mode */
+-#define S3C_NFCONT_CE		(1 << 1)	/* NAND Flash Memory nFCE signal control 0: active) */
+-#define S3C_NFCONT_INITSECC	(1 << 4)	/* Initialize ECC decoder/encoder(Write-only) */
+-#define S3C_NFCONT_INITMECC	(1 << 5)	/* Initialize ECC decoder/encoder(Write-only) */
+-#define S3C_NFCONT_MECCL	(1 << 7)	/* Lock Main data area ECC generation */
+-#define S3C_NFCONT_SECCL	(1 << 6)	/* Lock spare area ECC generation */
+-#define S3C_NFCONT_SLOCK	(1 << 16)	/* Soft Lock configuration */
+-#define S3C_NFCONT_TLOCK	(1 << 17)	/* Lock-tight configuration */
+-#define S3C_NFCONT_LOCK (S3C_NFCONT_SLOCK | S3C_NFCONT_TLOCK)
+-
+-
+-#define NFCMMD_OFF    0x8
+-#define NFADDR_OFF    0xC
+-#define NFDATA_OFF    0x10
+-#define NFMECCD0_OFF  0x14
+-#define NFMECCD1_OFF  0x18
+-#define NFSECCD_OFF   0x1C
+-#define NFSBLK_OFF    0x20
+-#define NFEBLK_OFF    0x24
+-#define NFSTAT_OFF    0x28
+-#define NFECCERR0_off 0x2C
+-#define NFECCERR1_off 0x30
++static int storage_write(PrimeNand *s, unsigned row, const uint8_t *data)
++{
++    int result;
++    if (row >= PAGES || s->readonly) {
++        return -EPERM;
++    }
++    if (!s->blk) {
++        memcpy(s->memory + (uint64_t)row * TOTAL, data, TOTAL);
++        return 0;
++    }
++    if (!s->interleaved) {
++        /* Main-only images have no persistent OOB; writes are unsupported. */
++        return -ENOTSUP;
++    }
++    result = blk_pwrite(s->blk, (uint64_t)row * TOTAL, data, TOTAL, 0);
++    return result < 0 ? result : 0;
++}
+@@ -40,0 +97,20 @@
++/* Board bootstrap copies main bytes only. This is a modeled loader, not iROM. */
++int s3c2416_nand_bootstrap(DeviceState *dev, uint8_t *destination, size_t size)
++{
++    PrimeNand *s = NAND_STATE(dev);
++    uint8_t page[TOTAL];
++    unsigned row;
++    if (size > 8192) {
++        return -EINVAL;
++    }
++    for (row = 0; size; row++) {
++        size_t amount = MIN(size, PAGE);
++        if (storage_read(s, row, page) < 0) {
++            return -EIO;
++        }
++        memcpy(destination, page, amount);
++        destination += amount;
++        size -= amount;
++    }
++    return 0;
++}
+@@ -42 +118,6 @@
+-typedef struct
++/* Samsung 1-bit main Hamming parity. Reserved bits24:27 read as ones.
++ * The 512-byte low24-bit layout is independently checked against Linux's
++ * s3c2410 correction syndrome. 2048-byte upper address parity is documented
++ * as research derivation; tests keep it separate from physical verification.
++ */
++static uint32_t main_code(PrimeNand *s)
+@@ -44 +125,10 @@
+-    SysBusDevice parent_obj;
++    uint32_t code = 0;
++    unsigned i;
++    for (i = 0; i < 11; i++) {
++        unsigned shift = i < 9 ? 2 * i : 28 + 2 * (i - 9);
++        code |= ((s->main_ecc.lp[1] >> i) & 1) << shift;
++        code |= ((s->main_ecc.lp[0] >> i) & 1) << (shift + 1);
++    }
++    code |= (uint32_t)s->main_ecc.cp << 18;
++    return ~code;
++}
+@@ -46,2 +136,36 @@
+-    MemoryRegion iomem;
+-    DeviceState* nand;
++static void compare_ecc(PrimeNand *s)
++{
++    uint32_t stored = (s->ecc_input[0] & 0xff) |
++                     ((s->ecc_input[0] >> 8) & 0xff00) |
++                     ((s->ecc_input[1] & 0xff) << 16) |
++                     ((s->ecc_input[1] << 8) & 0xff000000);
++    uint32_t diff = (stored ^ main_code(s)) & 0xf0ffffff;
++    unsigned byte = 0, bit = 0, i;
++    s->ecc_error = 0;
++    if (!diff) {
++        return;
++    }
++    if (!(diff & (diff - 1))) {
++        s->ecc_error = 3; /* ECC area error; do not modify returned data. */
++        return;
++    }
++    for (i = 0; i < 11; i++) {
++        unsigned shift = i < 9 ? 2 * i : 28 + 2 * (i - 9);
++        unsigned pair = (diff >> shift) & 3;
++        if (pair != 1 && pair != 2) {
++            s->ecc_error = 2;
++            return;
++        }
++        byte |= (pair & 1) << i;
++    }
++    for (i = 0; i < 3; i++) {
++        unsigned pair = (diff >> (18 + 2 * i)) & 3;
++        if (pair != 1 && pair != 2) {
++            s->ecc_error = 2;
++            return;
++        }
++        bit |= (pair >> 1) << i;
++    }
++    s->ecc_error = byte < s->main_ecc.count ?
++                   1 | (bit << 4) | (byte << 7) : 2;
++}
+@@ -49,7 +173,10 @@
+-    uint32_t NFCONF;
+-    uint32_t NFCONT;
+-    uint32_t NFCMMD;
+-    uint32_t NFADDR;
+-    uint32_t NFSBLK;
+-    uint32_t NFEBLK;
+-    uint32_t NFSTAT;
++static void digest(PrimeNand *s, uint8_t value)
++{
++    if ((s->conf & (3u << 23)) == 0 && !(s->cont & MAIN_LOCK)) {
++        if (s->main_ecc.count < PAGE) {
++            ecc_digest(&s->main_ecc, value);
++        } else {
++            qemu_log_mask(LOG_GUEST_ERROR, "NAND: ECC message exceeds2048bytes\n");
++        }
++    }
++}
+@@ -57,2 +184,7 @@
+-    ECCState nfecc;
+-    ECCState nfsecc;
++static void fail(PrimeNand *s)
++{
++    s->failed = true;
++    s->phase = INVALID;
++    s->cycles = 0;
++    qemu_log_mask(LOG_GUEST_ERROR, "NAND: invalid/unsupported transaction\n");
++}
+@@ -60,3 +192,4 @@
+-    uint32_t nfaddr_cur;
+-    uint32_t nfsblk;
+-    uint32_t nfeblk;
++static bool selected(PrimeNand *s)
++{
++    return (s->cont & (MODE | CE0)) == MODE;
++}
+@@ -64 +197,34 @@
+-} s3c2416_nand_state;
++static void complete(void *opaque)
++{
++    PrimeNand *s = opaque;
++    uint8_t page[TOTAL];
++    unsigned i, first;
++    int error = 0;
++    switch (s->operation) {
++    case READ_OP:
++        error = storage_read(s, s->row, s->buffer);
++        s->read_valid = !error;
++        break;
++    case PROGRAM_OP:
++        error = storage_read(s, s->row, page);
++        if (!error) {
++            for (i = 0; i < TOTAL; i++) {
++                page[i] &= s->buffer[i];
++            }
++            error = storage_write(s, s->row, page);
++        }
++        break;
++    case ERASE_OP:
++        memset(page, 0xff, TOTAL);
++        first = s->row & ~(BLOCK_PAGES - 1);
++        for (i = 0; i < BLOCK_PAGES && !error; i++) {
++            error = storage_write(s, first + i, page);
++        }
++        break;
++    default:
++        break;
++    }
++    s->operation = NONE;
++    s->failed = error != 0;
++    s->stat |= 1u << 4;
++}
+@@ -66,2 +232,7 @@
+-uint8_t dbu[16];
+-uint8_t cmd;
++static void begin(PrimeNand *s, enum Operation operation, uint64_t delay)
++{
++    s->operation = operation;
++    s->failed = false;
++    s->stat &= ~(1u << 4);
++    timer_mod(s->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + delay);
++}
+@@ -69,3 +240 @@
+-static uint64_t s3c2416_nand_read(void *opaque,
+-    hwaddr offset,
+-    unsigned size)
++static bool unlocked(PrimeNand *s)
+@@ -73,3 +242,13 @@
+-    s3c2416_nand_state *s = (s3c2416_nand_state*)opaque;
+-    int shr = 0;
+-    uint32_t ret = 0;
++    unsigned block = s->row / BLOCK_PAGES;
++    if ((s->cont & (SOFT_LOCK | TIGHT_LOCK)) &&
++        (s->start >= s->end || block < s->start || block > s->end)) {
++        s->stat |= 1u << 5;
++        fail(s);
++        return false;
++    }
++    if (s->readonly || (s->blk && !s->interleaved)) {
++        fail(s);
++        return false;
++    }
++    return true;
++}
+@@ -77 +256,9 @@
+-    //printf("s3c2416_nand read: %02llx\n", offset + 0x4e000000);
++static void flash_reset(PrimeNand *s)
++{
++    timer_del(s->timer);
++    s->operation = NONE;
++    s->phase = IDLE;
++    s->cycles = s->column = s->row = s->count = 0;
++    s->failed = s->read_valid = false;
++    memset(s->buffer, 0xff, TOTAL);
++}
+@@ -79,2 +266,5 @@
+-    if (!s->nand) {
+-        return 0;
++static void command(PrimeNand *s, uint8_t value)
++{
++    if (value == 0xff) {
++        flash_reset(s);
++        return;
+@@ -82,103 +272,50 @@
+-
+-    switch (offset) {
+-    case NFCMMD_OFF:
+-        return s->NFCMMD;
+-    case NFCONF_OFF:
+-        return s->NFCONF;
+-    case NFCONT_OFF:
+-        return s->NFCONT;
+-    case NFADDR_OFF:
+-        return s->NFADDR;
+-    case NFSBLK_OFF:
+-        return s->NFSBLK;
+-        break;
+-    case NFEBLK_OFF:
+-        return s->NFEBLK;
+-        break;
+-    case NFDATA_OFF:
+-        if (s->NFCONT & S3C_NFCONT_MODE)
+-        {
+-            uint32_t value;
+-            value = nand_getio(s->nand);
+-
+-            if (s->nfaddr_cur < 512) {
+-                if (!(s->NFCONT & S3C_NFCONT_MECCL)) {
+-                    value = ecc_digest(&s->nfecc, value & 0xFF);
+-                    //printf("ecc %02x -> %08x %08x cp %08x cnt %d\n", value, s->nfecc.lp[0], s->nfecc.lp[1], s->nfecc.cp, s->nfecc.count);
+-                }
+-            }
+-            else {
+-                if (!(s->NFCONT & S3C_NFCONT_SECCL)) {
+-                    value = ecc_digest(&s->nfsecc, value & 0xFF);
+-                }
+-            }
+-            if (s->nfaddr_cur < 16) dbu[s->nfaddr_cur] = value;
+-            s->nfaddr_cur++;
+-            return value;
+-        }
+-        else {
+-            return 0;
+-        }
+-        // Untested may be compleltey wrong
+-    case NFSTAT_OFF:
+-        nand_getpins(s->nand, (int *)&ret);
+-        s->NFSTAT |= ret | (1u << 4) | (1u << 6);
+-        return s->NFSTAT;
+-    case NFMECCD0_OFF + 3: shr += 8;
+-    case NFMECCD0_OFF + 2: shr += 8;
+-    case NFMECCD0_OFF + 1: shr += 8;
+-    case NFMECCD0_OFF: {
+-#define ECC(shr, b, shl)	((s->nfecc.lp[b] << (shl - shr)) & (1 << shl))
+-        uint32_t ecc = ~(
+-            ECC(0, 1, 0) | ECC(0, 0, 1) | ECC(1, 1, 2) | ECC(1, 0, 3) | ECC(2, 1, 4) | ECC(2, 0, 5) | ECC(3, 1, 6) | ECC(3, 0, 7) |
+-            ECC(4, 1, 8) | ECC(4, 0, 9) | ECC(5, 1, 10) | ECC(5, 0, 11) | ECC(6, 1, 12) | ECC(6, 0, 13) | ECC(7, 1, 14) | ECC(7, 0, 15) |
+-            ECC(8, 1, 16) | ECC(8, 0, 17) | ((s->nfecc.cp & 0x3f) << 18) |
+-            ECC(9, 1, 28) | ECC(9, 0, 29) | ECC(10, 1, 30) | ECC(10, 0, 31)
+-            );
+-        printf("Read ECC %02llx = %08x >> %d [ 0: %08x 1: %08x cnt %d ]\n", offset, ecc, shr, s->nfecc.lp[0], s->nfecc.lp[1], s->nfecc.count);
+-        ecc = (ecc >> shr) & 0xFF;
+-        return ecc;
+-    }	break;
+-#undef ECC
+-
+-    case NFMECCD1_OFF + 3:
+-    case NFMECCD1_OFF + 2:
+-    case NFMECCD1_OFF + 1:
+-    case NFMECCD1_OFF:
+-        /* the ecc digester is limited to 2, the s3c2440 can do 4... */
+-        printf("%s: Bad register S3C_NFECCD1 NOT HANDLED\n", __FUNCTION__);
+-        break;
+-
+-    case NFSECCD_OFF + 3: shr += 8;
+-    case NFSECCD_OFF + 2: shr += 8;
+-    case NFSECCD_OFF + 1: shr += 8;
+-    case NFSECCD_OFF:
+-		printf("NFSECCD\n\n\n");
+-#define ECC(shr, b, shl)	((s->nfsecc.lp[b] << (shl - shr)) & (1 << shl))
+-        return (~(
+-            ECC(0, 1, 0) | ECC(0, 0, 1) | ECC(1, 1, 2) | ECC(1, 0, 3) | ECC(2, 1, 4) | ECC(2, 0, 5) | ECC(3, 1, 6) | ECC(3, 0, 7) |
+-            ECC(4, 1, 8) | ECC(4, 0, 9) | ECC(5, 1, 10) | ECC(5, 0, 11) | ECC(6, 1, 12) | ECC(6, 0, 13) | ECC(7, 1, 14) | ECC(7, 0, 15) |
+-            ECC(8, 1, 16) | ECC(8, 0, 17) | ((s->nfecc.cp & 0x3f) << 18) |
+-            ECC(9, 1, 28) | ECC(9, 0, 29) | ECC(10, 1, 30) | ECC(10, 0, 31)
+-            ) >> shr) &
+-            0xff;
+-#undef ECC
+-    case NFECCERR0_off:
+-        if (((s->NFCONF >> 23) & 0x3) == 0x2) {
+-            return 1 << 30;
+-        }
+-        else
+-        {
+-			printf("NFECCERR0BD\n\n\n");
+-            qemu_log_mask(LOG_UNIMP, "S3C2416_nand: Unimplemented ecc other than 4bit\n");
+-            return 0;
+-        }
+-    case NFECCERR1_off:
+-		printf("NFECCERR1\n\n\n");
+-        if (((s->NFCONF >> 23) & 0x3) == 0x2) {
+-            return 0;
+-        }
+-        else
+-        {
+-            qemu_log_mask(LOG_UNIMP, "S3C2416_nand: Unimplemented ecc other than 4bit\n");
+-            return 0;
++    if (value == 0x70) {
++        s->phase = STATUS;
++        return;
++    }
++    if (s->operation != NONE) {
++        fail(s);
++        return;
++    }
++    switch (value) {
++    case 0x90:
++        s->phase = ID_ADDR;
++        s->cycles = 0;
++        break;
++    case 0x00:
++        s->phase = READ_ADDR;
++        s->cycles = 0;
++        s->read_valid = false;
++        break;
++    case 0x30:
++        if (s->phase != READ_CONFIRM) {
++            fail(s);
++            break;
++        }
++        s->phase = READ_DATA;
++        begin(s, READ_OP, s->read_ns);
++        break;
++    case 0x05:
++        if (!s->read_valid) {
++            fail(s);
++            break;
++        }
++        s->phase = RANDOM_ADDR;
++        s->cycles = 0;
++        break;
++    case 0xe0:
++        if (s->phase != RANDOM_CONFIRM) {
++            fail(s);
++        } else {
++            s->phase = READ_DATA;
++        }
++        break;
++    case 0x80:
++        s->phase = PROGRAM_ADDR;
++        s->cycles = s->count = 0;
++        memset(s->buffer, 0xff, TOTAL);
++        break;
++    case 0x10:
++        if (s->phase != PROGRAM_DATA || !s->count || !unlocked(s)) {
++            fail(s);
++            break;
+@@ -185,0 +323,15 @@
++        s->phase = IDLE;
++        begin(s, PROGRAM_OP, s->program_ns);
++        break;
++    case 0x60:
++        s->phase = ERASE_ADDR;
++        s->cycles = 0;
++        break;
++    case 0xd0:
++        if (s->phase != ERASE_ADDR || s->cycles != 3 || !unlocked(s)) {
++            fail(s);
++            break;
++        }
++        s->phase = IDLE;
++        begin(s, ERASE_OP, s->erase_ns);
++        break;
+@@ -187,3 +339 @@
+-        /* The rest read-back what was written to them */
+-        qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad offset %"HWADDR_PRIx"\n",
+-            __func__, offset);
++        fail(s);
+@@ -192,2 +341,0 @@
+-
+-    return 0;
+@@ -196,4 +344 @@
+-static void s3c2416_nand_write(void *opaque,
+-    hwaddr offset,
+-    uint64_t val,
+-    unsigned size)
++static void address(PrimeNand *s, uint8_t value)
+@@ -201,3 +346,13 @@
+-    s3c2416_nand_state *s = (s3c2416_nand_state*)opaque;
+-
+-    if (!s->nand)
++    unsigned i;
++    if (s->operation != NONE || s->cycles >= sizeof(s->address_bytes)) {
++        fail(s);
++        return;
++    }
++    if (s->phase == ID_ADDR) {
++        s->id_offset = value;
++        s->phase = ID_DATA;
++        return;
++    }
++    if (s->phase != READ_ADDR && s->phase != PROGRAM_ADDR &&
++        s->phase != ERASE_ADDR && s->phase != RANDOM_ADDR) {
++        fail(s);
+@@ -204,0 +360,32 @@
++    }
++    s->address_bytes[s->cycles++] = value;
++    if (s->phase == ERASE_ADDR) {
++        if (s->cycles > 3) {
++            fail(s);
++            return;
++        }
++        s->row = 0;
++        for (i = 0; i < s->cycles; i++) {
++            s->row |= (unsigned)s->address_bytes[i] << (8 * i);
++        }
++        if (s->cycles == 3 && s->row >= PAGES) {
++            fail(s);
++        }
++    } else if (s->phase == RANDOM_ADDR && s->cycles == 2) {
++        s->column = s->address_bytes[0] | (s->address_bytes[1] << 8);
++        if (s->column >= TOTAL) {
++            fail(s);
++        } else {
++            s->phase = RANDOM_CONFIRM;
++        }
++    } else if (s->cycles == 5) {
++        s->column = s->address_bytes[0] | (s->address_bytes[1] << 8);
++        s->row = s->address_bytes[2] | (s->address_bytes[3] << 8) |
++                 (s->address_bytes[4] << 16);
++        if (s->column >= TOTAL || s->row >= PAGES) {
++            fail(s);
++        } else {
++            s->phase = s->phase == READ_ADDR ? READ_CONFIRM : PROGRAM_DATA;
++        }
++    }
++}
+@@ -206,27 +393,33 @@
+-    switch (offset) {
+-    case NFCONF_OFF:
+-        s->NFCONF = val & 0x380777F;
+-        break;
+-
+-    case NFCONT_OFF:
+-        if (val & S3C_NFCONT_INITMECC)
+-            ecc_reset(&s->nfecc);
+-        if (val & S3C_NFCONT_INITSECC)
+-            ecc_reset(&s->nfsecc);
+-
+-        s->NFCONT = (val & 0x71FF7) | (s->NFCONT & S3C_NFCONT_TLOCK);
+-		
+-		
+-		if (s->NFCONT & (1 << 12)) {
+-			printf("require Rnb interrupt!\n\n\n\n");
+-		}
+-        break;
+-    case NFCMMD_OFF:
+-        s->NFCMMD = val;
+-        if (s->nand != NULL) {
+-            if (s->NFCONT & S3C_NFCONT_MODE)
+-            {
+-                nand_setpins(s->nand, 1, 0, NFCE0(s), 1, 0);
+-                nand_setio(s->nand, s->NFCMMD);
+-                nand_setpins(s->nand, 0, 0, NFCE0(s), 1, 0);
+-            }
++static uint8_t data_read(PrimeNand *s)
++{
++    static const uint8_t id[] = { 0xec, 0xda, 0x10, 0x95, 0x44 };
++    uint8_t value = 0xff;
++    if (s->phase == STATUS) {
++        return (s->readonly ? 0 : 0x80) |
++               (s->operation == NONE ? 0x40 : 0) | (s->failed ? 1 : 0);
++    }
++    if (s->operation != NONE) {
++        return value;
++    }
++    if (s->phase == ID_DATA) {
++        if (s->id_offset < sizeof(id)) {
++            value = id[s->id_offset++];
++        }
++        return value;
++    }
++    if (s->phase == READ_DATA && s->read_valid && s->column < TOTAL) {
++        value = s->buffer[s->column++];
++        digest(s, value);
++    }
++    return value;
++}
++
++static uint64_t read_reg(void *opaque, hwaddr offset, unsigned size)
++{
++    PrimeNand *s = opaque;
++    uint32_t value = 0;
++    unsigned i, shift = (offset & 3) * 8;
++    hwaddr reg = offset & ~3;
++    if (reg == 0x10) {
++        for (i = 0; i < size; i++) {
++            value |= (uint32_t)(selected(s) ? data_read(s) : 0xff) << (8 * i);
+@@ -233,0 +427,24 @@
++        return value;
++    }
++    switch (reg) {
++    case 0x00: value = s->conf; break;
++    case 0x04: value = s->cont; break;
++    case 0x08: value = s->command; break;
++    case 0x0c: value = s->address; break;
++    case 0x14: value = s->ecc_input[0]; break;
++    case 0x18: value = s->ecc_input[1]; break;
++    case 0x20: value = s->start; break;
++    case 0x24: value = s->end; break;
++    case 0x28:
++        value = s->stat | 8 | (s->cont & CE0 ? 4 : 0) |
++                (s->operation == NONE ? 1 : 0);
++        break;
++    case 0x2c:
++        compare_ecc(s);
++        value = s->conf & (3u << 23) ? 2 : s->ecc_error;
++        break;
++    case 0x30: value = 0; break;
++    case 0x34: value = s->conf & (3u << 23) ? 0 : main_code(s); break;
++    case 0x38: value = 0; break;
++    default:
++        qemu_log_mask(LOG_UNIMP, "NAND: unsupported register read0x%"HWADDR_PRIx"\n", offset);
+@@ -234,0 +452,3 @@
++    }
++    return value >> shift;
++}
+@@ -236,28 +456,14 @@
+-    case NFADDR_OFF:
+-         s->NFADDR = val & 0xFF;
+-         s->nfaddr_cur = 0;
+-         if (s->NFCONT & S3C_NFCONT_MODE) {
+-             nand_setpins(s->nand, 0, 1, NFCE0(s), 1, 0);
+-             nand_setio(s->nand, val & 0xFF);
+-             nand_setpins(s->nand, 0, 0, NFCE0(s), 1, 0);
+-         }
+-        break;
+-
+-    case NFDATA_OFF:
+-        if (s->NFCONT & S3C_NFCONT_MODE) {
+-            if (s->NFCONT & S3C_NFCONT_LOCK) {
+-                if (s->nfaddr_cur < (s->nfsblk << 6) ||
+-                    s->nfaddr_cur >(s->nfeblk << 6)) {
+-                    /* TODO: ADD IRQ */
+-                    break;
+-                }
+-            }
+-            if (s->nfaddr_cur < 512) {
+-                if (!(s->NFCONT & S3C_NFCONT_MECCL)) {
+-                    val = ecc_digest(&s->nfecc, val & 0xff);
+-                    //printf("ecc %02llx -> %08x %08x cp %08x cnt %d\n", val, s->nfecc.lp[0], s->nfecc.lp[1], s->nfecc.cp, s->nfecc.count);
+-                }
+-            }
+-            else {
+-                if (!(s->NFCONT & S3C_NFCONT_SECCL))
+-                    val = ecc_digest(&s->nfsecc, val & 0xff);
++static void write_reg(void *opaque, hwaddr offset, uint64_t value, unsigned size)
++{
++    PrimeNand *s = opaque;
++    unsigned i, shift = (offset & 3) * 8;
++    uint32_t mask = (size == 4 ? UINT32_MAX : (1u << (size * 8)) - 1) << shift;
++    hwaddr reg = offset & ~3;
++    if (reg == 0x10) {
++        if (!selected(s)) {
++            return;
++        }
++        for (i = 0; i < size; i++, value >>= 8) {
++            if (s->phase != PROGRAM_DATA || s->operation != NONE || s->column >= TOTAL) {
++                fail(s);
++                return;
+@@ -265,4 +471,12 @@
+-			//printf("Writy write!\n");
+-            if (s->nfaddr_cur < 16) dbu[s->nfaddr_cur] = val;
+-            s->nfaddr_cur++;
+-            nand_setio(s->nand, val & 0xff);
++            s->buffer[s->column++] = value;
++            s->count++;
++            digest(s, value);
++        }
++        return;
++    }
++    value <<= shift;
++    switch (reg) {
++    case 0x00:
++        s->conf = ((s->conf & ~mask) | value) & 0x0380777f;
++        if (s->conf & (3u << 23)) {
++            qemu_log_mask(LOG_UNIMP, "NAND: 4/8bitECC unsupported; results invalid\n");
+@@ -270,3 +483,0 @@
+-
+-    case NFSBLK_OFF:
+-        s->NFSBLK = val & 0xFFFFFF;
+@@ -274,3 +485,9 @@
+-
+-    case NFEBLK_OFF:
+-        s->NFEBLK = val & 0xFFFFFF;
++    case 0x04:
++        value = (s->cont & ~mask) | value;
++        if (value & (1u << 5)) {
++            ecc_reset(&s->main_ecc);
++        }
++        if (!(value & SPARE_LOCK)) {
++            qemu_log_mask(LOG_UNIMP, "NAND: spareECC unsupported\n");
++        }
++        s->cont = (value & 0x00071fc7) | (s->cont & TIGHT_LOCK);
+@@ -278,3 +495,23 @@
+-
+-    case NFSTAT_OFF:
+-        s->NFSTAT = val;
++    case 0x08:
++        if (selected(s)) {
++            s->command = value & 0xff;
++            command(s, value);
++        }
++        break;
++    case 0x0c:
++        if (selected(s)) {
++            s->address = value & 0xff;
++            address(s, value);
++        }
++        break;
++    case 0x14: s->ecc_input[0] = ((s->ecc_input[0] & ~mask) | value) & 0x00ff00ff; break;
++    case 0x18: s->ecc_input[1] = ((s->ecc_input[1] & ~mask) | value) & 0x00ff00ff; break;
++    case 0x20:
++        if (!(s->cont & TIGHT_LOCK)) {
++            s->start = ((s->start & ~mask) | value) & 0xffffff;
++        }
++        break;
++    case 0x24:
++        if (!(s->cont & TIGHT_LOCK)) {
++            s->end = ((s->end & ~mask) | value) & 0xffffff;
++        }
+@@ -281,0 +519 @@
++    case 0x28: s->stat &= ~(value & 0x70); break;
+@@ -283,3 +521 @@
+-        qemu_log_mask(LOG_GUEST_ERROR, "%s: Bad offset %"HWADDR_PRIx"\n",
+-            __func__, offset);
+-        /* Do nothing because the other registers are read only */
++        qemu_log_mask(LOG_UNIMP, "NAND: unsupported register write0x%"HWADDR_PRIx"\n", offset);
+@@ -287,0 +524 @@
++}
+@@ -289 +526,5 @@
+-    //printf("S3C2416_nand write: 0x%llx, val: 0x%llx\n", 0x4e000000 + offset, val);
++static const MemoryRegionOps nand_ops = {
++    .read = read_reg, .write = write_reg, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4, .unaligned = false },
++    .impl = { .min_access_size = 1, .max_access_size = 4 },
++};
+@@ -290,0 +532,10 @@
++static void reset(DeviceState *dev)
++{
++    PrimeNand *s = NAND_STATE(dev);
++    flash_reset(s);
++    s->conf = 0x1002; /* Synthetic large-page/five-address strap profile. */
++    s->cont = 0x100c6;
++    s->command = s->address = s->start = s->end = 0;
++    s->stat = 0x10;
++    memset(s->ecc_input, 0, sizeof(s->ecc_input));
++    ecc_reset(&s->main_ecc);
+@@ -293,5 +544,29 @@
+-static const MemoryRegionOps s3c2416_nand_ops = {
+-    .read = s3c2416_nand_read,
+-    .write = s3c2416_nand_write,
+-    .endianness = DEVICE_NATIVE_ENDIAN,
+-};
++static void realize(DeviceState *dev, Error **errp)
++{
++    PrimeNand *s = NAND_STATE(dev);
++    DriveInfo *drive = drive_get(IF_MTD, 0, 0);
++    int64_t length;
++    s->blk = drive ? blk_by_legacy_dinfo(drive) : NULL;
++    if (s->blk) {
++        length = blk_getlength(s->blk);
++        if (length != (int64_t)PAGES * TOTAL && length != (int64_t)PAGES * PAGE) {
++            error_setg(errp, "NAND requires exact EC/DA main or main+OOB image length");
++            return;
++        }
++        s->interleaved = length == (int64_t)PAGES * TOTAL;
++        s->readonly = blk_is_read_only(s->blk);
++        if (blk_attach_dev(s->blk, dev) < 0) {
++            error_setg(errp, "NAND backing is already attached");
++            return;
++        }
++        if (blk_set_perm(s->blk, BLK_PERM_CONSISTENT_READ |
++                         (s->readonly ? 0 : BLK_PERM_WRITE),
++                         BLK_PERM_ALL, errp) < 0) {
++            return;
++        }
++    } else {
++        s->memory = g_malloc((size_t)PAGES * TOTAL);
++        memset(s->memory, 0xff, (size_t)PAGES * TOTAL);
++    }
++    reset(dev);
++}
+@@ -298,0 +574,7 @@
++static void init(Object *obj)
++{
++    PrimeNand *s = NAND_STATE(obj);
++    s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, complete, s);
++    memory_region_init_io(&s->iomem, obj, &nand_ops, s, TYPE_PRIME_NAND, 0x80);
++    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
++}
+@@ -300 +582 @@
+-static void s3c2416_nand_init(Object *obj)
++static void finalize(Object *obj)
+@@ -302,34 +584,13 @@
+-    s3c2416_nand_state *s = PRIME_NAND(obj);
+-    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
+-    DriveInfo *nand;
+-
+-    /* FIXME use a qdev drive property instead of drive_get() */
+-    nand = drive_get(IF_MTD, 0, 0);
+-    s->nand = nand_init(nand ? blk_by_legacy_dinfo(nand) : NULL,
+-        0xEC, 0xDA);
+-
+-    s->NFCONF = 0x1000 |
+-        (1 << 3) |		/* NCON0: not an advanced flash */
+-        (1 << 2) | 		/* PageSize_Ext: GPG13: 0: 256 Word/page, 1:   512 Bytes/page */
+-        (1 << 1) |		/* GPG14: 0: 3 address cycle 1: 4 address cycle */
+-        (0 << 0) 		/* GPG15: 0: 8-bit bus 1: 16-bit bus */
+-        ;
+-    s->NFCONT = 0x0384;
+-    s->NFCMMD = 0x0;
+-    s->NFADDR = 0x0;
+-    s->NFSBLK = 0x0;
+-    s->NFEBLK = 0x0;
+-    s->NFSTAT = 0x3;
+-
+-    ecc_reset(&s->nfecc);
+-    ecc_reset(&s->nfsecc);
+-
+-    memory_region_init_io(&s->iomem, obj, &s3c2416_nand_ops, s, "prime", 0x40);
+-    sysbus_init_mmio(dev, &s->iomem);
+-}
+-
+-static const TypeInfo s3c2416_nand_info = {
+-    .name = TYPE_PRIME_NAND,
+-    .parent = TYPE_SYS_BUS_DEVICE,
+-    .instance_size = sizeof(s3c2416_nand_state),
+-    .instance_init = s3c2416_nand_init
++    PrimeNand *s = NAND_STATE(obj);
++    timer_free(s->timer);
++    if (s->blk && blk_get_attached_dev(s->blk) == s) {
++        blk_detach_dev(s->blk, DEVICE(s));
++    }
++    g_free(s->memory);
++}
++
++static Property properties[] = {
++    DEFINE_PROP_UINT64("read-ns", PrimeNand, read_ns, 1000),
++    DEFINE_PROP_UINT64("program-ns", PrimeNand, program_ns, 200000),
++    DEFINE_PROP_UINT64("erase-ns", PrimeNand, erase_ns, 2000000),
++    DEFINE_PROP_END_OF_LIST(),
+@@ -338 +599 @@
+-static void s3c2416_nand_register(void)
++static void class_init(ObjectClass *klass, void *data)
+@@ -340 +601,4 @@
+-    type_register_static(&s3c2416_nand_info);
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->realize = realize;
++    dc->reset = reset;
++    dc->props = properties;
+@@ -342 +606,8 @@
+-type_init(s3c2416_nand_register);
++
++static const TypeInfo info = {
++    .name = TYPE_PRIME_NAND, .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(PrimeNand), .instance_init = init,
++    .instance_finalize = finalize, .class_init = class_init,
++};
++static void register_types(void) { type_register_static(&info); }
++type_init(register_types)
+--- a/hw/arm/s3c2416.c
++++ b/hw/arm/s3c2416.c
+@@ -2,0 +3 @@
++#include "qemu/error-report.h"
+@@ -29,0 +31,16 @@
++/* Research bootstrap copies the first8KiB of main data, never OOB.
++ * This is not an emulation of Samsung's proprietary iROM/ECC boot algorithm. */
++typedef struct PrimeBootstrap {
++    DeviceState *nand;
++    uint8_t *boot;
++} PrimeBootstrap;
++
++static void prime_boot_reset(void *opaque)
++{
++    PrimeBootstrap *state = opaque;
++    if (s3c2416_nand_bootstrap(state->nand, state->boot, 8192) < 0) {
++        error_report("Unable to read NAND bootstrap main data");
++        exit(1);
++    }
++}
++
+@@ -83,0 +101 @@
++    DeviceState *nand_dev = dev;
+@@ -194,3 +212,5 @@
+-        int ret = blk_pread(blk_by_legacy_dinfo(nand), 0x0,
+-                            boot_ptr, 0x2000);
+-        assert(ret >= 0);
++        PrimeBootstrap *bootstrap = g_new0(PrimeBootstrap, 1);
++        bootstrap->nand = nand_dev;
++        bootstrap->boot = boot_ptr;
++        prime_boot_reset(bootstrap);
++        qemu_register_reset(prime_boot_reset, bootstrap);
+--- a/include/hw/arm/s3c2416.h
++++ b/include/hw/arm/s3c2416.h
+@@ -10,0 +11 @@
++int s3c2416_nand_bootstrap(DeviceState *dev, uint8_t *destination, size_t size);
