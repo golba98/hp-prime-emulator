@@ -51,7 +51,8 @@ and interruption policies remain unchanged. Finite headless deadlines also wake
 engines blocked inside native waits. Three readiness regressions and a bounded
 wait regression pass. Dedicated owner validation passed100 emulator unit tests
 and the unchanged debug normal-OFF post-CAS fresh-process test in133.50s.
-See M17_RUNTIME_READINESS.md. Coordinator repetition is in progress.
+See M17_RUNTIME_READINESS.md. Coordinator repetition of the unchanged debug
+normal-OFF post-CAS fresh-process regression passed in128.12s.
 
 Native exported calls now execute in one linked bytecode VM, sharing calculator
 slots and budgets while preserving private per-module state and source-bound
@@ -61,7 +62,10 @@ matches. Nine VM linkage tests pass. Integrated CLI Native/HLE comparisons pass
 12 initialization assertions and22 three-program/edited-dependency assertions.
 The new automated m17_differential integration test repeats these same fixtures
 with real firmware (2test cases passed,44.07s); unconfigured CI runs only Native.
-See M17_NATIVE_LINKAGE.md for semantic limits and unfinished frontend work.
+Native engine and CLI now accept source catalogs (`--module NAME=PATH`), check
+the same reachable closure they execute, protect dependency files from output
+aliasing and identify foreign runtime source locations. Three actual CLI tests
+pass after integration. See M17_NATIVE_LINKAGE.md for limits and IDE followup.
 
 Pinned qemuPrime now builds under an isolated rootless Xenial toolchain and
 executes the self-authored ELF on its hp-prime ARM926 model. GDB proves initial
@@ -70,12 +74,26 @@ and four RAM-alias values0x12345678. Owner repeated three fresh processes;
 coordinator independently repeated a fourth execution. Eight Python regressions
 pass. This is actual execution, not merely ELF linking, and uses no proprietary
 boot artifacts. It is neither calculator kernel boot nor FullSystem PPL support.
-The next verified hardware increment addresses reproduced INTC defects.
+The published GPL overlay fixes two reproduced INTC defects: reset retained
+pending/offset state and asserted input; FIQ selection asserted when an enabled
+source was not pending. Identical unpatched tests reproduce both failures.
+Patched reset and FIQ tests each pass three cycles with actual modeled CPU
+IRQ/FIQ input observations. Coordinator independently repeated both and the ARM
+smoke on the final published-overlay build. Ten Python research tests pass.
+Simultaneous FIQ priority and real interrupt handlers/kernel boot remain unclaimed.
 
-Pending independent increments: Native CLI/IDE catalog workflow; typed-value
-representation controls; protocol7 inspection and owner safe-point coordination;
-component reconstruction; final INTC integration. These remain open until their
-tested handoffs and combined regressions finish.
+Protocol7 adds request/resource-bound inspection, real engine-owner/SVC/handle
+phases and bounded expiring safe-point acknowledgement. The integrated firmware
+test inspected idle and active WAIT state, then delivered input and verified a
+typed return7 (9.25s). An independently executed headless query observed thread0
+blocked in OSWaitForEvent and thread1 in GetEvent. Coherent memory inspection was
+available; native callbacks prevented owner pause. The response explicitly
+reports live_restore_ready=false. Opt-in register copies are observations, not
+resumable CPU contexts. See M17_LIVE_INSPECTION.md.
+
+Pending independent increments: IDE catalog workflow, typed-value controls and
+decoders, hot-path inspection improvements and component reconstruction. These
+remain open until tested handoffs and combined regressions finish.
 
 ## Findings carried into implementation
 
@@ -117,9 +135,24 @@ execution reports retain captured request/source-bound diagnostic bundles after
 the disposable profile has been removed (artifacts/m17/forensics-real.json).
 This still uses the preserved M16 helper; later combined M17 tests remain required.
 
-Coordinator verified the integrated compiler/VM workspace check and9 new linkage
-tests. One subsequent workspace attempt exposed an outdated CLI diagnostic-text
+Coordinator verified an integrated parallel workspace run:1,803 passed, zero
+failed, six ignored; formatting and full workspace/all-target Clippy passed.
+This precedes inspection/frontend/component/decoder final integration.
+One earlier workspace attempt exposed an outdated CLI diagnostic-text
 assertion after the accurate FullSystem limitation message changed. The test now
 asserts both unavailable PPL execution and the explicit no-kernel/no-PPL boundary;
-all3 CLI differential tests pass. A full rerun is in progress. No assertion was
+all3 CLI differential tests pass. No assertion was
 removed or weakened to suppress a semantic failure.
+
+Actual version15157 historical replay preserves all77 classifications:68 exact,
+four partial and five transcription, zero mismatches. The Native leg remains
+49 exact/four transcription/24 missing. These categories retain their original
+historical provenance; no new physical-device capture occurred.
+
+Paired performance tooling now validates all13 workload verdicts, complete
+fresh-restart observations, exact ELF/ROM/profile/script/source/host identity,
+stable helper identity within groups, and positive finite durations. Initial
+profile identity covers the validated copied tree, including empty directories;
+changed copies, symlinks and special files are rejected. Five Python regressions
+pass. Final five alternating trials per helper remain pending until agents,
+builds, GUI and other firmware jobs are idle.
