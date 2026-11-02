@@ -1671,7 +1671,7 @@ fn execution_events(job: &Job, trace: &TraceHub) -> Vec<Event> {
     }]
 }
 fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool, message: &str) {
-    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot())});
+    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot()),"debug":trace.diagnostic_bundle()});
     let dir = shared.data_dir.join("ide-reports");
     if std::fs::create_dir_all(&dir).is_ok() {
         if let Ok(bytes) = serde_json::to_vec_pretty(&report) {

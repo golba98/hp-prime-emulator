@@ -65,7 +65,7 @@ impl Output {
 struct Device {
     held: HashSet<u16>,
     scenario_touch: Option<(u64, u16, u16)>,
-    input_cleanup: Option<(u64, job::IdleMeter)>,
+    input_cleanup: Option<(u64, job::IdleMeter, Instant)>,
     delivered: HashSet<u16>,
     repeat: repeat::KeyRepeat,
     typing: typing::Typing,
@@ -109,6 +109,42 @@ fn release_input(device: &mut Device, shared: &SharedState) {
     device
         .keys
         .extend(releases.into_iter().map(|code| (code, false)));
+}
+fn poll_input_cleanup(device: &mut Device, shared: &SharedState) -> Option<Event> {
+    let done = device
+        .input_cleanup
+        .as_mut()
+        .is_some_and(|(_, meter, _)| meter.settled(shared));
+    let failed = device
+        .input_cleanup
+        .as_ref()
+        .is_some_and(|(_, _, started)| {
+            shared.sleeping()
+                || device.power_down.is_some()
+                || started.elapsed() >= Duration::from_secs(30)
+        });
+    if failed || (done && device.keys.is_empty()) {
+        let (request, _, _) = device.input_cleanup.take()?;
+        Some(Event::Result {
+            request,
+            success: !failed,
+            message: if failed {
+                "Input release did not reach an awake idle boundary before its deadline".into()
+            } else {
+                "Input releases consumed and firmware idle".into()
+            },
+            check: None,
+        })
+    } else {
+        None
+    }
+}
+fn track_touch(touch: &mut Option<(u64, u16, u16)>, run: u64, status: u32, x: u16, y: u16) {
+    if status == 8 {
+        *touch = None;
+    } else {
+        *touch = Some((run, x, y));
+    }
 }
 /// The firmware's OFF: Shift, then ON.
 const SHIFT_KEY: u16 = 0x8B;
@@ -440,16 +476,20 @@ impl LiveSession {
                     release_input(&mut device, shared);
                 }
                 Command::ReleaseInput { request } => {
-                    if device.input_cleanup.is_some() {
+                    if device.input_cleanup.is_some()
+                        || shared.sleeping()
+                        || device.power_down.is_some()
+                    {
                         self.event(Event::Result {
                             request,
                             success: false,
-                            message: "An input release is already pending".into(),
+                            message: "Input release requires an awake calculator without shutdown or another pending release".into(),
                             check: None,
                         });
                     } else {
                         release_input(&mut device, shared);
-                        device.input_cleanup = Some((request, job::IdleMeter::default()));
+                        device.input_cleanup =
+                            Some((request, job::IdleMeter::default(), Instant::now()));
                     }
                 }
                 Command::Shutdown => shared.set_stopping(),
@@ -561,11 +601,7 @@ impl LiveSession {
                                             .scenario_touch
                                             .is_some_and(|t| t.0 == run_request))) =>
                         {
-                            if status == 1 {
-                                device.scenario_touch = Some((run_request, x, y));
-                            } else if status == 8 {
-                                device.scenario_touch = None;
-                            }
+                            track_touch(&mut device.scenario_touch, run_request, status, x, y);
                             shared.push_touch(TouchSample { status, x, y });
                             true
                         }
@@ -825,18 +861,8 @@ impl LiveSession {
             }
             device.last_key = Instant::now();
         }
-        let cleanup_done = device
-            .input_cleanup
-            .as_mut()
-            .is_some_and(|(_, meter)| meter.settled(shared));
-        if cleanup_done && device.keys.is_empty() {
-            let (request, _) = device.input_cleanup.take().unwrap();
-            self.event(Event::Result {
-                request,
-                success: true,
-                message: "Input releases consumed and firmware idle".into(),
-                check: None,
-            });
+        if let Some(event) = poll_input_cleanup(&mut device, shared) {
+            self.event(event);
         }
         // Generate at most one repeat after consumption, never a catch-up burst.
         if device.keys.is_empty()
@@ -1203,10 +1229,8 @@ pub fn run(
 #[cfg(test)]
 mod output_delivery_tests {
     use super::*;
-    #[test]
-    fn focus_release_preserves_a_guest_queued_key_up() {
-        let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:\\test".into());
-        let mut device = Device {
+    fn test_device() -> Device {
+        Device {
             held: HashSet::new(),
             scenario_touch: None,
             input_cleanup: None,
@@ -1221,11 +1245,58 @@ mod output_delivery_tests {
             keys: VecDeque::new(),
             last_key: Instant::now(),
             power_down: None,
+            checkpoint: None,
+            checkpoint_idle: job::IdleMeter::default(),
+            checkpoint_wait_entry: 0,
             recovery: None,
             saved_sleep: None,
             save_result: None,
             save_worker: None,
-        };
+        }
+    }
+
+    #[test]
+    fn input_cleanup_fails_once_on_sleep_or_expiry_without_sticking_admission() {
+        for asleep in [true, false] {
+            let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:test".into());
+            let mut device = test_device();
+            let started = if asleep {
+                Instant::now()
+            } else {
+                Instant::now() - Duration::from_secs(31)
+            };
+            device.input_cleanup = Some((77, job::IdleMeter::default(), started));
+            if asleep {
+                shared.enter_sleep();
+            }
+            assert!(matches!(
+                poll_input_cleanup(&mut device, &shared),
+                Some(Event::Result {
+                    request: 77,
+                    success: false,
+                    ..
+                })
+            ));
+            assert!(device.input_cleanup.is_none());
+            assert!(poll_input_cleanup(&mut device, &shared).is_none());
+        }
+    }
+    #[test]
+    fn automatic_touch_release_uses_latest_drag_position() {
+        let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:test".into());
+        let mut device = test_device();
+        track_touch(&mut device.scenario_touch, 9, 1, 20, 30);
+        track_touch(&mut device.scenario_touch, 9, 2, 100, 50);
+        release_input(&mut device, &shared);
+        let up = shared.pop_touch().unwrap();
+        assert_eq!((up.status, up.x, up.y), (8, 100, 50));
+        assert!(device.scenario_touch.is_none());
+    }
+
+    #[test]
+    fn focus_release_preserves_a_guest_queued_key_up() {
+        let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:\\test".into());
+        let mut device = test_device();
         // The up already left Device.keys, so delivered no longer contains it.
         shared.push_key_transition(0x0d, false);
         release_input(&mut device, &shared);
