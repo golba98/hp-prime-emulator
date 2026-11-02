@@ -88,8 +88,23 @@ pub struct RingEntry {
     pub message: String,
 }
 
+/// A copied observation, never a resumable CPU context. Published only by
+/// the engine's owner; `svc_entry` may be followed by a long host wait.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ThreadObservation {
+    pub thread_id: u32,
+    pub sequence: u64,
+    pub observed_ms: f64,
+    pub boundary: String,
+    pub registers: [u32; 16],
+    pub cpsr: u32,
+    pub instructions_lower_bound: Option<u64>,
+    pub last_slice_exact: bool,
+}
+
 pub struct TraceHub {
     cfg: TraceConfig,
+    threads: Mutex<std::collections::BTreeMap<u32, ThreadObservation>>,
     start: Instant,
     jsonl: Mutex<Option<BufWriter<File>>>,
     ring: Mutex<Vec<RingEntry>>,
@@ -132,6 +147,7 @@ impl TraceHub {
             None => None,
         };
         Ok(TraceHub {
+            threads: Mutex::new(Default::default()),
             compiler: cfg.compiler.then(crate::compiler::Observer::default),
             runtime: cfg.runtime.then(crate::runtime::Observer::default),
             cfg,
@@ -150,6 +166,35 @@ impl TraceHub {
             fs_dropped: AtomicU64::new(0),
             script_step: AtomicU64::new(u64::MAX),
         })
+    }
+
+    /// Disabled tracing performs no register reads, allocation or locking.
+    pub fn thread_observation_enabled(&self) -> bool {
+        self.cfg.svc_trace
+    }
+
+    pub fn note_thread(&self, mut observation: ThreadObservation) {
+        if !self.thread_observation_enabled() {
+            return;
+        }
+        let mut threads = self.threads.lock().unwrap();
+        if threads.len() >= 128 && !threads.contains_key(&observation.thread_id) {
+            return;
+        }
+        observation.sequence = self.seq.fetch_add(1, Ordering::Relaxed);
+        observation.observed_ms = self.elapsed_secs() * 1000.0;
+        self.record(
+            EventKind::Thread,
+            format!("thread {} {}", observation.thread_id, observation.boundary),
+            json!({"thread_observation": observation}),
+        );
+        threads.insert(observation.thread_id, observation);
+    }
+
+    /// Latest copied observations; timestamps expose stale/blocked threads.
+    /// This does not pause guest execution or promise a coherent machine snapshot.
+    pub fn thread_observations(&self) -> Vec<ThreadObservation> {
+        self.threads.lock().unwrap().values().cloned().collect()
     }
 
     pub fn config(&self) -> &TraceConfig {
@@ -503,5 +548,53 @@ mod incremental_fs_tests {
         t.fs_dropped.store(1, Ordering::Relaxed);
         assert_eq!(t.fs_log_since(cursor).2, 1);
         assert_eq!(t.fs_log_since(usize::MAX).1, cursor);
+    }
+}
+
+#[cfg(test)]
+mod thread_observation_tests {
+    use super::*;
+    fn observation(id: u32) -> ThreadObservation {
+        ThreadObservation {
+            thread_id: id,
+            sequence: 0,
+            observed_ms: 0.0,
+            boundary: "svc_entry".into(),
+            registers: [id; 16],
+            cpsr: 0x10,
+            instructions_lower_bound: None,
+            last_slice_exact: false,
+        }
+    }
+    #[test]
+    fn disabled_observations_are_empty() {
+        let t = TraceHub::new(TraceConfig {
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        t.note_thread(observation(1));
+        assert!(t.thread_observations().is_empty());
+    }
+    #[test]
+    fn bounded_latest_observations_keep_sequence_and_raw_registers() {
+        let t = TraceHub::new(TraceConfig {
+            svc_trace: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        for id in 0..200 {
+            t.note_thread(observation(id));
+        }
+        assert_eq!(t.thread_observations().len(), 128);
+        let old = t.thread_observations()[0].sequence;
+        let mut updated = observation(0);
+        updated.registers[15] = 0x1234;
+        t.note_thread(updated);
+        let copied = t.thread_observations();
+        assert!(copied[0].sequence > old);
+        assert_eq!(copied[0].registers[15], 0x1234);
+        assert!(copied[0].instructions_lower_bound.is_none());
     }
 }

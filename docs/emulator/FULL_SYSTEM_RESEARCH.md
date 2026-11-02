@@ -65,3 +65,19 @@ retained with any derivative distribution. Keep QEMU changes in their licensed
 research component; do not copy GPL device implementations into MIT Rust crates.
 Also record Unicorn and binding licenses separately. This is a provenance and
 packaging requirement, not a conclusion about firmware distribution permission.
+
+## M16 runnable prerequisite inventory
+
+Run `python3 scripts/emulator/full_system_preflight.py` for a read-only JSON
+report (exit 1 when prerequisites are missing). Repeated `--artifact PATH`
+options hash explicitly supplied artifacts without interpreting them as bootable.
+The script does not install tools, start containers, download images or open USB.
+
+Self-authored `research/full-system/smoke.S` and `smoke.ld` define the first ELF
+experiment. Compile with `clang --target=armv5-none-eabi -c`, then link with an ARM
+linker and the supplied script. The assembly was compiled locally; no ELF link
+or QEMU execution is claimed. Inspect `0x30001000` through GDB: `0x600d0001`
+means all three additional RAM aliases matched; `0xbad00001` means a mismatch.
+The pinned board defaults UART to a null chardev, so the first experiment uses
+a mailbox rather than assuming visible serial output. Timer/IRQ and UART tests
+remain subsequent experiments after the reset/RAM smoke actually runs.

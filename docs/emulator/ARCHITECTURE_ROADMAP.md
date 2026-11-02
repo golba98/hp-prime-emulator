@@ -64,3 +64,13 @@ Parallel implementation uses isolated worktrees and target directories.
 Integrate tested commits, then run the whole workspace and GUI suite on the
 canonical branch. Keep physical evidence immutable, proprietary resources
 external, and full-system research as a separately gated process backend.
+
+## M16 diagnostic observation boundary
+
+With `--trace-svc`, each engine owner copies registers at SVC entry and slice
+return into bounded latest-thread observations and the existing JSONL stream.
+Observers consume copies; they never call Unicorn APIs on another thread.
+Timestamps and boundary names expose stale observations during host callbacks.
+Instruction counts remain lower bounds across interrupted slices. This enables
+headless inspection without advertising pause/resume or restorable CPU state.
+See the M16 report for implementation and validation status.
