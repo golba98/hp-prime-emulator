@@ -116,6 +116,7 @@ pub struct LoadedScenario {
     pub fixture_sha256: String,
     pub source_sha256: String,
     pub root: PathBuf,
+    content_identity: String,
 }
 impl LoadedScenario {
     pub fn load(path: &Path) -> Result<Self, String> {
@@ -160,6 +161,9 @@ impl LoadedScenario {
                 Step::Run { entry, .. } if entry.is_empty() => {
                     return Err("run entry must be nonempty".into());
                 }
+                Step::Run { args, .. } if args.iter().any(contains_float) => {
+                    return Err("floating-point fixture arguments lose decimal precision; use {type=\"real\",value=\"1.25\"}".into());
+                }
                 Step::Observe { names, .. } if names.is_empty() => {
                     return Err("observe names must be nonempty".into());
                 }
@@ -187,14 +191,34 @@ impl LoadedScenario {
             (None, Some(p)) => ppl_engine::source::Source::file(&root.join(p))?.text,
             _ => return Err("program requires exactly one of source or file".into()),
         };
+        let source = ppl_engine::source::Source::text(&source, &scenario.id)?.text;
         let source_sha256 = crate::sha256_hex(source.as_bytes());
+        let content_identity = identity_hash(&scenario, &source, &fixture_sha256, &source_sha256);
         Ok(Self {
             scenario,
             source,
             fixture_sha256,
             source_sha256,
             root: root.to_owned(),
+            content_identity,
         })
+    }
+    /// Source, setup, expectations and constraints remain bound after loading.
+    pub fn verify_identity(&self) -> Result<(), String> {
+        if self.content_identity
+            != identity_hash(
+                &self.scenario,
+                &self.source,
+                &self.fixture_sha256,
+                &self.source_sha256,
+            )
+        {
+            return Err(
+                "loaded scenario changed after identity validation; reload it before execution"
+                    .into(),
+            );
+        }
+        Ok(())
     }
     pub fn optional(&self, backend: BackendId) -> bool {
         self.scenario
@@ -202,6 +226,20 @@ impl LoadedScenario {
             .get(&backend)
             .is_some_and(|c| c.optional)
     }
+}
+fn contains_float(value: &Value) -> bool {
+    match value {
+        Value::Number(n) => n.is_f64(),
+        Value::Array(a) => a.iter().any(contains_float),
+        Value::Object(o) => o.values().any(contains_float),
+        _ => false,
+    }
+}
+fn identity_hash(spec: &Scenario, source: &str, fixture: &str, source_hash: &str) -> String {
+    crate::sha256_hex(
+        &serde_json::to_vec(&(spec, source, fixture, source_hash))
+            .expect("scenario JSON serialization"),
+    )
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

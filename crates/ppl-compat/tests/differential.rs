@@ -67,7 +67,7 @@ fn native_calls_retain_real_program_globals() {
 }
 #[test]
 fn setup_and_settings_are_applied_before_steps() {
-    let mut s = scenario(
+    let s = scenario(
         "EXPORT SETUP() BEGIN A:=9; END; EXPORT MAIN() BEGIN RETURN A+HAngle; END;",
         vec![
             call("run", "MAIN"),
@@ -81,8 +81,10 @@ fn setup_and_settings_are_applied_before_steps() {
             expected("state", "/variables/A/value", json!("9")),
         ],
     );
-    s.scenario.initial.setup_entry = Some("SETUP".into());
-    s.scenario.initial.settings.insert("HAngle".into(), 1);
+    let mut spec = s.scenario;
+    spec.initial.setup_entry = Some("SETUP".into());
+    spec.initial.settings.insert("HAngle".into(), 1);
+    let s = LoadedScenario::from_spec(spec, Path::new("."), "fixture-hash".into()).unwrap();
     assert!(execute(&s, &[&Native], &Cancellation::default()).passed);
 }
 #[test]
@@ -266,4 +268,48 @@ fn committed_scenarios_execute_their_declared_expectations() {
         let result = execute(&s, &[&Native], &Cancellation::default());
         assert!(result.passed, "{name}: {:?}", result.mismatches);
     }
+}
+
+#[test]
+fn altered_loaded_source_or_initial_state_cannot_reuse_old_identity() {
+    let mut s = counter();
+    s.source.push_str("\n// altered");
+    assert_eq!(
+        run_native(&s, &Cancellation::default()).status,
+        RunStatus::InfrastructureError
+    );
+    let mut s = counter();
+    s.scenario.initial.seed = 999;
+    assert_eq!(
+        run_native(&s, &Cancellation::default()).status,
+        RunStatus::InfrastructureError
+    );
+    let mut s = counter();
+    s.scenario.expect.clear();
+    assert!(s.verify_identity().is_err());
+}
+#[test]
+fn empty_capture_is_not_pixel_parity() {
+    let image = Image {
+        width: 0,
+        height: 240,
+        pixels: vec![],
+    };
+    assert!(compare_images(&image, &image, false).is_err());
+}
+
+#[test]
+fn floating_point_arguments_require_explicit_decimal_strings() {
+    let mut spec = counter().scenario;
+    spec.steps = vec![Step::Run {
+        id: "float".into(),
+        entry: "INC".into(),
+        args: vec![json!(1.23456789012345)],
+    }];
+    spec.expect.clear();
+    assert!(
+        LoadedScenario::from_spec(spec, Path::new("."), "hash".into())
+            .unwrap_err()
+            .contains("precision")
+    );
 }

@@ -52,6 +52,12 @@ impl Host for SharedHost {
 }
 
 pub fn run_native(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun {
+    if let Err(reason) = s.verify_identity() {
+        let mut result = BackendRun::new(BackendId::Native, s);
+        result.status = RunStatus::InfrastructureError;
+        result.reason = Some(reason);
+        return result;
+    }
     if s.scenario
         .constraints
         .get(&BackendId::Native)

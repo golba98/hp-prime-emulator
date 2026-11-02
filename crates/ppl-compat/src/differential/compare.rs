@@ -49,6 +49,18 @@ fn mismatch(
 pub fn compare(s: &LoadedScenario, runs: Vec<BackendRun>) -> Comparison {
     let mut mismatches = vec![];
     let mut assertions = 0;
+    if let Err(reason) = s.verify_identity() {
+        mismatch(
+            &mut mismatches,
+            runs.first().map(|r| r.backend).unwrap_or(BackendId::Native),
+            None,
+            "",
+            "/provenance",
+            None,
+            None,
+            &reason,
+        );
+    }
     let mut identities = std::collections::BTreeSet::new();
     for run in &runs {
         if !identities.insert(run.backend) {
@@ -113,6 +125,24 @@ pub fn compare(s: &LoadedScenario, runs: Vec<BackendRun>) -> Comparison {
                 continue;
             }
             let observation = found[0];
+            if let Some(value) = observation.data.get("image") {
+                let valid = serde_json::from_value::<Image>(value.clone())
+                    .ok()
+                    .is_some_and(|image| compare_images(&image, &image, false).is_ok());
+                if !valid {
+                    mismatch(
+                        &mut mismatches,
+                        run.backend,
+                        None,
+                        step.id(),
+                        "/image",
+                        None,
+                        None,
+                        "invalid image dimensions/pixel count",
+                    );
+                }
+            }
+
             let status = observation.data["status"].as_str().unwrap_or("unobserved");
             if status == "unobserved"
                 || (status != "success"
@@ -314,7 +344,9 @@ pub struct ImageDifference {
 /// Exact by default. RGB565 is an explicitly requested display encoding,
 /// never a broad visual similarity tolerance. No implicit clock/status mask.
 pub fn compare_images(a: &Image, b: &Image, rgb565: bool) -> Result<ImageDifference, String> {
-    let valid = |i: &Image| i.width.checked_mul(i.height) == Some(i.pixels.len());
+    let valid = |i: &Image| {
+        i.width > 0 && i.height > 0 && i.width.checked_mul(i.height) == Some(i.pixels.len())
+    };
     if !valid(a) || !valid(b) {
         return Err("invalid image dimensions/pixel count".into());
     }

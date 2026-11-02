@@ -5,6 +5,12 @@ use serde_json::json;
 /// One-shot adapter: never pretends separate helper invocations share state.
 /// Stateful HLE scenarios require a future structured live-session adapter.
 pub fn run_firmware(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> BackendRun {
+    if let Err(reason) = s.verify_identity() {
+        let mut result = BackendRun::new(BackendId::FirmwareHle, s);
+        result.status = RunStatus::InfrastructureError;
+        result.reason = Some(reason);
+        return result;
+    }
     let runs = s
         .scenario
         .steps
