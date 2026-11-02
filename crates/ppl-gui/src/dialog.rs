@@ -20,8 +20,8 @@ use ppl_vm::host::{Dialog, DialogResult};
 
 use crate::keymap::{
     KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_ANS, KEY_COMMA,
-    KEY_DEL, KEY_DIV, KEY_DOT, KEY_DOWN, KEY_EEX, KEY_ENTER, KEY_ESC, KEY_MINUS, KEY_NEG, KEY_ON,
-    KEY_PAREN, KEY_PLUS, KEY_POW, KEY_TIMES, KEY_UP,
+    KEY_DEL, KEY_DIV, KEY_DOT, KEY_DOWN, KEY_EEX, KEY_ENTER, KEY_ESC, KEY_MENU, KEY_MINUS, KEY_NEG,
+    KEY_ON, KEY_PAREN, KEY_PLUS, KEY_POW, KEY_TIMES, KEY_UP,
 };
 
 /// One key event delivered to the VM worker: the HP key code (if the PC key
@@ -77,6 +77,7 @@ pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
                     .map(|f| (f.label.clone(), f.help.clone(), f.current.clone()))
                     .collect(),
             )
+            .with_resets(fields.iter().map(|f| f.reset_text.clone()).collect())
             .with_error(*focus, error.clone()),
         ),
     }
@@ -366,6 +367,7 @@ pub struct EditField {
     /// The field still shows its initial value: the first typed character
     /// replaces it (like the calculator's edit line).
     pub fresh: bool,
+    pub reset: Option<String>,
 }
 
 /// Number of INPUT fields visible at once.
@@ -396,12 +398,20 @@ impl InputBox {
                     help,
                     text,
                     fresh: true,
+                    reset: None,
                 })
                 .collect(),
             focus: 0,
             scroll: 0,
             error: None,
         }
+    }
+
+    pub fn with_resets(mut self, resets: Vec<Option<String>>) -> Self {
+        for (field, reset) in self.fields.iter_mut().zip(resets) {
+            field.reset = reset;
+        }
+        self
     }
 
     /// Reopens the form after a rejected entry: focus on the offending
@@ -432,6 +442,16 @@ impl ModalDialog for InputBox {
             Some(KEY_ENTER) => return Some(DialogResult::Entered(self.values())),
             c if is_cancel(c) => return Some(DialogResult::Cancelled),
             _ => {}
+        }
+        if key.code == Some(KEY_MENU) {
+            for field in &mut self.fields {
+                if let Some(reset) = &field.reset {
+                    field.text = reset.clone();
+                    field.fresh = true;
+                }
+            }
+            self.error = None;
+            return None;
         }
         let field = self.fields.get_mut(self.focus)?;
         match key.code {
@@ -514,7 +534,11 @@ impl ModalDialog for InputBox {
         }
         draw_text(
             &mut g,
-            "[Enter] OK  [Esc] Cancel  [Del] Erase",
+            if self.fields.iter().any(|f| f.reset.is_some()) {
+                "[Enter] OK  [Esc] Cancel  [Menu] Reset"
+            } else {
+                "[Enter] OK  [Esc] Cancel  [Del] Erase"
+            },
             16,
             193,
             PX_HINT,
@@ -541,6 +565,23 @@ mod tests {
 
     fn typed(s: &str) -> Vec<KeyPress> {
         s.chars().map(|c| KeyPress::with_char(None, c)).collect()
+    }
+
+    #[test]
+    fn input_reset_changes_editor_values_and_cancel_still_cancels() {
+        let mut form = InputBox::new("T", vec![("A".into(), "".into(), "5".into())])
+            .with_resets(vec![Some("2".into())]);
+        form.handle(KeyPress::with_char(None, '8'));
+        form.handle(KeyPress::code(KEY_MENU));
+        assert_eq!(form.values(), vec!["2"]);
+        assert_eq!(
+            form.handle(KeyPress::code(KEY_ENTER)),
+            Some(DialogResult::Entered(vec!["2".into()]))
+        );
+        assert_eq!(
+            form.handle(KeyPress::code(KEY_ESC)),
+            Some(DialogResult::Cancelled)
+        );
     }
 
     #[test]

@@ -73,7 +73,7 @@ The program still runs on every other path (see
 | `symbolic-unsupported` | Warning | `'quoted'` symbolic expressions |
 | `unsupported-value` | Warning | `∞` |
 | `lowercase-command` | Note, unverified | `append(...)`: on the calculator a lower-case name calls the CAS command; the emulator runs the Home command (`APPEND`) |
-| `input-defaults-ignored` | Note | `INPUT` with `reset_value` / `initial_value`: accepted, but the emulator's dialog does not apply them yet |
+| INPUT defaults | Supported subset | Scalar form and one reset/initial value per field are applied. Other default-list cardinalities raise a precise runtime Unsupported error. Native dialog Menu restores explicit reset values; Cancel retains original variables. |
 | `input-field-position-ignored` | Note | `INPUT({{var,[types],{x,width,line}}})`: the field position is accepted but the emulator lays fields out in order |
 
 ### Runtime (VM)
@@ -85,7 +85,7 @@ Runtime problems are cleared when the next run starts.
 
 | Reported diagnostic | Finding | Evidence | Resolution |
 |---|---|---|---|
-| `INPUT expects 1–5 argument(s), got 6` | **Wrong rule.** | `INPUT(var,["title"],["label"],["help"],[reset_value],[initial_value])`, and the list form with six list arguments: User Guide 3rd ed., p.652. The legacy Python spec also allowed 6. | Arity is 1–6. Arguments 5–6 add a Compatibility note. |
+| `INPUT expects 1–5 argument(s), got 6` | **Wrong rule.** | `INPUT(var,["title"],["label"],["help"],[reset_value],[initial_value])`, and the list form with six list arguments: User Guide 3rd ed., p.652. The legacy Python spec also allowed 6. | Arity is 1–6. Explicit scalar defaults and complete per-field lists are applied; omitted defaults preserve current values. |
 | `append resolves to APPEND` | Valid PPL. On the calculator `append` is the documented CAS command (p.461). | Behavior difference not hardware-verified. | Compatibility **note**, marked unverified. |
 | `SOLVE is a CAS/app function and is not emulated` | Valid PPL. `SOLVE(En,var,guess)` is the Solve app function (p.428); `solve` is CAS (p.404). Bare `SOLVE`/`solve` used to be *unknown-function errors* that blocked compilation. | — | Compatibility **warning**; compiles; runtime "unsupported" only when executed. |
 | `EVAL is not emulated yet` | Valid PPL (catalog, p.469). | — | Compatibility **warning**. |

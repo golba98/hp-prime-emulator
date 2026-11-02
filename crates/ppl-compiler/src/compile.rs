@@ -1426,14 +1426,11 @@ impl<'a> Compiler<'a> {
                 callee.span,
                 format!("{} is not emulated yet", spec.name),
             )
-            .hint = Some("running this call raises an \"unsupported\" error".into());
-        }
-        if spec.builtin == Builtin::Input && args.len() >= 5 {
-            self.compat_note(
-                "input-defaults-ignored",
-                args[4].span.to(args[args.len() - 1].span),
-                "the emulator's INPUT dialog does not apply reset_value / initial_value yet",
-            );
+            .hint = Some(match spec.builtin {
+                Builtin::Eval => "Use G1 Firmware mode for symbolic evaluation; Native values do not model CAS expressions",
+                Builtin::Startapp => "Use G1 Firmware mode to launch calculator applications and their views",
+                _ => "running this call raises an \"unsupported\" error",
+            }.into());
         }
         match spec.builtin {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
@@ -1562,7 +1559,17 @@ impl<'a> Compiler<'a> {
                 }
             }
             self.cur.emit(Op::MakeList(types.len() as u32), first.span);
-            argc += 1;
+            // Preserve scalar versus list syntax: a list-valued scalar initial
+            // value must not be confused with a list of field defaults.
+            self.constant(
+                Const::Real(if matches!(first.kind, ExprKind::List(_)) {
+                    Real::ZERO
+                } else {
+                    Real::ONE
+                }),
+                first.span,
+            );
+            argc += 2;
         }
         for a in &args[1..] {
             self.expr(a);

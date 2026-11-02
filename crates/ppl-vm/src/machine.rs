@@ -635,6 +635,10 @@ impl Machine {
                 let args = self.pop_n(argc as usize);
                 let (ret, updated) = builtins::call_ref(self, id, args)?;
                 debug_assert_eq!(updated.len(), refs as usize);
+                self.check_value(&ret)?;
+                for value in &updated {
+                    self.check_value(value)?;
+                }
                 self.stack.push(ret);
                 self.stack.extend(updated);
             }

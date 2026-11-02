@@ -41,6 +41,8 @@ pub struct InputField {
     /// Allowed types are exactly `[2]`: the entry is stored as a string
     /// verbatim instead of being evaluated (no quotes needed).
     pub string_only: bool,
+    /// Explicit reset value, formatted for this field.
+    pub reset_text: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

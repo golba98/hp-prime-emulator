@@ -104,10 +104,24 @@ impl ppl_vm::Host for EnterHost {
         _: &ppl_graphics::Grob,
     ) -> Result<ppl_vm::DialogResult, ppl_vm::RuntimeError> {
         match dialog {
-            ppl_vm::Dialog::Input { fields, error, .. } => {
+            ppl_vm::Dialog::Input {
+                title,
+                fields,
+                error,
+                ..
+            } => {
                 assert!(error.is_none(), "unexpected re-prompt: {error:?}");
                 Ok(ppl_vm::DialogResult::Entered(
-                    fields.iter().map(|f| f.current.clone()).collect(),
+                    fields
+                        .iter()
+                        .map(|f| {
+                            if title == "inspect_reset" {
+                                f.reset_text.clone().expect("reset metadata")
+                            } else {
+                                f.current.clone()
+                            }
+                        })
+                        .collect(),
                 ))
             }
             _ => Ok(ppl_vm::DialogResult::Ok),
@@ -232,4 +246,70 @@ fn runtime_error_after_input_points_at_its_line() {
     let frame = e.trace.first().expect("trace");
     let lc = ppl_syntax::SourceFile::new("<t>", src.clone()).line_col(frame.span.start);
     assert_eq!(lc.line, 5);
+}
+
+fn enter_defaults(body: &str) -> String {
+    let file = ppl_syntax::SourceFile::new("<defaults>", prog(body));
+    let (program, diagnostics) = ppl_compiler::compile_source(&file, &Default::default());
+    assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+    let mut machine = ppl_vm::Machine::new(
+        std::rc::Rc::new(program.unwrap()),
+        Box::new(EnterHost),
+        Default::default(),
+        Default::default(),
+    );
+    text(&machine.call_function("TEST_PROG", vec![]).unwrap())
+}
+
+#[test]
+fn initial_values_override_display_without_confusing_scalar_lists() {
+    assert_eq!(
+        enter_defaults("LOCAL a:=9; INPUT(a,\"T\",\"A\",\"Help\",1,5); RETURN a;"),
+        "5"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=9,b:=8; INPUT({a,b},\"T\",{\"A\",\"B\"},{},{1,2},{5,6}); RETURN {a,b};"
+        ),
+        "{5,6}"
+    );
+    assert_eq!(
+        enter_defaults("LOCAL a:={9}; INPUT(a,\"T\",\"A\",\"Help\",{1},{5,6}); RETURN a;"),
+        "{5,6}"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=\"old\"; INPUT({{a,[2]}},\"T\",{\"A\"},{},{\"reset\"},{\"hello\"}); RETURN a;"
+        ),
+        "hello"
+    );
+}
+
+#[test]
+fn cancelling_initial_value_keeps_original_variable() {
+    let src = prog("LOCAL a:=9; INPUT(a,\"T\",\"A\",\"help\",1,5); RETURN a;");
+    let mut r = Run::new("cancel initial", &src);
+    assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "9");
+}
+
+#[test]
+fn input_writeback_obeys_native_string_limit() {
+    let src = prog("LOCAL s:=\"\"; INPUT({{s,[2]}}); RETURN s;");
+    let mut r = Run::new("limits", &src);
+    r.machine.limits.max_string_bytes = 4;
+    assert!(r.call("TEST_PROG", &["oversize"]).is_err());
+}
+
+#[test]
+fn reset_metadata_preserves_scalar_and_multiple_field_values() {
+    assert_eq!(
+        enter_defaults("LOCAL a:=9; INPUT(a,\"inspect_reset\",\"A\",\"\",2,5); RETURN a;"),
+        "2"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=9,b:=8; INPUT({a,b},\"inspect_reset\",{\"A\",\"B\"},{},{1,2},{5,6}); RETURN {a,b};"
+        ),
+        "{1,2}"
+    );
 }

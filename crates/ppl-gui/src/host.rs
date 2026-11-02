@@ -584,6 +584,7 @@ mod tests {
                 help: String::new(),
                 current: current.into(),
                 string_only,
+                reset_text: None,
             }],
             error: None,
             focus: 0,

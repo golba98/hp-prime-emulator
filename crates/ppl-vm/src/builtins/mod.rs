@@ -205,11 +205,17 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
             ErrorKind::InvalidInput,
             format!("{name} needs a variable argument"),
         )),
+        B::Eval => Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "EVAL requires symbolic evaluation unavailable in Native mode; run this program in G1 Firmware mode",
+        )),
+        B::Startapp => Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "STARTAPP requires calculator application state and views; run this program in G1 Firmware mode",
+        )),
         B::Exact
         | B::Editmat
         | B::Editlist
-        | B::Eval
-        | B::Startapp
         | B::Startview
         | B::Recall
         | B::Afiles

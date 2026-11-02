@@ -231,8 +231,7 @@ fn field_value(m: &Machine, text: &str, current: &Value, allowed: &[i64]) -> Res
 /// `args[1]` (added by the compiler) each field's allowed types.
 /// A rejected entry reopens the dialog with an error instead of stopping
 /// the program, the way the calculator keeps its form open.
-/// The reset and initial values (arguments 5 and 6) are accepted but not
-/// applied yet: fields always start from the variables' current values.
+/// The compiler preserves scalar versus list form in hidden argument 2.
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
@@ -242,16 +241,40 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
             .collect(),
         _ => vec![Vec::new(); n],
     };
-    let title = args.get(2).map(|v| text_of(m, v)).unwrap_or_default();
-    let labels = str_list(m, args.get(3), n);
-    let helps = str_list(m, args.get(4), n);
+    let scalar = args
+        .get(2)
+        .is_some_and(|v| v.expect_i64("INPUT").ok() == Some(1));
+    let title = args.get(3).map(|v| text_of(m, v)).unwrap_or_default();
+    let labels = str_list(m, args.get(4), n);
+    let helps = str_list(m, args.get(5), n);
+    let defaults = |value: Option<&Value>| -> RtResult<Option<Vec<Value>>> {
+        match value {
+            None => Ok(None),
+            Some(v) if scalar => Ok(Some(vec![v.clone()])),
+            Some(Value::List(values)) if values.len() == n => {
+                Ok(Some(values.iter().cloned().collect()))
+            }
+            Some(_) => Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                "Native INPUT supports one reset/initial value per field; other default-list forms require Firmware mode",
+            )),
+        }
+    };
+    let reset = defaults(args.get(6))?;
+    let initial = defaults(args.get(7))?;
     let opts = m.settings.format();
     let mut texts: Vec<String> = (0..n)
         .map(|i| {
             if allowed[i] == [2] {
-                current[i].display(opts)
+                initial
+                    .as_ref()
+                    .map_or(&current[i], |v| &v[i])
+                    .display(opts)
             } else {
-                current[i].string_form(opts)
+                initial
+                    .as_ref()
+                    .map_or(&current[i], |v| &v[i])
+                    .string_form(opts)
             }
         })
         .collect();
@@ -264,6 +287,13 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
                 help: helps[i].clone(),
                 current: texts[i].clone(),
                 string_only: allowed[i] == [2],
+                reset_text: reset.as_ref().map(|v| {
+                    if allowed[i] == [2] {
+                        v[i].display(opts)
+                    } else {
+                        v[i].string_form(opts)
+                    }
+                }),
             })
             .collect();
         let dialog = Dialog::Input {

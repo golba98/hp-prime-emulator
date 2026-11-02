@@ -67,10 +67,7 @@ fn input_with_six_arguments_is_valid() {
     );
     c.assert_valid_with_compat_only();
     assert!(c.diags.iter().all(|d| d.code != "wrong-arg-count"));
-    // The emulator's dialog ignores the two defaults; say so as a note.
-    let note = c.find("input-defaults-ignored");
-    assert_eq!(note.severity, Severity::Note);
-    assert_eq!(c.line_col(note), (4, 41));
+    assert!(c.diags.iter().all(|d| d.code != "input-defaults-ignored"));
 }
 
 #[test]
@@ -440,4 +437,19 @@ fn operator_keywords_follow_the_firmware_letter_case_rules() {
     // `;` still closes the block (k35).
     assert!(!check(&body(" LOCAL MOD:=3;\n RETURN MOD+1;")).compiled);
     assert!(!check(&body(" LOCAL end:=4;\n RETURN end;")).compiled);
+}
+
+#[test]
+fn firmware_only_command_hints_are_actionable() {
+    for call in ["EVAL(2+3)", "STARTAPP(\"Function\")"] {
+        let c = check(&format!("EXPORT TEST_FEATURE() BEGIN RETURN {call}; END;"));
+        assert!(c.compiled);
+        assert!(
+            c.find("unsupported-command")
+                .hint
+                .as_deref()
+                .unwrap()
+                .contains("G1 Firmware mode")
+        );
+    }
 }

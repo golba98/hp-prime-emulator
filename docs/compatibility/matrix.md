@@ -30,7 +30,7 @@ Status definitions:
 | `POS` | Lists | TESTED | 1-based element search in list |
 | `MAKEMAT`, `IDENMAT` | Matrix | TESTED | Matrix generation and identity matrices |
 | `DET`, `TRN` | Matrix | TESTED | Exact determinant and transpose |
-| `EDITMAT` | Matrix | TESTED | Matrix element update |
+| `EDITMAT` | Matrix | UNSUPPORTED | Requires an interactive matrix editor; use G1 Firmware mode |
 | `RECT_P`, `RECT` | Graphics | TESTED | Solid rectangles and borders |
 | `LINE_P`, `LINE` | Graphics | TESTED | Bresenham lines with clipping |
 | `PIXON_P`, `PIXOFF_P` | Graphics | TESTED | Pixel toggling on G0–G9 |
