@@ -1,6 +1,6 @@
 # Full-system G1 research
 
-Status: source audit, not kernel boot. The production backend executes armfir
+Status: actual pinned hp-prime ARM926 machine-model smoke executed in M17; no kernel boot. The production backend executes armfir
 under Unicorn with host SVC services; PRIME_OS is mapped inert. This research
 track does not replace that backend or claim a full-system implementation.
 
@@ -91,3 +91,51 @@ With TMPDIR on home storage, the local build succeeded with ELF entry
 Execution remains unverified; Python 2 and QEMU are still missing. Three Python
 tests pass, including preservation of existing output directories. This
 supersedes the earlier missing-linker/assembly-only observation above.
+
+
+## M17 actual ARM execution
+
+The pinned qemuPrime fork now builds and executes the self-authored smoke on its
+**hp-prime S3C2416 machine model**, not a generic ARM fallback. The PPL FullSystem
+adapter remains unavailable: no PRIME_OS/kernel/boot-chain execution is claimed.
+
+Rootless Podman uses the pinned official Ubuntu16.04 amd64 image specified in
+research/full-system/Containerfile.xenial. Python2.7, GCC5 and build dependencies
+exist only in that isolated image. Xenial libfdt1.4.0 proved insufficient: its
+header declares fdt_first_subnode but its library lacks it. The build therefore
+exports qemuPrime's exact DTC submodule commit558cd81 into the owned source stage.
+The canonical scratch reference remains unchanged. The correct Make target is
+subdir-arm-softmmu. No compatibility patch was needed for the initial fork build.
+
+Reproduce with:
+
+    python3 scripts/emulator/full_system_build.py --reference /path/to/pinned/qemuPrime --output /home/USER/.cache/prime-research-build
+    python3 scripts/emulator/full_system_run.py --build-root /home/USER/.cache/prime-research-build --output /home/USER/.cache/prime-research-run
+
+Output directories must be new. Build logs, exact package inventory, immutable
+image/binary/source identities, and runtime GDB/QMP/translations are retained.
+Only self-authored code is compiled/executed. Runtime containers have no network,
+1GiB memory and8MiB per-file limits; failure cleanup removes the recorded owned
+container ID, never another container or the reference checkout.
+
+Actual host GDB evidence across three fresh processes:
+
+- Initial PC0x30000000 and initially zero mailbox.
+- Single step advances PC to0x30000004.
+- Hardware breakpoint stops at smoke_halt0x3000005c.
+- Guest mailbox0x30001000 contains0x600d0001.
+- All four RAM alias readbacks contain0x12345678.
+- QMP stop/quit and owned-container cleanup complete normally.
+
+The manual and scripted builds produced the same executable SHA256
+(dfda20a5b7f308bf42ba66dd21060af898f13fcc3c76a73b9ec039b1ea10e851).
+Evidence summary: research/full-system/evidence/m17-smoke.json. Raw logs/builds:
+/home/k9-vortex/.cache/prime-m17-fullsystem-build. Eight Python tests pass,
+including wrong-source/binary identity, existing-output preservation and generic
+ARM observations that cannot satisfy the hp-prime alias test.
+
+The old fork emits a disassembler/translator boundary warning while single
+stepping; the retained trace is not an exact instruction-count transcript. GDB
+independently verifies execution and mailbox/alias results. No message was sent
+to upstream. UART capture is configured, but this first payload does not transmit.
+INTC reset/FIQ model regressions are the next isolated increment.
