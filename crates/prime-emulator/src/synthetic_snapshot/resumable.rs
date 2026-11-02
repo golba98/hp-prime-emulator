@@ -103,9 +103,7 @@ impl Services {
 fn check_arguments(operation: u32, arguments: [u32; 2]) -> Result<u32> {
     let timeout = match operation {
         WAIT if arguments[1] == 1 => arguments[0],
-        RECEIVE if arguments[0] % 4 == 0 && within(arguments[0], 8, DATA_BASE) => {
-            arguments[1]
-        }
+        RECEIVE if arguments[0] % 4 == 0 && within(arguments[0], 8, DATA_BASE) => arguments[1],
         _ => return Err("unsupported synthetic service arguments/resource".into()),
     };
     if timeout == 0 || timeout > MAX_TIMEOUT {
