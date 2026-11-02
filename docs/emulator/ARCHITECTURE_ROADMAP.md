@@ -113,4 +113,26 @@ SVC, preventing bounded headless runs from waiting indefinitely.
 Differential raw reports retain source/request-bound diagnostics after isolated
 profile cleanup. Their register snapshots remain owner-thread observations,
 not resumable Unicorn contexts. Snapshot admission and component reconstruction
-are being extended separately; arbitrary live restoration stays unsupported.
+now include independently reconstructed heap/allocator and read-only VFS
+components. Their bounded, checksummed formats bind resource identity and require
+fresh exclusive targets. Actual child-process tests verify allocator hole reuse,
+handle/cursor identity and descriptor stability. They exclude CPU state,
+blocked SVCs, writable handles and active directory searches. Arbitrary live
+restoration stays unsupported; see M17_SNAPSHOT_COMPONENTS.md.
+
+Session protocol7 exposes non-mutating request/resource-bound inspection. Real
+engine owners acknowledge expiring pause epochs only outside Unicorn/native
+callbacks. Names materialize when inspected, keeping the SVC accounting path
+allocation-free. Expiry is reported explicitly. An acquired RAM gate does not
+prove that native callback continuations can resume in a fresh process.
+
+The Native IDE uses immutable revision-bound catalogs of open tabs for Check,
+Run and diagnostics. Dependency changes invalidate compiled callers; runtime
+frames map back to the callee's source. Multi-module debugger navigation remains
+unsupported and is refused explicitly, preserving the single-module debugger.
+
+Typed HLE evidence now includes controlled matrix/vector, complex and integer
+representations. Bounds and exact structure remain part of comparison; semantic
+type distinctions are not normalized away. Representation capture and transport
+budgets are separate admission concerns. Unknown objects stay undecoded even
+when their bounded allocation bytes are retained for diagnostics.

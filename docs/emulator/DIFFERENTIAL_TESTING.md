@@ -202,6 +202,7 @@ The same fixtures run against Native and the real retained HLE session:
 ```sh
 ppl differential tests/differential/m17/initialization.toml --backend native,firmware-hle
 ppl differential tests/differential/m17/linkage.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/typed_values.toml --backend native,firmware-hle
 cargo test -p ppl-compat --test m17_differential
 ```
 
@@ -210,7 +211,7 @@ PRIME_TEST_INIT_DATA and PRIME_TEST_RUNNER, with PRIME_TEST_OS_ROM when needed.
 Without those resources only Native is exercised; an ungated workspace pass
 does not establish firmware verification. PRIME_M17_EVIDENCE_DIR optionally
 retains structured comparisons. Integrated local-firmware verification passed
-12 initialization and 22 linkage assertions, including an edited dependency.
+12 initialization, 22 linkage and17 typed-value assertions, including an edited dependency.
 This is firmware-versus-Native evidence, not new physical verification.
 
 HLE raw reports preserve each job's bounded debug bundle before its disposable
@@ -222,3 +223,11 @@ capture still requires tracing; a valid bundle need not contain registers.
 The FullSystem scenario adapter remains unavailable. Actual execution of the
 separate self-authored ARM926 smoke on qemuPrime's hp-prime model does not imply
 calculator kernel boot or PPL execution capability.
+
+Controlled firmware captures now establish matrices/vectors, complex numbers
+and integer variants, including nested values. The typed scenario preserves
+vector identity, dimensions, element types, complex components, integer width
+and base. Seven deliberate mismatch controls verify their exact JSON paths.
+See [typed values](M17_TYPED_VALUES.md) for captured layouts and unsupported
+representations. Codec replay of local-firmware bytes is classified separately
+from executing the current HLE; neither is a new physical capture.
