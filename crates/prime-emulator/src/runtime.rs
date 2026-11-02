@@ -175,6 +175,7 @@ pub struct RuntimeTrace {
 struct Inner {
     trace: RuntimeTrace,
     program_context: Option<u32>,
+    discover_source: bool,
 }
 pub struct Observer(Mutex<Inner>);
 impl Default for Observer {
@@ -182,6 +183,7 @@ impl Default for Observer {
         Self(Mutex::new(Inner {
             trace: RuntimeTrace::default(),
             program_context: None,
+            discover_source: false,
         }))
     }
 }
@@ -190,6 +192,7 @@ impl Observer {
         *self.0.lock().unwrap() = Inner {
             trace: RuntimeTrace::default(),
             program_context: None,
+            discover_source: false,
         };
     }
     pub fn snapshot(&self) -> RuntimeTrace {
@@ -289,6 +292,7 @@ impl Observer {
             return Err("invocation observation limit reached".into());
         }
         g.program_context = Some(context);
+        g.discover_source = false;
         let id = g.trace.invocations.len();
         g.trace.invocations.push(Invocation {
             id,
@@ -324,6 +328,22 @@ impl Observer {
             writes_before: 0,
         });
         Ok(())
+    }
+    /// Rebind a stored program during its actual invocation, without Check or assignment.
+    pub fn arm_stored(
+        &self,
+        source_hash: &str,
+        request: &ExecutionRequest,
+        time_ms: f64,
+    ) -> Result<(), String> {
+        self.arm(0, source_hash, request, time_ms)?;
+        let mut g = self.0.lock().unwrap();
+        g.program_context = None;
+        g.discover_source = true;
+        Ok(())
+    }
+    fn discovering(&self) -> bool {
+        self.0.lock().unwrap().discover_source
     }
     pub fn checkpoint(&self, checkpoint: Checkpoint) {
         if let Some(c) = self.0.lock().unwrap().trace.invocations.last_mut()
@@ -402,6 +422,7 @@ impl Observer {
         };
         let mut g = self.0.lock().unwrap();
         let expected = g.program_context;
+        let discovering = g.discover_source;
         let Some(c) = g.trace.invocations.last_mut() else {
             return Ok(());
         };
@@ -415,13 +436,24 @@ impl Observer {
                 let program = mem
                     .read_u32(offset(def, 0x10)?)
                     .map_err(|e| e.to_string())?;
-                if c.started_ms.is_none() && Some(program) != expected {
+                if c.started_ms.is_none() && !discovering && Some(program) != expected {
                     return Ok(());
                 }
                 let node = mem
                     .read_u32(offset(def, 0x20)?)
                     .map_err(|e| e.to_string())?;
                 let name = compiler::read_utf16(mem, offset(node, 8)?, 128)?;
+                if c.started_ms.is_none() && discovering {
+                    if name != c.entry {
+                        return Ok(());
+                    }
+                    let source = source_in_context(mem, program)?;
+                    if crate::sha256::hex(source.as_bytes()) != c.source_sha256 {
+                        return Err(
+                            "Restored program source does not match requested revision".into()
+                        );
+                    }
+                }
                 if c.started_ms.is_none() && name != c.entry {
                     return Err(format!("guest selected {name}, expected {}", c.entry));
                 }
@@ -616,8 +648,34 @@ impl Observer {
             }
             _ => {}
         }
+        if discovering && let Some(first) = g.trace.invocations.last().and_then(|c| c.calls.first())
+        {
+            let context = first.program_context;
+            g.program_context = Some(context);
+            g.discover_source = false;
+        }
         Ok(())
     }
+}
+
+/// The source structure populated by firmware Programs/Check; read-only at a function hook.
+fn source_in_context(mem: &GuestMemory, context: u32) -> Result<String, String> {
+    let at = |base: u32, offset: u32| base.checked_add(offset).ok_or("Source pointer overflow");
+    if context == 0 || context & 3 != 0 {
+        return Err("Invalid program context".into());
+    }
+    let count = mem
+        .read_u32(at(context, 0x318)?)
+        .map_err(|e| e.to_string())?;
+    if count != 1 {
+        return Err("Stored execution requires exactly one source item".into());
+    }
+    let table = mem
+        .read_u32(at(context, 0x314)?)
+        .map_err(|e| e.to_string())?;
+    let item = mem.read_u32(table).map_err(|e| e.to_string())?;
+    let text = mem.read_u32(at(item, 0x40)?).map_err(|e| e.to_string())?;
+    compiler::read_utf16(mem, text, compiler::MAX_SOURCE_UNITS)
 }
 
 /// Status and caveats of an invocation whose root evaluator has returned.
@@ -695,10 +753,48 @@ pub fn install(
                     .unwrap()
                     .observe(uc, &mem, &shared, &trace, tid, pc)
                 {
-                    trace.runtime.as_ref().unwrap().error(e);
+                    let observer = trace.runtime.as_ref().unwrap();
+                    observer.error(e.clone());
+                    if observer.discovering() {
+                        observer.terminal(ExecutionStatus::InfrastructureError, e);
+                        shared.set_stopping();
+                        let _ = uc.emu_stop();
+                    }
                 }
             }),
         )?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod stored_source_tests {
+    use super::*;
+    #[test]
+    fn context_source_decoder_is_exact_bounded_and_rejects_multiple_files() {
+        let mut memory = GuestMemory::new();
+        memory.map("context", 0x1000, 0x4000).unwrap();
+        memory.write_u32(0x1314, 0x2000).unwrap();
+        memory.write_u32(0x1318, 1).unwrap();
+        memory.write_u32(0x2000, 0x3000).unwrap();
+        memory.write_u32(0x3040, 0x4000).unwrap();
+        let text = "EXPORT TEST() BEGIN RETURN 1; END;";
+        let bytes: Vec<_> = text
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        memory.write_bytes(0x4000, &bytes).unwrap();
+        assert_eq!(source_in_context(&memory, 0x1000).unwrap(), text);
+        memory.write_u32(0x1318, 2).unwrap();
+        assert!(
+            source_in_context(&memory, 0x1000)
+                .unwrap_err()
+                .contains("exactly one")
+        );
+        memory.write_u32(0x1318, 1).unwrap();
+        memory.write_u32(0x3040, u32::MAX).unwrap();
+        assert!(source_in_context(&memory, 0x1000).is_err());
+        assert!(source_in_context(&memory, u32::MAX).is_err());
+    }
 }

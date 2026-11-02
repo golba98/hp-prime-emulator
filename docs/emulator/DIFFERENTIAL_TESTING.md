@@ -151,3 +151,11 @@ calculator display can round them similarly. This is a known representation /
 compatibility distinction, not a failed harness test or physical verification.
 The common arithmetic fixture uses exact integer-valued arithmetic so it can
 also serve as a positive cross-backend control.
+
+## M16 live stateful adapter
+
+Schema 2 and the genuine named-program HLE session adapter are implemented. See
+[M16 stateful execution](M16_STATEFUL_EXECUTION.md) for source-manifest identity,
+authored probes, asynchronous input, restart semantics, actual firmware fixtures
+and explicit unsupported capabilities. Schema 1 and historical physical replay
+retain their original scope.

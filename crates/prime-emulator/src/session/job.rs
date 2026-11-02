@@ -41,6 +41,8 @@ pub const LOADER_V1: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFil
 /// Reserved importer: stores ZZT_IDE's source as a new program whose name
 /// the host passes in an app attachment (`Programs(name):=`).
 pub const IMPORTER: &str = "EXPORT ZZTIDEIMPORT()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_NAME\",0,Function.AFilesB(\"ZZT_IDE_NAME\"));\n LOCAL n:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  n:=n+CHAR(b(i)+256*b(i+1));\n END;\n Programs(n):=Programs(\"ZZT_IDE\");\n RETURN SIZE(n);\nEND;\n";
+/// Named loader avoids the scratch ZZT_IDE module and duplicate exports.
+pub const NAMED_LOADER: &str = "EXPORT ZZTNAMEDLOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_NAME\",0,Function.AFilesB(\"ZZT_IDE_NAME\"));\n LOCAL n:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  n:=n+CHAR(b(i)+256*b(i+1));\n END;\n LOCAL s:=Function.AFiles(\"ZZT_IDE_SOURCE\");\n Programs(n):=s;\n RETURN SIZE(n);\nEND;\n";
 /// Share of idle samples over a sliding [`INTERRUPT_SETTLE`] window: the
 /// firmware UI is idle when its pump is parked in GetEvent with no input
 /// queued and the main thread waiting.
@@ -83,6 +85,8 @@ impl IdleMeter {
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
     CheckLoader,
+    CheckNamedLoader,
+    StoreNamed,
     Load,
     /// Check the reserved importer once, to learn its program context.
     CheckImporter,
@@ -98,6 +102,8 @@ enum Stage {
 pub struct Job {
     pub request: u64,
     source: String,
+    stored_name: Option<String>,
+    binding: String,
     /// The new program name of an Import request.
     import: Option<String>,
     entry: Option<String>,
@@ -111,6 +117,7 @@ pub struct Job {
     started: Instant,
     execution_started: Option<Instant>,
     reported_running: bool,
+    reported_entry: bool,
     /// The validated firmware Check verdict on `source`, once observed.
     check: Option<CheckVerdict>,
     /// Each finished UI script: stage, finish time and per-key timings.
@@ -154,6 +161,7 @@ pub struct Jobs {
     /// stopping; it starts once the firmware is back at an idle UI.
     deferred: Option<(Request, Instant)>,
     loader_context: Option<u32>,
+    named_loader_context: Option<u32>,
     importer_context: Option<u32>,
     catalog: Vec<String>,
     /// The catalog order last read from the guest's program reads.
@@ -180,6 +188,7 @@ impl Jobs {
             on_held: None,
             deferred: None,
             loader_context: None,
+            named_loader_context: None,
             importer_context: None,
             catalog: Vec::new(),
             observed: Vec::new(),
@@ -225,6 +234,15 @@ impl Jobs {
         }
         std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
             .is_ok_and(|bytes| crate::sha256::hex(&bytes) == p.stored_sha)
+    }
+    pub fn running_request(&self, request: u64, trace: &TraceHub) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|j| j.request == request && j.run)
+            && trace
+                .runtime
+                .as_ref()
+                .is_some_and(|o| o.body_entry_evidence().is_some() && o.unfinished())
     }
     pub fn accepts_input(&self) -> bool {
         self.active.as_ref().is_none_or(|j| j.reported_running)
@@ -307,6 +325,162 @@ impl Jobs {
             }
         }
     }
+    /// Named assignment and execution do not use the IDE scratch module.
+    pub fn store_named(
+        &mut self,
+        request: u64,
+        name: String,
+        source: String,
+        previous: Option<String>,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> Result<(), String> {
+        if self.active.is_some() || trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
+            return Err("Firmware is busy".into());
+        }
+        if !name.starts_with("ZZT_") {
+            return Err("Scripted named programs must use disposable ZZT_ names".into());
+        }
+        import::validate_name(&name).map_err(|e| e.to_string())?;
+        if ["ZZT_IDE", "ZZT_LOADER", "ZZT_IMPORT", "ZZT_NAMED"]
+            .contains(&name.to_ascii_uppercase().as_str())
+        {
+            return Err("Reserved session helper cannot be replaced".into());
+        }
+        match previous {
+            None => {
+                if import::list_programs(&shared.data_dir)
+                    .iter()
+                    .any(|n| n.eq_ignore_ascii_case(&name))
+                {
+                    return Err("Named program already exists; creation refused".into());
+                }
+            }
+            Some(expected) => {
+                let old = read_program(&shared.data_dir, &name)?
+                    .source()
+                    .map_err(|e| e.to_string())?
+                    .source;
+                if crate::sha256::hex(old.as_bytes()) != expected {
+                    return Err(
+                        "Previous program source identity differs; replacement refused".into(),
+                    );
+                }
+            }
+        }
+        hpprgm::build_program(&source).map_err(|e| e.to_string())?;
+        if read_program(&shared.data_dir, "ZZT_NAMED")?
+            .source()
+            .map_err(|e| e.to_string())?
+            .source
+            != NAMED_LOADER
+        {
+            return Err("Reserved named loader differs".into());
+        }
+        write_attachment(&shared.data_dir, "ZZT_IDE_NAME", &name)?;
+        write_source_attachment(&shared.data_dir, &source)?;
+        self.invalidate_prepared();
+        self.refresh_catalog(shared, trace);
+        let mut job = Self::named_job(request, name, source);
+        if let Some(context) = self.named_loader_context {
+            job.stage = Stage::StoreNamed;
+            invoke_reserved(&mut job, trace, context, NAMED_LOADER, "ZZTNAMEDLOAD")?;
+        } else {
+            job.stage = Stage::CheckNamedLoader;
+            self.check_script(&mut job, "ZZT_NAMED", trace)?;
+        }
+        self.active = Some(job);
+        Ok(())
+    }
+    #[allow(clippy::too_many_arguments)] // Mirrors the correlated protocol request plus emulator services.
+    pub fn run_stored(
+        &mut self,
+        request: u64,
+        name: String,
+        source_hash: String,
+        entry: String,
+        arguments: String,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> Result<(), String> {
+        if self.active.is_some() || trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
+            return Err("Firmware is busy".into());
+        }
+        import::validate_name(&name).map_err(|e| e.to_string())?;
+        let stored = read_program(&shared.data_dir, &name)?;
+        let source = stored.source().map_err(|e| e.to_string())?.source;
+        if crate::sha256::hex(source.as_bytes()) != source_hash {
+            return Err("Stored source differs from requested exact revision".into());
+        }
+        let flags = stored
+            .exports()
+            .iter()
+            .find(|(n, f)| n == &entry && f & 1 != 0)
+            .map(|(_, f)| *f)
+            .ok_or("Entry is absent from stored firmware exports")?;
+        let owners: Vec<_> = import::list_programs(&shared.data_dir)
+            .into_iter()
+            .filter(|n| {
+                read_program(&shared.data_dir, n)
+                    .is_ok_and(|p| p.exports().iter().any(|(e, f)| e == &entry && f & 1 != 0))
+            })
+            .collect();
+        if owners.len() != 1 {
+            return Err(format!(
+                "Export {entry} is ambiguous across programs {owners:?}"
+            ));
+        }
+        let args = runtime_value::parse_arguments(&format!("[{}]", arguments.trim()))?;
+        let invocation = ExecutionRequest {
+            entry: entry.clone(),
+            arguments: args,
+        };
+        let observer = trace
+            .runtime
+            .as_ref()
+            .ok_or("Runtime observation unavailable")?;
+        observer.reset();
+        observer.arm_stored(&source_hash, &invocation, trace.elapsed_secs() * 1000.0)?;
+        observer.cache_flags(flags);
+        let mut job = Self::named_job(request, name, source);
+        job.run = true;
+        job.entry = Some(entry);
+        job.binding = "stored_source_dispatch".into();
+        job.stage = Stage::Invoke;
+        job.script = Some(invocation_script(runtime_value::invocation_keys(
+            &invocation.entry,
+            &invocation.arguments,
+        )?));
+        self.active = Some(job);
+        Ok(())
+    }
+    fn named_job(request: u64, name: String, source: String) -> Job {
+        Job {
+            request,
+            source,
+            stored_name: Some(name),
+            binding: "exact_compilation".into(),
+            import: None,
+            entry: None,
+            arguments: String::new(),
+            run: false,
+            stage: Stage::StoreNamed,
+            script: None,
+            check_step: 0,
+            catalog_open: false,
+            catalog_start: 0,
+            started: Instant::now(),
+            execution_started: None,
+            reported_running: false,
+            reported_entry: false,
+            check: None,
+            timeline: vec![],
+            direct: false,
+            direct_out: None,
+            direct_text: 0,
+            direct_started: None,
+        }
+    }
     pub fn start(
         &mut self,
         request: Request,
@@ -370,6 +544,8 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            stored_name: None,
+            binding: "exact_compilation".into(),
             import,
             entry,
             arguments,
@@ -382,6 +558,7 @@ impl Jobs {
             started: Instant::now(),
             execution_started: None,
             reported_running: false,
+            reported_entry: false,
             check: None,
             timeline: Vec::new(),
             direct: false,
@@ -441,6 +618,7 @@ impl Jobs {
         let name = match job.stage {
             Stage::CheckLoader => "ZZT_LOADER",
             Stage::CheckImporter => "ZZT_IMPORT",
+            Stage::CheckNamedLoader => "ZZT_NAMED",
             _ => "ZZT_IDE",
         };
         let row = self
@@ -504,6 +682,8 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            stored_name: None,
+            binding: "exact_compilation".into(),
             import: None,
             entry: None,
             arguments: String::new(),
@@ -516,6 +696,7 @@ impl Jobs {
             started: Instant::now(),
             execution_started: None,
             reported_running: false,
+            reported_entry: false,
             check: None,
             timeline: Vec::new(),
             direct: true,
@@ -696,23 +877,39 @@ impl Jobs {
                         message: progress_message(job.stage).into(),
                     });
                 }
+                if job.run
+                    && !job.reported_entry
+                    && let Some(evidence) = trace.runtime.as_ref().unwrap().body_entry_evidence()
+                {
+                    job.reported_entry = true;
+                    events.push(Event::ExecutionStarted {
+                        request: job.request,
+                        source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                        entry: evidence["entry"].as_str().unwrap_or("").into(),
+                    });
+                }
                 self.active = Some(job);
                 events
             }
-            Ok(Some(message)) => vec![
-                Event::Phase {
-                    phase: "ready".into(),
-                },
-                Event::Result {
-                    request: job.request,
-                    success: true,
-                    message,
-                    check: job.check,
-                },
-            ],
+            Ok(Some(message)) => {
+                let mut out = execution_events(&job, trace);
+                out.extend(vec![
+                    Event::Phase {
+                        phase: "ready".into(),
+                    },
+                    Event::Result {
+                        request: job.request,
+                        success: true,
+                        message,
+                        check: job.check,
+                    },
+                ]);
+                out
+            }
             Err(message) => {
                 save_report(shared, trace, &job, false, &message);
-                vec![
+                let mut out = execution_events(&job, trace);
+                out.extend(vec![
                     Event::Phase {
                         phase: "ready".into(),
                     },
@@ -722,7 +919,8 @@ impl Jobs {
                         message,
                         check: job.check,
                     },
-                ]
+                ]);
+                out
             }
         }
     }
@@ -740,8 +938,10 @@ impl Jobs {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
                 Tick::Continue
-                    if matches!(job.stage, Stage::Load | Stage::Import | Stage::Invoke)
-                        && script.invocation_delivered(shared)
+                    if matches!(
+                        job.stage,
+                        Stage::Load | Stage::Import | Stage::Invoke | Stage::StoreNamed
+                    ) && script.invocation_delivered(shared)
                         && trace.runtime.as_ref().unwrap().progress().0 =>
                 {
                     job.timeline.push(serde_json::json!({
@@ -762,7 +962,11 @@ impl Jobs {
                 Tick::Failed(e)
                     if matches!(
                         job.stage,
-                        Stage::Invoke | Stage::Execute | Stage::Load | Stage::Import
+                        Stage::Invoke
+                            | Stage::Execute
+                            | Stage::Load
+                            | Stage::Import
+                            | Stage::StoreNamed
                     ) && trace.runtime.as_ref().unwrap().progress().0 =>
                 {
                     job.timeline.push(serde_json::json!({
@@ -803,6 +1007,55 @@ impl Jobs {
             return Ok(None);
         }
         match job.stage {
+            Stage::CheckNamedLoader => {
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                let c = checkprog::validate(&observations, NAMED_LOADER, job.check_step)?;
+                if c.return_value != Some(1) {
+                    return Err("Firmware rejected named program loader".into());
+                }
+                self.named_loader_context = c.program_va;
+                job.stage = Stage::StoreNamed;
+                invoke_reserved(
+                    job,
+                    trace,
+                    c.program_va.ok_or("Named loader context missing")?,
+                    NAMED_LOADER,
+                    "ZZTNAMEDLOAD",
+                )?;
+            }
+            Stage::StoreNamed => {
+                let runtime = trace.runtime.as_ref().unwrap().snapshot();
+                let c = runtime
+                    .invocations
+                    .last()
+                    .ok_or("Named loader was not observed")?;
+                if c.ended_ms.is_none() {
+                    return Ok(None);
+                }
+                if trace.runtime.as_ref().unwrap().finish_observed() != ExecutionStatus::Completed
+                    || !c.body_entered
+                {
+                    return Err("Named source assignment failed".into());
+                }
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                let assignment = checkprog::validate_assignment(&observations, &job.source)?;
+                let name = job.stored_name.as_ref().ok_or("Named program missing")?;
+                let stored = read_program(&shared.data_dir, name)?;
+                if stored.source().map_err(|e| e.to_string())?.source != job.source {
+                    return Err("Named source identity mismatch".into());
+                }
+                job.check = Some(CheckVerdict {
+                    accepted: true,
+                    source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                    diagnostics: vec![],
+                });
+                job.timeline.push(
+                    serde_json::json!({"stage":"store-named","context":assignment.program_va}),
+                );
+                let message = format!("Firmware stored exact program {name}");
+                save_report(shared, trace, job, true, &message);
+                return Ok(Some(message));
+            }
             Stage::CheckLoader => {
                 let observations = trace.compiler.as_ref().unwrap().snapshot();
                 let c = checkprog::validate(&observations, LOADER, job.check_step)?;
@@ -1195,7 +1448,8 @@ fn diagnostic_context(trace: &crate::compiler::CompilerTrace, source: &str) -> R
 }
 fn progress_message(stage: Stage) -> &'static str {
     match stage {
-        Stage::CheckLoader => "Preparing the firmware source loader…",
+        Stage::CheckLoader | Stage::CheckNamedLoader => "Preparing the firmware source loader…",
+        Stage::StoreNamed => "Storing named firmware program…",
         Stage::Load => "Loading and checking source in firmware…",
         Stage::CheckImporter | Stage::Import => "Saving the program to the calculator catalog…",
         Stage::CheckTarget | Stage::Direct => "Checking source with the firmware compiler…",
@@ -1205,6 +1459,8 @@ fn progress_message(stage: Stage) -> &'static str {
 }
 fn stage_name(stage: Stage, catalog: bool) -> &'static str {
     match (stage, catalog) {
+        (Stage::CheckNamedLoader, _) => "check-named-loader",
+        (Stage::StoreNamed, _) => "store-named",
         (Stage::CheckLoader, true) => "open-catalog-for-loader",
         (Stage::CheckLoader, false) => "check-loader",
         (Stage::Load, _) => "run-loader",
@@ -1344,6 +1600,75 @@ fn script(keys: Vec<keys::Key>) -> ScriptDriver {
         idle_observe_ms: 0,
         ..Default::default()
     })
+}
+fn execution_events(job: &Job, trace: &TraceHub) -> Vec<Event> {
+    if !job.run || job.stored_name.is_none() {
+        return vec![];
+    }
+    let Some(runtime) = trace.runtime.as_ref().map(|o| o.snapshot()) else {
+        return vec![];
+    };
+    let Some(c) = runtime
+        .invocations
+        .last()
+        .filter(|c| c.source_sha256 == crate::sha256::hex(job.source.as_bytes()))
+    else {
+        return vec![];
+    };
+    let status = c
+        .status
+        .or(runtime.terminal)
+        .unwrap_or(ExecutionStatus::Indeterminate);
+    let image = c
+        .frame
+        .as_ref()
+        .map(|f| ppl_engine::session::ExecutionImage {
+            width: f.width as usize,
+            height: f.height as usize,
+            pixels: f.pixels.clone(),
+        });
+    let observation = ppl_engine::session::ExecutionObservation {
+        status: serde_json::to_value(status)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .into(),
+        binding: job.binding.clone(),
+        entry: c.entry.clone(),
+        body_entered: c.body_entered,
+        completed: c.ended_ms.is_some(),
+        return_value: c
+            .result
+            .as_ref()
+            .and_then(|v| v.value.as_ref())
+            .filter(|v| !matches!(v, runtime_value::FirmwareValue::Error { .. }))
+            .map(|v| serde_json::to_value(v).unwrap()),
+        return_representation: serde_json::to_value(ReturnRepresentation::of(c.result.as_ref()))
+            .unwrap(),
+        output: c
+            .output
+            .iter()
+            .map(|e| ppl_engine::OutputEvent {
+                kind: e.kind.clone(),
+                text: e.text.clone(),
+                value: e.value.as_ref().map(|v| serde_json::to_value(v).unwrap()),
+            })
+            .collect(),
+        diagnostics: c
+            .diagnostic
+            .as_ref()
+            .map(|d| ppl_engine::firmware::diagnostic(&serde_json::to_value(d).unwrap()))
+            .into_iter()
+            .collect(),
+        runtime: serde_json::to_value(&runtime).unwrap(),
+        image,
+    };
+    vec![Event::Execution {
+        request: job.request,
+        program: job.stored_name.clone().unwrap_or_else(|| "ZZT_IDE".into()),
+        source_sha256: c.source_sha256.clone(),
+        observation: Box::new(observation),
+    }]
 }
 fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool, message: &str) {
     let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot())});

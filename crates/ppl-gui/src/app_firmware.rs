@@ -347,7 +347,10 @@ impl IdeDesktopApp {
                         self.firmware_state = crate::ide::VmExecutionState::Idle;
                     }
                 }
-                Event::Hello { .. } => {}
+                Event::Checkpoint { .. }
+                | Event::Hello { .. }
+                | Event::Execution { .. }
+                | Event::ExecutionStarted { .. } => {}
             }
         }
         if self.state.firmware_backend {

@@ -75,7 +75,8 @@ pub fn compare(s: &LoadedScenario, runs: Vec<BackendRun>) -> Comparison {
                 "duplicate backend result",
             );
         }
-        if run.provenance.source_sha256 != s.source_sha256
+        if (s.scenario.schema_version == 2 && run.provenance.program_sources != s.source_manifest())
+            || run.provenance.source_sha256 != s.source_sha256
             || run.provenance.fixture_sha256 != s.fixture_sha256
         {
             mismatch(

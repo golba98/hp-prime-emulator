@@ -52,6 +52,9 @@ impl Host for SharedHost {
 }
 
 pub fn run_native(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun {
+    if s.scenario.schema_version == 2 {
+        return run_native_stateful(s, cancel);
+    }
     if let Err(reason) = s.verify_identity() {
         let mut result = BackendRun::new(BackendId::Native, s);
         result.status = RunStatus::InfrastructureError;
@@ -243,4 +246,165 @@ pub fn run_native(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun {
         });
     }
     report
+}
+
+fn run_native_stateful(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun {
+    let mut report = BackendRun::new(BackendId::Native, s);
+    if let Err(reason) = s.verify_identity() {
+        report.status = RunStatus::InfrastructureError;
+        report.reason = Some(reason);
+        return report;
+    }
+    if s.scenario.initial.setup_entry.is_some()
+        || s.scenario
+            .constraints
+            .get(&BackendId::Native)
+            .is_some_and(|c| c.firmware_build.is_some() || c.firmware_sha256.is_some())
+        || s.scenario.steps.iter().any(|step| {
+            matches!(
+                step,
+                Step::Key { .. }
+                    | Step::Touch { .. }
+                    | Step::PowerOff { .. }
+                    | Step::Restart { .. }
+            )
+        })
+    {
+        return BackendRun::unsupported(
+            BackendId::Native,
+            s,
+            "Native has no firmware identity, physical event loop or firmware power persistence; use authored setup steps",
+        );
+    }
+    let mut settings = ppl_vm::Settings::default();
+    if let Some(v) = s.scenario.initial.settings.get("HAngle") {
+        settings.angle = ppl_vm::AngleMode::from_code(*v).unwrap();
+    }
+    if let Some(v) = s.scenario.initial.settings.get("HFormat") {
+        settings.hformat = *v;
+    }
+    if let Some(v) = s.scenario.initial.settings.get("HDigits") {
+        settings.hdigits = *v;
+    }
+    let mut session = SessionContext::new(settings, s.scenario.initial.seed);
+    let host = Arc::new(Mutex::new(HeadlessHost::default()));
+    host.lock().unwrap().interrupt = Some(cancel.0.clone());
+    let mut sources = BTreeMap::<String, String>::new();
+    let mut screen = Grob::screen();
+    for step in &s.scenario.steps {
+        if cancel.cancelled() {
+            report.status = RunStatus::InfrastructureError;
+            report.reason = Some("scenario cancelled".into());
+            break;
+        }
+        let data = match step {
+            Step::Import { program, .. } => {
+                if sources.contains_key(program) {
+                    json!({"status":"infrastructure_error","reason":"program already imported"})
+                } else {
+                    sources.insert(program.clone(), s.sources[program].clone());
+                    json!({"status":"success"})
+                }
+            }
+            Step::Edit {
+                program, source, ..
+            } => {
+                if sources.contains_key(program) {
+                    sources.insert(program.clone(), source.clone());
+                    json!({"status":"success"})
+                } else {
+                    json!({"status":"infrastructure_error","reason":"program was not imported"})
+                }
+            }
+            Step::RunProgram { program, entry, .. } | Step::Probe { program, entry, .. } => {
+                let args = match step {
+                    Step::RunProgram { args, .. } => args.clone(),
+                    _ => vec![],
+                };
+                let Some(source) = sources.get(program) else {
+                    report.status = RunStatus::InfrastructureError;
+                    report.reason = Some(format!("{program} was not imported"));
+                    return report;
+                };
+                let file = ppl_syntax::SourceFile::new(program, source);
+                let (compiled, diags) = ppl_compiler::compile_source(&file, &Default::default());
+                match compiled {
+                    None => {
+                        json!({"status":"compile_error","diagnostics":diags.items.iter().map(|d|json!({"code":d.code,"message":d.message})).collect::<Vec<_>>()})
+                    }
+                    Some(compiled) => {
+                        let args = match arguments::json_args(
+                            &serde_json::to_string(&args).unwrap(),
+                            &session.settings,
+                        ) {
+                            Ok(a) => a,
+                            Err(e) => {
+                                report.status = RunStatus::InfrastructureError;
+                                report.reason = Some(e);
+                                return report;
+                            }
+                        };
+                        host.lock().unwrap().output.clear();
+                        let run = session.run(
+                            SourceIdentity::new(program, crate::sha256_hex(source.as_bytes())),
+                            Rc::new(compiled),
+                            Box::new(SharedHost(host.clone())),
+                            Limits::default(),
+                            true,
+                            |m| {
+                                let value = m.call_function(entry, args);
+                                screen = if m.display_mode() == ppl_vm::DisplayMode::Terminal {
+                                    ppl_graphics::text::render_terminal(&m.terminal)
+                                } else {
+                                    m.screen().clone()
+                                };
+                                value
+                            },
+                        );
+                        match run.result {
+                            Ok(v) => {
+                                let value = arguments::encode(&v);
+                                if let Step::Probe { names, .. } = step {
+                                    probe_data(&value, names)
+                                } else {
+                                    json!({"status":"success","return_value":value,"output":host.lock().unwrap().output})
+                                }
+                            }
+                            Err(e) => {
+                                json!({"status":if e.kind==ppl_vm::ErrorKind::Unsupported{"unsupported"}else{"runtime_error"},"error":{"kind":format!("{:?}",e.kind),"message":e.to_string()}})
+                            }
+                        }
+                    }
+                }
+            }
+            Step::Capture { .. } => json!({"status":"success","image":Image::from(&screen)}),
+            _ => {
+                return BackendRun::unsupported(
+                    BackendId::Native,
+                    s,
+                    "Schema 2 Native supports import, edit, run_program, authored probe and capture; use schema 1 for legacy default-program steps",
+                );
+            }
+        };
+        report.observations.push(Observation {
+            step: step.id().into(),
+            data,
+        });
+    }
+    report
+}
+/// Authored probes return one typed list item per name; no display parsing or memory injection.
+pub(super) fn probe_data(value: &Json, names: &[String]) -> Json {
+    let Some(items) = value
+        .get("value")
+        .and_then(Json::as_array)
+        .filter(|_| value["type"] == "list")
+    else {
+        return json!({"status":"unobserved","reason":"probe did not return a typed list"});
+    };
+    if items.len() != names.len() {
+        return json!({"status":"unobserved","reason":"probe item count differs from declared names"});
+    }
+    let variables: BTreeMap<_, _> = names.iter().cloned().zip(items.iter().cloned()).collect();
+    json!({"status":"success","variables":variables,"missing":[]})
 }

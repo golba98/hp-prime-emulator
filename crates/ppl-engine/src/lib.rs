@@ -10,6 +10,7 @@ pub mod firmware;
 #[path = "firmware_unsupported.rs"]
 pub mod firmware;
 pub mod firmware_options;
+pub mod live;
 pub mod native;
 pub mod preflight;
 pub mod session;

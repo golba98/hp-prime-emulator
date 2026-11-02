@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackendId {
@@ -14,7 +14,7 @@ pub enum BackendId {
     PhysicalCapture,
     FullSystem,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Program {
     pub source: Option<String>,
@@ -39,6 +39,40 @@ pub struct Constraints {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Step {
+    Start {
+        id: String,
+        program: String,
+        entry: String,
+        #[serde(default)]
+        args: Vec<Value>,
+    },
+    Await {
+        id: String,
+        run: String,
+        timeout_ms: u64,
+    },
+    Import {
+        id: String,
+        program: String,
+    },
+    RunProgram {
+        id: String,
+        program: String,
+        entry: String,
+        #[serde(default)]
+        args: Vec<Value>,
+    },
+    Probe {
+        id: String,
+        program: String,
+        entry: String,
+        names: Vec<String>,
+    },
+    Edit {
+        id: String,
+        program: String,
+        source: String,
+    },
     Check {
         id: String,
     },
@@ -77,7 +111,13 @@ pub enum Step {
 impl Step {
     pub fn id(&self) -> &str {
         match self {
-            Self::Check { id }
+            Self::Start { id, .. }
+            | Self::Await { id, .. }
+            | Self::Import { id, .. }
+            | Self::RunProgram { id, .. }
+            | Self::Probe { id, .. }
+            | Self::Edit { id, .. }
+            | Self::Check { id }
             | Self::Run { id, .. }
             | Self::Observe { id, .. }
             | Self::Capture { id }
@@ -100,7 +140,10 @@ pub struct Expectation {
 pub struct Scenario {
     pub schema_version: u32,
     pub id: String,
+    #[serde(default)]
     pub program: Program,
+    #[serde(default)]
+    pub programs: BTreeMap<String, Program>,
     #[serde(default)]
     pub initial: InitialState,
     pub steps: Vec<Step>,
@@ -113,6 +156,7 @@ pub struct Scenario {
 pub struct LoadedScenario {
     pub scenario: Scenario,
     pub source: String,
+    pub sources: BTreeMap<String, String>,
     pub fixture_sha256: String,
     pub source_sha256: String,
     pub root: PathBuf,
@@ -131,11 +175,11 @@ impl LoadedScenario {
         )
     }
     pub fn from_spec(
-        scenario: Scenario,
+        mut scenario: Scenario,
         root: &Path,
         fixture_sha256: String,
     ) -> Result<Self, String> {
-        if scenario.schema_version != SCHEMA_VERSION {
+        if ![1, SCHEMA_VERSION].contains(&scenario.schema_version) {
             return Err(format!(
                 "unsupported differential schema {}",
                 scenario.schema_version
@@ -186,17 +230,122 @@ impl LoadedScenario {
                 return Err(format!("unsupported initial setting {name}={v}"));
             }
         }
+        if scenario.schema_version == 1 && !scenario.programs.is_empty() {
+            return Err("schema 1 supports one program".into());
+        }
+        let mut sources = BTreeMap::new();
+        let mut folded_names = BTreeSet::new();
+        for (name, program) in &scenario.programs {
+            if !folded_names.insert(name.to_ascii_uppercase())
+                || [
+                    "ZZT_IDE",
+                    "ZZT_IMPORT",
+                    "ZZT_LOADER",
+                    "ZZT_NAMED",
+                    "ZZT_DFSETUP",
+                    "ZZT_DFDEFAULT",
+                ]
+                .contains(&name.to_ascii_uppercase().as_str())
+            {
+                return Err(format!(
+                    "Reserved or case-ambiguous scenario program {name}"
+                ));
+            }
+            if !name.starts_with("ZZT_")
+                || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                || name.len() > 31
+            {
+                return Err(format!(
+                    "scenario program requires a disposable ZZT_ identifier: {name}"
+                ));
+            }
+            let text = match (&program.source, &program.file) {
+                (Some(s), None) => s.clone(),
+                (None, Some(p)) => ppl_engine::source::Source::file(&root.join(p))?.text,
+                _ => {
+                    return Err(format!(
+                        "program {name} requires exactly one source or file"
+                    ));
+                }
+            };
+            sources.insert(
+                name.clone(),
+                ppl_engine::source::Source::text(&text, name)?.text,
+            );
+        }
+        for step in &mut scenario.steps {
+            if let Step::Edit {
+                source, program, ..
+            } = step
+            {
+                *source = ppl_engine::source::Source::text(source, program)?.text;
+            }
+        }
+        for step in &scenario.steps {
+            let name = match step {
+                Step::Start { program, .. }
+                | Step::Import { program, .. }
+                | Step::RunProgram { program, .. }
+                | Step::Probe { program, .. }
+                | Step::Edit { program, .. } => Some(program),
+                _ => None,
+            };
+            if name.is_some_and(|n| !sources.contains_key(n)) {
+                return Err("step references an undeclared program".into());
+            }
+            if scenario.schema_version == 1 && name.is_some() {
+                return Err("named steps require schema 2".into());
+            }
+            match step {
+                Step::Start { entry, args, .. } | Step::RunProgram { entry, args, .. }
+                    if entry.is_empty() || args.iter().any(contains_float) =>
+                {
+                    return Err("run_program needs an entry and exact typed arguments".into());
+                }
+                Step::Probe { entry, names, .. }
+                    if entry.is_empty()
+                        || names.is_empty()
+                        || names.iter().collect::<BTreeSet<_>>().len() != names.len() =>
+                {
+                    return Err("probe needs an entry and unique nonempty names".into());
+                }
+                Step::Await {
+                    run, timeout_ms, ..
+                } if !scenario
+                    .steps
+                    .iter()
+                    .any(|s| matches!(s,Step::Start{id,..} if id==run))
+                    || *timeout_ms == 0
+                    || *timeout_ms > 600_000 =>
+                {
+                    return Err("await requires a start id and bounded timeout 1..600000ms".into());
+                }
+                _ => {}
+            }
+        }
         let source = match (&scenario.program.source, &scenario.program.file) {
             (Some(s), None) => s.clone(),
             (None, Some(p)) => ppl_engine::source::Source::file(&root.join(p))?.text,
+            (None, None) if scenario.schema_version == 2 && !sources.is_empty() => String::new(),
             _ => return Err("program requires exactly one of source or file".into()),
         };
         let source = ppl_engine::source::Source::text(&source, &scenario.id)?.text;
-        let source_sha256 = crate::sha256_hex(source.as_bytes());
-        let content_identity = identity_hash(&scenario, &source, &fixture_sha256, &source_sha256);
+        let source_sha256 = if scenario.schema_version == 1 {
+            crate::sha256_hex(source.as_bytes())
+        } else {
+            crate::sha256_hex(&serde_json::to_vec(&manifest(&scenario, &source, &sources)).unwrap())
+        };
+        let content_identity = identity_hash(
+            &scenario,
+            &source,
+            &sources,
+            &fixture_sha256,
+            &source_sha256,
+        );
         Ok(Self {
             scenario,
             source,
+            sources,
             fixture_sha256,
             source_sha256,
             root: root.to_owned(),
@@ -209,6 +358,7 @@ impl LoadedScenario {
             != identity_hash(
                 &self.scenario,
                 &self.source,
+                &self.sources,
                 &self.fixture_sha256,
                 &self.source_sha256,
             )
@@ -220,12 +370,43 @@ impl LoadedScenario {
         }
         Ok(())
     }
+    /// Exact initial and edited source identities; v2's top-level digest covers this manifest.
+    pub fn source_manifest(&self) -> BTreeMap<String, String> {
+        manifest(&self.scenario, &self.source, &self.sources)
+    }
     pub fn optional(&self, backend: BackendId) -> bool {
         self.scenario
             .constraints
             .get(&backend)
             .is_some_and(|c| c.optional)
     }
+}
+fn manifest(
+    spec: &Scenario,
+    default: &str,
+    sources: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    let mut hashes: BTreeMap<_, _> = sources
+        .iter()
+        .map(|(n, s)| (n.clone(), crate::sha256_hex(s.as_bytes())))
+        .collect();
+    if !default.is_empty() {
+        hashes.insert("default".into(), crate::sha256_hex(default.as_bytes()));
+    }
+    for step in &spec.steps {
+        if let Step::Edit {
+            id,
+            program,
+            source,
+        } = step
+        {
+            hashes.insert(
+                format!("{program}@{id}"),
+                crate::sha256_hex(source.as_bytes()),
+            );
+        }
+    }
+    hashes
 }
 fn contains_float(value: &Value) -> bool {
     match value {
@@ -235,9 +416,15 @@ fn contains_float(value: &Value) -> bool {
         _ => false,
     }
 }
-fn identity_hash(spec: &Scenario, source: &str, fixture: &str, source_hash: &str) -> String {
+fn identity_hash(
+    spec: &Scenario,
+    source: &str,
+    sources: &BTreeMap<String, String>,
+    fixture: &str,
+    source_hash: &str,
+) -> String {
     crate::sha256_hex(
-        &serde_json::to_vec(&(spec, source, fixture, source_hash))
+        &serde_json::to_vec(&(spec, source, sources, fixture, source_hash))
             .expect("scenario JSON serialization"),
     )
 }
@@ -253,6 +440,8 @@ pub enum RunStatus {
 pub struct Provenance {
     pub origin: String,
     pub source_sha256: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub program_sources: BTreeMap<String, String>,
     pub fixture_sha256: String,
     pub firmware_build: Option<u32>,
     pub firmware_sha256: Option<String>,
@@ -289,6 +478,11 @@ impl BackendRun {
                 }
                 .into(),
                 source_sha256: s.source_sha256.clone(),
+                program_sources: if s.scenario.schema_version == 2 {
+                    s.source_manifest()
+                } else {
+                    BTreeMap::new()
+                },
                 fixture_sha256: s.fixture_sha256.clone(),
                 firmware_build: None,
                 firmware_sha256: None,

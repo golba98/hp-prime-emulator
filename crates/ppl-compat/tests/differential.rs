@@ -12,6 +12,7 @@ fn scenario(source: &str, steps: Vec<Step>, expect: Vec<Expectation>) -> LoadedS
                 source: Some(source.into()),
                 file: None,
             },
+            programs: BTreeMap::new(),
             initial: InitialState::default(),
             steps,
             expect,
@@ -256,7 +257,7 @@ fn fixture_loader_rejects_ambiguous_sources_and_bad_settings() {
     s.initial.settings.insert("NotASetting".into(), 1);
     assert!(LoadedScenario::from_spec(s, Path::new("."), "hash".into()).is_err());
     let mut s = counter().scenario;
-    s.schema_version = 2;
+    s.schema_version = 3;
     assert!(LoadedScenario::from_spec(s, Path::new("."), "hash".into()).is_err());
 }
 #[test]
@@ -311,5 +312,206 @@ fn floating_point_arguments_require_explicit_decimal_strings() {
         LoadedScenario::from_spec(spec, Path::new("."), "hash".into())
             .unwrap_err()
             .contains("precision")
+    );
+}
+
+#[test]
+fn version_two_runs_independent_retained_modules_and_authored_probes() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/differential/m16/stateful.toml");
+    let s = LoadedScenario::load(&fixture).unwrap();
+    let compared = compare(&s, vec![run_native(&s, &Cancellation::default())]);
+    assert!(
+        compared.passed,
+        "{}",
+        format!(
+            "{:?}; backend reasons: {:?}",
+            compared.mismatches,
+            compared.runs.iter().map(|r| &r.reason).collect::<Vec<_>>()
+        )
+    );
+}
+#[test]
+fn version_two_binds_all_sources_and_rejects_unknown_programs() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/differential/m16/stateful.toml");
+    let mut s = LoadedScenario::load(&fixture).unwrap();
+    s.sources.insert("ZZT_M16OTHER".into(), "changed".into());
+    assert!(s.verify_identity().is_err());
+    let mut spec = s.scenario.clone();
+    spec.steps.push(Step::Import {
+        id: "bad".into(),
+        program: "UNKNOWN".into(),
+    });
+    assert!(LoadedScenario::from_spec(spec, Path::new("."), "test".into()).is_err());
+}
+#[test]
+fn real_firmware_stateful_scenario() {
+    let (Some(firmware), Some(init), Some(runner)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+        std::env::var_os("PRIME_TEST_RUNNER"),
+    ) else {
+        eprintln!("skipping local-firmware scenario: PRIME_TEST_FIRMWARE/INIT_DATA/RUNNER unset");
+        return;
+    };
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/differential/m16/stateful.toml");
+    let mut spec = LoadedScenario::load(&fixture).unwrap().scenario;
+    let edited = spec.programs["ZZT_M16COUNT"]
+        .source
+        .as_ref()
+        .unwrap()
+        .replace("counter:=0", "counter:=40");
+    spec.steps.push(Step::Edit {
+        id: "edit".into(),
+        program: "ZZT_M16COUNT".into(),
+        source: edited,
+    });
+    spec.steps.push(Step::RunProgram {
+        id: "edited_run".into(),
+        program: "ZZT_M16COUNT".into(),
+        entry: "M16INC".into(),
+        args: vec![],
+    });
+    spec.expect.push(expected(
+        "edited_run",
+        "/return_value",
+        json!({"type":"real","value":"41"}),
+    ));
+    let s = LoadedScenario::from_spec(spec, Path::new("."), "real-edit-fixture".into()).unwrap();
+    let options = ppl_engine::firmware_options::Options {
+        runner: Some(runner.into()),
+        firmware: Some(firmware.into()),
+        init_data: Some(init.into()),
+        os_rom: std::env::var_os("PRIME_TEST_OS_ROM").map(Into::into),
+        ..Default::default()
+    };
+    let compared = compare(
+        &s,
+        vec![
+            run_native(&s, &Cancellation::default()),
+            run_firmware(&s, &options, &Cancellation::default()),
+        ],
+    );
+    if let Some(out) = std::env::var_os("PRIME_M16_EVIDENCE") {
+        std::fs::write(out, serde_json::to_vec_pretty(&compared).unwrap()).unwrap();
+    }
+    assert!(
+        compared.passed,
+        "{}",
+        format!(
+            "{:?}; backend reasons: {:?}",
+            compared.mismatches,
+            compared.runs.iter().map(|r| &r.reason).collect::<Vec<_>>()
+        )
+    );
+}
+
+#[test]
+fn version_two_edit_resets_one_module_and_binds_revision() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/differential/m16/stateful.toml");
+    let mut spec = LoadedScenario::load(&fixture).unwrap().scenario;
+    let edited = spec.programs["ZZT_M16COUNT"]
+        .source
+        .as_ref()
+        .unwrap()
+        .replace("counter:=0", "counter:=40");
+    spec.steps.push(Step::Edit {
+        id: "edit".into(),
+        program: "ZZT_M16COUNT".into(),
+        source: edited,
+    });
+    spec.steps.push(Step::RunProgram {
+        id: "edited_run".into(),
+        program: "ZZT_M16COUNT".into(),
+        entry: "M16INC".into(),
+        args: vec![],
+    });
+    spec.expect.push(expected(
+        "edited_run",
+        "/return_value",
+        json!({"type":"real","value":"41"}),
+    ));
+    let s = LoadedScenario::from_spec(spec, Path::new("."), "edited-fixture".into()).unwrap();
+    assert!(s.source_manifest().contains_key("ZZT_M16COUNT@edit"));
+    let result = execute(&s, &[&Native], &Cancellation::default());
+    assert!(result.passed, "{:#?}", result.mismatches);
+}
+
+#[test]
+fn real_firmware_lifecycle_scenario() {
+    let (Some(firmware), Some(init), Some(runner)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+        std::env::var_os("PRIME_TEST_RUNNER"),
+    ) else {
+        eprintln!("skipping local-firmware scenario: PRIME_TEST_FIRMWARE/INIT_DATA/RUNNER unset");
+        return;
+    };
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/differential/m16/firmware_lifecycle.toml");
+    let s = LoadedScenario::load(&fixture).unwrap();
+    let options = ppl_engine::firmware_options::Options {
+        runner: Some(runner.into()),
+        firmware: Some(firmware.into()),
+        init_data: Some(init.into()),
+        os_rom: std::env::var_os("PRIME_TEST_OS_ROM").map(Into::into),
+        ..Default::default()
+    };
+    let compared = compare(
+        &s,
+        vec![run_firmware(&s, &options, &Cancellation::default())],
+    );
+    if let Some(out) = std::env::var_os("PRIME_M16_EVIDENCE") {
+        std::fs::write(out, serde_json::to_vec_pretty(&compared).unwrap()).unwrap();
+    }
+    assert!(
+        compared.passed,
+        "{}",
+        format!(
+            "{:?}; backend reasons: {:?}",
+            compared.mismatches,
+            compared.runs.iter().map(|r| &r.reason).collect::<Vec<_>>()
+        )
+    );
+}
+
+#[test]
+fn real_firmware_async_input_scenario() {
+    let (Some(firmware), Some(init), Some(runner)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+        std::env::var_os("PRIME_TEST_RUNNER"),
+    ) else {
+        eprintln!("skipping local-firmware scenario: PRIME_TEST_FIRMWARE/INIT_DATA/RUNNER unset");
+        return;
+    };
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/differential/m16/async_input.toml");
+    let s = LoadedScenario::load(&fixture).unwrap();
+    let options = ppl_engine::firmware_options::Options {
+        runner: Some(runner.into()),
+        firmware: Some(firmware.into()),
+        init_data: Some(init.into()),
+        os_rom: std::env::var_os("PRIME_TEST_OS_ROM").map(Into::into),
+        ..Default::default()
+    };
+    let compared = compare(
+        &s,
+        vec![run_firmware(&s, &options, &Cancellation::default())],
+    );
+    if let Some(out) = std::env::var_os("PRIME_M16_EVIDENCE") {
+        std::fs::write(out, serde_json::to_vec_pretty(&compared).unwrap()).unwrap();
+    }
+    assert!(
+        compared.passed,
+        "{}",
+        format!(
+            "{:?}; backend reasons: {:?}",
+            compared.mismatches,
+            compared.runs.iter().map(|r| &r.reason).collect::<Vec<_>>()
+        )
     );
 }
