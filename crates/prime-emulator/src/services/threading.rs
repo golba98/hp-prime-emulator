@@ -102,7 +102,9 @@ pub fn os_get_thread_priority(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 pub fn os_create_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let latch_on = ctx.args.r0 != 0;
     let flag = ctx.args.r1 != 0;
-    let desc = alloc_desc(ctx, super::sync::EVENT_MAGIC)?;
+    let Some(desc) = alloc_desc(ctx, super::sync::EVENT_MAGIC)? else {
+        return Ok(0);
+    };
     ctx.trace
         .sync_event("event-create", desc, ctx.args.caller_pc, ctx.thread_id);
     ctx.mem
@@ -113,9 +115,10 @@ pub fn os_create_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         .map_err(HandlerFault)?;
     ctx.shared.sync_objects.lock().unwrap().insert(
         desc,
-        std::sync::Arc::new(super::sync::SyncObj::Event(super::sync::HostEvent::new(
-            latch_on, flag,
-        ))),
+        std::sync::Arc::new(super::sync::SyncEntry::new(
+            super::sync::SyncObj::Event(super::sync::HostEvent::new(latch_on, flag)),
+            Some((ctx.mem.clone(), desc)),
+        )),
     );
     Ok(desc)
 }
@@ -129,7 +132,7 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let Some(obj) = obj else {
         return Ok(super::sync::WAIT_RESULT_ERROR);
     };
-    let ev = match obj.as_ref() {
+    let ev = match &obj.object {
         super::sync::SyncObj::Event(ev) => ev,
         _ => return Ok(super::sync::WAIT_RESULT_ERROR),
     };
@@ -148,11 +151,16 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let signaled = {
         let _parked = ctx.mem.snapshot_gate.park();
         ev.wait(timeout, &|| {
-            ctx.shared.stopping() || (call_point && ctx.shared.guest_calls.pending())
+            ctx.shared.stopping()
+                || obj.closed()
+                || (call_point && ctx.shared.guest_calls.pending())
         })
     };
     if main {
         ctx.shared.set_main_waiting(false);
+    }
+    if obj.closed() {
+        return Ok(super::sync::WAIT_RESULT_ERROR);
     }
     if !signaled && call_point && ctx.shared.guest_calls.pending() && inject_call(ctx)? {
         return Ok(0);
@@ -194,7 +202,7 @@ fn inject_call(ctx: &mut SvcCtx) -> Result<bool, HandlerFault> {
 pub fn os_set_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let desc = ctx.args.r0;
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&desc).cloned();
-    match obj.as_deref() {
+    match obj.as_ref().map(|entry| &entry.object) {
         Some(super::sync::SyncObj::Event(ev)) => {
             ctx.trace
                 .sync_event("event-set", desc, ctx.args.caller_pc, ctx.thread_id);
@@ -209,7 +217,7 @@ pub fn os_set_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 pub fn os_reset_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let desc = ctx.args.r0;
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&desc).cloned();
-    match obj.as_deref() {
+    match obj.as_ref().map(|entry| &entry.object) {
         Some(super::sync::SyncObj::Event(ev)) => {
             ctx.trace
                 .sync_event("event-reset", desc, ctx.args.caller_pc, ctx.thread_id);
@@ -222,16 +230,9 @@ pub fn os_reset_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 }
 
 pub fn os_close_object(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    let desc = ctx.args.r0;
-    if ctx
-        .shared
-        .sync_objects
-        .lock()
-        .unwrap()
-        .remove(&desc)
-        .is_some()
-    {
-        let _ = ctx.mem.heap_free(desc);
+    let entry = ctx.shared.sync_objects.lock().unwrap().remove(&ctx.args.r0);
+    if let Some(entry) = entry {
+        entry.close(); // reclamation waits for all active operation leases
         Ok(1)
     } else {
         Ok(0)
@@ -240,15 +241,18 @@ pub fn os_close_object(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 
 pub fn os_create_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let init = ctx.args.r0 as i32;
-    let desc = alloc_desc(ctx, super::sync::SEMAPHORE_MAGIC)?;
+    let Some(desc) = alloc_desc(ctx, super::sync::SEMAPHORE_MAGIC)? else {
+        return Ok(0);
+    };
     ctx.mem
         .write_u16(desc + 0x08, init as u16)
         .map_err(HandlerFault)?;
     ctx.shared.sync_objects.lock().unwrap().insert(
         desc,
-        std::sync::Arc::new(super::sync::SyncObj::Semaphore(super::sync::HostSem::new(
-            init,
-        ))),
+        std::sync::Arc::new(super::sync::SyncEntry::new(
+            super::sync::SyncObj::Semaphore(super::sync::HostSem::new(init)),
+            Some((ctx.mem.clone(), desc)),
+        )),
     );
     Ok(desc)
 }
@@ -260,11 +264,17 @@ pub fn os_wait_for_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let Some(obj) = obj else {
         return Ok(super::sync::WAIT_RESULT_ERROR);
     };
-    let sem = match obj.as_ref() {
+    let sem = match &obj.object {
         super::sync::SyncObj::Semaphore(sem) => sem,
         _ => return Ok(super::sync::WAIT_RESULT_ERROR),
     };
-    let ok = sem.wait(timeout, &|| ctx.shared.stopping());
+    let ok = {
+        let _parked = ctx.mem.snapshot_gate.park();
+        sem.wait(timeout, &|| ctx.shared.stopping() || obj.closed())
+    };
+    if obj.closed() {
+        return Ok(super::sync::WAIT_RESULT_ERROR);
+    }
     Ok(if ok {
         super::sync::WAIT_RESULT_RESOLVED
     } else {
@@ -275,10 +285,12 @@ pub fn os_wait_for_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 pub fn os_release_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let desc = ctx.args.r0;
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&desc).cloned();
-    if let Some(super::sync::SyncObj::Semaphore(sem)) = obj.as_deref() {
+    if let Some(super::sync::SyncObj::Semaphore(sem)) = obj.as_ref().map(|entry| &entry.object) {
         sem.release();
         let c = ctx.mem.read_u16(desc + 0x08).unwrap_or(0);
-        let _ = ctx.mem.write_u16(desc + 0x08, (c + 1).min(0x7FFF));
+        let _ = ctx
+            .mem
+            .write_u16(desc + 0x08, c.saturating_add(1).min(0x7FFF));
         Ok(1)
     } else {
         Ok(0)
@@ -300,7 +312,10 @@ pub fn os_init_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         .map_err(HandlerFault)?;
     ctx.shared.sync_objects.lock().unwrap().insert(
         ptr,
-        std::sync::Arc::new(super::sync::SyncObj::CritSec(super::sync::HostCs::new())),
+        std::sync::Arc::new(super::sync::SyncEntry::new(
+            super::sync::SyncObj::CritSec(super::sync::HostCs::new()),
+            None,
+        )),
     );
     Ok(0)
 }
@@ -308,12 +323,16 @@ pub fn os_init_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 pub fn os_enter_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ptr = ctx.args.r0;
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&ptr).cloned();
-    if let Some(super::sync::SyncObj::CritSec(cs)) = obj.as_deref() {
-        if !cs.enter_until(&|| ctx.shared.stopping()) {
+    if let Some(super::sync::SyncObj::CritSec(cs)) = obj.as_ref().map(|entry| &entry.object) {
+        let entered = {
+            let _parked = ctx.mem.snapshot_gate.park();
+            cs.enter_until(&|| ctx.shared.stopping() || obj.as_ref().unwrap().closed())
+        };
+        if !entered || obj.as_ref().unwrap().closed() {
             return Ok(0);
         }
         let rc = ctx.mem.read_u16(ptr + 0x08).unwrap_or(0);
-        let _ = ctx.mem.write_u16(ptr + 0x08, rc + 1);
+        let _ = ctx.mem.write_u16(ptr + 0x08, rc.saturating_add(1));
     }
     Ok(0)
 }
@@ -321,7 +340,7 @@ pub fn os_enter_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> 
 pub fn os_leave_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ptr = ctx.args.r0;
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&ptr).cloned();
-    if let Some(super::sync::SyncObj::CritSec(cs)) = obj.as_deref() {
+    if let Some(super::sync::SyncObj::CritSec(cs)) = obj.as_ref().map(|entry| &entry.object) {
         let rc = ctx.mem.read_u16(ptr + 0x08).unwrap_or(0);
         if rc > 0 {
             let _ = ctx.mem.write_u16(ptr + 0x08, rc - 1);
@@ -333,7 +352,10 @@ pub fn os_leave_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> 
 
 pub fn os_delete_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ptr = ctx.args.r0;
-    ctx.shared.sync_objects.lock().unwrap().remove(&ptr);
+    let entry = ctx.shared.sync_objects.lock().unwrap().remove(&ptr);
+    if let Some(entry) = entry {
+        entry.close();
+    }
     if ptr != 0 {
         ctx.mem
             .write_bytes(ptr, &[0u8; 0x14])
@@ -343,11 +365,13 @@ pub fn os_delete_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault>
 }
 
 /// Allocate a zeroed 0x14-byte guest descriptor with the given magic.
-fn alloc_desc(ctx: &SvcCtx, magic: u32) -> Result<u32, HandlerFault> {
-    let va = ctx.mem.heap_alloc(0x14).map_err(HandlerFault)?;
+fn alloc_desc(ctx: &SvcCtx, magic: u32) -> Result<Option<u32>, HandlerFault> {
+    let Some(va) = ctx.mem.try_heap_alloc(0x14) else {
+        return Ok(None);
+    };
     ctx.mem
         .write_bytes(va, &[0u8; 0x14])
         .map_err(HandlerFault)?;
     ctx.mem.write_u32(va, magic).map_err(HandlerFault)?;
-    Ok(va)
+    Ok(Some(va))
 }

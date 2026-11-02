@@ -79,7 +79,7 @@ pub struct HandlerFault(pub MemoryError);
 /// A single service invocation context.
 pub struct SvcCtx<'a, 'e> {
     pub uc: &'a mut Unicorn<'e, ()>,
-    pub mem: &'a GuestMemory,
+    pub mem: &'a std::sync::Arc<GuestMemory>,
     pub args: GuestArgs,
     pub shared: &'a SharedState,
     pub trace: &'a TraceHub,
@@ -915,7 +915,7 @@ pub enum DispatchOutcome {
 /// Dispatch one intercepted SVC. Applies the verified return convention.
 pub fn dispatch(
     uc: &mut Unicorn<'_, ()>,
-    mem: &GuestMemory,
+    mem: &std::sync::Arc<GuestMemory>,
     registry: &Registry,
     shared: &SharedState,
     trace: &TraceHub,

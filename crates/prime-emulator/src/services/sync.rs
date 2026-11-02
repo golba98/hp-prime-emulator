@@ -48,8 +48,8 @@ impl HostEvent {
     /// Returns true if signaled. Also wakes early when `stopping` fires.
     pub fn wait(&self, timeout_ms: u32, stopping: &dyn Fn() -> bool) -> bool {
         let infinite = timeout_ms == u32::MAX;
-        let deadline = std::time::Instant::now()
-            + std::time::Duration::from_millis(u64::from(timeout_ms.min(1 << 24)));
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(u64::from(timeout_ms));
         let mut g = self.state.lock().unwrap();
         loop {
             if *g {
@@ -103,8 +103,8 @@ impl HostSem {
 
     pub fn wait(&self, timeout_ms: u32, stopping: &dyn Fn() -> bool) -> bool {
         let infinite = timeout_ms == u32::MAX;
-        let deadline = std::time::Instant::now()
-            + std::time::Duration::from_millis(u64::from(timeout_ms.min(1 << 20)));
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(u64::from(timeout_ms));
         let mut c = self.count.lock().unwrap();
         loop {
             if *c > 0 {
@@ -117,10 +117,14 @@ impl HostSem {
             if !infinite && std::time::Instant::now() >= deadline {
                 return false;
             }
-            let (nc, _) = self
-                .cv
-                .wait_timeout(c, std::time::Duration::from_millis(25))
-                .unwrap();
+            let slice = if infinite {
+                std::time::Duration::from_millis(25)
+            } else {
+                deadline
+                    .saturating_duration_since(std::time::Instant::now())
+                    .min(std::time::Duration::from_millis(25))
+            };
+            let (nc, _) = self.cv.wait_timeout(c, slice).unwrap();
             c = nc;
         }
     }
@@ -198,6 +202,45 @@ pub enum SyncObj {
     CritSec(HostCs),
 }
 
-/// All live sync objects, keyed by guest descriptor address. Objects are
-/// behind `Arc` so blocking waits can release the map lock first.
-pub type SyncMap = HashMap<u32, std::sync::Arc<SyncObj>>;
+/// An operation's Arc is also a lease on its guest descriptor. Removing the
+/// entry from the handle table closes it immediately, but cannot recycle that
+/// address while an outstanding wait or signal can still access it.
+pub struct SyncEntry {
+    pub object: SyncObj,
+    closed: std::sync::atomic::AtomicBool,
+    allocation: Option<(std::sync::Arc<crate::memory::GuestMemory>, u32)>,
+}
+impl SyncEntry {
+    pub fn new(
+        object: SyncObj,
+        allocation: Option<(std::sync::Arc<crate::memory::GuestMemory>, u32)>,
+    ) -> Self {
+        Self {
+            object,
+            closed: std::sync::atomic::AtomicBool::new(false),
+            allocation,
+        }
+    }
+    pub fn closed(&self) -> bool {
+        self.closed.load(std::sync::atomic::Ordering::Acquire)
+    }
+    pub fn close(&self) {
+        self.closed
+            .store(true, std::sync::atomic::Ordering::Release);
+        match &self.object {
+            SyncObj::Event(e) => e.cv.notify_all(),
+            SyncObj::Semaphore(s) => s.cv.notify_all(),
+            SyncObj::CritSec(c) => c.cv.notify_all(),
+        }
+    }
+}
+impl Drop for SyncEntry {
+    fn drop(&mut self) {
+        if let Some((mem, address)) = &self.allocation {
+            mem.heap_free(*address);
+        }
+    }
+}
+/// Live objects keyed by guest descriptor address; waiters release the table
+/// lock before blocking, retaining a descriptor lease instead.
+pub type SyncMap = HashMap<u32, std::sync::Arc<SyncEntry>>;

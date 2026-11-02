@@ -18,6 +18,7 @@ fn malformed_file_transfers_are_atomic_and_bounded() {
     let handle = shared.vfs.open("C:/data", "r+").unwrap();
     let mut mem = GuestMemory::new();
     mem.map("buffer", 0x1000, 4096).unwrap();
+    let mem = std::sync::Arc::new(mem);
     let mut uc = Unicorn::new(Arch::ARM, Mode::ARM).unwrap();
     let trace = TraceHub::new(TraceConfig::default()).unwrap();
     let mut ctx = SvcCtx {
@@ -57,4 +58,7 @@ fn malformed_file_transfers_are_atomic_and_bounded() {
     ctx.args.r1 = 0;
     ctx.args.r2 = u32::MAX;
     assert_eq!(fsops::fread(&mut ctx).unwrap(), 0);
+    ctx.args.r3 = shared.vfs.open("C:/data", "rb").unwrap();
+    assert_eq!(fsops::fwrite(&mut ctx).unwrap(), 0);
+    shared.vfs.check_durable().unwrap();
 }

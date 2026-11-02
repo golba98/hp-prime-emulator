@@ -135,6 +135,9 @@ pub fn fwrite(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let src = ctx.args.r0;
     let total = transfer_size(ctx, src, ctx.args.r1, ctx.args.r2)?;
     let handle = ctx.args.r3;
+    if total == 0 {
+        return Ok(0);
+    }
     let buf = ctx.mem.read_bytes_alloc(src, total).map_err(HandlerFault)?;
     let n = ctx.shared.vfs.write(handle, &buf).unwrap_or(0);
     fs_trace(

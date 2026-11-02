@@ -349,6 +349,7 @@ impl TraceHub {
                     "caller_pc": caller_pc,
                     "r0": r0,
                     "supported": supported,
+                    "thread_id": thread_id,
                 }),
             );
         } else if !supported {
@@ -360,7 +361,7 @@ impl TraceHub {
                     "unsupported svc {id:#07X} ({}) caller={caller_pc:#010X} r0={r0:#010X}",
                     name.unwrap_or("unknown"),
                 ),
-                json!({ "id": id, "name": name, "caller_pc": caller_pc, "r0": r0 }),
+                json!({ "id": id, "name": name, "caller_pc": caller_pc, "r0": r0, "thread_id": thread_id }),
             );
         }
     }
