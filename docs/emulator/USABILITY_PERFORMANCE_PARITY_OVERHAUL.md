@@ -640,3 +640,33 @@ tiny rerun 0.751 to 0.776 s; large launch 3.033 to 3.131 s; syntax feedback
 1.746 to 1.702 s. All 13 workloads remained within 10% of baseline.
 Exact samples/hashes: evidence/m16/benchmark-summary.json. No major new speedup
 is claimed. Nothing was pushed or published.
+
+## M17 integration in progress
+
+Detailed status: [M17 runtime fidelity and full-system execution](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md).
+The post-CAS debug readiness failure is corrected without weakening checkpoint
+idle admission; the unchanged fresh-process recovery regression passes in the
+coordinator checkout (128.12s). Native external functions now link into one VM
+with source-bound private state and shared calculator globals. Two actual
+Native/HLE scenarios pass34 assertions, including initialization timing and
+edited dependencies; the same checked-in fixtures have automated coverage.
+Native CLI catalogs are exposed through `--module NAME=PATH`.
+
+Protocol7 supplies bounded resource/request-bound live inspection and owner
+safe-point acknowledgement. An actual query observes native callback blockers
+instead of claiming a restorable machine; full live CPU restoration remains
+unsupported. Source-bound differential debug evidence survives profile cleanup.
+The journal guard explicitly releases flock when inherited file descriptions
+remain open; deterministic and subprocess regressions pass. This does not
+conclusively attribute every historical concurrency failure to that mechanism.
+
+The isolated qemuPrime hp-prime machine now executes the self-authored ARM926
+smoke under GDB. A GPL overlay corrects two reproduced INTC reset/FIQ defects;
+coordinator repeats pass. Calculator kernel boot and a FullSystem PPL backend
+remain unavailable. All77 historical physical classifications are preserved;
+there are no new physical captures.
+
+An intermediate parallel workspace run passes1,803 tests, zero failures, six
+ignored; workspace Clippy and formatting pass. Final component/decoder/IDE
+integration, GUI checks and paired performance trials remain active. These
+intermediate counts do not stand in for final integrated validation.
