@@ -299,7 +299,7 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
         )
     });
     match s.wait(minute, "power-down status", |e| {
-        matches!(e, Event::Status { .. })
+        matches!(e, Event::Status { message } if message.contains("saved its state and switched off") || message.starts_with("Firmware switched off, but"))
     }) {
         Event::Status { message } => {
             assert!(

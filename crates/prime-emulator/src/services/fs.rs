@@ -185,8 +185,14 @@ impl Vfs {
         let file = match opened {
             Ok(file) => file,
             Err(e) => {
-                if writable {
-                    self.record_write_error(e);
+                // Firmware probes existing files with r+ before creating
+                // them. ENOENT on a non-creating open changed no storage and
+                // is not evidence of a failed persistent write.
+                let missing_probe = e.kind() == std::io::ErrorKind::NotFound
+                    && !mode.contains('w')
+                    && !mode.contains('a');
+                if writable && !missing_probe {
+                    self.record_write_error(format!("open {guest} ({mode}): {e}"));
                 }
                 return None;
             }
@@ -559,5 +565,28 @@ mod path_tests {
         assert_eq!(v.to_host("..\\DATA"), Some(root.join("C/DATA")));
         assert_eq!(v.to_host("C:\\..\\..\\etc"), None);
         assert_eq!(v.to_host("..\\..\\.."), None);
+    }
+}
+
+#[cfg(test)]
+mod durability_tests {
+    use super::*;
+    #[test]
+    fn missing_update_probe_does_not_poison_later_checkpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let fs = Vfs::new(root.path().to_owned());
+        assert!(fs.open("C:/DATA/new.settings", "r+").is_none());
+        fs.check_durable().unwrap();
+        let h = fs.open("C:/DATA/new.settings", "w+").unwrap();
+        assert_eq!(fs.write(h, b"saved"), Some(5));
+        assert!(fs.close(h));
+        fs.check_durable().unwrap();
+    }
+    #[test]
+    fn actual_write_failure_still_blocks_checkpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let fs = Vfs::new(root.path().to_owned());
+        fs.record_write_error("disk full");
+        assert!(fs.check_durable().is_err());
     }
 }

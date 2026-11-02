@@ -197,3 +197,37 @@ Integrated emulator library: 55 passed. GUI profile-lock tests: 5 passed.
 Both supervisor and direct-helper locks now protect reset and seeding, and
 locks are held through reset's rename. Real firmware boot heartbeat passed with
 assets configured (1.03 seconds); full session and crash tests are still running.
+
+### Integrated recovery regression and fix
+
+Real firmware testing caught an integration bug: `SharedState::sleeps()` counts
+completed sleeps (wakeups), while recovery initialized its last-saved counter
+to zero. The first OFF was therefore skipped. The saved counter is now optional
+(`None` until a checkpoint succeeds or fails), so the first sleep is processed.
+The final failure status also includes the underlying cause. A separate VFS
+regression test ensures expected `r+` probes of nonexistent files do not poison
+later durability checks; actual failed writes still prevent checkpointing.
+
+A real-firmware test now saves A=123 using OFF, restarts, changes A=456, kills
+the helper, restarts again, and verifies A=123 and preserved interrupted-drive
+archives. It passed (29.40 s); in-process OFF/ON crash coverage is being added.
+These are disposable profiles, not user data or physical hardware. Initial
+failed runs are retained in `/tmp/overhaul-{real-firmware-assets,crash-final}.log`;
+passing evidence: `/tmp/overhaul-recovery-first-off.log`.
+
+### Parity and regression checkpoint
+
+- Integrated workspace: **1632 passed, 0 failed, 6 ignored** at this checkpoint
+  (`/tmp/overhaul-workspace.log`). Includes the previously intermittent journal
+  test; its earlier failure is not claimed to be diagnosed or fixed.
+- Historical 15157 replay: **77/77 recorded references reproduced**, classified
+  as 68 exact / 4 partial / 5 transcription, zero mismatches. Artifacts:
+  `artifacts/overhaul/parity-15157/{matrix.json,matrix.md,raw}`. No new device I/O.
+- New `g1_pixel_geometry.ppl` plus `scripts/compat/check_pixel_geometry.py`:
+  all **76,800 pixels** match geometric expectations in both Native and local
+  firmware 15751. Rectangle, line endpoints, isolated pixel and unchanged
+  background checked; capture visually inspected. Checker tests reject shifted
+  pixels and resized images. Physical comparison remains untested.
+- Experimental 32 MiB allocation budget: local firmware boot and `2+2=4`
+  captured and visually verified (`/tmp/prime-32m-budget`). No claim of full
+  G1 memory equivalence or broad low-memory application compatibility.

@@ -44,7 +44,7 @@ struct Device {
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
     recovery: Option<Arc<crate::recovery::Recovery>>,
-    saved_sleep: u64,
+    saved_sleep: Option<u64>,
     save_result: Option<Result<(), String>>,
     save_worker: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
 }
@@ -92,7 +92,7 @@ impl LiveSession {
                 last_key: Instant::now(),
                 power_down: None,
                 recovery: None,
-                saved_sleep: 0,
+                saved_sleep: None,
                 save_result: None,
                 save_worker: None,
             }),
@@ -174,11 +174,14 @@ impl LiveSession {
         let mut device = self.device.lock().unwrap();
         // Snapshot only at the firmware's completed OFF boundary. Keep ON and
         // all mutations queued until copying finishes; the UI thread never waits.
-        if shared.sleeping() && device.recovery.is_some() && device.saved_sleep != shared.sleeps() {
+        if shared.sleeping()
+            && device.recovery.is_some()
+            && device.saved_sleep != Some(shared.sleeps())
+        {
             if let Some(worker) = &device.save_worker {
                 match worker.try_recv() {
                     Ok(result) => {
-                        device.saved_sleep = shared.sleeps();
+                        device.saved_sleep = Some(shared.sleeps());
                         self.event(Event::Status {
                             message: match &result {
                                 Ok(()) => "Calculator recovery checkpoint saved".into(),
@@ -192,7 +195,7 @@ impl LiveSession {
                     }
                     Err(std::sync::mpsc::TryRecvError::Empty) => return,
                     Err(_) => {
-                        device.saved_sleep = shared.sleeps();
+                        device.saved_sleep = Some(shared.sleeps());
                         device.save_result = Some(Err("checkpoint worker stopped".into()));
                         device.save_worker = None;
                     }
@@ -547,7 +550,7 @@ impl LiveSession {
         if shared.sleeping() {
             // SysPowerOff can begin during this tick, after the initial save
             // check. Let the next tick start/finish that checkpoint first.
-            if device.recovery.is_some() && device.saved_sleep != shared.sleeps() {
+            if device.recovery.is_some() && device.saved_sleep != Some(shared.sleeps()) {
                 return;
             }
             if let Some(store) = &device.recovery {
@@ -558,9 +561,15 @@ impl LiveSession {
                         ));
                     }
                 } else {
-                    return end(
-                        "Firmware switched off, but recovery checkpoint failed; previous saved generation retained",
-                    );
+                    return end(&format!(
+                        "Firmware switched off, but recovery checkpoint failed; previous saved generation retained: {}",
+                        device
+                            .save_result
+                            .as_ref()
+                            .and_then(|r| r.as_ref().err())
+                            .map(String::as_str)
+                            .unwrap_or("no checkpoint result"),
+                    ));
                 }
             }
             return end("The calculator saved its state and switched off");
