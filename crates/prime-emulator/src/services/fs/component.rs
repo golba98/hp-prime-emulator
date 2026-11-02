@@ -78,6 +78,14 @@ fn jailed(root: &Path, path: &str) -> Result<PathBuf> {
             return Err("VFS component rejects symlink resources".into());
         }
     }
+    // A FIFO open can wait indefinitely even in an otherwise stable private
+    // tree. Reject nonregular final resources before opening a descriptor.
+    if !std::fs::symlink_metadata(&host)
+        .map_err(|e| e.to_string())?
+        .is_file()
+    {
+        return Err("VFS component resource is not a regular file".into());
+    }
     let canonical = host.canonicalize().map_err(|e| e.to_string())?;
     if !canonical.starts_with(root) {
         return Err("VFS component resource escapes storage root".into());
@@ -520,5 +528,32 @@ mod tests {
         std::fs::write(dir.path().join("A/alpha.bin"), b"12345678").unwrap();
         assert!(ReadOnlyVfsComponent::capture(&mut vfs, ID).is_err());
         assert_eq!(vfs.tell(handle), Some(3));
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn fifo_replacements_are_rejected_before_opening_for_capture_or_restore() {
+        let dir = tempfile::tempdir().unwrap();
+        populate(dir.path());
+        let mut vfs = Vfs::new(dir.path().to_owned());
+        let handle = vfs.open("A:\\alpha.bin", "rb").unwrap();
+        vfs.seek_set(handle, 3).unwrap();
+        let component = ReadOnlyVfsComponent::capture(&mut vfs, ID).unwrap();
+        let path = dir.path().join("A/alpha.bin");
+        std::fs::rename(&path, dir.path().join("A/original.bin")).unwrap();
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&path)
+                .status()
+                .unwrap()
+                .success()
+        );
+        // Check admission first so a regression fails instead of hanging in
+        // File::open waiting for an unrelated FIFO writer.
+        assert!(jailed(dir.path(), "A/alpha.bin").is_err());
+        assert!(ReadOnlyVfsComponent::capture(&mut vfs, ID).is_err());
+        assert_eq!(vfs.tell(handle), Some(3));
+        let mut fresh = Vfs::new(dir.path().to_owned());
+        assert!(component.restore(&mut fresh, ID).is_err());
+        assert_eq!(fresh.inspection()["open_files"], 0);
     }
 }

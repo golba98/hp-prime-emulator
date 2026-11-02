@@ -77,7 +77,11 @@ reopens the original guest handle, reads `cde` from saved offset 2, preserves th
 next handle, and repeats reconstruction 32 times. Linux additionally compares
 its file-descriptor count before and after those cycles.
 
-Eleven component tests passed. Negative cases include changed file contents,
+Twelve component tests passed after coordinator review. A Linux FIFO regression
+first failed at admission; the path validator now rejects nonregular resources
+before descriptor open, preventing capture/restore from waiting for a FIFO
+writer. The test uses the standard Linux `mkfifo` utility.
+Negative cases include changed file contents,
 replaced descriptors, corrupt data/metadata, incompatible resource identity,
 occupied targets, active memory writers, unsupported writers/searches, symlinks,
 path traversal, fabricated live-resume claims, malformed/truncated files and an
