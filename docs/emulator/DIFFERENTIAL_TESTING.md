@@ -40,10 +40,10 @@ identity even when the default program is empty.
 
 | Adapter | Implemented behavior | Explicit limits |
 |---|---|---|
-| Native | Retained named modules, sequential execution, authored probes, edits, settings, framebuffer | Cross-program linkage, asynchronous physical input and firmware power semantics unsupported |
+| Native | Retained named modules, sequential execution, authored probes, edits, settings, framebuffer | Exported function/variable linkage supported; asynchronous physical input and firmware power semantics unsupported |
 | Firmware HLE | Genuine retained named programs; source-bound execution; Start/Await/key/touch; program-output graphics; OFF/fresh restart | Known observer profile required; numeric arguments; arbitrary in-place Check refused |
 | Physical capture | Qualified historical replay and sealed stateful capture bundles | New live USB collector unimplemented; manual input confirmations and retained artifacts required |
-| Full system | Explicit Unavailable result | No CPU/kernel/SoC execution backend |
+| Full system | Explicit Unavailable result | Independent synthetic ARM hardware diagnostics; PPL and kernel execution unavailable |
 
 Named HLE loading assigns source directly to its catalog program through firmware.
 RunStored never silently reimports or invokes Check. Fresh-process dispatch
@@ -57,9 +57,7 @@ waits for consumed input and idle before another invocation. Program-output
 captures refer to the return frame, not an arbitrary later Home screen.
 
 Authored probes return a typed list with one element per declared variable name.
-They are executions, not pure memory inspections. Matrix scenarios currently
-compare explicit dimensions/cell projections; undecoded direct matrix/complex/
-integer returns remain unobserved.
+They are executions, not pure memory inspections. Matrix scenarios support both explicit dimension/cell projections and the verified direct matrix, vector, complex and integer codecs. Unknown representations remain unobserved.
 
 Native Run reuses the existing VM `SessionContext`, preserving module globals,
 calculator globals, settings and GROB state by exact source identity. It does
@@ -261,3 +259,19 @@ FullSystem calculator backend. Real ARM execution, paused-CPU qtest checks,
 synthetic Unicorn continuation, local HLE results and historical physical replay
 remain separate observations. No synthetic result may claim a physical capture
 or proprietary kernel boot. Existing PPL fixture schemas are unchanged.
+
+M18 adds `tests/differential/m18/ascii_imaginary.toml` and
+`exported_variables.toml`. Coordinator runs against the actual rebuilt helper
+pass 14 and 29 assertions, respectively. They preserve scalar/list/matrix types,
+module ownership, repeated state and edited-source identities. Firmware list
+subtype0x16/2 is admitted only after controlled representation/projection captures;
+unknown forms still fail observation. Alongside M17's three scenarios, the five
+actual Native/HLE comparisons pass94 assertions without mismatches. No new
+physical-device capture is included.
+
+FullSystem wrapper artifacts are under `OUTPUT/run`, inside an atomically
+reserved private output directory. Failed admission cannot borrow another run's
+container ID. Structured hardware reports require actual guest entry, step,
+terminal state and case-specific mailbox/UART observations; empty objects with
+an execution flag are rejected. This is validation of trusted local tooling,
+not cryptographic attestation of arbitrary externally supplied results.

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "existing_local_research_assets",
+  "scope": "existing_local_research_and_configured_hle_assets",
   "artifacts": [
     {
       "path": "scratch/research/firmware/extracted/PRIME_OS.ROM",
@@ -22,8 +22,23 @@
       "sha256": "fa39551872f21c429aaba5dd68428772c7a46ed41e77bc0d79bc5c38a362bc1e",
       "classification": "update_component",
       "bootability_verified": false
+    },
+    {
+      "path": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+      "bytes": 8306652,
+      "sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+      "classification": "hle_application_elf_not_boot_chain",
+      "bootability_verified": false
+    },
+    {
+      "path": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware-15157/armfir.elf",
+      "bytes": 8096364,
+      "sha256": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+      "classification": "hle_application_elf_not_boot_chain",
+      "bootability_verified": false
     }
   ],
   "kernel_boot_verified": false,
-  "complete_nand_oob_verified": false
+  "complete_nand_oob_verified": false,
+  "bootloader_found_in_inspected_assets": false
 }

@@ -1,6 +1,6 @@
 # Full-system G1 research
 
-Status: actual pinned hp-prime ARM926 machine-model smoke executed in M17; no kernel boot. The production backend executes armfir
+Status: M18 executes timer IRQ/FIQ handlers, guest UART/GPIO and MMU fault/recovery controls on the pinned hp-prime ARM926 model; no kernel boot. The production backend executes armfir
 under Unicorn with host SVC services; PRIME_OS is mapped inert. This research
 track does not replace that backend or claim a full-system implementation.
 
@@ -182,3 +182,31 @@ artifacts, kernel/MMU execution proof, and further validated timers/storage/LCD/
 input hardware behavior. PPL FullSystem stays unavailable until that independent
 software stack runs. Neither a linked ELF nor successful device-model tests are
 counted as PRIME_OS boot or physical calculator parity.
+
+## M18 executed hardware foundations
+
+The dedicated five-channel 16-bit S3C2416 timer replaces the borrowed Exynos
+device. Published GPL overlays also correct ARMv5 alignment checks in this old
+QEMU. Four self-authored guest cases pass three fresh processes each; the
+coordinator independently runs all four plus the original smoke through the
+new `ppl full-system` interface. IRQ handlers execute9 times and return;
+FIQ handlers execute3 times and return. UART output and GPIO register readbacks
+are exact. MMU translation, permission, alignment and prefetch aborts enter real
+vectors and return to guest instructions. Cache timing, simultaneous FIQ
+priority, multiword alignment edge cases and electrical GPIO behavior remain
+unverified. The timer blocks migration rather than omitting active device state.
+
+Final published-overlay build SHA-256:
+`6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a`.
+The pinned source/DTC/Xenial toolchain remain unchanged. Build overlays are
+ordered and reproducible. `full_system_preflight.py --build-root PATH` validates
+the isolated runtime without requiring host Python2/QEMU installation.
+
+See [hardware execution and complete coverage/boot matrices](../../research/full-system/M18_HARDWARE_EXECUTION.md)
+and [M18 integration](M18_FULL_SYSTEM_HARDWARE_FOUNDATIONS.md). Local resource
+hashes remain inventory evidence: update components and HLE application ELFs do
+not establish a bootable NAND/OOB image. No BXCBOOT or matching complete boot
+chain was found in the inspected assets. The next executable boot-foundation
+experiment is a self-authored NAND page/OOB/ECC control, followed by matching
+explicitly supplied boot artifacts when available. Never construct proprietary
+boot images from guessed update-component placement.
