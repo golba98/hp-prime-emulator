@@ -11,6 +11,7 @@ use crate::{
     services::{SharedState, TouchSample},
     trace::TraceHub,
 };
+use ppl_engine::checkpoint::{CheckpointReceipt, CheckpointResult};
 use ppl_engine::session::{self, Command, Event, Lifecycle};
 use std::{
     collections::{HashSet, VecDeque},
@@ -81,10 +82,13 @@ struct Device {
     last_key: Instant,
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
+    checkpoint: Option<crate::checkpoint::Checkpoint>,
+    checkpoint_idle: job::IdleMeter,
+    checkpoint_wait_entry: u64,
     recovery: Option<Arc<crate::recovery::Recovery>>,
     saved_sleep: Option<u64>,
-    save_result: Option<Result<(), String>>,
-    save_worker: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
+    save_result: Option<Result<CheckpointReceipt, String>>,
+    save_worker: Option<std::sync::mpsc::Receiver<Result<CheckpointReceipt, String>>>,
 }
 /// A key-up is not consumed merely because it left Device.keys. Preserve releases
 /// for canceled transitions already queued to GetEvent, including pending key-ups.
@@ -153,6 +157,9 @@ impl LiveSession {
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
                 power_down: None,
+                checkpoint: None,
+                checkpoint_idle: job::IdleMeter::default(),
+                checkpoint_wait_entry: 0,
                 recovery: None,
                 saved_sleep: None,
                 save_result: None,
@@ -259,7 +266,7 @@ impl LiveSession {
                         device.saved_sleep = Some(shared.sleeps());
                         self.event(Event::Status {
                             message: match &result {
-                                Ok(()) => "Calculator recovery checkpoint saved".into(),
+                                Ok(_) => "Calculator recovery checkpoint saved".into(),
                                 Err(e) => format!(
                                     "Recovery checkpoint failed; previous checkpoint retained: {e}"
                                 ),
@@ -279,6 +286,7 @@ impl LiveSession {
                 let store = device.recovery.as_ref().unwrap().clone();
                 let mem = mem.clone();
                 let shared = shared.clone();
+                let explicit = device.checkpoint.is_some();
                 let (tx, rx) = std::sync::mpsc::channel();
                 device.save_worker = Some(rx);
                 self.event(Event::Status {
@@ -297,7 +305,12 @@ impl LiveSession {
                             std::thread::sleep(Duration::from_millis(5));
                         };
                         shared.vfs.check_durable().map_err(|e| e.to_string())?;
-                        let result = store.checkpoint().map_err(|e| e.to_string());
+                        let result = if explicit {
+                            store.checkpoint_bounded(&crate::recovery::CheckpointPolicy::default())
+                        } else {
+                            store.checkpoint_receipt()
+                        }
+                        .map_err(|e| e.to_string());
                         drop(guard);
                         result
                     })();
@@ -307,6 +320,36 @@ impl LiveSession {
             }
         }
         for command in self.commands.lock().unwrap().try_iter().take(128) {
+            // Once OFF begins, admit no new calculator mutations until the
+            // exact sleep generation has been saved. Shutdown remains an
+            // immediate escape; frame requests do not mutate calculator state.
+            if device.checkpoint.is_some()
+                && !matches!(&command, Command::Shutdown | Command::FrameRequest)
+            {
+                let message = "A firmware persistence checkpoint is in progress".to_string();
+                match command {
+                    Command::Checkpoint { id, .. } => self.event(Event::Checkpoint {
+                        id,
+                        result: CheckpointResult::Deferred { reason: message },
+                    }),
+                    Command::Run { request, .. }
+                    | Command::Compile { request, .. }
+                    | Command::DirectCheck { request, .. }
+                    | Command::LoadSource { request, .. }
+                    | Command::Import { request, .. }
+                    | Command::StoreProgram { request, .. }
+                    | Command::RunStored { request, .. }
+                    | Command::ScenarioInput { request, .. }
+                    | Command::ReleaseInput { request, .. } => self.event(Event::Result {
+                        request,
+                        success: false,
+                        message,
+                        check: None,
+                    }),
+                    _ => self.event(Event::Status { message }),
+                }
+                continue;
+            }
             if matches!(
                 &command,
                 Command::Run { .. }
@@ -410,6 +453,40 @@ impl LiveSession {
                     }
                 }
                 Command::Shutdown => shared.set_stopping(),
+                Command::Checkpoint { id, wake } => {
+                    let admission = crate::checkpoint::Admission {
+                        ready: device.lifecycle == Lifecycle::Ready,
+                        sleeping: shared.sleeping(),
+                        recovery_available: device.recovery.is_some(),
+                        program_active: device.jobs.active.is_some() || device.jobs.interrupting(),
+                        guest_call_active: shared.guest_calls.busy(),
+                        script_active: device.script.is_some(),
+                        input_pending: device.input_cleanup.is_some()
+                            || device.scenario_touch.is_some()
+                            || !device.keys.is_empty()
+                            || !device.typing.is_empty()
+                            || shared.input_events_pending() != 0
+                            || shared.touch_pending() != 0,
+                        keys_held: !device.held.is_empty() || !device.delivered.is_empty(),
+                        shutdown_active: device.power_down.is_some(),
+                    };
+                    match crate::checkpoint::Checkpoint::begin(id, wake, &admission) {
+                        Ok(checkpoint) => {
+                            device.jobs.invalidate_prepared();
+                            device.repeat.clear();
+                            device.checkpoint_idle.clear();
+                            device.checkpoint_wait_entry = shared.main_wait_entries();
+                            if shared.sleeping() {
+                                // Even an already sleeping calculator gets a
+                                // new bounded generation for this request.
+                                device.saved_sleep = None;
+                                device.save_result = None;
+                            }
+                            device.checkpoint = Some(checkpoint);
+                        }
+                        Err(result) => self.event(Event::Checkpoint { id, result }),
+                    }
+                }
                 Command::PowerDown => {
                     device.typing.clear();
                     device.jobs.invalidate_prepared();
@@ -793,6 +870,7 @@ impl LiveSession {
             device.lifecycle = next;
             self.event(Event::Lifecycle { state: next });
         }
+        self.advance_checkpoint(&mut device, shared);
         self.power_down(&mut device, shared);
         let Device {
             unsupported_seen, ..
@@ -821,6 +899,46 @@ impl LiveSession {
             }
         }
     }
+    fn advance_checkpoint(&self, device: &mut Device, shared: &SharedState) {
+        let saved = (device.saved_sleep == Some(shared.sleeps()))
+            .then_some(device.save_result.as_ref())
+            .flatten();
+        let Some(checkpoint) = &mut device.checkpoint else {
+            return;
+        };
+        let id = checkpoint.id;
+        let idle = shared.main_wait_entries() > device.checkpoint_wait_entry
+            && device.checkpoint_idle.settled(shared);
+        match checkpoint.poll(shared.sleeping(), idle, saved) {
+            Some(crate::checkpoint::Action::PowerOff) => {
+                device.keys.extend([
+                    (SHIFT_KEY, true),
+                    (SHIFT_KEY, false),
+                    (crate::services::ON_KEY_CODE, true),
+                    (crate::services::ON_KEY_CODE, false),
+                ]);
+            }
+            Some(crate::checkpoint::Action::Finished { mut result, wake }) => {
+                if let CheckpointResult::Failed { message } = &mut result {
+                    message.push_str(&format!(
+                        " (main waits {}→{}, main waiting={}, input pump parked={}, queued input={}, touch={})",
+                        device.checkpoint_wait_entry, shared.main_wait_entries(),
+                        shared.main_waiting(), shared.getevent_parked(),
+                        shared.input_events_pending(), shared.touch_pending(),
+                    ));
+                }
+                if wake {
+                    device.keys.extend([
+                        (crate::services::ON_KEY_CODE, true),
+                        (crate::services::ON_KEY_CODE, false),
+                    ]);
+                }
+                device.checkpoint = None;
+                self.event(Event::Checkpoint { id, result });
+            }
+            None => {}
+        }
+    }
     /// Advances a PowerDown: once no program runs, press the firmware's
     /// OFF; once it sleeps (its state saved), end the session.
     fn power_down(&self, device: &mut Device, shared: &SharedState) {
@@ -840,7 +958,7 @@ impl LiveSession {
                 return;
             }
             if let Some(store) = &device.recovery {
-                if matches!(device.save_result, Some(Ok(()))) {
+                if matches!(device.save_result, Some(Ok(_))) {
                     if let Err(e) = store.clean_shutdown() {
                         return end(&format!(
                             "Checkpoint saved, but shutdown marker failed: {e}"

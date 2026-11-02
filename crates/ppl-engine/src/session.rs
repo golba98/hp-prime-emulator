@@ -75,6 +75,7 @@ pub enum Command {
         entry: String,
         arguments: String,
     },
+    /// Explicit opt-in firmware OFF persistence checkpoint; not a live CPU image.
     Checkpoint {
         id: u64,
         wake: bool,

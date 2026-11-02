@@ -14,6 +14,7 @@
 
 pub mod appsuite;
 pub mod calcverify;
+pub mod checkpoint;
 pub mod checkprog;
 pub mod compiler;
 pub mod direct;

@@ -326,6 +326,9 @@ pub struct SharedState {
     /// OSWaitForEvent: it has finished handling the messages the pump
     /// forwarded to it.
     main_waiting: AtomicBool,
+    /// Main-thread wait entries, allowing transactions to require a fresh
+    /// firmware event-loop boundary after their request was accepted.
+    main_wait_entries: AtomicU64,
     /// Pending non-input UI events (timer events), delivered by GetEvent
     /// before queued input — PrimU2's `special_event` slot, as a small
     /// bounded queue so a SYS_TIMER and a DEVICE_TIMER due together are
@@ -508,6 +511,7 @@ impl SharedState {
             getevent_parked: AtomicBool::new(false),
             getevent_entries: AtomicU64::new(0),
             main_waiting: AtomicBool::new(false),
+            main_wait_entries: AtomicU64::new(0),
             system_events: Mutex::new(std::collections::VecDeque::new()),
             system_events_delivered: AtomicU64::new(0),
             device_timer_delivered: AtomicU64::new(0),
@@ -622,7 +626,14 @@ impl SharedState {
     }
 
     pub fn set_main_waiting(&self, waiting: bool) {
+        if waiting {
+            self.main_wait_entries.fetch_add(1, Ordering::Release);
+        }
         self.main_waiting.store(waiting, Ordering::Release);
+    }
+
+    pub fn main_wait_entries(&self) -> u64 {
+        self.main_wait_entries.load(Ordering::Acquire)
     }
 
     pub fn getevent_entries(&self) -> u64 {
@@ -1049,6 +1060,18 @@ fn reg(uc: &Unicorn<'_, ()>, r: RegisterARM) -> u32 {
 #[cfg(test)]
 mod power_tests {
     use super::*;
+    #[test]
+    fn main_wait_generation_distinguishes_a_fresh_boundary_from_an_old_idle_sample() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.set_main_waiting(true);
+        let old = s.main_wait_entries();
+        assert!(s.main_waiting());
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(false);
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(true);
+        assert_eq!(s.main_wait_entries(), old + 1);
+    }
     fn queued(s: &SharedState) -> Vec<(u32, u16)> {
         s.pop_input_events(64)
             .into_iter()

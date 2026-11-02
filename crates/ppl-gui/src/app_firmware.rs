@@ -215,6 +215,22 @@ impl IdeDesktopApp {
         let events = self.firmware.as_ref().map(|f| f.poll()).unwrap_or_default();
         for event in events {
             match event {
+                Event::Checkpoint { result, .. } => {
+                    use ppl_engine::checkpoint::CheckpointResult;
+                    let message = match result {
+                        CheckpointResult::Saved { .. } => {
+                            "Calculator recovery checkpoint saved".into()
+                        }
+                        CheckpointResult::Deferred { reason } => {
+                            format!("Checkpoint deferred: {reason}")
+                        }
+                        CheckpointResult::Failed { message } => {
+                            format!("Checkpoint failed: {message}")
+                        }
+                    };
+                    self.console.print_diagnostic(&message);
+                    self.firmware_status = message;
+                }
                 Event::Lifecycle { state } => {
                     self.state.firmware_session = match state {
                         Lifecycle::Booting => FirmwareSession::Booting,
@@ -347,8 +363,7 @@ impl IdeDesktopApp {
                         self.firmware_state = crate::ide::VmExecutionState::Idle;
                     }
                 }
-                Event::Checkpoint { .. }
-                | Event::Hello { .. }
+                Event::Hello { .. }
                 | Event::Execution { .. }
                 | Event::ExecutionStarted { .. } => {}
             }
