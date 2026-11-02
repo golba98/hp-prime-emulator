@@ -149,6 +149,7 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         ctx.shared.set_main_waiting(true);
     }
     let signaled = {
+        let _blocked = ctx.shared.safe_points.blocked(ctx.thread_id, Some(desc));
         let _parked = ctx.mem.snapshot_gate.park();
         ev.wait(timeout, &|| {
             ctx.shared.stopping()
@@ -269,6 +270,7 @@ pub fn os_wait_for_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         _ => return Ok(super::sync::WAIT_RESULT_ERROR),
     };
     let ok = {
+        let _blocked = ctx.shared.safe_points.blocked(ctx.thread_id, Some(desc));
         let _parked = ctx.mem.snapshot_gate.park();
         sem.wait(timeout, &|| ctx.shared.stopping() || obj.closed())
     };
@@ -325,6 +327,7 @@ pub fn os_enter_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> 
     let obj = ctx.shared.sync_objects.lock().unwrap().get(&ptr).cloned();
     if let Some(super::sync::SyncObj::CritSec(cs)) = obj.as_ref().map(|entry| &entry.object) {
         let entered = {
+            let _blocked = ctx.shared.safe_points.blocked(ctx.thread_id, Some(ptr));
             let _parked = ctx.mem.snapshot_gate.park();
             cs.enter_until(&|| ctx.shared.stopping() || obj.as_ref().unwrap().closed())
         };

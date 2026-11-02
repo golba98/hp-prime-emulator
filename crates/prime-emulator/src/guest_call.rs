@@ -139,6 +139,12 @@ impl GuestCalls {
     }
 
     /// A plan is queued or a call is in progress.
+    pub fn inspected_busy(&self) -> Option<bool> {
+        self.state
+            .try_lock()
+            .ok()
+            .map(|s| s.plan.is_some() || s.active.is_some())
+    }
     pub fn busy(&self) -> bool {
         let s = self.state.lock().unwrap();
         s.plan.is_some() || s.active.is_some()

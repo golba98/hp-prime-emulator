@@ -118,6 +118,7 @@ impl SvcCtx<'_, '_> {
     /// Block the calling guest thread like the real OS would, but bounded so
     /// a headless run cannot hang forever without diagnostics.
     pub fn bounded_sleep(&self, ms: u64) {
+        let _blocked = self.shared.safe_points.blocked(self.thread_id, None);
         let _parked = self.mem.snapshot_gate.park();
         std::thread::sleep(Duration::from_millis(ms));
     }
@@ -271,6 +272,7 @@ pub struct Power {
 }
 
 pub struct SharedState {
+    pub safe_points: std::sync::Arc<crate::safepoint::SafePoints>,
     /// Root directory serving the guest's drive letters (`A:\` etc.).
     pub data_dir: PathBuf,
     /// Host-requested guest calls on the UI thread (`guest_call`).
@@ -507,6 +509,7 @@ impl SharedState {
             next_device: AtomicU64::new(1),
             frp_data: Mutex::new(Vec::new()),
             lcd_object: Mutex::new(None),
+            safe_points: std::sync::Arc::new(crate::safepoint::SafePoints::default()),
             lcd_watch: LcdWatch::default(),
             getevent_parked: AtomicBool::new(false),
             getevent_entries: AtomicU64::new(0),
@@ -860,6 +863,7 @@ impl SharedState {
     }
 
     pub fn set_stopping(&self) {
+        self.safe_points.cancel();
         self.stopping.store(true, Ordering::Relaxed);
     }
 
@@ -973,6 +977,7 @@ pub fn dispatch(
         caller_pc,
         stack_slots,
     };
+    let _service = shared.safe_points.enter_svc(thread_id, svc_id, caller_pc);
     let entry = registry.entry(svc_id);
     let supported = entry.is_some_and(|e| e.handler.is_some());
     if let Some(e) = entry {

@@ -33,6 +33,7 @@ pub mod runner;
 pub mod runprog;
 pub mod runtime;
 pub mod runtime_value;
+pub mod safepoint;
 pub mod script;
 pub mod services;
 pub mod session;

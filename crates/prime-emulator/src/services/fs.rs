@@ -64,6 +64,10 @@ impl Vfs {
         }
     }
 
+    pub fn inspection(&self) -> serde_json::Value {
+        let files = self.files.try_lock().ok();
+        serde_json::json!({"open_files":files.as_ref().map(|f| f.len()),"writable_files":files.as_ref().map(|f| f.values().filter(|v|v.writable).count()),"searches":self.finds.try_lock().ok().map(|f|f.len())})
+    }
     pub fn root(&self) -> &Path {
         &self.root
     }

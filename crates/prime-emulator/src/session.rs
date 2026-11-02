@@ -361,7 +361,10 @@ impl LiveSession {
             // exact sleep generation has been saved. Shutdown remains an
             // immediate escape; frame requests do not mutate calculator state.
             if device.checkpoint.is_some()
-                && !matches!(&command, Command::Shutdown | Command::FrameRequest)
+                && !matches!(
+                    &command,
+                    Command::Shutdown | Command::FrameRequest | Command::Inspect { .. }
+                )
             {
                 let message = "A firmware persistence checkpoint is in progress".to_string();
                 match command {
@@ -417,6 +420,10 @@ impl LiveSession {
                 }
             }
             match command {
+                Command::Inspect { request } => self.event(Event::Inspection {
+                    request,
+                    report: Box::new(self.inspect(&device, mem, shared, trace)),
+                }),
                 Command::Text { text, paste }
                     if device.jobs.accepts_input()
                         && device.script.is_none()
@@ -937,6 +944,66 @@ impl LiveSession {
             }
         }
     }
+    fn inspect(
+        &self,
+        device: &Device,
+        mem: &GuestMemory,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> ppl_engine::inspection::SessionInspection {
+        use ppl_engine::inspection::{SessionInspection, SnapshotReadiness};
+        let pause = shared
+            .safe_points
+            .pause(crate::memory::snapshot::REQUEST_HOLD);
+        let paused = pause.is_ok();
+        let mut blockers = vec![
+            "complete_cpu_context_export_unimplemented".into(),
+            "host_resource_reconstruction_incomplete".into(),
+        ];
+        if let Err(reason) = &pause {
+            blockers.push(reason.clone());
+        }
+        let gate = mem.snapshot_gate.try_snapshot();
+        let (active, parked) = mem.snapshot_gate.counts();
+        if gate.is_none() {
+            blockers.push("active_guest_memory_writers".into());
+        }
+        if parked != 0 {
+            blockers.push("parked_native_callback_continuations".into());
+        }
+        if device.jobs.active.is_some() {
+            blockers.push("managed_program_operation_active".into());
+        }
+        if shared.input_events_pending() != 0
+            || shared.touch_pending() != 0
+            || !device.held.is_empty()
+            || device.scenario_touch.is_some()
+        {
+            blockers.push("input_pending_or_held".into());
+        }
+        let report = SessionInspection {
+            version: ppl_engine::inspection::VERSION,
+            resource_identity: device
+                .recovery
+                .as_ref()
+                .map(|r| r.resource_identity().to_owned()),
+            lifecycle: device.lifecycle,
+            readiness: SnapshotReadiness {
+                memory_gate_acquired: gate.is_some(),
+                owners_paused: paused,
+                active_engines: active,
+                parked_native_callbacks: parked,
+                live_restore_ready: false,
+                blockers,
+            },
+            owners: shared.safe_points.observations(),
+            resources: serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()}),
+            diagnostics: trace.diagnostic_bundle(),
+        };
+        drop(gate);
+        drop(pause);
+        report
+    }
     fn advance_checkpoint(&self, device: &mut Device, shared: &SharedState) {
         let saved = (device.saved_sleep == Some(shared.sleeps()))
             .then_some(device.save_result.as_ref())
@@ -1216,6 +1283,7 @@ pub fn run(
         trace: crate::trace::TraceConfig {
             compiler: observed,
             runtime: observed,
+            svc_trace: std::env::var_os("PRIME_SESSION_TRACE").is_some(),
             fs_trace: true,
             verbosity: 0,
             jsonl_path: std::env::var_os("PRIME_SESSION_TRACE").map(std::path::PathBuf::from),
