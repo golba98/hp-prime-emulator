@@ -27,6 +27,28 @@ def cpu_seconds(pid):
         return None
 
 
+def profile_sha256(directory):
+    """Bind comparisons to the same initial data, excluding host timestamps."""
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        if path.is_symlink():
+            raise ValueError(f"initial profile contains a symlink: {path}")
+        name = path.relative_to(directory).as_posix().encode()
+        digest.update(struct.pack("<I", len(name)))
+        digest.update(name)
+        if path.is_dir():
+            digest.update(b"D")
+        elif path.is_file():
+            digest.update(b"F")
+            digest.update(struct.pack("<Q", path.stat().st_size))
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        else:
+            raise ValueError(f"initial profile contains a nonregular entry: {path}")
+    return digest.hexdigest()
+
+
 class Session:
     def __init__(self, helper, assets, profile, output):
         self.log = (output / "session.log").open("w")
@@ -137,6 +159,8 @@ def main():
         "platform": platform.platform(), "clock": "time.monotonic request write to matching Result event",
         "cpu_clock": "/proc/pid/stat user+system ticks when available", "samples_per_case": 1,
         "verification": "local firmware only; no physical calculator",
+        "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "initial_profile_sha256": profile_sha256(initial),
         "boot_seconds": [], "results": [],
     }
     request = 0
