@@ -66,6 +66,9 @@ fn perform(o: &DifferentialOpts) -> Result<(serde_json::Value, bool), String> {
     let replay =
         o.replay_evidence.is_some() || o.replay_manifest.is_some() || o.replay_suite.is_some();
     if replay {
+        if o.backend.iter().any(|b| !matches!(b, Choice::Native)) {
+            return Err("legacy physical replay compares qualified TYPE/STRING with Native; scenario backend flags cannot be combined with replay".into());
+        }
         if o.fixture.is_some() {
             return Err("scenario execution and legacy physical replay are separate scopes; omit the fixture for replay".into());
         }
