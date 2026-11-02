@@ -353,3 +353,195 @@ fn linked_debug_frames_and_globals_keep_original_source_revisions() {
     assert_eq!(n(result.result.unwrap()), 117);
     assert!(*calls.borrow() > 0);
 }
+
+#[test]
+fn exported_variables_relocate_reads_writes_and_indexed_writes_to_owner() {
+    let mut sources = modules(&[
+        (
+            "A",
+            "EXPORT m18shared:=10,m18list:={1,2},m18matrix:=[[1,2],[3,4]]; LOCAL private:=99; EXPORT READBACK() BEGIN RETURN {m18shared,m18list,m18matrix,private}; END;",
+        ),
+        (
+            "B",
+            "EXPORT GETSHARED() BEGIN RETURN m18shared; END; EXPORT SETSHARED() BEGIN m18shared:=m18shared+1; m18list(2):=9; m18matrix(2,1):=8; RETURN m18shared; END;",
+        ),
+        (
+            "C",
+            "LOCAL m18shared:=200; EXPORT SHADOW() BEGIN m18shared:=m18shared+1; RETURN m18shared; END;",
+        ),
+    ]);
+    let mut s = SessionContext::default();
+    initialize(&mut s, &sources, "A");
+    assert_eq!(
+        n(call(&mut s, &sources, "B", "GETSHARED", vec![])
+            .result
+            .unwrap()),
+        10
+    );
+    assert_eq!(
+        n(call(&mut s, &sources, "B", "SETSHARED", vec![])
+            .result
+            .unwrap()),
+        11
+    );
+    let Value::List(read) = call(&mut s, &sources, "A", "READBACK", vec![])
+        .result
+        .unwrap()
+    else {
+        panic!("list result");
+    };
+    assert_eq!(n(read[0].clone()), 11);
+    let Value::List(list) = &read[1] else {
+        panic!("exported list");
+    };
+    assert_eq!(n(list[1].clone()), 9);
+    let Value::Matrix(matrix) = &read[2] else {
+        panic!("exported matrix");
+    };
+    assert_eq!((matrix.rows, matrix.cols), (2, 2));
+    assert_eq!(n(matrix.data[2].clone()), 8);
+    assert_eq!(n(read[3].clone()), 99);
+    assert_eq!(
+        n(call(&mut s, &sources, "C", "SHADOW", vec![])
+            .result
+            .unwrap()),
+        201
+    );
+    assert_eq!(
+        n(call(&mut s, &sources, "B", "GETSHARED", vec![])
+            .result
+            .unwrap()),
+        11
+    );
+    let replacement = sources["A"]
+        .source
+        .replace("m18shared:=10", "m18shared:=40");
+    sources.insert(
+        "A".into(),
+        ModuleSource {
+            identity: SourceIdentity::new("A", &replacement),
+            source: replacement,
+        },
+    );
+    initialize(&mut s, &sources, "A");
+    assert_eq!(
+        n(call(&mut s, &sources, "B", "GETSHARED", vec![])
+            .result
+            .unwrap()),
+        40
+    );
+}
+
+#[test]
+fn external_variables_reject_private_ambiguous_and_unlinked_references() {
+    let sources = modules(&[
+        (
+            "A",
+            "LOCAL secret:=9; EXPORT READPRIVATE() BEGIN RETURN secret; END;",
+        ),
+        ("B", "EXPORT ROOT() BEGIN RETURN secret; END;"),
+    ]);
+    assert!(link_sources(&sources, "B").is_err());
+    let sources = modules(&[
+        ("A", "EXPORT shared:=1;"),
+        ("B", "EXPORT shared:=2;"),
+        ("C", "EXPORT ROOT() BEGIN RETURN shared; END;"),
+    ]);
+    assert!(
+        link_sources(&sources, "C")
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("ambiguous external variable")
+    );
+    for body in [
+        "RETURN shared;",
+        "shared:=2; RETURN 0;",
+        "shared(1):=2; RETURN 0;",
+    ] {
+        let file = ppl_syntax::SourceFile::new("raw", format!("EXPORT ROOT() BEGIN {body} END;"));
+        let (prog, diagnostics) = ppl_compiler::compile_source(
+            &file,
+            &ppl_compiler::CompileOptions {
+                external_variables: std::collections::BTreeSet::from(["shared".into()]),
+                ..Default::default()
+            },
+        );
+        assert!(!diagnostics.has_errors());
+        let mut machine = ppl_vm::Machine::new(
+            std::rc::Rc::new(prog.unwrap()),
+            Box::new(HeadlessHost::new()),
+            Default::default(),
+            Default::default(),
+        );
+        let error = machine.call_function("ROOT", vec![]).unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Undefined);
+        assert!(
+            error
+                .to_string()
+                .contains("requires a linked module catalog")
+        );
+    }
+}
+
+#[test]
+fn ascii_imaginary_unit_is_a_fallback_after_ordinary_names() {
+    for (source, expected) in [
+        ("EXPORT ROOT() BEGIN RETURN i; END;", "i"),
+        ("EXPORT ROOT() BEGIN LOCAL i:=7; RETURN i; END;", "7"),
+        (
+            "i() BEGIN RETURN 6; END; EXPORT ROOT() BEGIN RETURN i; END;",
+            "6",
+        ),
+        (
+            "i() BEGIN RETURN 6; END; EXPORT ROOT() BEGIN RETURN i(); END;",
+            "6",
+        ),
+        ("EXPORT ROOT() BEGIN RETURN I; END;", "0"),
+    ] {
+        let sources = modules(&[("A", source)]);
+        let mut s = SessionContext::default();
+        assert_eq!(
+            call(&mut s, &sources, "A", "ROOT", vec![])
+                .result
+                .unwrap()
+                .display(s.settings.format()),
+            expected
+        );
+    }
+}
+
+#[test]
+fn fresh_sdk_external_variable_reference_initializes_owner_instead_of_returning_zero() {
+    let sources = modules(&[
+        ("A", "EXPORT shared:=10;"),
+        ("B", "EXPORT ROOT() BEGIN RETURN shared; END;"),
+    ]);
+    let mut machine = ppl_vm::Machine::new_linked(
+        link_sources(&sources, "B").unwrap(),
+        Box::new(HeadlessHost::new()),
+        Default::default(),
+        Default::default(),
+    );
+    assert_eq!(n(machine.call_function("ROOT", vec![]).unwrap()), 10);
+}
+
+#[test]
+fn cross_module_export_variable_initializer_cycles_are_explicitly_unsupported() {
+    let sources = modules(&[
+        ("A", "EXPORT first:=second+1;"),
+        (
+            "B",
+            "EXPORT second:=first+1; EXPORT ROOT() BEGIN RETURN second; END;",
+        ),
+    ]);
+    let mut machine = ppl_vm::Machine::new_linked(
+        link_sources(&sources, "B").unwrap(),
+        Box::new(HeadlessHost::new()),
+        Default::default(),
+        Default::default(),
+    );
+    let error = machine.call_function("ROOT", vec![]).unwrap_err();
+    assert_eq!(error.kind, ErrorKind::Unsupported);
+    assert!(error.to_string().contains("initializer cycle"));
+}

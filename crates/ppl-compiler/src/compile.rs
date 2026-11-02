@@ -28,6 +28,7 @@ pub struct CompileOptions {
     pub default_int_base: IntBase,
     /// Exported functions installed in the caller-owned module catalog.
     pub external_functions: std::collections::BTreeMap<String, usize>,
+    pub external_variables: std::collections::BTreeSet<String>,
     pub ambiguous_externals: std::collections::BTreeSet<String>,
 }
 
@@ -36,6 +37,7 @@ impl Default for CompileOptions {
         CompileOptions {
             default_int_base: IntBase::Hex,
             external_functions: Default::default(),
+            external_variables: Default::default(),
             ambiguous_externals: Default::default(),
         }
     }
@@ -295,7 +297,7 @@ impl<'a> Compiler<'a> {
                         .entry(name.name.clone())
                         .or_insert(span.start);
                 }
-                Item::Globals { vars, .. } => {
+                Item::Globals { vars, exported, .. } => {
                     for v in vars {
                         if self.global_map.contains_key(&v.name.name) {
                             self.warn(
@@ -321,6 +323,8 @@ impl<'a> Compiler<'a> {
                             name: v.name.name.clone(),
                             init: GlobalInit::Zero,
                             program_var: true,
+                            exported: *exported,
+                            external: false,
                             read_only: false,
                         });
                         self.global_map.insert(v.name.name.clone(), id);
@@ -485,6 +489,19 @@ impl<'a> Compiler<'a> {
         if let Some(&g) = self.global_map.get(name) {
             return Some(VarRef::Global(g));
         }
+        if self.opts.external_variables.contains(name) {
+            let id = self.globals.len() as u32;
+            self.globals.push(GlobalSlot {
+                name: name.to_owned(),
+                init: GlobalInit::Zero,
+                program_var: true,
+                exported: false,
+                external: true,
+                read_only: false,
+            });
+            self.global_map.insert(name.to_owned(), id);
+            return Some(VarRef::Global(id));
+        }
         let (init, read_only) = system_global(name)?;
         let canon = canonical_system_name(name);
         if let Some(&g) = self.global_map.get(&canon) {
@@ -495,6 +512,8 @@ impl<'a> Compiler<'a> {
             name: canon.clone(),
             init,
             program_var: false,
+            exported: false,
+            external: false,
             read_only,
         });
         self.global_map.insert(canon, id);
@@ -1219,6 +1238,11 @@ impl<'a> Compiler<'a> {
             self.names.push(name.into());
             self.cur.emit(Op::CallExternal { name: idx, argc: 0 }, span);
             return;
+        }
+        // ASCII i is the firmware's imaginary constant only after ordinary
+        // local/file/function resolution. A declared local or function i wins.
+        if name == "i" {
+            return self.constant(Const::Complex(Complex::new(Real::ZERO, Real::ONE)), span);
         }
         if let Some(spec) = builtins::lookup(name) {
             if spec.accepts(0) && spec.ref_args == 0 {

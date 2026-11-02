@@ -166,6 +166,10 @@ pub struct GlobalSlot {
     pub init: GlobalInit,
     /// Declared by the program (file-level LOCAL/EXPORT).
     pub program_var: bool,
+    /// File-level EXPORT, visible to independently compiled modules.
+    pub exported: bool,
+    /// Unresolved reference to an installed exported variable; linker-owned.
+    pub external: bool,
     pub read_only: bool,
 }
 

@@ -39,6 +39,7 @@ pub fn link_sources(
 ) -> RtResult<LinkedProgram> {
     let mut signatures = BTreeMap::new();
     let mut owners = BTreeMap::<String, Vec<String>>::new();
+    let mut variable_owners = BTreeMap::<String, Vec<String>>::new();
     for (name, module) in sources {
         let (ast, diags) = ppl_syntax::parse(&module.source);
         // Broken unrelated editor tabs must not block a valid dependency closure.
@@ -46,6 +47,24 @@ pub fn link_sources(
             continue;
         }
         for item in ast.items {
+            if let ppl_syntax::ast::Item::Globals {
+                exported: true,
+                vars,
+                ..
+            } = &item
+            {
+                for var in vars {
+                    if ppl_compiler::is_system_variable(&var.name.name)
+                        || ppl_compiler::builtins::lookup(&var.name.name).is_some()
+                    {
+                        continue;
+                    }
+                    variable_owners
+                        .entry(var.name.name.clone())
+                        .or_default()
+                        .push(name.clone());
+                }
+            }
             if let ppl_syntax::ast::Item::Function(f) = item {
                 if f.exported
                     && ppl_compiler::builtins::lookup(&f.name.name).is_none()
@@ -68,6 +87,7 @@ pub fn link_sources(
     }
     let options = ppl_compiler::CompileOptions {
         external_functions: signatures,
+        external_variables: variable_owners.keys().cloned().collect(),
         ambiguous_externals: owners
             .iter()
             .filter(|(_, names)| names.len() > 1)
@@ -87,6 +107,16 @@ pub fn link_sources(
         let (unit, diags) = ppl_compiler::compile_source(&file, &options);
         let unit = unit.ok_or_else(|| compile_error(&name, &diags))?;
         diagnostics.push((module.identity.clone(), diags));
+        for slot in unit.globals.iter().filter(|slot| slot.external) {
+            let candidates = &variable_owners[&slot.name];
+            if candidates.len() != 1 || owners.contains_key(&slot.name) {
+                return Err(RuntimeError::new(
+                    ErrorKind::Undefined,
+                    format!("ambiguous external variable {}", slot.name),
+                ));
+            }
+            pending.push(candidates[0].clone());
+        }
         for chunk in unit.functions.iter().chain(std::iter::once(&unit.init)) {
             for op in &chunk.code {
                 if let Op::CallExternal { name: symbol, .. } = op {
@@ -125,6 +155,7 @@ pub fn link_sources(
     let mut global_owners = vec![];
     let mut shared_globals = BTreeMap::new();
     let mut global_maps = vec![];
+    let mut exported_globals = BTreeMap::new();
     let mut function_bases = vec![];
     let mut constant_bases = vec![];
     let mut name_bases = vec![];
@@ -139,6 +170,10 @@ pub fn link_sources(
         image.names.extend(unit.names.clone());
         let mut globals = vec![];
         for slot in &unit.globals {
+            if slot.external {
+                globals.push(u32::MAX);
+                continue;
+            }
             let idx = if !slot.program_var {
                 if let Some(&idx) = shared_globals.get(&slot.name) {
                     idx
@@ -150,6 +185,9 @@ pub fn link_sources(
             } else {
                 add_global(&mut image.globals, &mut global_owners, slot, Some(module))
             };
+            if slot.exported {
+                exported_globals.insert(slot.name.clone(), idx);
+            }
             globals.push(idx);
         }
         global_maps.push(globals);
@@ -173,6 +211,21 @@ pub fn link_sources(
         init.name = format!("{}::<file variables>", modules[module].name);
         image.functions.push(init);
         function_owners.push(module);
+    }
+    for (module, unit) in units.iter().enumerate() {
+        for (index, slot) in unit
+            .globals
+            .iter()
+            .enumerate()
+            .filter(|(_, slot)| slot.external)
+        {
+            global_maps[module][index] = *exported_globals.get(&slot.name).ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Undefined,
+                    format!("unresolved external variable {}", slot.name),
+                )
+            })?;
+        }
     }
     for (index, chunk) in image.functions.iter_mut().enumerate() {
         let module = function_owners[index];

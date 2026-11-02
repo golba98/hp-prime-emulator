@@ -81,6 +81,7 @@ pub trait Debugger {
 pub struct Machine {
     prog: Rc<CompiledProgram>,
     pub(crate) linked: Option<(crate::LinkedProgram, Vec<bool>)>,
+    initializing_modules: std::collections::BTreeSet<usize>,
     consts: Vec<Value>,
     pub(crate) globals: Vec<Value>,
     setting_slots: Vec<Option<Setting>>,
@@ -157,6 +158,7 @@ impl Machine {
         Machine {
             prog,
             linked: None,
+            initializing_modules: Default::default(),
             consts,
             globals,
             setting_slots,
@@ -316,7 +318,11 @@ impl Machine {
             let mut visible = std::collections::BTreeMap::new();
             for private in [false, true] {
                 for (i, slot) in self.prog.globals.iter().enumerate() {
-                    if image.global_owners[i] == if private { Some(owner) } else { None } {
+                    if if private {
+                        image.global_owners[i] == Some(owner)
+                    } else {
+                        image.global_owners[i].is_none() || slot.exported
+                    } {
                         visible.insert(slot.name.clone(), self.load_global(i));
                     }
                 }
@@ -382,7 +388,9 @@ impl Machine {
             return Ok(());
         }
         self.linked.as_mut().unwrap().1[module] = true;
+        self.initializing_modules.insert(module);
         let result = self.execute(func, vec![]).map(|_| ());
+        self.initializing_modules.remove(&module);
         if result.is_err() {
             self.linked.as_mut().unwrap().1[module] = false;
         }
@@ -581,6 +589,36 @@ impl Machine {
         Ok(())
     }
 
+    fn prepare_global(&mut self, slot: usize) -> RtResult<()> {
+        if self.prog.globals[slot].external {
+            return Err(RuntimeError::new(
+                ErrorKind::Undefined,
+                format!(
+                    "external variable {} requires a linked module catalog",
+                    self.prog.globals[slot].name
+                ),
+            ));
+        }
+        if self.prog.globals[slot].exported
+            && let Some((image, _)) = &self.linked
+        {
+            let owner = image.global_owners[slot].expect("exported file variable owner");
+            let current = self
+                .frames
+                .last()
+                .and_then(|frame| image.function_owners.get(frame.func))
+                .copied();
+            if self.initializing_modules.contains(&owner) && current != Some(owner) {
+                return Err(RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    "cross-module variable initializer cycle has unverified firmware semantics; execute this catalog in firmware mode",
+                ));
+            }
+            self.initialize_module(owner)?;
+        }
+        Ok(())
+    }
+
     fn load_global(&self, slot: usize) -> Value {
         match self.setting_slots.get(slot).copied().flatten() {
             Some(s) => {
@@ -672,10 +710,12 @@ impl Machine {
                 self.stack[frame.base + s as usize] = v;
             }
             Op::LoadGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.load_global(g as usize);
                 self.stack.push(v);
             }
             Op::StoreGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.pop();
                 self.store_global(g as usize, v)?;
             }
@@ -840,6 +880,7 @@ impl Machine {
                 self.stack.push(v);
             }
             Op::StoreIndexGlobal { slot, n } => {
+                self.prepare_global(slot as usize)?;
                 let v = self.pop();
                 let idx = self.pop_n(n as usize);
                 let max = self.limits.max_collection_len;
