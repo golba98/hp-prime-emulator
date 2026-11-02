@@ -4,13 +4,15 @@ use ppl_engine::{Cancellation, firmware_options::Options};
 use std::path::Path;
 
 fn fixtures() -> impl Iterator<Item = LoadedScenario> {
-    ["initialization", "linkage"].into_iter().map(|name| {
-        LoadedScenario::load(
-            &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(format!("../../tests/differential/m17/{name}.toml")),
-        )
-        .unwrap()
-    })
+    ["initialization", "linkage", "typed_values"]
+        .into_iter()
+        .map(|name| {
+            LoadedScenario::load(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join(format!("../../tests/differential/m17/{name}.toml")),
+            )
+            .unwrap()
+        })
 }
 
 #[test]
