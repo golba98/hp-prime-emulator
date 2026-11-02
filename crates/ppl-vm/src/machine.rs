@@ -183,6 +183,33 @@ impl Machine {
         }
     }
 
+    pub fn new_linked(
+        image: crate::LinkedProgram,
+        host: Box<dyn Host>,
+        settings: Settings,
+        limits: Limits,
+    ) -> Self {
+        let states = vec![false; image.modules.len()];
+        let mut machine = Self::new(image.program.clone(), host, settings, limits);
+        machine.linked = Some((image, states));
+        machine
+    }
+    /// Install reachable dependencies in deterministic catalog order before
+    /// the root's file initializers. Already initialized units are not repeated.
+    pub fn initialize_dependencies(&mut self) -> RtResult<()> {
+        let Some((image, _)) = &self.linked else {
+            return Ok(());
+        };
+        let root = image.root;
+        let count = image.modules.len();
+        for module in 0..count {
+            if module != root {
+                self.initialize_module(module)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn program(&self) -> &CompiledProgram {
         &self.prog
     }

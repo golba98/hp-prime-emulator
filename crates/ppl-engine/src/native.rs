@@ -18,6 +18,8 @@ use std::{
 };
 pub struct Options {
     pub entry: Option<String>,
+    /// Additional caller-supplied Native catalog sources. No filesystem discovery.
+    pub modules: std::collections::BTreeMap<String, Source>,
     pub args: String,
     pub json_arguments: bool,
     pub host: HeadlessHost,
@@ -105,9 +107,65 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
     }
     let file = ppl_syntax::SourceFile::new(&source.identity.display_name, &source.text);
     let compile_start = Instant::now();
-    let (program, diags) = ppl_compiler::compile_source(&file, &Default::default());
+    let mut catalog = std::collections::BTreeMap::new();
+    for (name, module) in &opts.modules {
+        catalog.insert(
+            name.clone(),
+            ppl_vm::ModuleSource {
+                identity: ppl_vm::SourceIdentity::new(name, &module.identity.source_sha256),
+                source: module.text.clone(),
+            },
+        );
+    }
+    let root_name = source.identity.display_name.clone();
+    let linked = if !catalog.is_empty() {
+        if catalog.contains_key(&root_name) {
+            r.fail(
+                Status::InvalidSource,
+                "link",
+                "root source collides with catalog module",
+            );
+            return r;
+        }
+        catalog.insert(
+            root_name.clone(),
+            ppl_vm::ModuleSource {
+                identity: ppl_vm::SourceIdentity::new(&root_name, &source.identity.source_sha256),
+                source: source.text.clone(),
+            },
+        );
+        match ppl_vm::link_sources(&catalog, &root_name) {
+            Ok(image) => Some(image),
+            Err(error) => {
+                r.compilation_status = Some("invalid".into());
+                r.fail(Status::InvalidSource, "link", error.to_string());
+                r.timings = json!({"compilation_s":compile_start.elapsed().as_secs_f64(),"execution_s":0,"total_s":start.elapsed().as_secs_f64()});
+                return r;
+            }
+        }
+    } else {
+        None
+    };
+    let (program, diags) = if let Some(image) = &linked {
+        (
+            Some(image.program().clone()),
+            ppl_syntax::Diagnostics::default(),
+        )
+    } else {
+        ppl_compiler::compile_source(&file, &Default::default())
+    };
     let compile_s = compile_start.elapsed().as_secs_f64();
     r.diagnostics=diags.items.iter().map(|d|{let lc=file.line_col(d.span.start);Diagnostic{source:"native-compiler".into(),severity:if d.is_error(){"error"}else{"warning"}.into(),code:Some(d.code.into()),message:Some(d.message.clone()),line:Some(lc.line),column:Some(lc.col),raw_position:Some(json!({"start_byte":d.span.start,"end_byte":d.span.end,"hint":d.hint,"unverified":d.unverified,"class":format!("{:?}",d.class())}))}}).collect();
+    if let Some(image) = &linked {
+        r.diagnostics=image.diagnostics().iter().flat_map(|(id,diags)| {
+            let file=ppl_syntax::SourceFile::new(&id.name,&catalog[&id.name].source);
+            diags.items.iter().map(move|d|{let lc=file.line_col(d.span.start);Diagnostic{
+                source:"native-compiler".into(),severity:if d.is_error(){"error"}else{"warning"}.into(),
+                code:Some(d.code.into()),message:Some(d.message.clone()),line:Some(lc.line),column:Some(lc.col),
+                raw_position:Some(json!({"module":id.name,"revision":id.revision,"start_byte":d.span.start,"end_byte":d.span.end,"hint":d.hint,"unverified":d.unverified,"class":format!("{:?}",d.class())}))
+            }})
+        }).collect();
+    }
     r.compilation_status = Some(
         if program.is_some() && !source.text.trim().is_empty() {
             "valid"
@@ -116,7 +174,16 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
         }
         .into(),
     );
-    let warnings = diags.warnings().count();
+    let warnings = linked.as_ref().map_or_else(
+        || diags.warnings().count(),
+        |image| {
+            image
+                .diagnostics()
+                .iter()
+                .map(|(_, d)| d.warnings().count())
+                .sum()
+        },
+    );
     r.backend = json!({"function_count":program.as_ref().map(|p|p.functions.len()),"warning_count":warnings});
     let finish = |r: &mut Report, execution_s: f64| {
         r.timings = json!({"compilation_s":compile_s,"execution_s":execution_s,"total_s":start.elapsed().as_secs_f64()});
@@ -197,10 +264,16 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
         events: events.clone(),
         dialogs: dialogs.clone(),
     };
-    let mut m = Machine::new(Rc::new(program), Box::new(host), opts.settings, opts.limits);
+    let mut m = if let Some(image) = linked {
+        Machine::new_linked(image, Box::new(host), opts.settings, opts.limits)
+    } else {
+        Machine::new(Rc::new(program), Box::new(host), opts.settings, opts.limits)
+    };
     m.set_seed(opts.seed);
     let executing = Instant::now();
-    let result = m.call_function(&entry, args);
+    let result = m
+        .initialize_dependencies()
+        .and_then(|_| m.call_function(&entry, args));
     let execution_s = executing.elapsed().as_secs_f64();
     r.output = events.lock().unwrap().clone();
     r.backend["dialogs"] = json!(*dialogs.lock().unwrap());
@@ -220,7 +293,7 @@ pub fn execute(source: Source, op: Operation, mut opts: Options, cancel: &Cancel
                 ErrorKind::Unsupported => Status::Unsupported,
                 _ => Status::RuntimeError,
             };
-            r.runtime_errors=e.trace.iter().map(|f|{let lc=file.line_col(f.span.start);Diagnostic{source:"native-runtime".into(),severity:"error".into(),code:None,message:Some(e.to_string()),line:Some(lc.line),column:Some(lc.col),raw_position:Some(json!({"function":f.function,"start_byte":f.span.start,"end_byte":f.span.end}))}}).collect();
+            r.runtime_errors=e.trace.iter().map(|f|{let actual_file=f.module.as_ref().and_then(|id|catalog.get(&id.name)).map(|module|ppl_syntax::SourceFile::new(&module.identity.name,&module.source));let lc=actual_file.as_ref().unwrap_or(&file).line_col(f.span.start);Diagnostic{source:"native-runtime".into(),severity:"error".into(),code:None,message:Some(e.to_string()),line:Some(lc.line),column:Some(lc.col),raw_position:Some(json!({"function":f.function,"module":f.module.as_ref().map(|id|json!({"name":id.name,"revision":id.revision})),"start_byte":f.span.start,"end_byte":f.span.end}))}}).collect();
             r.fail(status, "runtime", e.to_string());
             if status == Status::Unsupported {
                 r.exit_code = 3;

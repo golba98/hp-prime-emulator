@@ -28,6 +28,7 @@ pub struct CompileOptions {
     pub default_int_base: IntBase,
     /// Exported functions installed in the caller-owned module catalog.
     pub external_functions: std::collections::BTreeMap<String, usize>,
+    pub ambiguous_externals: std::collections::BTreeSet<String>,
 }
 
 impl Default for CompileOptions {
@@ -35,6 +36,7 @@ impl Default for CompileOptions {
         CompileOptions {
             default_int_base: IntBase::Hex,
             external_functions: Default::default(),
+            ambiguous_externals: Default::default(),
         }
     }
 }
@@ -1196,6 +1198,15 @@ impl<'a> Compiler<'a> {
             self.cur.emit(Op::Call { func: id, argc: 0 }, span);
             return;
         }
+        if self.opts.ambiguous_externals.contains(name) {
+            self.error(
+                "ambiguous-external",
+                span,
+                format!("ambiguous external export {name}"),
+            );
+            self.cur.emit(Op::Zero, span);
+            return;
+        }
         if let Some(&params) = self.opts.external_functions.get(name) {
             if params != 0 {
                 self.error(
@@ -1342,6 +1353,15 @@ impl<'a> Compiler<'a> {
                 },
                 span,
             );
+            return;
+        }
+        if self.opts.ambiguous_externals.contains(name) {
+            self.error(
+                "ambiguous-external",
+                span,
+                format!("ambiguous external export {name}"),
+            );
+            self.cur.emit(Op::Zero, span);
             return;
         }
         if let Some(&params) = self.opts.external_functions.get(name) {

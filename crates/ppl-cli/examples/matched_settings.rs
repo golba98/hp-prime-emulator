@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Source::file(Path::new(&args[1]))?,
         Operation::Run,
         native::Options {
+            modules: Default::default(),
             entry: None,
             args: "[]".into(),
             json_arguments: true,

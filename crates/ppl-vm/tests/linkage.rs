@@ -275,3 +275,14 @@ fn retained_session_remains_send_without_transferring_rc_execution_images() {
     send::<SessionContext>();
     send::<ModuleSource>();
 }
+
+#[test]
+fn ambiguous_external_is_reported_before_candidate_argument_counts() {
+    let sources = modules(&[
+        ("A", "EXPORT TOP() BEGIN RETURN SAME(1); END;"),
+        ("B", "EXPORT SAME() BEGIN RETURN 2; END;"),
+        ("C", "EXPORT SAME(x,y) BEGIN RETURN x+y; END;"),
+    ]);
+    let error = link_sources(&sources, "A").err().unwrap();
+    assert!(error.detail.contains("ambiguous external"), "{error:?}");
+}

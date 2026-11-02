@@ -16,6 +16,19 @@ pub struct LinkedProgram {
     pub(crate) function_owners: Vec<usize>,
     pub(crate) initializers: Vec<usize>,
     pub(crate) root: usize,
+    diagnostics: Vec<(SourceIdentity, ppl_syntax::Diagnostics)>,
+}
+
+impl LinkedProgram {
+    pub fn diagnostics(&self) -> &[(SourceIdentity, ppl_syntax::Diagnostics)] {
+        &self.diagnostics
+    }
+    pub fn program(&self) -> &CompiledProgram {
+        &self.program
+    }
+    pub fn module_identities(&self) -> &[SourceIdentity] {
+        &self.modules
+    }
 }
 
 /// Build one execution image, sharing calculator slots but isolating file locals.
@@ -55,8 +68,14 @@ pub fn link_sources(
     }
     let options = ppl_compiler::CompileOptions {
         external_functions: signatures,
+        ambiguous_externals: owners
+            .iter()
+            .filter(|(_, names)| names.len() > 1)
+            .map(|(name, _)| name.clone())
+            .collect(),
         ..Default::default()
     };
+    let mut diagnostics = Vec::new();
     let mut selected = BTreeMap::new();
     let mut pending = vec![root.to_owned()];
     while let Some(name) = pending.pop() {
@@ -67,6 +86,7 @@ pub fn link_sources(
         let file = ppl_syntax::SourceFile::new(&name, &module.source);
         let (unit, diags) = ppl_compiler::compile_source(&file, &options);
         let unit = unit.ok_or_else(|| compile_error(&name, &diags))?;
+        diagnostics.push((module.identity.clone(), diags));
         for chunk in unit.functions.iter().chain(std::iter::once(&unit.init)) {
             for op in &chunk.code {
                 if let Op::CallExternal { name: symbol, .. } = op {
@@ -194,6 +214,7 @@ pub fn link_sources(
         function_owners,
         initializers,
         root,
+        diagnostics,
     })
 }
 fn add_global(

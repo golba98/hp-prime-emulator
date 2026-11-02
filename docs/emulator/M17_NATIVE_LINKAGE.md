@@ -36,5 +36,12 @@ exported variable references (as distinct from shared calculator variables) and
 initialization cycles need further firmware controls. Existing Native initializer
 failure retry is retained; exact firmware failure/recursive-initializer semantics
 are not claimed verified. Runtime error details remain distinct across backends.
-CLI/IDE project-catalog wiring and new firmware object decoders are subsequent
-increments; this checkpoint does not claim they already exist.
+The Native engine and CLI now consume the same linker: `ppl run` and `ppl check`
+accept repeatable `--module NAME=PATH` arguments. Only the reachable dependency
+closure is compiled; a broken unrelated supplied module remains harmless.
+Module warnings and runtime failures retain the original source identity and
+position. Ambiguous exported names are diagnosed before candidate arities.
+Output/report destinations cannot alias any dependency input file. Three actual
+CLI integration tests, ten linkage tests and six engine core tests pass; scoped
+Clippy with warnings denied passes. IDE open-tab catalog wiring and new firmware
+object decoders remain subsequent increments.
