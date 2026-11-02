@@ -42,7 +42,7 @@ fn err<T>(va: u32, msg: impl Into<String>) -> MemResult<T> {
 
 /// Round up to the 4 KiB granularity Unicorn requires for mappings.
 pub fn page_round(size: usize) -> usize {
-    (size + PAGE_SIZE as usize - 1) & !(PAGE_SIZE as usize - 1)
+    size.saturating_add(PAGE_SIZE as usize - 1) & !(PAGE_SIZE as usize - 1)
 }
 
 pub struct MemBlock {
@@ -129,7 +129,7 @@ impl Heap {
             // Keep the head padding as its own free block.
             self.free[i] = (block_start, (start - block_start) as usize);
             if fsize > total_us {
-                self.free.insert(i + 1, (start + total, fsize - total_us));
+                self.free.insert(i + 1, (start + size, fsize - total_us));
             }
         } else if fsize > total_us {
             self.free[i] = (start + total, fsize - total_us);
@@ -194,14 +194,24 @@ impl GuestMemory {
     /// Map an anonymous zeroed region. `vaddr` must be page-aligned and must
     /// not overlap any existing block.
     pub fn map(&mut self, name: &'static str, vaddr: u32, size: usize) -> MemResult<()> {
-        let rounded = page_round(size);
+        let rounded = size
+            .checked_add(PAGE_SIZE as usize - 1)
+            .map(|n| n & !(PAGE_SIZE as usize - 1))
+            .ok_or(MemoryError {
+                va: vaddr,
+                msg: "mapping size overflow".into(),
+            })?;
+        let guest_size = u32::try_from(rounded).map_err(|_| MemoryError {
+            va: vaddr,
+            msg: "mapping exceeds 32-bit address space".into(),
+        })?;
         if rounded == 0 {
             return err(vaddr, "zero-size mapping");
         }
         if vaddr % PAGE_SIZE != 0 {
             return err(vaddr, "mapping start not 4 KiB aligned");
         }
-        let end = vaddr.checked_add(rounded as u32).ok_or(MemoryError {
+        let end = vaddr.checked_add(guest_size).ok_or(MemoryError {
             va: vaddr,
             msg: "mapping end overflows 32-bit space".into(),
         })?;
@@ -322,7 +332,7 @@ impl GuestMemory {
 
     /// If a mapped block fully covers [va, va+size), return its base.
     pub fn covering_block(&self, va: u32, size: usize) -> Option<u32> {
-        let end = va.checked_add(size as u32)?;
+        let end = va.checked_add(u32::try_from(size).ok()?)?;
         self.blocks
             .iter()
             .find(|b| va >= b.vaddr && end <= b.end())
@@ -333,7 +343,11 @@ impl GuestMemory {
         if len == 0 {
             return err(va, "zero-length access");
         }
-        let end = va.checked_add(len as u32).ok_or(MemoryError {
+        let len_guest = u32::try_from(len).map_err(|_| MemoryError {
+            va,
+            msg: "access length exceeds 32-bit address space".into(),
+        })?;
+        let end = va.checked_add(len_guest).ok_or(MemoryError {
             va,
             msg: "access end overflows 32-bit address space".into(),
         })?;
@@ -344,6 +358,15 @@ impl GuestMemory {
                 va,
                 msg: format!("unmapped access of {len} bytes"),
             })
+    }
+
+    /// Validate the complete guest range before allocating a host buffer or
+    /// changing an external stream. Empty transfers access no guest bytes.
+    pub fn validate_range(&self, va: u32, len: usize) -> MemResult<()> {
+        if len == 0 {
+            return Ok(());
+        }
+        self.block_for(va, len).map(|_| ())
     }
 
     /// Validated host pointer for a guest range. Blocks are never unmapped,
@@ -366,7 +389,13 @@ impl GuestMemory {
     }
 
     pub fn read_bytes_alloc(&self, va: u32, len: usize) -> MemResult<Vec<u8>> {
-        let mut v = vec![0u8; len];
+        self.validate_range(va, len)?;
+        let mut v = Vec::new();
+        v.try_reserve_exact(len).map_err(|e| MemoryError {
+            va,
+            msg: format!("host read buffer allocation failed: {e}"),
+        })?;
+        v.resize(len, 0);
         self.read_bytes(va, &mut v)?;
         Ok(v)
     }
@@ -435,13 +464,17 @@ impl GuestMemory {
         }
         let b = self.block_for(va, 2)?;
         let cap = (((b.end() - va) / 2) as usize).min(max_chars);
-        let mut s = String::with_capacity(cap * 2);
+        let mut units = Vec::with_capacity(cap);
         for i in 0..cap {
             let c = self.read_u16(va + (i as u32) * 2)?;
             if c == 0 {
-                return Ok(Some(s));
+                let text = String::from_utf16(&units).map_err(|_| MemoryError {
+                    va,
+                    msg: "guest wide string is not valid UTF-16".into(),
+                })?;
+                return Ok(Some(text));
             }
-            s.push(char::from_u32(c as u32).unwrap_or('\u{FFFD}'));
+            units.push(c);
         }
         err(va, "unterminated guest wide string")
     }
@@ -450,7 +483,12 @@ impl GuestMemory {
     /// (including the terminator) leaves the destination block.
     pub fn write_cstr(&self, va: u32, s: &str) -> MemResult<()> {
         let bytes = s.as_bytes();
+        let len = bytes.len().checked_add(1).ok_or(MemoryError {
+            va,
+            msg: "guest string size overflow".into(),
+        })?;
+        self.validate_range(va, len)?;
         self.write_bytes(va, bytes)?;
-        self.write_u32(va + bytes.len() as u32, 0)
+        self.write_u8(va + bytes.len() as u32, 0)
     }
 }
