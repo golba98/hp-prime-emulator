@@ -38,7 +38,9 @@ changed, fetched or committed during this continuation.
 
 1. Reproduce the pinned fork build in a separate build directory; record compiler,
    Python, GLib/pixman and configure versions and every compatibility patch.
-   QEMU 2.10-era APIs/toolchains are a maintenance risk. No build success is
+   The pinned configure script explicitly requires Python >=2.6 and <3; modern
+   Python-only hosts cannot configure it unchanged. QEMU 2.10-era APIs/toolchains
+   are a maintenance risk. No build success is
    claimed here, and a modern-QEMU port is not a prerequisite for the Rust work.
 2. Run self-authored ARM926 smoke code: reset entry, RAM aliases, UART, interrupt
    acknowledgement and timer delivery. Add device tests using QEMU's testing

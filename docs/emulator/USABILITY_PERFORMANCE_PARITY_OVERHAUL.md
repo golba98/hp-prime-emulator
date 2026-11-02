@@ -13,7 +13,7 @@ layout / pages, Native EDITMAT, setup resource validation and pickers, allocatio
 failure handling and an experimental heap budget. Firmware-observed desktop text entry is also integrated, with atomic paste
 validation and Home/CAS/editor case control.
 
-Final integrated validation: **1663 Rust tests passed, 0 failed, 6 ignored**;
+Prior-overhaul validation (4adcc46): **1663 Rust tests passed, 0 failed, 6 ignored**;
 formatting and Clippy with warnings denied passed. All 14 actual GUI scenarios
 completed without wait timeouts; 138 automated GUI assertions passed. Actual
 firmware boot, import/execution, loader migrations, OFF and crash recovery
@@ -29,6 +29,10 @@ This report keeps the chronological engineering record below. Statements in
 "First increment" describe that checkpoint; later sections supersede them.
 Remaining limits are recorded explicitly rather than calling every milestone
 complete.
+
+Latest architecture continuation: **1717 tests passed**, strict differential
+foundation and setup doctor integrated; see the final checkpoint below for
+new fixes, three-trial timings and remaining adapter/snapshot work.
 
 ## First increment (historical checkpoint)
 
@@ -454,7 +458,7 @@ Integrated so far:
   returning zero. Memory/SVC/loader tests and genuine boot passed before handoff.
 - 845c9bf: Native INPUT preserves omitted descriptor metadata; malformed and
   unsupported control forms fail before Host dialogs/writeback. Component suite
-  507 passed, 2 ignored, with additional focused regressions and clean Clippy.
+  503 passed, 2 ignored, with additional focused regressions and clean Clippy.
 - 0eb9b95: recovery IDs remain ordered after backward host-clock changes;
   staged/restored drive hashes are checked before further renames. Ten recovery
   tests pass. Session protocol 5 exposes managed-program availability separately
@@ -474,3 +478,126 @@ explicitly distinguish HLE, source-present device models, unverified boot-chain
 research and implemented behavior. Differential framework, lifecycle cleanup
 and setup preflight contributions are still being tested independently; final
 integration results will supersede this checkpoint.
+
+## Integrated architecture continuation checkpoint
+
+All three independent implementations are integrated on the canonical feature
+branch. No agent builds remain active. Local commits only; no push, hardware
+write, firmware modification or change to the 77 recorded reference fixtures.
+
+### Implemented changes
+
+- Core memory/SVC: aligned allocation/free-list bounds, exact C termination,
+  whole-range validation, UTF-16 pairs, checked stack/file-I/O arithmetic and
+  real marshalling-fault propagation. Code: memory.rs, services/fsops.rs,
+  services/mod.rs and engine.rs; regressions include neighboring allocations,
+  enormous requests, invalid pointers and preserved stream state on rejection.
+- Thread ownership: Weak spawner reference, worker joins on normal/early exit,
+  stack RAII and first child-failure reporting with actual registers/thread ID.
+  Synchronization operations hold descriptor leases; close wakes waiters and
+  prevents recycled-address writes. Semaphore and critical waits park the
+  snapshot gate. SVC JSON includes thread_id. Existing scheduler remains default.
+- Recovery: monotonic IDs despite host clock rollback, checked overflow and
+  verification of staged/already-installed drive contents before restore moves.
+  Existing OFF saves, format compatibility and preserved archives remain intact.
+- Firmware diagnostics: rejected source after catalog growth uses a unique,
+  source-matched completed assignment context for direct checking. A direct
+  syntax acceptance never proves executable preparation. Actual regression:
+  import multiple programs → syntax error at line3 → successful valid Run.
+- Capabilities: session protocol5 permits calculator-only firmware without
+  compiler/runtime observers. Unsupported managed jobs receive no syntax
+  verdict; GUI actions explain/disable unavailable execution. Protocol5 adds
+  capability reporting, not a typed live-result notification API.
+- Native INPUT: malformed or unsupported descriptors cannot silently become
+  unrestricted fields; omitted metadata remains distinct; duplicate string-only
+  codes retain literal string behavior. No dialog or writeback on rejection.
+- Setup: shared read-only preflight, `ppl doctor`, async Settings validation,
+  all missing-resource errors and stale-result rejection. Helper protocol and
+  observer compatibility are explicitly NotChecked until actual startup.
+- Differential foundation: new schema/Backend trait, strict typed comparisons,
+  persistent Native SessionContext, structured one-shot HLE, qualified legacy
+  physical replay, precise unavailable states and CLI. Source/setup/expectation
+  binding, decimal-string arguments and nonempty images are validated. Existing
+  legacy comparators/evidence remain untouched.
+
+See ARCHITECTURE_ROADMAP.md, DIFFERENTIAL_TESTING.md and FULL_SYSTEM_RESEARCH.md
+for responsibility boundaries, public interfaces, concrete usage and research
+prerequisites. No QEMU fork build, kernel boot or complete live snapshot is
+claimed. The local fork explicitly requires Python2 and predates modern QEMU APIs.
+
+### Final validation
+
+- Workspace: **1717 passed, 0 failed, 6 ignored** after integration and final
+  differential hardening/CLI regressions. Logs:
+  /tmp/prime-next-verified-workspace.log. Formatting and Clippy with warnings
+  denied passed; logs /tmp/prime-next-verified-{clippy,fmt}.log.
+- Earlier intermediate full run: 1678 passed, 1 known journal-lock failure,
+  6 ignored. Serial transactions18/18 passed55.41s. The final full suite also
+  passed that test, but its historical parallel flake is not claimed fixed.
+- Real firmware: boot, both session/import/Unicode/migration/post-import-error
+  tests, OFF and both kill/recover paths passed; final firmware log
+  /tmp/prime-next-integrated-firmware.log. Calculator-only15157 boot and rejected
+  managed Check passed, with capabilities arriving before Ready.
+- GUI: seven final15751 workflows and100 assertions passed: boot9, typing10,
+  CAS/graph/apps59, persistence22. All18 apps launched; computation images match
+  existing references. Additional15157 input scenario10/10 passed. All selected
+  GUI waits completed and helpers exited. Settings Validate was actually clicked
+  in isolated Xvfb and its responsive result window was visually inspected.
+- Physical-reference replay: unchanged **77 reproduced**, 68exact/4partial/
+  5transcription; no new physical measurements. Artifacts:
+  artifacts/architecture-continuation/parity-15157.
+- Actual differential CLI: persistent Native state passed; Native/HLE arithmetic
+  and full-frame graphics passed. The rational_difference fixture deliberately
+  reports firmware15751 exact1/3 versus Native0.333333333333; this is retained as
+  an observed typed difference, not normalized away or called a physical mismatch.
+
+### Three-trial performance recheck
+
+Same13 fixtures and source hashes; preserved previous-overhaul helper verified
+against its committed benchmark hash, versus the current helper. All78 expected
+operations passed. No simultaneous builds/other emulator sessions; PNG assertion
+analysis overlapped the first baseline cold sample. Medians/ranges and helper
+hashes are committed in evidence/architecture-continuation/benchmark-summary.json;
+raw per-stage/CPU reports: artifacts/architecture-continuation/bench.
+
+| Case | Prior median seconds | Current median seconds |
+|---|---:|---:|
+| Tiny cold | 7.049 | 7.361 |
+| Tiny rerun | 0.750 | 0.751 |
+| Small math | 2.356 | 2.382 |
+| Medium | 2.858 | 2.935 |
+| Large first submission | 3.084 | 3.083 |
+| Large rerun | 1.330 | 1.403 |
+| Edited Check | 1.750 | 1.694 |
+| Edited Run | 1.332 | 1.312 |
+| Alternate tiny | 2.805 | 2.734 |
+| Syntax error | 6.969 | 1.742 |
+| Valid after error | 2.755 | 2.715 |
+| Tiny after restart | 7.989 | 7.947 |
+| Rerun after restart | 1.102 | 1.053 |
+
+These three samples are not a statistical tail-latency claim. Warm timings
+remain practical; cold-loader preparation still needs fresh context evidence.
+
+### Exact remaining engineering work
+
+1. Add a source/request-bound typed live-session observation API and stateful HLE
+   differential driver. Current HLE differential rejects multiple Runs, setup,
+   variable probes, key/touch and power/restart steps rather than silently reset
+   state. Native state is retained; physical replay remains legacy TYPE/STRING.
+2. Extend physical scenario capture through the existing guarded manual workflow;
+   never infer variables, graphics or persistence from old TYPE/STRING evidence.
+   Full-system backend currently returns Unavailable, as designed.
+3. Model remaining guest priority/suspend controls and general inter-engine memory
+   ordering before promoting a cooperative scheduler or full live snapshots.
+   Current admission gate protects captures, not deterministic guest scheduling.
+4. Add opt-in snapshot retention/space reporting while preserving restore plans,
+   interrupted archives and at least two compatible generations. KeepAll remains
+   current behavior. Autosave still requires validated UI context or serialized
+   complete runtime state; no unsafe forced OFF timer was added.
+5. Capture remaining input contexts/lowercase lock and selection semantics;
+   extend Native control widgets and structural EDITMAT only with observations.
+   EVAL/STARTAPP remain precise Firmware-required operations.
+6. Execute the documented isolated full-system build/synthetic device gates only
+   with recorded toolchain/artifact provenance. Matching bootloader and NAND/OOB
+   prerequisites remain missing from inspected supplied assets.
