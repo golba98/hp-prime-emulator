@@ -39,6 +39,10 @@ pub struct Constraints {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Step {
+    Checkpoint {
+        id: String,
+        wake: bool,
+    },
     Start {
         id: String,
         program: String,
@@ -111,7 +115,8 @@ pub enum Step {
 impl Step {
     pub fn id(&self) -> &str {
         match self {
-            Self::Start { id, .. }
+            Self::Checkpoint { id, .. }
+            | Self::Start { id, .. }
             | Self::Await { id, .. }
             | Self::Import { id, .. }
             | Self::RunProgram { id, .. }
@@ -187,6 +192,14 @@ impl LoadedScenario {
         }
         if scenario.id.is_empty() || scenario.steps.is_empty() {
             return Err("scenario id and steps must be nonempty".into());
+        }
+        if scenario.schema_version == 1
+            && scenario
+                .steps
+                .iter()
+                .any(|s| matches!(s, Step::Checkpoint { .. }))
+        {
+            return Err("checkpoint requires scenario schema 2".into());
         }
         let mut ids = BTreeSet::new();
         for step in &scenario.steps {

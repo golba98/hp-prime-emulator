@@ -388,6 +388,16 @@ fn run_live(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> Bac
                 );
             }
             let data=match step{
+                Step::Checkpoint{wake,..}=>{
+                    id+=1;let result=live.as_mut().ok_or("Calculator process is off; restart before checkpointing")?.checkpoint(id,*wake,Duration::from_secs(60),cancel)?;
+                    let data=match &result{
+                        ppl_engine::checkpoint::CheckpointResult::Saved{receipt}=>json!({"status":"success","state_kind":receipt.kind,"safe_point":receipt.safe_point,"restores_cpu":receipt.restores_cpu,"restores_framebuffer":receipt.restores_framebuffer}),
+                        ppl_engine::checkpoint::CheckpointResult::Deferred{reason}=>json!({"status":"deferred","reason":reason}),
+                        ppl_engine::checkpoint::CheckpointResult::Failed{message}=>json!({"status":"checkpoint_error","message":message}),
+                    };
+                    report.raw_reports.push(json!({"checkpoint_request":id,"result":result}));
+                    data
+                }
                 Step::Start{program,entry,args,..}=>{
                     let hash=imported.get(program).ok_or("Start requires an imported program")?.clone();
                     id+=1;

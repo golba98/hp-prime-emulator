@@ -267,13 +267,14 @@ fn run_native_stateful(s: &LoadedScenario, cancel: &Cancellation) -> BackendRun 
                     | Step::Touch { .. }
                     | Step::PowerOff { .. }
                     | Step::Restart { .. }
+                    | Step::Checkpoint { .. }
             )
         })
     {
         return BackendRun::unsupported(
             BackendId::Native,
             s,
-            "Native has no firmware identity, physical event loop or firmware power persistence; use authored setup steps",
+            "Native has no firmware identity, physical event loop or firmware persistence checkpoint; use authored setup steps",
         );
     }
     let mut settings = ppl_vm::Settings::default();

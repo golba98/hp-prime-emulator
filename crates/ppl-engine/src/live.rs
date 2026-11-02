@@ -1,6 +1,7 @@
 //! Headless live firmware transport. Each caller owns an isolated calculator profile.
 use crate::{
     Cancellation,
+    checkpoint::{CheckpointResult, RECEIPT_VERSION},
     firmware_options::Options,
     session::{self, CheckVerdict, Command, Event, ExecutionObservation, Lifecycle, Packet},
 };
@@ -28,6 +29,8 @@ pub struct LiveSession {
     reader: Option<std::thread::JoinHandle<()>>,
     stderr: Option<std::thread::JoinHandle<String>>,
     sent: BTreeMap<u64, Option<RunIdentity>>,
+    checkpoint: PendingCheckpoint,
+    lifecycle: Lifecycle,
     executions: BTreeMap<u64, ExecutionObservation>,
     results: BTreeMap<u64, Response>,
     frame: Arc<Mutex<Option<Vec<u32>>>>,
@@ -48,6 +51,8 @@ impl LiveSession {
                 .firmware
                 .as_ref()
                 .ok_or("Firmware ELF is not configured")?;
+            let checkpoint_firmware =
+                checkpoint_fingerprint(firmware, options.os_rom.as_deref(), profile)?;
             let mut command = Process::new(runner);
             command
                 .arg("session")
@@ -104,6 +109,11 @@ impl LiveSession {
                 reader: Some(reader),
                 stderr: Some(stderr),
                 sent: BTreeMap::new(),
+                checkpoint: PendingCheckpoint {
+                    firmware: checkpoint_firmware,
+                    ..Default::default()
+                },
+                lifecycle: Lifecycle::Booting,
                 executions: BTreeMap::new(),
                 results: BTreeMap::new(),
                 frame,
@@ -137,18 +147,10 @@ impl LiveSession {
         }
     }
     pub fn send(&mut self, command: &Command) -> Result<(), String> {
-        let request = match command {
-            Command::LoadSource { request, .. }
-            | Command::Compile { request, .. }
-            | Command::DirectCheck { request, .. }
-            | Command::Run { request, .. }
-            | Command::Import { request, .. }
-            | Command::StoreProgram { request, .. }
-            | Command::RunStored { request, .. }
-            | Command::ScenarioInput { request, .. }
-            | Command::ReleaseInput { request } => Some(*request),
-            _ => None,
-        };
+        let request = standard_request_id(command)?;
+        if self.checkpoint.id.is_some() {
+            return Err("A typed checkpoint request is pending".into());
+        }
         if let Some(id) = request {
             if self.sent.len() + self.results.len() >= 8
                 || self.sent.contains_key(&id)
@@ -176,6 +178,8 @@ impl LiveSession {
     }
     fn validate_event(&mut self, event: &Event) -> Result<(), String> {
         match event {
+            Event::Checkpoint { id, result } => self.checkpoint.accept(*id, result)?,
+            Event::Lifecycle { state } => self.lifecycle = *state,
             Event::Execution {
                 request,
                 program,
@@ -243,6 +247,50 @@ impl LiveSession {
                 Err(e) => return Err(e.to_string()),
             }
         }
+    }
+    /// Saves firmware-owned persistent files; never serializes a live CPU.
+    /// Wake=true additionally waits for the helper's Ready lifecycle before returning.
+    pub fn checkpoint(
+        &mut self,
+        id: u64,
+        wake: bool,
+        timeout: Duration,
+        cancel: &Cancellation,
+    ) -> Result<CheckpointResult, String> {
+        if cancel.cancelled() || timeout.is_zero() {
+            return Err("Checkpoint cancelled or deadline is empty; no command sent".into());
+        }
+        self.checkpoint.begin(
+            id,
+            !self.sent.is_empty() || !self.results.is_empty() || !self.executions.is_empty(),
+        )?;
+        let outcome = (|| {
+            session::write_command(&mut self.stdin, &Command::Checkpoint { id, wake })
+                .map_err(|e| e.to_string())?;
+            let deadline = Instant::now() + timeout;
+            let mut saved = None;
+            loop {
+                match self.event(deadline, cancel)? {
+                    Event::Checkpoint { result, .. } => {
+                        if wake
+                            && matches!(result, CheckpointResult::Saved { .. })
+                            && self.lifecycle != Lifecycle::Ready
+                        {
+                            saved = Some(result);
+                        } else {
+                            return Ok(result);
+                        }
+                    }
+                    Event::Lifecycle {
+                        state: Lifecycle::Ready,
+                    } if saved.is_some() => return Ok(saved.take().unwrap()),
+                    Event::Closed { message } | Event::Error { message } => return Err(message),
+                    _ => {}
+                }
+            }
+        })();
+        self.checkpoint.id = None;
+        outcome
     }
     pub fn request(
         &mut self,
@@ -367,7 +415,7 @@ impl LiveSession {
     pub fn power_down(&mut self, timeout: Duration, cancel: &Cancellation) -> Result<(), String> {
         self.send(&Command::PowerDown)?;
         let deadline = Instant::now() + timeout;
-        let mut sleeping = false;
+        let mut sleeping = self.lifecycle == Lifecycle::Sleeping;
         loop {
             match self.event(deadline, cancel)? {
                 Event::Lifecycle {
@@ -378,6 +426,81 @@ impl LiveSession {
                 _ => {}
             }
         }
+    }
+}
+/// Must match helper bootstrap: the receipt binds the ELF, optional ROM and
+/// profile resource payload, not a filename or ELF-only version label.
+fn checkpoint_fingerprint(
+    firmware: &Path,
+    rom: Option<&Path>,
+    profile: &Path,
+) -> Result<String, String> {
+    let mut identity = std::fs::read(firmware).map_err(|e| e.to_string())?;
+    if let Some(rom) = rom {
+        identity.extend(std::fs::read(rom).map_err(|e| e.to_string())?);
+    }
+    let resource = profile.join("A/programs/misc/armfir.dat");
+    if resource.exists() {
+        identity.extend(
+            crate::source::hash(&std::fs::read(resource).map_err(|e| e.to_string())?).as_bytes(),
+        );
+    } else {
+        identity.extend(b"no-armfir.dat");
+    }
+    Ok(crate::source::hash(&identity))
+}
+fn standard_request_id(command: &Command) -> Result<Option<u64>, String> {
+    Ok(match command {
+        Command::Checkpoint { .. } => {
+            return Err("Use LiveSession::checkpoint for typed checkpoint results".into());
+        }
+        Command::LoadSource { request, .. }
+        | Command::Compile { request, .. }
+        | Command::DirectCheck { request, .. }
+        | Command::Run { request, .. }
+        | Command::Import { request, .. }
+        | Command::StoreProgram { request, .. }
+        | Command::RunStored { request, .. }
+        | Command::ScenarioInput { request, .. }
+        | Command::ReleaseInput { request } => Some(*request),
+        _ => None,
+    })
+}
+#[derive(Default)]
+struct PendingCheckpoint {
+    id: Option<u64>,
+    firmware: String,
+}
+impl PendingCheckpoint {
+    fn begin(&mut self, id: u64, other_pending: bool) -> Result<(), String> {
+        if self.id.is_some() || other_pending {
+            return Err("Await pending calculator requests before checkpointing".into());
+        }
+        self.id = Some(id);
+        Ok(())
+    }
+    fn accept(&mut self, id: u64, result: &CheckpointResult) -> Result<(), String> {
+        if self.id != Some(id) {
+            return Err("Unsolicited or duplicate checkpoint response id".into());
+        }
+        if let CheckpointResult::Saved { receipt } = result {
+            let hash = |text: &str| text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit());
+            if receipt.version != RECEIPT_VERSION
+                || receipt.restores_cpu
+                || receipt.restores_framebuffer
+                || receipt.generation.is_empty()
+                || receipt.generation.len() > 256
+                || !hash(&receipt.firmware)
+                || receipt.firmware != self.firmware
+                || !hash(&receipt.manifest_sha256)
+                || receipt.bytes > 256 * 1024 * 1024
+                || receipt.files > 100_000
+            {
+                return Err("Checkpoint receipt is incompatible, malformed or claims unsupported live state".into());
+            }
+        }
+        self.id = None;
+        Ok(())
     }
 }
 fn finish_request(
@@ -445,6 +568,102 @@ pub fn copy_profile(from: &Path, to: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod identity_tests {
     use super::*;
+
+    #[test]
+    fn receipt_identity_binds_actual_firmware_rom_and_resource_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let fw = dir.path().join("elf");
+        let rom = dir.path().join("rom");
+        let resource = dir.path().join("A/programs/misc/armfir.dat");
+        std::fs::create_dir_all(resource.parent().unwrap()).unwrap();
+        std::fs::write(&fw, b"firmware").unwrap();
+        std::fs::write(&rom, b"rom").unwrap();
+        std::fs::write(&resource, b"resources").unwrap();
+        let original = checkpoint_fingerprint(&fw, Some(&rom), dir.path()).unwrap();
+        let mut bytes = b"firmwarerom".to_vec();
+        bytes.extend(crate::source::hash(b"resources").as_bytes());
+        assert_eq!(original, crate::source::hash(&bytes));
+        std::fs::write(&fw, b"different").unwrap();
+        assert_ne!(
+            original,
+            checkpoint_fingerprint(&fw, Some(&rom), dir.path()).unwrap()
+        );
+        std::fs::write(&fw, b"firmware").unwrap();
+        std::fs::write(&resource, b"different").unwrap();
+        assert_ne!(
+            original,
+            checkpoint_fingerprint(&fw, Some(&rom), dir.path()).unwrap()
+        );
+    }
+    fn checkpoint_receipt() -> CheckpointResult {
+        use crate::checkpoint::{CheckpointKind, CheckpointReceipt, CheckpointSafePoint};
+        CheckpointResult::Saved {
+            receipt: CheckpointReceipt {
+                version: RECEIPT_VERSION,
+                kind: CheckpointKind::FirmwarePersistence,
+                safe_point: CheckpointSafePoint::FirmwareOff,
+                generation: "generation-001".into(),
+                firmware: "a".repeat(64),
+                manifest_sha256: "b".repeat(64),
+                bytes: 128,
+                files: 1,
+                restores_cpu: false,
+                restores_framebuffer: false,
+            },
+        }
+    }
+    #[test]
+    fn checkpoints_use_a_dedicated_bounded_correlated_reply() {
+        assert!(
+            standard_request_id(&Command::Checkpoint { id: 7, wake: false })
+                .unwrap_err()
+                .contains("LiveSession::checkpoint")
+        );
+        let mut pending = PendingCheckpoint {
+            firmware: "a".repeat(64),
+            ..Default::default()
+        };
+        assert!(pending.begin(7, true).is_err());
+        pending.begin(7, false).unwrap();
+        assert!(pending.begin(8, false).is_err());
+        assert!(pending.accept(8, &checkpoint_receipt()).is_err());
+        assert_eq!(pending.id, Some(7));
+        pending.accept(7, &checkpoint_receipt()).unwrap();
+        assert!(pending.accept(7, &checkpoint_receipt()).is_err());
+        pending.begin(8, false).unwrap();
+        pending
+            .accept(
+                8,
+                &CheckpointResult::Deferred {
+                    reason: "busy".into(),
+                },
+            )
+            .unwrap();
+    }
+    #[test]
+    fn checkpoint_receipts_cannot_claim_live_cpu_or_accept_corruption() {
+        for mutation in 0..7 {
+            let mut result = checkpoint_receipt();
+            let CheckpointResult::Saved { receipt } = &mut result else {
+                unreachable!()
+            };
+            match mutation {
+                0 => receipt.version += 1,
+                1 => receipt.restores_cpu = true,
+                2 => receipt.restores_framebuffer = true,
+                3 => receipt.manifest_sha256 = "not-a-hash".into(),
+                4 => receipt.generation = "x".repeat(257),
+                5 => receipt.bytes = 256 * 1024 * 1024 + 1,
+                _ => receipt.firmware = "c".repeat(64),
+            }
+            let mut pending = PendingCheckpoint {
+                firmware: "a".repeat(64),
+                ..Default::default()
+            };
+            pending.begin(1, false).unwrap();
+            assert!(pending.accept(1, &result).is_err());
+        }
+    }
     fn observed() -> ExecutionObservation {
         ExecutionObservation {
             status: "completed".into(),
