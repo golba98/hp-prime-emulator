@@ -1,5 +1,6 @@
 //! Long-lived local firmware session, with bounded transport and coherent LCD capture.
 mod job;
+mod readiness;
 mod repeat;
 mod typing;
 pub use job::{LOADER, LOADER_V1, LOADER_V2};
@@ -71,9 +72,9 @@ struct Device {
     typing: typing::Typing,
     script: Option<ScriptDriver>,
     jobs: job::Jobs,
-    /// Last lifecycle state reported, and the idle meter that ends Booting.
+    /// Last lifecycle state reported, and observed event-loop boot readiness.
     lifecycle: Lifecycle,
-    boot: job::IdleMeter,
+    boot: readiness::BootReadiness,
     /// Unsupported service call sites already reported.
     unsupported_seen: usize,
     /// Key transitions not yet given to the firmware, and when the last one
@@ -188,7 +189,7 @@ impl LiveSession {
                 script: None,
                 jobs: job::Jobs::new(),
                 lifecycle: Lifecycle::Booting,
-                boot: job::IdleMeter::default(),
+                boot: readiness::BootReadiness::default(),
                 unsupported_seen: 0,
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
@@ -880,14 +881,25 @@ impl LiveSession {
         for event in device.jobs.tick(mem, shared, trace) {
             self.event(event);
         }
-        // Booting ends when the firmware UI first settles waiting for input;
+        // Boot readiness proves completed event-loop round trips, independently
+        // of the sustained idle share required for safe checkpoint admission;
         // Stopping ends when the interrupted invocation is closed; Sleeping
         // follows the firmware's SysPowerOff.
         let asleep = shared.sleeping();
         let current = device.lifecycle;
         let next = match current {
             _ if asleep => Lifecycle::Sleeping,
-            Lifecycle::Booting if device.boot.settled(shared) => Lifecycle::Ready,
+            Lifecycle::Booting
+                if device.boot.observe(readiness::Sample {
+                    valid_frame: self.capture.try_lock().is_ok_and(|c| c.generation != 0),
+                    idle: job::IdleMeter::idle_now(shared),
+                    main_waits: shared.main_wait_entries(),
+                    pump_entries: shared.getevent_entries(),
+                    timer_deliveries: shared.system_events_delivered(),
+                }) =>
+            {
+                Lifecycle::Ready
+            }
             Lifecycle::Stopping if !device.jobs.interrupting() => Lifecycle::Ready,
             Lifecycle::Sleeping => Lifecycle::Ready,
             other => other,
@@ -1240,7 +1252,7 @@ mod output_delivery_tests {
             script: None,
             jobs: job::Jobs::new(),
             lifecycle: Lifecycle::Ready,
-            boot: job::IdleMeter::default(),
+            boot: readiness::BootReadiness::default(),
             unsupported_seen: 0,
             keys: VecDeque::new(),
             last_key: Instant::now(),
