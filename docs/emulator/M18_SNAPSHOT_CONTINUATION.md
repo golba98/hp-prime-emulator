@@ -8,7 +8,8 @@ machine restoration. Production firmware recovery and
 ## Implemented contract
 
 `prime_emulator::synthetic_snapshot` exposes `SyntheticProgram`,
-`SyntheticGuest`, `CpuState` and `SyntheticSnapshot`. A caller constructs a
+`SyntheticGuest`, `CpuState`, `SyntheticSnapshot`, `SyntheticSnapshotStore` and
+`SnapshotSelection`. A caller constructs a
 program from original machine-code bytes, runs bounded instruction slices,
 captures and saves a snapshot, and supplies the same program when loading and
 restoring a new owner. Restore creates a new Unicorn engine; it never installs
@@ -60,8 +61,25 @@ and stable during the operation; this is not a hostile-filesystem race defense.
 Save uses a private sibling staging file, synchronizes its complete contents,
 atomically replaces the destination and synchronizes the parent directory.
 A directory-sync failure after rename denotes uncertain durability of a complete
-replacement. No background autosave or rotating checkpoint generations are
-introduced for this synthetic API.
+replacement. The single-file `SyntheticSnapshot::save` keeps this atomic-replacement behavior.
+
+`SyntheticSnapshotStore` adds two published generations: the requested path and
+its `.previous` sibling. It validates the incoming snapshot first. Only a fully
+compatible current generation may atomically replace the prior generation;
+then the new current is atomically published. Identical saves keep the older
+backup. An invalid, missing or incompatible current never overwrites the backup.
+Failure after the first rename may leave equal valid generations; a failed
+backup publication leaves the current untouched. This is a sequence of durable
+single-file publications, not a two-file transaction.
+
+Store loading validates both candidates against the caller-supplied original
+program and backend. `SnapshotSelection::Current` or `Previous` reports which
+was selected; the latter retains the current-file failure diagnostic. Loading
+never silently promotes or rewrites either file, and both incompatible/corrupt
+candidates yield an explicit combined failure. Exactly two generation names
+are managed. Killed writers may leave staging files, which are never recovery
+candidates; private-directory cleanup remains the caller's responsibility.
+No background autosave or live-calculator recovery behavior is introduced.
 
 ## Executed tests
 
@@ -71,8 +89,8 @@ TMPDIR="$HOME/.cache/prime-m16-tmp" \
 cargo test -p prime-emulator --lib synthetic_snapshot -- --nocapture
 ```
 
-Create a private TMPDIR first if it does not exist. Ten snapshot tests pass;
-the full emulator library suite passes 137 tests. All-target emulator Clippy
+Create a private TMPDIR first if it does not exist. Fourteen snapshot tests pass;
+the full emulator library suite passes 141 tests. All-target emulator Clippy
 with warnings denied and formatting checks also pass.
 
 - ARM and Thumb programs execute a prefix, store a marker, push a value and
@@ -89,6 +107,14 @@ with warnings denied and formatting checks also pass.
   header is written. The previous valid snapshot remains byte-for-byte intact
   and resumes in another fresh child. Partial staging files are never loaded
   implicitly.
+- Three successive saves retain exactly current/previous; a corrupted current
+  selects its validated prior generation and resumes in a fresh child. Repeated
+  identical saves keep the older backup, while wrong-program and invalid current
+  files never replace it. Both-invalid candidates fail with both diagnostics.
+- Another child is killed after durable backup publication but before current
+  publication. The old current remains byte-identical; its prior-generation
+  copy still resumes after deliberate current corruption. A backup-publication
+  failure also leaves the current intact.
 - Negative tests reject corrupt/truncated/oversized length fields, trailing
   bytes, CPU/version/resource/layout changes, unsupported CPSR, bad PC/SP,
   changed original code, wrong permissions, FIFO/symlink inputs, exceptions,

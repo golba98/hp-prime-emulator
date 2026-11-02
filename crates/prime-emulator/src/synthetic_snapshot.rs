@@ -17,6 +17,8 @@ use unicorn_engine::{
 };
 
 mod instructions;
+mod store;
+pub use store::{SnapshotSelection, SyntheticSnapshotStore};
 
 pub const CODE_BASE: u32 = 0x1000_0000;
 pub const DATA_BASE: u32 = 0x2000_0000;

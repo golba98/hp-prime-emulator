@@ -92,7 +92,29 @@ fn fresh_process_child() {
     }
     let thumb = std::env::var("PRIME_SYNTHETIC_THUMB").unwrap() == "1";
     let p = program(thumb);
-    let snap = SyntheticSnapshot::load(Path::new(&path), &p).unwrap();
+    if role == "rotation" {
+        let mut store = SyntheticSnapshotStore::new(Path::new(&path)).unwrap();
+        let selected = store.load(&p).unwrap();
+        let mut g = selected.snapshot().restore(&p).unwrap();
+        g.run_slice(1).unwrap();
+        store.save(&g.capture(&p).unwrap(), &p).unwrap();
+        panic!("rotation fault injector returned unexpectedly");
+    }
+    let snap = if role == "recovery" {
+        let store = SyntheticSnapshotStore::new(Path::new(&path)).unwrap();
+        match store.load(&p).unwrap() {
+            SnapshotSelection::Previous {
+                snapshot,
+                current_error,
+            } => {
+                assert!(!current_error.is_empty());
+                snapshot
+            }
+            SnapshotSelection::Current(_) => panic!("corrupt current unexpectedly selected"),
+        }
+    } else {
+        SyntheticSnapshot::load(Path::new(&path), &p).unwrap()
+    };
     if role == "descriptors" {
         let count = || fs::read_dir("/proc/self/fd").unwrap().count();
         let before = count();
@@ -346,4 +368,163 @@ pub(super) fn interrupt_staged_save(path: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+// Only the isolated child pauses here: backup has been synchronized and the
+// primary still contains the old valid generation when the parent kills it.
+pub(super) fn interrupt_rotated_save(path: &Path) -> Result<()> {
+    if std::env::var("PRIME_SYNTHETIC_ROLE").as_deref() == Ok("rotation") {
+        fs::write(path.with_extension("ready"), b"previous generation durable").map_err(string)?;
+        loop {
+            std::thread::park();
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn current_previous_rotation_and_corrupt_fallback_resume_in_fresh_child() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = program(false);
+    let mut g = guest(&p, false);
+    let path = dir.path().join("state");
+    let mut store = SyntheticSnapshotStore::new(&path).unwrap();
+    g.run_slice(3).unwrap();
+    store.save(&g.capture(&p).unwrap(), &p).unwrap();
+    g.run_slice(1).unwrap();
+    let fourth = g.capture(&p).unwrap();
+    store.save(&fourth, &p).unwrap();
+    let previous = fs::read(store.previous_path()).unwrap();
+    store.save(&fourth, &p).unwrap();
+    assert_eq!(
+        fs::read(store.previous_path()).unwrap(),
+        previous,
+        "unchanged save retains older backup"
+    );
+    g.run_slice(1).unwrap();
+    store.save(&g.capture(&p).unwrap(), &p).unwrap();
+    assert_eq!(
+        fs::read_dir(dir.path()).unwrap().count(),
+        2,
+        "only two published generations"
+    );
+    assert!(matches!(
+        store.load(&p).unwrap(),
+        SnapshotSelection::Current(_)
+    ));
+    assert_eq!(store.load(&p).unwrap().snapshot().state().instructions, 5);
+    fs::write(&path, b"interrupted/corrupt current").unwrap();
+    bounded_child(&path, false, "recovery");
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        b"interrupted/corrupt current",
+        "loading never silently promotes"
+    );
+}
+
+#[test]
+fn invalid_current_never_replaces_valid_backup_and_wrong_program_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state");
+    let p = program(false);
+    let mut g = guest(&p, false);
+    g.run_slice(4).unwrap();
+    let fourth = g.capture(&p).unwrap();
+    let mut store = SyntheticSnapshotStore::new(&path).unwrap();
+    store.save(&fourth, &p).unwrap();
+    g.run_slice(1).unwrap();
+    let fifth = g.capture(&p).unwrap();
+    store.save(&fifth, &p).unwrap();
+    let good_previous = fs::read(store.previous_path()).unwrap();
+    fs::write(&path, b"bad current").unwrap();
+    store.save(&fifth, &p).unwrap();
+    assert_eq!(fs::read(store.previous_path()).unwrap(), good_previous);
+    assert!(matches!(
+        store.load(&p).unwrap(),
+        SnapshotSelection::Current(_)
+    ));
+    let other = program(true);
+    assert!(store.load(&other).is_err());
+    assert!(store.save(&fifth, &other).is_err());
+    assert_eq!(fs::read(store.previous_path()).unwrap(), good_previous);
+    // An incompatible (but intrinsically valid) current is not a candidate
+    // for promoting over this program's compatible prior generation either.
+    let mut other_guest = guest(&other, true);
+    other_guest.run_slice(4).unwrap();
+    other_guest
+        .capture(&other)
+        .unwrap()
+        .save(&path, &other)
+        .unwrap();
+    assert!(matches!(
+        store.load(&p).unwrap(),
+        SnapshotSelection::Previous { .. }
+    ));
+    store.save(&fifth, &p).unwrap();
+    assert_eq!(fs::read(store.previous_path()).unwrap(), good_previous);
+    fs::write(&path, b"bad current").unwrap();
+    fs::write(store.previous_path(), b"bad previous").unwrap();
+    let error = store.load(&p).err().unwrap();
+    assert!(error.contains("current:") && error.contains("previous:"));
+}
+
+#[test]
+fn interrupted_rotation_preserves_current_and_validated_fresh_child_fallback() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state");
+    let p = program(false);
+    let mut g = guest(&p, false);
+    g.run_slice(3).unwrap();
+    let mut store = SyntheticSnapshotStore::new(&path).unwrap();
+    store.save(&g.capture(&p).unwrap(), &p).unwrap();
+    g.run_slice(1).unwrap();
+    store.save(&g.capture(&p).unwrap(), &p).unwrap();
+    let old_current = fs::read(&path).unwrap();
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "synthetic_snapshot::tests::fresh_process_child"])
+        .env("PRIME_SYNTHETIC_CHILD", &path)
+        .env("PRIME_SYNTHETIC_THUMB", "0")
+        .env("PRIME_SYNTHETIC_ROLE", "rotation")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let ready = path.with_extension("ready");
+    let at = Instant::now();
+    while !ready.exists() && at.elapsed() < Duration::from_secs(10) {
+        if child.try_wait().unwrap().is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert!(
+        ready.exists(),
+        "child never reached durable-backup boundary"
+    );
+    assert_eq!(fs::read(&path).unwrap(), old_current);
+    assert_eq!(fs::read(store.previous_path()).unwrap(), old_current);
+    fs::write(&path, b"corrupt primary after interrupted rotation").unwrap();
+    bounded_child(&path, false, "recovery");
+}
+
+#[test]
+fn backup_publication_failure_preserves_the_current_generation() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state");
+    let p = program(false);
+    let mut g = guest(&p, false);
+    g.run_slice(4).unwrap();
+    let mut store = SyntheticSnapshotStore::new(&path).unwrap();
+    store.save(&g.capture(&p).unwrap(), &p).unwrap();
+    let original = fs::read(&path).unwrap();
+    fs::create_dir(store.previous_path()).unwrap();
+    g.run_slice(1).unwrap();
+    assert!(store.save(&g.capture(&p).unwrap(), &p).is_err());
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(matches!(
+        store.load(&p).unwrap(),
+        SnapshotSelection::Current(_)
+    ));
 }
