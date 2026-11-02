@@ -27,6 +27,8 @@ enum Command {
     Device(cmd::device::DeviceOpts),
     /// Compare emulation with hardware or evidence.
     Compare(cmd::compare::CompareOpts),
+    /// Run strict multi-backend scenarios or replay qualified physical captures.
+    Differential(cmd::differential::DifferentialOpts),
     /// Run an interactive step debugger.
     Debug(cmd::debug::DebugOpts),
     /// Launch the native graphical calculator window.
@@ -50,6 +52,7 @@ const SUBCOMMANDS: &[&str] = &[
     "debug",
     "device",
     "compare",
+    "differential",
     "test",
     "diag-parity",
     "help",
@@ -161,6 +164,7 @@ fn main() -> ExitCode {
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),
         Command::Compare(o) => cmd::compare::run(o),
+        Command::Differential(o) => cmd::differential::run(o),
         Command::Debug(o) => cmd::debug::run(o),
         Command::Gui(o) => cmd::gui::run(o),
         Command::Show(o) => cmd::gui::show(o),

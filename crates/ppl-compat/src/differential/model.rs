@@ -1,0 +1,291 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::{Path, PathBuf},
+};
+
+pub const SCHEMA_VERSION: u32 = 1;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendId {
+    Native,
+    FirmwareHle,
+    PhysicalCapture,
+    FullSystem,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Program {
+    pub source: Option<String>,
+    pub file: Option<PathBuf>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct InitialState {
+    /// Supported settings: HAngle, HFormat, HDigits. Others are rejected.
+    pub settings: BTreeMap<String, i64>,
+    /// Authored PPL setup routine. No host memory/state injection.
+    pub setup_entry: Option<String>,
+    pub seed: u64,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Constraints {
+    pub firmware_build: Option<u32>,
+    pub firmware_sha256: Option<String>,
+    pub optional: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Step {
+    Check {
+        id: String,
+    },
+    Run {
+        id: String,
+        entry: String,
+        #[serde(default)]
+        args: Vec<Value>,
+    },
+    /// Variable observations after a run, including program-local globals.
+    Observe {
+        id: String,
+        names: Vec<String>,
+    },
+    Capture {
+        id: String,
+    },
+    Key {
+        id: String,
+        code: i64,
+        down: bool,
+    },
+    Touch {
+        id: String,
+        status: u32,
+        x: u16,
+        y: u16,
+    },
+    PowerOff {
+        id: String,
+    },
+    Restart {
+        id: String,
+    },
+}
+impl Step {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Check { id }
+            | Self::Run { id, .. }
+            | Self::Observe { id, .. }
+            | Self::Capture { id }
+            | Self::Key { id, .. }
+            | Self::Touch { id, .. }
+            | Self::PowerOff { id }
+            | Self::Restart { id } => id,
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Expectation {
+    pub step: String,
+    pub path: String,
+    pub value: Value,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Scenario {
+    pub schema_version: u32,
+    pub id: String,
+    pub program: Program,
+    #[serde(default)]
+    pub initial: InitialState,
+    pub steps: Vec<Step>,
+    #[serde(default)]
+    pub expect: Vec<Expectation>,
+    #[serde(default)]
+    pub constraints: BTreeMap<BackendId, Constraints>,
+}
+#[derive(Debug, Clone)]
+pub struct LoadedScenario {
+    pub scenario: Scenario,
+    pub source: String,
+    pub fixture_sha256: String,
+    pub source_sha256: String,
+    pub root: PathBuf,
+}
+impl LoadedScenario {
+    pub fn load(path: &Path) -> Result<Self, String> {
+        let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let text = std::str::from_utf8(&bytes).map_err(|e| e.to_string())?;
+        let scenario: Scenario =
+            toml::from_str(text).map_err(|e| format!("{}: {e}", path.display()))?;
+        Self::from_spec(
+            scenario,
+            path.parent().unwrap_or(Path::new(".")),
+            crate::sha256_hex(&bytes),
+        )
+    }
+    pub fn from_spec(
+        scenario: Scenario,
+        root: &Path,
+        fixture_sha256: String,
+    ) -> Result<Self, String> {
+        if scenario.schema_version != SCHEMA_VERSION {
+            return Err(format!(
+                "unsupported differential schema {}",
+                scenario.schema_version
+            ));
+        }
+        if scenario.id.is_empty() || scenario.steps.is_empty() {
+            return Err("scenario id and steps must be nonempty".into());
+        }
+        let mut ids = BTreeSet::new();
+        for step in &scenario.steps {
+            if step.id().is_empty() || !ids.insert(step.id()) {
+                return Err("step ids must be nonempty and unique".into());
+            }
+            match step {
+                Step::Touch { status, x, y, .. }
+                    if ![1, 2, 8].contains(status) || *x >= 320 || *y >= 240 =>
+                {
+                    return Err("touch sample outside G1 screen/status range".into());
+                }
+                Step::Key { code, .. } if !(0..=50).contains(code) => {
+                    return Err("keys use HP physical codes 0..50".into());
+                }
+                Step::Run { entry, .. } if entry.is_empty() => {
+                    return Err("run entry must be nonempty".into());
+                }
+                Step::Observe { names, .. } if names.is_empty() => {
+                    return Err("observe names must be nonempty".into());
+                }
+                _ => {}
+            }
+        }
+        for e in &scenario.expect {
+            if !ids.contains(e.step.as_str()) || (!e.path.is_empty() && !e.path.starts_with('/')) {
+                return Err("expectation requires an existing step and JSON pointer path".into());
+            }
+        }
+        for (name, v) in &scenario.initial.settings {
+            let valid = match name.as_str() {
+                "HAngle" => (0..=2).contains(v),
+                "HFormat" => (0..=3).contains(v),
+                "HDigits" => (0..=11).contains(v),
+                _ => false,
+            };
+            if !valid {
+                return Err(format!("unsupported initial setting {name}={v}"));
+            }
+        }
+        let source = match (&scenario.program.source, &scenario.program.file) {
+            (Some(s), None) => s.clone(),
+            (None, Some(p)) => ppl_engine::source::Source::file(&root.join(p))?.text,
+            _ => return Err("program requires exactly one of source or file".into()),
+        };
+        let source_sha256 = crate::sha256_hex(source.as_bytes());
+        Ok(Self {
+            scenario,
+            source,
+            fixture_sha256,
+            source_sha256,
+            root: root.to_owned(),
+        })
+    }
+    pub fn optional(&self, backend: BackendId) -> bool {
+        self.scenario
+            .constraints
+            .get(&backend)
+            .is_some_and(|c| c.optional)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    Complete,
+    Unsupported,
+    Unavailable,
+    InfrastructureError,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Provenance {
+    pub origin: String,
+    pub source_sha256: String,
+    pub fixture_sha256: String,
+    pub firmware_build: Option<u32>,
+    pub firmware_sha256: Option<String>,
+    pub capture_sha256: Option<String>,
+    pub evidence_scope: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Observation {
+    pub step: String,
+    pub data: Value,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackendRun {
+    pub backend: BackendId,
+    pub status: RunStatus,
+    pub reason: Option<String>,
+    pub provenance: Provenance,
+    pub observations: Vec<Observation>,
+    /// Unmodified structured engine reports, not just a success message.
+    pub raw_reports: Vec<Value>,
+}
+impl BackendRun {
+    pub fn new(backend: BackendId, s: &LoadedScenario) -> Self {
+        Self {
+            backend,
+            status: RunStatus::Complete,
+            reason: None,
+            provenance: Provenance {
+                origin: match backend {
+                    BackendId::Native => "native",
+                    BackendId::FirmwareHle => "local-firmware",
+                    BackendId::PhysicalCapture => "physical-capture",
+                    BackendId::FullSystem => "unavailable",
+                }
+                .into(),
+                source_sha256: s.source_sha256.clone(),
+                fixture_sha256: s.fixture_sha256.clone(),
+                firmware_build: None,
+                firmware_sha256: None,
+                capture_sha256: None,
+                evidence_scope: "declared-scenario-observations".into(),
+            },
+            observations: vec![],
+            raw_reports: vec![],
+        }
+    }
+    pub fn unavailable(backend: BackendId, s: &LoadedScenario, reason: impl Into<String>) -> Self {
+        let mut r = Self::new(backend, s);
+        r.status = RunStatus::Unavailable;
+        r.reason = Some(reason.into());
+        r
+    }
+    pub fn unsupported(backend: BackendId, s: &LoadedScenario, reason: impl Into<String>) -> Self {
+        let mut r = Self::new(backend, s);
+        r.status = RunStatus::Unsupported;
+        r.reason = Some(reason.into());
+        r
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Image {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<u32>,
+}
+impl From<&ppl_graphics::Grob> for Image {
+    fn from(g: &ppl_graphics::Grob) -> Self {
+        Self {
+            width: g.width(),
+            height: g.height(),
+            pixels: g.pixels().to_vec(),
+        }
+    }
+}
