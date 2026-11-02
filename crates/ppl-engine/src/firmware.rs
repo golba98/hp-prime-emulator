@@ -745,7 +745,7 @@ esac
 shift
 done
 case '{mode}' in
-hang) trap '' INT TERM; echo "$$" > "$(dirname "$0")/ready"; sleep 30 & wait;;
+hang) trap '' INT TERM; echo "$$" > "$(dirname "$0")/ready.tmp"; mv "$(dirname "$0")/ready.tmp" "$(dirname "$0")/ready"; sleep 30 & wait;;
 malformed) echo 'not JSON' > "$report"; exit 0;;
 missing) exit 0;;
 esac
