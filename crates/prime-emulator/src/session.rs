@@ -84,6 +84,7 @@ struct Device {
     last_key: Instant,
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
+    power_sequence: Option<crate::checkpoint::OffSequence>,
     checkpoint: Option<crate::checkpoint::Checkpoint>,
     checkpoint_idle: job::IdleMeter,
     checkpoint_wait_entry: u64,
@@ -196,6 +197,7 @@ impl LiveSession {
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
                 power_down: None,
+                power_sequence: None,
                 checkpoint: None,
                 checkpoint_idle: job::IdleMeter::default(),
                 checkpoint_wait_entry: 0,
@@ -873,6 +875,11 @@ impl LiveSession {
             let (code, down) = device.keys.pop_front().unwrap();
             if down {
                 device.typing_ack.pressed(shared.main_wait_entries());
+                if code == SHIFT_KEY {
+                    if let Some(sequence) = &mut device.power_sequence {
+                        sequence.shift_delivered(shared.main_wait_entries());
+                    }
+                }
             }
             shared.push_key_transition(code, down);
             if down {
@@ -934,6 +941,7 @@ impl LiveSession {
         }
         self.advance_checkpoint(&mut device, shared);
         self.power_down(&mut device, shared);
+        self.advance_power_sequence(&mut device, mem, shared);
         let Device {
             unsupported_seen, ..
         } = &mut *device;
@@ -999,7 +1007,7 @@ impl LiveSession {
             blockers.push("input_pending_or_held".into());
         }
         let owners = shared.safe_points.observations();
-        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_ui_idle":shared.main_ui_waiting(),"typing_pending":device.typing.pending_len(),"typing_last_keydown_main_wait":device.typing_ack.baseline(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
+        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_ui_idle":shared.main_ui_waiting(),"power_sequence":device.power_sequence.as_ref().map(|s|s.phase()),"typing_pending":device.typing.pending_len(),"typing_last_keydown_main_wait":device.typing_ack.baseline(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
         let diagnostics = trace.diagnostic_bundle();
         let paused = pause.as_ref().is_ok_and(|lease| lease.is_current());
         if pause.is_ok() && !paused {
@@ -1040,19 +1048,15 @@ impl LiveSession {
             && device.checkpoint_idle.settled(shared);
         match checkpoint.poll(shared.sleeping(), idle, saved) {
             Some(crate::checkpoint::Action::PowerOff) => {
-                device.keys.extend([
-                    (SHIFT_KEY, true),
-                    (SHIFT_KEY, false),
-                    (crate::services::ON_KEY_CODE, true),
-                    (crate::services::ON_KEY_CODE, false),
-                ]);
+                device.power_sequence = Some(crate::checkpoint::OffSequence::new(false));
             }
             Some(crate::checkpoint::Action::Finished { mut result, wake }) => {
                 if let CheckpointResult::Failed { message } = &mut result {
                     message.push_str(&format!(
-                        " (checkpoint stage={}, off_sent={}, main waits {}→{}, main waiting={}, main UI blocked={}, input pump parked={}, queued input={}, local keys={}, delivered keys={:?}, touch={}, sleeping={}, sleep generation={}, saved sleep={:?}, save worker={}, save result={:?}, idle={})",
+                        " (checkpoint stage={}, off_sent={}, power sequence={:?}, main waits {}→{}, main waiting={}, main UI blocked={}, input pump parked={}, queued input={}, local keys={}, delivered keys={:?}, touch={}, sleeping={}, sleep generation={}, saved sleep={:?}, save worker={}, save result={:?}, idle={})",
                         if checkpoint.off_sent() {"awaiting_firmware_sleep_or_durable_save"} else {"awaiting_strict_idle_admission"},
                         checkpoint.off_sent(),
+                        device.power_sequence.as_ref().map(|s|s.phase()),
                         device.checkpoint_wait_entry, shared.main_wait_entries(),
                         shared.main_waiting(), shared.main_ui_waiting(),shared.getevent_parked(),
                         shared.input_events_pending(), device.keys.len(),device.delivered, shared.touch_pending(),
@@ -1060,6 +1064,12 @@ impl LiveSession {
                         device.save_result.as_ref().map(|r|r.as_ref().map(|_|"saved").map_err(String::as_str)),
                         device.checkpoint_idle.diagnostic(),
                     ));
+                }
+                device.power_sequence = None;
+                if matches!(result, CheckpointResult::Failed { .. }) {
+                    // An expired transaction must not deliver a queued ON later.
+                    // Admission excluded unrelated input throughout this request.
+                    release_input(device, shared);
                 }
                 if wake {
                     device.keys.extend([
@@ -1069,6 +1079,56 @@ impl LiveSession {
                 }
                 device.checkpoint = None;
                 self.event(Event::Checkpoint { id, result });
+            }
+            None => {}
+        }
+    }
+    fn advance_power_sequence(&self, device: &mut Device, mem: &GuestMemory, shared: &SharedState) {
+        if device.power_sequence.is_none()
+            || !device.keys.is_empty()
+            || shared.input_events_pending() != 0
+            || !shared.getevent_parked()
+            || !shared.main_ui_waiting()
+        {
+            return;
+        }
+        let Some(_snapshot) = mem.snapshot_gate.try_snapshot() else {
+            return;
+        };
+        if !shared.main_ui_waiting()
+            || shared.input_events_pending() != 0
+            || !shared.getevent_parked()
+        {
+            return;
+        }
+        let Ok(view) = LcdView::locate(mem, *shared.lcd_object.lock().unwrap()) else {
+            return;
+        };
+        let mut status = [0u8; 320 * 8 * 4];
+        if mem.read_bytes(view.fb_va, &mut status).is_err() {
+            return;
+        }
+        // Shift's cyan glyph is independently observed even while Alpha is
+        // active. Never clear Alpha or guess an unrecognized screen neutral.
+        let shift = typing::observe(&status).map(|m| m.shift);
+        let action = device
+            .power_sequence
+            .as_mut()
+            .unwrap()
+            .advance(shift, shared.main_wait_entries());
+        match action {
+            Some(crate::checkpoint::OffAction::Shift) => {
+                device.keys.extend([(SHIFT_KEY, true), (SHIFT_KEY, false)])
+            }
+            Some(crate::checkpoint::OffAction::On) => device.keys.extend([
+                (crate::services::ON_KEY_CODE, true),
+                (crate::services::ON_KEY_CODE, false),
+            ]),
+            Some(crate::checkpoint::OffAction::Unsupported) => {
+                device.power_sequence = None;
+                if let Some(checkpoint) = device.checkpoint.take() {
+                    self.event(Event::Checkpoint{id:checkpoint.id,result:CheckpointResult::Deferred{reason:"This firmware screen has no verified Shift indicator. Return to Home, then retry; no OFF keys were sent".into()}});
+                }
             }
             None => {}
         }
@@ -1117,6 +1177,7 @@ impl LiveSession {
             return end("Shut down while booting");
         }
         if since.elapsed() >= POWER_DOWN_LIMIT {
+            device.power_sequence = None;
             return end(
                 "The firmware did not complete power-off; changes since the last OFF may be lost",
             );
@@ -1127,12 +1188,7 @@ impl LiveSession {
             && device.lifecycle == Lifecycle::Ready
         {
             device.held.clear();
-            device.keys.extend([
-                (SHIFT_KEY, true),
-                (SHIFT_KEY, false),
-                (crate::services::ON_KEY_CODE, true),
-                (crate::services::ON_KEY_CODE, false),
-            ]);
+            device.power_sequence = Some(crate::checkpoint::OffSequence::new(true));
             device.power_down = Some((since, true));
         }
     }
@@ -1355,6 +1411,7 @@ mod output_delivery_tests {
             keys: VecDeque::new(),
             last_key: Instant::now(),
             power_down: None,
+            power_sequence: None,
             checkpoint: None,
             checkpoint_idle: job::IdleMeter::default(),
             checkpoint_wait_entry: 0,

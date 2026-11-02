@@ -271,7 +271,8 @@ fn normal_off_restores_collections_after_cas_in_fresh_processes() {
     collection_recovery_scenario(false);
 }
 
-fn collection_recovery_scenario(explicit_second_save: bool) {
+#[test]
+fn explicit_checkpoint_with_observed_prelatched_shift_saves_without_toggling_it_off() {
     let (Some(_), Some(init)) = (
         std::env::var_os("PRIME_TEST_FIRMWARE"),
         std::env::var_os("PRIME_TEST_INIT_DATA"),
@@ -279,27 +280,115 @@ fn collection_recovery_scenario(explicit_second_save: bool) {
         eprintln!("skipping: proprietary firmware test assets not configured");
         return;
     };
-    struct Profile {
-        dir: tempfile::TempDir,
-        preserve_failure: bool,
+    let profile = isolated_profile();
+    for drive in ["A", "C"] {
+        copy(&Path::new(&init).join(drive), &profile.path().join(drive));
     }
-    impl Profile {
-        fn path(&self) -> &Path {
-            self.dir.path()
+    let mut session = Session::start(profile.path());
+    session.ready();
+    let idle_deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let baseline = loop {
+        session.send(Command::Inspect { request: 50 });
+        let Event::Inspection { report, .. } = session.wait("idle before Shift", |e| {
+            matches!(e, Event::Inspection { request: 50, .. })
+        }) else {
+            unreachable!()
+        };
+        if report.resources["main_ui_idle"] == true {
+            break report.resources["main_wait_generation"].as_u64().unwrap();
+        }
+        assert!(
+            std::time::Instant::now() < idle_deadline,
+            "firmware never reached a blocked UI boundary before the Shift control"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    session.send(Command::Key {
+        code: 0x8b,
+        down: true,
+    });
+    session.send(Command::Key {
+        code: 0x8b,
+        down: false,
+    });
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        session.send(Command::FrameRequest);
+        session.send(Command::Inspect { request: 51 });
+        let Event::Inspection { report, .. } = session.wait("observed Shift", |e| {
+            matches!(e, Event::Inspection { request: 51, .. })
+        }) else {
+            unreachable!()
+        };
+        let mask = session.last_frame.lock().unwrap().as_ref().map(|frame| {
+            std::array::from_fn::<u32, 8, _>(|y| {
+                (0..14).fold(0, |row, x| {
+                    let p = frame.pixels[y * 320 + x];
+                    let (r, g, b) = ((p >> 16) & 255, (p >> 8) & 255, p & 255);
+                    if r < 60 && g > 180 && b > 180 {
+                        row | (1 << x)
+                    } else {
+                        row
+                    }
+                })
+            })
+        });
+        if report.resources["main_ui_idle"] == true
+            && report.resources["main_wait_generation"].as_u64().unwrap() > baseline
+            && report.resources["typing_last_keydown_main_wait"]
+                .as_u64()
+                .is_some_and(|press| {
+                    report.resources["main_wait_generation"].as_u64().unwrap() > press
+                })
+            && mask == Some([0, 1800, 2204, 190, 1820, 2076, 2204, 1820])
+        {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "firmware did not display the actual latched Shift control"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let receipt = session.checkpoint(11, false);
+    assert!(!receipt.restores_cpu);
+    assert!(
+        profile
+            .path()
+            .join(".recovery")
+            .join(&receipt.generation)
+            .join("manifest.json")
+            .is_file()
+    );
+    session.send(Command::PowerDown);
+    session.wait("normal OFF cleanup", |e| matches!(e, Event::Closed { .. }));
+    assert!(session.child.wait().unwrap().success());
+    assert!(!profile.path().join(".recovery/unclean").exists());
+}
+
+struct Profile {
+    dir: tempfile::TempDir,
+    preserve_failure: bool,
+}
+impl Profile {
+    fn path(&self) -> &Path {
+        self.dir.path()
+    }
+}
+impl Drop for Profile {
+    fn drop(&mut self) {
+        if self.preserve_failure && std::thread::panicking() {
+            self.dir.disable_cleanup(true);
+            eprintln!(
+                "preserved failed firmware profile: {}",
+                self.dir.path().display()
+            );
         }
     }
-    impl Drop for Profile {
-        fn drop(&mut self) {
-            if self.preserve_failure && std::thread::panicking() {
-                self.dir.disable_cleanup(true);
-                eprintln!(
-                    "preserved failed firmware profile: {}",
-                    self.dir.path().display()
-                );
-            }
-        }
-    }
-    let profile = if let Some(base) = std::env::var_os("PRIME_TEST_EVIDENCE") {
+}
+
+fn isolated_profile() -> Profile {
+    if let Some(base) = std::env::var_os("PRIME_TEST_EVIDENCE") {
         std::fs::create_dir_all(&base).unwrap();
         Profile {
             dir: tempfile::Builder::new()
@@ -313,7 +402,18 @@ fn collection_recovery_scenario(explicit_second_save: bool) {
             dir: tempfile::tempdir().unwrap(),
             preserve_failure: false,
         }
+    }
+}
+
+fn collection_recovery_scenario(explicit_second_save: bool) {
+    let (Some(_), Some(init)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+    ) else {
+        eprintln!("skipping: proprietary firmware test assets not configured");
+        return;
     };
+    let profile = isolated_profile();
     for drive in ["A", "C"] {
         copy(&Path::new(&init).join(drive), &profile.path().join(drive));
     }
