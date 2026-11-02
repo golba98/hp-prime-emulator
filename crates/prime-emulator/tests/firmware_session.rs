@@ -43,14 +43,32 @@ impl Session {
             match self.events.recv_timeout(left) {
                 Ok(event) if want(&event) => return event,
                 Ok(_) => {}
-                Err(_) => panic!("no {what} within {limit:?}"),
+                Err(error) => panic!("no {what} within {limit:?}: {error}"),
             }
         }
     }
 }
 
+impl Drop for Session {
+    fn drop(&mut self) {
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+        }
+        let _ = self.child.wait();
+    }
+}
+
 #[test]
 fn live_session_reports_lifecycle_unsupported_services_and_imports() {
+    exercise_session(prime_emulator::session::LOADER_V1);
+}
+
+#[test]
+fn live_session_migrates_chunk_loader_and_preserves_unicode_source() {
+    exercise_session(prime_emulator::session::LOADER_V2);
+}
+
+fn exercise_session(legacy_loader: &str) {
     let (Some(firmware), Some(init)) = (
         std::env::var_os("PRIME_TEST_FIRMWARE"),
         std::env::var_os("PRIME_TEST_INIT_DATA"),
@@ -65,11 +83,11 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
             &profile.path().join(drive),
         );
     }
-    // A profile from before the chunked loader: the session upgrades it.
+    // Upgrade exactly recognized session-owned legacy loader source.
     std::fs::create_dir_all(profile.path().join("C/DATA")).unwrap();
     std::fs::write(
         profile.path().join("C/DATA/ZZT_LOADER.hpprgm"),
-        prime_emulator::hpprgm::build_program(prime_emulator::session::LOADER_V1)
+        prime_emulator::hpprgm::build_program(legacy_loader)
             .unwrap()
             .to_bytes(),
     )
@@ -266,7 +284,8 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
     // assignment already invokes the genuine firmware compiler.
     s.send(&Command::Run {
         request: 6,
-        source: "EXPORT AFTERIMPORT() BEGIN RETURN 42; END;".into(),
+        source: "EXPORT AFTERIMPORT()\nBEGIN\n // Ω 😀 \"quote\" \\slash\n RETURN 42;\nEND;\n"
+            .into(),
         entry: None,
         arguments: String::new(),
     });

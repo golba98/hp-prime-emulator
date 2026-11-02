@@ -1,7 +1,7 @@
 //! Long-lived local firmware session, with bounded transport and coherent LCD capture.
 mod job;
 mod repeat;
-pub use job::{LOADER, LOADER_V1};
+pub use job::{LOADER, LOADER_V1, LOADER_V2};
 
 use crate::{
     display::LcdView,
@@ -737,7 +737,7 @@ pub fn run(
                 let v1 = crate::hpprgm::parse(&std::fs::read(&path)?)
                     .ok()
                     .and_then(|c| c.source().ok())
-                    .is_some_and(|s| s.source == job::LOADER_V1);
+                    .is_some_and(|s| s.source == job::LOADER_V1 || s.source == job::LOADER_V2);
                 if v1 {
                     let pending = path.with_extension("pending");
                     std::fs::write(&pending, crate::hpprgm::build_program(source)?.to_bytes())?;

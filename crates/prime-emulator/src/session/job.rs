@@ -1,4 +1,4 @@
-//! Same-session source replacement using documented Programs and AFilesB APIs.
+//! Same-session source replacement using documented Programs and AFiles APIs.
 //! The host writes an app attachment; the guest loader performs the source assignment.
 use crate::{
     checkprog, direct, hpprgm, import, keys,
@@ -29,12 +29,12 @@ const DEFERRED_LIMIT: Duration = Duration::from_secs(10);
 /// Idle share over [`INTERRUPT_SETTLE`]: the firmware's own timers (every
 /// 183 ms) wake the UI pump, so idleness is never continuous.
 const INTERRUPT_IDLE_SHARE: f64 = 0.8;
-/// Reserved source loader. It reads the attachment in chunks: one byte list
-/// of a whole larger program (FIREWORKS_G1, 10 KB: about 21 000 bytes of
-/// UTF-16) fails in the firmware with "Error: Insufficient memory". Each
-/// chunk becomes text with one `CHAR(list)`: appending character by
-/// character took over 20 s for that program.
-pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL n:=Function.AFilesB(\"ZZT_IDE_SOURCE\");\n LOCAL s:=\"\";\n LOCAL o,b,c,i;\n FOR o FROM 0 TO n-1 STEP 4096 DO\n  b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",o,MIN(4096,n-o));\n  c:={};\n  FOR i FROM 1 TO SIZE(b)/2 DO\n   c(i):=b(2*i-1)+256*b(2*i);\n  END;\n  s:=s+CHAR(c);\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Reserved source loader. AFiles decodes a serialized string in firmware,
+/// avoiding the interpreted per-character binary conversion. Programs():=
+/// remains responsible for compilation and storing the resulting program.
+pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL s:=Function.AFiles(\"ZZT_IDE_SOURCE\");\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Previous binary-chunk loader, recognized exactly during profile migration.
+pub const LOADER_V2: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL n:=Function.AFilesB(\"ZZT_IDE_SOURCE\");\n LOCAL s:=\"\";\n LOCAL o,b,c,i;\n FOR o FROM 0 TO n-1 STEP 4096 DO\n  b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",o,MIN(4096,n-o));\n  c:={};\n  FOR i FROM 1 TO SIZE(b)/2 DO\n   c(i):=b(2*i-1)+256*b(2*i);\n  END;\n  s:=s+CHAR(c);\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
 /// The first loader (M10), which IDE profiles may still hold; the session
 /// replaces exactly this text with [`LOADER`] before boot.
 pub const LOADER_V1: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
@@ -357,7 +357,7 @@ impl Jobs {
         let cached = run && import.is_none() && self.prepared_matches(&source, shared, trace);
         if !cached {
             self.invalidate_prepared();
-            write_attachment(&shared.data_dir, "ZZT_IDE_SOURCE", &source)?;
+            write_source_attachment(&shared.data_dir, &source)?;
             self.refresh_catalog(shared, trace);
         }
         let stage = if cached {
@@ -1246,9 +1246,30 @@ fn invoke_reserved(
 }
 /// Installs `text` (UTF-16LE) as a `Function` app attachment for the guest.
 fn write_attachment(data: &Path, name: &str, text: &str) -> Result<(), String> {
+    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    write_attachment_bytes(data, name, &bytes)
+}
+/// G1 AFiles string serialization, reproduced from firmware-written strings.
+/// The header is the unshared string object tag, followed by its UTF-16 unit
+/// count and terminated text. AFiles performs the actual firmware decoding;
+/// the assignment compiler and saved source must independently match the
+/// original SHA and text before execution is allowed.
+fn source_attachment(text: &str) -> Result<Vec<u8>, String> {
+    let units: Vec<u16> = text.encode_utf16().collect();
+    let count = u32::try_from(units.len()).map_err(|_| "Source exceeds AFiles string length")?;
+    let mut bytes = Vec::with_capacity(10 + units.len() * 2);
+    bytes.extend(0x0012_ffff_u32.to_le_bytes());
+    bytes.extend(count.to_le_bytes());
+    bytes.extend(units.into_iter().flat_map(u16::to_le_bytes));
+    bytes.extend(0_u16.to_le_bytes());
+    Ok(bytes)
+}
+fn write_source_attachment(data: &Path, source: &str) -> Result<(), String> {
+    write_attachment_bytes(data, "ZZT_IDE_SOURCE", &source_attachment(source)?)
+}
+fn write_attachment_bytes(data: &Path, name: &str, bytes: &[u8]) -> Result<(), String> {
     let attachment = data.join("C/DATA/&Function.hpappdir").join(name);
     std::fs::create_dir_all(attachment.parent().unwrap()).map_err(|e| e.to_string())?;
-    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
     std::fs::write(attachment.with_extension("pending"), bytes).map_err(|e| e.to_string())?;
     std::fs::rename(attachment.with_extension("pending"), attachment).map_err(|e| e.to_string())
 }
@@ -1299,6 +1320,32 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 #[cfg(test)]
 mod tests {
     use super::{catalog_order, validate_import};
+    #[test]
+    fn source_attachment_matches_firmware_string_encoding() {
+        // Firmware AFiles write/read/write capture; runtime string flags are
+        // zero. UTF-16 counts surrogate pairs as two units.
+        assert_eq!(
+            super::source_attachment("").unwrap(),
+            [0xff, 0xff, 0x12, 0, 0, 0, 0, 0, 0, 0]
+        );
+        let text = "Hello Ω😀\n\"quote\"\\slash";
+        let bytes = super::source_attachment(text).unwrap();
+        assert_eq!(&bytes[..8], &[0xff, 0xff, 0x12, 0, 23, 0, 0, 0]);
+        assert_eq!(
+            &bytes[8..],
+            text.encode_utf16()
+                .chain([0])
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            &super::source_attachment("Hello Ω").unwrap()[8..],
+            &[
+                0x48, 0, 0x65, 0, 0x6c, 0, 0x6c, 0, 0x6f, 0, 0x20, 0, 0xa9, 3, 0, 0
+            ]
+        );
+    }
+
     #[test]
     fn prepared_cache_requires_exact_storage_and_complete_mutation_evidence() {
         use super::*;
