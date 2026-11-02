@@ -187,3 +187,31 @@ fn killed_session_restores_last_off_and_archives_interrupted_storage() {
 fn live_off_checkpoint_recovers_after_wake_edit_and_kill() {
     recovery_scenario(true);
 }
+
+#[test]
+fn bootstrap_error_is_delivered_before_process_exits() {
+    // No proprietary assets required. This short path used to exit while
+    // its detached writer still had the terminal event queued.
+    for _ in 0..8 {
+        let profile = tempfile::tempdir().unwrap();
+        let mut child = Process::new(env!("CARGO_BIN_EXE_prime-emulator"))
+            .args(["session", "--firmware"])
+            .arg(profile.path().join("missing.elf"))
+            .arg("--data-dir")
+            .arg(profile.path())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut output = child.stdout.take().unwrap();
+        let mut closed = false;
+        while let Ok(packet) = session::read_packet(&mut output) {
+            if matches!(packet, Packet::Event(Event::Closed { .. })) {
+                closed = true;
+            }
+        }
+        assert!(!child.wait().unwrap().success());
+        assert!(closed, "terminal bootstrap error was lost at process exit");
+    }
+}

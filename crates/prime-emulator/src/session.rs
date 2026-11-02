@@ -71,6 +71,7 @@ pub struct LiveSession {
     capture: Mutex<Capture>,
     started: Instant,
     shutdown: AtomicBool,
+    writer: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 impl LiveSession {
     pub fn stdio() -> Arc<Self> {
@@ -104,6 +105,7 @@ impl LiveSession {
             }),
             started: Instant::now(),
             shutdown: AtomicBool::new(false),
+            writer: Mutex::new(None),
         });
         let weak = Arc::downgrade(&session);
         std::thread::spawn(move || {
@@ -119,7 +121,7 @@ impl LiveSession {
                 s.shutdown.store(true, Ordering::Release);
             }
         });
-        std::thread::spawn(move || {
+        let writer = std::thread::spawn(move || {
             let stdout = io::stdout();
             let mut writer = io::BufWriter::new(stdout.lock());
             loop {
@@ -149,6 +151,7 @@ impl LiveSession {
                 }
             }
         });
+        *session.writer.lock().unwrap() = Some(writer);
         session.event(Event::Hello {
             version: session::VERSION,
         });
@@ -162,9 +165,20 @@ impl LiveSession {
         self.output.1.notify_one();
     }
     pub fn close(&self, message: String) {
-        self.event(Event::Closed { message });
-        self.output.0.lock().unwrap().closed = true;
-        self.output.1.notify_one();
+        {
+            let mut output = self.output.0.lock().unwrap();
+            // Terminal delivery must not be dropped at the ordinary event
+            // queue limit, nor separated from closing the writer's queue.
+            output.events.push_back(Event::Closed { message });
+            output.closed = true;
+            self.output.1.notify_one();
+        }
+        // main calls process::exit after run_stdio returns. A detached writer
+        // could otherwise lose Closed (and the last save status). The reader
+        // owns pipe backpressure; broken pipes end the writer normally.
+        if let Some(writer) = self.writer.lock().unwrap().take() {
+            let _ = writer.join();
+        }
     }
     pub fn tick(&self, mem: &Arc<GuestMemory>, shared: &Arc<SharedState>, trace: &TraceHub) {
         if self.shutdown.load(Ordering::Acquire) {
