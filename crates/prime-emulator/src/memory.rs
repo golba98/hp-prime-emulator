@@ -92,7 +92,7 @@ impl Heap {
         if size == 0 {
             return None;
         }
-        let aligned = (size + 15) & !15;
+        let aligned = size.checked_add(15)? & !15;
         let i = self.free.iter().position(|&(_, fsize)| fsize >= aligned)?;
         let (start, fsize) = self.free[i];
         if fsize > aligned {
@@ -111,11 +111,11 @@ impl Heap {
         if size == 0 {
             return None;
         }
-        let size = size as u32;
+        let size = u32::try_from(size).ok()?;
         let mut chosen: Option<(usize, u32, u32)> = None; // (index, start, padded size)
         for (i, &(start, fsize)) in self.free.iter().enumerate() {
             let fsize = fsize as u32;
-            let aligned_start = start.div_ceil(align) * align;
+            let aligned_start = start.div_ceil(align).checked_mul(align)?;
             let pad = aligned_start - start;
             if fsize >= pad && fsize - pad >= size {
                 chosen = Some((i, aligned_start, pad + size));
@@ -248,12 +248,17 @@ impl GuestMemory {
             .saturating_sub(self.heap.lock().unwrap().total_allocated)
     }
 
+    /// Allocation failure is a guest-visible null, distinct from invalid memory.
+    pub fn try_heap_alloc(&self, size: usize) -> Option<u32> {
+        let off = self.heap.lock().unwrap().alloc(size)?;
+        self.heap_base.checked_add(off)
+    }
+
     pub fn heap_alloc(&self, size: usize) -> MemResult<u32> {
-        let off = self.heap.lock().unwrap().alloc(size).ok_or(MemoryError {
+        self.try_heap_alloc(size).ok_or(MemoryError {
             va: 0,
             msg: format!("heap exhausted (requested {size} bytes)"),
-        })?;
-        Ok(self.heap_base + off)
+        })
     }
 
     /// Allocate with a larger alignment (e.g. 64 KiB PE image alignment).
@@ -261,7 +266,10 @@ impl GuestMemory {
         if align <= 16 {
             return self.heap_alloc(size);
         }
-        let aligned = (size + 15) & !15;
+        let aligned = size.checked_add(15).ok_or(MemoryError {
+            va: 0,
+            msg: "allocation size overflow".into(),
+        })? & !15;
         let off = self
             .heap
             .lock()

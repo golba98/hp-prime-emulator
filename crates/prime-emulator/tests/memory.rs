@@ -127,3 +127,18 @@ fn page_round_helper() {
         2 * PAGE_SIZE as usize
     );
 }
+
+#[test]
+fn exhaustion_and_overflow_preserve_existing_allocations() {
+    let m = mem_with_heap();
+    let original = m.heap_alloc(32).unwrap();
+    m.write_u32(original, 123).unwrap();
+    for size in [usize::MAX, usize::MAX - 8, 0x40_001] {
+        assert_eq!(m.try_heap_alloc(size), None);
+        assert!(m.heap_alloc_aligned(size, 65536).is_err());
+        assert_eq!(m.read_u32(original).unwrap(), 123);
+        assert_eq!(m.heap_size_of(original), Some(32));
+    }
+    assert!(m.heap_free(original));
+    assert!(m.try_heap_alloc(0x40_000).is_some());
+}

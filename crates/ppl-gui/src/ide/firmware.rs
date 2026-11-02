@@ -36,6 +36,21 @@ pub struct FirmwareSettings {
     pub factory_a: String,
     pub runner: String,
     pub profile: String,
+    pub os_rom: String,
+    pub init_data: String,
+}
+impl FirmwareSettings {
+    pub fn asset_paths(&self) -> Result<ppl_engine::firmware_options::AssetPaths, String> {
+        let path = |s: &str| (!s.trim().is_empty()).then(|| PathBuf::from(s));
+        ppl_engine::firmware_options::AssetPaths {
+            firmware: path(&self.firmware),
+            factory_a: path(&self.factory_a),
+            runner: path(&self.runner),
+            os_rom: path(&self.os_rom),
+            init_data: path(&self.init_data),
+        }
+        .resolve()
+    }
 }
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -192,38 +207,7 @@ impl Drop for FirmwareClient {
         self.stop.store(true, Ordering::Release);
     }
 }
-fn configured(value: &str, variable: &str) -> Option<PathBuf> {
-    if !value.trim().is_empty() {
-        return Some(PathBuf::from(value));
-    }
-    if let Some(val) = std::env::var_os(variable) {
-        return Some(PathBuf::from(val));
-    }
-    // The CLI's config file, so `ppl show` and `ppl run` share assets.
-    let config = ppl_engine::firmware_options::AssetPaths::config_file()
-        .and_then(|f| ppl_engine::firmware_options::AssetPaths::from_config(&f).ok());
-    if let Some(mut c) = config {
-        let value = match variable {
-            "PPL_FIRMWARE" => c.firmware.take(),
-            "PPL_FACTORY_A" => c.factory_a.take(),
-            "PPL_FIRMWARE_RUNNER" => c.runner.take(),
-            "PPL_OS_ROM" => c.os_rom.take(),
-            "PPL_FIRMWARE_INIT_DATA" => c.init_data.take(),
-            _ => None,
-        };
-        if value.is_some() {
-            return value;
-        }
-    }
-    let fallback = match variable {
-        "PPL_FIRMWARE" => "PRIME_TEST_FIRMWARE",
-        "PPL_FACTORY_A" => "PRIME_TEST_FACTORY_A",
-        "PPL_FIRMWARE_RUNNER" => "PRIME_TEST_RUNNER",
-        "PPL_OS_ROM" => "PRIME_TEST_OS_ROM",
-        _ => return None,
-    };
-    std::env::var_os(fallback).map(PathBuf::from)
-}
+
 fn profile_path(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     if !settings.profile.trim().is_empty() {
         return Ok(PathBuf::from(&settings.profile));
@@ -348,21 +332,12 @@ fn supervise(
     unavailable: Arc<Mutex<Option<String>>>,
 ) -> Result<(), SessionError> {
     let unavailable_err = SessionError::Unavailable;
-    let runner = ppl_engine::firmware::discover_runner(
-        configured(&settings.runner, "PPL_FIRMWARE_RUNNER").as_deref(),
-    )
-    .map_err(unavailable_err)?;
-    let firmware = configured(&settings.firmware, "PPL_FIRMWARE").ok_or_else(|| {
-        unavailable_err("Choose the G1 armfir.elf and factory A directory in Settings, or configure PPL_FIRMWARE and PPL_FACTORY_A".into())
-    })?;
-    let factory = configured(&settings.factory_a, "PPL_FACTORY_A").ok_or_else(|| {
-        unavailable_err("Choose the factory A directory in Settings, or set PPL_FACTORY_A".into())
-    })?;
-    if !firmware.is_file() || !factory.join("programs/misc/armfir.dat").is_file() {
-        return Err(unavailable_err(
-            "The firmware ELF or factory resources are missing".into(),
-        ));
-    }
+    let paths = settings.asset_paths().map_err(unavailable_err)?;
+    paths.validate_files().map_err(unavailable_err)?;
+    let runner =
+        ppl_engine::firmware::discover_runner(paths.runner.as_deref()).map_err(unavailable_err)?;
+    let firmware = paths.firmware.as_ref().unwrap().clone();
+    let factory = paths.factory_a.as_ref().unwrap().clone();
     let explicit_profile = !settings.profile.trim().is_empty()
         || std::env::var_os("PPL_FIRMWARE_PROFILE").is_some()
         || std::env::var_os("PPL_PROFILE").is_some();
@@ -411,12 +386,7 @@ fn supervise(
         chosen.ok_or_else(|| unavailable_err("All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string()))?
     };
 
-    seed_profile(
-        &profile,
-        &factory,
-        configured("", "PPL_FIRMWARE_INIT_DATA").as_deref(),
-    )
-    .map_err(unavailable_err)?;
+    seed_profile(&profile, &factory, paths.init_data.as_deref()).map_err(unavailable_err)?;
     let leftovers = leftover_files(&profile);
     if !leftovers.is_empty() {
         let _ = events.send(Event::Status {
@@ -446,7 +416,7 @@ fn supervise(
         .stderr(Stdio::from(
             std::fs::File::create(profile.join("session.log")).map_err(|e| e.to_string())?,
         ));
-    if let Some(rom) = configured("", "PPL_OS_ROM") {
+    if let Some(rom) = paths.os_rom.as_ref() {
         command.arg("--os-rom").arg(rom);
     }
     #[cfg(unix)]
@@ -561,14 +531,6 @@ fn supervise(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_configured_fallbacks() {
-        assert_eq!(
-            configured("/custom/path", "PPL_FIRMWARE"),
-            Some(PathBuf::from("/custom/path"))
-        );
-    }
 
     #[test]
     fn new_profiles_start_from_initialized_data_and_existing_ones_are_kept() {

@@ -37,3 +37,10 @@ in the canonical checkout on `feat/g1-usability-overhaul` from `7014e75`.
 The atomic claim is `agent-claims/usability-overhaul/claim.json`. Earlier
 M12 canonical ownership entries above are historical. No commit, push or merge
 is authorized.
+
+2026-11-02 continuation: the user subsequently authorized local checkpoint
+commits on the dedicated feature branch and local integration. No push or
+publication is authorized. Registered isolated worktrees under
+`/tmp/prime-overhaul-{performance,recovery,native}` have distinct branch/task
+claims under shared `agent-claims/overhaul-*`. Coordinator integrates only
+explicit tested handoffs.

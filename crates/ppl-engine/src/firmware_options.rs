@@ -121,6 +121,60 @@ impl AssetPaths {
         }
         Ok(self)
     }
+    /// Validate local resources before spawning a helper or modifying a profile.
+    pub fn validate_files(&self) -> Result<(), String> {
+        let firmware = self
+            .firmware
+            .as_ref()
+            .ok_or("Select the G1 firmware ELF file")?;
+        let mut file = std::fs::File::open(firmware)
+            .map_err(|e| format!("Cannot read firmware {}: {e}", firmware.display()))?;
+        let mut header = [0u8; 52];
+        std::io::Read::read_exact(&mut file, &mut header).map_err(|e| {
+            format!(
+                "Firmware {} has a truncated ELF header: {e}",
+                firmware.display()
+            )
+        })?;
+        if &header[..4] != b"\x7fELF"
+            || header[4] != 1
+            || header[5] != 1
+            || u16::from_le_bytes([header[18], header[19]]) != 40
+        {
+            return Err(format!(
+                "{} is not a little-endian ARM ELF32 firmware image",
+                firmware.display()
+            ));
+        }
+        let factory = self
+            .factory_a
+            .as_ref()
+            .ok_or("Select the extracted factory A directory")?;
+        let resource = factory.join("programs/misc/armfir.dat");
+        if !resource.is_file() {
+            return Err(format!(
+                "Factory resources are incomplete: missing {}",
+                resource.display()
+            ));
+        }
+        if let Some(rom) = &self.os_rom {
+            if !rom.is_file() {
+                return Err(format!("OS ROM is missing: {}", rom.display()));
+            }
+        }
+        if let Some(initial) = &self.init_data {
+            for drive in ["A", "C"] {
+                if !initial.join(drive).is_dir() {
+                    return Err(format!(
+                        "Initialized storage is missing drive {drive}: {}",
+                        initial.display()
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Firmware image and factory drive are the minimum to run the helper.
     pub fn configured(&self) -> bool {
         self.firmware.is_some() && self.factory_a.is_some()
@@ -130,6 +184,36 @@ impl AssetPaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn validates_arm_header_and_reports_exact_missing_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let firmware = dir.path().join("armfir.elf");
+        let factory = dir.path().join("factory");
+        let paths = AssetPaths {
+            firmware: Some(firmware.clone()),
+            factory_a: Some(factory.clone()),
+            ..Default::default()
+        };
+        std::fs::write(&firmware, b"not an ELF").unwrap();
+        assert!(paths.validate_files().unwrap_err().contains("truncated"));
+        let mut header = [0u8; 52];
+        header[..6].copy_from_slice(b"\x7fELF\x01\x01");
+        header[18] = 40;
+        std::fs::write(&firmware, header).unwrap();
+        assert!(
+            paths
+                .validate_files()
+                .unwrap_err()
+                .contains("programs/misc/armfir.dat")
+        );
+        std::fs::create_dir_all(factory.join("programs/misc")).unwrap();
+        std::fs::write(factory.join("programs/misc/armfir.dat"), []).unwrap();
+        assert!(paths.validate_files().is_ok());
+        header[18] = 62;
+        std::fs::write(&firmware, header).unwrap();
+        assert!(paths.validate_files().unwrap_err().contains("ARM ELF32"));
+    }
+
     #[test]
     fn config_paths_are_relative_to_the_file_not_the_cwd() {
         let dir = tempfile::tempdir().unwrap();
