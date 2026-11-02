@@ -56,9 +56,11 @@ def checked_manifest(root):
     return data
 
 
-def qmp_command(stream, command, records):
+def qmp_command(stream, command, records, arguments=None):
     ident = len(records)
     request = {'execute': command, 'id': ident}
+    if arguments is not None:
+        request['arguments'] = arguments
     records.append({'send': request})
     stream.write((json.dumps(request) + '\n').encode())
     stream.flush()
@@ -114,7 +116,7 @@ def run(build_root, output, podman='podman', gdb='gdb'):
     report = {'schema_version': 1, 'scope': 's3c2416_machine_model_smoke',
               'machine': 'hp-prime', 'cpu': 'arm926', 'kernel_boot_verified': False,
               'reference_revision': PIN, 'binary_sha256': meta['binary_sha256'],
-              'image_id': meta['image_id'], 'smoke': smoke, 'status': 'failed'}
+              'image_id': meta['image_id'], 'patches': meta.get('patches', []), 'smoke': smoke, 'status': 'failed'}
     process = None
     qmp_records = []
     try:

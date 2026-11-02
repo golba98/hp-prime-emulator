@@ -1,4 +1,3 @@
-import copy
 import json
 from pathlib import Path
 import tempfile
@@ -53,6 +52,31 @@ class ExecutionTests(unittest.TestCase):
             out=Path(folder);sentinel=out/'keep';sentinel.write_bytes(b'state')
             with self.assertRaises(FileExistsError):builder.build(out,out)
             self.assertEqual(sentinel.read_bytes(),b'state')
+
+
+class QTestProtocolTests(unittest.TestCase):
+    class Stream:
+        def __init__(self, lines):
+            import io
+            self.input=io.BytesIO(lines)
+            self.output=bytearray()
+        def write(self, data):self.output.extend(data)
+        def flush(self):pass
+        def readline(self, size):return self.input.readline(size)
+
+    def test_irq_events_are_retained_while_matching_command_reply(self):
+        from full_system_intc import QTest
+        stream=self.Stream(b'IRQ raise 1\nOK 0x10000000\n')
+        qtest=QTest(stream)
+        self.assertEqual(qtest.read(0x4a000000),0x10000000)
+        self.assertEqual(qtest.events,['IRQ raise 1'])
+        self.assertEqual(stream.output,b'readl 0x4a000000\n')
+
+    def test_truncated_or_rejected_device_replies_fail_closed(self):
+        from full_system_intc import QTest
+        for response in [b'',b'FAIL unknown command\n',b'x'*4097]:
+            with self.subTest(response=response[:20]),self.assertRaises(RuntimeError):
+                QTest(self.Stream(response)).read(0x4a000000)
 
 
 if __name__=='__main__':unittest.main()

@@ -138,4 +138,47 @@ The old fork emits a disassembler/translator boundary warning while single
 stepping; the retained trace is not an exact instruction-count transcript. GDB
 independently verifies execution and mailbox/alias results. No message was sent
 to upstream. UART capture is configured, but this first payload does not transmit.
-INTC reset/FIQ model regressions are the next isolated increment.
+INTC reset/FIQ model regressions were subsequently reproduced and fixed below.
+
+
+## M17 interrupt-controller increment
+
+Actual baseline qtest runs reproduced two source-demonstrated bugs. A UART0 TX
+interrupt raises the CPU IRQ and sets source/pending/subsource/offset. The old
+system_reset left those fields and the IRQ line asserted. Selecting UART0 and
+timer0 in INTMOD while only UART0 was pending aborted on the invalid-lookup
+assertion. Both failed baseline results and raw assertion text are retained.
+
+The GPL research overlay patches/0001-intc-reset-fiq.patch clears pending/mode/
+offset/update state and lowers IRQ/FIQ at reset; it binds FIQ lookup to the
+actual single pending source and bounds-checks unknown IDs. Simultaneous pending
+FIQ priority is explicitly unsupported rather than guessed. No physical G1
+interrupt priority or kernel compatibility is claimed.
+
+Both unchanged qtest cases now pass three consecutive cycles each, observing
+actual CPU IRQ/FIQ input lines. Pending bits clear after reset/acknowledgement.
+UART writes produce ABC in the capture file. A clean full build with the exact
+published overlay matched the incremental patched executable, and its ARM/GDB
+RAM smoke also passed. This separates device-model qtest evidence (CPU paused)
+from genuine ARM instruction execution (the independent smoke).
+
+Reproduce after building a NEW directory with the --overlay option:
+
+    python3 scripts/emulator/full_system_build.py --reference /path/to/pinned/qemuPrime --overlay research/full-system/patches/0001-intc-reset-fiq.patch --output /home/USER/.cache/prime-patched-build
+    python3 scripts/emulator/full_system_intc.py --build-root /home/USER/.cache/prime-patched-build --case reset --output /home/USER/.cache/prime-intc-reset
+    python3 scripts/emulator/full_system_intc.py --build-root /home/USER/.cache/prime-patched-build --case fiq --output /home/USER/.cache/prime-intc-fiq
+
+Final published-overlay executable SHA256:
+011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46.
+Exact overlay SHA256:
+4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c.
+Evidence: research/full-system/evidence/m17-intc.json. Raw artifacts and the clean
+published-overlay-build are retained under the home-cache build root above.
+Ten ordinary Python tests pass without QEMU, proprietary firmware or USB.
+No owned containers or background builds remain after validation.
+
+Remaining full-system prerequisites are the matching authorized boot/NAND-OOB
+artifacts, kernel/MMU execution proof, and further validated timers/storage/LCD/
+input hardware behavior. PPL FullSystem stays unavailable until that independent
+software stack runs. Neither a linked ELF nor successful device-model tests are
+counted as PRIME_OS boot or physical calculator parity.

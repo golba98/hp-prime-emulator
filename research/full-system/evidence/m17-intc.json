@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "scope": "S3C2416 qemuPrime interrupt-controller model regression",
+  "physical_hardware_verified": false,
+  "kernel_boot_verified": false,
+  "baseline_build": {
+    "schema_version": 1,
+    "status": "built",
+    "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+    "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+    "image": "localhost/prime-m17-qemu-xenial",
+    "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+    "binary_sha256": "dfda20a5b7f308bf42ba66dd21060af898f13fcc3c76a73b9ec039b1ea10e851",
+    "patches": [],
+    "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1"
+  },
+  "patched_build": {
+    "schema_version": 1,
+    "status": "built",
+    "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+    "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+    "image": "localhost/prime-m17-qemu-xenial",
+    "configure_flags": [
+      "--target-list=arm-softmmu",
+      "--python=/usr/bin/python2.7",
+      "--disable-werror",
+      "--disable-sdl",
+      "--disable-gtk",
+      "--disable-vnc",
+      "--disable-curses",
+      "--disable-opengl",
+      "--disable-tools",
+      "--disable-docs",
+      "--disable-kvm",
+      "--disable-blobs",
+      "--with-system-pixman"
+    ],
+    "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+    "patches": [
+      {
+        "name": "0001-intc-reset-fiq.patch",
+        "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+      }
+    ],
+    "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+    "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46"
+  },
+  "baseline_failures": [
+    {
+      "schema_version": 1,
+      "case": "reset",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "failed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "dfda20a5b7f308bf42ba66dd21060af898f13fcc3c76a73b9ec039b1ea10e851",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "observations": [
+        {
+          "cycle": 0,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          }
+        }
+      ],
+      "error": "reset retained pending/mode/offset state"
+    },
+    {
+      "schema_version": 1,
+      "case": "fiq",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "failed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "dfda20a5b7f308bf42ba66dd21060af898f13fcc3c76a73b9ec039b1ea10e851",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "observations": [],
+      "error": "qtest closed or response exceeded bound"
+    }
+  ],
+  "patched_runs": [
+    {
+      "schema_version": 1,
+      "case": "reset",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "passed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        }
+      ],
+      "observations": [
+        {
+          "cycle": 0,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 1,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 2,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "case": "fiq",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "passed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        }
+      ],
+      "observations": [
+        {
+          "cycle": 0,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 1,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 2,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "scope": "s3c2416_machine_model_smoke",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        }
+      ],
+      "smoke": {
+        "path": "/home/k9-vortex/.cache/prime-m17-fullsystem-build/published-smoke/guest/smoke.elf",
+        "sha256": "a02feadb749388fab894f6a051e90a1edbadd268687074aeda9efbaaedb54d5f",
+        "entry": "0x30000000",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306460,
+        "halt_address": 805306460,
+        "mailbox": 1611464705,
+        "aliases": [
+          305419896,
+          305419896,
+          305419896,
+          305419896
+        ],
+        "registers": {
+          "r0": 805310464,
+          "r1": 1611464705,
+          "r2": 905977856,
+          "r3": 305419896,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613203
+      },
+      "gdb.log_sha256": "1eedbfc3b7fdcb96a46ec02a67cb591d30529c5ece1b214b1cdb999bfd3b9616",
+      "execution.log_sha256": "0414b0bda3596d5d7118afa00c98a7895c94309b0fb4607ebba0fc08c5eb4081",
+      "uart.log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "baseline_fiq_stderr": "Aqemu-system-arm: /src/hw/intc/s3c2416_intc.c:316: S3C2416_intc_update: Assertion `irq != 0xFFFFFF' failed.\n",
+  "overlay_rebuild_identical_to_incremental": true
+}
