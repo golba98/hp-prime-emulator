@@ -1,4 +1,7 @@
 //! Durable firmware-OFF checkpoints. Never serializes live CPU/host state.
+use ppl_engine::checkpoint::{
+    CheckpointKind, CheckpointReceipt, CheckpointSafePoint, RECEIPT_VERSION,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -25,6 +28,47 @@ pub struct Recovery {
     root: PathBuf,
     firmware: String,
 }
+/// Opt-in limits for explicit persistence checkpoints. Existing automatic OFF
+/// generations and interrupted-restore archives are never silently pruned.
+#[derive(Debug, Clone)]
+pub struct CheckpointPolicy {
+    pub max_checkpoint_bytes: u64,
+    /// Counts regular-file bytes throughout `.recovery`, including archives
+    /// and interrupted writes. Filesystem block/metadata overhead is excluded.
+    pub max_recovery_bytes: u64,
+    pub max_entries: usize,
+    /// At least two intact compatible generations must remain.
+    pub keep_generations: usize,
+}
+impl Default for CheckpointPolicy {
+    fn default() -> Self {
+        Self {
+            max_checkpoint_bytes: 256 * 1024 * 1024,
+            max_recovery_bytes: 1024 * 1024 * 1024,
+            max_entries: 100_000,
+            keep_generations: 4,
+        }
+    }
+}
+struct CopyBudget {
+    bytes: u64,
+    entries: usize,
+}
+impl CopyBudget {
+    fn unlimited() -> Self {
+        Self {
+            bytes: u64::MAX,
+            entries: usize::MAX,
+        }
+    }
+    fn entry(&mut self) -> io::Result<()> {
+        self.entries = self
+            .entries
+            .checked_sub(1)
+            .ok_or_else(|| invalid("checkpoint entry budget exceeded"))?;
+        Ok(())
+    }
+}
 fn invalid(s: impl Into<String>) -> io::Error {
     io::Error::other(s.into())
 }
@@ -40,17 +84,25 @@ fn write_new(p: &Path, bytes: &[u8]) -> io::Result<()> {
     f.sync_all()
 }
 fn file_hash(source: &Path, target: Option<&Path>) -> io::Result<String> {
+    file_hash_limit(source, target, u64::MAX).map(|(hash, _)| hash)
+}
+fn file_hash_limit(source: &Path, target: Option<&Path>, limit: u64) -> io::Result<(String, u64)> {
     let mut input = fs::File::open(source)?;
     let mut output = target
         .map(|p| fs::OpenOptions::new().write(true).create_new(true).open(p))
         .transpose()?;
     let mut hash = crate::sha256::Sha256::new();
     let mut buffer = [0u8; 65536];
+    let mut bytes = 0u64;
     loop {
         let count = input.read(&mut buffer)?;
         if count == 0 {
             break;
         }
+        bytes = bytes
+            .checked_add(count as u64)
+            .filter(|bytes| *bytes <= limit)
+            .ok_or_else(|| invalid("checkpoint byte budget exceeded"))?;
         hash.update(&buffer[..count]);
         if let Some(f) = output.as_mut() {
             f.write_all(&buffer[..count])?;
@@ -59,7 +111,7 @@ fn file_hash(source: &Path, target: Option<&Path>) -> io::Result<String> {
     if let Some(f) = output {
         f.sync_all()?;
     }
-    Ok(hash.finalize_hex())
+    Ok((hash.finalize_hex(), bytes))
 }
 pub(crate) fn resource_hash(source: &Path) -> io::Result<String> {
     file_hash(source, None)
@@ -92,6 +144,22 @@ fn copy_tree(
     relative: &str,
     manifest: &mut Manifest,
 ) -> io::Result<()> {
+    copy_tree_bounded(
+        source,
+        dest,
+        relative,
+        manifest,
+        &mut CopyBudget::unlimited(),
+    )
+}
+fn copy_tree_bounded(
+    source: &Path,
+    dest: &Path,
+    relative: &str,
+    manifest: &mut Manifest,
+    budget: &mut CopyBudget,
+) -> io::Result<()> {
+    budget.entry()?;
     if !fs::symlink_metadata(source)?.is_dir() {
         return Err(invalid("checkpoint refuses symbolic links"));
     }
@@ -106,9 +174,11 @@ fn copy_tree(
         let rel = format!("{relative}/{name}");
         let ty = e.file_type()?;
         if ty.is_dir() {
-            copy_tree(&e.path(), &dest.join(name), &rel, manifest)?;
+            copy_tree_bounded(&e.path(), &dest.join(name), &rel, manifest, budget)?;
         } else if ty.is_file() {
-            let hash = file_hash(&e.path(), Some(&dest.join(name)))?;
+            budget.entry()?;
+            let (hash, bytes) = file_hash_limit(&e.path(), Some(&dest.join(name)), budget.bytes)?;
+            budget.bytes -= bytes;
             manifest.files.insert(rel, hash);
         } else {
             return Err(invalid(
@@ -117,6 +187,27 @@ fn copy_tree(
         }
     }
     sync(dest)
+}
+fn tree_bytes(root: &Path, entries: &mut usize) -> io::Result<u64> {
+    *entries = entries
+        .checked_sub(1)
+        .ok_or_else(|| invalid("recovery entry budget exceeded"))?;
+    let meta = fs::symlink_metadata(root)?;
+    if meta.is_file() {
+        return Ok(meta.len());
+    }
+    if !meta.is_dir() {
+        return Err(invalid(
+            "recovery budget scan refuses symbolic links and special files",
+        ));
+    }
+    let mut bytes = 0u64;
+    for e in fs::read_dir(root)? {
+        bytes = bytes
+            .checked_add(tree_bytes(&e?.path(), entries)?)
+            .ok_or_else(|| invalid("recovery byte count overflow"))?;
+    }
+    Ok(bytes)
 }
 impl Recovery {
     /// Called before bootstrap mutations and while holding the helper lock.
@@ -152,9 +243,55 @@ impl Recovery {
     }
     /// Caller guarantees completed firmware OFF and excludes all guest mutation.
     pub fn checkpoint(&self) -> io::Result<()> {
-        self.checkpoint_as("firmware_off")
+        self.checkpoint_receipt().map(|_| ())
+    }
+    /// Same safe-point contract as [`Self::checkpoint`], with an exact receipt.
+    /// This does not prune existing recovery evidence.
+    pub fn checkpoint_receipt(&self) -> io::Result<CheckpointReceipt> {
+        self.publish("firmware_off", None, &mut || Ok(()))
+    }
+    /// Explicit, opt-in bounded checkpoint. Old compatible generations may be
+    /// pruned only after a new generation has been durably published. Restore
+    /// archives, interrupted writes and incompatible/corrupt evidence remain.
+    pub fn checkpoint_bounded(&self, policy: &CheckpointPolicy) -> io::Result<CheckpointReceipt> {
+        if policy.keep_generations < 2 || policy.max_entries == 0 {
+            return Err(invalid(
+                "checkpoint policy must retain at least two generations and permit entries",
+            ));
+        }
+        if self.base().join("restore.json").exists() {
+            return Err(invalid("cannot checkpoint during an unfinished restore"));
+        }
+        let receipt = self.publish("firmware_off", Some(policy), &mut || Ok(()))?;
+        // Failure to prune is not a failed save: the receipt already identifies
+        // a durable generation. Keep the extra evidence rather than misreporting
+        // the successfully committed checkpoint as absent.
+        let _ = self.prune(policy.keep_generations);
+        Ok(receipt)
     }
     fn checkpoint_as(&self, trigger: &str) -> io::Result<()> {
+        self.publish(trigger, None, &mut || Ok(())).map(|_| ())
+    }
+    fn publish(
+        &self,
+        trigger: &str,
+        policy: Option<&CheckpointPolicy>,
+        before_publish: &mut dyn FnMut() -> io::Result<()>,
+    ) -> io::Result<CheckpointReceipt> {
+        let mut budget = CopyBudget::unlimited();
+        let mut used = 0;
+        if let Some(policy) = policy {
+            let mut entries = policy.max_entries;
+            used = tree_bytes(&self.base(), &mut entries)?;
+            let available = policy.max_recovery_bytes.checked_sub(used).ok_or_else(|| {
+                invalid("recovery disk budget already exceeded; existing data retained")
+            })?;
+            budget = CopyBudget {
+                bytes: policy.max_checkpoint_bytes.min(available),
+                entries: policy.max_entries,
+            };
+        }
+        let initial_budget = budget.bytes;
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(invalid_time)?
@@ -163,24 +300,86 @@ impl Recovery {
         let name = format!("generation-{id:039}");
         let pending = self.base().join(format!("{name}.pending"));
         fs::create_dir(&pending)?;
-        let mut m = Manifest {
-            version: 1,
-            firmware: self.firmware.clone(),
-            trigger: trigger.into(),
-            files: BTreeMap::new(),
-            directories: Vec::new(),
-        };
-        for d in drives(&self.root)? {
-            copy_tree(&self.root.join(&d), &pending.join(&d), &d, &mut m)?;
+        let result = (|| {
+            let mut m = Manifest {
+                version: 1,
+                firmware: self.firmware.clone(),
+                trigger: trigger.into(),
+                files: BTreeMap::new(),
+                directories: Vec::new(),
+            };
+            for d in drives(&self.root)? {
+                copy_tree_bounded(
+                    &self.root.join(&d),
+                    &pending.join(&d),
+                    &d,
+                    &mut m,
+                    &mut budget,
+                )?;
+            }
+            let payload_bytes = initial_budget - budget.bytes;
+            let bytes = serde_json::to_vec(&m)?;
+            let manifest_sha256 = crate::sha256::hex(&bytes);
+            if let Some(policy) = policy {
+                let size = used
+                    .checked_add(payload_bytes)
+                    .and_then(|n| n.checked_add(bytes.len() as u64 + manifest_sha256.len() as u64))
+                    .ok_or_else(|| invalid("recovery byte count overflow"))?;
+                if size > policy.max_recovery_bytes {
+                    return Err(invalid(
+                        "recovery disk budget exceeded; previous generations retained",
+                    ));
+                }
+            }
+            write_new(&pending.join("manifest.json"), &bytes)?;
+            write_new(&pending.join("manifest.sha256"), manifest_sha256.as_bytes())?;
+            sync(&pending)?;
+            // Test fault injection occurs after every payload/manifest fsync but
+            // before the atomic publication boundary.
+            before_publish()?;
+            fs::rename(&pending, self.base().join(&name))?;
+            sync(&self.base())?;
+            Ok(CheckpointReceipt {
+                version: RECEIPT_VERSION,
+                kind: CheckpointKind::FirmwarePersistence,
+                safe_point: CheckpointSafePoint::FirmwareOff,
+                generation: name,
+                firmware: self.firmware.clone(),
+                manifest_sha256,
+                bytes: payload_bytes,
+                files: m.files.len() as u64,
+                restores_cpu: false,
+                restores_framebuffer: false,
+            })
+        })();
+        if result.is_err() && pending.exists() {
+            // Only this call's newly created staging directory is removed.
+            // A killed process leaves .pending, which restore ignores.
+            let _ = fs::remove_dir_all(&pending);
         }
-        let bytes = serde_json::to_vec(&m)?;
-        write_new(&pending.join("manifest.json"), &bytes)?;
-        write_new(
-            &pending.join("manifest.sha256"),
-            crate::sha256::hex(&bytes).as_bytes(),
-        )?;
-        sync(&pending)?;
-        fs::rename(&pending, self.base().join(name))?;
+        result
+    }
+    fn prune(&self, retain: usize) -> io::Result<()> {
+        if self.base().join("restore.json").exists() {
+            return Err(invalid("cannot prune during an unfinished restore"));
+        }
+        let mut compatible = Vec::new();
+        for e in fs::read_dir(self.base())? {
+            let e = e?;
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name
+                .strip_prefix("generation-")
+                .is_some_and(|id| id.len() == 39 && id.bytes().all(|c| c.is_ascii_digit()))
+                && self.validate(&e.path()).is_ok()
+            {
+                compatible.push(e.path());
+            }
+        }
+        compatible.sort();
+        let remove = compatible.len().saturating_sub(retain.max(2));
+        for path in compatible.into_iter().take(remove) {
+            fs::remove_dir_all(path)?;
+        }
         sync(&self.base())
     }
     // The helper storage lock serializes writers. Wall time alone cannot
@@ -435,6 +634,122 @@ mod tests {
         fs::write(d.path().join("C/DATA/value"), b"saved").unwrap();
         let (r, _) = Recovery::begin(d.path(), "fw".into()).unwrap();
         (d, r)
+    }
+    fn generations(r: &Recovery) -> Vec<PathBuf> {
+        let mut out = fs::read_dir(r.base())
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| {
+                p.join("manifest.json").is_file() && !p.to_string_lossy().ends_with(".pending")
+            })
+            .collect::<Vec<_>>();
+        out.sort();
+        out
+    }
+    #[test]
+    fn receipt_identifies_the_exact_durable_partial_checkpoint() {
+        let (_d, r) = setup();
+        let receipt = r.checkpoint_receipt().unwrap();
+        let dir = r.base().join(&receipt.generation);
+        assert!(r.validate(&dir).is_ok());
+        assert_eq!(
+            receipt.manifest_sha256,
+            crate::sha256::hex(&fs::read(dir.join("manifest.json")).unwrap())
+        );
+        assert_eq!(receipt.bytes, 5);
+        assert_eq!(receipt.files, 1);
+        assert_eq!(receipt.firmware, "fw");
+        assert!(!receipt.restores_cpu);
+        assert!(!receipt.restores_framebuffer);
+    }
+    #[test]
+    fn failed_publish_retains_previous_generation_and_original_data() {
+        let (d, r) = setup();
+        let before = generations(&r);
+        fs::write(d.path().join("C/DATA/value"), b"changed").unwrap();
+        let result = r.publish("firmware_off", None, &mut || {
+            Err(invalid("injected interrupted publication"))
+        });
+        assert!(result.is_err());
+        assert_eq!(generations(&r), before);
+        assert_eq!(fs::read(d.path().join("C/DATA/value")).unwrap(), b"changed");
+        Recovery::begin(d.path(), "fw".into()).unwrap();
+        assert_eq!(fs::read(d.path().join("C/DATA/value")).unwrap(), b"saved");
+    }
+    #[test]
+    fn payload_and_entry_limits_preserve_known_good_save() {
+        let (d, r) = setup();
+        let before = generations(&r);
+        let mut policy = CheckpointPolicy {
+            max_checkpoint_bytes: 4,
+            ..Default::default()
+        };
+        assert!(r.checkpoint_bounded(&policy).is_err());
+        assert_eq!(generations(&r), before);
+        policy.max_checkpoint_bytes = 100;
+        policy.max_entries = 1;
+        assert!(r.checkpoint_bounded(&policy).is_err());
+        assert_eq!(generations(&r), before);
+        assert_eq!(fs::read(d.path().join("C/DATA/value")).unwrap(), b"saved");
+    }
+    #[test]
+    fn total_budget_includes_archives_and_abandoned_pending_data() {
+        let (_d, r) = setup();
+        fs::create_dir(r.base().join("restore-preserved")).unwrap();
+        fs::write(r.base().join("restore-preserved/archive"), vec![0u8; 4096]).unwrap();
+        fs::create_dir(r.base().join("generation-999.pending")).unwrap();
+        fs::write(
+            r.base().join("generation-999.pending/incomplete"),
+            vec![0u8; 4096],
+        )
+        .unwrap();
+        let policy = CheckpointPolicy {
+            max_recovery_bytes: 8192,
+            ..Default::default()
+        };
+        assert!(r.checkpoint_bounded(&policy).is_err());
+        assert!(r.base().join("restore-preserved/archive").exists());
+        assert!(r.base().join("generation-999.pending/incomplete").exists());
+        assert_eq!(generations(&r).len(), 1);
+    }
+    #[test]
+    fn retention_preserves_two_valid_generations_and_unrelated_evidence() {
+        let (_d, r) = setup();
+        for _ in 0..4 {
+            r.checkpoint().unwrap();
+        }
+        let bad = r
+            .base()
+            .join("generation-000000000000000000000000000000000000001");
+        fs::create_dir(&bad).unwrap();
+        fs::write(bad.join("manifest.json"), b"bad retained evidence").unwrap();
+        fs::create_dir(r.base().join("restore-preserved")).unwrap();
+        let policy = CheckpointPolicy {
+            keep_generations: 2,
+            ..Default::default()
+        };
+        let saved = r.checkpoint_bounded(&policy).unwrap();
+        let valid = generations(&r)
+            .into_iter()
+            .filter(|p| r.validate(p).is_ok())
+            .collect::<Vec<_>>();
+        assert_eq!(valid.len(), 2);
+        assert!(r.base().join(saved.generation).exists());
+        assert!(bad.join("manifest.json").exists());
+        assert!(r.base().join("restore-preserved").exists());
+        let invalid_policy = CheckpointPolicy {
+            keep_generations: 1,
+            ..Default::default()
+        };
+        assert!(r.checkpoint_bounded(&invalid_policy).is_err());
+    }
+    #[test]
+    fn unfinished_restore_prevents_bounded_save_and_retention() {
+        let (_d, r) = setup();
+        fs::write(r.base().join("restore.json"), b"unfinished journal").unwrap();
+        assert!(r.checkpoint_bounded(&CheckpointPolicy::default()).is_err());
+        assert!(r.prune(2).is_err());
+        assert_eq!(generations(&r).len(), 1);
     }
     #[test]
     fn generation_order_survives_clock_rollback_and_pending_copy() {

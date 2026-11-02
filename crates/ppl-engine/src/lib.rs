@@ -1,6 +1,7 @@
 //! Engine integration without GUI, USB, Unicorn, or global signal handlers.
 pub mod arguments;
 pub mod checking;
+pub mod checkpoint;
 #[cfg(target_os = "linux")]
 pub mod direct_check;
 #[cfg(target_os = "linux")]
