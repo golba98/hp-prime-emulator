@@ -13,6 +13,7 @@ def trial():
     cases += [("tiny_after_restart", "run", tiny, 42), ("repeat_after_restart", "run", tiny, 42)]
     return {"firmware_sha256": "firmware", "os_rom_sha256": "rom", "helper_sha256": "helper",
             "initial_profile_sha256": "profile", "script_sha256": "script", "platform": "host",
+            "host_identity": {"hostname": "test", "processor": "test CPU", "logical_cpus": 2},
             "boot_seconds": [1, 2], "results": [
                 {"case": name, "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
                  "source_bytes": len(source.encode()), "correct": True, "elapsed_seconds": i + 1}
@@ -33,6 +34,7 @@ class ComparisonTests(unittest.TestCase):
         changes = [lambda t: t["results"].pop(),
                    lambda t: t.update(initial_profile_sha256="changed"),
                    lambda t: t.update(os_rom_sha256="changed"),
+                   lambda t: t.update(host_identity={"hostname": "other host"}),
                    lambda t: t["results"][0].update(source_sha256="wrong"),
                    lambda t: t["results"][0].update(correct=False),
                    lambda t: t["results"][0].update(elapsed_seconds=float("nan")),

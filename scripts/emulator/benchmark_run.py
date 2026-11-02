@@ -60,6 +60,19 @@ def copy_initial_profile(source, destination):
     return copied
 
 
+def host_identity():
+    processor = platform.processor()
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                processor = line.split(":", 1)[1].strip()
+                break
+    except OSError:
+        pass
+    return {"hostname": platform.node(), "machine": platform.machine(),
+            "processor": processor, "logical_cpus": os.cpu_count()}
+
+
 class Session:
     def __init__(self, helper, assets, profile, output):
         self.log = (output / "session.log").open("w")
@@ -169,6 +182,7 @@ def main():
         "firmware_sha256": hashlib.sha256((assets / "armfir.elf").read_bytes()).hexdigest(),
         "os_rom_sha256": hashlib.sha256((assets / "PRIME_OS.ROM").read_bytes()).hexdigest(),
         "platform": platform.platform(), "clock": "time.monotonic request write to matching Result event",
+        "host_identity": host_identity(),
         "cpu_clock": "/proc/pid/stat user+system ticks when available", "samples_per_case": 1,
         "verification": "local firmware only; no physical calculator",
         "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
