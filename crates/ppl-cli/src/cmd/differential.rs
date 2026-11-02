@@ -105,7 +105,7 @@ fn perform(o: &DifferentialOpts) -> Result<(serde_json::Value, bool), String> {
                 Box::new(differential::FirmwareHle{options:Options{runner:paths.runner,firmware:paths.firmware,os_rom:paths.os_rom,factory_a:paths.factory_a,init_data:paths.init_data,..Default::default()}})
             }
             Choice::PhysicalCapture=>Box::new(differential::Unavailable{backend:BackendId::PhysicalCapture,reason:"No live physical backend; use qualified --replay-evidence/--replay-manifest/--replay-suite for existing TYPE/STRING captures".into()}),
-            Choice::FullSystem=>Box::new(differential::Unavailable{backend:BackendId::FullSystem,reason:"Full-system emulator is not implemented; no kernel/hardware execution evidence is available".into()}),
+            Choice::FullSystem=>Box::new(differential::Unavailable{backend:BackendId::FullSystem,reason:"PPL full-system execution is unavailable. The isolated ARM926 research smoke executes on qemuPrime's hp-prime model; it does not boot the calculator kernel or run PPL scenarios".into()}),
         });
     }
     let refs: Vec<_> = backends.iter().map(|b| b.as_ref()).collect();
