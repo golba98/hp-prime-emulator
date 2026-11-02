@@ -339,6 +339,10 @@ impl IdePanel for MenuBar {
                         ui.close();
                     }
                 }
+                if ui.button("FullSystem hardware diagnostics…").clicked() {
+                    state.queue_action(IdeAction::ShowResearchDiagnostics);
+                    ui.close();
+                }
                 if state.firmware_backend {
                     ui.separator();
                     ui.label(egui::RichText::new("G1 Firmware calculator").small());

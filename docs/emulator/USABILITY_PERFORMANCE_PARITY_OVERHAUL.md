@@ -687,3 +687,13 @@ Production performance is preserved; no additional major speedup is claimed.
 Exact samples, hashes, source and profile identities are in
 evidence/m17/benchmark-summary.json and the final M17 report.
 Nothing was pushed, published or written to physical hardware.
+
+## M18 implementation checkpoint (in progress)
+
+From M17 reporting checkpoint31cfa64, the coordinator integrated capability-gated
+FullSystem discovery/CLI with a real pinned-QEMU smoke, constrained fresh-process
+ARM/Thumb snapshot continuation and diagnostic-only idle sampling estimates.
+Hardware and linked-debugger contributions are being tested in isolated claimed
+worktrees. Final GUI/workspace/performance verification is pending; M17 timings
+are reference values, not new M18 measurements. See
+[M18](M18_FULL_SYSTEM_HARDWARE_FOUNDATIONS.md) for current evidence and limits.

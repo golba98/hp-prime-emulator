@@ -79,7 +79,7 @@ pub fn run(options: Options) -> u8 {
                     if json {
                         println!(
                             "{}",
-                            serde_json::json!({"schema_version":1,"backend":"full_system","status":"infrastructure_error","kernel_boot_verified":false,"physical_hardware_verified":false,"error":error})
+                            serde_json::json!({"schema_version":1,"backend":"full_system","status":if cancel.cancelled() { "cancelled" } else { "infrastructure_error" },"kernel_boot_verified":false,"physical_hardware_verified":false,"error":error})
                         );
                     } else {
                         eprintln!("{error}");

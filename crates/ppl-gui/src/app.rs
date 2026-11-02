@@ -1562,6 +1562,9 @@ impl IdeDesktopApp {
             IdeAction::ResetLayout => {
                 self.state.reset_layout();
             }
+            IdeAction::ShowResearchDiagnostics => {
+                self.dialogs.research.open = true;
+            }
             IdeAction::ShowAboutDialog => {
                 self.dialogs.show_about = true;
             }

@@ -15,6 +15,7 @@ struct SettingsCheck {
 #[derive(Debug, Default)]
 pub struct DialogHost {
     pub show_about: bool,
+    pub research: super::research::ResearchPanel,
     pub show_shortcuts: bool,
     pub show_settings: bool,
     pub show_new_program: bool,
@@ -103,7 +104,8 @@ impl DialogHost {
         self.setup_check = None;
     }
     pub fn has_open(&self) -> bool {
-        self.show_about
+        self.research.open
+            || self.show_about
             || self.show_shortcuts
             || self.show_settings
             || self.show_new_program
@@ -124,6 +126,7 @@ impl DialogHost {
             &mut self.show_settings,
             &mut self.show_shortcuts,
             &mut self.show_about,
+            &mut self.research.open,
         ] {
             if *open {
                 *open = false;
@@ -150,6 +153,7 @@ impl DialogHost {
         state: &mut IdeAppState,
         editor: &mut EditorArea,
     ) {
+        self.research.show(ctx, &mut state.full_system_build_root);
         // About Dialog
         if self.show_about {
             let mut open = true;

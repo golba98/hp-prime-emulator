@@ -160,3 +160,19 @@ debug settings. Matched-source recovery tests improved from median 91.22 to
 change. Busy firmware can still fail strict admission safely; optimization is
 not proof of universal quiescence. Native-engine assertion/debug work can use
 `cargo --config 'profile.dev.package.unicorn-engine-sys.opt-level=0' ...`.
+
+## M18 integration in progress
+
+FullSystem research discovery and execution use a separate engine descriptor
+and `ppl full-system` CLI. The PPL Engine enum remains Native/Firmware; research
+capabilities do not enable PPL, CAS or calculator UI. Binary/configuration
+validation is distinct from runtime preflight and guest execution evidence.
+QEMU stays an external licensed process with bounded execution and owned cleanup.
+
+Synthetic snapshots now resume a constrained ARM926 user-mode machine in fresh
+processes. The fixed code/data/stack profile includes portable architectural
+registers and flags, exact memory and resource identity. It rejects unsupported
+instructions, CPU modes and corrupt metadata; real calculator SVC continuations
+remain outside this contract. See M18_SNAPSHOT_CONTINUATION.md. The production
+checkpoint admission policy is unchanged; sampling-interval estimates are
+explicitly diagnostic rather than new safety evidence.

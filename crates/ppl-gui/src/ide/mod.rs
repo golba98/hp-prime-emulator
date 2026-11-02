@@ -20,6 +20,7 @@ pub mod menu;
 pub mod native;
 pub mod problems;
 pub mod programs;
+pub mod research;
 pub mod send;
 pub mod status;
 pub mod syntax;
@@ -56,6 +57,7 @@ pub struct PersistentPanelState {
     pub smooth_display: bool,
     pub firmware_backend: bool,
     pub firmware: firmware::FirmwareSettings,
+    pub full_system_build_root: String,
     pub show_explorer: bool,
     pub show_calculator: bool,
     pub show_bottom_dock: bool,
@@ -92,6 +94,7 @@ impl Default for PersistentPanelState {
             smooth_display: false,
             firmware_backend: false,
             firmware: firmware::FirmwareSettings::default(),
+            full_system_build_root: String::new(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
@@ -295,6 +298,7 @@ pub enum IdeAction {
     FirmwareResetConfirmed,
     ShowShortcuts,
     ShowAboutDialog,
+    ShowResearchDiagnostics,
     ShowSettingsDialog,
     ShowNewProgramDialog,
     ShowGoToLineDialog,
@@ -346,6 +350,7 @@ pub struct IdeAppState {
     pub smooth_display: bool,
     pub firmware_backend: bool,
     pub firmware: firmware::FirmwareSettings,
+    pub full_system_build_root: String,
     pub key_transitions: Vec<(i64, bool)>,
     pub firmware_input_enabled: bool,
     pub firmware_managed_reason: Option<String>,
@@ -424,6 +429,7 @@ impl Default for IdeAppState {
             smooth_display: false,
             firmware_backend: false,
             firmware: firmware::FirmwareSettings::default(),
+            full_system_build_root: String::new(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
@@ -473,6 +479,7 @@ impl IdeAppState {
             smooth_display: self.smooth_display,
             firmware_backend: self.firmware_backend,
             firmware: self.firmware.clone(),
+            full_system_build_root: self.full_system_build_root.clone(),
             show_explorer: self.show_explorer,
             show_calculator: self.show_calculator,
             show_bottom_dock: self.show_bottom_dock,
@@ -500,6 +507,7 @@ impl IdeAppState {
         self.smooth_display = p.smooth_display;
         self.firmware_backend = p.firmware_backend;
         self.firmware = p.firmware.clone();
+        self.full_system_build_root = p.full_system_build_root.clone();
         self.show_explorer = p.show_explorer;
         self.show_calculator = p.show_calculator;
         self.show_bottom_dock = p.show_bottom_dock;

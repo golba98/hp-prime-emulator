@@ -2,7 +2,7 @@
 
 Implemented schema 1 and stateful schema 2. This extends `ppl-compat`; existing `ppl compare`
 suites, hardware evidence, interpretation history and the 77 physical references
-are unchanged. Live HLE execution uses isolated profiles; physical evidence collection remains separately guarded. No full-system emulator is implemented.
+are unchanged. Live HLE execution uses isolated profiles; physical evidence collection remains separately guarded. FullSystem PPL scenarios remain unavailable; isolated synthetic ARM machine tests are separate.
 
 ## Running scenarios
 
@@ -251,3 +251,13 @@ adapter controls and actual oversized-packet tests enforce this distinction.
 Final M17 fixtures and regression results are recorded in
 [the M17 report](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md). FullSystem PPL remains
 unavailable despite the independent executed ARM research smoke.
+
+## M18 synthetic execution boundaries
+
+`ppl full-system info/run` discovers and executes isolated hardware research
+cases. Their case/machine/build/image identities and proof categories are checked
+before results are accepted. They do not enter PPL comparison as a successful
+FullSystem calculator backend. Real ARM execution, paused-CPU qtest checks,
+synthetic Unicorn continuation, local HLE results and historical physical replay
+remain separate observations. No synthetic result may claim a physical capture
+or proprietary kernel boot. Existing PPL fixture schemas are unchanged.
