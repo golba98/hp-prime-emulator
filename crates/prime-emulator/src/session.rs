@@ -1050,10 +1050,15 @@ impl LiveSession {
             Some(crate::checkpoint::Action::Finished { mut result, wake }) => {
                 if let CheckpointResult::Failed { message } = &mut result {
                     message.push_str(&format!(
-                        " (main waits {}→{}, main waiting={}, input pump parked={}, queued input={}, touch={})",
+                        " (checkpoint stage={}, off_sent={}, main waits {}→{}, main waiting={}, main UI blocked={}, input pump parked={}, queued input={}, local keys={}, delivered keys={:?}, touch={}, sleeping={}, sleep generation={}, saved sleep={:?}, save worker={}, save result={:?}, idle={})",
+                        if checkpoint.off_sent() {"awaiting_firmware_sleep_or_durable_save"} else {"awaiting_strict_idle_admission"},
+                        checkpoint.off_sent(),
                         device.checkpoint_wait_entry, shared.main_wait_entries(),
-                        shared.main_waiting(), shared.getevent_parked(),
-                        shared.input_events_pending(), shared.touch_pending(),
+                        shared.main_waiting(), shared.main_ui_waiting(),shared.getevent_parked(),
+                        shared.input_events_pending(), device.keys.len(),device.delivered, shared.touch_pending(),
+                        shared.sleeping(),shared.sleeps(),device.saved_sleep,device.save_worker.is_some(),
+                        device.save_result.as_ref().map(|r|r.as_ref().map(|_|"saved").map_err(String::as_str)),
+                        device.checkpoint_idle.diagnostic(),
                     ));
                 }
                 if wake {

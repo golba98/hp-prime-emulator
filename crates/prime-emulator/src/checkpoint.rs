@@ -58,6 +58,9 @@ pub enum Action {
     },
 }
 impl Checkpoint {
+    pub fn off_sent(&self) -> bool {
+        self.off_sent
+    }
     pub fn begin(id: u64, wake: bool, admission: &Admission) -> Result<Self, CheckpointResult> {
         if let Some(reason) = admission.refusal() {
             return Err(CheckpointResult::Deferred {
@@ -177,8 +180,10 @@ mod tests {
         let mut c =
             Checkpoint::begin(2, true, &admission()).unwrap_or_else(|_| panic!("admission"));
         let saved = Ok(receipt());
+        assert!(!c.off_sent());
         assert!(c.poll(false, false, None).is_none());
         assert!(matches!(c.poll(false, true, None), Some(Action::PowerOff)));
+        assert!(c.off_sent());
         assert!(c.poll(false, true, Some(&saved)).is_none());
         assert!(c.poll(true, false, None).is_none());
         assert!(matches!(
@@ -225,6 +230,7 @@ mod tests {
         let mut c =
             Checkpoint::begin(5, true, &admission()).unwrap_or_else(|_| panic!("admission"));
         assert!(c.poll(false, false, None).is_none());
+        assert!(!c.off_sent());
         assert!(matches!(
             c.poll_at(c.started + LIMIT, false, false, None),
             Some(Action::Finished {

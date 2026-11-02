@@ -81,6 +81,14 @@ impl IdleMeter {
     pub fn clear(&mut self) {
         self.samples.clear();
     }
+    /// Current strict window for failure diagnostics, never an admission override.
+    pub fn diagnostic(&self) -> serde_json::Value {
+        let idle = self.samples.iter().filter(|(_, idle)| *idle).count();
+        serde_json::json!({"samples":self.samples.len(),"idle_samples":idle,
+            "share":idle as f64/self.samples.len().max(1) as f64,
+            "covered_ms":self.samples.front().map(|(t,_)|t.elapsed().as_secs_f64()*1000.0),
+            "required_share":INTERRUPT_IDLE_SHARE,"required_window_ms":INTERRUPT_SETTLE.as_millis()})
+    }
 }
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
