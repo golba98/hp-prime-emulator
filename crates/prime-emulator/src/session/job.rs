@@ -827,24 +827,10 @@ impl Jobs {
                     return Err(format!("Source loader failed: {status:?}"));
                 }
                 if job.direct {
-                    let sha = crate::sha256::hex(job.source.as_bytes());
                     let snapshot = trace.compiler.as_ref().unwrap().snapshot();
-                    let ctx = snapshot
-                        .checks
-                        .iter()
-                        .filter(|c| {
-                            c.kind.as_deref() == Some("assign")
-                                && c.return_value.is_some()
-                                && c.sources.len() == 1
-                                && c.sources[0].sha256 == sha
-                        })
-                        .map(|c| c.program_va)
-                        .collect::<Vec<_>>();
-                    let [Some(ctx)] = ctx.as_slice() else {
-                        return Err("The loader's program assignment was not observed".into());
-                    };
-                    self.direct_ctx = Some(*ctx);
-                    return begin_direct(job, *ctx, mem, shared, trace).map(|()| None);
+                    let ctx = diagnostic_context(&snapshot, &job.source)?;
+                    self.direct_ctx = Some(ctx);
+                    return begin_direct(job, ctx, mem, shared, trace).map(|()| None);
                 }
                 if job.import.is_some() {
                     self.import_script(job, trace)?;
@@ -873,6 +859,9 @@ impl Jobs {
                         "compiler_returned_ms": compiled.returned_ms,
                     }));
                     job.stage = Stage::Prepared;
+                } else if let Ok(ctx) = diagnostic_context(&observations, &job.source) {
+                    self.direct_ctx = Some(ctx);
+                    return begin_direct(job, ctx, mem, shared, trace).map(|()| None);
                 } else {
                     job.stage = Stage::CheckTarget;
                     self.check_script(job, "ZZT_IDE", trace)?;
@@ -961,6 +950,9 @@ impl Jobs {
                         .message
                         .clone()
                         .unwrap_or("The firmware rejected the program".into()));
+                }
+                if job.run {
+                    return Err("Syntax accepted, but executable preparation was not verified; the program was not run".into());
                 }
                 let message = "G1 firmware compiled the exact current source (direct)".to_string();
                 save_report(shared, trace, job, true, &message);
@@ -1175,6 +1167,32 @@ fn catalog_read(event: &serde_json::Value) -> Option<String> {
         .and_then(|p| p.strip_suffix(".hpprgm"))
         .map(str::to_owned)
 }
+/// This proves only a context for diagnostics, never prepared exports.
+fn diagnostic_context(trace: &crate::compiler::CompilerTrace, source: &str) -> Result<u32, String> {
+    if trace.dropped != 0 {
+        return Err("Incomplete compiler observations".into());
+    }
+    let sha = crate::sha256::hex(source.as_bytes());
+    let matches = trace
+        .checks
+        .iter()
+        .filter(|c| {
+            c.kind.as_deref() == Some("assign")
+                && c.compiler_entered
+                && c.return_value.is_some()
+                && c.returned_ms.is_some()
+                && c.errors.is_empty()
+                && c.sources.len() == 1
+                && c.sources[0].sha256 == sha
+                && c.sources[0].utf16_units == source.encode_utf16().count()
+        })
+        .filter_map(|c| c.program_va.filter(|p| *p != 0))
+        .collect::<Vec<_>>();
+    match matches.as_slice() {
+        [ctx] => Ok(*ctx),
+        _ => Err("Assignment context was missing or ambiguous".into()),
+    }
+}
 fn progress_message(stage: Stage) -> &'static str {
     match stage {
         Stage::CheckLoader => "Preparing the firmware source loader…",
@@ -1338,6 +1356,36 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn diagnostic_context_requires_unique_complete_exact_source() {
+        let source = "RETURN 1+;";
+        let mut trace = crate::compiler::CompilerTrace::default();
+        trace.checks.push(crate::compiler::CheckObservation {
+            kind: Some("assign".into()),
+            compiler_entered: true,
+            returned_ms: Some(1.0),
+            return_value: Some(0),
+            program_va: Some(0x20001000),
+            sources: vec![crate::compiler::ObservedSource {
+                source_index: 0,
+                address: 0x20002000,
+                sha256: crate::sha256::hex(source.as_bytes()),
+                utf16_units: source.encode_utf16().count(),
+            }],
+            ..Default::default()
+        });
+        assert_eq!(
+            super::diagnostic_context(&trace, source).unwrap(),
+            0x20001000
+        );
+        assert!(super::diagnostic_context(&trace, "edited").is_err());
+        trace.dropped = 1;
+        assert!(super::diagnostic_context(&trace, source).is_err());
+        trace.dropped = 0;
+        trace.checks.push(trace.checks[0].clone());
+        assert!(super::diagnostic_context(&trace, source).is_err());
+    }
+
     use super::{catalog_order, validate_import};
     #[test]
     fn source_attachment_matches_firmware_string_encoding() {
