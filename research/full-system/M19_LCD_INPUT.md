@@ -26,6 +26,10 @@ QMP `screendump` captures the actual display surface as PPM. The independent
 host oracle defines every RGB pixel from coordinates and compares all76,800
 pixels for each frame. PNGs are converted from those verified capture bytes;
 no host framebuffer is injected. Frame0 and frame1 previews were inspected.
+Validation covers window0 RGB565 and window1 register addressing; it does not
+verify window1 compositing, palette modes, RGB888, LCD clock/vblank cadence or
+physical LCD interrupt/status/acknowledgement semantics. The inherited rendering
+callback is not a cycle-accurate LCD scanout engine.
 
 The input guest scans GPD output rows and GPG input columns and receives
 scripted QMP key transitions. This mapping is independently corroborated by
