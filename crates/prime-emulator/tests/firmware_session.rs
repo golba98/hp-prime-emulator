@@ -262,6 +262,30 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
         big
     );
 
+    // New catalog rows need not be selected for Run: the loader's exact
+    // assignment already invokes the genuine firmware compiler.
+    s.send(&Command::Run {
+        request: 6,
+        source: "EXPORT AFTERIMPORT() BEGIN RETURN 42; END;".into(),
+        entry: None,
+        arguments: String::new(),
+    });
+    match s.wait(4 * minute, "run after imports", |e| {
+        matches!(e, Event::Result { request: 6, .. })
+    }) {
+        Event::Result {
+            success,
+            message,
+            check,
+            ..
+        } => {
+            assert!(success, "{message}");
+            assert!(message.contains("returned 42"), "{message}");
+            assert!(check.unwrap().accepted);
+        }
+        _ => unreachable!(),
+    }
+
     // The firmware's own OFF saves its state, then the session ends.
     let settings = profile.path().join("C/DATA/cas.hpsettings");
     assert!(!settings.exists(), "nothing saved before OFF");

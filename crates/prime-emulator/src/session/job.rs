@@ -841,8 +841,33 @@ impl Jobs {
                     self.import_script(job, trace)?;
                     return Ok(None);
                 }
-                job.stage = Stage::CheckTarget;
-                self.check_script(job, "ZZT_IDE", trace)?;
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                if let Ok(compiled) = checkprog::validate_assignment(&observations, &job.source) {
+                    // Programs():= has already compiled the exact source with
+                    // Check's arguments. Preserve its genuine context instead
+                    // of selecting and compiling it again through the catalog.
+                    self.prepared = Some(PreparedProgram {
+                        source: job.source.clone(),
+                        stored_sha: crate::sha256::hex(
+                            &std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+                                .map_err(|e| e.to_string())?,
+                        ),
+                        check: compiled.clone(),
+                        fs_cursor: trace.fs_log_since(usize::MAX).1,
+                        compiler_cursor: observations.checks.len(),
+                    });
+                    job.timeline.push(serde_json::json!({
+                        "stage": "compile-source",
+                        "method": "firmware-assignment",
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "compiler_started_ms": compiled.started_ms,
+                        "compiler_returned_ms": compiled.returned_ms,
+                    }));
+                    job.stage = Stage::Prepared;
+                } else {
+                    job.stage = Stage::CheckTarget;
+                    self.check_script(job, "ZZT_IDE", trace)?;
+                }
             }
             Stage::CheckImporter => {
                 let observations = trace.compiler.as_ref().unwrap().snapshot();

@@ -167,6 +167,44 @@ pub fn validate<'a>(
     Ok(c)
 }
 
+/// The loader's `Programs(name):=source` invokes the same firmware compiler
+/// with the same arguments as Check. Reuse only a complete, exact successful
+/// assignment; rejected sources still need Check's diagnostic presentation.
+pub fn validate_assignment<'a>(
+    trace: &'a CompilerTrace,
+    source: &str,
+) -> Result<&'a CheckObservation, String> {
+    if trace.dropped != 0 {
+        return Err("compiler observations were dropped".into());
+    }
+    let assignments: Vec<_> = trace
+        .checks
+        .iter()
+        .filter(|c| c.kind.as_deref() == Some("assign"))
+        .collect();
+    let [c] = assignments.as_slice() else {
+        return Err("expected exactly one source assignment compile".into());
+    };
+    if !c.errors.is_empty()
+        || !c.compiler_entered
+        || c.cpsr & 0x20 != 0
+        || c.program_va.is_none()
+        || c.result_va.is_none()
+        || c.return_value != Some(1)
+        || c.sources.len() != 1
+        || c.sources[0].source_index != 0
+        || c.sources[0].sha256 != sha256::hex(source.as_bytes())
+        || c.sources[0].utf16_units != source.encode_utf16().count()
+        || !matches!(c.parser_returns.as_slice(), [0 | 1])
+        || !c.started_ms.is_finite()
+        || c.returned_ms
+            .is_none_or(|end| !end.is_finite() || end < c.started_ms)
+    {
+        return Err("source assignment did not prove exact successful firmware compilation".into());
+    }
+    Ok(c)
+}
+
 /// The diagnostic for a rejected, validated Check of `source`. The position
 /// is mapped from the guest's raw UTF-16 offset; when it cannot be mapped it
 /// stays unavailable rather than being estimated.
@@ -513,6 +551,54 @@ pub(crate) fn finish(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn assignment_reuse_requires_complete_exact_successful_firmware_evidence() {
+        use super::*;
+        let source = "EXPORT TEST() BEGIN RETURN 1; END;";
+        let check = CheckObservation {
+            kind: Some("assign".into()),
+            compiler_entered: true,
+            program_va: Some(0x2000),
+            result_va: Some(0x3000),
+            return_value: Some(1),
+            returned_ms: Some(1.0),
+            parser_returns: vec![0],
+            sources: vec![compiler::ObservedSource {
+                source_index: 0,
+                address: 0x4000,
+                sha256: sha256::hex(source.as_bytes()),
+                utf16_units: source.encode_utf16().count(),
+            }],
+            ..Default::default()
+        };
+        let evidence = |c| CompilerTrace {
+            checks: vec![c],
+            ..Default::default()
+        };
+        assert!(validate_assignment(&evidence(check.clone()), source).is_ok());
+        assert!(validate_assignment(&evidence(check.clone()), "different").is_err());
+        let mutations: [fn(&mut CheckObservation); 7] = [
+            |c: &mut CheckObservation| c.return_value = Some(0),
+            |c: &mut CheckObservation| c.cpsr |= 0x20,
+            |c: &mut CheckObservation| c.program_va = None,
+            |c: &mut CheckObservation| c.returned_ms = None,
+            |c: &mut CheckObservation| c.parser_returns.push(0),
+            |c: &mut CheckObservation| c.errors.push("wrong arguments".into()),
+            |c: &mut CheckObservation| c.sources[0].utf16_units += 1,
+        ];
+        for mutate in mutations {
+            let mut bad = check.clone();
+            mutate(&mut bad);
+            assert!(validate_assignment(&evidence(bad), source).is_err());
+        }
+        let mut bad = evidence(check.clone());
+        bad.dropped = 1;
+        assert!(validate_assignment(&bad, source).is_err());
+        bad.dropped = 0;
+        bad.checks.push(check);
+        assert!(validate_assignment(&bad, source).is_err());
+    }
+
     use super::*;
 
     #[test]
