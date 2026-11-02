@@ -227,6 +227,26 @@ fn profile_path(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     }
     Ok(data.join("hp-prime-emulator/ide-session"))
 }
+/// Both the GUI supervisor and direct session helper must be excluded before
+/// changing profile files. Keep these guards until the mutation is complete.
+fn lock_profile(profile: &Path) -> Result<(std::fs::File, std::fs::File), String> {
+    let acquire = |name| {
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(profile.join(name))
+            .map_err(|e| e.to_string())?;
+        fs2::FileExt::try_lock_exclusive(&file).map_err(|_| {
+            format!(
+                "Calculator profile at '{}' is locked by another running session",
+                profile.display()
+            )
+        })?;
+        Ok::<_, String>(file)
+    };
+    Ok((acquire("session.lock")?, acquire("helper.lock")?))
+}
 /// Clears the calculator's memory to its factory state, as a reset does:
 /// the profile (all of its storage) is moved aside to a timestamped backup
 /// folder next to it, which is never deleted, and the next start seeds a
@@ -238,14 +258,7 @@ pub fn reset_profile(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     if !profile.join("A").exists() {
         return Err("The calculator has no stored memory to reset".into());
     }
-    let lock = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(profile.join("session.lock"))
-        .map_err(|e| e.to_string())?;
-    fs2::FileExt::try_lock_exclusive(&lock)
-        .map_err(|_| "The calculator is in use; shut it down first".to_string())?;
+    let _locks = lock_profile(&profile)?;
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -255,7 +268,6 @@ pub fn reset_profile(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     if backup.exists() {
         return Err(format!("{} already exists", backup.display()));
     }
-    drop(lock);
     std::fs::rename(&profile, &backup).map_err(|e| e.to_string())?;
     Ok(backup)
 }
@@ -343,47 +355,22 @@ fn supervise(
         || std::env::var_os("PPL_PROFILE").is_some();
     let base_profile = profile_path(&settings).map_err(unavailable_err)?;
 
-    let (profile, lock) = if explicit_profile {
+    let (profile, (lock, helper_lock)) = if explicit_profile {
         std::fs::create_dir_all(&base_profile).map_err(|e| unavailable_err(e.to_string()))?;
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .write(true)
-            .open(base_profile.join("session.lock"))
-            .map_err(|e| unavailable_err(e.to_string()))?;
-        fs2::FileExt::try_lock_exclusive(&file).map_err(|_| {
-            unavailable_err(format!(
-                "Calculator profile at '{}' is locked by another running session",
-                base_profile.display()
-            ))
-        })?;
-        (base_profile, file)
+        let locks = lock_profile(&base_profile).map_err(unavailable_err)?;
+        (base_profile, locks)
     } else {
-        let mut chosen = None;
         let candidates = std::iter::once(base_profile.clone()).chain((2..=8).map(|i| {
-            let file_name = format!(
-                "{}-{}",
-                base_profile.file_name().unwrap().to_string_lossy(),
-                i
-            );
-            base_profile.with_file_name(file_name)
+            base_profile.with_file_name(format!(
+                "{}-{i}",
+                base_profile.file_name().unwrap().to_string_lossy()
+            ))
         }));
-        for cand in candidates {
-            if std::fs::create_dir_all(&cand).is_ok() {
-                if let Ok(file) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .truncate(false)
-                    .write(true)
-                    .open(cand.join("session.lock"))
-                {
-                    if fs2::FileExt::try_lock_exclusive(&file).is_ok() {
-                        chosen = Some((cand, file));
-                        break;
-                    }
-                }
-            }
-        }
-        chosen.ok_or_else(|| unavailable_err("All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string()))?
+        candidates.filter_map(|candidate| {
+            std::fs::create_dir_all(&candidate).ok()?;
+            let locks = lock_profile(&candidate).ok()?;
+            Some((candidate, locks))
+        }).next().ok_or_else(|| unavailable_err("All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string()))?
     };
 
     seed_profile(&profile, &factory, paths.init_data.as_deref()).map_err(unavailable_err)?;
@@ -424,6 +411,10 @@ fn supervise(
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
+    // Transfer storage ownership to the helper, which acquires helper.lock
+    // before recovery or bootstrap. If another helper wins, startup fails
+    // without mutating storage. The supervisor retains session.lock.
+    drop(helper_lock);
     let mut child = command
         .spawn()
         .map_err(|e| unavailable_err(e.to_string()))?;
@@ -591,6 +582,17 @@ mod tests {
         assert!(reset_profile(&settings).is_err());
         assert!(profile.join("C/DATA/MINE.hpprgm").is_file());
         drop(held);
+        let helper = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(profile.join("helper.lock"))
+            .unwrap();
+        fs2::FileExt::try_lock_exclusive(&helper).unwrap();
+        assert!(reset_profile(&settings).is_err());
+        assert!(lock_profile(&profile).is_err());
+        assert!(profile.join("C/DATA/MINE.hpprgm").is_file());
+        drop(helper);
         let backup = reset_profile(&settings).unwrap();
         assert!(!profile.exists(), "the next start seeds a fresh profile");
         assert_eq!(

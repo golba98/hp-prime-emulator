@@ -233,6 +233,7 @@ impl LiveSession {
                 Command::Key { code, down }
                     if (code <= 191 || code == 0xE047) && device.jobs.accepts_input() =>
                 {
+                    device.jobs.invalidate_prepared();
                     if down {
                         device.held.insert(code);
                     } else {
@@ -247,6 +248,7 @@ impl LiveSession {
                         && y < 240
                         && device.jobs.accepts_input() =>
                 {
+                    device.jobs.invalidate_prepared();
                     shared.push_touch(TouchSample { status, x, y })
                 }
                 Command::ReleaseAll => {
@@ -261,6 +263,7 @@ impl LiveSession {
                 }
                 Command::Shutdown => shared.set_stopping(),
                 Command::PowerDown => {
+                    device.jobs.invalidate_prepared();
                     device.repeat.clear();
                     if device.power_down.is_none() {
                         device.power_down = Some((Instant::now(), false));
@@ -286,6 +289,7 @@ impl LiveSession {
                 }
                 Command::Script { keys } => match crate::keys::parse_keys(&keys) {
                     Ok(keys) => {
+                        device.jobs.invalidate_prepared();
                         device.script = Some(ScriptDriver::new(ScriptConfig {
                             keys,
                             idle_observe_ms: 0,
@@ -324,6 +328,7 @@ impl LiveSession {
                     }
                 }
                 Command::Stop => {
+                    device.jobs.invalidate_prepared();
                     device.script = None;
                     let interrupted = device.jobs.interrupt(shared, trace);
                     if interrupted {

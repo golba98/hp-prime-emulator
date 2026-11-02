@@ -124,3 +124,76 @@ Serial rerun of unchanged transaction suite: **18/18 passed**, including the
 previously failed test (55.31 s). Log:
 `/tmp/hp-prime-overhaul-transactions-serial.log`. The parallel flake remains
 unfixed and is not counted as a clean final workspace run.
+
+## Autonomous implementation continuation (2026-11-02)
+
+The earlier "not implemented" and uncommitted statements above describe the
+first increment only. The dedicated branch now contains reviewed local commits;
+no changes were pushed. Integration and final validation are in progress.
+
+### Implemented and integrated
+
+- Firmware Run (`script.rs`, `session/job.rs`): consumption-paced key scripts,
+  explicit loader handoff, and conservative reuse of unchanged prepared source.
+  Cache eligibility checks exact source/container hashes, compiler observations
+  and filesystem mutation evidence. External keyboard/touch/scripts and
+  Stop/OFF invalidate it. Changed source still passes through firmware checking.
+- Recovery (`recovery.rs`, `session.rs`, VFS): versioned, SHA-256 checked,
+  fsynced generations after completed firmware OFF; atomic publication and a
+  resumable restore journal; interrupted drives are archived, not overwritten.
+  Startup baselines are labelled separately. No live CPU/RAM restoration or
+  periodic OFF/ON autosave is claimed. Unsaved activity since the last OFF can
+  still be lost. GUI reset/seeding now also respects the helper storage lock.
+- Native INPUT: distinguish scalar list values from multiple field descriptors,
+  validate initial/reset list cardinality, preserve variables on cancellation,
+  expose Reset, and round-trip string/list values correctly. EVAL/STARTAPP
+  explain which firmware service is required instead of claiming support.
+- Allocation failure: guest malloc/calloc/realloc return null on exhaustion or
+  overflow; failed realloc preserves its old allocation. Opt-in CLI
+  `--heap-budget-mib` constrains allocations independently of the mapped arena.
+  This is an experimental allocation budget, **not** a complete 32 MB G1 model.
+- Setup: shared ARM ELF/resource validation; explicit resource paths for ROM
+  and initialized data; file/directory pickers and a Validate action in Settings;
+  malformed configuration no longer silently falls back to unrelated paths.
+
+### Performance evidence so far
+
+Single samples from isolated release firmware sessions, identical generated
+requests, timing request receipt through Result (including program output).
+These are not interchangeable with the earlier Run-to-body-entry measurements.
+
+| Workload | Handoff only | Consumption pacing | Pacing + prepared cache |
+|---|---:|---:|---:|
+| ~10 KB FIREWORKS | 43.480 s | 36.893 s | 37.126 s |
+| Following tiny program | 11.967 s | 8.161 s | 7.500 s |
+| Unchanged tiny rerun | 12.032 s | 7.773 s | 0.976 s |
+
+The large program still reports the authentic existing `m_info` runtime error;
+these figures do not establish successful large-program execution. Loader
+handoff alone does not save its entire timeout because loading overlaps it.
+Evidence/methodology: `/tmp/prime-perf-{handoff,paced,cached}-evidence`.
+Cold/edited/alternating workloads and final integrated GUI timings remain to be
+completed. A post-import catalog ordering limitation fails closed rather than
+risking checking or running the wrong source; investigation continues.
+
+### Validation in progress
+
+Native first increment: 475 tests passed, 2 ignored; performance increment:
+47 library tests, Clippy, and real firmware session integration passed before
+integration. These are component results, not the final integrated suite.
+No new physical device measurements have been taken. The 77 historical captures
+remain unchanged. Context-aware keyboard work, INPUT layout, post-import catalog
+handling and broad integrated validation continue in isolated owned worktrees.
+
+Further Native integration: `598105c` (canonical `b07df7c`) preserves INPUT
+position expressions, supports screen-percentage placement, seven-line pages
+and page titles. Component validation: 482 passed, 0 failed, 2 ignored; fmt and
+Clippy clean. Captures `/tmp/native-positioned-input.png` and its `.seven.png`
+variant were visually inspected by the implementation agent. This is guide-based
+Native behavior, not a physical parity claim. Exact firmware rounding, overlap
+and spatial navigation, checkbox/radio/choose controls remain outside coverage.
+
+Integrated emulator library: 55 passed. GUI profile-lock tests: 5 passed.
+Both supervisor and direct-helper locks now protect reset and seeding, and
+locks are held through reset's rename. Real firmware boot heartbeat passed with
+assets configured (1.03 seconds); full session and crash tests are still running.

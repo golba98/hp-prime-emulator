@@ -76,6 +76,14 @@ fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
                 ui.ctx().request_repaint();
             }
         }
+        if ui.small_button("Configure firmware…").clicked() {
+            state.queue_action(IdeAction::ShowSettingsDialog);
+        }
+        if matches!(session, FirmwareSession::Unavailable(_))
+            && ui.small_button("Use Native PPL").clicked()
+        {
+            state.queue_action(IdeAction::SelectBackend(false));
+        }
         let unsupported = state.firmware_unsupported.len();
         if unsupported > 0 {
             let text = format!("{unsupported} unsupported OS service call site(s)");
