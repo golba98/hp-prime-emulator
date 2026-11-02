@@ -67,7 +67,8 @@ impl IdePanel for ToolBar {
                     Icon::Run,
                     run_hint,
                     IdeAction::RunProgram,
-                    !matches!(state.vm_state, VmExecutionState::Running),
+                    !matches!(state.vm_state, VmExecutionState::Running)
+                        && (!state.firmware_backend || state.firmware_managed_reason.is_none()),
                 ),
                 (Icon::Stop, "Stop · Shift+F5", IdeAction::StopProgram, busy),
             ] {

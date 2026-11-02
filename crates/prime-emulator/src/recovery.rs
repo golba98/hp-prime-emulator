@@ -155,10 +155,11 @@ impl Recovery {
         self.checkpoint_as("firmware_off")
     }
     fn checkpoint_as(&self, trigger: &str) -> io::Result<()> {
-        let id = std::time::SystemTime::now()
+        let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(invalid_time)?
             .as_nanos();
+        let id = self.next_id_at(now)?;
         let name = format!("generation-{id:039}");
         let pending = self.base().join(format!("{name}.pending"));
         fs::create_dir(&pending)?;
@@ -181,6 +182,25 @@ impl Recovery {
         sync(&pending)?;
         fs::rename(&pending, self.base().join(name))?;
         sync(&self.base())
+    }
+    // The helper storage lock serializes writers. Wall time alone cannot
+    // order OFF generations when the host clock moves backwards.
+    fn next_id_at(&self, now: u128) -> io::Result<u128> {
+        let mut next = now;
+        for entry in fs::read_dir(self.base())? {
+            let name = entry?.file_name().to_string_lossy().into_owned();
+            if let Some(id) = name
+                .strip_prefix("generation-")
+                .and_then(|n| n.strip_suffix(".pending").or(Some(n)))
+                .and_then(|n| n.parse::<u128>().ok())
+            {
+                next = next.max(
+                    id.checked_add(1)
+                        .ok_or_else(|| invalid("recovery generation counter exhausted"))?,
+                );
+            }
+        }
+        Ok(next)
     }
     pub fn clean_shutdown(&self) -> io::Result<()> {
         fs::remove_file(self.base().join("unclean"))?;
@@ -294,11 +314,28 @@ impl Recovery {
         {
             return Err(invalid("invalid restore journal"));
         }
-        self.validate(&self.base().join(&plan.generation))?;
+        let manifest = self.validate(&self.base().join(&plan.generation))?;
         if !relative(&plan.work) || !plan.work.starts_with("restore-") || plan.work.contains('/') {
             return Err(invalid("invalid restore work directory"));
         }
         let work = self.base().join(plan.work);
+        // Validate every staged (or already installed) drive before moving
+        // any current drive. Interrupted copies must never become authoritative.
+        let mut seen = std::collections::BTreeSet::new();
+        for d in &plan.drives {
+            if d.len() != 1 || !d.as_bytes()[0].is_ascii_uppercase() || !seen.insert(d) {
+                return Err(invalid("invalid or duplicate restore drive"));
+            }
+            if manifest.directories.contains(d) {
+                let staged = work.join("new").join(d);
+                let source = if staged.exists() {
+                    staged
+                } else {
+                    self.root.join(d)
+                };
+                validate_drive(&source, d, &manifest)?;
+            }
+        }
         for d in plan.drives {
             if d.len() != 1 || !d.as_bytes()[0].is_ascii_uppercase() {
                 return Err(invalid("invalid restore drive"));
@@ -333,6 +370,58 @@ impl Recovery {
         sync(&self.base())
     }
 }
+fn validate_drive(source: &Path, drive: &str, manifest: &Manifest) -> io::Result<()> {
+    fn scan(
+        p: &Path,
+        rel: &str,
+        files: &mut BTreeMap<String, String>,
+        dirs: &mut Vec<String>,
+    ) -> io::Result<()> {
+        if !fs::symlink_metadata(p)?.is_dir() {
+            return Err(invalid("invalid staged directory"));
+        }
+        dirs.push(rel.into());
+        for entry in fs::read_dir(p)? {
+            let entry = entry?;
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| invalid("non UTF-8 staged path"))?;
+            let rel = format!("{rel}/{name}");
+            let ty = entry.file_type()?;
+            if ty.is_dir() {
+                scan(&entry.path(), &rel, files, dirs)?;
+            } else if ty.is_file() {
+                files.insert(rel, file_hash(&entry.path(), None)?);
+            } else {
+                return Err(invalid("staged symbolic link or special file"));
+            }
+        }
+        Ok(())
+    }
+    let mut files = BTreeMap::new();
+    let mut dirs = Vec::new();
+    scan(source, drive, &mut files, &mut dirs)?;
+    let prefix = format!("{drive}/");
+    let expected_files = manifest
+        .files
+        .iter()
+        .filter(|(p, _)| p.starts_with(&prefix))
+        .map(|(p, h)| (p.clone(), h.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut expected_dirs = manifest
+        .directories
+        .iter()
+        .filter(|p| *p == drive || p.starts_with(&prefix))
+        .cloned()
+        .collect::<Vec<_>>();
+    dirs.sort();
+    expected_dirs.sort();
+    if files != expected_files || dirs != expected_dirs {
+        return Err(invalid("staged recovery drive integrity mismatch"));
+    }
+    Ok(())
+}
 fn invalid_time(e: std::time::SystemTimeError) -> io::Error {
     invalid(e.to_string())
 }
@@ -346,6 +435,58 @@ mod tests {
         fs::write(d.path().join("C/DATA/value"), b"saved").unwrap();
         let (r, _) = Recovery::begin(d.path(), "fw".into()).unwrap();
         (d, r)
+    }
+    #[test]
+    fn generation_order_survives_clock_rollback_and_pending_copy() {
+        let (_d, r) = setup();
+        let next = r.next_id_at(0).unwrap();
+        fs::create_dir(r.base().join(format!("generation-{next:039}.pending"))).unwrap();
+        assert_eq!(r.next_id_at(0).unwrap(), next + 1);
+        assert_eq!(r.next_id_at(next).unwrap(), next + 1);
+        fs::create_dir(r.base().join(format!("generation-{:039}", u128::MAX))).unwrap();
+        assert!(r.next_id_at(0).is_err());
+    }
+    #[test]
+    fn corrupt_staged_drive_is_rejected_before_original_moves() {
+        let (d, r) = setup();
+        let generation = fs::read_dir(r.base())
+            .unwrap()
+            .map(|e| e.unwrap())
+            .find(|e| e.path().join("manifest.json").is_file())
+            .unwrap();
+        let m = r.validate(&generation.path()).unwrap();
+        let work = r.base().join("restore-corrupt");
+        fs::create_dir_all(work.join("new")).unwrap();
+        fs::create_dir(work.join("archive")).unwrap();
+        let mut copied = Manifest {
+            version: 1,
+            firmware: "fw".into(),
+            trigger: "test".into(),
+            files: BTreeMap::new(),
+            directories: vec![],
+        };
+        copy_tree(
+            &generation.path().join("C"),
+            &work.join("new/C"),
+            "C",
+            &mut copied,
+        )
+        .unwrap();
+        fs::write(work.join("new/C/DATA/value"), b"truncated").unwrap();
+        assert!(validate_drive(&work.join("new/C"), "C", &m).is_err());
+        write_new(
+            &r.base().join("restore.json"),
+            &serde_json::to_vec(&Restore {
+                generation: generation.file_name().into_string().unwrap(),
+                work: "restore-corrupt".into(),
+                drives: vec!["C".into()],
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(r.finish_restore().is_err());
+        assert_eq!(fs::read(d.path().join("C/DATA/value")).unwrap(), b"saved");
+        assert!(!work.join("archive/C").exists());
     }
     #[test]
     fn crash_recovers_saved_data_and_preserves_interrupted_files() {

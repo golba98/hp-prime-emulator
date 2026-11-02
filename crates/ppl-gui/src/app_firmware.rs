@@ -44,6 +44,7 @@ impl IdeDesktopApp {
         self.begin_firmware_session(ctx);
     }
     fn begin_firmware_session(&mut self, ctx: &egui::Context) {
+        self.state.firmware_managed_reason = Some("Checking firmware capabilities…".into());
         // The previous helper holds the profile lock; the new session's
         // worker ends it first, so the same calculator profile boots again.
         let previous = self
@@ -124,6 +125,12 @@ impl IdeDesktopApp {
     /// Stores the active tab as a new program on the firmware calculator,
     /// named after the tab. The session refuses an existing name.
     pub(super) fn import_to_calculator(&mut self, ctx: &egui::Context) {
+        if let Some(reason) = &self.state.firmware_managed_reason {
+            self.console.print_error(reason);
+            self.state.status_message = reason.clone();
+            return;
+        }
+
         let Some(tab) = self.editor.active_tab() else {
             return;
         };
@@ -143,6 +150,12 @@ impl IdeDesktopApp {
         }
     }
     pub(super) fn request_firmware(&mut self, run: bool, ctx: &egui::Context) {
+        if let Some(reason) = &self.state.firmware_managed_reason {
+            self.console.print_error(reason);
+            self.state.status_message = reason.clone();
+            return;
+        }
+
         self.ensure_firmware(ctx);
         let Some(tab) = self.editor.active_tab_mut() else {
             return;
@@ -231,6 +244,19 @@ impl IdeDesktopApp {
                         name.as_deref().unwrap_or("unnamed")
                     ));
                     self.state.firmware_unsupported.push((id, name, caller_pc));
+                }
+                Event::Capabilities {
+                    managed_programs,
+                    reason,
+                } => {
+                    self.state.firmware_managed_reason = if managed_programs {
+                        None
+                    } else {
+                        Some(
+                            reason
+                                .unwrap_or_else(|| "Managed firmware execution unavailable".into()),
+                        )
+                    };
                 }
                 Event::Phase { phase } => {
                     self.state.firmware_input_enabled = phase != "compiling";

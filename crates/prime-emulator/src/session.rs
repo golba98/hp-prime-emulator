@@ -260,6 +260,20 @@ impl LiveSession {
             ) {
                 device.typing.clear();
             }
+            if trace.compiler.is_none() || trace.runtime.is_none() {
+                let request = match &command {
+                    Command::Run { request, .. }
+                    | Command::Compile { request, .. }
+                    | Command::DirectCheck { request, .. }
+                    | Command::LoadSource { request, .. }
+                    | Command::Import { request, .. } => Some(*request),
+                    _ => None,
+                };
+                if let Some(request) = request {
+                    self.event(Event::Result { request, success:false, message:"This firmware supports calculator input/display/power, but has no verified compiler/runtime observation profile for managed Check/Run/Import".into(), check:None });
+                    continue;
+                }
+            }
             match command {
                 Command::Text { text, paste }
                     if device.jobs.accepts_input()
@@ -836,6 +850,14 @@ pub fn run(
         session.close(e.to_string());
         return 1;
     }
+    let observed = crate::recovery::resource_hash(&firmware)
+        .is_ok_and(|h| h == crate::compiler::FIRMWARE_SHA256);
+    session.event(Event::Capabilities {
+        managed_programs: observed,
+        reason: (!observed).then(|| {
+            "Calculator-only firmware: no verified compiler/runtime observation profile".into()
+        }),
+    });
     session.event(Event::Lifecycle {
         state: Lifecycle::Booting,
     });
@@ -851,8 +873,8 @@ pub fn run(
         ui_timers: true,
         on_unsupported: crate::services::UnsupportedPolicy::ZeroReturn,
         trace: crate::trace::TraceConfig {
-            compiler: true,
-            runtime: true,
+            compiler: observed,
+            runtime: observed,
             fs_trace: true,
             verbosity: 0,
             jsonl_path: std::env::var_os("PRIME_SESSION_TRACE").map(std::path::PathBuf::from),

@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 /// 2: `Lifecycle`, `Unsupported` and `Import`. 3: `PowerDown`, `Sleeping`.
 /// 4: atomic desktop `Text` packets, translated using observed firmware state.
-pub const VERSION: u32 = 4;
+/// 5: explicit managed-program capabilities, independent of calculator availability.
+pub const VERSION: u32 = 5;
 pub const MAX_PACKET: usize = 4 * 1024 * 1024;
 pub const FRAME_PIXELS: usize = 320 * 240;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +85,10 @@ pub enum Lifecycle {
 pub enum Event {
     Hello {
         version: u32,
+    },
+    Capabilities {
+        managed_programs: bool,
+        reason: Option<String>,
     },
     Phase {
         phase: String,
