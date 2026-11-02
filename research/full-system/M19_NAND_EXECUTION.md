@@ -83,18 +83,18 @@ python3 scripts/emulator/full_system_build.py \
 
 The first build correctly failed for a missing old-QEMU include. Subsequent
 owned incremental rebuilds produced the final overlay binary
-`85f053f6c7fc280576bb262bcccb53216570419e0f9b93176ba786587913aa82`.
+`cfbfedab20b523cd529ed8e95efeaef15bc1f4943531da16de687bd359398b9c`.
 The exact final overlay SHA is
-`5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b`.
+`6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b`.
 A clean integrated build is the coordinator's independent reproduction gate;
 this owner result is honestly an incremental build of the recorded final source.
 
 Commands executed with that binary:
 
 ```sh
-python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case nand --output /home/k9-vortex/.cache/prime-m19-nand-published --timeout 30
-python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case nand_ecc --output /home/k9-vortex/.cache/prime-m19-nand-ecc-published --timeout 30
-python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case boot_chain --output /home/k9-vortex/.cache/prime-m19-nand-boot-published --timeout 30
+python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case nand --output /home/k9-vortex/.cache/prime-m19-nand-release --timeout 30
+python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case nand_ecc --output /home/k9-vortex/.cache/prime-m19-nand-ecc-release --timeout 30
+python3 scripts/emulator/full_system_nand.py --build-root /home/k9-vortex/.cache/prime-m19-nand-build --case boot_chain --output /home/k9-vortex/.cache/prime-m19-nand-boot-release --timeout 30
 PYTHONPATH=scripts/emulator python3 -m unittest scripts/emulator/test_full_system_nand.py -v
 ```
 

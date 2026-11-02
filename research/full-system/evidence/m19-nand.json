@@ -11,7 +11,7 @@
       "machine": "hp-prime",
       "cpu": "arm926",
       "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "85f053f6c7fc280576bb262bcccb53216570419e0f9b93176ba786587913aa82",
+      "binary_sha256": "cfbfedab20b523cd529ed8e95efeaef15bc1f4943531da16de687bd359398b9c",
       "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
       "patches": [
         {
@@ -28,7 +28,7 @@
         },
         {
           "name": "0004-s3c2416-nand.patch",
-          "sha256": "5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b"
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
         }
       ],
       "kernel_boot_verified": false,
@@ -36,7 +36,7 @@
       "guest_cpu_execution_verified": true,
       "host_device_tests_verified": true,
       "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-nand-published/guest/nand.elf",
+        "path": "/home/k9-vortex/.cache/prime-m19-nand-release/guest/nand.elf",
         "sha256": "7fdce148e04c1a0d0f831813e8c52a9afc78d307b576e96764bf3447e1adfdf3",
         "entry": "0x30000000",
         "source_sha256": {
@@ -184,19 +184,19 @@
       "artifacts": {
         "flash.qcow2": "b755ed875b4c81495fa0c62c52d9cd49e43d7cdda4000167d04191d313c81eb3",
         "guest_run/gdb.log": "028fcacc49b3d5350582fdf928ead0a366d43cc74d69e29e9316920bf72240f4",
-        "guest_run/launch.json": "dc4ae7eab758ce4c82ee3db5212e6920fb2721628db4d5cea7154f77f3be8d06",
-        "guest_run/model.log": "7773eb2a9214fcbb637acf2534448b5a90885b3801f8644b1026dc6e4d1d1831",
-        "guest_run/qmp.json": "81715bcd78130f8495f904248fada8533b19de63ef7ea48af21e131b3bead8e3",
+        "guest_run/launch.json": "011556212ed7ba8ee5101d90b3e75d7beb6a11a6095b54e1de40908e75e9d5ae",
+        "guest_run/model.log": "96a7af1b48fac4f81a4ef6c7d6a8ce7523725601d113767b78c20df64837ffaf",
+        "guest_run/qmp.json": "bd90d1c880763ba828acfb9f186f92ac15de2e67e4ebaab525eee3c0d97a2ceb",
         "guest_run/uart.log": "042081b93eb3aeb52dc926c203109efcf65134b6e91c7cc151e317f823afe75f",
-        "host/launch.json": "5e350769543e41e340250cf658be31d028b3fcd380e752fff0f26a7ebc67e60a",
+        "host/launch.json": "b317df925b28e3487c452d045114703351841e41c45104b4c8c566657dd07936",
         "host/model.log": "269302791f37e88ad010ae37361f9f1f8f8e87036029edbb285c77de141d27f4",
-        "host/qmp.json": "ade158769e062b303abdfff1c7eb5b674343704774dc7c62676267f6930aeea0",
+        "host/qmp.json": "78d0d910cf71b83e829ee86bf4d5231fae46c946fdb41ba8ed25ae9ce83f1423",
         "host/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "readonly/launch.json": "6d8a23541002a37b95f52c3c6289f714d0492d8769ad73207d634673e9df1fa6",
+        "readonly/launch.json": "3ddf18cc9aeb2a40531063f6382aeaa598e0e849ae691d36e10760cc085a587f",
         "readonly/model.log": "4d597447f73b16900dc189dcf7a566013772b45f65e848ce400a11be2658d535",
         "readonly/qmp.json": "db5a8d2862cfb9fb628425626eea5a4fd10611c9b83b3ae8f6a51f2f3ac1bee2",
         "readonly/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "reopen/launch.json": "229776c455cb2e2f0593741b5d65d06c97efe5fc0dd205fa119bd220074d21be",
+        "reopen/launch.json": "7914c9066a57c01f8412bcd0b2a9e00ea6b0402c514d16e5e389bde3b0f3c537",
         "reopen/model.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "reopen/qmp.json": "db5a8d2862cfb9fb628425626eea5a4fd10611c9b83b3ae8f6a51f2f3ac1bee2",
         "reopen/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -210,7 +210,7 @@
       "machine": "hp-prime",
       "cpu": "arm926",
       "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "85f053f6c7fc280576bb262bcccb53216570419e0f9b93176ba786587913aa82",
+      "binary_sha256": "cfbfedab20b523cd529ed8e95efeaef15bc1f4943531da16de687bd359398b9c",
       "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
       "patches": [
         {
@@ -227,7 +227,7 @@
         },
         {
           "name": "0004-s3c2416-nand.patch",
-          "sha256": "5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b"
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
         }
       ],
       "kernel_boot_verified": false,
@@ -235,7 +235,7 @@
       "guest_cpu_execution_verified": true,
       "host_device_tests_verified": false,
       "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc-published/guest/nand.elf",
+        "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc-release/guest/nand.elf",
         "sha256": "ee6fd4ef9b37b972522699cf7301c991c301995908eadcee54307c4920611a45",
         "entry": "0x30000000",
         "source_sha256": {
@@ -366,9 +366,9 @@
       "artifacts": {
         "flash.qcow2": "fda2c3712fa9fe772b3edfd636993452693c5c3b4b63086d2f210bd5fae1b25c",
         "guest_run/gdb.log": "028fcacc49b3d5350582fdf928ead0a366d43cc74d69e29e9316920bf72240f4",
-        "guest_run/launch.json": "0e5dc858cc21cf14141479a7eb16294f662626ef0cfa26f01fd01390be3e7dc9",
+        "guest_run/launch.json": "ffb674a27a39976c43211c4c7bca17cffa91cf1c4c6a72331f3af0feefaec5ee",
         "guest_run/model.log": "424ae7556bc291226198591cebfb55384bd816433e85984b04d96d9adceb6614",
-        "guest_run/qmp.json": "830b7f6f433f8d87415d6cae924ed48d4b42dc656287f5dba2c0544af0c03f8e",
+        "guest_run/qmp.json": "22a8680b3ee23e345f013c7b3f6dda652870a1581f923d2f0e784b4312420343",
         "guest_run/uart.log": "d21c36ba1b5f30c2d9cbde9460ce17a3ef30bc9ae14ff985a34482796df31ae9"
       }
     },
@@ -380,7 +380,7 @@
       "machine": "hp-prime",
       "cpu": "arm926",
       "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
-      "binary_sha256": "85f053f6c7fc280576bb262bcccb53216570419e0f9b93176ba786587913aa82",
+      "binary_sha256": "cfbfedab20b523cd529ed8e95efeaef15bc1f4943531da16de687bd359398b9c",
       "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
       "patches": [
         {
@@ -397,7 +397,7 @@
         },
         {
           "name": "0004-s3c2416-nand.patch",
-          "sha256": "5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b"
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
         }
       ],
       "kernel_boot_verified": false,
@@ -405,7 +405,7 @@
       "guest_cpu_execution_verified": true,
       "host_device_tests_verified": true,
       "guest": {
-        "path": "/home/k9-vortex/.cache/prime-m19-nand-boot-published/guest/nand.elf",
+        "path": "/home/k9-vortex/.cache/prime-m19-nand-boot-release/guest/nand.elf",
         "sha256": "e1a38d7a2f567058b286e305b6eb60fc928830a37ad942f73ec51aeb278d7176",
         "entry": "0x0",
         "source_sha256": {
@@ -541,15 +541,15 @@
         "uart_hex": "4d313920424f4f54320a"
       },
       "artifacts": {
-        "boot_reset/launch.json": "deda80e916b6d92aa1d37e2c8e703fddc0285c030558f1b74b968897b1a80e41",
+        "boot_reset/launch.json": "e71fa21baae7922f342a81b8fbaf6aabf4c54db5673afd9b37e8282b6dffa1a3",
         "boot_reset/model.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "boot_reset/qmp.json": "98c15f8fdafc218bfebd85eb74e2c279d84edd790245fbfe787e24d7083e74df",
+        "boot_reset/qmp.json": "f2995c4d20e551478654ea4991d3c3c23b64acc34615db13990a94d15b9ce167",
         "boot_reset/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "flash.qcow2": "83d10c8f6f891c9c1af8a9f80c96dd1d2f44804a6e5f6fcff4b00f718fe2e283",
         "guest_run/gdb.log": "ac0689cefa61302958179ef368ab7305834dcb4ccb1e9b49a87616ae2d324bee",
-        "guest_run/launch.json": "4371bf92b96df52a3319f7e421056144e28dbae40f47fc5fda00ec1c893b3122",
+        "guest_run/launch.json": "98ec9822c404188061b88a359bb5264f53cfcd0b35f93ccd120ffe692ea3106f",
         "guest_run/model.log": "f2b2809eb7200651adfe667d11e305af7d971eadb65704abe25a40648ac0e527",
-        "guest_run/qmp.json": "4238c464c0a3e41286301b1e11b4e045e7123650788a5b8904902825a85178b0",
+        "guest_run/qmp.json": "b110f6c43faa5ccc9cd5c50bc4ca691ca349c5032bfebfa94d90813e1fb0aa64",
         "guest_run/uart.log": "215cfa01f57e90f750216336d20537a08cdf5b611ae68f704a8592986aec069c"
       }
     }
@@ -560,9 +560,9 @@
     "block_api": "run04/05 reproduced positive blk_pread return misclassified as error; fixed normalization and added status assertion"
   },
   "raw_artifacts": [
-    "/home/k9-vortex/.cache/prime-m19-nand-published",
-    "/home/k9-vortex/.cache/prime-m19-nand-ecc-published",
-    "/home/k9-vortex/.cache/prime-m19-nand-boot-published"
+    "/home/k9-vortex/.cache/prime-m19-nand-release",
+    "/home/k9-vortex/.cache/prime-m19-nand-ecc-release",
+    "/home/k9-vortex/.cache/prime-m19-nand-boot-release"
   ],
   "cancellation": {
     "command": [
