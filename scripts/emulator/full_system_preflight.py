@@ -11,7 +11,7 @@ import struct
 PIN = '32e891a9fc568de3110343c3e35b9ec0d23f6f44'
 
 
-def inventory(root, artifacts):
+def inventory(root, artifacts, build_root=None):
     tools = {name: shutil.which(name) for name in
              ('python2', 'python3', 'arm-none-eabi-gcc', 'clang', 'ld.lld',
               'qemu-system-arm', 'docker', 'podman')}
@@ -48,12 +48,40 @@ def inventory(root, artifacts):
         blockers.append('bare_metal_compile_and_link_toolchain_missing')
     if not tools['qemu-system-arm']:
         blockers.append('qemu_binary_missing')
-    return {'schema_version': 1, 'backend': 'full_system_research',
+    report = {'schema_version': 1, 'backend': 'full_system_research',
             'reference_revision': revision, 'required_revision': PIN,
             'tools': tools, 'artifacts': files, 'blockers': blockers,
             'kernel_boot_verified': False,
             'artifact_bootability_verified': False,
             'next_experiment': 'build pinned fork; boot self-authored ARM926 smoke ELF on hp-prime; inspect mailbox via GDB'}
+    if build_root is not None:
+        # This validates an existing isolated runtime; host Python2 and host QEMU
+        # are build prerequisites only, never requirements for this path.
+        try:
+            from full_system_run import checked_manifest
+            manifest = checked_manifest(build_root.resolve())
+            if not tools['podman']:
+                raise ValueError('rootless Podman runtime unavailable')
+            image = subprocess.check_output(
+                [tools['podman'], 'image', 'inspect', manifest['image'], '--format', '{{.Id}}'],
+                text=True, timeout=10).strip()
+            if image != manifest.get('image_id'):
+                raise ValueError('runtime image differs from validated build')
+            report['isolated_runtime'] = {
+                'status': 'validated', 'build_root': str(build_root.resolve()),
+                'reference_revision': manifest['reference_revision'],
+                'binary_sha256': manifest['binary_sha256'], 'image_id': image,
+                'patches': manifest.get('patches', [])}
+            blockers[:] = [b for b in blockers if b not in {
+                'reference_checkout_missing_or_wrong_revision',
+                'pinned_qemu_configure_requires_python2', 'qemu_binary_missing'}]
+            if not shutil.which('gdb'):
+                blockers.append('host_gdb_missing')
+            report['next_experiment'] = 'run self-authored hardware guests against the validated isolated runtime'
+        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            report['isolated_runtime'] = {'status': 'invalid', 'error': str(error)}
+            blockers.append('isolated_runtime_invalid')
+    return report
 
 
 def build_smoke(output, tools):
@@ -81,10 +109,11 @@ def build_smoke(output, tools):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--reference', type=Path, default=Path('scratch/research/qemuPrime'))
+    parser.add_argument('--build-root', type=Path, help='validate an already built isolated runtime')
     parser.add_argument('--artifact', type=Path, action='append', default=[])
     parser.add_argument('--build-smoke', type=Path, help='compile/link smoke into a new directory; never run QEMU')
     args = parser.parse_args()
-    report = inventory(args.reference, args.artifact)
+    report = inventory(args.reference, args.artifact, args.build_root)
     if args.build_smoke:
         try:
             report['smoke'] = build_smoke(args.build_smoke, report['tools'])
