@@ -613,3 +613,30 @@ verification. Two research-preflight Python tests pass; the ARM926 smoke assembl
 compiles, but has not linked or run. No new physical verification or performance
 result is claimed. Detailed integration status lives in
 `M16_STATEFUL_PARITY_AND_SNAPSHOTS.md`.
+
+
+## M16 integrated completion
+
+See M16_STATEFUL_PARITY_AND_SNAPSHOTS.md for current implementation,
+limits, files and evidence. Genuine stateful HLE scenarios now cover named
+modules, globals, edits, CAS, errors, graphics, key/touch waits and fresh restart
+persistence. Native comparisons retain actual VM module state.
+
+Explicit opt-in firmware OFF checkpoints have typed identity-bound receipts,
+safe admission, atomic bounded publication and fresh-process recovery tests.
+CPU/thread/framebuffer snapshots remain unsupported. Offline capture bundles
+freeze every source revision and derive verification categories from evidence;
+no new physical measurements or live USB collector are claimed.
+
+Final verification: 1,780 workspace tests passed, zero failures, six ignored;
+formatting and workspace Clippy passed; 110/110 GUI assertions; 15/15 explicit
+configured release checks; all 77 historical classifications preserved
+(68 exact, 4 partial, 5 transcription; zero mismatches). Known debug post-CAS
+reboot stall also reproduces on unchanged normal PowerDown. Release recovery
+passes and the checkpoint refuses unsafe idle admission.
+
+Three fresh alternating trials per helper checked 78 expected benchmark results:
+tiny rerun 0.751 to 0.776 s; large launch 3.033 to 3.131 s; syntax feedback
+1.746 to 1.702 s. All 13 workloads remained within 10% of baseline.
+Exact samples/hashes: evidence/m16/benchmark-summary.json. No major new speedup
+is claimed. Nothing was pushed or published.

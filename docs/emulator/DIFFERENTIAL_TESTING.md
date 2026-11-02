@@ -141,8 +141,7 @@ The report's scope is **legacy TYPE/STRING only**. IFERR recordings establish
 only an error category, so replay does not claim error-detail parity for them.
 Values compare exactly. It does not use legacy display normalization or modify
 the historical classifications. This stricter result can differ from existing
-Partial/transcription classifications without changing that evidence. Physical
-capture adaptation of new scenario observations remains future work.
+Partial/transcription classifications without changing that evidence. New scenario captures use the separately sealed bundle workflow below; live USB collection remains unimplemented.
 
 ## Tests and next integration
 

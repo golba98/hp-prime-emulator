@@ -95,7 +95,7 @@ Native-versus-firmware comparisons, not physical hardware equivalence.
 
 The pre-fix failed asynchronous report and successful reports/screenshots are
 retained in the implementation checkout's evidence/m16 directory. Final
-integrated workspace/GUI/performance checks belong to the coordinator.
+integrated results are in M16_STATEFUL_PARITY_AND_SNAPSHOTS.md.
 
 ## Verification checkpoint
 
@@ -107,4 +107,9 @@ combined keyboard/touch 11.30 s. These are complete fixture durations including
 boot/import/shutdown, not launch-latency benchmarks.
 
 Clippy for ppl-engine, ppl-compat and prime-emulator all targets passed with
--D warnings. The coordinator owns integrated GUI and performance verification.
+-D warnings. Integrated GUI and performance verification passed; see the M16 integrated report.
+
+Schema2 also supports explicit checkpoints. LiveSession::checkpoint validates
+receipts against the configured composite resource identity and waits for Ready
+on wake. checkpoint.toml and checkpoint_scenarios tests exercise checkpoint,
+kill, fresh restore and immediate post-wake execution.
