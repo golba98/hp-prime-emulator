@@ -437,3 +437,40 @@ Validation (final production code, local firmware 15751 where applicable):
 These boundaries are not represented as full hardware equivalence or complete
 implementation of every HP service. The completed changes deliver a practical
 faster edit/check/run path while retaining explicit Native/Firmware distinctions.
+
+## Architecture continuation — 2026-11-02
+
+Resumed from 4adcc46 after confirming clean main and switching back to the
+preserved feature branch. The prior measured improvements remain the baseline;
+43.9/13.6-second launch figures must not be reused as current performance.
+
+Integrated so far:
+- 1519f1d: fixed aligned heap-tail arithmetic, single-byte C terminators,
+  prevalidated memory reads/writes, UTF-16 surrogate decoding. Seventeen memory
+  regressions passed in isolation, including the three independently reproduced
+  boundary failures.
+- 42f1771: checked guest file-transfer ranges and SVC stack arithmetic; handler
+  marshalling faults propagate with actual CPU/thread context instead of silently
+  returning zero. Memory/SVC/loader tests and genuine boot passed before handoff.
+- 845c9bf: Native INPUT preserves omitted descriptor metadata; malformed and
+  unsupported control forms fail before Host dialogs/writeback. Component suite
+  507 passed, 2 ignored, with additional focused regressions and clean Clippy.
+- 0eb9b95: recovery IDs remain ordered after backward host-clock changes;
+  staged/restored drive hashes are checked before further renames. Ten recovery
+  tests pass. Session protocol 5 exposes managed-program availability separately
+  from calculator operation. GUI and helper reject managed commands without a
+  verified observer; they do not invent a syntax verdict.
+
+Actual firmware 15157 calculator-only verification: Home arithmetic passed;
+all ten same-build Home/CAS/editor/Alpha/paste GUI assertions passed. The old
+15751 boot reference scored 8/9 because its header differs on 15157 (bbox confined
+to rows1–16); this failed cross-version assertion is retained, not relabelled as
+an exact match. The new explicit calculator-only integration test passed,
+including capability-before-Ready and rejected managed Check with no verdict.
+Evidence: /tmp/prime-next-15157 and /tmp/prime-next-calc-only-test.log.
+
+Architecture and full-system source audit documents are now present. They
+explicitly distinguish HLE, source-present device models, unverified boot-chain
+research and implemented behavior. Differential framework, lifecycle cleanup
+and setup preflight contributions are still being tested independently; final
+integration results will supersede this checkpoint.
