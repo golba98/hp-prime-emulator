@@ -138,6 +138,45 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
     eprintln!("unsupported services during boot: {unsupported:?}");
     assert_eq!(frames.recv_timeout(minute).unwrap(), session::FRAME_PIXELS);
 
+    // Exact unchanged source reuses its verified context, while each call still
+    // executes the genuine Home invocation and returns a fresh firmware result.
+    for request in [4, 5] {
+        s.send(&Command::Run {
+            request,
+            source: "EXPORT PERFSESS()\nBEGIN\n RETURN 9;\nEND;\n".into(),
+            entry: None,
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "run result",
+            |e| matches!(e, Event::Result { request: r, .. } if *r == request),
+        ) {
+            Event::Result {
+                success,
+                message,
+                check,
+                ..
+            } => {
+                assert!(success, "{message}");
+                assert!(message.contains("returned 9"), "{message}");
+                assert!(check.unwrap().accepted);
+            }
+            _ => unreachable!(),
+        }
+    }
+    let report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(profile.path().join("ide-reports/request-5.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        report["timeline"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["stage"] == "reuse-prepared")
+    );
+
     let source = "EXPORT M12SESS()\nBEGIN\n RETURN 9;\nEND;\n";
     s.send(&Command::Import {
         request: 1,

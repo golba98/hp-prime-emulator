@@ -169,6 +169,7 @@ pub enum Tick {
 
 pub struct ScriptDriver {
     cfg: ScriptConfig,
+    consume_from: Option<usize>,
     phase: Phase,
     started: Instant,
     view: Option<LcdView>,
@@ -215,6 +216,7 @@ impl ScriptDriver {
                 Phase::Boot
             },
             cfg,
+            consume_from: None,
             started: now,
             view: None,
             last: None,
@@ -443,6 +445,42 @@ impl ScriptDriver {
         }
     }
 
+    /// A proven Home typing segment can advance after firmware consumption.
+    /// Navigation before `from` and final Enter retain their normal gates.
+    pub fn with_consumption_pacing(mut self, from: usize) -> Self {
+        self.consume_from = Some(from);
+        self
+    }
+
+    /// Final Enter was consumed; the matching runtime observer may now own
+    /// completion even if the program never leaves a stable framebuffer.
+    pub fn invocation_delivered(&self, shared: &SharedState) -> bool {
+        match &self.phase {
+            Phase::KeyWait(p) => {
+                p.index + 1 == self.cfg.keys.len()
+                    && self.cfg.keys[p.index].code == 0x0d
+                    && self.cfg.keys[p.index].touch.is_empty()
+                    && p.delivered_at.is_some()
+                    && shared.input_events_pending() == 0
+                    && shared.touch_pending() == 0
+            }
+            _ => false,
+        }
+    }
+
+    /// Partial evidence for an invocation handed to runtime supervision.
+    pub fn invocation_delivery(&self) -> Option<serde_json::Value> {
+        let Phase::KeyWait(p) = &self.phase else {
+            return None;
+        };
+        Some(serde_json::json!({
+            "name": self.cfg.keys[p.index].name,
+            "queued_ms": self.ms(p.queued_at),
+            "delivered_ms": p.delivered_at.map(|t| self.ms(t)),
+            "first_change_ms": p.first_change.map(|t| self.ms(t)),
+        }))
+    }
+
     pub fn tick(&mut self, mem: &GuestMemory, shared: &SharedState) -> Tick {
         let now = Instant::now();
         let idle_for = self.observe_idle(shared, now);
@@ -603,7 +641,15 @@ impl ScriptDriver {
                     } else {
                         Phase::KeyWait(p)
                     }
-                } else if settled {
+                } else if settled
+                    || (self.consume_from.is_some_and(|from| p.index >= from)
+                        && p.index + 1 < self.cfg.keys.len()
+                        && item.code != 0
+                        && item.touch.is_empty()
+                        && p.delivered_at.is_some()
+                        && Self::pump_idle(shared)
+                        && shared.main_waiting())
+                {
                     self.finish_key(mem, shared, *p, now)
                 } else if now.duration_since(p.queued_at) > self.cfg.key_timeout {
                     self.capture(
@@ -709,6 +755,48 @@ impl ScriptDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn handoff_requires_consumed_final_enter_and_empty_input_queue() {
+        let shared = SharedState::new(PathBuf::new(), String::new());
+        let mut driver = ScriptDriver::new(ScriptConfig {
+            keys: crate::keys::parse_keys("HOME,ENTER").unwrap(),
+            ..Default::default()
+        });
+        let pending = |index, delivered_at| {
+            Box::new(Pending {
+                index,
+                before: Frame {
+                    width: 1,
+                    height: 1,
+                    pixels: vec![0],
+                },
+                delivered_before: 0,
+                sleeps_before: 0,
+                touch_target: 0,
+                touch_left: Default::default(),
+                last_touch_push: None,
+                writes_before: 0,
+                queued_at: Instant::now(),
+                delivered_at,
+                first_change: None,
+            })
+        };
+        driver.phase = Phase::KeyWait(pending(0, Some(Instant::now())));
+        assert!(!driver.invocation_delivered(&shared));
+        driver.phase = Phase::KeyWait(pending(1, None));
+        assert!(!driver.invocation_delivered(&shared));
+        driver.phase = Phase::KeyWait(pending(1, Some(Instant::now())));
+        assert!(driver.invocation_delivered(&shared));
+        shared.push_key_press(0x41);
+        assert!(!driver.invocation_delivered(&shared));
+        shared.clear_input_events();
+        driver
+            .cfg
+            .keys
+            .push(crate::keys::parse_keys("IDLE").unwrap().remove(0));
+        assert!(!driver.invocation_delivered(&shared));
+    }
 
     #[test]
     fn housekeeping_duty_cycle_does_not_block_an_idle_input_pump() {

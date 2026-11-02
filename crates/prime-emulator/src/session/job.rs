@@ -89,6 +89,7 @@ enum Stage {
     /// The importer stores the loaded source under the requested name.
     Import,
     CheckTarget,
+    Prepared,
     Invoke,
     Execute,
     /// A direct compiler call plan is running on the UI thread.
@@ -130,8 +131,17 @@ pub struct Request {
     /// Store the source as this new program instead of checking it.
     pub import: Option<String>,
 }
+#[derive(Clone)]
+struct PreparedProgram {
+    source: String,
+    stored_sha: String,
+    check: crate::compiler::CheckObservation,
+    fs_cursor: usize,
+    compiler_cursor: usize,
+}
 pub struct Jobs {
     pub active: Option<Job>,
+    prepared: Option<PreparedProgram>,
     /// A running program was interrupted (Stop / ON) at this time; its
     /// invocation is closed once the firmware is back at an idle UI.
     interrupted: Option<Instant>,
@@ -163,6 +173,7 @@ impl Jobs {
     pub fn new() -> Self {
         Self {
             active: None,
+            prepared: None,
             interrupted: None,
             idle: IdleMeter::default(),
             break_presses: (0, None),
@@ -178,6 +189,42 @@ impl Jobs {
             user_last: None,
             direct_ctx: None,
         }
+    }
+    /// External calculator interaction can change the compilation namespace.
+    pub fn invalidate_prepared(&mut self) {
+        self.prepared = None;
+    }
+    fn prepared_matches(&self, source: &str, shared: &SharedState, trace: &TraceHub) -> bool {
+        let Some(p) = &self.prepared else {
+            return false;
+        };
+        if p.source != source || !trace.fs_enabled() {
+            return false;
+        }
+        let Some(compiler) = trace.compiler.as_ref().map(|o| o.snapshot()) else {
+            return false;
+        };
+        if compiler.dropped != 0 || compiler.checks.len() != p.compiler_cursor {
+            return false;
+        }
+        let (events, _, dropped) = trace.fs_log_since(p.fs_cursor);
+        // Conservatively invalidate on any storage mutation; pure reads do not
+        // invalidate a verified context. Missing evidence never licenses reuse.
+        if dropped != 0
+            || events.iter().any(|e| {
+                !matches!(
+                    e["op"].as_str(),
+                    Some("fread" | "fseek" | "ftell" | "fclose" | "find" | "wfopen")
+                ) || (e["op"] == "wfopen"
+                    && e["mode"]
+                        .as_str()
+                        .is_none_or(|m| !m.starts_with('r') || m.contains('+')))
+            })
+        {
+            return false;
+        }
+        std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+            .is_ok_and(|bytes| crate::sha256::hex(&bytes) == p.stored_sha)
     }
     pub fn accepts_input(&self) -> bool {
         self.active.as_ref().is_none_or(|j| j.reported_running)
@@ -307,9 +354,15 @@ impl Jobs {
                     .into(),
             );
         }
-        write_attachment(&shared.data_dir, "ZZT_IDE_SOURCE", &source)?;
-        self.refresh_catalog(shared, trace);
-        let stage = if self.loader_context.is_some() {
+        let cached = run && import.is_none() && self.prepared_matches(&source, shared, trace);
+        if !cached {
+            self.invalidate_prepared();
+            write_attachment(&shared.data_dir, "ZZT_IDE_SOURCE", &source)?;
+            self.refresh_catalog(shared, trace);
+        }
+        let stage = if cached {
+            Stage::Prepared
+        } else if self.loader_context.is_some() {
             Stage::Load
         } else {
             Stage::CheckLoader
@@ -336,9 +389,13 @@ impl Jobs {
             direct_text: 0,
             direct_started: None,
         };
+        if stage == Stage::Prepared {
+            job.timeline
+                .push(serde_json::json!({"stage":"reuse-prepared", "done_ms":0.0}));
+        }
         if stage == Stage::CheckLoader {
             self.check_script(&mut job, "ZZT_LOADER", trace)?;
-        } else {
+        } else if stage != Stage::Prepared {
             self.load_script(&mut job, trace)?;
         }
         self.active = Some(job);
@@ -423,6 +480,7 @@ impl Jobs {
         shared: &SharedState,
         trace: &TraceHub,
     ) -> Result<(), String> {
+        self.invalidate_prepared();
         let Some(ctx) = self.direct_ctx else {
             self.start(
                 Request {
@@ -580,6 +638,7 @@ impl Jobs {
         }
     }
     pub fn cancel(&mut self, mem: &GuestMemory, shared: &SharedState) -> Option<u64> {
+        self.invalidate_prepared();
         if self.active.is_none()
             && let Some((request, _)) = self.deferred.take()
         {
@@ -671,6 +730,20 @@ impl Jobs {
         if let Some(script) = &mut job.script {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
+                Tick::Continue
+                    if matches!(job.stage, Stage::Load | Stage::Import | Stage::Invoke)
+                        && script.invocation_delivered(shared)
+                        && trace.runtime.as_ref().unwrap().progress().0 =>
+                {
+                    job.timeline.push(serde_json::json!({
+                        "stage": stage_name(job.stage, job.catalog_open),
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "reason": "runtime_handoff",
+                        "final_key": script.invocation_delivery(),
+                        "keys": script.report().keys,
+                    }));
+                    job.script = None;
+                }
                 Tick::Continue => return Ok(None),
                 // A program that keeps drawing, or a helper that runs long
                 // (the loader with a large source), never lets the
@@ -859,9 +932,18 @@ impl Jobs {
                 save_report(shared, trace, job, true, &message);
                 return Ok(Some(message));
             }
-            Stage::CheckTarget => {
-                let observations = trace.compiler.as_ref().unwrap().snapshot();
-                let c = checkprog::validate(&observations, &job.source, job.check_step)?;
+            Stage::CheckTarget | Stage::Prepared => {
+                let c = if job.stage == Stage::Prepared {
+                    self.prepared
+                        .as_ref()
+                        .ok_or("Prepared source was invalidated")?
+                        .check
+                        .clone()
+                } else {
+                    let observations = trace.compiler.as_ref().unwrap().snapshot();
+                    checkprog::validate(&observations, &job.source, job.check_step)?.clone()
+                };
+                let c = &c;
                 let container = read_program(&shared.data_dir, "ZZT_IDE")?;
                 if container.source().map_err(|e| e.to_string())?.source != job.source {
                     return Err("The firmware did not preserve this exact source revision".into());
@@ -889,6 +971,16 @@ impl Jobs {
                         .clone()
                         .unwrap_or("The firmware rejected the program".into()));
                 }
+                self.prepared = Some(PreparedProgram {
+                    source: job.source.clone(),
+                    stored_sha: crate::sha256::hex(
+                        &std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+                            .map_err(|e| e.to_string())?,
+                    ),
+                    check: c.clone(),
+                    fs_cursor: trace.fs_log_since(usize::MAX).1,
+                    compiler_cursor: trace.compiler.as_ref().unwrap().snapshot().checks.len(),
+                });
                 if !job.run {
                     let message = "G1 firmware compiled the exact current source".to_string();
                     save_report(shared, trace, job, true, &message);
@@ -926,7 +1018,7 @@ impl Jobs {
                 )?;
                 observer.cache_flags(flags);
                 job.stage = Stage::Invoke;
-                job.script = Some(script(runtime_value::invocation_keys(
+                job.script = Some(invocation_script(runtime_value::invocation_keys(
                     &entry,
                     &request.arguments,
                 )?));
@@ -1062,6 +1154,7 @@ fn stage_name(stage: Stage, catalog: bool) -> &'static str {
         (Stage::Invoke, _) => "invoke",
         (Stage::Execute, _) => "execute",
         (Stage::Direct, _) => "direct",
+        (Stage::Prepared, _) => "reuse-prepared",
     }
 }
 /// Hands `job.source` to the firmware and starts the direct Check plan.
@@ -1120,7 +1213,10 @@ fn invoke_reserved(
         trace.elapsed_secs() * 1000.0,
     )?;
     observer.cache_flags(1);
-    job.script = Some(script(runtime_value::invocation_keys(entry, &[])?));
+    job.script = Some(invocation_script(runtime_value::invocation_keys(
+        entry,
+        &[],
+    )?));
     Ok(())
 }
 /// Installs `text` (UTF-16LE) as a `Function` app attachment for the guest.
@@ -1154,6 +1250,10 @@ fn read_program(data: &Path, name: &str) -> Result<hpprgm::Container, String> {
 fn read_program_path(path: &Path) -> Result<hpprgm::Container, String> {
     hpprgm::parse(&std::fs::read(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
+fn invocation_script(keys: Vec<keys::Key>) -> ScriptDriver {
+    // Home and ESC establish the editing context before consumption pacing.
+    script(keys).with_consumption_pacing(2)
+}
 fn script(keys: Vec<keys::Key>) -> ScriptDriver {
     ScriptDriver::new(ScriptConfig {
         keys,
@@ -1174,6 +1274,52 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 #[cfg(test)]
 mod tests {
     use super::{catalog_order, validate_import};
+    #[test]
+    fn prepared_cache_requires_exact_storage_and_complete_mutation_evidence() {
+        use super::*;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("C/DATA")).unwrap();
+        let bytes = hpprgm::build_program("EXPORT P() BEGIN RETURN 1; END;")
+            .unwrap()
+            .to_bytes();
+        std::fs::write(dir.path().join("C/DATA/ZZT_IDE.hpprgm"), &bytes).unwrap();
+        let shared = SharedState::new(dir.path().into(), String::new());
+        let trace = TraceHub::new(crate::trace::TraceConfig {
+            fs_trace: true,
+            compiler: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        let mut jobs = Jobs::new();
+        jobs.prepared = Some(PreparedProgram {
+            source: "source".into(),
+            stored_sha: crate::sha256::hex(&bytes),
+            check: Default::default(),
+            fs_cursor: 0,
+            compiler_cursor: 0,
+        });
+        assert!(jobs.prepared_matches("source", &shared, &trace));
+        let no_evidence = TraceHub::new(crate::trace::TraceConfig::default()).unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &no_evidence));
+        let no_compiler = TraceHub::new(crate::trace::TraceConfig {
+            fs_trace: true,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &no_compiler));
+        assert!(!jobs.prepared_matches("edited", &shared, &trace));
+        trace.fs("wfopen", 0, 0, serde_json::json!({"mode":"rb"}));
+        assert!(jobs.prepared_matches("source", &shared, &trace));
+        trace.fs("wfopen", 0, 0, serde_json::json!({"mode":"wb"}));
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+        jobs.prepared.as_mut().unwrap().fs_cursor = 2;
+        std::fs::write(dir.path().join("C/DATA/ZZT_IDE.hpprgm"), b"changed").unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+        jobs.invalidate_prepared();
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+    }
+
     #[test]
     fn imports_never_reuse_existing_or_reserved_names() {
         let root = tempfile::tempdir().unwrap();
