@@ -192,3 +192,29 @@ The runtime owner is reproducing this ordering and implementing an actual
 main-loop acknowledgement before character translation. The independent GUI
 review is adding an explicit translation-rejection assertion. No arbitrary
 timing increase or pixel-mask relaxation is authorized as a substitute.
+
+### Input resolution integrated
+
+e8c8588 fixes this admission error. Translation now requires a fresh main-wait
+generation after the last delivered keydown, the main UI currently waiting, and
+that exact host owner's unsignaled condition-variable wait. An already signaled
+event, an immediate-return wait, another owner or a resolved callback waiting to
+reenter Unicorn cannot acknowledge UI completion. The condition is rechecked
+inside the memory gate. Raw releases, cleanup, Stop and managed physical input
+bypass modifier-observation admission. No delay or glyph-mask change was added;
+legacy main_waiting and checkpoint IdleMeter semantics remain unchanged.
+
+Deterministic tests fail under the old predicate and pass with this fix. Owner
+validation passed11 typing assertions on both15157 and15751; an earlier
+strengthened helper also passed20 repeated bracket crops exactly. The new
+assertion explicitly detects Desktop typing stopped, rather than relying only
+on quiet LCD pixels. Inspection distinguishes main_ui_idle, typing_pending and
+typing_last_keydown_main_wait from the legacy callback-entry flag.
+
+Coordinator rebuild passes1,850 parallel workspace tests, zero failures, six
+ignored; formatting and workspace/all-target Clippy pass. The frozen complete
+helper SHA-256 is
+b1d2274a740142f1d579404ecf386a3d0cfc3b9daceb053b3583e87362a4a0ef.
+Final127-assertion GUI verification, configured firmware and historical checks
+are running again against this helper; five alternating benchmark pairs follow
+only after those processes exit. Earlier failed evidence remains preserved.
