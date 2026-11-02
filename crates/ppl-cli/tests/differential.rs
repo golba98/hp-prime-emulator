@@ -31,12 +31,9 @@ fn requested_missing_full_system_backend_fails_explicitly() {
     let report: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(report["passed"], false);
     assert_eq!(report["runs"][0]["status"], "unavailable");
-    assert!(
-        report["runs"][0]["reason"]
-            .as_str()
-            .unwrap()
-            .contains("not implemented")
-    );
+    let reason = report["runs"][0]["reason"].as_str().unwrap();
+    assert!(reason.contains("PPL full-system execution is unavailable"));
+    assert!(reason.contains("does not boot the calculator kernel or run PPL scenarios"));
 }
 #[test]
 fn legacy_replay_cannot_silently_ignore_another_backend_request() {

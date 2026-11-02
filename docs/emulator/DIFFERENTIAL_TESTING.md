@@ -186,3 +186,39 @@ Schema 2 and the genuine named-program HLE session adapter are implemented. See
 authored probes, asynchronous input, restart semantics, actual firmware fixtures
 and explicit unsupported capabilities. Schema 1 and historical physical replay
 retain their original scope.
+
+## M17 multi-module execution and retained diagnostics
+
+Native resolves exported functions through one linked bytecode image. Calls
+share a VM stack, calculator globals, settings and execution limits; private
+variables remain bound to the owning source revision. Import/Edit initializes
+the installed module, matching the observed firmware installation timing.
+Unrelated broken sources do not block a valid dependency closure. Missing,
+private and ambiguous exports fail explicitly. See [Native linkage](M17_NATIVE_LINKAGE.md)
+for limitations and source-bound call traces.
+
+The same fixtures run against Native and the real retained HLE session:
+
+```sh
+ppl differential tests/differential/m17/initialization.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/linkage.toml --backend native,firmware-hle
+cargo test -p ppl-compat --test m17_differential
+```
+
+The integration test's real-firmware case requires PRIME_TEST_FIRMWARE,
+PRIME_TEST_INIT_DATA and PRIME_TEST_RUNNER, with PRIME_TEST_OS_ROM when needed.
+Without those resources only Native is exercised; an ungated workspace pass
+does not establish firmware verification. PRIME_M17_EVIDENCE_DIR optionally
+retains structured comparisons. Integrated local-firmware verification passed
+12 initialization and 22 linkage assertions, including an edited dependency.
+This is firmware-versus-Native evidence, not new physical verification.
+
+HLE raw reports preserve each job's bounded debug bundle before its disposable
+profile is removed. The capture verifies request and source identity, schema,
+file kind and size; failures remain explicitly unavailable. These diagnostics
+are metadata and never normalize errors or change semantic comparison. Register
+capture still requires tracing; a valid bundle need not contain registers.
+
+The FullSystem scenario adapter remains unavailable. Actual execution of the
+separate self-authored ARM926 smoke on qemuPrime's hp-prime model does not imply
+calculator kernel boot or PPL execution capability.

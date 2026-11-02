@@ -91,4 +91,26 @@ allocator/handles/timers and coordinated owner-thread safe points.
 Stateful capture bundles reuse the scenario source manifest and exact semantic
 comparator. Physical qualification remains evidence-derived. Full-system
 execution stays a separate unavailable backend until an independent boot is
-demonstrated. The self-authored ARM926 smoke now compiles/links, but has not run.
+demonstrated. M17 executes the self-authored ARM926 smoke on qemuPrime's
+hp-prime model through isolated QEMU/GDB tooling. This establishes actual ARM
+and RAM-alias execution; it does not boot the proprietary kernel or provide a
+FullSystem PPL backend.
+
+## M17 integrated boundaries
+
+Native external calls link independently compiled modules into one worker-local
+execution image. Retained state contains source-bound values, not transferable
+Rc bytecode. Per-module identity accompanies call frames; calculator globals
+alias one live slot while private globals remain revision-owned. Installation
+initialization is separately verified against firmware.
+
+Boot responsiveness and persistent-save quiescence are distinct policies.
+Readiness now requires a validated LCD and genuine event-pump round trips,
+followed by a fresh main wait. The strict checkpoint/interrupt idle threshold
+is unchanged. Wall-clock deadlines also wake a main engine blocked in a native
+SVC, preventing bounded headless runs from waiting indefinitely.
+
+Differential raw reports retain source/request-bound diagnostics after isolated
+profile cleanup. Their register snapshots remain owner-thread observations,
+not resumable Unicorn contexts. Snapshot admission and component reconstruction
+are being extended separately; arbitrary live restoration stays unsupported.
