@@ -36,22 +36,46 @@ must match; oversized, absent, malformed or symlinked reports produce explicit
 unavailable metadata. Async Await uses its original run request, not the latest
 input/control request. Semantic comparisons remain unchanged.
 
-Three focused forensic tests pass. Relevant all-target Clippy with warnings
+Four focused forensic tests pass. Relevant all-target Clippy with warnings
 denied and formatting pass. Changed coordinator code:
 ppl-programs/src/delete_store.rs, its journal_locking integration tests, and
 ppl-compat/src/differential/firmware.rs.
 
-## Parallel implementation currently unintegrated
+## Integrated runtime, Native and ARM execution increments
 
-- Runtime: post-CAS readiness, owner SVC progress and bounded deadlines; then
-  snapshot safe-point/component prerequisites.
-- Native: real bytecode external linkage and firmware-verified import timing;
-  then typed-value layout capture/decoding.
-- Full-system: pinned rootless Podman toolchain, actual ARM/GDB smoke, then
-  source-demonstrated interrupt-controller fixes.
+Runtime readiness now proves event-pump responsiveness independently of strict
+checkpoint idle admission. The preserved debug failure was executing firmware,
+SVCs and valid rendering rather than deadlocked. A validated LCD, two genuine
+timer/pump round trips and a fresh main wait establish Ready. Strict checkpoint
+and interruption policies remain unchanged. Finite headless deadlines also wake
+engines blocked inside native waits. Three readiness regressions and a bounded
+wait regression pass. Dedicated owner validation passed100 emulator unit tests
+and the unchanged debug normal-OFF post-CAS fresh-process test in133.50s.
+See M17_RUNTIME_READINESS.md. Coordinator repetition is in progress.
 
-These are not completed merely by being listed. Each requires verified handoff,
-integration and coordinator regression evidence.
+Native exported calls now execute in one linked bytecode VM, sharing calculator
+slots and budgets while preserving private per-module state and source-bound
+call frames. Installed source revisions invalidate their own state/linkage.
+Actual firmware established initializer execution at import, which Native now
+matches. Nine VM linkage tests pass. Integrated CLI Native/HLE comparisons pass
+12 initialization assertions and22 three-program/edited-dependency assertions.
+The new automated m17_differential integration test repeats these same fixtures
+with real firmware (2test cases passed,44.07s); unconfigured CI runs only Native.
+See M17_NATIVE_LINKAGE.md for semantic limits and unfinished frontend work.
+
+Pinned qemuPrime now builds under an isolated rootless Xenial toolchain and
+executes the self-authored ELF on its hp-prime ARM926 model. GDB proves initial
+PC0x30000000, single-step0x30000004, halt0x3000005c, mailbox0x600d0001,
+and four RAM-alias values0x12345678. Owner repeated three fresh processes;
+coordinator independently repeated a fourth execution. Eight Python regressions
+pass. This is actual execution, not merely ELF linking, and uses no proprietary
+boot artifacts. It is neither calculator kernel boot nor FullSystem PPL support.
+The next verified hardware increment addresses reproduced INTC defects.
+
+Pending independent increments: Native CLI/IDE catalog workflow; typed-value
+representation controls; protocol7 inspection and owner safe-point coordination;
+component reconstruction; final INTC integration. These remain open until their
+tested handoffs and combined regressions finish.
 
 ## Findings carried into implementation
 
@@ -64,9 +88,9 @@ A genuine firmware control establishes initializer execution at Programs import:
 shared A changes before the imported module is first called. Native's lazy
 first-call initialization differs and is being corrected for installed modules.
 
-The pinned Xenial toolchain image built, but its system libfdt1.4.0 is insufficient
-for this QEMU fork. The research owner is populating the exact pinned open-source
-DTC submodule in the exported build tree. No ARM execution is claimed yet.
+The pinned Xenial system libfdt1.4.0 is insufficient for this QEMU fork. The
+isolated exported build tree now uses its exact pinned open-source DTC submodule;
+the original research checkout and production HLE remain untouched.
 
 ## Continuation and verification
 
@@ -93,7 +117,9 @@ execution reports retain captured request/source-bound diagnostic bundles after
 the disposable profile has been removed (artifacts/m17/forensics-real.json).
 This still uses the preserved M16 helper; later combined M17 tests remain required.
 
-Full-system owner reports one genuine hp-prime smoke execution: entry
-0x30000000, single-step0x30000004, halt0x3000005c, mailbox0x600d0001,
-four alias values0x12345678. Second-run/regressions and integration handoff are
-pending, so no completed hardware increment or kernel boot is claimed yet.
+Coordinator verified the integrated compiler/VM workspace check and9 new linkage
+tests. One subsequent workspace attempt exposed an outdated CLI diagnostic-text
+assertion after the accurate FullSystem limitation message changed. The test now
+asserts both unavailable PPL execution and the explicit no-kernel/no-PPL boundary;
+all3 CLI differential tests pass. A full rerun is in progress. No assertion was
+removed or weakened to suppress a semantic failure.
