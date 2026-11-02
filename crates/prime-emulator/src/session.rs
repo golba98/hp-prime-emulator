@@ -1048,6 +1048,12 @@ impl LiveSession {
             && device.checkpoint_idle.settled(shared);
         match checkpoint.poll(shared.sleeping(), idle, saved) {
             Some(crate::checkpoint::Action::PowerOff) => {
+                if std::env::var_os("PRIME_CHECKPOINT_TRACE").is_some() {
+                    eprintln!(
+                        "checkpoint-admission {}",
+                        serde_json::json!({"id":id,"elapsed_ms":checkpoint.elapsed_ms(),"idle":device.checkpoint_idle.diagnostic()})
+                    );
+                }
                 device.power_sequence = Some(crate::checkpoint::OffSequence::new(false));
             }
             Some(crate::checkpoint::Action::Finished { mut result, wake }) => {

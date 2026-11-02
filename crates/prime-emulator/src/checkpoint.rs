@@ -137,6 +137,9 @@ impl Checkpoint {
     pub fn off_sent(&self) -> bool {
         self.off_sent
     }
+    pub fn elapsed_ms(&self) -> f64 {
+        self.started.elapsed().as_secs_f64() * 1000.0
+    }
     pub fn begin(id: u64, wake: bool, admission: &Admission) -> Result<Self, CheckpointResult> {
         if let Some(reason) = admission.refusal() {
             return Err(CheckpointResult::Deferred {
