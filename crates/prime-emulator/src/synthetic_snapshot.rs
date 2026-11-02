@@ -4,6 +4,8 @@
 //! threads. Only whitelisted integer ARM/Thumb instructions execute. Its complete
 //! architectural state is GPRs/CPSR and three fixed memory regions. This is not a
 //! calculator-session snapshot and does not change firmware recovery admission.
+//! [`resumable`] separately opts into two explicitly reconstructable synthetic
+//! services; ordinary CPU-only owners continue refusing all SVC instructions.
 use crate::sha256;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -17,6 +19,7 @@ use unicorn_engine::{
 };
 
 mod instructions;
+pub mod resumable;
 mod store;
 pub use store::{SnapshotSelection, SyntheticSnapshotStore};
 
@@ -106,7 +109,7 @@ impl CpuState {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Manifest {
     kind: String,
@@ -265,8 +268,16 @@ impl SyntheticSnapshot {
     }
 }
 
+#[derive(Clone, Debug)]
+struct ServiceTrap {
+    number: u32,
+    return_pc: u32,
+    arguments: [u32; 2],
+}
 #[derive(Default)]
 struct HookState {
+    services: bool,
+    service_trap: Option<ServiceTrap>,
     executed: usize,
     error: Option<String>,
 }
@@ -329,7 +340,11 @@ impl SyntheticGuest {
                     }
                     uc.mem_read(address, &mut bytes[..size as usize])
                         .map_err(string)?;
-                    if !instructions::allowed(&bytes, cpsr & 0x20 != 0, size) {
+                    let service = uc.get_data().services
+                        && cpsr & 0x20 == 0
+                        && size == 4
+                        && matches!(u32::from_le_bytes(bytes), 0xef19_0001 | 0xef19_0002);
+                    if !service && !instructions::allowed(&bytes, cpsr & 0x20 != 0, size) {
                         return Err(format!("unsupported synthetic instruction at {address:#x}"));
                     }
                     Ok(())
@@ -344,8 +359,36 @@ impl SyntheticGuest {
             .map_err(string)?;
         engine
             .add_intr_hook(|uc, number| {
-                uc.get_data_mut().error =
-                    Some(format!("synthetic exception {number} is unsupported"));
+                if uc.get_data().services && number == 2 {
+                    let trap = (|| -> Result<ServiceTrap> {
+                        let return_pc = uc.reg_read(RegisterARM::PC).map_err(string)? as u32;
+                        let mut opcode = [0; 4];
+                        uc.mem_read(
+                            u64::from(return_pc.checked_sub(4).ok_or("invalid SVC PC")?),
+                            &mut opcode,
+                        )
+                        .map_err(string)?;
+                        let number = u32::from_le_bytes(opcode);
+                        if !matches!(number, 0xef19_0001 | 0xef19_0002) {
+                            return Err("unsupported synthetic service exception".into());
+                        }
+                        Ok(ServiceTrap {
+                            number: number & 0x00ff_ffff,
+                            return_pc,
+                            arguments: [
+                                uc.reg_read(RegisterARM::R0).map_err(string)? as u32,
+                                uc.reg_read(RegisterARM::R1).map_err(string)? as u32,
+                            ],
+                        })
+                    })();
+                    match trap {
+                        Ok(trap) => uc.get_data_mut().service_trap = Some(trap),
+                        Err(error) => uc.get_data_mut().error = Some(error),
+                    }
+                } else {
+                    uc.get_data_mut().error =
+                        Some(format!("synthetic exception {number} is unsupported"));
+                }
                 let _ = uc.emu_stop();
             })
             .map_err(string)?;
@@ -388,11 +431,13 @@ impl SyntheticGuest {
     /// At most 100,000 integer instructions and one second per slice. Any
     /// unsupported operation/fault/short execution poisons snapshot admission.
     pub fn run_slice(&mut self, count: usize) -> Result<()> {
+        self.execute(count, false).map(|_| ())
+    }
+    fn execute(&mut self, count: usize, allow_service: bool) -> Result<Option<ServiceTrap>> {
         if self.failed || count == 0 || count > MAX_SLICE {
             return Err("synthetic slice unavailable or exceeds instruction bound".into());
         }
-        let next_count = self
-            .instructions
+        self.instructions
             .checked_add(count as u64)
             .ok_or("synthetic instruction counter overflow")?;
         let state = self.state()?;
@@ -404,6 +449,7 @@ impl SyntheticGuest {
             .emu_start(start, 0, 1_000_000, count)
             .map_err(string);
         let executed = self.engine.get_data().executed;
+        let trap = self.engine.get_data_mut().service_trap.take();
         let failure = self
             .engine
             .get_data_mut()
@@ -411,15 +457,17 @@ impl SyntheticGuest {
             .take()
             .or_else(|| result.err())
             .or_else(|| {
-                (executed != count).then(|| "synthetic slice timed out or stopped early".into())
+                ((executed != count && !(allow_service && trap.is_some()))
+                    || (!allow_service && trap.is_some()))
+                .then(|| "synthetic slice timed out or stopped early".into())
             });
         if let Some(error) = failure {
             self.failed = true;
             return Err(error);
         }
-        self.instructions = next_count;
+        self.instructions += executed as u64;
         self.state()?.validate()?;
-        Ok(())
+        Ok(trap)
     }
     pub fn capture(&mut self, program: &SyntheticProgram) -> Result<SyntheticSnapshot> {
         if self.failed || self.identity != program.identity {
