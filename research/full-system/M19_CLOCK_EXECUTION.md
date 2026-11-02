@@ -80,21 +80,29 @@ harness were corrected. The executed test was not weakened.
 
 ## Final standalone evidence
 
-Fresh clean published-overlay build: `~/.cache/prime-m19-clock-final-build`.
+Fresh clean published-overlay build: `~/.cache/prime-m19-clock-published-final-build-02`.
 QEMU2.10.1 source pin`32e891a9fc568de3110343c3e35b9ec0d23f6f44`, DTC pin
 `558cd81bdd432769b59bff01240c44f82cfb1a9d`, isolated Xenial GCC5/Python2.7.
-Executable SHA256`a267de1a3fbd630fe76b4cde6673b805e56722852bc12fe4bff3e1ebc664381e`.
-Overlay SHA256`e072bddb5a3ebbca0328622deece93ce27cbe92661d2646a7e95796bc9cdf807`.
+Executable SHA256`efec839347c9b9f1e313383ceac88f42a0b32f35ddb02afc9eeee6c78526fa27`.
+Overlay SHA256`f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202`.
 Guest ELF SHA256`0ae029f43942daaa48fc7e68af6093e2bf03e0b64f71d46fb2b72b4d49c17d63`.
 
 Three independent fresh processes pass each new case under this final build.
-Raw evidence lives at `~/.cache/prime-m19-clock-final-clock_reset-{0,1,2}` and
-`~/.cache/prime-m19-clock-final-clock_model-{0,1,2}`. Exact commands, runtime
+Raw evidence lives at `~/.cache/prime-m19-clock-published-final-clock_reset-{0,1,2}` and
+`~/.cache/prime-m19-clock-published-final-clock_model-{0,1,2}`. Exact commands, runtime
 identities, mailbox/register observations and log hashes are retained in
 `evidence/m19-clocks.json`; reading that file is replay, not a new execution.
 The original ARM/RAM smoke, timerIRQ, timerFIQ, UART/GPIO, MMU and unchanged
 five-channel timer qtest also pass against this final build in
-`~/.cache/prime-m19-clock-final-regression-*`.
+`~/.cache/prime-m19-clock-published-final-regression-*`.
 
 All25 offline FullSystem Python tests pass (including5 new clock contracts).
 No retained unsuccessful experiment was removed.
+
+The old unselected SYSC register-storage source remains intact. The board now
+selects the separately authored `s3c2416_clock.o` implementation. The published
+overlay preserves the original Makefile\'s missing final newline explicitly.
+The initial object-selection patch failed safely when its generated diff omitted
+those EOF markers; its failed build and the coordinator\'s independent rejection
+were retained. The corrected published overlay was rebuilt from the pin and all
+new and existing hardware controls above were repeated successfully.
