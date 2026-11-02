@@ -198,8 +198,8 @@ impl Jobs {
                 self.catalog.push(name);
             }
         }
-        let (events, _) = trace.fs_log();
-        for e in events.iter().skip(self.seen_fs) {
+        let (events, next, _) = trace.fs_log_since(self.seen_fs);
+        for e in &events {
             if e["op"] == "wfopen" && e["mode"].as_str().is_some_and(|m| m.starts_with('w')) {
                 if let Some(path) = e["path"]
                     .as_str()
@@ -222,20 +222,20 @@ impl Jobs {
                 }
             }
         }
-        self.seen_fs = events.len();
+        self.seen_fs = next;
     }
     /// Learns the catalog order from catalog listings the user opened while
     /// no job ran: the firmware reads every program the first time it shows
     /// its catalog and later only changed ones, so a job opening a catalog
     /// the user already saw reads nothing new.
     fn observe_user_catalog(&mut self, shared: &SharedState, trace: &TraceHub) {
-        let (events, _) = trace.fs_log();
+        let (events, next, _) = trace.fs_log_since(self.user_seen);
         if self.active.is_some() {
-            self.user_seen = events.len();
+            self.user_seen = next;
             self.user_burst.clear();
             return;
         }
-        for event in events.iter().skip(self.user_seen) {
+        for event in &events {
             if let Some(name) = catalog_read(event)
                 && !self
                     .user_burst
@@ -246,7 +246,7 @@ impl Jobs {
                 self.user_last = Some(Instant::now());
             }
         }
-        self.user_seen = events.len();
+        self.user_seen = next;
         if self
             .user_last
             .is_some_and(|t| t.elapsed() >= USER_CATALOG_QUIET)
@@ -345,7 +345,7 @@ impl Jobs {
         Ok(())
     }
     fn check_script(&self, job: &mut Job, _name: &str, trace: &TraceHub) -> Result<(), String> {
-        job.catalog_start = trace.fs_log().0.len();
+        job.catalog_start = trace.fs_log_since(usize::MAX).1;
         let mut sequence = keys::parse_keys("HOME,ESC,SHIFT,1")?;
         for _ in 0..self.catalog.len().div_ceil(7) {
             sequence.extend(keys::parse_keys("SWIPE:160:55:160:210:10")?);

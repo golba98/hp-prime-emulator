@@ -823,6 +823,12 @@ impl SharedState {
         &self.firmware_guest_path
     }
 
+    /// Cancel pending host input on focus loss. Releases are then queued for
+    /// keys already delivered, so an old press cannot leak into a new owner.
+    pub fn clear_input_events(&self) {
+        self.input_events.lock().unwrap().clear();
+    }
+
     pub fn push_key_transition(&self, key_code: u16, down: bool) {
         if self.power_filter(key_code, down) {
             return;
@@ -1010,6 +1016,15 @@ mod power_tests {
             .into_iter()
             .map(|e| (e.status, e.key_code0))
             .collect()
+    }
+    #[test]
+    fn cancelling_pending_input_drops_presses_before_releases() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.push_key_transition(0x0c, true);
+        s.push_key_press(0x41);
+        s.clear_input_events();
+        s.push_key_transition(0x0c, false);
+        assert_eq!(queued(&s), vec![(UI_EVENT_TYPE_KEY_UP, 0x0c)]);
     }
     #[test]
     fn asleep_only_on_acts_and_only_to_wake() {

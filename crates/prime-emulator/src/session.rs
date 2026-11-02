@@ -1,5 +1,6 @@
 //! Long-lived local firmware session, with bounded transport and coherent LCD capture.
 mod job;
+mod repeat;
 pub use job::{LOADER, LOADER_V1};
 
 use crate::{
@@ -27,6 +28,8 @@ struct Output {
 }
 struct Device {
     held: HashSet<u16>,
+    delivered: HashSet<u16>,
+    repeat: repeat::KeyRepeat,
     script: Option<ScriptDriver>,
     jobs: job::Jobs,
     /// Last lifecycle state reported, and the idle meter that ends Booting.
@@ -74,6 +77,8 @@ impl LiveSession {
             output: out.clone(),
             device: Mutex::new(Device {
                 held: HashSet::new(),
+                delivered: HashSet::new(),
+                repeat: repeat::KeyRepeat::default(),
                 script: None,
                 jobs: job::Jobs::new(),
                 lifecycle: Lifecycle::Booting,
@@ -168,6 +173,7 @@ impl LiveSession {
                         device.held.insert(code);
                     } else {
                         device.held.remove(&code);
+                        device.repeat.release(code);
                     }
                     device.keys.push_back((code, down));
                 }
@@ -180,13 +186,18 @@ impl LiveSession {
                     shared.push_touch(TouchSample { status, x, y })
                 }
                 Command::ReleaseAll => {
-                    let held: Vec<u16> = device.held.drain().collect();
+                    device.held.clear();
+                    device.repeat.clear();
+                    device.keys.clear();
+                    shared.clear_input_events();
+                    let held: Vec<u16> = device.delivered.drain().collect();
                     device
                         .keys
                         .extend(held.into_iter().map(|code| (code, false)));
                 }
                 Command::Shutdown => shared.set_stopping(),
                 Command::PowerDown => {
+                    device.repeat.clear();
                     if device.power_down.is_none() {
                         device.power_down = Some((Instant::now(), false));
                         // A program is stopped first, as Stop does.
@@ -381,7 +392,29 @@ impl LiveSession {
         {
             let (code, down) = device.keys.pop_front().unwrap();
             shared.push_key_transition(code, down);
+            if down {
+                device.delivered.insert(code);
+                // A tap may already have its release queued; never repeat it.
+                if device.held.contains(&code) {
+                    device.repeat.press(code, Instant::now());
+                }
+            } else {
+                device.delivered.remove(&code);
+            }
             device.last_key = Instant::now();
+        }
+        // Generate at most one repeat after consumption, never a catch-up burst.
+        if device.keys.is_empty()
+            && shared.input_events_pending() == 0
+            && shared.getevent_parked()
+            && shared.main_waiting()
+            && device.jobs.active.is_none()
+            && device.power_down.is_none()
+            && !shared.sleeping()
+        {
+            if let Some((code, down)) = device.repeat.poll(Instant::now()) {
+                shared.push_key_transition(code, down);
+            }
         }
         for event in device.jobs.tick(mem, shared, trace) {
             self.event(event);
