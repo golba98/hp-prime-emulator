@@ -29,6 +29,8 @@ enum Command {
     Compare(cmd::compare::CompareOpts),
     /// Run strict multi-backend scenarios or replay qualified physical captures.
     Differential(cmd::differential::DifferentialOpts),
+    /// Prepare, seal and validate scenario captures offline; never opens USB.
+    Capture(cmd::capture::CaptureOpts),
     /// Run an interactive step debugger.
     Debug(cmd::debug::DebugOpts),
     /// Launch the native graphical calculator window.
@@ -53,6 +55,7 @@ const SUBCOMMANDS: &[&str] = &[
     "device",
     "compare",
     "differential",
+    "capture",
     "test",
     "diag-parity",
     "help",
@@ -165,6 +168,7 @@ fn main() -> ExitCode {
         Command::Device(o) => cmd::device::run(o),
         Command::Compare(o) => cmd::compare::run(o),
         Command::Differential(o) => cmd::differential::run(o),
+        Command::Capture(o) => cmd::capture::run(o),
         Command::Debug(o) => cmd::debug::run(o),
         Command::Gui(o) => cmd::gui::run(o),
         Command::Show(o) => cmd::gui::show(o),
