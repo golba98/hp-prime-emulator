@@ -672,10 +672,11 @@ impl Jobs {
         let Some(mut job) = self.active.take() else {
             return vec![];
         };
+        let previous_stage = job.stage;
         let result = self.advance(&mut job, mem, shared, trace);
         match result {
             Ok(None) => {
-                let events = if matches!(job.stage, Stage::Invoke | Stage::Execute)
+                let mut events = if matches!(job.stage, Stage::Invoke | Stage::Execute)
                     && !job.reported_running
                     && trace.runtime.as_ref().unwrap().progress().0
                 {
@@ -687,6 +688,14 @@ impl Jobs {
                 } else {
                     vec![]
                 };
+                if job.stage != previous_stage
+                    && progress_message(job.stage) != progress_message(previous_stage)
+                    && !job.reported_running
+                {
+                    events.push(Event::Status {
+                        message: progress_message(job.stage).into(),
+                    });
+                }
                 self.active = Some(job);
                 events
             }
@@ -1165,6 +1174,16 @@ fn catalog_read(event: &serde_json::Value) -> Option<String> {
         .and_then(|p| p.rsplit('\\').next())
         .and_then(|p| p.strip_suffix(".hpprgm"))
         .map(str::to_owned)
+}
+fn progress_message(stage: Stage) -> &'static str {
+    match stage {
+        Stage::CheckLoader => "Preparing the firmware source loader…",
+        Stage::Load => "Loading and checking source in firmware…",
+        Stage::CheckImporter | Stage::Import => "Saving the program to the calculator catalog…",
+        Stage::CheckTarget | Stage::Direct => "Checking source with the firmware compiler…",
+        Stage::Prepared | Stage::Invoke => "Starting the checked firmware program…",
+        Stage::Execute => "Running in the local G1 firmware",
+    }
 }
 fn stage_name(stage: Stage, catalog: bool) -> &'static str {
     match (stage, catalog) {

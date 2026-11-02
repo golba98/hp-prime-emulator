@@ -1,10 +1,30 @@
 # Usability, performance and parity overhaul
 
-## Status — 2026-11-02
+## Current integration status — 2026-11-02
 
-Implementation started on `feat/g1-usability-overhaul`, from main `7014e75`.
-User confirmed release of canonical ownership. No commits or device access.
-This is an implementation checkpoint, not completion of milestones A–F.
+Working branch: `feat/g1-usability-overhaul`, based on `3399675` (the first
+input increment). Local checkpoint commits are authorized and recorded; nothing
+has been pushed or published. No new physical-device verification is claimed.
+
+Implemented and integrated: consumption-paced Run, exact-source prepared cache,
+validated reuse of firmware assignment compilation, native AFiles source
+transfer, safe OFF storage recovery and profile locks, Native INPUT defaults /
+layout / pages, Native EDITMAT, setup resource validation and pickers, allocation
+failure handling and an experimental heap budget. Keyboard feedback-based text
+entry is finishing isolated validation before integration.
+
+Latest completed integrated workspace checkpoint: 1632 passed / 0 failed /
+6 ignored. Actual firmware boot, imports, normal OFF and crash recovery passed;
+77 historical reference results replayed without mismatches. Native and firmware
+pixel-geometry captures both match 76,800 expected pixels. Final integrated GUI
+and controlled performance verification are pending the keyboard handoff.
+
+This report keeps the chronological engineering record below. Statements in
+"First increment" describe that checkpoint; later sections supersede them.
+Remaining limits are recorded explicitly rather than calling every milestone
+complete.
+
+## First increment (historical checkpoint)
 
 ## Baseline
 
@@ -54,7 +74,7 @@ retaining overflow accounting. Unit test covers new events, empty tails and
 visible overflow. No source/compilation cache or validation bypass introduced.
 End-to-end latency improvement is not yet established.
 
-## Remaining work, in order
+## Remaining work at the first checkpoint
 
 1. Finish A: observe firmware context by version-validated evidence; implement
    Home/CAS/editor mappings, modifier ownership and literal punctuation. Expand
@@ -231,3 +251,38 @@ passing evidence: `/tmp/overhaul-recovery-first-off.log`.
 - Experimental 32 MiB allocation budget: local firmware boot and `2+2=4`
   captured and visually verified (`/tmp/prime-32m-budget`). No claim of full
   G1 memory equivalence or broad low-memory application compatibility.
+
+### Subsequent integrated implementation
+
+- The dominant large-program delay was interpreted UTF-16 byte conversion in
+  the PPL loader. `AFiles` native string decoding replaces that loop; genuine
+  `Programs():=` compilation remains. Known V1 and V2 helper source texts are
+  migrated exactly, and unknown user-modified helpers remain refused. Unicode
+  source and legacy migrations pass actual firmware tests. Reproducible
+  benchmark: `scripts/emulator/benchmark_run.py` (wall/CPU, hashes, verdicts,
+  stage reports, 13 workflows including restart).
+- Session output now joins its writer after atomically queueing Closed. This
+  fixes an observed race where process exit could drop the last save/Closed
+  notification. A no-assets regression exercises eight immediate failing
+  startups and requires their terminal event before EOF.
+- Both real recovery scenarios pass: normal OFF→restart→edit→kill→restore
+  (29.40 s), and live OFF→ON→edit→kill→restore (21.24 s). Normal session import /
+  Run / OFF test also passes (53.79 s), including checkpoint notifications.
+- Native EDITMAT is implemented with firmware-observed cancellation, M0–M9
+  writeback and expression/local-variable semantics. Existing cells are edited
+  in a paged grid; headers/read-only mode and validation are supported. See
+  `NATIVE_EDITMAT_REPORT.md` and committed firmware-only / Native captures.
+  Component results: 496 passed, 2 ignored; actual Xvfb GUI interaction passed.
+  Row/column insertion, resizing and touch editing remain unsupported.
+
+AFiles/recovery integration recheck: three recovery tests passed (including
+terminal event delivery), and both firmware session tests passed, covering
+V1/V2 loader migration, Unicode, large import and globals retained on unchanged
+rerun. The first attempt failed while copying disposable profiles because
+parallel build caches exhausted the `/tmp` quota; rerun with TMPDIR in the
+workspace cache passed. Logs: `/tmp/overhaul-afiles-recovery-session-retry.log`.
+Pre-keyboard integrated Clippy with warnings denied is clean.
+
+The new IDE status messages follow actual loader/check/import/invocation
+transitions, with no artificial progress timer. Native/firmware pixel captures
+and source/capture hashes are retained in `evidence/pixel-geometry/`.

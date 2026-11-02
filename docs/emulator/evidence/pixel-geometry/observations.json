@@ -1,0 +1,20 @@
+{
+  "status": "firmware-only-and-native",
+  "physical_device": "untested",
+  "program": "tests/compat/programs/g1_pixel_geometry.ppl",
+  "program_sha256": "1f4921750133fee68286c3241e56d0109d46eed58185c85ddd9d5a724146b61c",
+  "firmware_build": 15751,
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "results": {
+    "firmware.png": {
+      "sha256": "b2cd2ab81290fa22207dc4c72a81411aec2fabf98c1a72753ff7b4fe3a3accf0",
+      "pixels_checked": 76800,
+      "mismatches": 0
+    },
+    "native.png": {
+      "sha256": "dc1d517fba2ac539b531ddf0eacb1d0cd082575b382cf7e906789a21c8b969cf",
+      "pixels_checked": 76800,
+      "mismatches": 0
+    }
+  }
+}

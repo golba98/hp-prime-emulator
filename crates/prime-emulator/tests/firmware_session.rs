@@ -195,6 +195,28 @@ fn exercise_session(legacy_loader: &str) {
             .any(|s| s["stage"] == "reuse-prepared")
     );
 
+    // Rerun must retain genuine program-local global state; recompiling an
+    // unchanged Programs() object would incorrectly reset COUNTER each time.
+    for (request, expected) in [(7, "returned 1"), (8, "returned 2")] {
+        s.send(&Command::Run {
+            request,
+            source: "LOCAL COUNTER:=0; EXPORT INC() BEGIN COUNTER:=COUNTER+1; RETURN COUNTER; END;"
+                .into(),
+            entry: Some("INC".into()),
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "persistent program globals",
+            |e| matches!(e, Event::Result { request: r, .. } if *r == request),
+        ) {
+            Event::Result {
+                success, message, ..
+            } => assert!(success && message.contains(expected), "{message}"),
+            _ => unreachable!(),
+        }
+    }
+
     let source = "EXPORT M12SESS()\nBEGIN\n RETURN 9;\nEND;\n";
     s.send(&Command::Import {
         request: 1,

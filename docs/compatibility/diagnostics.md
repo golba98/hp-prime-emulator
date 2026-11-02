@@ -114,7 +114,7 @@ These documented forms were rejected as `wrong-arg-count` before:
 | `LINE_P` / `LINE` | 4–6 | 2–6 | 3D list form raises "unsupported" |
 | `TRIANGLE_P` | 6–12 | 0–15 | Only the 7-argument coordinate form is drawn; other forms raise "unsupported" |
 | `STRING` | 1–3 | 1–5 | Separator and size-limit arguments raise "unsupported" |
-| `EDITMAT` | 1–2 | 1–3 | Unsupported command |
+| `EDITMAT` | 1–2 | 1–3 | Native fixed-size editor with headers/read-only mode; structural editing requires Firmware mode |
 
 ## Firmware-backed rulings
 
