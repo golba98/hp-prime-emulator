@@ -61,3 +61,9 @@ relative timer deadlines need explicit reconstruction before full live restore
 can be safe. M16's viable recovery boundary is completed firmware OFF with
 validated persistent storage. CPU/thread/framebuffer restoration must remain
 unsupported until independently implemented and validated in a fresh process.
+
+Early coordinator-wide regression: `cargo test --workspace` passed **1,720 tests,
+zero failures, six ignored** across 93 reported test suites. Log:
+`/tmp/prime-m16-workspace-early.log`. This predates agent integration.
+Baseline release helper preserved at `/tmp/prime-m16-baseline/prime-emulator`,
+SHA-256 `9eceeb68b81daec82650cb19bb72374786c7d983ae6d9b3019d68bcd53f8a6e2`.

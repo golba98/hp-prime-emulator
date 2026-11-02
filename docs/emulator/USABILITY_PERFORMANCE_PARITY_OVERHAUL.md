@@ -601,3 +601,15 @@ remain practical; cold-loader preparation still needs fresh context evidence.
 6. Execute the documented isolated full-system build/synthetic device gates only
    with recorded toolchain/artifact provenance. Matching bootloader and NAND/OOB
    prerequisites remain missing from inspected supplied assets.
+
+## M16 implementation checkpoint
+
+Starting at `7fbe711`, the coordinator added opt-in owner-thread register
+observations (`--trace-svc`) and isolated full-system prerequisite/smoke tooling.
+The early workspace suite passes **1,720 tests, zero failures, six ignored**;
+formatting and prime-emulator all-target Clippy pass. This result precedes the
+stateful/recovery/capture agent integrations and must not be described as their
+verification. Two research-preflight Python tests pass; the ARM926 smoke assembly
+compiles, but has not linked or run. No new physical verification or performance
+result is claimed. Detailed integration status lives in
+`M16_STATEFUL_PARITY_AND_SNAPSHOTS.md`.
