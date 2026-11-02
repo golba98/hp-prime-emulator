@@ -146,6 +146,9 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         return Ok(0);
     }
     if main {
+        *ctx.shared.main_ui_wait_owner.lock().unwrap() = Some((desc, std::thread::current().id()));
+    }
+    if main {
         ctx.shared.set_main_waiting(true);
     }
     let signaled = {
@@ -157,6 +160,9 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
                 || (call_point && ctx.shared.guest_calls.pending())
         })
     };
+    if main {
+        *ctx.shared.main_ui_wait_owner.lock().unwrap() = None;
+    }
     if main {
         ctx.shared.set_main_waiting(false);
     }

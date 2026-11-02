@@ -70,6 +70,7 @@ struct Device {
     delivered: HashSet<u16>,
     repeat: repeat::KeyRepeat,
     typing: typing::Typing,
+    typing_ack: typing::UiAcknowledgement,
     script: Option<ScriptDriver>,
     jobs: job::Jobs,
     /// Last lifecycle state reported, and observed event-loop boot readiness.
@@ -186,6 +187,7 @@ impl LiveSession {
                 delivered: HashSet::new(),
                 repeat: repeat::KeyRepeat::default(),
                 typing: typing::Typing::default(),
+                typing_ack: typing::UiAcknowledgement::default(),
                 script: None,
                 jobs: job::Jobs::new(),
                 lifecycle: Lifecycle::Booting,
@@ -835,16 +837,28 @@ impl LiveSession {
             && !device.typing.is_empty()
             && shared.input_events_pending() == 0
             && shared.getevent_parked()
+            && (!device.typing.observes_modifiers()
+                || device
+                    .typing_ack
+                    .ready(shared.main_ui_waiting(), shared.main_wait_entries()))
             && device.jobs.accepts_input()
             && device.script.is_none()
         {
             if let Some(_snapshot) = mem.snapshot_gate.try_snapshot() {
-                if let Ok(view) = LcdView::locate(mem, *shared.lcd_object.lock().unwrap()) {
-                    let mut status = [0u8; 320 * 8 * 4];
-                    if mem.read_bytes(view.fb_va, &mut status).is_ok() {
-                        match device.typing.next(typing::observe(&status)) {
-                            Ok(keys) => device.keys.extend(keys),
-                            Err(message) => self.event(Event::Status { message }),
+                // Recheck under the memory gate: another UI quantum may have
+                // resumed between the outer check and coherent capture.
+                if !device.typing.observes_modifiers()
+                    || device
+                        .typing_ack
+                        .ready(shared.main_ui_waiting(), shared.main_wait_entries())
+                {
+                    if let Ok(view) = LcdView::locate(mem, *shared.lcd_object.lock().unwrap()) {
+                        let mut status = [0u8; 320 * 8 * 4];
+                        if mem.read_bytes(view.fb_va, &mut status).is_ok() {
+                            match device.typing.next(typing::observe(&status)) {
+                                Ok(keys) => device.keys.extend(keys),
+                                Err(message) => self.event(Event::Status { message }),
+                            }
                         }
                     }
                 }
@@ -857,6 +871,9 @@ impl LiveSession {
             && (shared.getevent_parked() || device.last_key.elapsed() >= KEY_FALLBACK)
         {
             let (code, down) = device.keys.pop_front().unwrap();
+            if down {
+                device.typing_ack.pressed(shared.main_wait_entries());
+            }
             shared.push_key_transition(code, down);
             if down {
                 device.delivered.insert(code);
@@ -982,7 +999,7 @@ impl LiveSession {
             blockers.push("input_pending_or_held".into());
         }
         let owners = shared.safe_points.observations();
-        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
+        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_ui_idle":shared.main_ui_waiting(),"typing_pending":device.typing.pending_len(),"typing_last_keydown_main_wait":device.typing_ack.baseline(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
         let diagnostics = trace.diagnostic_bundle();
         let paused = pause.as_ref().is_ok_and(|lease| lease.is_current());
         if pause.is_ok() && !paused {
@@ -1324,6 +1341,7 @@ mod output_delivery_tests {
             delivered: HashSet::new(),
             repeat: repeat::KeyRepeat::default(),
             typing: typing::Typing::default(),
+            typing_ack: typing::UiAcknowledgement::default(),
             script: None,
             jobs: job::Jobs::new(),
             lifecycle: Lifecycle::Ready,

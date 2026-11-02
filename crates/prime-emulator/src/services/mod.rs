@@ -331,6 +331,9 @@ pub struct SharedState {
     /// Main-thread wait entries, allowing transactions to require a fresh
     /// firmware event-loop boundary after their request was accepted.
     main_wait_entries: AtomicU64,
+    /// Main-thread event wait. Host identity is runtime-only and
+    /// never serialized; the event owns the actual blocked-waiter membership.
+    main_ui_wait_owner: Mutex<Option<(u32, std::thread::ThreadId)>>,
     /// Pending non-input UI events (timer events), delivered by GetEvent
     /// before queued input — PrimU2's `special_event` slot, as a small
     /// bounded queue so a SYS_TIMER and a DEVICE_TIMER due together are
@@ -515,6 +518,7 @@ impl SharedState {
             getevent_entries: AtomicU64::new(0),
             main_waiting: AtomicBool::new(false),
             main_wait_entries: AtomicU64::new(0),
+            main_ui_wait_owner: Mutex::new(None),
             system_events: Mutex::new(std::collections::VecDeque::new()),
             system_events_delivered: AtomicU64::new(0),
             device_timer_delivered: AtomicU64::new(0),
@@ -637,6 +641,28 @@ impl SharedState {
 
     pub fn main_wait_entries(&self) -> u64 {
         self.main_wait_entries.load(Ordering::Acquire)
+    }
+
+    pub fn main_ui_waiting(&self) -> bool {
+        if !self.main_waiting() {
+            return false;
+        }
+        let Some((handle, owner)) = self.main_ui_wait_owner.try_lock().ok().and_then(|g| *g) else {
+            return false;
+        };
+        let Some(entry) = self
+            .sync_objects
+            .try_lock()
+            .ok()
+            .and_then(|m| m.get(&handle).cloned())
+        else {
+            return false;
+        };
+        !entry.closed()
+            && match &entry.object {
+                sync::SyncObj::Event(event) => event.waiter_blocked(owner),
+                _ => false,
+            }
     }
 
     pub fn getevent_entries(&self) -> u64 {
