@@ -49,7 +49,15 @@ def check_model(test, qmp, records):
     test.write(LCD+0x64, 0x30010000)
     test.write(LCD, 3)
     qmp_command(qmp, 'screendump', records, {'filename': '/run/mapped.ppm'})
-    for _ in range(3):
+    for cycle in range(3):
+        test.write(LCD+0x10, (239 << 11) | 319)
+        test.write(LCD+0x28, 0)
+        test.write(LCD+0x2c, (319 << 11) | 239)
+        test.write(LCD+0x64, 0x30010000)
+        test.write(LCD+0x94, 640)
+        test.write(LCD+0x14, (5 << 2) | 1)
+        test.write(LCD, 3)
+        qmp_command(qmp, 'screendump', records, {'filename': f'/run/reset-{cycle}.ppm'})
         reset_event(qmp, records)
         if test.read(LCD) != 0 or test.read(LCD+0x14) != 0:
             raise ValueError('LCD reset retained enable/window state')
