@@ -43,6 +43,10 @@ struct Device {
     last_key: Instant,
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
+    recovery: Option<Arc<crate::recovery::Recovery>>,
+    saved_sleep: u64,
+    save_result: Option<Result<(), String>>,
+    save_worker: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
 }
 /// The firmware's OFF: Shift, then ON.
 const SHIFT_KEY: u16 = 0x8B;
@@ -87,6 +91,10 @@ impl LiveSession {
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
                 power_down: None,
+                recovery: None,
+                saved_sleep: 0,
+                save_result: None,
+                save_worker: None,
             }),
             capture: Mutex::new(Capture {
                 last: vec![0; 320 * 240 * 4],
@@ -158,12 +166,68 @@ impl LiveSession {
         self.output.0.lock().unwrap().closed = true;
         self.output.1.notify_one();
     }
-    pub fn tick(&self, mem: &GuestMemory, shared: &SharedState, trace: &TraceHub) {
+    pub fn tick(&self, mem: &Arc<GuestMemory>, shared: &Arc<SharedState>, trace: &TraceHub) {
         if self.shutdown.load(Ordering::Acquire) {
             shared.set_stopping();
             return;
         }
         let mut device = self.device.lock().unwrap();
+        // Snapshot only at the firmware's completed OFF boundary. Keep ON and
+        // all mutations queued until copying finishes; the UI thread never waits.
+        if shared.sleeping() && device.recovery.is_some() && device.saved_sleep != shared.sleeps() {
+            if let Some(worker) = &device.save_worker {
+                match worker.try_recv() {
+                    Ok(result) => {
+                        device.saved_sleep = shared.sleeps();
+                        self.event(Event::Status {
+                            message: match &result {
+                                Ok(()) => "Calculator recovery checkpoint saved".into(),
+                                Err(e) => format!(
+                                    "Recovery checkpoint failed; previous checkpoint retained: {e}"
+                                ),
+                            },
+                        });
+                        device.save_result = Some(result);
+                        device.save_worker = None;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                    Err(_) => {
+                        device.saved_sleep = shared.sleeps();
+                        device.save_result = Some(Err("checkpoint worker stopped".into()));
+                        device.save_worker = None;
+                    }
+                }
+            } else {
+                let store = device.recovery.as_ref().unwrap().clone();
+                let mem = mem.clone();
+                let shared = shared.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                device.save_worker = Some(rx);
+                self.event(Event::Status {
+                    message: "Saving calculator recovery checkpoint…".into(),
+                });
+                std::thread::spawn(move || {
+                    let result = (|| {
+                        let start = Instant::now();
+                        let guard = loop {
+                            if let Some(g) = mem.snapshot_gate.try_snapshot() {
+                                break g;
+                            }
+                            if start.elapsed() > Duration::from_secs(5) {
+                                return Err("could not freeze sleeping firmware".into());
+                            }
+                            std::thread::sleep(Duration::from_millis(5));
+                        };
+                        shared.vfs.check_durable().map_err(|e| e.to_string())?;
+                        let result = store.checkpoint().map_err(|e| e.to_string());
+                        drop(guard);
+                        result
+                    })();
+                    let _ = tx.send(result);
+                });
+                return;
+            }
+        }
         for command in self.commands.lock().unwrap().try_iter().take(128) {
             match command {
                 Command::Key { code, down }
@@ -476,6 +540,24 @@ impl LiveSession {
             shared.set_stopping();
         };
         if shared.sleeping() {
+            // SysPowerOff can begin during this tick, after the initial save
+            // check. Let the next tick start/finish that checkpoint first.
+            if device.recovery.is_some() && device.saved_sleep != shared.sleeps() {
+                return;
+            }
+            if let Some(store) = &device.recovery {
+                if matches!(device.save_result, Some(Ok(()))) {
+                    if let Err(e) = store.clean_shutdown() {
+                        return end(&format!(
+                            "Checkpoint saved, but shutdown marker failed: {e}"
+                        ));
+                    }
+                } else {
+                    return end(
+                        "Firmware switched off, but recovery checkpoint failed; previous saved generation retained",
+                    );
+                }
+            }
             return end("The calculator saved its state and switched off");
         }
         if device.lifecycle == Lifecycle::Booting {
@@ -575,7 +657,37 @@ pub fn run(
     data_dir: std::path::PathBuf,
 ) -> i32 {
     let session = LiveSession::stdio();
+    // Separate helper lock also protects direct session callers. GUI's existing
+    // supervisor session.lock remains unchanged for compatibility.
+    let helper_lock = (|| -> std::io::Result<std::fs::File> {
+        std::fs::create_dir_all(&data_dir)?;
+        let lock = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(data_dir.join("helper.lock"))?;
+        fs2::FileExt::try_lock_exclusive(&lock)?;
+        Ok(lock)
+    })();
+    let _helper_lock = match helper_lock {
+        Ok(lock) => lock,
+        Err(e) => {
+            session.close(format!("Calculator profile is unavailable: {e}"));
+            return 1;
+        }
+    };
     let bootstrap = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let mut identity = std::fs::read(&firmware)?;
+        if let Some(rom) = &os_rom {
+            identity.extend(std::fs::read(rom)?);
+        }
+        let (recovery, restored) =
+            crate::recovery::Recovery::begin(&data_dir, crate::sha256::hex(&identity))?;
+        session.device.lock().unwrap().recovery = Some(Arc::new(recovery));
+        if restored {
+            session.event(Event::Status { message: "Recovered calculator data from the last intact storage checkpoint; interrupted files were archived".into() });
+        }
+
         let dir = data_dir.join("C/DATA");
         std::fs::create_dir_all(&dir)?;
         for (name, source) in [

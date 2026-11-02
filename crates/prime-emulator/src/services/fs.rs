@@ -42,6 +42,7 @@ pub struct Vfs {
     next_find: AtomicU64,
     cwd: Mutex<[String; 26]>,
     cur_drive: Mutex<u8>,
+    durability_error: Mutex<Option<String>>,
 }
 
 impl Vfs {
@@ -59,6 +60,7 @@ impl Vfs {
             next_find: AtomicU64::new(1),
             cwd: Mutex::new(cwds),
             cur_drive: Mutex::new(b'A'),
+            durability_error: Mutex::new(None),
         }
     }
 
@@ -168,16 +170,27 @@ impl Vfs {
         let writable = mode.contains('w') || mode.contains('a') || mode.contains('+');
         if mode.contains('w') {
             if let Some(p) = host.parent() {
-                std::fs::create_dir_all(p).ok()?;
+                if let Err(e) = std::fs::create_dir_all(p) {
+                    self.record_write_error(e);
+                    return None;
+                }
             }
         }
-        let file = std::fs::OpenOptions::new()
+        let opened = std::fs::OpenOptions::new()
             .read(readable)
             .write(writable)
             .create(mode.contains('w') || mode.contains('a'))
             .truncate(mode.contains('w'))
-            .open(&host)
-            .ok()?;
+            .open(&host);
+        let file = match opened {
+            Ok(file) => file,
+            Err(e) => {
+                if writable {
+                    self.record_write_error(e);
+                }
+                return None;
+            }
+        };
         let handle = self.next_handle.fetch_add(1, Ordering::Relaxed) as u32;
         self.files.lock().unwrap().insert(
             handle,
@@ -197,7 +210,9 @@ impl Vfs {
         match self.files.lock().unwrap().remove(&handle) {
             Some(vf) => {
                 if vf.writable {
-                    let _ = vf.file.sync_all();
+                    if let Err(e) = vf.file.sync_all() {
+                        *self.durability_error.lock().unwrap() = Some(e.to_string());
+                    }
                 }
                 true
             }
@@ -209,9 +224,20 @@ impl Vfs {
     pub fn flush_all(&self) -> usize {
         let files = self.files.lock().unwrap();
         for vf in files.values().filter(|vf| vf.writable) {
-            let _ = vf.file.sync_all();
+            if let Err(e) = vf.file.sync_all() {
+                *self.durability_error.lock().unwrap() = Some(e.to_string());
+            }
         }
         files.len()
+    }
+
+    /// Host checkpoint gate: never publish data after a failed durable write.
+    pub fn check_durable(&self) -> std::io::Result<()> {
+        self.flush_all();
+        match &*self.durability_error.lock().unwrap() {
+            Some(e) => Err(std::io::Error::other(e.clone())),
+            None => Ok(()),
+        }
     }
 
     fn with<T>(&self, handle: u32, f: impl FnOnce(&mut VFile) -> Option<T>) -> Option<T> {
@@ -230,8 +256,24 @@ impl Vfs {
         })
     }
 
+    pub fn record_write_error(&self, error: impl ToString) {
+        *self.durability_error.lock().unwrap() = Some(error.to_string());
+    }
     pub fn write(&self, handle: u32, src: &[u8]) -> Option<usize> {
-        self.with(handle, |vf| Some(vf.file.write(src).unwrap_or(0)))
+        self.with(handle, |vf| {
+            Some(match vf.file.write(src) {
+                Ok(n) => {
+                    if n != src.len() {
+                        self.record_write_error("short guest file write");
+                    }
+                    n
+                }
+                Err(e) => {
+                    self.record_write_error(e);
+                    0
+                }
+            })
+        })
     }
 
     pub fn seek_set(&self, handle: u32, offset: u64) -> Option<()> {

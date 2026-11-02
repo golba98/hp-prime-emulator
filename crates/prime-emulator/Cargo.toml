@@ -20,6 +20,7 @@ png = { workspace = true }
 tempfile = "3"
 toml = { workspace = true }
 ctrlc = "3"
+fs2 = "0.4.3"
 
 [[bin]]
 name = "prime-emulator"
