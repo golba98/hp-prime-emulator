@@ -105,6 +105,7 @@ pub struct ThreadObservation {
 pub struct TraceHub {
     cfg: TraceConfig,
     threads: Mutex<std::collections::BTreeMap<u32, ThreadObservation>>,
+    thread_observations_dropped: AtomicU64,
     start: Instant,
     jsonl: Mutex<Option<BufWriter<File>>>,
     ring: Mutex<Vec<RingEntry>>,
@@ -148,6 +149,7 @@ impl TraceHub {
         };
         Ok(TraceHub {
             threads: Mutex::new(Default::default()),
+            thread_observations_dropped: AtomicU64::new(0),
             compiler: cfg.compiler.then(crate::compiler::Observer::default),
             runtime: cfg.runtime.then(crate::runtime::Observer::default),
             cfg,
@@ -179,6 +181,8 @@ impl TraceHub {
         }
         let mut threads = self.threads.lock().unwrap();
         if threads.len() >= 128 && !threads.contains_key(&observation.thread_id) {
+            self.thread_observations_dropped
+                .fetch_add(1, Ordering::Relaxed);
             return;
         }
         observation.sequence = self.seq.fetch_add(1, Ordering::Relaxed);
@@ -195,6 +199,31 @@ impl TraceHub {
     /// This does not pause guest execution or promise a coherent machine snapshot.
     pub fn thread_observations(&self) -> Vec<ThreadObservation> {
         self.threads.lock().unwrap().values().cloned().collect()
+    }
+
+    /// Bounded forensic data for headless consumers. Independently timestamped
+    /// records are evidence, not an atomic snapshot of the calculator.
+    pub fn diagnostic_bundle(&self) -> serde_json::Value {
+        let (tail, omitted) =
+            {
+                let ring = self.ring.lock().unwrap();
+                let tail: Vec<_> = ring.iter().rev().take(64).rev().map(|e|
+                json!({"sequence": e.seq, "kind": e.kind.as_str(), "message": e.message})
+            ).collect();
+                (tail, ring.len().saturating_sub(64))
+            };
+        json!({
+            "schema_version": 1,
+            "elapsed_ms": self.elapsed_secs()*1000.0,
+            "coherent_machine_snapshot": false,
+            "register_observations_enabled": self.thread_observation_enabled(),
+            "threads": self.thread_observations(),
+            "thread_observations_dropped": self.thread_observations_dropped.load(Ordering::Relaxed),
+            "trace_tail": tail,
+            "trace_ring_dropped": self.ring_dropped(),
+            "trace_tail_omitted": omitted,
+            "last_code": self.last_code(64)
+        })
     }
 
     pub fn config(&self) -> &TraceConfig {
@@ -588,6 +617,7 @@ mod thread_observation_tests {
             t.note_thread(observation(id));
         }
         assert_eq!(t.thread_observations().len(), 128);
+        assert_eq!(t.diagnostic_bundle()["thread_observations_dropped"], 72);
         let old = t.thread_observations()[0].sequence;
         let mut updated = observation(0);
         updated.registers[15] = 0x1234;
