@@ -49,6 +49,17 @@ def profile_sha256(directory):
     return digest.hexdigest()
 
 
+def copy_initial_profile(source, destination):
+    expected = profile_sha256(source)
+    # Preserve unexpected links for validation, rather than following them if
+    # the source tree changes during the copy.
+    shutil.copytree(source, destination, symlinks=True)
+    copied = profile_sha256(destination)
+    if copied != expected:
+        raise ValueError("initial profile changed while preparing the benchmark")
+    return copied
+
+
 class Session:
     def __init__(self, helper, assets, profile, output):
         self.log = (output / "session.log").open("w")
@@ -151,7 +162,7 @@ def main():
             parser.error(f"missing resource: {item}")
     args.output.mkdir(parents=True, exist_ok=False)
     profile = args.output / "profile"
-    shutil.copytree(initial, profile)
+    initial_identity = copy_initial_profile(initial, profile)
     cases, tiny = workloads()
     metadata = {
         "helper": str(helper), "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
@@ -161,7 +172,7 @@ def main():
         "cpu_clock": "/proc/pid/stat user+system ticks when available", "samples_per_case": 1,
         "verification": "local firmware only; no physical calculator",
         "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-        "initial_profile_sha256": profile_sha256(initial),
+        "initial_profile_sha256": initial_identity,
         "boot_seconds": [], "results": [],
     }
     request = 0

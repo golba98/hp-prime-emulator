@@ -2,9 +2,10 @@ import copy
 import hashlib
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from benchmark_compare import summarize
-from benchmark_run import profile_sha256, workloads
+from benchmark_run import copy_initial_profile, profile_sha256, workloads
 
 
 def trial():
@@ -73,6 +74,25 @@ class ComparisonTests(unittest.TestCase):
             (root / "link").symlink_to(root / "B")
             with self.assertRaises(ValueError):
                 profile_sha256(root)
+
+    def test_copied_profile_is_the_identity_and_copy_mutation_is_rejected(self):
+        with tempfile.TemporaryDirectory() as path:
+            root = Path(path)
+            source = root / "source"
+            source.mkdir()
+            (source / "A").write_bytes(b"original")
+            self.assertEqual(copy_initial_profile(source, root / "first"), profile_sha256(root / "first"))
+            import shutil
+            real_copy = shutil.copytree
+
+            def changed_copy(src, dest, **kwargs):
+                result = real_copy(src, dest, **kwargs)
+                (dest / "A").write_bytes(b"changed during preparation")
+                return result
+
+            with patch("benchmark_run.shutil.copytree", side_effect=changed_copy):
+                with self.assertRaisesRegex(ValueError, "changed while preparing"):
+                    copy_initial_profile(source, root / "second")
 
 
 if __name__ == "__main__":
