@@ -231,3 +231,23 @@ and base. Seven deliberate mismatch controls verify their exact JSON paths.
 See [typed values](M17_TYPED_VALUES.md) for captured layouts and unsupported
 representations. Codec replay of local-firmware bytes is classified separately
 from executing the current HLE; neither is a new physical capture.
+
+## Modifier and checkpoint controls
+
+[Modifier checkpoint controls](M17_MODIFIER_CHECKPOINT_CONTROLS.md) provide an
+isolated, resource-bound headless runner for neutral, Shift, one-shot Alpha and
+Alpha-lock states. It retains exact key actions, real framebuffer masks,
+inspection, checkpoint outcomes and normal-OFF cleanup. Ten mock/protocol tests
+run without firmware or hardware. Real local-firmware controls established the
+Shift-latched OFF bug and verify its correction while preserving Alpha lock.
+These captures are HLE evidence, not physical verification.
+
+Transport projection is explicit: missing raw representations/call histories
+are forensic metadata, while omitted images, output, diagnostics, return values
+or unknown future semantic scopes make an observation unobserved. A truncated
+reply cannot become a successful empty output or fake runtime error. Three
+adapter controls and actual oversized-packet tests enforce this distinction.
+
+Final M17 fixtures and regression results are recorded in
+[the M17 report](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md). FullSystem PPL remains
+unavailable despite the independent executed ARM research smoke.

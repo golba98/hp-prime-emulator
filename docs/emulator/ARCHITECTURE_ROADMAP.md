@@ -136,3 +136,27 @@ representations. Bounds and exact structure remain part of comparison; semantic
 type distinctions are not normalized away. Representation capture and transport
 budgets are separate admission concerns. Unknown objects stay undecoded even
 when their bounded allocation bytes are retained for diagnostics.
+
+## M17 input, OFF and development build boundaries
+
+Entering a native wait is distinct from the exact owner being blocked on an
+unsignaled event. Desktop translation now requires that actual main-UI state
+and a fresh generation after the preceding keydown, rechecked under the memory
+gate. Raw releases and cancellation bypass character admission. These checks
+prevent sampling a partial redraw without adding a machine-dependent delay.
+
+Internal OFF sequencing observes firmware Shift state. It sends ON directly
+when Shift is active, otherwise acknowledges one Shift before ON, preserving
+Alpha lock. Unrecognized checkpoint contexts defer before input; normal shutdown
+retains its native shortcut fallback. Strict idle admission remains 80% over
+the existing sample window and retains its 30-second deadline. Failure reports
+distinguish admission, input, sleep and durable-save stages; PRIME_TEST_EVIDENCE
+can preserve isolated failed test profiles and bounded inspection/screenshots.
+
+Cargo dev/test builds optimize only unicorn-engine-sys at level 2. This selects
+the native backend's RelWithDebInfo configuration while retaining project Rust
+debug settings. Matched-source recovery tests improved from median 91.22 to
+80.51 seconds. Guest clocks, instruction limits and checkpoint policy did not
+change. Busy firmware can still fail strict admission safely; optimization is
+not proof of universal quiescence. Native-engine assertion/debug work can use
+`cargo --config 'profile.dev.package.unicorn-engine-sys.opt-level=0' ...`.

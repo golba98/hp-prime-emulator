@@ -76,3 +76,19 @@ preserved. The repeated Shift control independently verified normal-OFF cleanup.
 One preliminary Alpha probe sampled before its keydown was acknowledged and
 correctly refused to continue; the corrected acknowledged control is reported
 above. Neither preliminary attempt is counted as a successful control.
+
+## Integrated correction
+
+The mode-aware internal OFF sequencer observes firmware Shift before acting.
+It sends ON directly when Shift is already active, or acknowledges one Shift
+before ON otherwise. Alpha is preserved; no retry or hidden mode write is used.
+The final coordinator helper passed all four controls with actual ON wake and
+normal-OFF cleanup: neutral 1.049 s, Shift 0.889 s, Alpha 1.111 s and Alpha lock
+1.056 s. One-shot Alpha cleared on wake; Alpha lock remained set. Raw final
+results are under artifacts/m17/power-controls-root.
+
+The separate post-CAS debug timeout was captured before any OFF input: its
+strict idle share was 72.73%, below the unchanged 80% requirement. This is not
+evidence of the modifier bug. Phase diagnostics and failure preservation now
+distinguish those conditions; see the final M17 report for backend build
+measurements and the continuing safe-refusal boundary.

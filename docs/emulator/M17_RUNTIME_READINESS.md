@@ -57,3 +57,19 @@ These changes do not implement live CPU restoration, weaken checkpoint
 admission or claim physical hardware verification. Additional safe-point and
 component restoration work must continue to distinguish guest state from native
 callback continuations and host resources.
+
+## Final integration findings
+
+Later validation classified a separate post-CAS debug checkpoint refusal:
+72.73% idle samples, below the unchanged 80% rule, with no OFF input sent.
+This is distinct from both the boot-readiness predicate and the reproduced
+prelatched-Shift OFF bug. Phase/idle/save diagnostics and opt-in failed-profile
+preservation now retain enough evidence to distinguish these conditions.
+
+The native Unicorn dev dependency now uses opt-level 2 / RelWithDebInfo while
+project Rust debugging remains intact. Matched-source recovery median improved
+from 91.22 to 80.51 seconds; the final coordinator debug regression passed in
+71.91 seconds. Guest timers, instruction limits, the idle rule and checkpoint
+deadline were not changed. Busy firmware can still refuse strict admission.
+See the [final M17 report](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md) and retained
+build/refusal evidence for exact commands, flags, trials and limitations.
