@@ -166,7 +166,7 @@ fn strict_policy_stops_on_unsupported_service() {
         mem,
         registry,
         shared,
-        trace,
+        trace.clone(),
         UnsupportedPolicy::Stop,
         0,
         Vec::new(),
@@ -180,6 +180,7 @@ fn strict_policy_stops_on_unsupported_service() {
         ) => assert_eq!(id, 0x102D1),
         other => panic!("expected strict unsupported stop, got {other:?}"),
     }
+    assert_eq!(trace.svc_totals(), vec![(0x102D1, 1)]);
 }
 
 #[test]

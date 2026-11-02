@@ -202,8 +202,7 @@ impl CpuThread {
                         }
                     }
                     Ok(services::DispatchOutcome::Unsupported { id, caller_pc }) => {
-                        hs.trace
-                            .svc(id, hs.registry.name(id), caller_pc, 0, false, hs.thread_id);
+                        // dispatch already recorded this invocation once.
                         if hs.policy == UnsupportedPolicy::Stop {
                             *hs.stop.lock().unwrap() =
                                 Some(StopReason::UnsupportedService { id, caller_pc });
@@ -278,7 +277,8 @@ impl CpuThread {
                         if sentinel != 0 && address == sentinel {
                             return false; // normal ISR return; not a fault
                         }
-                        let report = fault_report(uc, &format!("{mem_type:?}"), thread_id);
+                        let mut report = fault_report(uc, &format!("{mem_type:?}"), thread_id);
+                        report.addr = Some(address);
                         if let Some(runtime) = &hs.trace.runtime { runtime.fault(&report); }
                         hs.trace.fault(
                             format!(
@@ -526,8 +526,9 @@ impl CpuThread {
                     .as_ref()
                     .map(|t| t.last_code(64))
                     .unwrap_or_default();
-                let report =
-                    fault_report_with(&self.engine, &format!("{e}"), self.thread_id, last_pcs);
+                let report = self.hooks.fault.lock().unwrap().clone().unwrap_or_else(|| {
+                    fault_report_with(&self.engine, &format!("{e}"), self.thread_id, last_pcs)
+                });
                 if let Some(runtime) = &self.trace.runtime {
                     runtime.fault(&report);
                 }

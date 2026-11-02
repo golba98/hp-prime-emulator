@@ -202,6 +202,8 @@ pub struct UnsupportedHit {
 #[derive(Debug, Serialize)]
 pub struct FaultJson {
     pub kind: String,
+    pub thread_id: u32,
+    pub address: Option<u64>,
     pub pc: u32,
     pub regs: [u32; 16],
     pub cpsr: u32,
@@ -581,85 +583,14 @@ pub fn run_with_session(
     // M2 diagnosis).
     let irq_last = std::sync::Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
 
-    // Guest-thread spawner: a new native thread + own Unicorn engine over
-    // the shared host-backed blocks (reference model, PrimU2 Thread.cpp).
-    {
-        let mem_s = mem.clone();
-        let reg_s = registry.clone();
-        let trace_s = trace.clone();
-        let shared_s = shared.clone();
-        let policy = cfg.on_unsupported;
-        // Guest threads park inside blocking services (GetEvent waits for
-        // input); a slice only completes after this many guest instructions,
-        // so use a fine granularity for spawned threads or their progress
-        // is never reported. 10k keeps per-thread counters current.
-        let slice = cfg.slice_instructions.min(10_000);
-        let spawner: crate::services::ThreadSpawner =
-            std::sync::Arc::new(move |tid: u32, func: u32, arg: u32, stack_size: usize| {
-                let mem = mem_s.clone();
-                let registry = reg_s.clone();
-                let trace = trace_s.clone();
-                let shared = shared_s.clone();
-                let handle = std::thread::spawn(move || {
-                    let stack_va = mem.heap_alloc(stack_size).unwrap_or(0);
-                    if stack_va == 0 {
-                        trace.thread_event(format!("thread {tid}: stack allocation failed"));
-                        return;
-                    }
-                    let sp = stack_va + stack_size as u32;
-                    let Ok(mut cpu) = CpuThread::new(
-                        mem.clone(),
-                        registry.clone(),
-                        shared.clone(),
-                        trace.clone(),
-                        policy,
-                        tid,
-                        Vec::new(),
-                    ) else {
-                        trace.thread_event(format!("thread {tid}: engine creation failed"));
-                        return;
-                    };
-                    // Function pointer bit 0 selects Thumb entry (AAPCS
-                    // interworking convention).
-                    let _ = cpu.set_entry(func, sp, arg);
-                    trace.thread_event(format!(
-                        "thread {tid} running: pc {func:#010X} sp {sp:#010X}"
-                    ));
-                    while !shared.stopping() && !shared.thread_is_exiting() {
-                        match cpu.run_slice(slice) {
-                            Ok(crate::engine::RunSliceOutcome::Progress) => {
-                                shared.note_thread_instructions(tid, cpu.instructions);
-                            }
-                            Ok(crate::engine::RunSliceOutcome::Stopped(reason)) => {
-                                trace.thread_event(format!(
-                                    "thread {tid} stopped: {reason:?} at pc {:#010X}",
-                                    cpu.pc()
-                                ));
-                                break;
-                            }
-                            Err(e) => {
-                                trace.thread_event(format!("thread {tid} engine error: {e}"));
-                                break;
-                            }
-                        }
-                    }
-                    shared.note_thread_instructions(tid, cpu.instructions);
-                    if trace.runtime.as_ref().is_some_and(|r| {
-                        r.terminal_status()
-                            == Some(crate::runtime::ExecutionStatus::GuestExecutionFault)
-                    }) {
-                        shared.set_stopping();
-                    }
-                    trace.thread_event(format!(
-                        "thread {tid} finished: {} instructions, pc {:#010X}",
-                        cpu.instructions,
-                        cpu.pc()
-                    ));
-                });
-                shared_s.register_thread_handle(tid, handle);
-            });
-        shared.set_thread_spawner(spawner);
-    }
+    let workers = GuestWorkers::install(
+        &mem,
+        &registry,
+        &shared,
+        &trace,
+        cfg.on_unsupported,
+        cfg.slice_instructions.min(10_000),
+    );
 
     // ── Stage 4: execution ───────────────────────────────────────────
     let mut cpu = CpuThread::new(
@@ -830,6 +761,21 @@ pub fn run_with_session(
     shared.set_stopping();
     let _ = cpu.take_stop_reason();
     let script = device.handle.join().unwrap_or(None);
+    workers.shutdown();
+    let (outcome, evidence) = if let Some(failure) = shared.take_thread_failure() {
+        let outcome = if matches!(failure.reason, StopReason::UnsupportedService { .. }) {
+            Outcome::UnsupportedStop
+        } else {
+            Outcome::Fault
+        };
+        fault_json = failure.fault.map(|f| f.to_json());
+        (
+            outcome,
+            format!("guest thread {} failed: {}", failure.tid, failure.detail),
+        )
+    } else {
+        (outcome, evidence)
+    };
     let evidence = if cfg.program.is_some() && outcome == Outcome::ProgramComplete {
         program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
     } else {
@@ -951,6 +897,177 @@ pub fn run_with_session(
     Ok(RunSummary { report, outcome })
 }
 
+/// Owns all guest workers for this run. The spawner keeps only a Weak state
+/// reference, and creation/registration is serialized with the shutdown drain.
+struct GuestWorkers {
+    shared: Arc<SharedState>,
+}
+impl GuestWorkers {
+    fn install(
+        mem: &Arc<GuestMemory>,
+        registry: &Arc<Registry>,
+        shared: &Arc<SharedState>,
+        trace: &Arc<TraceHub>,
+        policy: UnsupportedPolicy,
+        slice: usize,
+    ) -> Self {
+        let weak = Arc::downgrade(shared);
+        let mem = mem.clone();
+        let registry = registry.clone();
+        let trace = trace.clone();
+        shared.set_thread_spawner(Arc::new(move |tid, func, arg, stack_size| {
+            let Some(shared) = weak.upgrade() else {
+                return;
+            };
+            // Lock until the worker has been registered: shutdown cannot miss
+            // an in-flight creation, and no new thread starts after stopping.
+            let mut handles = shared.thread_handles.lock().unwrap();
+            if shared.stopping() {
+                return;
+            }
+            let memory = mem.clone();
+            let registry = registry.clone();
+            let trace = trace.clone();
+            let state = shared.clone();
+            let spawned = std::thread::Builder::new()
+                .name(format!("prime-guest-{tid}"))
+                .spawn(move || {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        run_guest_worker(
+                            memory, registry, &state, trace, policy, tid, func, arg, stack_size,
+                            slice,
+                        )
+                    }));
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(failure)) => state.note_thread_failure(failure),
+                        Err(_) => state.note_thread_failure(crate::services::ThreadFailure {
+                            tid,
+                            reason: StopReason::Fault,
+                            fault: None,
+                            detail: "host worker panicked".into(),
+                        }),
+                    }
+                });
+            match spawned {
+                Ok(handle) => {
+                    handles.insert(tid, handle);
+                }
+                Err(e) => shared.note_thread_failure(crate::services::ThreadFailure {
+                    tid,
+                    reason: StopReason::Fault,
+                    fault: None,
+                    detail: format!("cannot spawn host worker: {e}"),
+                }),
+            }
+        }));
+        Self {
+            shared: shared.clone(),
+        }
+    }
+    fn shutdown(&self) {
+        self.shared.set_stopping();
+        self.shared.thread_spawner.lock().unwrap().take();
+        let handles = std::mem::take(&mut *self.shared.thread_handles.lock().unwrap());
+        // No table/sync lock is held while a worker unwinds its SVC wait.
+        for (tid, handle) in handles {
+            if handle.join().is_err() {
+                self.shared
+                    .note_thread_failure(crate::services::ThreadFailure {
+                        tid,
+                        reason: StopReason::Fault,
+                        fault: None,
+                        detail: "host worker panicked".into(),
+                    });
+            }
+        }
+    }
+}
+impl Drop for GuestWorkers {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
+}
+struct GuestStack {
+    mem: Arc<GuestMemory>,
+    address: u32,
+}
+impl Drop for GuestStack {
+    fn drop(&mut self) {
+        self.mem.heap_free(self.address);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_guest_worker(
+    mem: Arc<GuestMemory>,
+    registry: Arc<Registry>,
+    shared: &Arc<SharedState>,
+    trace: Arc<TraceHub>,
+    policy: UnsupportedPolicy,
+    tid: u32,
+    func: u32,
+    arg: u32,
+    stack_size: usize,
+    slice: usize,
+) -> Result<(), crate::services::ThreadFailure> {
+    let fail = |detail: String| crate::services::ThreadFailure {
+        tid,
+        reason: StopReason::Fault,
+        fault: None,
+        detail,
+    };
+    let address = mem
+        .heap_alloc(stack_size)
+        .map_err(|e| fail(e.to_string()))?;
+    let _stack = GuestStack {
+        mem: mem.clone(),
+        address,
+    };
+    let mut cpu = CpuThread::new(
+        mem,
+        registry,
+        shared.clone(),
+        trace.clone(),
+        policy,
+        tid,
+        Vec::new(),
+    )
+    .map_err(|e| fail(format!("engine creation: {e}")))?;
+    cpu.set_entry(func, address + stack_size as u32, arg)
+        .map_err(|e| fail(format!("entry setup: {e}")))?;
+    trace.thread_event(format!("thread {tid} running: pc {func:#010X}"));
+    while !shared.stopping() && !shared.thread_is_exiting() {
+        match cpu.run_slice(slice) {
+            Ok(crate::engine::RunSliceOutcome::Progress) => {
+                shared.note_thread_instructions(tid, cpu.instructions);
+            }
+            Ok(crate::engine::RunSliceOutcome::Stopped(reason)) => {
+                if matches!(
+                    reason,
+                    StopReason::Fault | StopReason::UnsupportedService { .. }
+                ) {
+                    return Err(crate::services::ThreadFailure {
+                        tid,
+                        reason,
+                        fault: cpu.fault_report().map(Box::new),
+                        detail: format!("{reason:?} at pc {:#010X}", cpu.pc()),
+                    });
+                }
+                break;
+            }
+            Err(e) => return Err(fail(format!("engine error: {e}"))),
+        }
+    }
+    shared.note_thread_instructions(tid, cpu.instructions);
+    trace.thread_event(format!(
+        "thread {tid} finished: {} instructions, pc {:#010X}",
+        cpu.instructions,
+        cpu.pc()
+    ));
+    Ok(())
+}
+
 /// Final framebuffer capture (and screenshot), plus script evidence.
 fn display_report(
     cfg: &RunConfig,
@@ -1031,6 +1148,8 @@ impl FaultReport {
     pub fn to_json(&self) -> FaultJson {
         FaultJson {
             kind: self.kind.clone(),
+            thread_id: self.thread_id,
+            address: self.addr,
             pc: self.pc,
             regs: self.regs,
             cpsr: self.cpsr,
@@ -1052,4 +1171,120 @@ fn sha256_file(path: &Path) -> Option<String> {
         hasher.update(&buf[..n]);
     }
     Some(hasher.finalize_hex())
+}
+
+#[cfg(test)]
+mod worker_tests {
+    use super::*;
+    fn setup() -> (
+        Arc<GuestMemory>,
+        Arc<Registry>,
+        Arc<SharedState>,
+        Arc<TraceHub>,
+    ) {
+        let mut mem = GuestMemory::new();
+        mem.map("code", 0x1000_0000, 4096).unwrap();
+        mem.map("heap", 0x2000_0000, 0x10000).unwrap();
+        mem.set_heap(0x2000_0000, 0x10000);
+        let mut registry = Registry::new();
+        handlers::install(&mut registry);
+        (
+            Arc::new(mem),
+            Arc::new(registry),
+            Arc::new(SharedState::new(PathBuf::new(), "A:/test".into())),
+            Arc::new(TraceHub::new(TraceConfig::default()).unwrap()),
+        )
+    }
+    fn wait_finished(shared: &SharedState, tid: u32) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if shared
+                .thread_handles
+                .lock()
+                .unwrap()
+                .get(&tid)
+                .is_some_and(|h| h.is_finished())
+            {
+                return;
+            }
+            assert!(Instant::now() < deadline, "guest worker did not finish");
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn worker_exit_reclaims_stack_joins_and_does_not_keep_run_alive() {
+        let (mem, registry, shared, trace) = setup();
+        let id = names::service_id_by_name("OSExitThread").unwrap();
+        let code: Vec<u8> = [0xe92d0001u32, 0xe92d4000, 0xef000000 | id, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x1000_0000, &code).unwrap();
+        let weak = Arc::downgrade(&shared);
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        shared.spawn_thread(1, 0x1000_0000, 0, 4096);
+        wait_finished(&shared, 1);
+        workers.shutdown();
+        assert!(shared.thread_handles.lock().unwrap().is_empty());
+        assert_eq!(mem.heap_allocated(), 0, "finished stack was leaked");
+        assert!(shared.take_thread_failure().is_none());
+        drop(workers);
+        drop(shared);
+        assert!(weak.upgrade().is_none(), "spawner retained SharedState");
+    }
+    #[test]
+    fn child_fault_stops_run_without_runtime_observation() {
+        let (mem, registry, shared, trace) = setup();
+        let code: Vec<u8> = [0xe3a01000u32, 0xe5912000, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x1000_0000, &code).unwrap();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        shared.spawn_thread(7, 0x1000_0000, 123, 4096);
+        wait_finished(&shared, 7);
+        workers.shutdown();
+        let failure = shared.take_thread_failure().unwrap();
+        assert_eq!(failure.tid, 7);
+        let fault = failure.fault.unwrap();
+        assert_eq!(fault.thread_id, 7);
+        assert_eq!(fault.addr, Some(0));
+        assert_eq!(fault.regs[0], 123);
+        assert_eq!(mem.heap_allocated(), 0);
+    }
+    #[test]
+    fn shutdown_rejects_new_spawns_and_releases_weak_spawner() {
+        let (mem, registry, shared, trace) = setup();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        let spawner = shared.thread_spawner.lock().unwrap().clone().unwrap();
+        workers.shutdown();
+        spawner(10, 0x1000_0000, 0, 4096);
+        assert!(shared.thread_handles.lock().unwrap().is_empty());
+        let weak = Arc::downgrade(&shared);
+        drop(workers);
+        drop(shared);
+        assert!(weak.upgrade().is_none());
+        spawner(11, 0x1000_0000, 0, 4096);
+    }
 }

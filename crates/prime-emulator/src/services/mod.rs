@@ -345,6 +345,7 @@ pub struct SharedState {
     pub threads_exiting: Mutex<std::collections::HashSet<std::thread::ThreadId>>,
     /// Live spawned-thread handles for the final report.
     pub thread_handles: Mutex<HashMap<u32, std::thread::JoinHandle<()>>>,
+    thread_failure: Mutex<Option<ThreadFailure>>,
     /// Per-thread instruction counters (liveness evidence).
     pub thread_instructions: Mutex<HashMap<u32, u64>>,
     /// Registered guest ISRs (irq -> guest entry), delivered by the
@@ -429,6 +430,16 @@ impl LcdWatch {
     }
 }
 
+/// Failure of a background guest CPU. Never silently reported as a successful
+/// main-thread run when the runtime observer is disabled.
+#[derive(Debug)]
+pub struct ThreadFailure {
+    pub tid: u32,
+    pub reason: crate::engine::StopReason,
+    pub fault: Option<Box<crate::engine::FaultReport>>,
+    pub detail: String,
+}
+
 /// One touch sample (finger 0). `status` is UI_EVENT_TYPE_TOUCH_BEGIN /
 /// _MOVE / _END; the pump reads x at entry+6 and y at entry+8.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -505,6 +516,7 @@ impl SharedState {
             thread_spawner: Mutex::new(None),
             threads_exiting: Mutex::new(std::collections::HashSet::new()),
             thread_handles: Mutex::new(HashMap::new()),
+            thread_failure: Mutex::new(None),
             thread_instructions: Mutex::new(HashMap::new()),
             pe_modules: Mutex::new(Vec::new()),
             isrs: Mutex::new(HashMap::new()),
@@ -696,6 +708,18 @@ impl SharedState {
             .lock()
             .unwrap()
             .contains(&std::thread::current().id())
+    }
+
+    pub fn note_thread_failure(&self, failure: ThreadFailure) {
+        let mut first = self.thread_failure.lock().unwrap();
+        if first.is_none() {
+            *first = Some(failure);
+        }
+        self.set_stopping();
+    }
+
+    pub fn take_thread_failure(&self) -> Option<ThreadFailure> {
+        self.thread_failure.lock().unwrap().take()
     }
 
     pub fn register_thread_handle(&self, tid: u32, h: std::thread::JoinHandle<()>) {
