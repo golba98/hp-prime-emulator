@@ -83,8 +83,9 @@ renders were visually inspected. This is guide-based implementation, not a
 new physical-G1 parity result. Up/Down retains declaration-order navigation;
 missing page titles reuse the first title. Pixel rounding, overlapping
 controls, checkbox/radio/choose controls and firmware spatial navigation
-still need separate comparison. EDITMAT remains unsupported pending a
-validated editor and cancellation contract.
+still need separate comparison. EDITMAT now has a native fixed-size matrix
+editor; [its supported contracts and firmware evidence](../emulator/NATIVE_EDITMAT_REPORT.md)
+are recorded separately. EVAL and STARTAPP still require Firmware mode.
 
 ### Runtime (VM)
 

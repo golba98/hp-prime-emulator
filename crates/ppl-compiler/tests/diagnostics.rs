@@ -464,3 +464,14 @@ fn input_field_extra_metadata_is_not_silently_discarded() {
     assert!(!c.compiled);
     c.find("input-field-arity");
 }
+
+#[test]
+fn editmat_accepts_matrix_expressions_and_reports_native_support() {
+    for expression in ["M1", "a", "[[1,2],[3,4]]"] {
+        let c = check(&format!(
+            "EXPORT MATRIX_TEST() BEGIN LOCAL a:=[[1]]; RETURN EDITMAT({expression}); END;"
+        ));
+        assert!(c.compiled, "{:?}", c.diags);
+        assert!(!c.diags.iter().any(|d| d.code == "unsupported-command"));
+    }
+}

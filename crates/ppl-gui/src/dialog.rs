@@ -14,6 +14,8 @@
 //! | CHOOSE | Enter (30), digit 1–9 within range | Esc, On | Up (2) / Down (12) move the selection |
 //! | INPUT  | Enter (30) | Esc, On | typed characters append, Del/Backspace (19) deletes, Up/Down switch field |
 
+mod matrix;
+
 use ppl_graphics::Grob;
 use ppl_graphics::text::{draw_text, measure};
 use ppl_vm::host::{Dialog, DialogResult, INPUT_LINES_PER_PAGE, InputPosition};
@@ -58,6 +60,7 @@ pub trait ModalDialog: Send {
 /// Builds the state machine for a VM dialog request.
 pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
     match dialog {
+        Dialog::Matrix(matrix) => Box::new(matrix::MatrixBox::new(matrix.clone())),
         Dialog::Message { text } => Box::new(MessageBox::new(text)),
         Dialog::Choose {
             title,

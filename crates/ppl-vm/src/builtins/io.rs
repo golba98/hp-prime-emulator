@@ -7,6 +7,7 @@ use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::host::{
     Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputField, InputPosition,
+    MatrixDialog,
 };
 use crate::machine::Machine;
 use crate::value::Value;
@@ -435,5 +436,106 @@ pub fn choose(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> 
             format!("choice {i} is out of range"),
         )),
         _ => Ok((Value::zero(), current.iter().cloned().collect())),
+    }
+}
+
+/// EDITMAT returns the original matrix on Cancel and the edited matrix on OK.
+/// Reference writeback is handled by the compiler/VM, so expressions also work.
+pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
+    let original = arg(args, 0, "EDITMAT")?;
+    let Value::Matrix(matrix) = original else {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            "EDITMAT expects a matrix or vector",
+        ));
+    };
+    let header_list = |value: Option<&Value>| -> RtResult<Vec<String>> {
+        match value {
+            None => Ok(Vec::new()),
+            Some(Value::List(items)) => items
+                .iter()
+                .map(|v| v.expect_str("EDITMAT header").map(|s| s.to_string()))
+                .collect(),
+            _ => Err(RuntimeError::new(
+                ErrorKind::BadArgType,
+                "EDITMAT row/column headers must be lists of strings",
+            )),
+        }
+    };
+    let (title, row_headers, column_headers) = match args.get(1) {
+        None => ("Matrix".into(), Vec::new(), Vec::new()),
+        Some(Value::Str(title)) => (title.to_string(), Vec::new(), Vec::new()),
+        Some(Value::List(items)) if (1..=3).contains(&items.len()) => (
+            items[0].expect_str("EDITMAT title")?.to_string(),
+            header_list(items.get(1))?,
+            header_list(items.get(2))?,
+        ),
+        _ => {
+            return Err(RuntimeError::new(
+                ErrorKind::BadArgType,
+                "EDITMAT title must be a string or {title,row_headers,column_headers}",
+            ));
+        }
+    };
+    let read_only = args
+        .get(2)
+        .map(|v| v.expect_real("EDITMAT read only").map(|n| !n.is_zero()))
+        .transpose()?
+        .unwrap_or(false);
+    let mut dialog = MatrixDialog {
+        title,
+        row_headers,
+        column_headers,
+        rows: matrix.rows,
+        cols: matrix.cols,
+        cells: matrix
+            .data
+            .iter()
+            .map(|v| v.string_form(m.settings.format()))
+            .collect(),
+        read_only,
+        error: None,
+        focus: 0,
+    };
+    let screen = m.screen().clone();
+    loop {
+        let response = m.blocking(|h| h.dialog(&Dialog::Matrix(dialog.clone()), &screen))?;
+        if read_only {
+            return Ok(original.clone());
+        }
+        let entered = match response {
+            DialogResult::Cancelled => return Ok(original.clone()),
+            DialogResult::Entered(entered) if entered.len() == matrix.data.len() => entered,
+            _ => {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "EDITMAT host returned an incomplete matrix",
+                ));
+            }
+        };
+        dialog.cells = entered;
+        dialog.error = None;
+        let mut edited = (**matrix).clone();
+        for (index, cell) in dialog.cells.iter().enumerate() {
+            let value = if cell.trim().is_empty() {
+                Err("Enter a numeric expression; Native EDITMAT cannot remove cells".into())
+            } else {
+                field_value(m, cell, &matrix.data[index], &[0, 1, 3])
+            };
+            match value {
+                Ok(Value::Int(value)) => {
+                    edited.data[index] = Value::real(ppl_math::Real::from_u64(value.unsigned()))
+                }
+                Ok(value) => edited.data[index] = value,
+                Err(message) => {
+                    dialog.error = Some(message);
+                    dialog.focus = index;
+                    break;
+                }
+            }
+        }
+        if dialog.error.is_none() {
+            return Ok(Value::Matrix(std::rc::Rc::new(edited)));
+        }
     }
 }

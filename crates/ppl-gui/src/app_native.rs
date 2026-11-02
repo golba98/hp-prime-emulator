@@ -133,6 +133,9 @@ impl IdeDesktopApp {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let active_dialog = active.as_ref().map(|dialog| match dialog {
+            Dialog::Matrix(matrix) => serde_json::json!({"kind":"matrix","title":matrix.title,
+                "rows":matrix.rows,"cols":matrix.cols,"cells":matrix.cells,"read_only":matrix.read_only,
+                "error":matrix.error,"focus":matrix.focus}),
             Dialog::Message { text } => serde_json::json!({"kind":"message","text":text}),
             Dialog::Choose { title, items, current } => serde_json::json!({"kind":"choose","title":title,"items":items,"current":current}),
             Dialog::Input { title, fields, error, focus } => serde_json::json!({"kind":"input","title":title,"error":error,"focus":focus,

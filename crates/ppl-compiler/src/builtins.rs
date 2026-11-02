@@ -229,7 +229,7 @@ builtins! {
     Redim "REDIM" 2..=2 Matrices Implemented;
     Dot "DOT" 2..=2 Matrices Implemented;
     Cross "CROSS" 2..=2 Matrices Implemented;
-    Editmat "EDITMAT" 1..=3 Matrices Unsupported;
+    Editmat "EDITMAT" 1..=3 Matrices Approximate;
     // ---- graphics ----
     RectP "RECT_P" 0..=7 Graphics Implemented;
     Rect "RECT" 0..=7 Graphics Approximate;

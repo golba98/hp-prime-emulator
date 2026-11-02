@@ -1434,6 +1434,16 @@ impl<'a> Compiler<'a> {
         }
         match spec.builtin {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
+            // Firmware EDITMAT writes back only calculator matrix variables.
+            // A LOCAL matrix variable behaves like a value expression.
+            Builtin::Editmat
+                if args.first().is_some_and(|arg| {
+                    matches!(&arg.kind, ExprKind::Ident(name) if name.len() == 2
+                    && name.starts_with('M') && name.as_bytes()[1].is_ascii_digit())
+                }) =>
+            {
+                self.ref_builtin(spec.builtin, args, span);
+            }
             _ if spec.ref_args > 0 => self.ref_builtin(spec.builtin, args, span),
             _ => {
                 self.builtin(spec.builtin, args, span);
@@ -1591,6 +1601,12 @@ impl<'a> Compiler<'a> {
         }
         for a in &args[1..] {
             self.expr(a);
+        }
+        if id == Builtin::Editmat && args.len() == 1 {
+            if let ExprKind::Ident(name) = &first.kind {
+                self.constant(Const::Str(name.clone()), first.span);
+                argc += 1;
+            }
         }
         let refs = targets.len().min(255) as u8;
         self.cur.emit(

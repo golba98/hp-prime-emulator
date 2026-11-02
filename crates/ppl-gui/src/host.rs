@@ -611,6 +611,39 @@ mod tests {
     }
 
     #[test]
+    fn test_matrix_dialog_through_worker_host_restores_screen() {
+        let matrix = ppl_vm::host::MatrixDialog {
+            title: "M1".into(),
+            row_headers: vec![],
+            column_headers: vec![],
+            rows: 1,
+            cols: 2,
+            cells: vec!["1".into(), "2".into()],
+            read_only: false,
+            error: None,
+            focus: 0,
+        };
+        assert_eq!(
+            drive_input(
+                Dialog::Matrix(matrix.clone()),
+                vec![
+                    KeyPress::with_char(None, '9'),
+                    KeyPress::code(crate::keymap::KEY_ENTER),
+                    KeyPress::code(crate::keymap::KEY_MENU),
+                ]
+            ),
+            DialogResult::Entered(vec!["9".into(), "2".into()])
+        );
+        assert_eq!(
+            drive_input(
+                Dialog::Matrix(matrix),
+                vec![KeyPress::code(crate::keymap::KEY_ESC)]
+            ),
+            DialogResult::Cancelled
+        );
+    }
+
+    #[test]
     fn test_input_dialog_through_host() {
         let keys = vec![
             KeyPress::with_char(None, '4'),
