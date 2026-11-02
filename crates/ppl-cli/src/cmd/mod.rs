@@ -31,3 +31,5 @@ mod device_incremental;
 mod device_incremental_stream;
 
 mod program_management;
+
+pub mod full_system;

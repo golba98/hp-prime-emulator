@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scope": "existing_local_research_assets",
+  "artifacts": [
+    {
+      "path": "scratch/research/firmware/extracted/PRIME_OS.ROM",
+      "bytes": 1048576,
+      "sha256": "f6aeba161189a5aa1acb57be428dc5730cfa5ff7cd534494e59225debd5a8999",
+      "classification": "update_component",
+      "bootability_verified": false
+    },
+    {
+      "path": "scratch/research/firmware/extracted/PRIME_APP.DAT",
+      "bytes": 33554432,
+      "sha256": "c341d7a6450cdfb050665fea65eedf270c8c09e2fbe3c275b3d99300beb7efba",
+      "classification": "update_component",
+      "bootability_verified": false
+    },
+    {
+      "path": "scratch/research/firmware/extracted/PRIME_MASTER.DAT",
+      "bytes": 4194304,
+      "sha256": "fa39551872f21c429aaba5dd68428772c7a46ed41e77bc0d79bc5c38a362bc1e",
+      "classification": "update_component",
+      "bootability_verified": false
+    }
+  ],
+  "kernel_boot_verified": false,
+  "complete_nand_oob_verified": false
+}
