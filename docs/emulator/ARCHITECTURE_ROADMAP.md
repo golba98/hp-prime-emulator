@@ -1,6 +1,6 @@
 # Incremental Rust architecture continuation
 
-Baseline: feat/g1-usability-overhaul at 4adcc46. Retain its AFiles loader,
+M16 starting point: feat/g1-usability-overhaul at 7fbe711. Retain its AFiles loader,
 prepared-source checks, firmware-observed typing, OFF recovery and Native
 INPUT/EDITMAT. Logical responsibilities already fit the existing crates; no
 crate split or emulator rewrite is required.
@@ -74,3 +74,21 @@ Timestamps and boundary names expose stale observations during host callbacks.
 Instruction counts remain lower bounds across interrupted slices. This enables
 headless inspection without advertising pause/resume or restorable CPU state.
 See the M16 report for implementation and validation status.
+
+## Integrated M16 boundaries
+
+Session protocol6 now carries source-bound named-program execution, typed
+terminal evidence, scoped input and explicit persistent checkpoint receipts.
+The reusable headless process client lives in ppl-engine; adapters never import
+GUI types. Native retains its existing SessionContext. No crate split or guest
+scheduler replacement was introduced.
+
+Firmware OFF remains the persistence safe point. Explicit checkpoints verify
+fresh idle admission and serialize durable files, not host continuations or
+Unicorn internals. Full live restoration requires serializable pending SVCs,
+allocator/handles/timers and coordinated owner-thread safe points.
+
+Stateful capture bundles reuse the scenario source manifest and exact semantic
+comparator. Physical qualification remains evidence-derived. Full-system
+execution stays a separate unavailable backend until an independent boot is
+demonstrated. The self-authored ARM926 smoke now compiles/links, but has not run.

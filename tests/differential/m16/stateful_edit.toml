@@ -1,0 +1,94 @@
+schema_version = 2
+id = "m16_stateful_edit"
+
+[programs.ZZT_M16COUNT]
+source = '''
+LOCAL counter:=0;
+EXPORT M16SET() BEGIN A:=10; RETURN A; END;
+EXPORT M16INC() BEGIN counter:=counter+1; A:=A+2; L2:={counter,A}; M1:=[[counter,A],[3,4]]; RETURN counter; END;
+EXPORT M16GET() BEGIN RETURN {counter,A,L2(1),M1(1,2)}; END;
+'''
+[programs.ZZT_M16OTHER]
+source = '''
+EXPORT M16BUMP() BEGIN A:=A+5; RETURN A; END;
+'''
+[[steps]]
+action = "import"
+id = "import_counter"
+program = "ZZT_M16COUNT"
+[[steps]]
+action = "import"
+id = "import_other"
+program = "ZZT_M16OTHER"
+[[steps]]
+action = "run_program"
+id = "setup"
+program = "ZZT_M16COUNT"
+entry = "M16SET"
+[[steps]]
+action = "run_program"
+id = "first"
+program = "ZZT_M16COUNT"
+entry = "M16INC"
+[[steps]]
+action = "run_program"
+id = "other"
+program = "ZZT_M16OTHER"
+entry = "M16BUMP"
+[[steps]]
+action = "run_program"
+id = "second"
+program = "ZZT_M16COUNT"
+entry = "M16INC"
+[[steps]]
+action = "probe"
+id = "state"
+program = "ZZT_M16COUNT"
+entry = "M16GET"
+names = ["counter", "A", "list_first", "matrix_12"]
+[[expect]]
+step = "first"
+path = "/return_value"
+value = {type="real", value="1"}
+[[expect]]
+step = "other"
+path = "/return_value"
+value = {type="real", value="17"}
+[[expect]]
+step = "second"
+path = "/return_value"
+value = {type="real", value="2"}
+[[expect]]
+step = "state"
+path = "/variables/matrix_12"
+value = {type="real", value="19"}
+
+[[steps]]
+action="edit"
+id="edit"
+program="ZZT_M16COUNT"
+source='''
+LOCAL counter:=40;
+EXPORT M16SET() BEGIN A:=10; RETURN A; END;
+EXPORT M16INC() BEGIN counter:=counter+1; A:=A+2; L2:={counter,A}; M1:=[[counter,A],[3,4]]; RETURN counter; END;
+EXPORT M16GET() BEGIN RETURN {counter,A,L2(1),M1(1,2)}; END;
+'''
+
+[[steps]]
+action="run_program"
+id="edited_run"
+program="ZZT_M16COUNT"
+entry="M16INC"
+[[steps]]
+action="run_program"
+id="other_after_edit"
+program="ZZT_M16OTHER"
+entry="M16BUMP"
+[[expect]]
+step="edited_run"
+path="/return_value"
+value={type="real",value="41"}
+[[expect]]
+step="other_after_edit"
+path="/return_value"
+value={type="real",value="26"}

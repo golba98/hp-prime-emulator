@@ -1,8 +1,8 @@
 # Unified PPL differential testing
 
-Implemented foundation, schema 1. This extends `ppl-compat`; existing `ppl compare`
+Implemented schema 1 and stateful schema 2. This extends `ppl-compat`; existing `ppl compare`
 suites, hardware evidence, interpretation history and the 77 physical references
-are unchanged. It does not add hardware access or a full-system emulator.
+are unchanged. Live HLE execution uses isolated profiles; physical evidence collection remains separately guarded. No full-system emulator is implemented.
 
 ## Running scenarios
 
@@ -26,20 +26,40 @@ explicit in the report and cannot produce an otherwise empty passing run.
 
 ## Fixture contract
 
-A fixture has `schema_version = 1`, an id, exactly one `[program] source` or
-`file`, ordered `[[steps]]`, optional `[initial]`, `[[expect]]` and backend
-constraints. File paths resolve against the fixture directory. Original fixture
-bytes and decoded program source receive separate SHA-256 identities.
+Schema 1 retains its single `[program]` source/file contract and original hashes.
+Schema 2 adds `[programs.ZZT_NAME]` source/file entries and the actions `import`,
+`run_program`, `probe`, `edit`, `start` and `await`. Existing key/touch,
+capture and power actions remain available according to backend capability.
+Initial settings/setup execute through PPL in HLE; unsupported RNG seeding is
+refused. Fixtures under `tests/differential/m16` are executable examples.
 
-Supported step names are `check`, `run`, `observe`, `capture`, `key`, `touch`,
-`power_off` and `restart`. Their capabilities depend on the actual adapter:
+Schema 2 records a sorted source manifest for every initial and edited revision.
+Its `source_sha256` is the manifest digest, and provenance additionally exposes
+individual source hashes. Changing a second program or an edit invalidates
+identity even when the default program is empty.
 
 | Adapter | Implemented behavior | Explicit limits |
 |---|---|---|
-| Native | Check, retained-state Run, selected variable/settings observations, framebuffer capture | Physical key/touch and OFF/restart scenarios are refused before execution |
-| Firmware HLE | Check and one Run with typed engine Report and optional capture | Multiple Runs, initial setup/settings, variables, physical input and power steps require a future structured live-session adapter |
-| Physical capture | Qualified immutable legacy TYPE/STRING replay | No live operations; no inferred graphics, variables or persistent state |
-| Full system | Unavailable result with explanation | No CPU/kernel/hardware execution is implemented |
+| Native | Retained named modules, sequential execution, authored probes, edits, settings, framebuffer | Cross-program linkage, asynchronous physical input and firmware power semantics unsupported |
+| Firmware HLE | Genuine retained named programs; source-bound execution; Start/Await/key/touch; program-output graphics; OFF/fresh restart | Known observer profile required; numeric arguments; arbitrary in-place Check refused |
+| Physical capture | Qualified historical replay and sealed stateful capture bundles | New live USB collector unimplemented; manual input confirmations and retained artifacts required |
+| Full system | Explicit Unavailable result | No CPU/kernel/SoC execution backend |
+
+Named HLE loading assigns source directly to its catalog program through firmware.
+RunStored never silently reimports or invokes Check. Fresh-process dispatch
+rebinds by checking the actual firmware context's source before body entry.
+That execution proof is distinct from a compiler verdict.
+
+Start acknowledges real body entry. Key/touch acknowledgments explicitly mean
+`delivery_level=queued`; terminal fixture results must prove semantic consumption.
+Await correlates the terminal result. Cleanup preserves pending releases and
+waits for consumed input and idle before another invocation. Program-output
+captures refer to the return frame, not an arbitrary later Home screen.
+
+Authored probes return a typed list with one element per declared variable name.
+They are executions, not pure memory inspections. Matrix scenarios currently
+compare explicit dimensions/cell projections; undecoded direct matrix/complex/
+integer returns remain unobserved.
 
 Native Run reuses the existing VM `SessionContext`, preserving module globals,
 calculator globals, settings and GROB state by exact source identity. It does
@@ -133,13 +153,21 @@ actual drawing coordinates and image encoding/dimensions. All committed
 scenarios execute their declared Native expectations. Existing compatibility
 and physical-evidence tests remain part of the required regression suite.
 
-Next: adapt structured live-session runtime observations (not human status
-strings), then support genuine HLE retained state, key/touch and OFF/restart
-steps. Existing protocol/result capabilities must be used and version checked.
-Extend the Native host's scripted event seam only for semantics it implements.
-Add new physical scenario captures through the existing guarded manual workflow.
-A future full-system runner can implement `Backend` without changing fixtures
-or relaxing provenance and comparison rules.
+M16 adds actual-firmware scenarios for alternating modules and edits,
+cross-program calls, CAS, errors followed by successful execution, graphics,
+OFF/restart persistence and sequential key/touch waits. Their fixture durations
+include boot/import/shutdown and are not launch-latency measurements.
+See `M16_STATEFUL_EXECUTION.md` and the integrated M16 report.
+
+## New physical scenario bundles
+
+`ppl capture prepare/seal/validate/compare` works offline and never opens USB.
+Bundles freeze all source revisions, planned actions, confirmed delivery,
+observations and checksummed raw artifacts. Manual physical attestations require
+matching retained raw identity replies; controlled mocks cannot become physical
+verification. Manual attestation is not cryptographic proof of authenticity.
+See `PHYSICAL_SCENARIO_CAPTURE.md` for commands and trust limits.
+Legacy TYPE/STRING replay retains its narrower independent provenance.
 
 ## First actual firmware comparison
 
