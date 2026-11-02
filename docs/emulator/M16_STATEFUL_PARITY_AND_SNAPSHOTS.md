@@ -77,3 +77,5 @@ With TMPDIR on home storage, the local build succeeded with ELF entry
 Execution remains unverified; Python 2 and QEMU are still missing. Three Python
 tests pass, including preservation of existing output directories. This
 supersedes the earlier missing-linker/assembly-only observation above.
+
+Actual firmware15751 debug run: heartbeat verified (three delivered key events, no faults), 7829 owner-thread register observations across 2 threads. JSONL and report are retained under artifacts/m16/debug-real*. This is HLE-only evidence.
