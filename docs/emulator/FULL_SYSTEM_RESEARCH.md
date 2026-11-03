@@ -1,6 +1,6 @@
 # Full-system G1 research
 
-Status: M18 executes timer IRQ/FIQ handlers, guest UART/GPIO and MMU fault/recovery controls on the pinned hp-prime ARM926 model; no kernel boot. The production backend executes armfir
+Status: M19 executes synthetic NAND/OOB/MAIN-512 ECC, clock/reset, LCD/input and a NAND stage handoff, preserving the M18 IRQ/FIQ/MMU controls; no proprietary kernel boot. The production backend executes armfir
 under Unicorn with host SVC services; PRIME_OS is mapped inert. This research
 track does not replace that backend or claim a full-system implementation.
 
@@ -15,15 +15,15 @@ https://github.com/opcod3/qemuPrime/blob/32e891a9fc568de3110343c3e35b9ec0d23f6f4
 
 | Component | Source evidence | Research gap |
 |---|---|---|
-| ARM926 | Board creates arm926 CPU | Kernel CP15/MMU behavior unverified locally |
+| ARM926 | Board creates arm926 CPU | Actual kernel execution and complete CPU/cache timing remain unverified |
 | RAM | One 32 MiB host buffer at 0x30000000, aliased at 0x32000000/0x34000000/0x36000000 | Verify aliases against hardware documentation |
-| Boot | Copies first 8 KiB of MTD into boot region at zero; optional ELF kernel loading | Matching authorized boot/NAND image missing |
+| Boot | Copies first 8 KiB NAND main data into boot region at zero, including reset; optional ELF loading | Matching authorized boot/NAND image and physical ROM/strap contract missing |
 | INTC | S3C2416 model wired to IRQ/FIQ | Priority, pending/ack and nested interrupt tests |
-| NAND | Model at 0x4E000000, Samsung EC/DA identification | ECC paths incomplete; ready/busy IRQ TODO; geometry/OOB validation |
-| LCD | Exynos FIMD reused at 0x4C800000 | Actual G1 register compatibility and RGB565 output |
-| GPIO/keys | S3C2416 GPIO at 0x56000000 | Matrix scanning, debounce and power key validation |
+| NAND | Model at 0x4E000000, Samsung EC/DA identification | Synthetic main/OOB and 512-byte 1-bit ECC guest tested; spare/4/8-bit ECC, IRQ/DMA and physical geometry remain unsupported/unverified |
+| LCD | Exynos FIMD reused at 0x4C800000 | S3C register subset and RGB565 guest capture tested; physical panel, palette and timing remain unverified |
+| GPIO/keys | S3C2416 GPIO at 0x56000000 | Guest matrix scanning tested; physical mapping/debounce/power key remain unverified |
 | Touch | NT11002 I2C slave, GPIO interrupt | Packet/timing accuracy and calibration |
-| Timers/RTC | Exynos PWM and RTC reused | Clock/divisor, alarm and interrupt correctness |
+| Timers/RTC | Dedicated S3C2416 PWM and inherited RTC | Selectable clock tree tested as research input; physical clock rates and RTC alarms remain unverified |
 | MEMC/watchdog/ADC | Source files present, board creation commented out | Models are not verified merely by existing |
 | Power | No local boot/power-cycle evidence | Reset causes, sleep, wake and persistent NAND |
 
@@ -210,3 +210,7 @@ chain was found in the inspected assets. The next executable boot-foundation
 experiment is a self-authored NAND page/OOB/ECC control, followed by matching
 explicitly supplied boot artifacts when available. Never construct proprietary
 boot images from guessed update-component placement.
+
+## M19 boot hardware and storage
+
+M19 adds executed NAND/OOB/MAIN-512 ECC, opt-in clock/reset controls, LCD/input and a self-authored NAND stage handoff. The final combined QEMU build runs all eleven guest cases; kernel boot remains unattempted because matching authorized boot artifacts are missing. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.

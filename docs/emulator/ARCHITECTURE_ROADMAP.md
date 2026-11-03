@@ -191,3 +191,7 @@ reports require concrete entry/step/terminal plus case-specific observations.
 QEMU now has executing timer IRQ/FIQ, UART/GPIO and MMU-fault tests; PPL and real
 kernel boot remain unavailable. This keeps hardware diagnostics, synthetic CPU
 resume and calculator recovery separate capabilities.
+
+## M19 boot hardware and storage
+
+M19 preserves the Rust HLE architecture while adding separately licensed boot hardware research. The synthetic service owner advances explicit continuation reconstruction; production firmware waits, complete scheduler/resource restoration and arbitrary live calculator snapshots remain unsupported. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.

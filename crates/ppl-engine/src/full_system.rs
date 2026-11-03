@@ -6,6 +6,22 @@ use sha2::{Digest, Sha256};
 use std::{fs::File, io::Read, path::Path};
 
 pub const QEMU_REVISION: &str = "32e891a9fc568de3110343c3e35b9ec0d23f6f44";
+mod m19;
+
+pub const CASES: &[&str] = &[
+    "smoke",
+    "timer_irq",
+    "timer_fiq",
+    "uart_gpio",
+    "mmu",
+    "nand",
+    "nand_ecc",
+    "boot_chain",
+    "clock_reset",
+    "lcd",
+    "input",
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Capability {
@@ -24,6 +40,8 @@ pub struct BackendDescriptor {
     pub backend: String,
     pub availability: String,
     pub capabilities: Vec<Capability>,
+    #[serde(default)]
+    pub diagnostic_cases: Vec<String>,
     pub unsupported: Vec<Capability>,
     pub resource_identity: Option<String>,
     pub reference_revision: Option<String>,
@@ -100,12 +118,43 @@ pub fn validate_build(root: &Path) -> Result<BuildIdentity, String> {
     }
     Ok(identity)
 }
+/// Cases available from this exact published overlay build. Discovery is not an execution claim.
+pub fn supported_cases(root: &Path) -> Vec<String> {
+    if regular_digest(&root.join("build.json"), 65536).is_err() {
+        return Vec::new();
+    }
+    let data: serde_json::Value = std::fs::read(root.join("build.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default();
+    CASES
+        .iter()
+        .filter(|case| {
+            let Some(name) = m19::required_overlay(case) else {
+                return true;
+            };
+            let patch = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../research/full-system/patches")
+                .join(name);
+            let Ok(hash) = regular_digest(&patch, 2 * 1024 * 1024) else {
+                return false;
+            };
+            data["patches"].as_array().is_some_and(|patches| {
+                patches
+                    .iter()
+                    .any(|p| p["name"] == name && p["sha256"] == hash)
+            })
+        })
+        .map(|case| (*case).to_owned())
+        .collect()
+}
 pub fn inspect(root: Option<&Path>) -> BackendDescriptor {
     let mut result = BackendDescriptor {
         schema_version: 1,
         backend: "full_system".into(),
         availability: "not_configured".into(),
         capabilities: vec![Capability::HardwareDiagnostics, Capability::GuestGdb],
+        diagnostic_cases: CASES.iter().map(|case| (*case).to_owned()).collect(),
         unsupported: vec![
             Capability::PplRun,
             Capability::PplCheck,
@@ -125,6 +174,7 @@ pub fn inspect(root: Option<&Path>) -> BackendDescriptor {
         match validate_build(root) {
             Ok(build) => {
                 result.availability = "configured".into();
+                result.diagnostic_cases = supported_cases(root);
                 result.resource_identity = Some(build.binary_sha256);
                 result.reference_revision = Some(build.reference_revision);
                 result.reason = Some("Binary identity validated; runner checks runtime image and executes only synthetic hardware cases".into());
@@ -144,7 +194,10 @@ pub fn validate_result(
     build: &BuildIdentity,
     case: &str,
 ) -> Result<(), String> {
-    if !["smoke", "timer_irq", "timer_fiq", "uart_gpio", "mmu"].contains(&case) {
+    if m19::runner(case).is_some() {
+        return m19::validate(data, build, case);
+    }
+    if !CASES.contains(&case) {
         return Err("unknown research result case".into());
     }
     if data["schema_version"] != 1
@@ -387,6 +440,8 @@ mod process {
         pub(super) launcher: ManagedChild,
         output: PathBuf,
         cleanup: PathBuf,
+        #[cfg(test)]
+        cleanup_fixture: Option<PathBuf>,
     }
     impl ResearchRun {
         pub(super) fn spawn(command: &mut Command, output: PathBuf) -> Result<Self, String> {
@@ -394,6 +449,8 @@ mod process {
                 launcher: ManagedChild::spawn(command)?,
                 output,
                 cleanup: "podman".into(),
+                #[cfg(test)]
+                cleanup_fixture: None,
             })
         }
     }
@@ -402,37 +459,56 @@ mod process {
             self.launcher.stop();
             // Only a bounded regular file inside this request's atomically owned
             // private output root can authorize container removal.
-            let cid = self.output.join("container.cid");
-            let id = (|| -> Option<String> {
-                let meta = std::fs::symlink_metadata(&cid).ok()?;
-                if !meta.is_file() || meta.len() > 128 {
-                    return None;
+            for relative in [
+                "container.cid",
+                "host/container.cid",
+                "reopen/container.cid",
+                "readonly/container.cid",
+                "boot_reset/container.cid",
+                "guest_run/container.cid",
+            ] {
+                let cid = self.output.join(relative);
+                if relative != "container.cid"
+                    && !std::fs::symlink_metadata(cid.parent().unwrap())
+                        .is_ok_and(|m| m.file_type().is_dir())
+                {
+                    continue;
                 }
-                use std::io::Read;
-                let mut text = String::new();
-                std::fs::File::open(cid)
-                    .ok()?
-                    .take(129)
-                    .read_to_string(&mut text)
-                    .ok()?;
-                let id = text.trim();
-                (id.len() == 64
-                    && id
-                        .bytes()
-                        .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)))
-                .then(|| id.to_owned())
-            })();
-            if let Some(id) = id {
-                let cleanup = (|| -> Result<(), String> {
-                    let mut command = Command::new(&self.cleanup);
-                    command
-                        .args(["rm", "--force", &id])
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null());
-                    ManagedChild::spawn(&mut command)?.run_cleanup()
+                let id = (|| -> Option<String> {
+                    let meta = std::fs::symlink_metadata(&cid).ok()?;
+                    if !meta.is_file() || meta.len() > 128 {
+                        return None;
+                    }
+                    use std::io::Read;
+                    let mut text = String::new();
+                    std::fs::File::open(cid)
+                        .ok()?
+                        .take(129)
+                        .read_to_string(&mut text)
+                        .ok()?;
+                    let id = text.trim();
+                    (id.len() == 64
+                        && id
+                            .bytes()
+                            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)))
+                    .then(|| id.to_owned())
                 })();
-                if let Err(error) = cleanup {
-                    eprintln!("research cleanup warning: {error}");
+                if let Some(id) = id {
+                    let cleanup = (|| -> Result<(), String> {
+                        let mut command = Command::new(&self.cleanup);
+                        #[cfg(test)]
+                        if let Some(script) = &self.cleanup_fixture {
+                            command.arg(script);
+                        }
+                        command
+                            .args(["rm", "--force", &id])
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::null());
+                        ManagedChild::spawn(&mut command)?.run_cleanup()
+                    })();
+                    if let Err(error) = cleanup {
+                        eprintln!("research cleanup warning: {error}");
+                    }
                 }
             }
         }
@@ -505,7 +581,8 @@ mod process {
             std::fs::create_dir(&run).unwrap();
             std::fs::write(run.join("container.cid"), "a".repeat(64)).unwrap();
             let mut owned = ResearchRun::spawn(&mut sleeper(), run).unwrap();
-            owned.cleanup = cleanup_program(root.path());
+            owned.cleanup = "/bin/sh".into();
+            owned.cleanup_fixture = Some(cleanup_program(root.path()));
             assert!(reserve(&output).is_err());
             assert!(owned.launcher.poll().unwrap().is_none());
             assert!(!root.path().join("removed.log").exists());
@@ -526,7 +603,8 @@ mod process {
             std::fs::write(path.join("container.cid"), "c".repeat(64)).unwrap();
             let error = (|| -> Result<(), String> {
                 let mut owned = ResearchRun::spawn(&mut sleeper(), path).unwrap();
-                owned.cleanup = cleanup_program(root.path());
+                owned.cleanup = "/bin/sh".into();
+                owned.cleanup_fixture = Some(cleanup_program(root.path()));
                 owned
                     .launcher
                     .poll_using(&mut |_| Err(io::Error::other("original injected failure")))?;
@@ -539,6 +617,31 @@ mod process {
                     .unwrap()
                     .trim(),
                 format!("rm --force {}", "c".repeat(64))
+            );
+        }
+        #[test]
+        fn nand_stage_cleanup_is_bounded_and_refuses_parent_symlinks() {
+            let root = tempfile::tempdir().unwrap();
+            let run = root.path().join("run");
+            std::fs::create_dir(&run).unwrap();
+            for stage in ["host", "guest_run", "unlisted"] {
+                std::fs::create_dir(run.join(stage)).unwrap();
+                std::fs::write(run.join(stage).join("container.cid"), "a".repeat(64)).unwrap();
+            }
+            let other = root.path().join("other");
+            std::fs::create_dir(&other).unwrap();
+            std::fs::write(other.join("container.cid"), "b".repeat(64)).unwrap();
+            std::os::unix::fs::symlink(&other, run.join("reopen")).unwrap();
+            let mut owned = ResearchRun::spawn(&mut sleeper(), run).unwrap();
+            owned.cleanup = "/bin/sh".into();
+            owned.cleanup_fixture = Some(cleanup_program(root.path()));
+            drop(owned);
+            let removed = std::fs::read_to_string(root.path().join("removed.log")).unwrap();
+            assert_eq!(removed.lines().count(), 2);
+            assert!(
+                removed
+                    .lines()
+                    .all(|s| s == format!("rm --force {}", "a".repeat(64)))
             );
         }
         #[test]
@@ -556,7 +659,8 @@ mod process {
                     std::fs::write(cid, "b".repeat(1024)).unwrap();
                 }
                 let mut owned = ResearchRun::spawn(&mut sleeper(), run).unwrap();
-                owned.cleanup = cleanup_program(root.path());
+                owned.cleanup = "/bin/sh".into();
+                owned.cleanup_fixture = Some(cleanup_program(root.path()));
                 drop(owned);
             }
             assert!(!root.path().join("removed.log").exists());
@@ -581,15 +685,16 @@ pub fn execute(
         process::{Command, Stdio},
         time::{Duration, Instant},
     };
-    if !(1..=120).contains(&timeout)
-        || !["smoke", "timer_irq", "timer_fiq", "uart_gpio", "mmu"].contains(&case)
-    {
+    if !(1..=120).contains(&timeout) || !CASES.contains(&case) {
         return Err("unsupported research case or deadline (1..120 seconds)".into());
     }
     if case == "smoke" && timeout != 30 {
         return Err("legacy smoke uses a fixed 30-second deadline".into());
     }
     let build = validate_build(build_root)?;
+    if !supported_cases(build_root).iter().any(|name| name == case) {
+        return Err("research build lacks the required published case overlay".into());
+    }
     if output.exists() {
         return Err("research output directory must be new".into());
     }
@@ -597,7 +702,9 @@ pub fn execute(
         return Err("research execution cancelled before launch".into());
     }
     let scripts = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/emulator");
-    let runner = scripts.join(if case == "smoke" {
+    let runner = scripts.join(if let Some(runner) = m19::runner(case) {
+        runner
+    } else if case == "smoke" {
         "full_system_run.py"
     } else {
         "full_system_hardware.py"
@@ -656,6 +763,9 @@ pub fn execute(
     let data = serde_json::from_reader(File::open(&result).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     validate_result(&data, &build, case)?;
+    if m19::runner(case).is_some() {
+        m19::validate_artifacts(&data, &run_output, case)?;
+    }
     if exit.success() != (data["status"] == "passed") {
         return Err("runner exit status disagrees with retained result".into());
     }

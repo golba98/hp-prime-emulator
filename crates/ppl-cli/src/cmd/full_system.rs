@@ -19,7 +19,7 @@ pub enum Action {
     Run {
         #[arg(long)]
         build_root: PathBuf,
-        #[arg(long, value_parser=["smoke","timer_irq","timer_fiq","uart_gpio","mmu"])]
+        #[arg(long, value_parser=clap::builder::PossibleValuesParser::new(ppl_engine::full_system::CASES.iter().copied()))]
         case: String,
         #[arg(long)]
         output: PathBuf,

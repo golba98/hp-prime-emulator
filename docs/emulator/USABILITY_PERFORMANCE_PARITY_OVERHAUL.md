@@ -711,3 +711,7 @@ Five paired benchmark trials pass 130 expected outcomes: tiny repeat 0.775s,
 large cold 3.056s, large repeat 1.378s, syntax-error feedback 1.774s. All 13 workload
 medians remain within 5% of the matched M17 baseline; no major new speedup claimed.
 No push, proprietary-image modification or physical-device access occurred.
+
+## M19 boot hardware and storage
+
+M19 integrates NAND, clock/reset, LCD/input and synthetic boot diagnostics while preserving the selected PPL engine. Final verification passes1,919 workspace tests, formatting, Clippy,101 Native/HLE assertions,77 historical classifications and130 benchmark outcomes. Tiny repeat0.776s, large cold3.062s; largest paired median increase7.47%, with no>10% regression. No real kernel boot or physical parity is claimed. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.

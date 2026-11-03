@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "scope": "Native_and_local_firmware_regression_with_historical_physical_references",
+  "physical_hardware_accessed": false,
+  "new_physical_measurements": false,
+  "proprietary_kernel_boot": false,
+  "identity": {
+    "ppl": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+      "sha256": "4c72b163e50dd8acb1752de48e966dec827c8312db7a69762f45cf9fc345c488",
+      "copied_from": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release/ppl"
+    },
+    "prime-emulator": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+      "sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+      "copied_from": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release/prime-emulator"
+    },
+    "assets": {
+      "15751": {
+        "armfir.elf": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+        "PRIME_OS.ROM": "f6aeba161189a5aa1acb57be428dc5730cfa5ff7cd534494e59225debd5a8999"
+      },
+      "15157": {
+        "armfir.elf": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+        "PRIME_OS.ROM": "f6aeba161189a5aa1acb57be428dc5730cfa5ff7cd534494e59225debd5a8999"
+      }
+    },
+    "test_checkout_checkpoint": "b60c8c33870457758710c4e168886913b9d553d4",
+    "provenance_note": "Frozen CLI copied from canonical release output; frozen production helper is identity-matched M18 runtime. Own b60c8c3 test checkout contains M18 production source plus separate display and typed evidence work. This is a regression rerun, not evidence of executing proprietary kernel or physical hardware.",
+    "rebuilt_helper": {
+      "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target/release/prime-emulator",
+      "sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+      "byte_identical_to_frozen_baseline": true,
+      "build_test_checkout_checkpoint": "c58d53a9f795a220c5567baaf297b59b256bc4b9",
+      "build_log": "/home/k9-vortex/.cache/prime-m19-runtime-regression/configured-firmware.log",
+      "build_command": [
+        "cargo",
+        "test",
+        "--release",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_session"
+      ],
+      "production_source_diff_from_m18": []
+    }
+  },
+  "commands_environment": {
+    "PRIME_TEST_FIRMWARE": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+    "PRIME_TEST_INIT_DATA": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+    "PRIME_TEST_OS_ROM": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+    "PRIME_TEST_RUNNER": "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+    "PRIME_TEST_CALCULATOR_FIRMWARE": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware-15157/armfir.elf",
+    "PRIME_TEST_CALCULATOR_INIT": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware-15157/initial-data",
+    "PRIME_TEST_CALCULATOR_ROM": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware-15157/PRIME_OS.ROM"
+  },
+  "configured_commands": [
+    [
+      "cargo",
+      "test",
+      "--release",
+      "-p",
+      "prime-emulator",
+      "--test",
+      "firmware_session"
+    ],
+    [
+      "cargo",
+      "test",
+      "--release",
+      "-p",
+      "prime-emulator",
+      "--test",
+      "calculator_only",
+      "--test",
+      "firmware_boot",
+      "--test",
+      "firmware_inspection",
+      "--test",
+      "firmware_recovery",
+      "--",
+      "--nocapture"
+    ],
+    [
+      "cargo",
+      "test",
+      "--release",
+      "-p",
+      "ppl-compat",
+      "--test",
+      "differential"
+    ],
+    [
+      "cargo",
+      "test",
+      "--release",
+      "-p",
+      "ppl-compat",
+      "--test",
+      "checkpoint_scenarios"
+    ]
+  ],
+  "configured_logs": {
+    "configured-firmware": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/configured-firmware.log",
+      "sha256": "bd517ab48ae2df483e47a2b616eb8e5c1ceb2679452fc0b7fefa94285a5e76fd",
+      "passing_tests": 2,
+      "failed_tests": 0,
+      "ignored_tests": 0,
+      "skip_message_present": false
+    },
+    "configured-firmware-recovery": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/configured-firmware-recovery.log",
+      "sha256": "36b799e2b1003f272654be89aca21c68ccbf0f12631382198324b60e78081f84",
+      "passing_tests": 9,
+      "failed_tests": 0,
+      "ignored_tests": 0,
+      "skip_message_present": false
+    },
+    "configured-stateful": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/configured-stateful.log",
+      "sha256": "4c78aa2adcf35ad7c5449b48235a7b91da08c3860c9e7d68be986f31fe5f55a8",
+      "passing_tests": 22,
+      "failed_tests": 0,
+      "ignored_tests": 0,
+      "skip_message_present": false
+    },
+    "configured-checkpoints": {
+      "path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/configured-checkpoints.log",
+      "sha256": "ed12ad55a548477a482cc60781786d241967d001886aa2d015152934534b23d4",
+      "passing_tests": 3,
+      "failed_tests": 0,
+      "ignored_tests": 0,
+      "skip_message_present": false
+    }
+  },
+  "comparisons": [
+    {
+      "name": "m17-initialization",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "tests/differential/m17/initialization.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m17-initialization.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 12,
+      "mismatches": []
+    },
+    {
+      "name": "m17-linkage",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "tests/differential/m17/linkage.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m17-linkage.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 22,
+      "mismatches": []
+    },
+    {
+      "name": "m17-typed",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "tests/differential/m17/typed_values.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m17-typed.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 17,
+      "mismatches": []
+    },
+    {
+      "name": "m18-ascii",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "tests/differential/m18/ascii_imaginary.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m18-ascii.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 14,
+      "mismatches": []
+    },
+    {
+      "name": "m18-exported",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "tests/differential/m18/exported_variables.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m18-exported.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 29,
+      "mismatches": []
+    },
+    {
+      "name": "m19-typed",
+      "command": [
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/ppl",
+        "differential",
+        "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/tests/differential/m19/typed_boundaries.toml",
+        "--backend",
+        "native,firmware-hle",
+        "--firmware",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+        "--os-rom",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+        "--factory-a",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/factory-A",
+        "--init-data",
+        "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+        "--firmware-runner",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen/release/prime-emulator",
+        "--output",
+        "/home/k9-vortex/.cache/prime-m19-runtime-regression/m19-typed.json"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "assertions": 7,
+      "mismatches": []
+    }
+  ],
+  "comparison_assertions": 101,
+  "historical": {
+    "command": [
+      "python3",
+      "scripts/compat/firmware_legs.py",
+      "--build",
+      "15157=/home/k9-vortex/.local/share/hp-prime-emulator/firmware-15157",
+      "--device-build",
+      "15157",
+      "--out",
+      "/home/k9-vortex/.cache/prime-m19-runtime-regression/historical"
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m19-runtime-regression/frozen"
+    },
+    "matrix_path": "/home/k9-vortex/.cache/prime-m19-runtime-regression/historical/matrix.json",
+    "matrix_sha256": "c324a20d0c754f99bfcab87ca35ac520c82be47d0a82533844768ef2203ed96a",
+    "cases": 77,
+    "classifications": {
+      "15157": {
+        "VERIFIED": 68,
+        "PARTIAL": 4,
+        "TRANSCRIPTION": 5
+      },
+      "native": {
+        "VERIFIED": 49,
+        "TRANSCRIPTION": 4,
+        "MISSING": 24
+      }
+    },
+    "explanation": "VERIFIED/PARTIAL/TRANSCRIPTION classify preserved historical physical-reference records; this rerun collects only local firmware and Native observations."
+  },
+  "limits": [
+    "Snapshot recovery tests exercise supported OFF/storage reconstruction, not arbitrary live calculator restoration.",
+    "Source in the isolated test checkout has no production source changes versus M18. The freshly built helper is byte-identical to the frozen M18 helper. Full integrated source/SVC verification is performed independently by the coordinator."
+  ]
+}
