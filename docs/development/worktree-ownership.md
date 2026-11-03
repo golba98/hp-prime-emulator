@@ -30,3 +30,17 @@ M12 (G1 Firmware full calculator mode): at the user's explicit instruction
 `agent-claims/m12/claim.json`. A briefly created `../hp-prime-m12` worktree
 was removed after its uncommitted diff was moved here. No commit, push or
 merge without explicit user authorization.
+
+Overhaul (2026-11-02): user explicitly confirmed Claude has released canonical
+ownership and selected a new branch from current main. Codex is implementing
+in the canonical checkout on `feat/g1-usability-overhaul` from `7014e75`.
+The atomic claim is `agent-claims/usability-overhaul/claim.json`. Earlier
+M12 canonical ownership entries above are historical. No commit, push or merge
+is authorized.
+
+2026-11-02 continuation: the user subsequently authorized local checkpoint
+commits on the dedicated feature branch and local integration. No push or
+publication is authorized. Registered isolated worktrees under
+`/tmp/prime-overhaul-{performance,recovery,native}` have distinct branch/task
+claims under shared `agent-claims/overhaul-*`. Coordinator integrates only
+explicit tested handoffs.

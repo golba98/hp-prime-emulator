@@ -428,120 +428,96 @@ impl IdeDesktopApp {
             return;
         }
 
-        // Track host modifier transitions and dispatch Shift / Alpha to calculator.
-        let (shift_now, alpha_now) =
-            ctx.input(|i| (i.modifiers.shift, i.modifiers.alt || i.modifiers.ctrl));
-        if shift_now != self.prev_shift_held {
-            self.state.set_key_down(crate::keymap::KEY_SHIFT, shift_now);
-            self.send_calc_transition(crate::keymap::KEY_SHIFT, shift_now);
-            if shift_now {
-                self.state.push_key_event(crate::keymap::KEY_SHIFT);
+        // Desktop modifiers belong to desktop text. Sending host Shift/Ctrl
+        // as firmware Shift/Alpha as well would apply them a second time.
+        // The virtual keypad and Tab (Alpha) retain physical-key semantics.
+        let mut events: Vec<egui::Event> = Vec::new();
+        for event in ctx.input(|i| i.events.clone()) {
+            match (events.last_mut(), event) {
+                (Some(egui::Event::Text(previous)), egui::Event::Text(text)) => {
+                    previous.push_str(&text)
+                }
+                (_, event) => events.push(event),
             }
-            self.prev_shift_held = shift_now;
         }
-        if alpha_now != self.prev_alpha_held {
-            self.state.set_key_down(crate::keymap::KEY_ALPHA, alpha_now);
-            self.send_calc_transition(crate::keymap::KEY_ALPHA, alpha_now);
-            if alpha_now {
-                self.state.push_key_event(crate::keymap::KEY_ALPHA);
-            }
-            self.prev_alpha_held = alpha_now;
-        }
-
-        let events = ctx.input(|i| i.events.clone());
-        let has_text = events.iter().any(|e| matches!(e, egui::Event::Text(_)));
-        // The desktop's key auto-repeat is not a calculator event: a held key
-        // stays down for the firmware, which handles holding itself. Text
-        // produced by auto-repeat is dropped with it.
-        let repeating = events
+        let has_text = events
             .iter()
-            .any(|e| matches!(e, egui::Event::Key { repeat: true, .. }));
+            .any(|e| matches!(e, egui::Event::Text(_) | egui::Event::Paste(_)));
         for event in events {
+            let paste = matches!(&event, egui::Event::Paste(_));
             match event {
+                egui::Event::Text(text) | egui::Event::Paste(text) => {
+                    if text.chars().count() > 2048 {
+                        self.firmware_status = "Calculator paste is limited to 2048 characters; paste PPL source into the IDE editor and Import it".into();
+                        self.console.print_diagnostic(&self.firmware_status);
+                        continue;
+                    }
+                    if let Some(f) = &self.firmware {
+                        // One bounded transport packet, prevalidated atomically
+                        // by the session. Never flood the channel with key pairs.
+                        f.send(Command::Text { text, paste });
+                    }
+                }
                 egui::Event::Key {
                     key,
                     pressed,
                     repeat,
                     modifiers,
                     ..
-                } if !modifiers.command && !repeat => {
-                    let code = egui_key_to_hp(key);
-                    if let Some(code) = code {
-                        // Text events own printable input, avoiding a duplicate Key + Text press.
-                        let printable = matches!(
-                            key,
-                            egui::Key::Num0
-                                | egui::Key::Num1
-                                | egui::Key::Num2
-                                | egui::Key::Num3
-                                | egui::Key::Num4
-                                | egui::Key::Num5
-                                | egui::Key::Num6
-                                | egui::Key::Num7
-                                | egui::Key::Num8
-                                | egui::Key::Num9
-                                | egui::Key::Plus
-                                | egui::Key::Minus
-                                | egui::Key::Slash
-                                | egui::Key::Period
-                                | egui::Key::Comma
-                                | egui::Key::Equals
-                                | egui::Key::Space
-                                | egui::Key::X
-                                | egui::Key::S
-                                | egui::Key::C
-                                | egui::Key::T
-                                | egui::Key::L
-                                | egui::Key::E
-                        );
-                        self.state.set_key_down(code, pressed);
-                        if !self.state.firmware_backend || !printable || !has_text {
-                            self.send_calc_transition(code, pressed);
-                        }
-                        if pressed && (!printable || !has_text) && !self.state.firmware_backend {
-                            self.controller.shared.push_key_press(KeyPress {
-                                code: Some(code),
-                                ch: None,
-                            });
-                        }
+                } if !repeat && (!pressed || !modifiers.command) => {
+                    let printable = matches!(
+                        key,
+                        egui::Key::Num0
+                            | egui::Key::Num1
+                            | egui::Key::Num2
+                            | egui::Key::Num3
+                            | egui::Key::Num4
+                            | egui::Key::Num5
+                            | egui::Key::Num6
+                            | egui::Key::Num7
+                            | egui::Key::Num8
+                            | egui::Key::Num9
+                            | egui::Key::Plus
+                            | egui::Key::Minus
+                            | egui::Key::Slash
+                            | egui::Key::Period
+                            | egui::Key::Comma
+                            | egui::Key::Equals
+                            | egui::Key::Space
+                            | egui::Key::X
+                            | egui::Key::S
+                            | egui::Key::C
+                            | egui::Key::T
+                            | egui::Key::L
+                            | egui::Key::E
+                    );
+                    // Printable key-up events are not calculator actions either.
+                    if printable && (has_text || !pressed) {
+                        continue;
                     }
-                }
-                egui::Event::Text(text) if !repeating => {
-                    for ch in text.chars() {
-                        if self.state.firmware_backend {
-                            if let Some(f) = &self.firmware {
-                                if ch.is_ascii_alphabetic() {
-                                    for code in letter_keys(ch) {
-                                        f.send(Command::Key { code, down: true });
-                                        f.send(Command::Key { code, down: false });
-                                    }
-                                } else {
-                                    let mut b = [0; 4];
-                                    if let Some(code) =
-                                        crate::keymap::map_char(ch.encode_utf8(&mut b))
-                                    {
-                                        if let Some(mapping) = u8::try_from(code)
-                                            .ok()
-                                            .and_then(crate::keymap::lookup_by_physical)
-                                        {
-                                            f.send(Command::Key {
-                                                code: mapping.device_code,
-                                                down: true,
-                                            });
-                                            f.send(Command::Key {
-                                                code: mapping.device_code,
-                                                down: false,
-                                            });
-                                        }
-                                    }
-                                }
-                            }
+                    if let Some(code) = egui_key_to_hp(key) {
+                        if modifiers.shift && pressed && !printable && key != egui::Key::Tab {
+                            // Intentional calculator shortcuts (Shift+Home,
+                            // Shift+arrows, etc.) still use physical Shift.
+                            self.send_calc_transition(crate::keymap::KEY_SHIFT, true);
+                            self.send_calc_transition(crate::keymap::KEY_SHIFT, false);
+                        }
+                        if key == egui::Key::Tab {
+                            // Release the key chosen on key-down even if the
+                            // desktop Shift key was released before Tab.
+                            let code = if (pressed && modifiers.shift)
+                                || (!pressed && self.prev_shift_held)
+                            {
+                                crate::keymap::KEY_SHIFT
+                            } else {
+                                crate::keymap::KEY_ALPHA
+                            };
+                            self.prev_shift_held = pressed && code == crate::keymap::KEY_SHIFT;
+                            self.state.set_key_down(code, pressed);
+                            self.send_calc_transition(code, pressed);
                         } else {
-                            let mut b = [0; 4];
-                            let code = crate::keymap::map_char(ch.encode_utf8(&mut b));
-                            self.controller
-                                .shared
-                                .push_key_press(KeyPress { code, ch: Some(ch) });
+                            self.state.set_key_down(code, pressed);
+                            self.send_calc_transition(code, pressed);
                         }
                     }
                 }
@@ -644,20 +620,6 @@ impl IdeDesktopApp {
         }
     }
 }
-/// Device keys that type one letter: Alpha, then (lowercase) Shift, then
-/// the key whose Alpha label is the letter. The firmware's device code for
-/// that key is the letter's ASCII code (0x41 "A" is Vars); the sequence is
-/// the one verified for typed entry names (M7 `invocation_keys`).
-pub(crate) fn letter_keys(ch: char) -> Vec<u16> {
-    const ALPHA: u16 = 0xB6;
-    const SHIFT: u16 = 0x8B;
-    let mut keys = vec![ALPHA];
-    if ch.is_ascii_lowercase() {
-        keys.push(SHIFT);
-    }
-    keys.push(ch.to_ascii_uppercase() as u16);
-    keys
-}
 /// The calculator program name for a tab title: its file stem.
 pub(crate) fn program_name(title: &str) -> String {
     let title = title.trim_end_matches('*').trim();
@@ -665,11 +627,6 @@ pub(crate) fn program_name(title: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn letters_type_with_alpha_and_lowercase_with_shift() {
-        assert_eq!(super::letter_keys('A'), vec![0xB6, 0x41]);
-        assert_eq!(super::letter_keys('s'), vec![0xB6, 0x8B, 0x53]);
-    }
     #[test]
     fn program_names_are_tab_file_stems() {
         assert_eq!(super::program_name("M12HELLO.hpprgm"), "M12HELLO");
@@ -694,6 +651,93 @@ mod session_tests {
         app.state.firmware.firmware = "/nonexistent/ppl-test/armfir.elf".into();
         app.state.firmware_backend = true;
         app
+    }
+
+    #[test]
+    fn desktop_shift_and_clipboard_are_not_firmware_modifiers() {
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.state.calc_input_focus = true;
+        for (modifiers, event, wanted) in [
+            (egui::Modifiers::SHIFT, egui::Event::Text("A".into()), "A"),
+            (
+                egui::Modifiers::CTRL,
+                egui::Event::Paste("(a+2)".into()),
+                "(a+2)",
+            ),
+        ] {
+            let _ = ctx.run(
+                egui::RawInput {
+                    focused: true,
+                    modifiers,
+                    events: vec![event],
+                    ..Default::default()
+                },
+                |ctx| app.forward_calc_keys(ctx),
+            );
+            let sent: Vec<_> = commands.try_iter().collect();
+            assert!(
+                matches!(sent.as_slice(), [Command::Text { text, .. }] if text == wanted),
+                "{sent:?}"
+            );
+        }
+    }
+    #[test]
+    fn shift_tab_release_follows_its_press_after_host_shift_is_released() {
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.state.calc_input_focus = true;
+        for (pressed, modifiers) in [
+            (true, egui::Modifiers::SHIFT),
+            (false, egui::Modifiers::NONE),
+        ] {
+            let _ = ctx.run(
+                egui::RawInput {
+                    focused: true,
+                    events: vec![egui::Event::Key {
+                        key: egui::Key::Tab,
+                        physical_key: None,
+                        pressed,
+                        repeat: false,
+                        modifiers,
+                    }],
+                    ..Default::default()
+                },
+                |ctx| app.forward_calc_keys(ctx),
+            );
+        }
+        let keys: Vec<_> = commands
+            .try_iter()
+            .filter_map(|c| match c {
+                Command::Key { code, down } => Some((code, down)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(keys, vec![(0x8b, true), (0x8b, false)]);
+        assert!(!app.state.keys_down.contains(&crate::keymap::KEY_SHIFT));
+    }
+
+    #[test]
+    fn a_large_text_batch_is_one_atomic_command_not_a_channel_flood() {
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.state.calc_input_focus = true;
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: true,
+                events: (0..500).map(|_| egui::Event::Text("a".into())).collect(),
+                ..Default::default()
+            },
+            |ctx| app.forward_calc_keys(ctx),
+        );
+        let sent: Vec<_> = commands.try_iter().collect();
+        assert!(matches!(sent.as_slice(), [Command::Text { text, .. }] if text.len() == 500));
     }
 
     #[test]
@@ -874,6 +918,53 @@ mod session_tests {
         assert_eq!(sent(key(true, true)), vec![]);
         assert_eq!(sent(key(true, true)), vec![]);
         assert_eq!(sent(key(false, false)), vec![(up, false)]);
+    }
+
+    #[test]
+    fn repeated_navigation_does_not_drop_text_and_equality_is_not_enter() {
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.state.calc_input_focus = true;
+        // egui determines repeat from its held-key state, not the incoming flag.
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: true,
+                events: vec![egui::Event::Key {
+                    key: egui::Key::ArrowUp,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }],
+                ..Default::default()
+            },
+            |ctx| app.forward_calc_keys(ctx),
+        );
+        commands.try_iter().for_each(drop);
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: true,
+                events: vec![
+                    egui::Event::Key {
+                        key: egui::Key::ArrowUp,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                    egui::Event::Text("=".into()),
+                ],
+                ..Default::default()
+            },
+            |ctx| app.forward_calc_keys(ctx),
+        );
+        let sent: Vec<_> = commands.try_iter().collect();
+        assert!(
+            matches!(sent.as_slice(), [Command::Text { text, .. }] if text == "="),
+            "{sent:?}"
+        );
     }
 
     #[test]

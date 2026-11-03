@@ -84,3 +84,18 @@ fn documented_but_unemulated_forms_raise_unsupported() {
         assert_eq!(run_body(body), Err(ErrorKind::Unsupported), "{body}");
     }
 }
+
+#[test]
+fn firmware_only_commands_explain_the_missing_native_service() {
+    for (call, reason) in [
+        ("EVAL(2+3)", "symbolic evaluation"),
+        ("STARTAPP(\"Function\")", "application state"),
+    ] {
+        let (mut m, _) = machine(&format!("EXPORT TST() BEGIN RETURN {call}; END;"));
+        let err = m.call_function("TST", vec![]).unwrap_err();
+        assert_eq!(err.kind, ErrorKind::Unsupported);
+        assert!(err.to_string().contains(reason), "{err}");
+        assert!(err.to_string().contains("G1 Firmware mode"), "{err}");
+        assert!(!err.trace.is_empty());
+    }
+}

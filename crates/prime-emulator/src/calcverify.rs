@@ -143,6 +143,7 @@ fn run_once(cfg: &CalcVerifyConfig, label: &str, expression: &str) -> Result<Run
     let keys_script = format!("{},{}", cfg.setup_keys, expression);
     let keys = parse_keys(&keys_script).map_err(|e| format!("{label}: bad key script: {e}"))?;
     let run_cfg = RunConfig {
+        heap_budget_bytes: None,
         firmware_path: cfg.firmware_path.clone(),
         os_rom_path: cfg.os_rom_path.clone(),
         data_dir: data_dir.clone(),

@@ -1,6 +1,8 @@
 //! Long-lived local firmware session, with bounded transport and coherent LCD capture.
 mod job;
-pub use job::{LOADER, LOADER_V1};
+mod repeat;
+mod typing;
+pub use job::{LOADER, LOADER_V1, LOADER_V2};
 
 use crate::{
     display::LcdView,
@@ -27,6 +29,9 @@ struct Output {
 }
 struct Device {
     held: HashSet<u16>,
+    delivered: HashSet<u16>,
+    repeat: repeat::KeyRepeat,
+    typing: typing::Typing,
     script: Option<ScriptDriver>,
     jobs: job::Jobs,
     /// Last lifecycle state reported, and the idle meter that ends Booting.
@@ -40,6 +45,10 @@ struct Device {
     last_key: Instant,
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
+    recovery: Option<Arc<crate::recovery::Recovery>>,
+    saved_sleep: Option<u64>,
+    save_result: Option<Result<(), String>>,
+    save_worker: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
 }
 /// The firmware's OFF: Shift, then ON.
 const SHIFT_KEY: u16 = 0x8B;
@@ -64,6 +73,7 @@ pub struct LiveSession {
     capture: Mutex<Capture>,
     started: Instant,
     shutdown: AtomicBool,
+    writer: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 impl LiveSession {
     pub fn stdio() -> Arc<Self> {
@@ -74,6 +84,9 @@ impl LiveSession {
             output: out.clone(),
             device: Mutex::new(Device {
                 held: HashSet::new(),
+                delivered: HashSet::new(),
+                repeat: repeat::KeyRepeat::default(),
+                typing: typing::Typing::default(),
                 script: None,
                 jobs: job::Jobs::new(),
                 lifecycle: Lifecycle::Booting,
@@ -82,6 +95,10 @@ impl LiveSession {
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
                 power_down: None,
+                recovery: None,
+                saved_sleep: None,
+                save_result: None,
+                save_worker: None,
             }),
             capture: Mutex::new(Capture {
                 last: vec![0; 320 * 240 * 4],
@@ -91,6 +108,7 @@ impl LiveSession {
             }),
             started: Instant::now(),
             shutdown: AtomicBool::new(false),
+            writer: Mutex::new(None),
         });
         let weak = Arc::downgrade(&session);
         std::thread::spawn(move || {
@@ -106,7 +124,7 @@ impl LiveSession {
                 s.shutdown.store(true, Ordering::Release);
             }
         });
-        std::thread::spawn(move || {
+        let writer = std::thread::spawn(move || {
             let stdout = io::stdout();
             let mut writer = io::BufWriter::new(stdout.lock());
             loop {
@@ -136,6 +154,7 @@ impl LiveSession {
                 }
             }
         });
+        *session.writer.lock().unwrap() = Some(writer);
         session.event(Event::Hello {
             version: session::VERSION,
         });
@@ -149,27 +168,144 @@ impl LiveSession {
         self.output.1.notify_one();
     }
     pub fn close(&self, message: String) {
-        self.event(Event::Closed { message });
-        self.output.0.lock().unwrap().closed = true;
-        self.output.1.notify_one();
+        {
+            let mut output = self.output.0.lock().unwrap();
+            // Terminal delivery must not be dropped at the ordinary event
+            // queue limit, nor separated from closing the writer's queue.
+            output.events.push_back(Event::Closed { message });
+            output.closed = true;
+            self.output.1.notify_one();
+        }
+        // main calls process::exit after run_stdio returns. A detached writer
+        // could otherwise lose Closed (and the last save status). The reader
+        // owns pipe backpressure; broken pipes end the writer normally.
+        if let Some(writer) = self.writer.lock().unwrap().take() {
+            let _ = writer.join();
+        }
     }
-    pub fn tick(&self, mem: &GuestMemory, shared: &SharedState, trace: &TraceHub) {
+    pub fn tick(&self, mem: &Arc<GuestMemory>, shared: &Arc<SharedState>, trace: &TraceHub) {
         if self.shutdown.load(Ordering::Acquire) {
             shared.set_stopping();
             return;
         }
         let mut device = self.device.lock().unwrap();
+        // Snapshot only at the firmware's completed OFF boundary. Keep ON and
+        // all mutations queued until copying finishes; the UI thread never waits.
+        if shared.sleeping()
+            && device.recovery.is_some()
+            && device.saved_sleep != Some(shared.sleeps())
+        {
+            if let Some(worker) = &device.save_worker {
+                match worker.try_recv() {
+                    Ok(result) => {
+                        device.saved_sleep = Some(shared.sleeps());
+                        self.event(Event::Status {
+                            message: match &result {
+                                Ok(()) => "Calculator recovery checkpoint saved".into(),
+                                Err(e) => format!(
+                                    "Recovery checkpoint failed; previous checkpoint retained: {e}"
+                                ),
+                            },
+                        });
+                        device.save_result = Some(result);
+                        device.save_worker = None;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => return,
+                    Err(_) => {
+                        device.saved_sleep = Some(shared.sleeps());
+                        device.save_result = Some(Err("checkpoint worker stopped".into()));
+                        device.save_worker = None;
+                    }
+                }
+            } else {
+                let store = device.recovery.as_ref().unwrap().clone();
+                let mem = mem.clone();
+                let shared = shared.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                device.save_worker = Some(rx);
+                self.event(Event::Status {
+                    message: "Saving calculator recovery checkpoint…".into(),
+                });
+                std::thread::spawn(move || {
+                    let result = (|| {
+                        let start = Instant::now();
+                        let guard = loop {
+                            if let Some(g) = mem.snapshot_gate.try_snapshot() {
+                                break g;
+                            }
+                            if start.elapsed() > Duration::from_secs(5) {
+                                return Err("could not freeze sleeping firmware".into());
+                            }
+                            std::thread::sleep(Duration::from_millis(5));
+                        };
+                        shared.vfs.check_durable().map_err(|e| e.to_string())?;
+                        let result = store.checkpoint().map_err(|e| e.to_string());
+                        drop(guard);
+                        result
+                    })();
+                    let _ = tx.send(result);
+                });
+                return;
+            }
+        }
         for command in self.commands.lock().unwrap().try_iter().take(128) {
+            if matches!(
+                &command,
+                Command::Run { .. }
+                    | Command::Compile { .. }
+                    | Command::DirectCheck { .. }
+                    | Command::LoadSource { .. }
+                    | Command::Import { .. }
+                    | Command::Script { .. }
+            ) {
+                device.typing.clear();
+            }
             match command {
+                Command::Text { text, paste }
+                    if device.jobs.accepts_input()
+                        && device.script.is_none()
+                        && device.power_down.is_none()
+                        && !shared.sleeping() =>
+                {
+                    device.jobs.invalidate_prepared();
+                    if let Err(message) = if paste {
+                        device.typing.paste(&text)
+                    } else {
+                        device.typing.text(&text)
+                    } {
+                        self.event(Event::Status { message });
+                    }
+                }
+                Command::Text { .. } => self.event(Event::Status {
+                    message:
+                        "Calculator typing is unavailable while firmware is busy or switched off"
+                            .into(),
+                }),
                 Command::Key { code, down }
                     if (code <= 191 || code == 0xE047) && device.jobs.accepts_input() =>
                 {
+                    device.jobs.invalidate_prepared();
+                    if code == 0x01 && down && !device.typing.is_empty() {
+                        device.typing.clear();
+                        device.keys.clear();
+                        shared.clear_input_events();
+                        let delivered: Vec<_> = device.delivered.drain().collect();
+                        device
+                            .keys
+                            .extend(delivered.into_iter().map(|code| (code, false)));
+                    }
                     if down {
                         device.held.insert(code);
                     } else {
                         device.held.remove(&code);
+                        device.repeat.release(code);
                     }
-                    device.keys.push_back((code, down));
+                    if device.typing.is_empty() {
+                        device.typing.clear();
+                        device.keys.push_back((code, down));
+                    } else {
+                        device.typing.key(code, down);
+                    }
                 }
                 Command::Touch { status, x, y }
                     if matches!(status, 1 | 2 | 8)
@@ -177,16 +313,26 @@ impl LiveSession {
                         && y < 240
                         && device.jobs.accepts_input() =>
                 {
+                    device.jobs.invalidate_prepared();
+                    device.typing.clear();
                     shared.push_touch(TouchSample { status, x, y })
                 }
                 Command::ReleaseAll => {
-                    let held: Vec<u16> = device.held.drain().collect();
+                    device.held.clear();
+                    device.repeat.clear();
+                    device.keys.clear();
+                    device.typing.clear();
+                    shared.clear_input_events();
+                    let held: Vec<u16> = device.delivered.drain().collect();
                     device
                         .keys
                         .extend(held.into_iter().map(|code| (code, false)));
                 }
                 Command::Shutdown => shared.set_stopping(),
                 Command::PowerDown => {
+                    device.typing.clear();
+                    device.jobs.invalidate_prepared();
+                    device.repeat.clear();
                     if device.power_down.is_none() {
                         device.power_down = Some((Instant::now(), false));
                         // A program is stopped first, as Stop does.
@@ -211,6 +357,7 @@ impl LiveSession {
                 }
                 Command::Script { keys } => match crate::keys::parse_keys(&keys) {
                     Ok(keys) => {
+                        device.jobs.invalidate_prepared();
                         device.script = Some(ScriptDriver::new(ScriptConfig {
                             keys,
                             idle_observe_ms: 0,
@@ -249,6 +396,8 @@ impl LiveSession {
                     }
                 }
                 Command::Stop => {
+                    device.typing.clear();
+                    device.jobs.invalidate_prepared();
                     device.script = None;
                     let interrupted = device.jobs.interrupt(shared, trace);
                     if interrupted {
@@ -373,6 +522,28 @@ impl LiveSession {
                 }),
             }
         }
+        // Translate only once all preceding physical events were consumed.
+        // The guest owns letter case and templates; observe its status under
+        // the same snapshot gate as LCD capture, never host-side mode flags.
+        if device.keys.is_empty()
+            && !device.typing.is_empty()
+            && shared.input_events_pending() == 0
+            && shared.getevent_parked()
+            && device.jobs.accepts_input()
+            && device.script.is_none()
+        {
+            if let Some(_snapshot) = mem.snapshot_gate.try_snapshot() {
+                if let Ok(view) = LcdView::locate(mem, *shared.lcd_object.lock().unwrap()) {
+                    let mut status = [0u8; 320 * 8 * 4];
+                    if mem.read_bytes(view.fb_va, &mut status).is_ok() {
+                        match device.typing.next(typing::observe(&status)) {
+                            Ok(keys) => device.keys.extend(keys),
+                            Err(message) => self.event(Event::Status { message }),
+                        }
+                    }
+                }
+            }
+        }
         // One key transition at a time: once the previous event was taken
         // and the UI pump waits for the next one.
         if !device.keys.is_empty()
@@ -381,7 +552,29 @@ impl LiveSession {
         {
             let (code, down) = device.keys.pop_front().unwrap();
             shared.push_key_transition(code, down);
+            if down {
+                device.delivered.insert(code);
+                // A tap may already have its release queued; never repeat it.
+                if device.held.contains(&code) {
+                    device.repeat.press(code, Instant::now());
+                }
+            } else {
+                device.delivered.remove(&code);
+            }
             device.last_key = Instant::now();
+        }
+        // Generate at most one repeat after consumption, never a catch-up burst.
+        if device.keys.is_empty()
+            && shared.input_events_pending() == 0
+            && shared.getevent_parked()
+            && shared.main_waiting()
+            && device.jobs.active.is_none()
+            && device.power_down.is_none()
+            && !shared.sleeping()
+        {
+            if let Some((code, down)) = device.repeat.poll(Instant::now()) {
+                shared.push_key_transition(code, down);
+            }
         }
         for event in device.jobs.tick(mem, shared, trace) {
             self.event(event);
@@ -443,6 +636,30 @@ impl LiveSession {
             shared.set_stopping();
         };
         if shared.sleeping() {
+            // SysPowerOff can begin during this tick, after the initial save
+            // check. Let the next tick start/finish that checkpoint first.
+            if device.recovery.is_some() && device.saved_sleep != Some(shared.sleeps()) {
+                return;
+            }
+            if let Some(store) = &device.recovery {
+                if matches!(device.save_result, Some(Ok(()))) {
+                    if let Err(e) = store.clean_shutdown() {
+                        return end(&format!(
+                            "Checkpoint saved, but shutdown marker failed: {e}"
+                        ));
+                    }
+                } else {
+                    return end(&format!(
+                        "Firmware switched off, but recovery checkpoint failed; previous saved generation retained: {}",
+                        device
+                            .save_result
+                            .as_ref()
+                            .and_then(|r| r.as_ref().err())
+                            .map(String::as_str)
+                            .unwrap_or("no checkpoint result"),
+                    ));
+                }
+            }
             return end("The calculator saved its state and switched off");
         }
         if device.lifecycle == Lifecycle::Booting {
@@ -542,7 +759,43 @@ pub fn run(
     data_dir: std::path::PathBuf,
 ) -> i32 {
     let session = LiveSession::stdio();
+    // Separate helper lock also protects direct session callers. GUI's existing
+    // supervisor session.lock remains unchanged for compatibility.
+    let helper_lock = (|| -> std::io::Result<std::fs::File> {
+        std::fs::create_dir_all(&data_dir)?;
+        let lock = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(data_dir.join("helper.lock"))?;
+        fs2::FileExt::try_lock_exclusive(&lock)?;
+        Ok(lock)
+    })();
+    let _helper_lock = match helper_lock {
+        Ok(lock) => lock,
+        Err(e) => {
+            session.close(format!("Calculator profile is unavailable: {e}"));
+            return 1;
+        }
+    };
     let bootstrap = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let mut identity = std::fs::read(&firmware)?;
+        if let Some(rom) = &os_rom {
+            identity.extend(std::fs::read(rom)?);
+        }
+        let resources = data_dir.join("A/programs/misc/armfir.dat");
+        if resources.exists() {
+            identity.extend(crate::recovery::resource_hash(&resources)?.as_bytes());
+        } else {
+            identity.extend(b"no-armfir.dat");
+        }
+        let (recovery, restored) =
+            crate::recovery::Recovery::begin(&data_dir, crate::sha256::hex(&identity))?;
+        session.device.lock().unwrap().recovery = Some(Arc::new(recovery));
+        if restored {
+            session.event(Event::Status { message: "Recovered calculator data from the last intact storage checkpoint; interrupted files were archived".into() });
+        }
+
         let dir = data_dir.join("C/DATA");
         std::fs::create_dir_all(&dir)?;
         for (name, source) in [
@@ -558,7 +811,7 @@ pub fn run(
                 let v1 = crate::hpprgm::parse(&std::fs::read(&path)?)
                     .ok()
                     .and_then(|c| c.source().ok())
-                    .is_some_and(|s| s.source == job::LOADER_V1);
+                    .is_some_and(|s| s.source == job::LOADER_V1 || s.source == job::LOADER_V2);
                 if v1 {
                     let pending = path.with_extension("pending");
                     std::fs::write(&pending, crate::hpprgm::build_program(source)?.to_bytes())?;

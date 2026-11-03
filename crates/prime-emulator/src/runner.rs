@@ -29,6 +29,8 @@ pub struct RunConfig {
     pub os_rom_path: Option<PathBuf>,
     /// Host directory serving the guest drive letters.
     pub data_dir: PathBuf,
+    /// Experimental allocation budget, not total physical RAM. Mapping stays 256 MiB.
+    pub heap_budget_bytes: Option<usize>,
     /// Guest-visible path of the firmware image (drive-letter form).
     pub firmware_guest_path: String,
     /// Instructions per `emu_start` slice.
@@ -71,6 +73,7 @@ impl Default for RunConfig {
             os_rom_path: None,
             data_dir: PathBuf::from("prime_data"),
             firmware_guest_path: "A:\\programs\\misc\\armfir.elf".to_owned(),
+            heap_budget_bytes: None,
             slice_instructions: 200_000,
             max_instructions: 20_000_000,
             max_seconds: 30.0,
@@ -434,7 +437,18 @@ pub fn run_with_session(
     mem.map("null", regions::NULL_PAGE, regions::NULL_PAGE_SIZE)?;
     // Dynamic heap, pre-mapped (ref: 0x20000000, 256 MiB).
     mem.map("heap", regions::HEAP, regions::HEAP_SIZE)?;
-    mem.set_heap(regions::HEAP, regions::HEAP_SIZE);
+    let heap_budget = cfg.heap_budget_bytes.unwrap_or(regions::HEAP_SIZE);
+    if heap_budget == 0 || heap_budget > regions::HEAP_SIZE || heap_budget % 4096 != 0 {
+        return Err("heap allocation budget must be page-aligned and within 1..=256 MiB".into());
+    }
+    mem.set_heap(regions::HEAP, heap_budget);
+    trace.stage(
+        "memory-budget",
+        format!(
+            "mapped={} allocation_budget={heap_budget}; budget is not total physical G1 RAM",
+            regions::HEAP_SIZE
+        ),
+    );
     // Kernel ROM: inert data (ref maps PRIME_OS.ROM at 0x30000000 RWX and
     // never enters it).
     mem.map("os-rom", regions::OS_ROM, regions::OS_ROM_MAX)?;

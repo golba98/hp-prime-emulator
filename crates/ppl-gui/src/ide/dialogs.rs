@@ -182,9 +182,31 @@ impl DialogHost {
                     ui.separator();
                     ui.label("Local G1 firmware");
                     ui.label(egui::RichText::new("Paths apply when the firmware session next starts. Empty paths use PPL_FIRMWARE / PPL_FACTORY_A.").small().color(crate::theme::TEXT_MUTED));
-                    for (label,path) in [("Firmware ELF",&mut state.firmware.firmware),("Factory A directory",&mut state.firmware.factory_a),("Helper executable",&mut state.firmware.runner),("Calculator profile",&mut state.firmware.profile)] {
-                        ui.horizontal(|ui|{ui.label(label);ui.add(egui::TextEdit::singleline(path).desired_width(320.0));});
+                    for (label, path, directory) in [
+                        ("Firmware ELF", &mut state.firmware.firmware, false),
+                        ("Factory A directory", &mut state.firmware.factory_a, true),
+                        ("OS ROM (optional)", &mut state.firmware.os_rom, false),
+                        ("Initialized storage (optional)", &mut state.firmware.init_data, true),
+                        ("Helper executable", &mut state.firmware.runner, false),
+                        ("Calculator profile", &mut state.firmware.profile, true),
+                    ] {
+                        ui.horizontal(|ui| {
+                            ui.label(label);
+                            ui.add(egui::TextEdit::singleline(path).desired_width(300.0));
+                            if ui.button("Browse…").clicked() {
+                                let picker = rfd::FileDialog::new().set_title(label);
+                                let selected = if directory { picker.pick_folder() } else { picker.pick_file() };
+                                if let Some(selected) = selected { *path = selected.display().to_string(); }
+                            }
+                        });
                     }
+                    if ui.button("Validate firmware resources").clicked() {
+                        state.status_message = match state.firmware.asset_paths().and_then(|p| p.validate_files()) {
+                            Ok(()) => "Firmware files found and ARM ELF header valid; startup will verify helper and firmware capabilities".into(),
+                            Err(message) => message,
+                        };
+                    }
+                    ui.label(&state.status_message);
                     ui.checkbox(&mut state.smooth_display,"Smooth LCD scaling");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("OK").clicked() {

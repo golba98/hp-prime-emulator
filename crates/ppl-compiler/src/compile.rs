@@ -1426,17 +1426,24 @@ impl<'a> Compiler<'a> {
                 callee.span,
                 format!("{} is not emulated yet", spec.name),
             )
-            .hint = Some("running this call raises an \"unsupported\" error".into());
-        }
-        if spec.builtin == Builtin::Input && args.len() >= 5 {
-            self.compat_note(
-                "input-defaults-ignored",
-                args[4].span.to(args[args.len() - 1].span),
-                "the emulator's INPUT dialog does not apply reset_value / initial_value yet",
-            );
+            .hint = Some(match spec.builtin {
+                Builtin::Eval => "Use G1 Firmware mode for symbolic evaluation; Native values do not model CAS expressions",
+                Builtin::Startapp => "Use G1 Firmware mode to launch calculator applications and their views",
+                _ => "running this call raises an \"unsupported\" error",
+            }.into());
         }
         match spec.builtin {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
+            // Firmware EDITMAT writes back bare M0–M9 names, even when
+            // locally declared. Other local names are value expressions.
+            Builtin::Editmat
+                if args.first().is_some_and(|arg| {
+                    matches!(&arg.kind, ExprKind::Ident(name) if name.len() == 2
+                    && name.starts_with('M') && name.as_bytes()[1].is_ascii_digit())
+                }) =>
+            {
+                self.ref_builtin(spec.builtin, args, span);
+            }
             _ if spec.ref_args > 0 => self.ref_builtin(spec.builtin, args, span),
             _ => {
                 self.builtin(spec.builtin, args, span);
@@ -1508,6 +1515,7 @@ impl<'a> Compiler<'a> {
         // INPUT only: each field's allowed-types expression (`[2]` in
         // `{{A,[2]}}`), aligned with `targets`; `None` allows any type.
         let mut types: Vec<Option<&Expr>> = Vec::new();
+        let mut positions: Vec<Option<&Expr>> = Vec::new();
         match &first.kind {
             ExprKind::List(items) if id == Builtin::Input => {
                 for it in items {
@@ -1517,15 +1525,16 @@ impl<'a> Compiler<'a> {
                             if let Some(t) = resolve(self, &inner[0]) {
                                 targets.push(t);
                                 types.push(inner.get(1));
+                                positions.push(inner.get(2));
                             }
                             if let Some(t) = inner.get(1) {
                                 self.check_input_types(t);
                             }
-                            if inner.len() > 2 {
-                                self.compat_note(
-                                    "input-field-position-ignored",
-                                    inner[2].span.to(inner[inner.len() - 1].span),
-                                    "the emulator's INPUT dialog ignores field position and width",
+                            if inner.len() > 3 {
+                                self.error(
+                                    "input-field-arity",
+                                    inner[3].span.to(inner[inner.len() - 1].span),
+                                    "INPUT fields accept a variable, type specification and optional position",
                                 );
                             }
                         }
@@ -1533,6 +1542,7 @@ impl<'a> Compiler<'a> {
                             if let Some(t) = resolve(self, it) {
                                 targets.push(t);
                                 types.push(None);
+                                positions.push(None);
                             }
                         }
                     }
@@ -1542,6 +1552,7 @@ impl<'a> Compiler<'a> {
                 if let Some(t) = resolve(self, first) {
                     targets.push(t);
                     types.push(None);
+                    positions.push(None);
                 }
             }
         }
@@ -1562,10 +1573,40 @@ impl<'a> Compiler<'a> {
                 }
             }
             self.cur.emit(Op::MakeList(types.len() as u32), first.span);
-            argc += 1;
+            // Preserve scalar versus list syntax: a list-valued scalar initial
+            // value must not be confused with a list of field defaults.
+            self.constant(
+                Const::Real(if matches!(first.kind, ExprKind::List(_)) {
+                    Real::ZERO
+                } else {
+                    Real::ONE
+                }),
+                first.span,
+            );
+            // Preserve position expressions rather than silently discarding them.
+            for position in &positions {
+                match position {
+                    Some(e) => {
+                        self.expr(e);
+                        self.cur.emit(Op::MakeList(1), e.span);
+                    }
+                    None => {
+                        self.cur.emit(Op::MakeList(0), first.span);
+                    }
+                }
+            }
+            self.cur
+                .emit(Op::MakeList(positions.len() as u32), first.span);
+            argc += 3;
         }
         for a in &args[1..] {
             self.expr(a);
+        }
+        if id == Builtin::Editmat && args.len() == 1 {
+            if let ExprKind::Ident(name) = &first.kind {
+                self.constant(Const::Str(name.clone()), first.span);
+                argc += 1;
+            }
         }
         let refs = targets.len().min(255) as u8;
         self.cur.emit(

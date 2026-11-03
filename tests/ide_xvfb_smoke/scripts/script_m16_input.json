@@ -1,0 +1,118 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/m12/m16_input/dump.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 60000
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "abcdefghij"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_input/home_before_hold.png"
+    },
+    {
+      "step": "calc_key_hold",
+      "code": 19,
+      "ms": 2000
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_input/home_after_hold.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4,
+        10
+      ],
+      "gap_ms": 300
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_input/cas_case.png"
+    },
+    {
+      "step": "type",
+      "text": "="
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_input/cas_equals.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4
+      ],
+      "gap_ms": 200
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        48
+      ],
+      "gap_ms": 200
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_input/equality_control.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

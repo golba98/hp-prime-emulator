@@ -288,6 +288,9 @@ enum UiTimers {
 
 #[derive(Debug, clap::Args)]
 struct RunArgs {
+    /// Experimental heap budget (MiB), not total G1 RAM; defaults to extended 256 MiB.
+    #[arg(long, value_parser = clap::value_parser!(u16).range(1..=256))]
+    heap_budget_mib: Option<u16>,
     /// Path to armfir.elf (user-supplied; never bundled).
     #[arg(long)]
     firmware: std::path::PathBuf,
@@ -845,6 +848,7 @@ fn run(a: RunArgs) -> i32 {
         let _ = std::fs::create_dir_all(fw);
     }
     let cfg = RunConfig {
+        heap_budget_bytes: a.heap_budget_mib.map(|n| usize::from(n) * 1024 * 1024),
         firmware_path: a.firmware,
         os_rom_path: a.os_rom,
         data_dir: a.data_dir,

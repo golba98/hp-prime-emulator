@@ -27,6 +27,7 @@ pub mod import;
 pub mod keys;
 pub mod memory;
 pub mod progverify;
+pub mod recovery;
 pub mod runner;
 pub mod runprog;
 pub mod runtime;

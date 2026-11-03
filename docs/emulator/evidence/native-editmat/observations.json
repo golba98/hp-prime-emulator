@@ -1,0 +1,57 @@
+{
+  "classification": "firmware-only-observed",
+  "physical_device_used": false,
+  "date": "2026-11-02",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "method": "Fresh copied initial-data per firmware session; Run source then scripted device keys/touch; returned MSGBOX text visually transcribed. No physical calculator access.",
+  "cases": [
+    {
+      "name": "cancel",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN M1:=[[1,2],[3,4]]; LOCAL a:=EDITMAT(M1); MSGBOX(STRING({M1,a})); END;",
+      "keys": "9,ENTER,ESC",
+      "observed_result": "{[[1,2],[3,4]],[[1,2],[3,4]]}",
+      "screenshot": "cancel.png",
+      "screenshot_sha256": "d28255a0d7d8ae9f926fb86f60d5a99c934d5dea9a7659c0215ecbb9066ea1c3"
+    },
+    {
+      "name": "global-ok",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN M1:=[[1,2],[3,4]]; LOCAL a:=EDITMAT(M1); MSGBOX(STRING({M1,a})); END;",
+      "keys": "9,ENTER,TAP:290:230",
+      "observed_result": "{[[9,2],[3,4]],[[9,2],[3,4]]}",
+      "screenshot": "global-ok.png",
+      "screenshot_sha256": "afe5de063be31af803cbaa91b84532b025e2cde90d55bf402ae6525174ee8665"
+    },
+    {
+      "name": "local-ok",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN LOCAL a:=[[1,2],[3,4]]; LOCAL b:=EDITMAT(a); MSGBOX(STRING({a,b})); END;",
+      "keys": "9,ENTER,TAP:290:230",
+      "observed_result": "{[[1,2],[3,4]],[[9,2],[3,4]]}",
+      "screenshot": "local-ok.png",
+      "screenshot_sha256": "59a33ada47e0d55ec68d84ff76b3c9e58d46bd4d71cedb4ca9f9d8c844839bfa"
+    },
+    {
+      "name": "expression-ok",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN LOCAL b:=EDITMAT([[1,2],[3,4]]); MSGBOX(STRING(b)); END;",
+      "keys": "9,ENTER,TAP:290:230",
+      "observed_result": "[[9,2],[3,4]]",
+      "screenshot": "expression-ok.png",
+      "screenshot_sha256": "44fe0a6deddccf030a6c6470ae1359259dbc79d6f2da18e49e1d12c88b47b1f2"
+    },
+    {
+      "name": "readonly",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN M1:=[[1,2],[3,4]]; LOCAL a:=EDITMAT(M1,{\"View\",{\"Row A\",\"Row B\"},{\"X\",\"Y\"}},1); MSGBOX(STRING({M1,a})); END;",
+      "keys": "9,ENTER",
+      "observed_result": "{[[1,2],[3,4]],[[1,2],[3,4]]}",
+      "screenshot": "readonly.png",
+      "screenshot_sha256": "aaf0259a7a787c667df33f081f54266d14fbdcbb6b926670fc39677614ff6f6b"
+    },
+    {
+      "name": "local-m1-ok",
+      "source": "EXPORT ZZT_NATIVE_EDITMAT() BEGIN LOCAL M1:=[[1,2],[3,4]]; LOCAL b:=EDITMAT(M1); MSGBOX(STRING({M1,b})); END;",
+      "keys": "9,ENTER,TAP:290:230",
+      "observed_result": "{[[9,2],[3,4]],[[9,2],[3,4]]}",
+      "screenshot": "local-m1-ok.png",
+      "screenshot_sha256": "ee079fef9aba6994bf87bd00c2fb0bf9921117ca07e0527425a71e9b153e62d8"
+    }
+  ]
+}

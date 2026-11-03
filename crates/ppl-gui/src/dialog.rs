@@ -14,14 +14,16 @@
 //! | CHOOSE | Enter (30), digit 1–9 within range | Esc, On | Up (2) / Down (12) move the selection |
 //! | INPUT  | Enter (30) | Esc, On | typed characters append, Del/Backspace (19) deletes, Up/Down switch field |
 
+mod matrix;
+
 use ppl_graphics::Grob;
 use ppl_graphics::text::{draw_text, measure};
-use ppl_vm::host::{Dialog, DialogResult};
+use ppl_vm::host::{Dialog, DialogResult, INPUT_LINES_PER_PAGE, InputPosition};
 
 use crate::keymap::{
     KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_ANS, KEY_COMMA,
-    KEY_DEL, KEY_DIV, KEY_DOT, KEY_DOWN, KEY_EEX, KEY_ENTER, KEY_ESC, KEY_MINUS, KEY_NEG, KEY_ON,
-    KEY_PAREN, KEY_PLUS, KEY_POW, KEY_TIMES, KEY_UP,
+    KEY_DEL, KEY_DIV, KEY_DOT, KEY_DOWN, KEY_EEX, KEY_ENTER, KEY_ESC, KEY_MENU, KEY_MINUS, KEY_NEG,
+    KEY_ON, KEY_PAREN, KEY_PLUS, KEY_POW, KEY_TIMES, KEY_UP,
 };
 
 /// One key event delivered to the VM worker: the HP key code (if the PC key
@@ -58,6 +60,7 @@ pub trait ModalDialog: Send {
 /// Builds the state machine for a VM dialog request.
 pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
     match dialog {
+        Dialog::Matrix(matrix) => Box::new(matrix::MatrixBox::new(matrix.clone())),
         Dialog::Message { text } => Box::new(MessageBox::new(text)),
         Dialog::Choose {
             title,
@@ -75,6 +78,13 @@ pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
                 fields
                     .iter()
                     .map(|f| (f.label.clone(), f.help.clone(), f.current.clone()))
+                    .collect(),
+            )
+            .with_resets(fields.iter().map(|f| f.reset_text.clone()).collect())
+            .with_layout(
+                fields
+                    .iter()
+                    .map(|f| (f.position, f.page_title.clone()))
                     .collect(),
             )
             .with_error(*focus, error.clone()),
@@ -366,10 +376,13 @@ pub struct EditField {
     /// The field still shows its initial value: the first typed character
     /// replaces it (like the calculator's edit line).
     pub fresh: bool,
+    pub reset: Option<String>,
+    pub position: Option<InputPosition>,
+    pub page_title: Option<String>,
 }
 
 /// Number of INPUT fields visible at once.
-pub const INPUT_ROWS: usize = 6;
+pub const INPUT_ROWS: usize = INPUT_LINES_PER_PAGE;
 const INPUT_ROW_H: i64 = 22;
 
 /// `INPUT(...)`: printable characters append to the focused field, Del /
@@ -396,12 +409,55 @@ impl InputBox {
                     help,
                     text,
                     fresh: true,
+                    reset: None,
+                    position: None,
+                    page_title: None,
                 })
                 .collect(),
             focus: 0,
             scroll: 0,
             error: None,
         }
+    }
+
+    pub fn with_resets(mut self, resets: Vec<Option<String>>) -> Self {
+        for (field, reset) in self.fields.iter_mut().zip(resets) {
+            field.reset = reset;
+        }
+        self
+    }
+
+    pub fn with_layout(mut self, layout: Vec<(Option<InputPosition>, Option<String>)>) -> Self {
+        for (field, (position, title)) in self.fields.iter_mut().zip(layout) {
+            field.position = position;
+            field.page_title = title;
+        }
+        self.fix_scroll();
+        self
+    }
+
+    fn page_title(&self) -> &str {
+        self.fields
+            .get(self.focus)
+            .and_then(|f| f.page_title.as_deref())
+            .unwrap_or(&self.title)
+    }
+
+    /// Visible edit rectangle. Percentages are relative to the full 320px
+    /// display, and line numbers select fixed pages of seven rows.
+    fn field_rect(&self, index: usize) -> Option<(i64, i64, i64, i64)> {
+        let position = self.fields[index].position;
+        let line = position.map_or(index, |p| p.line);
+        if line / INPUT_ROWS != self.scroll / INPUT_ROWS {
+            return None;
+        }
+        let y = 42 + (line % INPUT_ROWS) as i64 * INPUT_ROW_H;
+        let (left, right) = position.map_or((110, 300), |p| {
+            let left = (p.start_percent * 3.2).round() as i64;
+            let right = ((p.start_percent + p.width_percent) * 3.2).round() as i64;
+            (left.clamp(0, 319), right.clamp(0, 319))
+        });
+        Some((left, y - 2, right, y + 16))
     }
 
     /// Reopens the form after a rejected entry: focus on the offending
@@ -418,11 +474,12 @@ impl InputBox {
     }
 
     fn fix_scroll(&mut self) {
-        if self.focus < self.scroll {
-            self.scroll = self.focus;
-        } else if self.focus >= self.scroll + INPUT_ROWS {
-            self.scroll = self.focus + 1 - INPUT_ROWS;
-        }
+        let line = self
+            .fields
+            .get(self.focus)
+            .and_then(|f| f.position)
+            .map_or(self.focus, |p| p.line);
+        self.scroll = line / INPUT_ROWS * INPUT_ROWS;
     }
 }
 
@@ -432,6 +489,16 @@ impl ModalDialog for InputBox {
             Some(KEY_ENTER) => return Some(DialogResult::Entered(self.values())),
             c if is_cancel(c) => return Some(DialogResult::Cancelled),
             _ => {}
+        }
+        if key.code == Some(KEY_MENU) {
+            for field in &mut self.fields {
+                if let Some(reset) = &field.reset {
+                    field.text = reset.clone();
+                    field.fresh = true;
+                }
+            }
+            self.error = None;
+            return None;
         }
         let field = self.fields.get_mut(self.focus)?;
         match key.code {
@@ -470,37 +537,69 @@ impl ModalDialog for InputBox {
 
     fn render(&self, base: &Grob) -> Grob {
         let mut g = base.clone();
-        let title = if self.title.is_empty() {
+        let title = if self.page_title().is_empty() {
             "Input"
         } else {
-            &self.title
+            self.page_title()
         };
-        draw_frame(&mut g, 10, 30, 309, 209, title);
-        let top = 56;
-        for (row, idx) in (self.scroll..self.fields.len())
-            .take(INPUT_ROWS)
-            .enumerate()
-        {
-            let f = &self.fields[idx];
-            let y = top + row as i64 * INPUT_ROW_H;
+        draw_frame(&mut g, 0, 12, 319, 236, title);
+        for (idx, f) in self.fields.iter().enumerate() {
+            let Some((left, top, right, bottom)) = self.field_rect(idx) else {
+                continue;
+            };
             let label = if f.label.is_empty() {
                 format!("{}:", idx + 1)
             } else {
                 format!("{}:", f.label)
             };
-            draw_text(&mut g, &label, 16, y + 2, PX, C_BLACK, Some(90), None);
+            let label_left = if f.position.is_some() {
+                let previous_edge = (0..self.fields.len())
+                    .filter(|&other| other != idx)
+                    .filter_map(|other| self.field_rect(other))
+                    .filter(|&(x, y, right, _)| y == top && x < left && right <= left)
+                    .map(|(_, _, right, _)| right + 4)
+                    .max()
+                    .unwrap_or(4);
+                (left - measure(&label, PX) - 4).max(previous_edge)
+            } else {
+                16
+            };
+            if left - label_left > 4 {
+                draw_text(
+                    &mut g,
+                    &label,
+                    label_left,
+                    top + 4,
+                    PX,
+                    C_BLACK,
+                    Some(left - label_left - 4),
+                    None,
+                );
+            }
             let focused = idx == self.focus;
             let edge = if focused { C_SELECT } else { 0x0080_8080 };
-            g.rect(110, y - 2, 300, y + 16, edge, C_WHITE);
+            g.rect(left, top, right, bottom, edge, C_WHITE);
             let mut shown = f.text.clone();
             if focused {
                 shown.push('_');
             }
+            let text_width = right - left - 8;
             // Keep the end of long values (where the cursor is) visible.
-            while measure(&shown, PX) > 184 && !shown.is_empty() {
+            while measure(&shown, PX) > text_width && !shown.is_empty() {
                 shown.remove(0);
             }
-            draw_text(&mut g, &shown, 114, y + 1, PX, C_BLACK, Some(184), None);
+            if text_width > 0 {
+                draw_text(
+                    &mut g,
+                    &shown,
+                    left + 4,
+                    top + 3,
+                    PX,
+                    C_BLACK,
+                    Some(text_width),
+                    None,
+                );
+            }
         }
         let help = self
             .fields
@@ -508,15 +607,19 @@ impl ModalDialog for InputBox {
             .map(|f| f.help.as_str())
             .unwrap_or("");
         if let Some(err) = &self.error {
-            draw_text(&mut g, err, 16, 180, PX_HINT, C_ERROR, Some(288), None);
+            draw_text(&mut g, err, 16, 204, PX_HINT, C_ERROR, Some(288), None);
         } else if !help.is_empty() {
-            draw_text(&mut g, help, 16, 180, PX_HINT, C_HINT, Some(288), None);
+            draw_text(&mut g, help, 16, 204, PX_HINT, C_HINT, Some(288), None);
         }
         draw_text(
             &mut g,
-            "[Enter] OK  [Esc] Cancel  [Del] Erase",
+            if self.fields.iter().any(|f| f.reset.is_some()) {
+                "[Enter] OK  [Esc] Cancel  [Menu] Reset"
+            } else {
+                "[Enter] OK  [Esc] Cancel  [Del] Erase"
+            },
             16,
-            193,
+            220,
             PX_HINT,
             C_HINT,
             Some(288),
@@ -541,6 +644,23 @@ mod tests {
 
     fn typed(s: &str) -> Vec<KeyPress> {
         s.chars().map(|c| KeyPress::with_char(None, c)).collect()
+    }
+
+    #[test]
+    fn input_reset_changes_editor_values_and_cancel_still_cancels() {
+        let mut form = InputBox::new("T", vec![("A".into(), "".into(), "5".into())])
+            .with_resets(vec![Some("2".into())]);
+        form.handle(KeyPress::with_char(None, '8'));
+        form.handle(KeyPress::code(KEY_MENU));
+        assert_eq!(form.values(), vec!["2"]);
+        assert_eq!(
+            form.handle(KeyPress::code(KEY_ENTER)),
+            Some(DialogResult::Entered(vec!["2".into()]))
+        );
+        assert_eq!(
+            form.handle(KeyPress::code(KEY_ESC)),
+            Some(DialogResult::Cancelled)
+        );
     }
 
     #[test]
@@ -623,6 +743,96 @@ mod tests {
             c.handle(KeyPress::code(KEY_DOWN)),
             Some(DialogResult::Cancelled)
         );
+    }
+
+    #[test]
+    fn input_seven_line_pages_preserve_edits_and_title() {
+        let mut form = InputBox::new(
+            "One",
+            (0..8)
+                .map(|i| (format!("Field {i}"), "Page help".into(), i.to_string()))
+                .collect(),
+        )
+        .with_layout(
+            (0..8)
+                .map(|i| (None, Some(if i < 7 { "One" } else { "Two" }.into())))
+                .collect(),
+        );
+        assert_eq!(form.field_rect(6), Some((110, 172, 300, 190)));
+        assert_eq!(form.field_rect(7), None);
+        if let Ok(path) = std::env::var("PRIME_INPUT_LAYOUT_CAPTURE") {
+            form.render(&Grob::screen())
+                .save_png(std::path::Path::new(&format!("{path}.seven.png")))
+                .unwrap();
+        }
+        for _ in 0..7 {
+            form.handle(KeyPress::code(KEY_DOWN));
+        }
+        assert_eq!(form.scroll, 7);
+        assert_eq!(form.page_title(), "Two");
+        assert_eq!(form.field_rect(0), None);
+        assert_eq!(form.field_rect(7), Some((110, 40, 300, 58)));
+        form.handle(KeyPress::with_char(None, '9'));
+        form.handle(KeyPress::code(KEY_UP));
+        assert_eq!(form.page_title(), "One");
+        assert_eq!(form.values()[7], "9");
+        assert_eq!(form.focus, 6);
+    }
+
+    #[test]
+    fn input_positions_render_same_line_fields_and_sparse_pages() {
+        let mut form = InputBox::new(
+            "Layout",
+            vec![
+                ("A".into(), "Two fields share line zero".into(), "12".into()),
+                ("B".into(), "".into(), "34".into()),
+                ("C".into(), "".into(), "56".into()),
+            ],
+        )
+        .with_layout(vec![
+            (
+                Some(InputPosition {
+                    start_percent: 15.0,
+                    width_percent: 25.0,
+                    line: 0,
+                }),
+                Some("Layout".into()),
+            ),
+            (
+                Some(InputPosition {
+                    start_percent: 65.0,
+                    width_percent: 30.0,
+                    line: 0,
+                }),
+                Some("Layout".into()),
+            ),
+            (
+                Some(InputPosition {
+                    start_percent: 25.0,
+                    width_percent: 50.0,
+                    line: 14,
+                }),
+                Some("Third page".into()),
+            ),
+        ]);
+        assert_eq!(form.field_rect(0), Some((48, 40, 128, 58)));
+        assert_eq!(form.field_rect(1), Some((208, 40, 304, 58)));
+        assert_eq!(form.field_rect(2), None);
+        let frame = form.render(&Grob::screen());
+        assert_eq!(frame.pixels()[40 * 320 + 48], C_SELECT);
+        assert_eq!(frame.pixels()[40 * 320 + 208], 0x0080_8080);
+        if let Ok(path) = std::env::var("PRIME_INPUT_LAYOUT_CAPTURE") {
+            frame.save_png(std::path::Path::new(&path)).unwrap();
+        }
+        form.handle(KeyPress::code(KEY_DOWN));
+        assert_eq!(form.scroll, 0);
+        form.handle(KeyPress::code(KEY_DOWN));
+        assert_eq!(form.scroll, 14);
+        assert_eq!(form.page_title(), "Third page");
+        assert_eq!(form.field_rect(2), Some((80, 40, 240, 58)));
+        assert_eq!(form.field_rect(1), None);
+        // Error focus must select the same positioned page on a re-prompt.
+        assert_eq!(form.with_error(0, Some("Invalid input".into())).scroll, 0);
     }
 
     #[test]

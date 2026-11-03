@@ -205,19 +205,21 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
             ErrorKind::InvalidInput,
             format!("{name} needs a variable argument"),
         )),
-        B::Exact
-        | B::Editmat
-        | B::Editlist
-        | B::Eval
-        | B::Startapp
-        | B::Startview
-        | B::Recall
-        | B::Afiles
-        | B::Hvars
-        | B::CasCall => Err(RuntimeError::new(
+        B::Eval => Err(RuntimeError::new(
             ErrorKind::Unsupported,
-            format!("{name} is not implemented by this emulator"),
+            "EVAL requires symbolic evaluation unavailable in Native mode; run this program in G1 Firmware mode",
         )),
+        B::Startapp => Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "STARTAPP requires calculator application state and views; run this program in G1 Firmware mode",
+        )),
+        B::Editmat => io::editmat(m, &args),
+        B::Exact | B::Editlist | B::Startview | B::Recall | B::Afiles | B::Hvars | B::CasCall => {
+            Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                format!("{name} is not implemented by this emulator"),
+            ))
+        }
     }
 }
 
@@ -227,6 +229,13 @@ pub fn call_ref(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<(Valu
     match b {
         Builtin::Input => io::input(m, &args),
         Builtin::Choose => io::choose(m, &args),
+        Builtin::Editmat => {
+            let values = args[0].expect_list("EDITMAT")?;
+            let mut direct = vec![values[0].clone()];
+            direct.extend_from_slice(&args[1..]);
+            let result = io::editmat(m, &direct)?;
+            Ok((result.clone(), vec![result]))
+        }
         other => Err(RuntimeError::new(
             ErrorKind::InvalidInput,
             format!("{} does not take variable arguments", spec(other).name),

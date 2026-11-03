@@ -127,3 +127,30 @@ fn page_round_helper() {
         2 * PAGE_SIZE as usize
     );
 }
+
+#[test]
+fn exhaustion_and_overflow_preserve_existing_allocations() {
+    let m = mem_with_heap();
+    let original = m.heap_alloc(32).unwrap();
+    m.write_u32(original, 123).unwrap();
+    for size in [usize::MAX, usize::MAX - 8, 0x40_001] {
+        assert_eq!(m.try_heap_alloc(size), None);
+        assert!(m.heap_alloc_aligned(size, 65536).is_err());
+        assert_eq!(m.read_u32(original).unwrap(), 123);
+        assert_eq!(m.heap_size_of(original), Some(32));
+    }
+    assert!(m.heap_free(original));
+    assert!(m.try_heap_alloc(0x40_000).is_some());
+}
+
+#[test]
+fn allocation_budget_keeps_mapping_but_limits_guest_allocations() {
+    let mut m = mem_with_heap();
+    m.set_heap(0x2000_0000, 0x8000);
+    assert_eq!(m.heap_free_bytes(), 0x8000);
+    assert!(m.try_heap_alloc(0x8000).is_some());
+    assert_eq!(m.heap_free_bytes(), 0);
+    assert_eq!(m.try_heap_alloc(16), None);
+    // The address map stays compatible; this is explicitly an allocator budget.
+    assert!(m.write_u32(0x2003_0000, 7).is_ok());
+}

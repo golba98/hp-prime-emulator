@@ -1,0 +1,318 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/m12/m16_typing/dump.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 60000
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/home_typed.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        36,
+        41,
+        14,
+        36,
+        14
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/home_control.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4,
+        10
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/cas_typed.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        36,
+        14,
+        36,
+        41,
+        14
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/cas_control.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "paste",
+      "text": "(2+3)*4"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/paste_expression.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4,
+        28,
+        43,
+        50,
+        44,
+        8,
+        40,
+        37
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/expression_control.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        30
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/paste_result.png"
+    },
+    {
+      "step": "paste",
+      "text": "bad\n"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/rejected_multiline.png"
+    },
+    {
+      "step": "paste",
+      "text": "2^3+4"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/rejected_power.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        5,
+        41,
+        42,
+        30
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/editor_typed.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        19,
+        19
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        36,
+        41,
+        14,
+        36,
+        14
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/editor_control.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        19,
+        19,
+        36,
+        36
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "type",
+      "text": "aA"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/editor_alpha_lock.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        19,
+        19
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "paste",
+      "text": "[1,2]"
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/editor_brackets.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        19,
+        19,
+        19,
+        19,
+        19,
+        41,
+        38,
+        42,
+        29,
+        43,
+        8
+      ],
+      "gap_ms": 120
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 800,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/m12/m16_typing/brackets_control.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

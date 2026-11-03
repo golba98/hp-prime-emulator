@@ -75,6 +75,8 @@ pub enum AutoStep {
     /// Type text into the focused widget as real keyboard input: `\n`
     /// becomes Enter and `\t` becomes Tab.
     Type(String),
+    /// Deliver a real desktop clipboard paste event without rewriting newlines.
+    Paste(String),
     /// Press one key with modifiers (`key` uses egui key names, e.g. "Tab").
     Key {
         key: egui::Key,
@@ -247,6 +249,7 @@ impl Automation {
                     "native_catalog" => AutoStep::NativeCatalog,
                     "ide_settings" => AutoStep::IdeSettings,
                     "type" => AutoStep::Type(get_str("text")),
+                    "paste" => AutoStep::Paste(get_str("text")),
                     "key" => match egui::Key::from_name(&get_str("key")) {
                         Some(key) => AutoStep::Key {
                             key,
@@ -719,6 +722,7 @@ impl Automation {
             AutoStep::NativeHome => app.handle_action(IdeAction::NativeHome, ctx),
             AutoStep::NativeCatalog => app.handle_action(IdeAction::NativeCatalog, ctx),
             AutoStep::IdeSettings => app.handle_action(IdeAction::ShowSettingsDialog, ctx),
+            AutoStep::Paste(text) => self.pending_events.push(egui::Event::Paste(text)),
             AutoStep::Type(text) => {
                 for ch in text.chars() {
                     self.pending_events.push(match ch {

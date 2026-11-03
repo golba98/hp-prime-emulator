@@ -73,8 +73,19 @@ The program still runs on every other path (see
 | `symbolic-unsupported` | Warning | `'quoted'` symbolic expressions |
 | `unsupported-value` | Warning | `∞` |
 | `lowercase-command` | Note, unverified | `append(...)`: on the calculator a lower-case name calls the CAS command; the emulator runs the Home command (`APPEND`) |
-| `input-defaults-ignored` | Note | `INPUT` with `reset_value` / `initial_value`: accepted, but the emulator's dialog does not apply them yet |
-| `input-field-position-ignored` | Note | `INPUT({{var,[types],{x,width,line}}})`: the field position is accepted but the emulator lays fields out in order |
+| INPUT defaults | Supported subset | Scalar form and one reset/initial value per field are applied. Other default-list cardinalities raise a precise runtime Unsupported error. Native dialog Menu restores explicit reset values; Cancel retains original variables. |
+| INPUT field positions and page titles | Supported subset | `INPUT({{var,[types],{x,width,line}}})` preserves position expressions. Native edit fields use screen percentages, zero-based lines, seven lines per page and optional title lists. All fields must specify positions or none may. Off-screen widths and fractional/negative lines require Firmware mode; exact firmware clipping and rounding are unverified. Extra field metadata is rejected instead of discarded. |
+
+Native INPUT layout follows the HP Prime User Guide (2018-01-12), printed
+pp. 652–653. Regression tests cover position-expression transfer, seven-line
+paging, per-page titles, cancellation and same-line controls; native dialog
+renders were visually inspected. This is guide-based implementation, not a
+new physical-G1 parity result. Up/Down retains declaration-order navigation;
+missing page titles reuse the first title. Pixel rounding, overlapping
+controls, checkbox/radio/choose controls and firmware spatial navigation
+still need separate comparison. EDITMAT now has a native fixed-size matrix
+editor; [its supported contracts and firmware evidence](../emulator/NATIVE_EDITMAT_REPORT.md)
+are recorded separately. EVAL and STARTAPP still require Firmware mode.
 
 ### Runtime (VM)
 
@@ -85,7 +96,7 @@ Runtime problems are cleared when the next run starts.
 
 | Reported diagnostic | Finding | Evidence | Resolution |
 |---|---|---|---|
-| `INPUT expects 1–5 argument(s), got 6` | **Wrong rule.** | `INPUT(var,["title"],["label"],["help"],[reset_value],[initial_value])`, and the list form with six list arguments: User Guide 3rd ed., p.652. The legacy Python spec also allowed 6. | Arity is 1–6. Arguments 5–6 add a Compatibility note. |
+| `INPUT expects 1–5 argument(s), got 6` | **Wrong rule.** | `INPUT(var,["title"],["label"],["help"],[reset_value],[initial_value])`, and the list form with six list arguments: User Guide 3rd ed., p.652. The legacy Python spec also allowed 6. | Arity is 1–6. Explicit scalar defaults and complete per-field lists are applied; omitted defaults preserve current values. |
 | `append resolves to APPEND` | Valid PPL. On the calculator `append` is the documented CAS command (p.461). | Behavior difference not hardware-verified. | Compatibility **note**, marked unverified. |
 | `SOLVE is a CAS/app function and is not emulated` | Valid PPL. `SOLVE(En,var,guess)` is the Solve app function (p.428); `solve` is CAS (p.404). Bare `SOLVE`/`solve` used to be *unknown-function errors* that blocked compilation. | — | Compatibility **warning**; compiles; runtime "unsupported" only when executed. |
 | `EVAL is not emulated yet` | Valid PPL (catalog, p.469). | — | Compatibility **warning**. |
@@ -103,7 +114,7 @@ These documented forms were rejected as `wrong-arg-count` before:
 | `LINE_P` / `LINE` | 4–6 | 2–6 | 3D list form raises "unsupported" |
 | `TRIANGLE_P` | 6–12 | 0–15 | Only the 7-argument coordinate form is drawn; other forms raise "unsupported" |
 | `STRING` | 1–3 | 1–5 | Separator and size-limit arguments raise "unsupported" |
-| `EDITMAT` | 1–2 | 1–3 | Unsupported command |
+| `EDITMAT` | 1–2 | 1–3 | Native fixed-size editor with headers/read-only mode; structural editing requires Firmware mode |
 
 ## Firmware-backed rulings
 

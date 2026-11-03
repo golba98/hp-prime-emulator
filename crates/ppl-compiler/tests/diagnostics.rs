@@ -67,10 +67,7 @@ fn input_with_six_arguments_is_valid() {
     );
     c.assert_valid_with_compat_only();
     assert!(c.diags.iter().all(|d| d.code != "wrong-arg-count"));
-    // The emulator's dialog ignores the two defaults; say so as a note.
-    let note = c.find("input-defaults-ignored");
-    assert_eq!(note.severity, Severity::Note);
-    assert_eq!(c.line_col(note), (4, 41));
+    assert!(c.diags.iter().all(|d| d.code != "input-defaults-ignored"));
 }
 
 #[test]
@@ -288,7 +285,7 @@ fn typed_input_errors_point_at_the_field() {
 }
 
 #[test]
-fn unknown_input_type_code_warns_and_position_is_noted() {
+fn unknown_input_type_code_warns_and_position_is_supported() {
     let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[7]}});\nEND;\n");
     assert!(c.compiled);
     let d = c.find("input-unknown-type");
@@ -297,7 +294,11 @@ fn unknown_input_type_code_warns_and_position_is_noted() {
     assert_eq!(c.line_col(d), (4, 14));
     let c = check("EXPORT PROG()\nBEGIN\n  LOCAL s;\n  INPUT({{s,[2],{20,50,1}}});\nEND;\n");
     c.assert_valid_with_compat_only();
-    c.find("input-field-position-ignored");
+    assert!(
+        !c.diags
+            .iter()
+            .any(|d| d.code == "input-field-position-ignored")
+    );
 }
 
 #[test]
@@ -440,4 +441,37 @@ fn operator_keywords_follow_the_firmware_letter_case_rules() {
     // `;` still closes the block (k35).
     assert!(!check(&body(" LOCAL MOD:=3;\n RETURN MOD+1;")).compiled);
     assert!(!check(&body(" LOCAL end:=4;\n RETURN end;")).compiled);
+}
+
+#[test]
+fn firmware_only_command_hints_are_actionable() {
+    for call in ["EVAL(2+3)", "STARTAPP(\"Function\")"] {
+        let c = check(&format!("EXPORT TEST_FEATURE() BEGIN RETURN {call}; END;"));
+        assert!(c.compiled);
+        assert!(
+            c.find("unsupported-command")
+                .hint
+                .as_deref()
+                .unwrap()
+                .contains("G1 Firmware mode")
+        );
+    }
+}
+
+#[test]
+fn input_field_extra_metadata_is_not_silently_discarded() {
+    let c = check("EXPORT PROG() BEGIN LOCAL a; INPUT({{a,[0],{25,50,0},99}}); END;");
+    assert!(!c.compiled);
+    c.find("input-field-arity");
+}
+
+#[test]
+fn editmat_accepts_matrix_expressions_and_reports_native_support() {
+    for expression in ["M1", "a", "[[1,2],[3,4]]"] {
+        let c = check(&format!(
+            "EXPORT MATRIX_TEST() BEGIN LOCAL a:=[[1]]; RETURN EDITMAT({expression}); END;"
+        ));
+        assert!(c.compiled, "{:?}", c.diags);
+        assert!(!c.diags.iter().any(|d| d.code == "unsupported-command"));
+    }
 }

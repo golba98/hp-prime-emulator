@@ -99,3 +99,6 @@ out.png
 !docs/device/PROGRAM_TRANSFER_AND_LIMITS.md
 !docs/device/DELETE_TRANSACTION_RECOVERY.md
 !docs/device/PROGRAM_CHECK_AND_DIAGNOSTICS.md
+
+# Living emulator overhaul implementation report.
+!docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md

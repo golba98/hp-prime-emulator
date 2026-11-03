@@ -1,0 +1,14 @@
+{
+  "helper": "/tmp/prime-overhaul-baseline-helper",
+  "sha256": "8f10e04868789e33ef361901a7984d5a25d95c4537d73804f3fae120fd09f9cf",
+  "source_revision": "3399675696c00a57c21677736f061acd69522dec",
+  "source_patch": "none; pristine committed checkout",
+  "checkout": "/tmp/prime-overhaul-baseline",
+  "branch": "feat/overhaul-baseline",
+  "working_tree_clean": true,
+  "build_command": "TMPDIR=/home/k9-vortex/Development/4-Rust/.cache/prime-baseline-temp CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 CARGO_TARGET_DIR=/tmp/prime-baseline-target cargo build --release -p prime-emulator",
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+  "platform": "Linux-7.2.13-200.fc44.x86_64-x86_64-with-glibc2.43",
+  "build_log": "/tmp/prime-baseline-build-retry.log"
+}

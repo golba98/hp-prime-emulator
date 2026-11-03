@@ -2772,6 +2772,7 @@ version = "0.2.0"
 dependencies = [
  "clap",
  "ctrlc",
+ "fs2",
  "goblin",
  "memmap2",
  "png",

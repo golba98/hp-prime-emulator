@@ -12,6 +12,7 @@ use crate::error::{ErrorKind, RuntimeError};
 /// Modal interactions drawn by the calculator.
 #[derive(Clone, Debug)]
 pub enum Dialog {
+    Matrix(MatrixDialog),
     Message {
         text: String,
     },
@@ -31,6 +32,20 @@ pub enum Dialog {
     },
 }
 
+/// A fixed-size matrix editor request. Cells are in row-major order.
+#[derive(Clone, Debug)]
+pub struct MatrixDialog {
+    pub title: String,
+    pub row_headers: Vec<String>,
+    pub column_headers: Vec<String>,
+    pub rows: usize,
+    pub cols: usize,
+    pub cells: Vec<String>,
+    pub read_only: bool,
+    pub error: Option<String>,
+    pub focus: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct InputField {
     pub label: String,
@@ -41,6 +56,23 @@ pub struct InputField {
     /// Allowed types are exactly `[2]`: the entry is stored as a string
     /// verbatim instead of being evaluated (no quotes needed).
     pub string_only: bool,
+    /// Explicit reset value, formatted for this field.
+    pub reset_text: Option<String>,
+    /// Horizontal percentages of the 320-pixel screen and a zero-based line.
+    pub position: Option<InputPosition>,
+    /// Page title selected by the VM from INPUT's optional title list.
+    pub page_title: Option<String>,
+}
+
+/// Maximum documented INPUT control lines per page.
+pub const INPUT_LINES_PER_PAGE: usize = 7;
+
+/// Documented INPUT edit-field layout (seven lines per page).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InputPosition {
+    pub start_percent: f64,
+    pub width_percent: f64,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -234,6 +266,27 @@ impl Host for HeadlessHost {
 
     fn dialog(&mut self, dialog: &Dialog, _screen: &Grob) -> Result<DialogResult, RuntimeError> {
         match dialog {
+            Dialog::Matrix(matrix) => {
+                if matrix.read_only {
+                    self.dialogs.push(format!("EDITMAT view: {}", matrix.title));
+                    return Ok(DialogResult::Ok);
+                }
+                if let Some(error) = &matrix.error {
+                    self.dialogs.push(format!("EDITMAT-ERROR: {error}"));
+                }
+                let mut cells = Vec::with_capacity(matrix.cells.len());
+                for _ in &matrix.cells {
+                    match self
+                        .inputs
+                        .pop_front()
+                        .ok_or_else(|| self.exhausted("EDITMAT"))?
+                    {
+                        ScriptedInput::Text(text) => cells.push(text),
+                        ScriptedInput::Cancel => return Ok(DialogResult::Cancelled),
+                    }
+                }
+                Ok(DialogResult::Entered(cells))
+            }
             Dialog::Message { text } => {
                 self.dialogs.push(format!("MSGBOX: {text}"));
                 Ok(DialogResult::Ok)

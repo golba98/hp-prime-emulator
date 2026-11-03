@@ -1,4 +1,4 @@
-//! Same-session source replacement using documented Programs and AFilesB APIs.
+//! Same-session source replacement using documented Programs and AFiles APIs.
 //! The host writes an app attachment; the guest loader performs the source assignment.
 use crate::{
     checkprog, direct, hpprgm, import, keys,
@@ -29,12 +29,12 @@ const DEFERRED_LIMIT: Duration = Duration::from_secs(10);
 /// Idle share over [`INTERRUPT_SETTLE`]: the firmware's own timers (every
 /// 183 ms) wake the UI pump, so idleness is never continuous.
 const INTERRUPT_IDLE_SHARE: f64 = 0.8;
-/// Reserved source loader. It reads the attachment in chunks: one byte list
-/// of a whole larger program (FIREWORKS_G1, 10 KB: about 21 000 bytes of
-/// UTF-16) fails in the firmware with "Error: Insufficient memory". Each
-/// chunk becomes text with one `CHAR(list)`: appending character by
-/// character took over 20 s for that program.
-pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL n:=Function.AFilesB(\"ZZT_IDE_SOURCE\");\n LOCAL s:=\"\";\n LOCAL o,b,c,i;\n FOR o FROM 0 TO n-1 STEP 4096 DO\n  b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",o,MIN(4096,n-o));\n  c:={};\n  FOR i FROM 1 TO SIZE(b)/2 DO\n   c(i):=b(2*i-1)+256*b(2*i);\n  END;\n  s:=s+CHAR(c);\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Reserved source loader. AFiles decodes a serialized string in firmware,
+/// avoiding the interpreted per-character binary conversion. Programs():=
+/// remains responsible for compilation and storing the resulting program.
+pub const LOADER: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL s:=Function.AFiles(\"ZZT_IDE_SOURCE\");\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
+/// Previous binary-chunk loader, recognized exactly during profile migration.
+pub const LOADER_V2: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL n:=Function.AFilesB(\"ZZT_IDE_SOURCE\");\n LOCAL s:=\"\";\n LOCAL o,b,c,i;\n FOR o FROM 0 TO n-1 STEP 4096 DO\n  b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",o,MIN(4096,n-o));\n  c:={};\n  FOR i FROM 1 TO SIZE(b)/2 DO\n   c(i):=b(2*i-1)+256*b(2*i);\n  END;\n  s:=s+CHAR(c);\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
 /// The first loader (M10), which IDE profiles may still hold; the session
 /// replaces exactly this text with [`LOADER`] before boot.
 pub const LOADER_V1: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_SOURCE\",0,Function.AFilesB(\"ZZT_IDE_SOURCE\"));\n LOCAL s:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  s:=s+CHAR(b(i)+256*b(i+1));\n END;\n Programs(\"ZZT_IDE\"):=s;\n RETURN SIZE(s);\nEND;\n";
@@ -89,6 +89,7 @@ enum Stage {
     /// The importer stores the loaded source under the requested name.
     Import,
     CheckTarget,
+    Prepared,
     Invoke,
     Execute,
     /// A direct compiler call plan is running on the UI thread.
@@ -130,8 +131,17 @@ pub struct Request {
     /// Store the source as this new program instead of checking it.
     pub import: Option<String>,
 }
+#[derive(Clone)]
+struct PreparedProgram {
+    source: String,
+    stored_sha: String,
+    check: crate::compiler::CheckObservation,
+    fs_cursor: usize,
+    compiler_cursor: usize,
+}
 pub struct Jobs {
     pub active: Option<Job>,
+    prepared: Option<PreparedProgram>,
     /// A running program was interrupted (Stop / ON) at this time; its
     /// invocation is closed once the firmware is back at an idle UI.
     interrupted: Option<Instant>,
@@ -163,6 +173,7 @@ impl Jobs {
     pub fn new() -> Self {
         Self {
             active: None,
+            prepared: None,
             interrupted: None,
             idle: IdleMeter::default(),
             break_presses: (0, None),
@@ -178,6 +189,42 @@ impl Jobs {
             user_last: None,
             direct_ctx: None,
         }
+    }
+    /// External calculator interaction can change the compilation namespace.
+    pub fn invalidate_prepared(&mut self) {
+        self.prepared = None;
+    }
+    fn prepared_matches(&self, source: &str, shared: &SharedState, trace: &TraceHub) -> bool {
+        let Some(p) = &self.prepared else {
+            return false;
+        };
+        if p.source != source || !trace.fs_enabled() {
+            return false;
+        }
+        let Some(compiler) = trace.compiler.as_ref().map(|o| o.snapshot()) else {
+            return false;
+        };
+        if compiler.dropped != 0 || compiler.checks.len() != p.compiler_cursor {
+            return false;
+        }
+        let (events, _, dropped) = trace.fs_log_since(p.fs_cursor);
+        // Conservatively invalidate on any storage mutation; pure reads do not
+        // invalidate a verified context. Missing evidence never licenses reuse.
+        if dropped != 0
+            || events.iter().any(|e| {
+                !matches!(
+                    e["op"].as_str(),
+                    Some("fread" | "fseek" | "ftell" | "fclose" | "find" | "wfopen")
+                ) || (e["op"] == "wfopen"
+                    && e["mode"]
+                        .as_str()
+                        .is_none_or(|m| !m.starts_with('r') || m.contains('+')))
+            })
+        {
+            return false;
+        }
+        std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+            .is_ok_and(|bytes| crate::sha256::hex(&bytes) == p.stored_sha)
     }
     pub fn accepts_input(&self) -> bool {
         self.active.as_ref().is_none_or(|j| j.reported_running)
@@ -198,8 +245,8 @@ impl Jobs {
                 self.catalog.push(name);
             }
         }
-        let (events, _) = trace.fs_log();
-        for e in events.iter().skip(self.seen_fs) {
+        let (events, next, _) = trace.fs_log_since(self.seen_fs);
+        for e in &events {
             if e["op"] == "wfopen" && e["mode"].as_str().is_some_and(|m| m.starts_with('w')) {
                 if let Some(path) = e["path"]
                     .as_str()
@@ -222,20 +269,20 @@ impl Jobs {
                 }
             }
         }
-        self.seen_fs = events.len();
+        self.seen_fs = next;
     }
     /// Learns the catalog order from catalog listings the user opened while
     /// no job ran: the firmware reads every program the first time it shows
     /// its catalog and later only changed ones, so a job opening a catalog
     /// the user already saw reads nothing new.
     fn observe_user_catalog(&mut self, shared: &SharedState, trace: &TraceHub) {
-        let (events, _) = trace.fs_log();
+        let (events, next, _) = trace.fs_log_since(self.user_seen);
         if self.active.is_some() {
-            self.user_seen = events.len();
+            self.user_seen = next;
             self.user_burst.clear();
             return;
         }
-        for event in events.iter().skip(self.user_seen) {
+        for event in &events {
             if let Some(name) = catalog_read(event)
                 && !self
                     .user_burst
@@ -246,7 +293,7 @@ impl Jobs {
                 self.user_last = Some(Instant::now());
             }
         }
-        self.user_seen = events.len();
+        self.user_seen = next;
         if self
             .user_last
             .is_some_and(|t| t.elapsed() >= USER_CATALOG_QUIET)
@@ -307,9 +354,15 @@ impl Jobs {
                     .into(),
             );
         }
-        write_attachment(&shared.data_dir, "ZZT_IDE_SOURCE", &source)?;
-        self.refresh_catalog(shared, trace);
-        let stage = if self.loader_context.is_some() {
+        let cached = run && import.is_none() && self.prepared_matches(&source, shared, trace);
+        if !cached {
+            self.invalidate_prepared();
+            write_source_attachment(&shared.data_dir, &source)?;
+            self.refresh_catalog(shared, trace);
+        }
+        let stage = if cached {
+            Stage::Prepared
+        } else if self.loader_context.is_some() {
             Stage::Load
         } else {
             Stage::CheckLoader
@@ -336,16 +389,20 @@ impl Jobs {
             direct_text: 0,
             direct_started: None,
         };
+        if stage == Stage::Prepared {
+            job.timeline
+                .push(serde_json::json!({"stage":"reuse-prepared", "done_ms":0.0}));
+        }
         if stage == Stage::CheckLoader {
             self.check_script(&mut job, "ZZT_LOADER", trace)?;
-        } else {
+        } else if stage != Stage::Prepared {
             self.load_script(&mut job, trace)?;
         }
         self.active = Some(job);
         Ok(())
     }
     fn check_script(&self, job: &mut Job, _name: &str, trace: &TraceHub) -> Result<(), String> {
-        job.catalog_start = trace.fs_log().0.len();
+        job.catalog_start = trace.fs_log_since(usize::MAX).1;
         let mut sequence = keys::parse_keys("HOME,ESC,SHIFT,1")?;
         for _ in 0..self.catalog.len().div_ceil(7) {
             sequence.extend(keys::parse_keys("SWIPE:160:55:160:210:10")?);
@@ -423,6 +480,7 @@ impl Jobs {
         shared: &SharedState,
         trace: &TraceHub,
     ) -> Result<(), String> {
+        self.invalidate_prepared();
         let Some(ctx) = self.direct_ctx else {
             self.start(
                 Request {
@@ -580,6 +638,7 @@ impl Jobs {
         }
     }
     pub fn cancel(&mut self, mem: &GuestMemory, shared: &SharedState) -> Option<u64> {
+        self.invalidate_prepared();
         if self.active.is_none()
             && let Some((request, _)) = self.deferred.take()
         {
@@ -613,10 +672,11 @@ impl Jobs {
         let Some(mut job) = self.active.take() else {
             return vec![];
         };
+        let previous_stage = job.stage;
         let result = self.advance(&mut job, mem, shared, trace);
         match result {
             Ok(None) => {
-                let events = if matches!(job.stage, Stage::Invoke | Stage::Execute)
+                let mut events = if matches!(job.stage, Stage::Invoke | Stage::Execute)
                     && !job.reported_running
                     && trace.runtime.as_ref().unwrap().progress().0
                 {
@@ -628,6 +688,14 @@ impl Jobs {
                 } else {
                     vec![]
                 };
+                if job.stage != previous_stage
+                    && progress_message(job.stage) != progress_message(previous_stage)
+                    && !job.reported_running
+                {
+                    events.push(Event::Status {
+                        message: progress_message(job.stage).into(),
+                    });
+                }
                 self.active = Some(job);
                 events
             }
@@ -671,6 +739,20 @@ impl Jobs {
         if let Some(script) = &mut job.script {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
+                Tick::Continue
+                    if matches!(job.stage, Stage::Load | Stage::Import | Stage::Invoke)
+                        && script.invocation_delivered(shared)
+                        && trace.runtime.as_ref().unwrap().progress().0 =>
+                {
+                    job.timeline.push(serde_json::json!({
+                        "stage": stage_name(job.stage, job.catalog_open),
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "reason": "runtime_handoff",
+                        "final_key": script.invocation_delivery(),
+                        "keys": script.report().keys,
+                    }));
+                    job.script = None;
+                }
                 Tick::Continue => return Ok(None),
                 // A program that keeps drawing, or a helper that runs long
                 // (the loader with a large source), never lets the
@@ -768,8 +850,33 @@ impl Jobs {
                     self.import_script(job, trace)?;
                     return Ok(None);
                 }
-                job.stage = Stage::CheckTarget;
-                self.check_script(job, "ZZT_IDE", trace)?;
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                if let Ok(compiled) = checkprog::validate_assignment(&observations, &job.source) {
+                    // Programs():= has already compiled the exact source with
+                    // Check's arguments. Preserve its genuine context instead
+                    // of selecting and compiling it again through the catalog.
+                    self.prepared = Some(PreparedProgram {
+                        source: job.source.clone(),
+                        stored_sha: crate::sha256::hex(
+                            &std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+                                .map_err(|e| e.to_string())?,
+                        ),
+                        check: compiled.clone(),
+                        fs_cursor: trace.fs_log_since(usize::MAX).1,
+                        compiler_cursor: observations.checks.len(),
+                    });
+                    job.timeline.push(serde_json::json!({
+                        "stage": "compile-source",
+                        "method": "firmware-assignment",
+                        "done_ms": job.started.elapsed().as_secs_f64() * 1000.0,
+                        "compiler_started_ms": compiled.started_ms,
+                        "compiler_returned_ms": compiled.returned_ms,
+                    }));
+                    job.stage = Stage::Prepared;
+                } else {
+                    job.stage = Stage::CheckTarget;
+                    self.check_script(job, "ZZT_IDE", trace)?;
+                }
             }
             Stage::CheckImporter => {
                 let observations = trace.compiler.as_ref().unwrap().snapshot();
@@ -859,9 +966,18 @@ impl Jobs {
                 save_report(shared, trace, job, true, &message);
                 return Ok(Some(message));
             }
-            Stage::CheckTarget => {
-                let observations = trace.compiler.as_ref().unwrap().snapshot();
-                let c = checkprog::validate(&observations, &job.source, job.check_step)?;
+            Stage::CheckTarget | Stage::Prepared => {
+                let c = if job.stage == Stage::Prepared {
+                    self.prepared
+                        .as_ref()
+                        .ok_or("Prepared source was invalidated")?
+                        .check
+                        .clone()
+                } else {
+                    let observations = trace.compiler.as_ref().unwrap().snapshot();
+                    checkprog::validate(&observations, &job.source, job.check_step)?.clone()
+                };
+                let c = &c;
                 let container = read_program(&shared.data_dir, "ZZT_IDE")?;
                 if container.source().map_err(|e| e.to_string())?.source != job.source {
                     return Err("The firmware did not preserve this exact source revision".into());
@@ -889,6 +1005,16 @@ impl Jobs {
                         .clone()
                         .unwrap_or("The firmware rejected the program".into()));
                 }
+                self.prepared = Some(PreparedProgram {
+                    source: job.source.clone(),
+                    stored_sha: crate::sha256::hex(
+                        &std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
+                            .map_err(|e| e.to_string())?,
+                    ),
+                    check: c.clone(),
+                    fs_cursor: trace.fs_log_since(usize::MAX).1,
+                    compiler_cursor: trace.compiler.as_ref().unwrap().snapshot().checks.len(),
+                });
                 if !job.run {
                     let message = "G1 firmware compiled the exact current source".to_string();
                     save_report(shared, trace, job, true, &message);
@@ -926,7 +1052,7 @@ impl Jobs {
                 )?;
                 observer.cache_flags(flags);
                 job.stage = Stage::Invoke;
-                job.script = Some(script(runtime_value::invocation_keys(
+                job.script = Some(invocation_script(runtime_value::invocation_keys(
                     &entry,
                     &request.arguments,
                 )?));
@@ -1049,6 +1175,16 @@ fn catalog_read(event: &serde_json::Value) -> Option<String> {
         .and_then(|p| p.strip_suffix(".hpprgm"))
         .map(str::to_owned)
 }
+fn progress_message(stage: Stage) -> &'static str {
+    match stage {
+        Stage::CheckLoader => "Preparing the firmware source loader…",
+        Stage::Load => "Loading and checking source in firmware…",
+        Stage::CheckImporter | Stage::Import => "Saving the program to the calculator catalog…",
+        Stage::CheckTarget | Stage::Direct => "Checking source with the firmware compiler…",
+        Stage::Prepared | Stage::Invoke => "Starting the checked firmware program…",
+        Stage::Execute => "Running in the local G1 firmware",
+    }
+}
 fn stage_name(stage: Stage, catalog: bool) -> &'static str {
     match (stage, catalog) {
         (Stage::CheckLoader, true) => "open-catalog-for-loader",
@@ -1062,6 +1198,7 @@ fn stage_name(stage: Stage, catalog: bool) -> &'static str {
         (Stage::Invoke, _) => "invoke",
         (Stage::Execute, _) => "execute",
         (Stage::Direct, _) => "direct",
+        (Stage::Prepared, _) => "reuse-prepared",
     }
 }
 /// Hands `job.source` to the firmware and starts the direct Check plan.
@@ -1120,14 +1257,38 @@ fn invoke_reserved(
         trace.elapsed_secs() * 1000.0,
     )?;
     observer.cache_flags(1);
-    job.script = Some(script(runtime_value::invocation_keys(entry, &[])?));
+    job.script = Some(invocation_script(runtime_value::invocation_keys(
+        entry,
+        &[],
+    )?));
     Ok(())
 }
 /// Installs `text` (UTF-16LE) as a `Function` app attachment for the guest.
 fn write_attachment(data: &Path, name: &str, text: &str) -> Result<(), String> {
+    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    write_attachment_bytes(data, name, &bytes)
+}
+/// G1 AFiles string serialization, reproduced from firmware-written strings.
+/// The header is the unshared string object tag, followed by its UTF-16 unit
+/// count and terminated text. AFiles performs the actual firmware decoding;
+/// the assignment compiler and saved source must independently match the
+/// original SHA and text before execution is allowed.
+fn source_attachment(text: &str) -> Result<Vec<u8>, String> {
+    let units: Vec<u16> = text.encode_utf16().collect();
+    let count = u32::try_from(units.len()).map_err(|_| "Source exceeds AFiles string length")?;
+    let mut bytes = Vec::with_capacity(10 + units.len() * 2);
+    bytes.extend(0x0012_ffff_u32.to_le_bytes());
+    bytes.extend(count.to_le_bytes());
+    bytes.extend(units.into_iter().flat_map(u16::to_le_bytes));
+    bytes.extend(0_u16.to_le_bytes());
+    Ok(bytes)
+}
+fn write_source_attachment(data: &Path, source: &str) -> Result<(), String> {
+    write_attachment_bytes(data, "ZZT_IDE_SOURCE", &source_attachment(source)?)
+}
+fn write_attachment_bytes(data: &Path, name: &str, bytes: &[u8]) -> Result<(), String> {
     let attachment = data.join("C/DATA/&Function.hpappdir").join(name);
     std::fs::create_dir_all(attachment.parent().unwrap()).map_err(|e| e.to_string())?;
-    let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
     std::fs::write(attachment.with_extension("pending"), bytes).map_err(|e| e.to_string())?;
     std::fs::rename(attachment.with_extension("pending"), attachment).map_err(|e| e.to_string())
 }
@@ -1154,6 +1315,10 @@ fn read_program(data: &Path, name: &str) -> Result<hpprgm::Container, String> {
 fn read_program_path(path: &Path) -> Result<hpprgm::Container, String> {
     hpprgm::parse(&std::fs::read(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
+fn invocation_script(keys: Vec<keys::Key>) -> ScriptDriver {
+    // Home and ESC establish the editing context before consumption pacing.
+    script(keys).with_consumption_pacing(2)
+}
 fn script(keys: Vec<keys::Key>) -> ScriptDriver {
     ScriptDriver::new(ScriptConfig {
         keys,
@@ -1174,6 +1339,78 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 #[cfg(test)]
 mod tests {
     use super::{catalog_order, validate_import};
+    #[test]
+    fn source_attachment_matches_firmware_string_encoding() {
+        // Firmware AFiles write/read/write capture; runtime string flags are
+        // zero. UTF-16 counts surrogate pairs as two units.
+        assert_eq!(
+            super::source_attachment("").unwrap(),
+            [0xff, 0xff, 0x12, 0, 0, 0, 0, 0, 0, 0]
+        );
+        let text = "Hello Ω😀\n\"quote\"\\slash";
+        let bytes = super::source_attachment(text).unwrap();
+        assert_eq!(&bytes[..8], &[0xff, 0xff, 0x12, 0, 23, 0, 0, 0]);
+        assert_eq!(
+            &bytes[8..],
+            text.encode_utf16()
+                .chain([0])
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            &super::source_attachment("Hello Ω").unwrap()[8..],
+            &[
+                0x48, 0, 0x65, 0, 0x6c, 0, 0x6c, 0, 0x6f, 0, 0x20, 0, 0xa9, 3, 0, 0
+            ]
+        );
+    }
+
+    #[test]
+    fn prepared_cache_requires_exact_storage_and_complete_mutation_evidence() {
+        use super::*;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("C/DATA")).unwrap();
+        let bytes = hpprgm::build_program("EXPORT P() BEGIN RETURN 1; END;")
+            .unwrap()
+            .to_bytes();
+        std::fs::write(dir.path().join("C/DATA/ZZT_IDE.hpprgm"), &bytes).unwrap();
+        let shared = SharedState::new(dir.path().into(), String::new());
+        let trace = TraceHub::new(crate::trace::TraceConfig {
+            fs_trace: true,
+            compiler: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        let mut jobs = Jobs::new();
+        jobs.prepared = Some(PreparedProgram {
+            source: "source".into(),
+            stored_sha: crate::sha256::hex(&bytes),
+            check: Default::default(),
+            fs_cursor: 0,
+            compiler_cursor: 0,
+        });
+        assert!(jobs.prepared_matches("source", &shared, &trace));
+        let no_evidence = TraceHub::new(crate::trace::TraceConfig::default()).unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &no_evidence));
+        let no_compiler = TraceHub::new(crate::trace::TraceConfig {
+            fs_trace: true,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &no_compiler));
+        assert!(!jobs.prepared_matches("edited", &shared, &trace));
+        trace.fs("wfopen", 0, 0, serde_json::json!({"mode":"rb"}));
+        assert!(jobs.prepared_matches("source", &shared, &trace));
+        trace.fs("wfopen", 0, 0, serde_json::json!({"mode":"wb"}));
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+        jobs.prepared.as_mut().unwrap().fs_cursor = 2;
+        std::fs::write(dir.path().join("C/DATA/ZZT_IDE.hpprgm"), b"changed").unwrap();
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+        jobs.invalidate_prepared();
+        assert!(!jobs.prepared_matches("source", &shared, &trace));
+    }
+
     #[test]
     fn imports_never_reuse_existing_or_reserved_names() {
         let root = tempfile::tempdir().unwrap();

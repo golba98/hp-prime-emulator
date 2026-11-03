@@ -208,6 +208,18 @@ impl TraceHub {
         )
     }
 
+    /// Read only newly appended events. The cursor is an absolute count;
+    /// overflow remains observable rather than silently trusting a stale catalog.
+    pub fn fs_log_since(&self, cursor: usize) -> (Vec<serde_json::Value>, usize, u64) {
+        let log = self.fs_log.lock().unwrap();
+        let next = log.len();
+        (
+            log.get(cursor..).unwrap_or_default().to_vec(),
+            next,
+            self.fs_dropped.load(Ordering::Relaxed),
+        )
+    }
+
     pub fn elapsed_secs(&self) -> f64 {
         self.start.elapsed().as_secs_f64()
     }
@@ -466,4 +478,29 @@ impl TraceHub {
 
 fn detail_into(d: impl Into<String>) -> String {
     d.into()
+}
+
+#[cfg(test)]
+mod incremental_fs_tests {
+    use super::*;
+    #[test]
+    fn cursors_return_only_new_events_and_keep_overflow_visible() {
+        let t = TraceHub::new(TraceConfig {
+            fs_trace: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        t.fs("first", 0, 0, json!({}));
+        let (first, cursor, dropped) = t.fs_log_since(0);
+        assert_eq!((first.len(), cursor, dropped), (1, 1, 0));
+        assert!(t.fs_log_since(cursor).0.is_empty());
+        t.fs("second", 0, 0, json!({}));
+        let (next, cursor, _) = t.fs_log_since(cursor);
+        assert_eq!(next.len(), 1);
+        assert_eq!(next[0]["op"], "second");
+        t.fs_dropped.store(1, Ordering::Relaxed);
+        assert_eq!(t.fs_log_since(cursor).2, 1);
+        assert_eq!(t.fs_log_since(usize::MAX).1, cursor);
+    }
 }

@@ -104,10 +104,44 @@ impl ppl_vm::Host for EnterHost {
         _: &ppl_graphics::Grob,
     ) -> Result<ppl_vm::DialogResult, ppl_vm::RuntimeError> {
         match dialog {
-            ppl_vm::Dialog::Input { fields, error, .. } => {
+            ppl_vm::Dialog::Input {
+                title,
+                fields,
+                error,
+                ..
+            } => {
                 assert!(error.is_none(), "unexpected re-prompt: {error:?}");
+                if title == "inspect_positions" {
+                    assert_eq!(fields.len(), 2);
+                    assert_eq!(
+                        fields[0].position,
+                        Some(ppl_vm::host::InputPosition {
+                            start_percent: 25.0,
+                            width_percent: 50.0,
+                            line: 7,
+                        })
+                    );
+                    assert_eq!(fields[0].page_title.as_deref(), Some("page two"));
+                    assert_eq!(fields[1].position.unwrap().line, 0);
+                    assert_eq!(fields[1].page_title.as_deref(), Some("inspect_positions"));
+                }
+                if title == "inspect_pages" {
+                    assert_eq!(fields.len(), 8);
+                    assert!(fields.iter().all(|f| f.position.is_none()));
+                    assert_eq!(fields[6].page_title.as_deref(), Some("inspect_pages"));
+                    assert_eq!(fields[7].page_title.as_deref(), Some("page two"));
+                }
                 Ok(ppl_vm::DialogResult::Entered(
-                    fields.iter().map(|f| f.current.clone()).collect(),
+                    fields
+                        .iter()
+                        .map(|f| {
+                            if title == "inspect_reset" {
+                                f.reset_text.clone().expect("reset metadata")
+                            } else {
+                                f.current.clone()
+                            }
+                        })
+                        .collect(),
                 ))
             }
             _ => Ok(ppl_vm::DialogResult::Ok),
@@ -232,4 +266,132 @@ fn runtime_error_after_input_points_at_its_line() {
     let frame = e.trace.first().expect("trace");
     let lc = ppl_syntax::SourceFile::new("<t>", src.clone()).line_col(frame.span.start);
     assert_eq!(lc.line, 5);
+}
+
+fn enter_defaults(body: &str) -> String {
+    let file = ppl_syntax::SourceFile::new("<defaults>", prog(body));
+    let (program, diagnostics) = ppl_compiler::compile_source(&file, &Default::default());
+    assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+    let mut machine = ppl_vm::Machine::new(
+        std::rc::Rc::new(program.unwrap()),
+        Box::new(EnterHost),
+        Default::default(),
+        Default::default(),
+    );
+    text(&machine.call_function("TEST_PROG", vec![]).unwrap())
+}
+
+#[test]
+fn initial_values_override_display_without_confusing_scalar_lists() {
+    assert_eq!(
+        enter_defaults("LOCAL a:=9; INPUT(a,\"T\",\"A\",\"Help\",1,5); RETURN a;"),
+        "5"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=9,b:=8; INPUT({a,b},\"T\",{\"A\",\"B\"},{},{1,2},{5,6}); RETURN {a,b};"
+        ),
+        "{5,6}"
+    );
+    assert_eq!(
+        enter_defaults("LOCAL a:={9}; INPUT(a,\"T\",\"A\",\"Help\",{1},{5,6}); RETURN a;"),
+        "{5,6}"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=\"old\"; INPUT({{a,[2]}},\"T\",{\"A\"},{},{\"reset\"},{\"hello\"}); RETURN a;"
+        ),
+        "hello"
+    );
+}
+
+#[test]
+fn cancelling_initial_value_keeps_original_variable() {
+    let src = prog("LOCAL a:=9; INPUT(a,\"T\",\"A\",\"help\",1,5); RETURN a;");
+    let mut r = Run::new("cancel initial", &src);
+    assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "9");
+}
+
+#[test]
+fn input_writeback_obeys_native_string_limit() {
+    let src = prog("LOCAL s:=\"\"; INPUT({{s,[2]}}); RETURN s;");
+    let mut r = Run::new("limits", &src);
+    r.machine.limits.max_string_bytes = 4;
+    assert!(r.call("TEST_PROG", &["oversize"]).is_err());
+}
+
+#[test]
+fn reset_metadata_preserves_scalar_and_multiple_field_values() {
+    assert_eq!(
+        enter_defaults("LOCAL a:=9; INPUT(a,\"inspect_reset\",\"A\",\"\",2,5); RETURN a;"),
+        "2"
+    );
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=9,b:=8; INPUT({a,b},\"inspect_reset\",{\"A\",\"B\"},{},{1,2},{5,6}); RETURN {a,b};"
+        ),
+        "{1,2}"
+    );
+}
+
+#[test]
+fn positioned_fields_preserve_expressions_titles_and_variable_order() {
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a:=11,b:=22,pos:={25,50,7}; INPUT({{a,[0],pos},{b,[0],{25,50,0}}},{\"inspect_positions\",\"page two\"}); RETURN {a,b};"
+        ),
+        "{11,22}"
+    );
+}
+
+#[test]
+fn unpositioned_eighth_field_gets_second_page_title() {
+    assert_eq!(
+        enter_defaults(
+            "LOCAL a,b,c,d,e,f,g,h; INPUT({a,b,c,d,e,f,g,h},{\"inspect_pages\",\"page two\"}); RETURN 1;"
+        ),
+        "1"
+    );
+}
+
+#[test]
+fn mixed_and_unsupported_positions_fail_before_opening_dialog() {
+    let mut r = Run::new(
+        "<positions>",
+        &prog("LOCAL a,b; INPUT({{a,[0],{25,50,0}},b});"),
+    );
+    let err = r.call("TEST_PROG", &[]).unwrap_err();
+    assert_eq!(err.kind, ErrorKind::BadArgValue);
+    assert!(err.detail.contains("all fields or none"));
+    for position in [
+        "0",
+        "{}",
+        "{25,50}",
+        "{-1,50,0}",
+        "{-1E-499,50,0}",
+        "{25,0,0}",
+        "{75,50,0}",
+        "{25,50,-1}",
+        "{25,50,0.5}",
+        "{25,50,1E100}",
+    ] {
+        let mut r = Run::new(
+            "<positions>",
+            &prog(&format!("LOCAL a; INPUT({{{{a,[0],{position}}}}});")),
+        );
+        let err = r.call("TEST_PROG", &[]).unwrap_err();
+        assert_eq!(err.kind, ErrorKind::Unsupported, "{position}: {err:?}");
+        assert!(err.detail.contains("Firmware mode"));
+    }
+}
+
+#[test]
+fn positioned_cancel_retains_original_variables() {
+    let mut r = Run::new(
+        "<positions>",
+        &prog(
+            "LOCAL a:=5,b:=8; LOCAL ok:=INPUT({{a,[0],{25,50,0}},{b,[0],{25,50,7}}},{\"One\",\"Two\"},{},{},{1,2},{3,4}); RETURN {ok,a,b};",
+        ),
+    );
+    assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "{0,5,8}");
 }

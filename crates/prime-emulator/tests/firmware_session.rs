@@ -43,14 +43,32 @@ impl Session {
             match self.events.recv_timeout(left) {
                 Ok(event) if want(&event) => return event,
                 Ok(_) => {}
-                Err(_) => panic!("no {what} within {limit:?}"),
+                Err(error) => panic!("no {what} within {limit:?}: {error}"),
             }
         }
     }
 }
 
+impl Drop for Session {
+    fn drop(&mut self) {
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+        }
+        let _ = self.child.wait();
+    }
+}
+
 #[test]
 fn live_session_reports_lifecycle_unsupported_services_and_imports() {
+    exercise_session(prime_emulator::session::LOADER_V1);
+}
+
+#[test]
+fn live_session_migrates_chunk_loader_and_preserves_unicode_source() {
+    exercise_session(prime_emulator::session::LOADER_V2);
+}
+
+fn exercise_session(legacy_loader: &str) {
     let (Some(firmware), Some(init)) = (
         std::env::var_os("PRIME_TEST_FIRMWARE"),
         std::env::var_os("PRIME_TEST_INIT_DATA"),
@@ -65,11 +83,11 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
             &profile.path().join(drive),
         );
     }
-    // A profile from before the chunked loader: the session upgrades it.
+    // Upgrade exactly recognized session-owned legacy loader source.
     std::fs::create_dir_all(profile.path().join("C/DATA")).unwrap();
     std::fs::write(
         profile.path().join("C/DATA/ZZT_LOADER.hpprgm"),
-        prime_emulator::hpprgm::build_program(prime_emulator::session::LOADER_V1)
+        prime_emulator::hpprgm::build_program(legacy_loader)
             .unwrap()
             .to_bytes(),
     )
@@ -137,6 +155,67 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
     });
     eprintln!("unsupported services during boot: {unsupported:?}");
     assert_eq!(frames.recv_timeout(minute).unwrap(), session::FRAME_PIXELS);
+
+    // Exact unchanged source reuses its verified context, while each call still
+    // executes the genuine Home invocation and returns a fresh firmware result.
+    for request in [4, 5] {
+        s.send(&Command::Run {
+            request,
+            source: "EXPORT PERFSESS()\nBEGIN\n RETURN 9;\nEND;\n".into(),
+            entry: None,
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "run result",
+            |e| matches!(e, Event::Result { request: r, .. } if *r == request),
+        ) {
+            Event::Result {
+                success,
+                message,
+                check,
+                ..
+            } => {
+                assert!(success, "{message}");
+                assert!(message.contains("returned 9"), "{message}");
+                assert!(check.unwrap().accepted);
+            }
+            _ => unreachable!(),
+        }
+    }
+    let report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(profile.path().join("ide-reports/request-5.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        report["timeline"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["stage"] == "reuse-prepared")
+    );
+
+    // Rerun must retain genuine program-local global state; recompiling an
+    // unchanged Programs() object would incorrectly reset COUNTER each time.
+    for (request, expected) in [(7, "returned 1"), (8, "returned 2")] {
+        s.send(&Command::Run {
+            request,
+            source: "LOCAL COUNTER:=0; EXPORT INC() BEGIN COUNTER:=COUNTER+1; RETURN COUNTER; END;"
+                .into(),
+            entry: Some("INC".into()),
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "persistent program globals",
+            |e| matches!(e, Event::Result { request: r, .. } if *r == request),
+        ) {
+            Event::Result {
+                success, message, ..
+            } => assert!(success && message.contains(expected), "{message}"),
+            _ => unreachable!(),
+        }
+    }
 
     let source = "EXPORT M12SESS()\nBEGIN\n RETURN 9;\nEND;\n";
     s.send(&Command::Import {
@@ -223,6 +302,31 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
         big
     );
 
+    // New catalog rows need not be selected for Run: the loader's exact
+    // assignment already invokes the genuine firmware compiler.
+    s.send(&Command::Run {
+        request: 6,
+        source: "EXPORT AFTERIMPORT()\nBEGIN\n // Ω 😀 \"quote\" \\slash\n RETURN 42;\nEND;\n"
+            .into(),
+        entry: None,
+        arguments: String::new(),
+    });
+    match s.wait(4 * minute, "run after imports", |e| {
+        matches!(e, Event::Result { request: 6, .. })
+    }) {
+        Event::Result {
+            success,
+            message,
+            check,
+            ..
+        } => {
+            assert!(success, "{message}");
+            assert!(message.contains("returned 42"), "{message}");
+            assert!(check.unwrap().accepted);
+        }
+        _ => unreachable!(),
+    }
+
     // The firmware's own OFF saves its state, then the session ends.
     let settings = profile.path().join("C/DATA/cas.hpsettings");
     assert!(!settings.exists(), "nothing saved before OFF");
@@ -236,7 +340,7 @@ fn live_session_reports_lifecycle_unsupported_services_and_imports() {
         )
     });
     match s.wait(minute, "power-down status", |e| {
-        matches!(e, Event::Status { .. })
+        matches!(e, Event::Status { message } if message.contains("saved its state and switched off") || message.starts_with("Firmware switched off, but"))
     }) {
         Event::Status { message } => {
             assert!(

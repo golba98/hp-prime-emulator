@@ -651,7 +651,11 @@ fn ini_write(vfs: &super::fs::Vfs, filename: &str, section: &str, key: &str, val
         out_lines.push(format!("{key}={value}"));
     }
     content = out_lines.join("\r\n") + "\r\n";
-    let _ = std::fs::write(&host, content);
+    if let Err(e) =
+        std::fs::write(&host, content).and_then(|()| std::fs::File::open(&host)?.sync_all())
+    {
+        vfs.record_write_error(e);
+    }
 }
 
 // ── path split/merge (ref-verified layouts) ────────────────────────────

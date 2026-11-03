@@ -76,6 +76,14 @@ fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
                 ui.ctx().request_repaint();
             }
         }
+        if ui.small_button("Configure firmware…").clicked() {
+            state.queue_action(IdeAction::ShowSettingsDialog);
+        }
+        if matches!(session, FirmwareSession::Unavailable(_))
+            && ui.small_button("Use Native PPL").clicked()
+        {
+            state.queue_action(IdeAction::SelectBackend(false));
+        }
         let unsupported = state.firmware_unsupported.len();
         if unsupported > 0 {
             let text = format!("{unsupported} unsupported OS service call site(s)");
@@ -147,6 +155,14 @@ pub fn show(
                 }
                 ui.separator();
                 ui.checkbox(&mut state.smooth_display, "Smooth LCD scaling");
+                if state.firmware_backend {
+                    ui.separator();
+                    ui.label("Desktop typing follows the firmware Alpha indicator.");
+                    ui.label("Tab: Alpha · Shift+Tab: calculator Shift");
+                    ui.label("Ctrl+V: paste one expression · Esc: cancel queued typing");
+                    ui.label("Right: leave a power/fraction template");
+                    ui.label("Paste PPL source into the IDE editor, then Import.");
+                }
                 if ui.button("Save LCD screenshot…").clicked() {
                     state.queue_action(IdeAction::TakeScreenshot);
                     ui.close();

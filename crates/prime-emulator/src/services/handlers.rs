@@ -340,15 +340,18 @@ pub fn install(registry: &mut Registry) {
 /// ref: `lmalloc(r0 = size)` returns a heap pointer, 0 on failure.
 fn lmalloc(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let size = ctx.args.r0 as usize;
-    let va = ctx.mem.heap_alloc(size).map_err(HandlerFault)?;
-    Ok(va)
+    Ok(ctx.mem.try_heap_alloc(size).unwrap_or(0))
 }
 
 /// ref: `lcalloc(r0 = elem, r1 = count)`. We zero the block (correct calloc
 /// semantics); the reference does not zero on reuse — noted divergence.
 fn lcalloc(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    let bytes = ctx.args.r0 as usize * ctx.args.r1 as usize;
-    let va = ctx.mem.heap_alloc(bytes).map_err(HandlerFault)?;
+    let Some(bytes) = (ctx.args.r0 as usize).checked_mul(ctx.args.r1 as usize) else {
+        return Ok(0);
+    };
+    let Some(va) = ctx.mem.try_heap_alloc(bytes) else {
+        return Ok(0);
+    };
     ctx.mem
         .write_bytes(va, &vec![0u8; bytes])
         .map_err(HandlerFault)?;
@@ -361,10 +364,17 @@ fn lrealloc(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ptr = ctx.args.r0;
     let new_size = ctx.args.r1 as usize;
     if ptr == 0 {
-        return ctx.mem.heap_alloc(new_size).map_err(HandlerFault);
+        return Ok(ctx.mem.try_heap_alloc(new_size).unwrap_or(0));
     }
-    let old_size = ctx.mem.heap_size_of(ptr).unwrap_or(0);
-    let new_va = ctx.mem.heap_alloc(new_size).map_err(HandlerFault)?;
+    let old_size = ctx.mem.heap_size_of(ptr).ok_or_else(|| {
+        HandlerFault(crate::memory::MemoryError {
+            va: ptr,
+            msg: "realloc pointer is not a live heap allocation".into(),
+        })
+    })?;
+    let Some(new_va) = ctx.mem.try_heap_alloc(new_size) else {
+        return Ok(0);
+    };
     let copy = old_size.min(new_size);
     if copy > 0 {
         let buf = ctx.mem.read_bytes_alloc(ptr, copy).map_err(HandlerFault)?;

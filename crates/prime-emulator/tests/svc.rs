@@ -459,3 +459,35 @@ fn thread_id_flows_through_dispatch() {
     let _ = cpu.run_slice(64).unwrap();
     assert_eq!(SEEN_TID.load(Ordering::SeqCst), 42);
 }
+
+#[test]
+fn exhausted_malloc_returns_null_to_guest_without_stopping_emulation() {
+    let (mem, registry, shared, trace) = test_env();
+    let allocation = mem.heap_alloc(0x10_000).unwrap();
+    mem.write_u32(allocation, 123).unwrap();
+    let code = [
+        0x01, 0x00, 0x2d, 0xe9, // push {r0}
+        0x00, 0x40, 0x2d, 0xe9, // push {lr}
+        0x37, 0x00, 0x01, 0xef, // lmalloc
+        0xfe, 0xff, 0xff, 0xea, // loop after return
+    ];
+    mem.write_bytes(0x1000_0000, &code).unwrap();
+    let mut cpu = CpuThread::new(
+        mem.clone(),
+        registry,
+        shared,
+        trace,
+        UnsupportedPolicy::Stop,
+        0,
+        Vec::new(),
+    )
+    .unwrap();
+    cpu.set_entry(0x1000_0000, 0x1000_0800, 16).unwrap();
+    cpu.set_lr(0x1000_000c).unwrap();
+    assert!(matches!(
+        cpu.run_slice(32).unwrap(),
+        prime_emulator::engine::RunSliceOutcome::Progress
+    ));
+    assert_eq!(cpu.reg(unicorn_engine::RegisterARM::R0), 0);
+    assert_eq!(mem.read_u32(allocation).unwrap(), 123);
+}

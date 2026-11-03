@@ -584,6 +584,9 @@ mod tests {
                 help: String::new(),
                 current: current.into(),
                 string_only,
+                reset_text: None,
+                position: None,
+                page_title: None,
             }],
             error: None,
             focus: 0,
@@ -605,6 +608,39 @@ mod tests {
         assert!(state.screen_generation.load(Ordering::Acquire) > gen0);
         assert_eq!(state.get_frame().pixels(), Grob::screen().pixels());
         r
+    }
+
+    #[test]
+    fn test_matrix_dialog_through_worker_host_restores_screen() {
+        let matrix = ppl_vm::host::MatrixDialog {
+            title: "M1".into(),
+            row_headers: vec![],
+            column_headers: vec![],
+            rows: 1,
+            cols: 2,
+            cells: vec!["1".into(), "2".into()],
+            read_only: false,
+            error: None,
+            focus: 0,
+        };
+        assert_eq!(
+            drive_input(
+                Dialog::Matrix(matrix.clone()),
+                vec![
+                    KeyPress::with_char(None, '9'),
+                    KeyPress::code(crate::keymap::KEY_ENTER),
+                    KeyPress::code(crate::keymap::KEY_MENU),
+                ]
+            ),
+            DialogResult::Entered(vec!["9".into(), "2".into()])
+        );
+        assert_eq!(
+            drive_input(
+                Dialog::Matrix(matrix),
+                vec![KeyPress::code(crate::keymap::KEY_ESC)]
+            ),
+            DialogResult::Cancelled
+        );
     }
 
     #[test]

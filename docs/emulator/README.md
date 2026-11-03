@@ -84,3 +84,36 @@ distribution channel). Proprietary HP content — kept out of git
 5. **Recommended Phase 2 milestone**: headless Rust emulator core that boots
    `armfir.elf` under Unicorn with the SVC dispatch layer, a virtual FAT16
    disk, and a scripted input/display interface — no GUI.
+
+### Desktop setup and recovery
+
+Choose **G1 Firmware**, then **Configure firmware…** in the calculator controls.
+Settings can browse to the user-supplied ARM ELF, factory A directory, optional
+OS ROM and initialized A/C storage, helper executable and calculator profile.
+**Validate firmware resources** checks file presence and the ARM ELF header;
+startup additionally validates executable/helper and firmware capabilities.
+Paths are saved with the IDE configuration and apply on the next session start.
+The emulator does not download or redistribute HP firmware. Native PPL remains
+available from the unavailable-session controls without these resources.
+
+Normal OFF remains the save operation. The session publishes a versioned,
+checksummed storage checkpoint only after the firmware finishes OFF. On an
+unclean restart it restores the last intact compatible generation and archives
+interrupted storage under the profile's `.recovery` directory. A startup
+baseline can recover the initial storage when no OFF checkpoint exists. Corrupt
+or incompatible generations never overwrite the current storage; startup stops
+if no safe generation remains. Keep these files when diagnosing recovery.
+
+This does **not** checkpoint live CPU/RAM state or unsaved edits. Changes since
+OFF may be lost. Checkpoints are currently retained without automatic pruning;
+allow disk space for complete copies of calculator storage. They are recovery
+copies, not a substitute for exporting important programs.
+
+### Experimental memory budget
+
+`prime-emulator run --heap-budget-mib 32 ...` limits guest heap allocations while
+keeping the existing mapped arena. The default remains 256 MiB for development.
+Allocation failure returns null to firmware and failed realloc leaves its old
+block intact. The budget excludes firmware mappings, stacks and host resources;
+it is **not** an assertion of physical 32 MB G1 equivalence. Use it to investigate
+allocation pressure, and record the budget alongside any parity result.
