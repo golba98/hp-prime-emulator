@@ -1,0 +1,47 @@
+{
+  "scope": "Six stacked PRs; source checkpoints at creation. Later publication records or CI fixes may advance branch tips.",
+  "pull_requests": [
+    {
+      "branch": "pr/g1-01-usability-foundations",
+      "sha": "4adcc4620c3aa123cdfbd1938d19dedeeba8321d",
+      "base": "main",
+      "title": "Improve G1 editing, recovery, Native dialogs and firmware run performance",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/24"
+    },
+    {
+      "branch": "pr/g1-02-m16-stateful-diagnostics",
+      "sha": "7e33a624622c7814b40d17da20f85883cf329d7a",
+      "base": "pr/g1-01-usability-foundations",
+      "title": "Add source-bound diagnostics, stateful differential scenarios and checkpoints (M16)",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/25"
+    },
+    {
+      "branch": "pr/g1-03-m17-runtime-linkage",
+      "sha": "31cfa64aa285910fb952153f9a818836a05d991b",
+      "base": "pr/g1-02-m16-stateful-diagnostics",
+      "title": "Bring up ARM926 research execution, Native linkage and typed observations (M17)",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/26"
+    },
+    {
+      "branch": "pr/g1-04-m18-hardware-debugging",
+      "sha": "e0d1e6eb39dcc70a108e51b4e707f54a7a32e47f",
+      "base": "pr/g1-03-m17-runtime-linkage",
+      "title": "Add hardware guest controls, linked debugging and constrained continuation (M18)",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/27"
+    },
+    {
+      "branch": "pr/g1-05-m19-boot-foundations",
+      "sha": "0a259072fdc85d26fad9c64231ba1182bf4e0566",
+      "base": "pr/g1-04-m18-hardware-debugging",
+      "title": "Add NAND, clocks, LCD/input and synthetic boot foundations (M19)",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/28"
+    },
+    {
+      "branch": "feat/g1-usability-overhaul",
+      "sha": "ea74009dd467dfcd6ece7c2dbfcb0088e7ec9132",
+      "base": "pr/g1-05-m19-boot-foundations",
+      "title": "Reduce accumulated Rust build storage and preserve research artifacts (M19.5)",
+      "url": "https://github.com/golba98/hp-prime-emulator/pull/29"
+    }
+  ]
+}
