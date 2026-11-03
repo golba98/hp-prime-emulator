@@ -18,7 +18,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # temporary worktree's parent. Explicit isolated slots take precedence.
 COMMON_DIR="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir)"
 CANONICAL_ROOT="$(dirname "$COMMON_DIR")"
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${CANONICAL_ROOT}/../.cache/prime-emulator-target}"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-${CANONICAL_ROOT}/../.cache/prime-emulator-target-compact}"
 case "$CARGO_TARGET_DIR" in /*) ;; *) CARGO_TARGET_DIR="$REPO_ROOT/$CARGO_TARGET_DIR";; esac
 export CARGO_TARGET_DIR="$(realpath -m "$CARGO_TARGET_DIR")"
 case "$CARGO_TARGET_DIR" in *" "*) echo "Unicorn requires a space-free CARGO_TARGET_DIR" >&2; exit 2;; esac

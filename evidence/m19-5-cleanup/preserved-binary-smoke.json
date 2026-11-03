@@ -1,0 +1,18 @@
+[
+  {
+    "command": [
+      "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/63fa7150fa247c9af0c9372dbca76458c1f1fa22b0e724744bd5f0726637e8b1/ppl",
+      "--help"
+    ],
+    "returncode": 0,
+    "original_sha256": "63fa7150fa247c9af0c9372dbca76458c1f1fa22b0e724744bd5f0726637e8b1"
+  },
+  {
+    "command": [
+      "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5e5c5cfab9e30e14eb682b06963065eca37ae1d8d082a83de6e5cbb2f25322d4/prime-emulator",
+      "--help"
+    ],
+    "returncode": 0,
+    "original_sha256": "5e5c5cfab9e30e14eb682b06963065eca37ae1d8d082a83de6e5cbb2f25322d4"
+  }
+]

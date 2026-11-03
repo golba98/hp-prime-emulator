@@ -1,0 +1,12 @@
+[
+  {
+    "source": "/home/k9-vortex/.cache/prime-m19-5-compact-target/release/ppl",
+    "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/63fa7150fa247c9af0c9372dbca76458c1f1fa22b0e724744bd5f0726637e8b1/ppl",
+    "sha256": "63fa7150fa247c9af0c9372dbca76458c1f1fa22b0e724744bd5f0726637e8b1"
+  },
+  {
+    "source": "/home/k9-vortex/.cache/prime-m19-5-compact-target/release/prime-emulator",
+    "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/157411363f55cc56c9ad1e372721a349f2efbdf0facf4b01e4e5010427fd98c7/prime-emulator",
+    "sha256": "157411363f55cc56c9ad1e372721a349f2efbdf0facf4b01e4e5010427fd98c7"
+  }
+]

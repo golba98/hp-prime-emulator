@@ -446,3 +446,7 @@ Root accounting is globally deduplicated by inode. These are project-discovered 
 | 1.025 | `/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/g1-closure` |
 | 1.018 | `/home/k9-vortex/.cache/prime-m19-hardware-target/debug/deps` |
 | 1.016 | `/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/g1-closure/20261028T212023Z/firmware-codec` |
+
+## Subsequent authorized cleanup
+
+The user later authorized obsolete Rust compilation cleanup. See [the cleanup results](M19_5_RUST_BUILD_CLEANUP.md) for actual removal, preservation, final storage and verification results. Earlier sizes and no-deletion statements above describe the original audit checkpoint.

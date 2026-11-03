@@ -1,0 +1,98 @@
+import fcntl, hashlib, json, os, re, stat, subprocess, sys, time
+from pathlib import Path
+REPO=Path.cwd()
+BASE=REPO/'artifacts/m19-5-cleanup'
+ARCHIVE=Path.home()/'.cache/hp-prime-emulator/research/rust-binaries'
+CURRENT=Path.home()/'.cache/prime-m19-5-compact-target'
+roots=[Path(r['path']) for r in json.loads((REPO/'evidence/m19-5/baseline.json').read_text())['roots'] if r['category']=='B']
+assert len(roots)==16 and CURRENT not in roots
+
+def sha(p):
+ h=hashlib.sha256()
+ with p.open('rb') as f:
+  for b in iter(lambda:f.read(1048576),b''):h.update(b)
+ return h.hexdigest()
+
+def activity():
+ busy=[]; gaps=[]
+ for p in Path('/proc').iterdir():
+  if not p.name.isdigit() or int(p.name)==os.getpid():continue
+  try:
+   if p.stat().st_uid!=os.getuid():continue
+   name=(p/'comm').read_text().strip()
+   if name in ['cargo','rustc','rust-analyzer','prime-emulator','ppl']:busy.append(str(p)+':'+name)
+   try: entries=list((p/'fd').iterdir())+[p/'exe',p/'cwd']
+   except PermissionError:gaps.append({'pid':p.name,'name':name});continue
+   for item in entries:
+    try: target=os.readlink(item)
+    except OSError:continue
+    if any(target==str(r) or target.startswith(str(r)+'/') for r in roots):busy.append(target)
+  except (OSError,ProcessLookupError):continue
+ return busy,gaps
+
+# Keep files referenced anywhere in retained reports/configuration, conservatively.
+pattern='('+'|'.join(re.escape(str(r)) for r in roots)+r''')/[^\s"'`<>|),;]+'''
+r=subprocess.run(['rg','-o','--no-filename','--no-ignore','--hidden',pattern,'artifacts','evidence','docs','scripts','tests','.github'],capture_output=True,text=True)
+assert r.returncode in (0,1),r.stderr
+refs={Path(s) for s in r.stdout.splitlines() if Path(s).is_file()}
+locks=[]; records=[]; preserve=[]; candidates=[]; skipped=[]
+busy,gaps=activity()
+assert not busy,busy
+for root in roots:
+ assert root.resolve()==root and not root.is_symlink() and root.stat().st_uid==os.getuid()
+ assert (root/'.rustc_info.json').is_file()
+ assert any(root.glob('*/.fingerprint/ppl-*')) or any(root.glob('*/.fingerprint/prime-emulator-*'))
+ for lock in root.glob('*/.cargo-lock'):
+  f=lock.open('rb');fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB);locks.append(f)
+ records.append({'path':str(root),'device':root.stat().st_dev,'inode':root.stat().st_ino,'uid':root.stat().st_uid})
+ for parent,dirs,files in os.walk(root,followlinks=False):
+  dirs[:]=[d for d in dirs if not (Path(parent)/d).is_symlink()]
+  for name in files:
+   p=Path(parent)/name;s=p.lstat()
+   if not stat.S_ISREG(s.st_mode):continue
+   parts=p.relative_to(root).parts
+   if len(parts)<2:continue
+   profile_index=next((i for i,v in enumerate(parts) if v in ('debug','release')),None)
+   if profile_index is None:continue
+   tail=parts[profile_index+1:]
+   if not tail:continue
+   executable=bool(s.st_mode&0o111)
+   standalone=(len(tail)==1 or tail[0]=='examples') and (executable or p.suffix in ('.exe','.dll','.so','.dylib'))
+   if p in refs or standalone:
+    preserve.append(p);continue
+   compiled=p.suffix in ('.rlib','.rmeta','.a','.o','.obj','.so','.dll','.lib','.pdb','.rgu','.bc')
+   incremental=tail[0]=='incremental'
+   dep_exec=tail[0]=='deps' and executable and re.search(r'-[0-9a-f]{16}$',p.name) and p.with_suffix('.d').is_file()
+   if compiled or incremental or dep_exec:
+    candidates.append((p,s.st_dev,s.st_ino,s.st_size,s.st_blocks*512))
+# Publish independent directory entries before any unlink. Hardlinks retain exact bytes.
+ARCHIVE.mkdir(parents=True,exist_ok=True)
+assert not ARCHIVE.is_symlink()
+archived=[]
+for p in preserve:
+ h=sha(p); dest=ARCHIVE/h/p.name;dest.parent.mkdir(exist_ok=True)
+ if not dest.exists():
+  try:os.link(p,dest)
+  except OSError:
+   import shutil
+   with p.open('rb') as src,dest.open('xb') as out:shutil.copyfileobj(src,out)
+   dest.chmod(stat.S_IMODE(p.stat().st_mode))
+ assert sha(dest)==h
+ archived.append({'source':str(p),'archive':str(dest),'sha256':h,'bytes':p.stat().st_size})
+manifest={'roots':records,'protected_current':str(CURRENT),'preserved':archived,'candidate_files':len(candidates),'candidate_entry_allocation_bytes':sum(x[4] for x in candidates),'activity_gaps':gaps,'skipped_unknown_policy':'All files not positively identified as compilation outputs remain in place; target/tmp untouched.'}
+(BASE/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+print('Preserved',len(archived),'candidates',len(candidates),'entry bytes',manifest['candidate_entry_allocation_bytes'],flush=True)
+if '--apply' not in sys.argv:sys.exit()
+# Authorization: user's explicit instruction covers verified obsolete Rust outputs only.
+busy,gaps=activity();assert not busy,busy
+for rec in records:
+ s=Path(rec['path']).lstat();assert (s.st_dev,s.st_ino,s.st_uid)==(rec['device'],rec['inode'],rec['uid'])
+removed=0;allocated=0
+with (BASE/'removed.jsonl').open('x') as log:
+ for p,dev,ino,size,blocks in candidates:
+  assert CURRENT not in p.parents and p.resolve()==p
+  s=p.lstat();assert stat.S_ISREG(s.st_mode) and (s.st_dev,s.st_ino,s.st_size)==(dev,ino,size)
+  p.unlink();removed+=1;allocated+=blocks
+  log.write(json.dumps({'path':str(p),'device':dev,'inode':ino,'allocation':blocks})+'\n')
+(BASE/'result.json').write_text(json.dumps({'removed_files':removed,'removed_entry_allocation_bytes':allocated,'physical_recovery_bytes':None,'preserved_files':len(archived),'timestamp':time.time()},indent=2)+'\n')
+print('Removed',removed,'allocated entry bytes',allocated,flush=True)

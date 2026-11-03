@@ -1,0 +1,31 @@
+{
+  "timestamp_utc": "2026-11-03T01:55:51Z",
+  "before_accounted_bytes": 259576496128,
+  "after_accounted_bytes": 118579867648,
+  "net_accounted_reduction_bytes": 140996628480,
+  "filesystem_available_before_bytes": 256643543040,
+  "filesystem_available_after_bytes": 324487102464,
+  "observed_filesystem_available_increase_bytes": 67843559424,
+  "exclusive_physical_recovery_bytes": null,
+  "initial_removed_compilation_files": 202204,
+  "retired_preserved_binary_copies": 120,
+  "old_binary_reference_hashes_verified": 109,
+  "workspace_counts": [
+    1919,
+    0,
+    6
+  ],
+  "firmware_counts": [
+    10,
+    0,
+    0
+  ],
+  "python_tests": 105,
+  "gui_checks": 24,
+  "current_cache_bytes": 17250852864,
+  "qemu_smoke": "passed",
+  "known_failures": "Existing fireworks-g1 expected failure; six ignored workspace tests. Initial old-path Python assertion updated, 41-test suite rerun passed.",
+  "hosted_windows_ci": "not run",
+  "pushed": false,
+  "pr_created": false
+}
