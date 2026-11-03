@@ -275,3 +275,9 @@ container ID. Structured hardware reports require actual guest entry, step,
 terminal state and case-specific mailbox/UART observations; empty objects with
 an execution flag are rejected. This is validation of trusted local tooling,
 not cryptographic attestation of arbitrary externally supplied results.
+
+## M19 boot hardware and storage
+
+M19 adds nested-complex and full-width integer boundary comparisons: 101 genuine retained Native/HLE assertions including the preserved 94. Unknown CAS wrappers stay bounded and Unsupported. Hardware guest cases are separate from PPL differential results and physical classifications. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.
+
+Run `ppl differential tests/differential/m19/typed_boundaries.toml --backend native,firmware-hle` with the usual local asset options to reproduce the new boundary scenario. Bounded unknown CAS captures and corruption controls are retained in the M19 typed fixture; no unverified pointer traversal was added. Duplicate-export import-order observations are evidence, not a complete replacement/rebinding specification.

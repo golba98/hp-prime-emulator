@@ -108,5 +108,7 @@ One initial full-library run failed the existing30ms safe-point scheduling test
 while other builds were active (150 other tests passed). That unchanged test
 passed in isolation, and the full151-test suite subsequently passed. No timeout
 or production scheduling behavior was changed. Initial Clippy rejected my use
-of an API newer than the repository\'s Rust1.85 MSRV; ordinary modulo now performs
+of an API newer than the repository's Rust1.85 MSRV; ordinary modulo now performs
 that alignment check without a lint exception.
+
+Coordinator review additionally rejects checksummed Thumb CPU state in both pending and runnable ARM-service snapshots. The broader CPU-only format legitimately permits Thumb; the service owner does not. A negative control recomputes the CPU checksum and confirms restore/save still refuse this impossible service state. The integrated snapshot group now has23 passing tests, including9 service tests.

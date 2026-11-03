@@ -41,3 +41,5 @@ actual guest/device evidence live in `../M18_HARDWARE_EXECUTION.md` and
 `../evidence/m18-hardware.json`. New patches contain original self-authored GPL
 code or small changes to GPL QEMU files. Keep original notices and QEMU license
 files with any derivative research distribution.
+
+M19 adds ordered GPL overlays0004 NAND,0005 selectable clocks/reset and0006 LCD/input. Apply after0001–0003. These modify only owned pinned-source exports. See the M19 NAND, clock and LCD/input execution reports for exact supported subsets and genuine guest evidence. None boots proprietary calculator firmware.
