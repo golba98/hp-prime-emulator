@@ -81,6 +81,7 @@ pub trait Debugger {
 pub struct Machine {
     prog: Rc<CompiledProgram>,
     pub(crate) linked: Option<(crate::LinkedProgram, Vec<bool>)>,
+    initializing_modules: std::collections::BTreeSet<usize>,
     consts: Vec<Value>,
     pub(crate) globals: Vec<Value>,
     setting_slots: Vec<Option<Setting>>,
@@ -157,6 +158,7 @@ impl Machine {
         Machine {
             prog,
             linked: None,
+            initializing_modules: Default::default(),
             consts,
             globals,
             setting_slots,
@@ -251,11 +253,32 @@ impl Machine {
 
     /// `(function, span)` for each active frame, innermost first.
     pub fn call_stack(&self) -> Vec<(String, Span)> {
+        self.call_stack_frames()
+            .into_iter()
+            .map(|frame| (frame.function, frame.span))
+            .collect()
+    }
+
+    /// Original source/revision and span for every frame, innermost first.
+    /// Single-source machines have no linked module identity.
+    pub fn call_stack_frames(&self) -> Vec<TraceFrame> {
         self.frames
             .iter()
             .rev()
-            .map(|f| (self.fn_name(f.func).to_string(), self.frame_span(f)))
+            .map(|frame| TraceFrame {
+                module: self.frame_source(frame).cloned(),
+                function: self.fn_name(frame.func).to_owned(),
+                span: self.frame_span(frame),
+            })
             .collect()
+    }
+
+    fn frame_source(&self, frame: &Frame) -> Option<&crate::SourceIdentity> {
+        let (image, _) = self.linked.as_ref()?;
+        image
+            .function_owners
+            .get(frame.func)
+            .map(|&m| &image.modules[m])
     }
 
     /// Local variable names and values of the frame `depth` levels up.
@@ -275,17 +298,31 @@ impl Machine {
 
     /// Program-level variables and calculator variables used by the program.
     pub fn globals(&self) -> Vec<(String, Value)> {
+        self.globals_for_frame(0)
+    }
+
+    /// Shared calculator slots and the selected frame's own file variables.
+    pub fn globals_for_frame(&self, depth: usize) -> Vec<(String, Value)> {
+        if depth > 0 && depth >= self.frames.len() {
+            return Vec::new();
+        }
         if let Some((image, _)) = &self.linked {
             let owner = self
                 .frames
-                .last()
+                .iter()
+                .rev()
+                .nth(depth)
                 .and_then(|f| image.function_owners.get(f.func))
                 .copied()
                 .unwrap_or(image.root);
             let mut visible = std::collections::BTreeMap::new();
             for private in [false, true] {
                 for (i, slot) in self.prog.globals.iter().enumerate() {
-                    if image.global_owners[i] == if private { Some(owner) } else { None } {
+                    if if private {
+                        image.global_owners[i] == Some(owner)
+                    } else {
+                        image.global_owners[i].is_none() || slot.exported
+                    } {
                         visible.insert(slot.name.clone(), self.load_global(i));
                     }
                 }
@@ -351,19 +388,16 @@ impl Machine {
             return Ok(());
         }
         self.linked.as_mut().unwrap().1[module] = true;
+        self.initializing_modules.insert(module);
         let result = self.execute(func, vec![]).map(|_| ());
+        self.initializing_modules.remove(&module);
         if result.is_err() {
             self.linked.as_mut().unwrap().1[module] = false;
         }
         result
     }
     pub fn current_source(&self) -> Option<&crate::SourceIdentity> {
-        let frame = self.frames.last()?;
-        let (image, _) = self.linked.as_ref()?;
-        image
-            .function_owners
-            .get(frame.func)
-            .map(|&m| &image.modules[m])
+        self.frame_source(self.frames.last()?)
     }
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {
         let idx = self.prog.function_index(name).ok_or_else(|| {
@@ -555,6 +589,36 @@ impl Machine {
         Ok(())
     }
 
+    fn prepare_global(&mut self, slot: usize) -> RtResult<()> {
+        if self.prog.globals[slot].external {
+            return Err(RuntimeError::new(
+                ErrorKind::Undefined,
+                format!(
+                    "external variable {} requires a linked module catalog",
+                    self.prog.globals[slot].name
+                ),
+            ));
+        }
+        if self.prog.globals[slot].exported
+            && let Some((image, _)) = &self.linked
+        {
+            let owner = image.global_owners[slot].expect("exported file variable owner");
+            let current = self
+                .frames
+                .last()
+                .and_then(|frame| image.function_owners.get(frame.func))
+                .copied();
+            if self.initializing_modules.contains(&owner) && current != Some(owner) {
+                return Err(RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    "cross-module variable initializer cycle has unverified firmware semantics; execute this catalog in firmware mode",
+                ));
+            }
+            self.initialize_module(owner)?;
+        }
+        Ok(())
+    }
+
     fn load_global(&self, slot: usize) -> Value {
         match self.setting_slots.get(slot).copied().flatten() {
             Some(s) => {
@@ -646,10 +710,12 @@ impl Machine {
                 self.stack[frame.base + s as usize] = v;
             }
             Op::LoadGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.load_global(g as usize);
                 self.stack.push(v);
             }
             Op::StoreGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.pop();
                 self.store_global(g as usize, v)?;
             }
@@ -814,6 +880,7 @@ impl Machine {
                 self.stack.push(v);
             }
             Op::StoreIndexGlobal { slot, n } => {
+                self.prepare_global(slot as usize)?;
                 let v = self.pop();
                 let idx = self.pop_n(n as usize);
                 let max = self.limits.max_collection_len;

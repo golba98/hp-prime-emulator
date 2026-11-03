@@ -1,0 +1,182 @@
+{
+  "dump": "__M18_OUTPUT__/dump.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "new_program",
+      "name": "ROOT"
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL count:=100;\nEXPORT TOP()\nBEGIN\n A:=1;\n A:=MIDDLE();\n RETURN A+count;\nEND;"
+    },
+    {
+      "step": "new_program",
+      "name": "MIDDLE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MIDDLE()\nBEGIN\n A:=0;\n A:=LEAF();\n RETURN A;\nEND;"
+    },
+    {
+      "step": "new_program",
+      "name": "LEAF"
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL count:=10;\nEXPORT LEAF()\nBEGIN\n LOCAL x:=3;\n RETURN count+x;\nEND;"
+    },
+    {
+      "step": "breakpoint",
+      "line": 5
+    },
+    {
+      "step": "select_tab",
+      "index": 0
+    },
+    {
+      "step": "breakpoint",
+      "line": 5
+    },
+    {
+      "step": "debug"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "continue"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "root_call"
+    },
+    {
+      "step": "step_into"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "middle"
+    },
+    {
+      "step": "step_over"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "middle_call"
+    },
+    {
+      "step": "step_over"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "leaf_breakpoint"
+    },
+    {
+      "step": "debug_frame",
+      "index": 2
+    },
+    {
+      "step": "snapshot",
+      "label": "caller_frame"
+    },
+    {
+      "step": "debug_frame",
+      "index": 0
+    },
+    {
+      "step": "window_screenshot",
+      "path": "__M18_OUTPUT__/linked-debug.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LEAF()\nBEGIN\n RETURN 42;\nEND;"
+    },
+    {
+      "step": "snapshot",
+      "label": "edited_while_paused"
+    },
+    {
+      "step": "step_out"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "middle_return"
+    },
+    {
+      "step": "step_out"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "root_return"
+    },
+    {
+      "step": "continue"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "finished"
+    },
+    {
+      "step": "select_tab",
+      "index": 0
+    },
+    {
+      "step": "debug"
+    },
+    {
+      "step": "wait_paused",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "new_run"
+    },
+    {
+      "step": "stop"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "stopped"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

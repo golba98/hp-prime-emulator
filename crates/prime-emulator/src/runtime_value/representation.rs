@@ -157,9 +157,9 @@ impl Capture<'_> {
                 8 + (length + 1) * 2
             }
             5 => 8,
-            // Candidate layout from the separate runtime-parity branch.
-            // Capturing this shape does not establish that it is decoded.
-            6 if matches!(sub, 0 | 1 | 0x20) => {
+            // Retained G1 captures validate these bounded pointer-table layouts.
+            // M18 repeated shared-variable returns additionally exercise subtype 2.
+            6 if matches!(sub, 0 | 1 | 2 | 0x20) => {
                 self.read_to(index, 8)?;
                 if self.graph.nodes[index].path.len() >= MAX_LIST_DEPTH {
                     return Err("guest list nesting exceeds capture bound".into());
@@ -398,8 +398,9 @@ impl Decoder<'_> {
             5 if bytes.len() == 8 => FirmwareValue::Error { raw_code: sub },
             // Independently observed in this checkout's capture-only controls:
             // Subtypes 0x00 and 0x20 are supported by retained captures;
-            // 0x01 is supported by the G1 2.4.2 runtime-parity controls.
-            6 if matches!(sub, 0 | 1 | 0x20) => {
+            // 0x01 is supported by the G1 2.4.2 runtime-parity controls;
+            // 0x02 is verified by M18 repeated list/index projections.
+            6 if matches!(sub, 0 | 1 | 2 | 0x20) => {
                 if path.len() >= MAX_LIST_DEPTH {
                     return Err("guest list nesting exceeds capture bound".into());
                 }

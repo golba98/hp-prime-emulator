@@ -84,10 +84,31 @@ impl IdleMeter {
     /// Current strict window for failure diagnostics, never an admission override.
     pub fn diagnostic(&self) -> serde_json::Value {
         let idle = self.samples.iter().filter(|(_, idle)| *idle).count();
+        // Diagnostic zero-order estimate only: coordinator samples do not prove
+        // the owner stayed in this state between observations. Never admit a
+        // checkpoint using this estimate or extrapolate beyond the last sample.
+        let mut observed = Duration::ZERO;
+        let mut estimated_idle = Duration::ZERO;
+        let mut maximum_gap = Duration::ZERO;
+        for ((start, was_idle), (end, _)) in self.samples.iter().zip(self.samples.iter().skip(1)) {
+            let interval = end.saturating_duration_since(*start);
+            observed += interval;
+            maximum_gap = maximum_gap.max(interval);
+            if *was_idle {
+                estimated_idle += interval;
+            }
+        }
         serde_json::json!({"samples":self.samples.len(),"idle_samples":idle,
-            "share":idle as f64/self.samples.len().max(1) as f64,
-            "covered_ms":self.samples.front().map(|(t,_)|t.elapsed().as_secs_f64()*1000.0),
-            "required_share":INTERRUPT_IDLE_SHARE,"required_window_ms":INTERRUPT_SETTLE.as_millis()})
+        "share":idle as f64/self.samples.len().max(1) as f64,
+        "covered_ms":self.samples.front().map(|(t,_)|t.elapsed().as_secs_f64()*1000.0),
+        "required_share":INTERRUPT_IDLE_SHARE,"required_window_ms":INTERRUPT_SETTLE.as_millis(),
+        "sample_interval_estimate": {
+            "admission_input": false,
+            "observed_ms": observed.as_secs_f64()*1000.0,
+            "idle_ms": estimated_idle.as_secs_f64()*1000.0,
+            "maximum_gap_ms": maximum_gap.as_secs_f64()*1000.0,
+            "share": if observed.is_zero() { None } else { Some(estimated_idle.as_secs_f64()/observed.as_secs_f64()) }
+        }})
     }
 }
 #[derive(Clone, Copy, PartialEq)]
@@ -2171,5 +2192,42 @@ mod tests {
         assert!(catalog_order(&v(&["ZZT_IDE"]), vec![], &expected).is_err());
         assert!(catalog_order(&v(&["ZZT_IDE"]), v(&["ZZT_IDE"]), &expected).is_err());
         assert!(catalog_order(&expected, v(&["OTHER"]), &expected).is_err());
+    }
+}
+
+#[cfg(test)]
+mod idle_diagnostic_tests {
+    use super::*;
+    #[test]
+    fn unequal_sampling_is_reported_without_replacing_strict_count_share() {
+        let start = Instant::now();
+        let meter = IdleMeter {
+            samples: [
+                (start, false),
+                (start + Duration::from_millis(400), true),
+                (start + Duration::from_millis(450), true),
+                (start + Duration::from_millis(500), true),
+            ]
+            .into(),
+        };
+        let report = meter.diagnostic();
+        assert_eq!(report["share"], 0.75);
+        assert_eq!(report["required_share"], 0.8);
+        assert_eq!(report["sample_interval_estimate"]["share"], 0.2);
+        assert_eq!(report["sample_interval_estimate"]["maximum_gap_ms"], 400.0);
+        assert_eq!(report["sample_interval_estimate"]["admission_input"], false);
+    }
+    #[test]
+    fn missing_intervals_are_unknown_not_idle_evidence() {
+        let meter = IdleMeter::default();
+        assert!(meter.diagnostic()["sample_interval_estimate"]["share"].is_null());
+        let meter = IdleMeter {
+            samples: [(Instant::now(), true)].into(),
+        };
+        assert!(meter.diagnostic()["sample_interval_estimate"]["share"].is_null());
+        assert_eq!(
+            meter.diagnostic()["sample_interval_estimate"]["observed_ms"],
+            0.0
+        );
     }
 }

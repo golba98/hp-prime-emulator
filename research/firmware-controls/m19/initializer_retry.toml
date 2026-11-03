@@ -1,0 +1,53 @@
+schema_version=2
+id="m19_initializer_failure_retry_control"
+[programs.ZZT_M19PROBE]
+source="""EXPORT M19RESET() BEGIN A:=0; RETURN A; END;
+EXPORT M19PROBE() BEGIN RETURN A; END;
+"""
+[programs.ZZT_M19FAIL]
+source="""M19MAKE() BEGIN A:=A+1; RETURN 1/0; END;
+LOCAL count:=M19MAKE();
+EXPORT M19READ() BEGIN RETURN count; END;
+"""
+[[steps]]
+action="import"
+id="probe_import"
+program="ZZT_M19PROBE"
+[[steps]]
+action="run_program"
+id="reset"
+program="ZZT_M19PROBE"
+entry="M19RESET"
+[[steps]]
+action="import"
+id="failed_initializer_import"
+program="ZZT_M19FAIL"
+[[steps]]
+action="run_program"
+id="after_import"
+program="ZZT_M19PROBE"
+entry="M19PROBE"
+[[steps]]
+action="run_program"
+id="first_attempt"
+program="ZZT_M19FAIL"
+entry="M19READ"
+[[steps]]
+action="run_program"
+id="after_first"
+program="ZZT_M19PROBE"
+entry="M19PROBE"
+[[steps]]
+action="run_program"
+id="second_attempt"
+program="ZZT_M19FAIL"
+entry="M19READ"
+[[steps]]
+action="run_program"
+id="after_second"
+program="ZZT_M19PROBE"
+entry="M19PROBE"
+[[expect]]
+step="reset"
+path="/return_value"
+value={type="real",value="0"}

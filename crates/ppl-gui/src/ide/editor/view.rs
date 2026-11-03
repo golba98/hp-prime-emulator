@@ -140,7 +140,7 @@ pub fn show(
     // 1. Editor keys, before TextEdit sees them.
     let focused = !state.calc_input_focus && ctx.memory(|m| m.has_focus(id));
     let mut explicit_completion = false;
-    if focused {
+    if focused && tab.debug_source.is_none() {
         let lines = tab.doc.lines().clone();
         let analysis = tab.doc.analysis().clone();
         let r = input::intercept(
@@ -183,7 +183,12 @@ pub fn show(
     let number_font = egui::FontId::monospace((style.font_size - 1.0).max(8.0));
     let gutter_w = gutter::width(&ctx, &number_font, line_count);
     let outer = ui.available_rect_before_wrap();
-    let paused_line = state.paused_line;
+    let paused_line = if state.paused_tab.is_none_or(|id| id == tab_id) {
+        state.paused_line
+    } else {
+        0
+    };
+    let read_only = tab.debug_source.is_some();
     let paused_changed = paused_line != view.last_paused_line;
     view.last_paused_line = paused_line;
 
@@ -217,21 +222,28 @@ pub fn show(
             let output = ui
                 .horizontal_top(|ui| {
                     ui.add_space(gutter_w);
-                    TextEdit::multiline(content)
-                        .id(id)
-                        .font(style.font())
-                        .frame(false)
-                        .margin(egui::Margin {
-                            left: 8,
-                            right: 32,
-                            top: 6,
-                            bottom: 48,
-                        })
-                        .desired_width(f32::INFINITY)
-                        .min_size(vec2(0.0, clip.height()))
-                        .lock_focus(true)
-                        .layouter(&mut layouter)
-                        .show(ui)
+                    let mut show = |text: &mut dyn egui::TextBuffer| {
+                        TextEdit::multiline(text)
+                            .id(id)
+                            .font(style.font())
+                            .frame(false)
+                            .margin(egui::Margin {
+                                left: 8,
+                                right: 32,
+                                top: 6,
+                                bottom: 48,
+                            })
+                            .desired_width(f32::INFINITY)
+                            .min_size(vec2(0.0, clip.height()))
+                            .lock_focus(true)
+                            .layouter(&mut layouter)
+                            .show(ui)
+                    };
+                    if read_only {
+                        show(&mut content.as_str())
+                    } else {
+                        show(content)
+                    }
                 })
                 .inner;
             let changed = output.response.changed();

@@ -687,3 +687,31 @@ Production performance is preserved; no additional major speedup is claimed.
 Exact samples, hashes, source and profile identities are in
 evidence/m17/benchmark-summary.json and the final M17 report.
 Nothing was pushed, published or written to physical hardware.
+
+## M18 hardware/runtime implementation
+
+Integrated from M17 reporting checkpoint `31cfa64`; tested source `11356a1`.
+Actual self-authored ARM926 programs execute timer IRQ/FIQ handlers and return,
+transmit UART, read/write GPIO and exercise MMU translation/permission/alignment/
+prefetch exceptions. Dedicated timer and narrow ARMv5 alignment corrections remain
+GPL research overlays. No proprietary boot chain or physical capture is claimed.
+
+Native now supports owner-bound exported variables, ASCII imaginary-unit fallback
+and verified retained-list subtype2. Linked debugging carries source revisions
+through stepping, breakpoints, frames and immutable captured tabs. Synthetic
+ARM/Thumb snapshots resume in fresh processes and explicitly recover a compatible
+previous generation; whole-calculator live restoration remains disabled.
+
+Workspace: 1,901 passing, 0 failures, 6 existing ignored; formatting/Clippy clean.
+Five genuine Native/HLE comparisons: 94 assertions. Historical replay: 77 unchanged
+classifications, 0 mismatches. Final GUI groups pass 169 assertions. See the [M18 report](M18_FULL_SYSTEM_HARDWARE_FOUNDATIONS.md) for
+actual evidence, initial test failures and remaining limits.
+
+Five paired benchmark trials pass 130 expected outcomes: tiny repeat 0.775s,
+large cold 3.056s, large repeat 1.378s, syntax-error feedback 1.774s. All 13 workload
+medians remain within 5% of the matched M17 baseline; no major new speedup claimed.
+No push, proprietary-image modification or physical-device access occurred.
+
+## M19 boot hardware and storage
+
+M19 integrates NAND, clock/reset, LCD/input and synthetic boot diagnostics while preserving the selected PPL engine. Final verification passes1,919 workspace tests, formatting, Clippy,101 Native/HLE assertions,77 historical classifications and130 benchmark outcomes. Tiny repeat0.776s, large cold3.062s; largest paired median increase7.47%, with no>10% regression. No real kernel boot or physical parity is claimed. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.

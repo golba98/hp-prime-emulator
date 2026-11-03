@@ -63,14 +63,18 @@ impl DebuggerPanel {
                 egui::CollapsingHeader::new(RichText::new("▾ Globals").strong().size(11.0))
                     .default_open(true)
                     .show(ui, |ui| {
-                        if snapshot.globals.is_empty() {
+                        let globals = snapshot
+                            .frames
+                            .get(self.selected_frame_index)
+                            .map_or(&snapshot.globals, |frame| &frame.globals);
+                        if globals.is_empty() {
                             ui.label(
                                 RichText::new("  (No global variables)")
                                     .color(TEXT_MUTED)
                                     .size(11.0),
                             );
                         } else {
-                            render_variable_table(ui, &snapshot.globals);
+                            render_variable_table(ui, globals);
                         }
                     });
             });
@@ -106,14 +110,21 @@ impl DebuggerPanel {
 
                             if ui.selectable_label(is_selected, &frame.function).clicked() {
                                 self.selected_frame_index = idx;
-                                state.cursor_line = frame.line;
-                                state.cursor_col = frame.col;
+                                state.queue_action(super::IdeAction::SelectDebugFrame(idx));
                             }
 
                             ui.label(
-                                RichText::new(format!("{}:{}", frame.line, frame.col))
-                                    .monospace()
-                                    .size(11.0),
+                                RichText::new(format!(
+                                    "{}:{}:{}",
+                                    frame
+                                        .source
+                                        .as_ref()
+                                        .map_or("<source>", |id| id.name.as_str()),
+                                    frame.line,
+                                    frame.col
+                                ))
+                                .monospace()
+                                .size(11.0),
                             );
                             ui.end_row();
                         }

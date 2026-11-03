@@ -39,6 +39,7 @@ pub mod services;
 pub mod session;
 pub mod sha256;
 pub mod storage;
+pub mod synthetic_snapshot;
 pub mod trace;
 pub mod verify;
 

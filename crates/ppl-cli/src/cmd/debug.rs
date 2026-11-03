@@ -15,7 +15,7 @@
 //!   `Debugger quit; program aborted.` after `q` or end of input.
 
 use std::cell::Cell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -44,9 +44,13 @@ pub struct DebugOpts {
     #[arg(short, long)]
     pub entry: Option<String>,
 
-    /// Set a breakpoint at LINE before starting (repeatable).
-    #[arg(short = 'b', long = "break", value_name = "LINE")]
-    pub breakpoints: Vec<usize>,
+    /// Set a breakpoint at root LINE or MODULE:LINE (repeatable).
+    #[arg(short = 'b', long = "break", value_name = "MODULE:LINE")]
+    pub breakpoints: Vec<String>,
+
+    /// Dependency source (repeatable NAME=PATH), identical to Native Run/Check.
+    #[arg(long = "module", value_name = "NAME=PATH")]
+    pub modules: Vec<String>,
 
     /// Run to the first breakpoint instead of stopping at the first statement.
     #[arg(long)]
@@ -154,11 +158,12 @@ enum Mode {
 
 struct CliDebugger {
     source: SourceFile,
-    breakpoints: BTreeSet<usize>,
+    sources: BTreeMap<ppl_vm::SourceIdentity, SourceFile>,
+    breakpoints: BTreeSet<(String, usize)>,
     mode: Mode,
     /// `(line, depth)` of the previous statement executed (stopped or not):
     /// a breakpoint fires when execution *enters* its line.
-    prev_stmt: Option<(usize, usize)>,
+    prev_stmt: Option<(String, String, usize, usize)>,
     input: Box<dyn BufRead>,
     quit: Rc<Cell<bool>>,
 }
@@ -189,15 +194,47 @@ impl CliDebugger {
         if frame == 0 {
             return Some((here.0.to_string(), here.1, here.2));
         }
-        let stack = machine.call_stack();
-        let (name, span) = stack.get(frame)?;
-        let lc = self.source.line_col(span.start);
-        Some((name.clone(), lc.line as usize, lc.col as usize))
+        let stack = machine.call_stack_frames();
+        let frame = stack.get(frame)?;
+        let source = self.frame_source(machine, frame.module.as_ref());
+        let lc = source.line_col(frame.span.start);
+        Some((frame.function.clone(), lc.line as usize, lc.col as usize))
+    }
+
+    fn frame_source(
+        &self,
+        _machine: &Machine,
+        identity: Option<&ppl_vm::SourceIdentity>,
+    ) -> &SourceFile {
+        identity
+            .and_then(|id| self.sources.get(id))
+            .unwrap_or(&self.source)
+    }
+
+    fn source_at(&self, machine: &Machine, frame: usize) -> &SourceFile {
+        let frames = machine.call_stack_frames();
+        self.frame_source(machine, frames.get(frame).and_then(|f| f.module.as_ref()))
+    }
+
+    fn breakpoint(&self, target: &str, default: &str) -> Result<(String, usize), &'static str> {
+        let (name, line) = target.rsplit_once(':').unwrap_or((default, target));
+        let line = line
+            .parse::<usize>()
+            .ok()
+            .filter(|line| *line > 0)
+            .ok_or("line must be positive")?;
+        if name != self.source.name && !self.sources.keys().any(|id| id.name == name) {
+            return Err("unknown source module");
+        }
+        Ok((name.to_owned(), line))
     }
 
     fn print_frame(&self, machine: &Machine, frame: usize, here: (&str, usize, usize)) {
         if let Some((f, l, c)) = self.frame_info(machine, frame, here) {
-            println!("Frame #{frame} {f}() at line {l}:{c}");
+            println!(
+                "Frame #{frame} {f}() at line {l}:{c} [{}]",
+                self.source_at(machine, frame).name
+            );
         }
     }
 
@@ -229,10 +266,17 @@ impl Debugger for CliDebugger {
         span: Span,
         depth: usize,
     ) -> DebugAction {
-        let lc = self.source.line_col(span.start);
+        let source = self.frame_source(machine, machine.current_source()).clone();
+        let module = machine
+            .current_source()
+            .map_or(source.name.as_str(), |id| id.name.as_str())
+            .to_owned();
+        let lc = source.line_col(span.start);
         let (line, col) = (lc.line as usize, lc.col as usize);
-        let prev = self.prev_stmt.replace((line, depth));
-        let at_breakpoint = self.breakpoints.contains(&line) && prev != Some((line, depth));
+        let location = (module.clone(), function.to_owned(), line, depth);
+        let prev = self.prev_stmt.replace(location.clone());
+        let at_breakpoint =
+            self.breakpoints.contains(&(module.clone(), line)) && prev != Some(location);
 
         if !at_breakpoint && !should_stop(self.mode, depth) {
             return DebugAction::Continue;
@@ -245,9 +289,9 @@ impl Debugger for CliDebugger {
         }
         println!(
             "[STOP] {}() at {}:{}:{} (frame depth {})",
-            function, self.source.name, line, col, depth
+            function, source.name, line, col, depth
         );
-        print_source_context(&self.source, line);
+        print_source_context(&source, line);
 
         let here = (function, line, col);
         let max_frame = machine.call_stack().len().saturating_sub(1);
@@ -289,24 +333,36 @@ impl Debugger for CliDebugger {
                 }
                 "b" | "break" => {
                     if let Some(target) = parts.next() {
-                        match target.parse::<usize>() {
-                            Ok(ln) if ln >= 1 => {
-                                self.breakpoints.insert(ln);
-                                println!("Breakpoint set at line {ln}");
+                        match self.breakpoint(target, &module) {
+                            Ok(key) => {
+                                let line = key.1;
+                                self.breakpoints.insert(key);
+                                println!("Breakpoint set at line {line}");
                             }
-                            _ => println!("Usage: b <line_number>"),
+                            Err(reason) => println!("Usage: b <MODULE:LINE|LINE> ({reason})"),
                         }
                     } else {
-                        println!("Active breakpoints: {:?}", self.breakpoints);
+                        if self.sources.is_empty() {
+                            println!(
+                                "Active breakpoints: {:?}",
+                                self.breakpoints
+                                    .iter()
+                                    .map(|(_, line)| *line)
+                                    .collect::<BTreeSet<_>>()
+                            );
+                        } else {
+                            println!("Active breakpoints: {:?}", self.breakpoints);
+                        }
                     }
                 }
                 "d" | "delete" => {
                     if let Some(target) = parts.next() {
-                        if let Ok(ln) = target.parse::<usize>() {
-                            self.breakpoints.remove(&ln);
-                            println!("Removed breakpoint at line {ln}");
-                        } else {
-                            println!("Usage: d [line_number]");
+                        match self.breakpoint(target, &module) {
+                            Ok(key) => {
+                                self.breakpoints.remove(&key);
+                                println!("Removed breakpoint at line {}", key.1);
+                            }
+                            Err(reason) => println!("Usage: d [MODULE:LINE|LINE] ({reason})"),
                         }
                     } else {
                         self.breakpoints.clear();
@@ -324,7 +380,7 @@ impl Debugger for CliDebugger {
                     }
                 }
                 "g" | "globals" => {
-                    let globs = machine.globals();
+                    let globs = machine.globals_for_frame(frame);
                     if globs.is_empty() {
                         println!("(no globals)");
                     }
@@ -335,7 +391,14 @@ impl Debugger for CliDebugger {
                 "bt" | "stack" | "backtrace" => {
                     for i in 0..=max_frame {
                         if let Some((f, l, c)) = self.frame_info(machine, i, here) {
-                            println!("  #{i} {f}() at line {l}:{c}");
+                            if self.sources.is_empty() {
+                                println!("  #{i} {f}() at line {l}:{c}");
+                            } else {
+                                println!(
+                                    "  #{i} {f}() at line {l}:{c} [{}]",
+                                    self.source_at(machine, i).name
+                                );
+                            }
                         }
                     }
                 }
@@ -366,7 +429,7 @@ impl Debugger for CliDebugger {
                 "p" | "print" => {
                     if let Some(var) = parts.next() {
                         match find_var(machine.locals(frame), var)
-                            .or_else(|| find_var(machine.globals(), var))
+                            .or_else(|| find_var(machine.globals_for_frame(frame), var))
                         {
                             Some((name, val)) => println!("  {} = {}", name, val.display(fmt)),
                             None => {
@@ -381,7 +444,7 @@ impl Debugger for CliDebugger {
                     let l = self
                         .frame_info(machine, frame, here)
                         .map_or(line, |(_, l, _)| l);
-                    print_source_context(&self.source, l);
+                    print_source_context(self.source_at(machine, frame), l);
                 }
                 "h" | "help" => {
                     println!("Debugger commands:");
@@ -430,9 +493,60 @@ pub fn run(o: DebugOpts) -> u8 {
         }
     };
 
-    let (prog, _) = common::compile(&file, false);
-    let Some(prog) = prog else {
-        return exit::COMPILE;
+    let mut sources = BTreeMap::new();
+    let linked = if o.modules.is_empty() {
+        None
+    } else {
+        let modules = match super::unified::load_modules(&o.modules, &[]) {
+            Ok(modules) => modules,
+            Err(error) => {
+                eprintln!("error: {error}");
+                return exit::USAGE;
+            }
+        };
+        let mut catalog = BTreeMap::new();
+        for (name, module) in modules {
+            let identity = ppl_vm::SourceIdentity::new(&name, &module.identity.source_sha256);
+            sources.insert(
+                identity.clone(),
+                SourceFile::new(module.identity.display_name, &module.text),
+            );
+            catalog.insert(
+                name,
+                ppl_vm::ModuleSource {
+                    identity,
+                    source: module.text,
+                },
+            );
+        }
+        if catalog.contains_key(&file.name) {
+            eprintln!("error: root source collides with catalog module");
+            return exit::USAGE;
+        }
+        let identity =
+            ppl_vm::SourceIdentity::new(&file.name, ppl_engine::source::hash(file.text.as_bytes()));
+        sources.insert(identity.clone(), file.clone());
+        catalog.insert(
+            file.name.clone(),
+            ppl_vm::ModuleSource {
+                identity,
+                source: file.text.clone(),
+            },
+        );
+        match ppl_vm::link_sources(&catalog, &file.name) {
+            Ok(image) => Some(image),
+            Err(error) => {
+                eprintln!("error: {error}");
+                return exit::COMPILE;
+            }
+        }
+    };
+    let prog = match &linked {
+        Some(image) => Rc::new(image.program().clone()),
+        None => match common::compile(&file, false).0 {
+            Some(prog) => prog,
+            None => return exit::COMPILE,
+        },
     };
 
     let stem = o
@@ -470,24 +584,38 @@ pub fn run(o: DebugOpts) -> u8 {
     println!("Type `s` to step, `c` to continue, `h` for help.");
 
     let quit = Rc::new(Cell::new(false));
-    let breakpoints: BTreeSet<usize> = o.breakpoints.iter().copied().collect();
-    for ln in &breakpoints {
-        println!("Breakpoint set at line {ln}");
-    }
-    let debugger = Box::new(CliDebugger {
+    let mut debugger = Box::new(CliDebugger {
         source: file.clone(),
-        breakpoints,
+        sources,
+        breakpoints: BTreeSet::new(),
         mode: if o.run { Mode::Continue } else { Mode::Step },
         prev_stmt: None,
         input: Box::new(io::stdin().lock()),
         quit: quit.clone(),
     });
-
-    let mut m = Machine::new(prog, Box::new(host), settings, o.limits());
+    for target in &o.breakpoints {
+        match debugger.breakpoint(target, &file.name) {
+            Ok(key) => {
+                println!("Breakpoint set at line {}", key.1);
+                debugger.breakpoints.insert(key);
+            }
+            Err(reason) => {
+                eprintln!("error: invalid breakpoint {target}: {reason}");
+                return exit::USAGE;
+            }
+        }
+    }
+    let error_sources = debugger.sources.clone();
+    let mut m = match linked {
+        Some(image) => Machine::new_linked(image, Box::new(host), settings, o.limits()),
+        None => Machine::new(prog, Box::new(host), settings, o.limits()),
+    };
     m.set_seed(o.seed);
     m.set_debugger(Some(debugger));
 
-    let result = m.call_function(&entry, args);
+    let result = m
+        .initialize_dependencies()
+        .and_then(|_| m.call_function(&entry, args));
     let _ = io::stdout().flush();
     match result {
         Ok(val) => {
@@ -504,6 +632,11 @@ pub fn run(o: DebugOpts) -> u8 {
         Err(e) => {
             eprintln!("\nExecution terminated: {e}");
             for (i, f) in e.trace.iter().enumerate() {
+                let file = f
+                    .module
+                    .as_ref()
+                    .and_then(|id| error_sources.get(id))
+                    .unwrap_or(&file);
                 let lc = file.line_col(f.span.start);
                 let text = file.line_text(lc.line).trim();
                 let arrow = if i == 0 { "-->" } else { "   " };

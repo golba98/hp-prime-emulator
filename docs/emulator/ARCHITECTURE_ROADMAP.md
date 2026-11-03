@@ -160,3 +160,38 @@ debug settings. Matched-source recovery tests improved from median 91.22 to
 change. Busy firmware can still fail strict admission safely; optimization is
 not proof of universal quiescence. Native-engine assertion/debug work can use
 `cargo --config 'profile.dev.package.unicorn-engine-sys.opt-level=0' ...`.
+
+## M18 hardware/runtime integration
+
+FullSystem research discovery and execution use a separate engine descriptor
+and `ppl full-system` CLI. The PPL Engine enum remains Native/Firmware; research
+capabilities do not enable PPL, CAS or calculator UI. Binary/configuration
+validation is distinct from runtime preflight and guest execution evidence.
+QEMU stays an external licensed process with bounded execution and owned cleanup.
+
+Synthetic snapshots now resume a constrained ARM926 user-mode machine in fresh
+processes. The fixed code/data/stack profile includes portable architectural
+registers and flags, exact memory and resource identity. It rejects unsupported
+instructions, CPU modes and corrupt metadata; real calculator SVC continuations
+remain outside this contract. See M18_SNAPSHOT_CONTINUATION.md. The production
+checkpoint admission policy is unchanged; sampling-interval estimates are
+explicitly diagnostic rather than new safety evidence.
+
+Linked Native debugging now propagates exact source/revision identity through
+pauses, breakpoints, stack frames and frame-global inspection. Captured old
+sources are read-only and excluded from compilation. Exported variables resolve
+to owner slots, including indexed stores; initializer cycles refuse unsupported
+behavior instead of returning zero. ASCII imaginary-unit fallback follows ordinary
+name resolution. Retained firmware list subtype0x16/2 has controlled codecs and
+bounds tests. See the M18 report for actual comparisons and remaining semantics.
+
+FullSystem output ownership is atomically reserved; cleanup cannot borrow another
+run's container ID. Process guards cover exceptional exits, and successful
+reports require concrete entry/step/terminal plus case-specific observations.
+QEMU now has executing timer IRQ/FIQ, UART/GPIO and MMU-fault tests; PPL and real
+kernel boot remain unavailable. This keeps hardware diagnostics, synthetic CPU
+resume and calculator recovery separate capabilities.
+
+## M19 boot hardware and storage
+
+M19 preserves the Rust HLE architecture while adding separately licensed boot hardware research. The synthetic service owner advances explicit continuation reconstruction; production firmware waits, complete scheduler/resource restoration and arbitrary live calculator snapshots remain unsupported. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.

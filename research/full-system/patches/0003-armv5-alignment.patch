@@ -1,0 +1,26 @@
+--- a/target/arm/cpu.h
++++ b/target/arm/cpu.h
+@@ -2390,0 +2391,2 @@
++#define ARM_TBFLAG_ALIGN_V5_SHIFT   22
++#define ARM_TBFLAG_ALIGN_V5_MASK    (1 << ARM_TBFLAG_ALIGN_V5_SHIFT)
+@@ -2581,0 +2584,8 @@
++#ifndef CONFIG_USER_ONLY
++        /* ARMv5 alignment control must be part of translated-block identity.
++         * Limit this correction to pre-v6; newer alignment regimes differ. */
++        if (!arm_feature(env, ARM_FEATURE_V6) &&
++            (env->cp15.sctlr_el[1] & SCTLR_A)) {
++            *flags |= ARM_TBFLAG_ALIGN_V5_MASK;
++        }
++#endif
+--- a/target/arm/translate.h
++++ b/target/arm/translate.h
+@@ -19,0 +20 @@
++    bool align_v5;
+--- a/target/arm/translate.c
++++ b/target/arm/translate.c
+@@ -1051,0 +1052 @@
++    if (s->align_v5) { opc |= MO_ALIGN; }
+@@ -1059,0 +1061 @@
++    if (s->align_v5) { opc |= MO_ALIGN; }
+@@ -11835,0 +11838 @@
++    dc->align_v5 = (tb->flags & ARM_TBFLAG_ALIGN_V5_MASK) != 0;

@@ -691,7 +691,7 @@ fn finish(
     r.exit_code
 }
 
-fn load_modules(
+pub(super) fn load_modules(
     specs: &[String],
     outputs: &[&Path],
 ) -> Result<std::collections::BTreeMap<String, Source>, String> {

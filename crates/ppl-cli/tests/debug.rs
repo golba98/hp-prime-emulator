@@ -361,3 +361,83 @@ END;
     assert_eq!(out.code, Some(0), "stderr: {}", out.stderr);
     assert_contains(&out.stdout, "30307\n");
 }
+
+#[test]
+fn linked_debug_steps_sources_frames_globals_and_qualified_breakpoints() {
+    let root = temp_program(
+        "LOCAL count:=100;\nEXPORT TOP()\nBEGIN\n LOCAL value;\n value:=LEAF(7);\n RETURN value+count;\nEND;",
+        "ppl",
+    );
+    let leaf = temp_program(
+        "LOCAL count:=10;\nEXPORT LEAF(x)\nBEGIN\n RETURN x+count;\nEND;",
+        "ppl",
+    );
+    let module = format!("B={}", leaf.display());
+    let out = run_ppl(
+        &[
+            "debug",
+            root.to_str().unwrap(),
+            "--module",
+            &module,
+            "--run",
+            "--break",
+            "B:4",
+        ],
+        &["bt\np count\np x\nup\np count\nlist\nout\nlist\nc\n"],
+        Duration::ZERO,
+        Duration::from_secs(10),
+    );
+    assert_eq!(out.code, Some(0), "{}\n{}", out.stdout, out.stderr);
+    assert_contains(&out.stdout, &format!("B::LEAF() at {}:4:", leaf.display()));
+    assert_contains(&out.stdout, "  count = 10");
+    assert_contains(&out.stdout, "  x = 7");
+    assert_contains(&out.stdout, "  count = 100");
+    assert_contains(&out.stdout, "value:=LEAF(7)");
+    assert_contains(&out.stdout, &format!("TOP() at {}:6:", root.display()));
+    assert_contains(&out.stdout, "Program exited normally with value: 117");
+}
+
+#[test]
+fn linked_debug_step_into_over_and_foreign_errors_use_their_own_source() {
+    let root = temp_program(
+        "EXPORT TOP()\nBEGIN\n LOCAL value;\n value:=LEAF();\n RETURN value;\nEND;",
+        "ppl",
+    );
+    let leaf = temp_program(
+        "EXPORT LEAF()\nBEGIN\n LOCAL x;\n x:=1;\n RETURN 1/0;\nEND;",
+        "ppl",
+    );
+    let module = format!("B={}", leaf.display());
+    let out = run_ppl(
+        &[
+            "debug",
+            root.to_str().unwrap(),
+            "--module",
+            &module,
+            "--run",
+            "-b",
+            "4",
+        ],
+        &["s\nn\nc\n"],
+        Duration::ZERO,
+        Duration::from_secs(10),
+    );
+    assert_eq!(out.code, Some(3), "{}\n{}", out.stdout, out.stderr);
+    assert_contains(&out.stdout, &format!("TOP() at {}:4:", root.display()));
+    assert_contains(&out.stdout, &format!("B::LEAF() at {}:4:", leaf.display()));
+    assert_contains(&out.stderr, &format!("{}:5:", leaf.display()));
+    assert_contains(&out.stderr, "RETURN 1/0");
+}
+
+#[test]
+fn linked_debug_refuses_unknown_breakpoint_module() {
+    let root = temp_program("EXPORT TOP() BEGIN RETURN 1; END;", "ppl");
+    let out = run_ppl(
+        &["debug", root.to_str().unwrap(), "-b", "MISSING:3"],
+        &[],
+        Duration::ZERO,
+        Duration::from_secs(10),
+    );
+    assert_eq!(out.code, Some(2));
+    assert_contains(&out.stderr, "unknown source module");
+}

@@ -77,10 +77,11 @@ def build(reference, output, image=IMAGE, dtc_reference=None, overlay=None, jobs
         if git(dtc_reference, 'cat-file', '-t', DTC_PIN) != 'commit':
             raise ValueError('pinned DTC object is not available')
         export(dtc_reference, DTC_PIN, output / 'source/dtc')
-        if overlay:
-            overlay = overlay.resolve()
-            record['patches'].append({'name': overlay.name, 'sha256': sha(overlay)})
-            with overlay.open('rb') as patch:
+        overlays = overlay if isinstance(overlay, (list, tuple)) else ([overlay] if overlay else [])
+        for item in overlays:
+            item = item.resolve()
+            record['patches'].append({'name': item.name, 'sha256': sha(item)})
+            with item.open('rb') as patch:
                 subprocess.run(['patch', '--batch', '--forward', '-p1'], stdin=patch,
                                cwd=output / 'source', check=True, timeout=30)
         (output / 'build').mkdir()
@@ -113,7 +114,7 @@ def main():
     parser.add_argument('--reference', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--dtc-reference', type=Path)
-    parser.add_argument('--overlay', type=Path)
+    parser.add_argument('--overlay', type=Path, action='append', help='repeatable ordered GPL source overlay')
     parser.add_argument('--jobs', type=int, default=4)
     args = parser.parse_args()
     try:

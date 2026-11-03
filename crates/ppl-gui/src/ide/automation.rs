@@ -45,6 +45,7 @@ pub enum AutoStep {
     StepOver,
     StepOut,
     Breakpoint(usize),
+    DebugFrame(usize),
     /// Type text into the VM key queue (for INPUT dialogs).
     SendKeys(String),
     /// Press one HP keycode.
@@ -72,6 +73,8 @@ pub enum AutoStep {
     NativeHome,
     NativeCatalog,
     IdeSettings,
+    ResearchDiagnostics(String),
+    ResearchRun(String),
     /// Type text into the focused widget as real keyboard input: `\n`
     /// becomes Enter and `\t` becomes Tab.
     Type(String),
@@ -223,6 +226,9 @@ impl Automation {
                     "step_into" => AutoStep::StepInto,
                     "step_over" => AutoStep::StepOver,
                     "step_out" => AutoStep::StepOut,
+                    "debug_frame" => AutoStep::DebugFrame(
+                        s.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                    ),
                     "breakpoint" => AutoStep::Breakpoint(
                         s.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
                     ),
@@ -248,6 +254,8 @@ impl Automation {
                     "native_home" => AutoStep::NativeHome,
                     "native_catalog" => AutoStep::NativeCatalog,
                     "ide_settings" => AutoStep::IdeSettings,
+                    "research_diagnostics" => AutoStep::ResearchDiagnostics(get_str("build_root")),
+                    "research_run" => AutoStep::ResearchRun(get_str("case")),
                     "type" => AutoStep::Type(get_str("text")),
                     "paste" => AutoStep::Paste(get_str("text")),
                     "key" => match egui::Key::from_name(&get_str("key")) {
@@ -524,7 +532,11 @@ impl Automation {
                 app.handle_action(IdeAction::OpenFile(Some(path)), ctx);
             }
             AutoStep::SetContent(content) => {
-                if let Some(tab) = app.editor.active_tab_mut() {
+                if let Some(tab) = app
+                    .editor
+                    .active_tab_mut()
+                    .filter(|tab| tab.debug_source.is_none())
+                {
                     tab.content = content;
                     tab.modified = true;
                     app.state.status_message = "Buffer content set".into();
@@ -557,6 +569,9 @@ impl Automation {
             AutoStep::StepInto => app.handle_action(IdeAction::StepInto, ctx),
             AutoStep::StepOver => app.handle_action(IdeAction::StepOver, ctx),
             AutoStep::StepOut => app.handle_action(IdeAction::StepOut, ctx),
+            AutoStep::DebugFrame(index) => {
+                app.handle_action(IdeAction::SelectDebugFrame(index), ctx)
+            }
             AutoStep::Breakpoint(line) => {
                 app.handle_action(IdeAction::ToggleBreakpoint(line), ctx);
             }
@@ -722,6 +737,15 @@ impl Automation {
             AutoStep::NativeHome => app.handle_action(IdeAction::NativeHome, ctx),
             AutoStep::NativeCatalog => app.handle_action(IdeAction::NativeCatalog, ctx),
             AutoStep::IdeSettings => app.handle_action(IdeAction::ShowSettingsDialog, ctx),
+            AutoStep::ResearchDiagnostics(path) => {
+                app.state.full_system_build_root = path;
+                app.handle_action(IdeAction::ShowResearchDiagnostics, ctx);
+            }
+            AutoStep::ResearchRun(case) => {
+                app.dialogs
+                    .research
+                    .start_case(ctx, &app.state.full_system_build_root, &case);
+            }
             AutoStep::Paste(text) => self.pending_events.push(egui::Event::Paste(text)),
             AutoStep::Type(text) => {
                 for ch in text.chars() {
@@ -885,6 +909,7 @@ impl Automation {
                 });
                 json!({
                     "title": t.title,
+                    "debug_snapshot": t.debug_source.is_some(),
                     "modified": t.modified,
                     "path": t.path.as_ref().map(|p| p.display().to_string()),
                     "content": t.content,
@@ -932,6 +957,15 @@ impl Automation {
             "cursor_line": state.cursor_line,
             "cursor_col": state.cursor_col,
             "paused_line": state.paused_line,
+            "debug_pause": app.debugger.snapshot.as_ref().map(|snapshot| json!({
+                "source": snapshot.source.as_ref().map(|id| &id.name), "line": snapshot.line, "col": snapshot.col,
+                "function": snapshot.function, "depth": snapshot.depth,
+                "frames": snapshot.frames.iter().map(|frame|json!({
+                    "source":frame.source.as_ref().map(|id|&id.name),"function":frame.function,"line":frame.line,"col":frame.col,
+                    "locals":frame.locals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                    "globals":frame.globals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
+            })),
             "worker_alive": app.controller.worker_alive(),
             "worker_outcome": outcome,
             "console": app.console.messages.iter().map(|m| json!({
@@ -989,6 +1023,9 @@ impl Automation {
                 "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
             },
         });
+        dump["research_diagnostics_open"] = json!(app.dialogs.research.open);
+        dump["research_result"] = json!(app.dialogs.research.execution_result());
+        dump["full_system_build_root"] = json!(state.full_system_build_root);
         // M12: the firmware session (added separately: json! recursion).
         let frame_generation = app.firmware.as_ref().and_then(|f| {
             f.latest

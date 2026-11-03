@@ -21,6 +21,8 @@ enum Command {
     Check(cmd::unified::CheckCommand),
     /// Check local execution setup without booting firmware or accessing USB.
     Doctor(cmd::doctor::DoctorOpts),
+    /// Inspect or execute isolated synthetic FullSystem hardware diagnostics.
+    FullSystem(cmd::full_system::Options),
     /// List built-in commands and their emulation status.
     Commands(cmd::commands::CommandsOpts),
     /// Detect and talk to a physical HP Prime over USB.
@@ -49,6 +51,7 @@ const SUBCOMMANDS: &[&str] = &[
     "check",
     "commands",
     "doctor",
+    "full-system",
     "gui",
     "show",
     "debug",
@@ -164,6 +167,7 @@ fn main() -> ExitCode {
         Command::Run(o) => cmd::unified::run(*o),
         Command::Check(o) => cmd::unified::check(o),
         Command::Doctor(o) => cmd::doctor::run(o),
+        Command::FullSystem(o) => cmd::full_system::run(o),
         Command::Commands(o) => cmd::commands::list(o),
         Command::Device(o) => cmd::device::run(o),
         Command::Compare(o) => cmd::compare::run(o),

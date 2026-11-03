@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "origin": "local-firmware",
+  "physical_verification": false,
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "helper_sha256": "fdcf838e7f6a451dafa3a9f9e95c4cd8f9f1891d2865d2fa42f010cf1d9169ad",
+  "scenario": "tests/differential/m18/exported_variables.toml",
+  "scenario_sha256": "e4e415eace3b36941b6b08342f58b4391dd89359582c620298210d2dc20c065f",
+  "expected": {
+    "type": "list",
+    "value": [
+      {
+        "type": "real",
+        "value": "12"
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "9"
+          }
+        ]
+      },
+      {
+        "columns": 2,
+        "rows": 2,
+        "type": "matrix",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "4"
+          }
+        ],
+        "vector": false
+      }
+    ]
+  },
+  "representation": {
+    "captured_bytes": 156,
+    "coherent": true,
+    "complete": true,
+    "logical_items": 9,
+    "nodes": [
+      {
+        "address": 541758736,
+        "bytes": [
+          0,
+          0,
+          22,
+          2,
+          3,
+          0,
+          0,
+          0,
+          48,
+          181,
+          74,
+          32,
+          64,
+          103,
+          74,
+          32,
+          240,
+          179,
+          74,
+          32
+        ],
+        "children": [
+          1,
+          2,
+          5
+        ],
+        "path": [],
+        "unavailable": null
+      },
+      {
+        "address": 541766960,
+        "bytes": [
+          2,
+          0,
+          31,
+          1,
+          0,
+          0,
+          0,
+          0,
+          12,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "children": [],
+        "path": [
+          1
+        ],
+        "unavailable": null
+      },
+      {
+        "address": 541747008,
+        "bytes": [
+          2,
+          0,
+          22,
+          32,
+          2,
+          0,
+          0,
+          0,
+          32,
+          111,
+          74,
+          32,
+          96,
+          167,
+          74,
+          32
+        ],
+        "children": [
+          3,
+          4
+        ],
+        "path": [
+          2
+        ],
+        "unavailable": null
+      },
+      {
+        "address": 541749024,
+        "bytes": [
+          2,
+          0,
+          31,
+          1,
+          0,
+          152,
+          112,
+          48,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "children": [],
+        "path": [
+          2,
+          1
+        ],
+        "unavailable": null
+      },
+      {
+        "address": 541763424,
+        "bytes": [
+          2,
+          0,
+          31,
+          1,
+          0,
+          163,
+          74,
+          32,
+          9,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "children": [],
+        "path": [
+          2,
+          2
+        ],
+        "unavailable": null
+      },
+      {
+        "address": 541766640,
+        "bytes": [
+          2,
+          0,
+          20,
+          0,
+          2,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          8,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4
+        ],
+        "children": [],
+        "path": [
+          3
+        ],
+        "unavailable": null
+      }
+    ],
+    "schema_version": 1,
+    "unavailable": null
+  },
+  "projections": {
+    "M18SCALAR": {
+      "type": "real",
+      "value": "12"
+    },
+    "M18LCELL": {
+      "type": "real",
+      "value": "9"
+    },
+    "M18MCELL": {
+      "type": "real",
+      "value": "8"
+    }
+  }
+}
