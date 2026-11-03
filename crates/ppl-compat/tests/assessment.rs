@@ -163,15 +163,17 @@ impl Drop for Temporary {
 
 fn registered_fixture() -> (Suite, EvidenceV2, RunManifest, Temporary) {
     let (suite, mut ev, manifest, raw) = fixture();
-    let dir = std::env::temp_dir().join(format!(
-        "ppl-interpretation-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let dir = loop {
+        let id = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path =
+            std::env::temp_dir().join(format!("ppl-interpretation-{}-{id}", std::process::id(),));
+        match std::fs::create_dir(&path) {
+            Ok(()) => break path,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("cannot create isolated assessment fixture: {error}"),
+        }
+    };
     let artifact = dir.join("synthetic.raw");
     std::fs::write(&artifact, raw).unwrap();
     ev.raw_artifact = Some(artifact.to_str().unwrap().into());
@@ -424,4 +426,33 @@ fn overlapping_revision_requires_explicit_same_origin_supersession() {
             .contains("differs in origin")
     );
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
+}
+
+#[test]
+fn registered_fixtures_are_isolated_under_concurrency() {
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+    let workers = (0..8)
+        .map(|_| {
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                registered_fixture().3
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut directories = workers
+        .into_iter()
+        .map(|w| w.join().unwrap())
+        .collect::<Vec<_>>();
+    let paths = directories
+        .iter()
+        .map(|d| d.0.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(paths.len(), 8);
+    drop(directories.pop());
+    assert!(
+        directories
+            .iter()
+            .all(|d| d.0.join("synthetic.raw").is_file())
+    );
 }
