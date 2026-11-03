@@ -29,7 +29,7 @@ pub fn session_actions(state: &IdeAppState) -> [(bool, &'static str, IdeAction);
             IdeAction::FirmwareRestart,
         ),
         (
-            *session == FirmwareSession::Ready,
+            *session == FirmwareSession::Ready && state.firmware_managed_reason.is_none(),
             "Import to calculator",
             IdeAction::ImportToCalculator,
         ),
@@ -84,6 +84,7 @@ fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
         {
             state.queue_action(IdeAction::SelectBackend(false));
         }
+        if let Some(reason) = &state.firmware_managed_reason { ui.label(reason); }
         let unsupported = state.firmware_unsupported.len();
         if unsupported > 0 {
             let text = format!("{unsupported} unsupported OS service call site(s)");

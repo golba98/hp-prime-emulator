@@ -1297,3 +1297,16 @@ mod tests {
         assert_eq!(lookup_by_pc_key(egui::Key::Tab).unwrap().ppl_code, 36); // ALPHA
     }
 }
+
+#[cfg(test)]
+mod shared_firmware_key_mapping_tests {
+    #[test]
+    fn physical_scan_codes_agree_with_headless_session() {
+        for mapping in super::KEY_MAPPINGS {
+            assert_eq!(
+                ppl_engine::session::PHYSICAL_DEVICE_CODES[mapping.physical_id as usize],
+                mapping.device_code
+            );
+        }
+    }
+}

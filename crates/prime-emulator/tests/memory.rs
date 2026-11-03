@@ -154,3 +154,61 @@ fn allocation_budget_keeps_mapping_but_limits_guest_allocations() {
     // The address map stays compatible; this is explicitly an allocator budget.
     assert!(m.write_u32(0x2003_0000, 7).is_ok());
 }
+
+#[test]
+fn aligned_tail_stays_inside_budget_and_coalesces() {
+    let m = mem_with_heap();
+    let first = m.heap_alloc(16).unwrap();
+    let aligned = m.heap_alloc_aligned(256, 65536).unwrap();
+    let tail = m.heap_alloc(0x2ff00).unwrap();
+    assert_eq!(tail, aligned + 256);
+    m.write_u8(tail + 0x2feff, 0x7a).unwrap();
+    assert_eq!(m.heap_free_bytes(), 0xfff0);
+    for p in [tail, aligned, first] {
+        assert!(m.heap_free(p));
+    }
+    assert_eq!(m.heap_alloc(0x40000).unwrap(), 0x2000_0000);
+}
+
+#[test]
+fn cstr_writes_one_terminator_and_rejects_partial_writes() {
+    let m = mem_with_heap();
+    let first = m.heap_alloc(14).unwrap();
+    let next = m.heap_alloc(4).unwrap();
+    m.write_u32(next, 0xaabbccdd).unwrap();
+    m.write_cstr(first, "1234567890123").unwrap();
+    assert_eq!(m.read_u32(next).unwrap(), 0xaabbccdd);
+    m.write_bytes(0x1000_fffc, b"keep").unwrap();
+    assert!(m.write_cstr(0x1000_fffc, "four").is_err());
+    assert_eq!(m.read_bytes_alloc(0x1000_fffc, 4).unwrap(), b"keep");
+    m.write_cstr(0x1000_ffff, "").unwrap();
+}
+
+#[test]
+fn oversized_mapping_and_read_are_rejected_before_host_allocation() {
+    let mut m = mem_with_heap();
+    assert!(m.map("overflow", 0x5000_0000, usize::MAX).is_err());
+    assert!(m.read_bytes_alloc(0x1000_0000, usize::MAX).is_err());
+    if usize::BITS > 32 {
+        assert!(m.map("too big", 0, 1usize << 32).is_err());
+        assert!(m.covering_block(0x1000_0000, 1usize << 32).is_none());
+    }
+}
+
+#[test]
+fn wide_strings_decode_surrogate_pairs_and_reject_unpaired_units() {
+    let m = mem_with_heap();
+    let text = "A😀Ω";
+    let bytes: Vec<u8> = text
+        .encode_utf16()
+        .chain([0])
+        .flat_map(u16::to_le_bytes)
+        .collect();
+    m.write_bytes(0x1000_0100, &bytes).unwrap();
+    assert_eq!(
+        m.read_wstr_bounded(0x1000_0100, 10).unwrap().as_deref(),
+        Some(text)
+    );
+    m.write_bytes(0x1000_0100, &[0x00, 0xd8, 0, 0]).unwrap();
+    assert!(m.read_wstr_bounded(0x1000_0100, 10).is_err());
+}

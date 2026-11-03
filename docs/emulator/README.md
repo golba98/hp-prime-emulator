@@ -117,3 +117,20 @@ Allocation failure returns null to firmware and failed realloc leaves its old
 block intact. The budget excludes firmware mappings, stacks and host resources;
 it is **not** an assertion of physical 32 MB G1 equivalence. Use it to investigate
 allocation pressure, and record the budget alongside any parity result.
+
+### Read-only setup diagnostics
+
+`ppl doctor --engine firmware --json` reports all missing firmware/resource
+paths, platform support and helper executability using the same flag,
+environment and configuration precedence as execution. The text form omits
+`--json`; `--engine native` verifies Native availability independently of
+optional firmware configuration. Exit status is 0 when setup checks pass and
+2 when attention is required.
+
+The IDE's **Validate firmware resources** action runs the same checks on a
+worker, displays each result and resolved path, and discards results after
+settings change. It does not boot firmware, create profiles, contact a
+calculator, install dependencies or change resources. Helper protocol and
+firmware observation capabilities are explicitly **not checked** by preflight;
+the actual session negotiates those at startup. A valid ELF header is only a
+header check, not a verified firmware execution result.

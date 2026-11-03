@@ -1,0 +1,116 @@
+schema_version = 2
+id = "m16_firmware_lifecycle"
+
+[programs.ZZT_M16LIFE]
+source = '''
+LOCAL retained:=0;
+EXPORT M16LSTEP() BEGIN retained:=retained+1; A:=71; L2:={4,5,6}; M1:=[[1,2],[3,4]]; HAngle:=1; RETURN retained; END;
+EXPORT M16LSTATE() BEGIN RETURN {A,L2(3),M1(2,1),HAngle}; END;
+EXPORT M16LCOUNT() BEGIN RETURN {retained}; END;
+EXPORT M16LCAS() BEGIN RETURN STRING(CAS("2+3")); END;
+EXPORT M16LFAIL() BEGIN RETURN 1/0; END;
+EXPORT M16LDRAW() BEGIN RECT_P(0,0,319,239,RGB(255,255,255),RGB(255,255,255)); PIXON_P(12,34,RGB(255,0,0)); RETURN 1; END;
+'''
+[programs.ZZT_M16CALL]
+source = '''
+EXPORT M16LCALL() BEGIN RETURN M16LSTEP(); END;
+'''
+[[steps]]
+action = "import"
+id = "load"
+program = "ZZT_M16LIFE"
+[[steps]]
+action = "import"
+id = "load_caller"
+program = "ZZT_M16CALL"
+[[steps]]
+action = "run_program"
+id = "cross_call"
+program = "ZZT_M16CALL"
+entry = "M16LCALL"
+[[steps]]
+action = "probe"
+id = "retained"
+program = "ZZT_M16LIFE"
+entry = "M16LCOUNT"
+names = ["retained"]
+[[steps]]
+action = "run_program"
+id = "cas"
+program = "ZZT_M16LIFE"
+entry = "M16LCAS"
+[[steps]]
+action = "run_program"
+id = "error"
+program = "ZZT_M16LIFE"
+entry = "M16LFAIL"
+[[steps]]
+action = "run_program"
+id = "draw"
+program = "ZZT_M16LIFE"
+entry = "M16LDRAW"
+[[steps]]
+action = "capture"
+id = "pixels"
+[[steps]]
+action = "power_off"
+id = "off"
+[[steps]]
+action = "restart"
+id = "fresh"
+[[steps]]
+action = "probe"
+id = "persistent"
+program = "ZZT_M16LIFE"
+entry = "M16LSTATE"
+names = ["A","list_last","matrix_21","angle"]
+[[steps]]
+action = "run_program"
+id = "after_restart"
+program = "ZZT_M16CALL"
+entry = "M16LCALL"
+
+[[expect]]
+step = "cross_call"
+path = "/return_value"
+value = {type="real",value="1"}
+[[expect]]
+step = "retained"
+path = "/variables/retained"
+value = {type="real",value="1"}
+[[expect]]
+step = "cas"
+path = "/return_value"
+value = {type="string",value="5"}
+[[expect]]
+step = "error"
+path = "/status"
+value = "runtime_error"
+[[expect]]
+step = "draw"
+path = "/status"
+value = "success"
+[[expect]]
+step = "pixels"
+path = "/image/pixels/10892"
+value = 16711680
+[[expect]]
+step = "persistent"
+path = "/variables/A"
+value = {type="real",value="71"}
+[[expect]]
+step = "persistent"
+path = "/variables/list_last"
+value = {type="real",value="6"}
+[[expect]]
+step = "persistent"
+path = "/variables/matrix_21"
+value = {type="real",value="3"}
+[[expect]]
+step = "persistent"
+path = "/variables/angle"
+value = {type="real",value="1"}
+[[expect]]
+step = "after_restart"
+path = "/return_value"
+value = {type="real",value="2"}

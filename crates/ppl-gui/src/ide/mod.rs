@@ -347,6 +347,7 @@ pub struct IdeAppState {
     pub firmware: firmware::FirmwareSettings,
     pub key_transitions: Vec<(i64, bool)>,
     pub firmware_input_enabled: bool,
+    pub firmware_managed_reason: Option<String>,
     pub firmware_session: FirmwareSession,
     /// Unsupported OS services the current session substituted:
     /// (service id, name, caller pc), first hit of each call site.
@@ -451,6 +452,7 @@ impl Default for IdeAppState {
             key_events: Vec::new(),
             key_transitions: Vec::new(),
             firmware_input_enabled: true,
+            firmware_managed_reason: None,
             firmware_session: FirmwareSession::Off,
             firmware_unsupported: Vec::new(),
             keys_down: HashSet::new(),

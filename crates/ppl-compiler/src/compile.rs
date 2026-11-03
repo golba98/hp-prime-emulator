@@ -1513,7 +1513,7 @@ impl<'a> Compiler<'a> {
         };
         let mut targets: Vec<(VarRef, Span)> = Vec::new();
         // INPUT only: each field's allowed-types expression (`[2]` in
-        // `{{A,[2]}}`), aligned with `targets`; `None` allows any type.
+        // `{{A,[2]}}`), aligned with `targets`; `None` is an omitted spec.
         let mut types: Vec<Option<&Expr>> = Vec::new();
         let mut positions: Vec<Option<&Expr>> = Vec::new();
         match &first.kind {
@@ -1563,12 +1563,17 @@ impl<'a> Compiler<'a> {
             .emit(Op::MakeList(targets.len() as u32), first.span);
         let mut argc = args.len();
         if id == Builtin::Input {
-            // INPUT receives the allowed types as a hidden second argument.
+            // INPUT receives optional descriptors as a hidden second argument.
+            // Preserve omission separately from explicit scalar controls: zero
+            // is a valid descriptor value, not an unrestricted edit field.
             for t in &types {
                 match t {
-                    Some(e) => self.expr(e),
+                    Some(e) => {
+                        self.expr(e);
+                        self.cur.emit(Op::MakeList(1), e.span);
+                    }
                     None => {
-                        self.cur.emit(Op::Zero, first.span);
+                        self.cur.emit(Op::MakeList(0), first.span);
                     }
                 }
             }
@@ -1627,6 +1632,16 @@ impl<'a> Compiler<'a> {
     /// (-1 any, 0 real, 1 integer, 2 string, 3 complex, 4 matrix, 6 list,
     /// 8 function, 9 unit: User Guide INPUT entry and TYPE codes).
     fn check_input_types(&mut self, e: &Expr) {
+        if matches!(e.kind, ExprKind::Number(_) | ExprKind::Str(_))
+            || matches!(&e.kind, ExprKind::Unary(UnOp::Neg, inner) if matches!(inner.kind, ExprKind::Number(_)))
+            || matches!(&e.kind, ExprKind::List(items) if items.iter().any(|item| matches!(item.kind, ExprKind::Str(_))))
+        {
+            self.compat(
+                "input-control-unsupported",
+                e.span,
+                "Native INPUT cannot display this field descriptor",
+            ).hint = Some("Use G1 Firmware mode for checkbox, radio and choice controls; Native edit fields accept a vector of TYPE codes".into());
+        }
         let ExprKind::Bracket(items) = &e.kind else {
             return;
         };

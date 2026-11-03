@@ -327,6 +327,41 @@ fn exercise_session(legacy_loader: &str) {
         _ => unreachable!(),
     }
 
+    // Catalog growth must not prevent exact diagnostics or a subsequent Run.
+    for (request, source, valid) in [
+        (10, "EXPORT BAD()\nBEGIN\n RETURN 1+;\nEND;\n", false),
+        (11, "EXPORT AFTERBAD() BEGIN RETURN 42; END;", true),
+    ] {
+        s.send(&Command::Run {
+            request,
+            source: source.into(),
+            entry: None,
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "post-import diagnostics",
+            |e| matches!(e,Event::Result {request:r,..} if *r==request),
+        ) {
+            Event::Result {
+                success,
+                message,
+                check,
+                ..
+            } => {
+                assert_eq!(success, valid, "{message}");
+                let check = check.unwrap();
+                assert_eq!(check.accepted, valid);
+                if valid {
+                    assert!(message.contains("returned 42"), "{message}");
+                } else {
+                    assert_eq!(check.diagnostics[0].line, Some(3));
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
     // The firmware's own OFF saves its state, then the session ends.
     let settings = profile.path().join("C/DATA/cas.hpsettings");
     assert!(!settings.exists(), "nothing saved before OFF");

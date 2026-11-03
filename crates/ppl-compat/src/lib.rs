@@ -26,9 +26,11 @@
 pub mod assessment;
 pub mod audit;
 pub mod campaign;
+pub mod capture;
 pub mod cleanup;
 pub mod corpus;
 pub mod diag_parity;
+pub mod differential;
 pub mod evidence;
 pub mod generate;
 pub mod import;

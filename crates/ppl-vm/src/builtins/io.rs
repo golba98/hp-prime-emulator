@@ -179,27 +179,81 @@ fn str_list(m: &Machine, v: Option<&Value>, n: usize) -> Vec<String> {
     }
 }
 
-/// The allowed TYPE codes of one INPUT field (`[2]` in `{{A,[2]}}`);
-/// empty means any type. The compiler passes `0` for a field without a
-/// type list, and `-1` in a list also allows every type.
-fn allowed_types(spec: &Value) -> Vec<i64> {
-    let codes: Vec<i64> = match spec {
-        Value::Matrix(mx) => mx
-            .data
-            .iter()
-            .filter_map(|v| v.expect_i64("INPUT").ok())
-            .collect(),
-        Value::List(l) => l
-            .iter()
-            .filter_map(|v| v.expect_i64("INPUT").ok())
-            .collect(),
-        _ => Vec::new(),
+/// Parse an explicitly supplied edit-field descriptor. Scalar and nonnumeric
+/// list descriptors can denote other firmware controls; never turn them into
+/// unrestricted text inputs. Omitted descriptors are handled separately.
+fn allowed_types(spec: &Value) -> RtResult<Vec<i64>> {
+    let unsupported = || {
+        RuntimeError::new(
+            ErrorKind::Unsupported,
+            "Native INPUT supports edit fields with a vector/list of TYPE codes; checkbox, radio and choice descriptors require G1 Firmware mode",
+        )
     };
-    if codes.contains(&-1) {
-        Vec::new()
-    } else {
-        codes
+    let values = match spec {
+        Value::Matrix(mx) if mx.vector => mx.data.as_slice(),
+        Value::Matrix(_) => {
+            return Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                "INPUT TYPE codes require a one-dimensional vector, not a matrix",
+            ));
+        }
+        Value::List(values) => values.as_slice(),
+        _ => return Err(unsupported()),
+    };
+    let mut codes = Vec::with_capacity(values.len());
+    for value in values {
+        let number = value
+            .expect_real("INPUT TYPE code")
+            .map_err(|_| unsupported())?;
+        if number != number.trunc() {
+            return Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                "INPUT TYPE codes must be integers; fractional codes are not rounded",
+            ));
+        }
+        let code = number.to_i64().ok_or_else(|| {
+            RuntimeError::new(ErrorKind::BadArgValue, "INPUT TYPE code is out of range")
+        })?;
+        if !matches!(code, -1 | 0 | 1 | 2 | 3 | 4 | 6 | 8 | 9) {
+            return Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                format!("Native INPUT does not support TYPE code {code}; use G1 Firmware mode"),
+            ));
+        }
+        if !codes.contains(&code) {
+            codes.push(code);
+        }
     }
+    if codes.contains(&-1) {
+        codes.clear();
+    }
+    Ok(codes)
+}
+
+/// Each compiler-produced entry is {} for omission or {descriptor} for an
+/// explicit descriptor. This distinction must survive through to the dialog.
+fn input_type_specs(value: &Value, count: usize) -> RtResult<Vec<Vec<i64>>> {
+    let fields = value.expect_list("INPUT field descriptors")?;
+    if fields.len() != count {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "INPUT field descriptor count does not match its variables",
+        ));
+    }
+    fields
+        .iter()
+        .map(|field| {
+            let optional = field.expect_list("INPUT optional field descriptor")?;
+            match optional.as_slice() {
+                [] => Ok(Vec::new()),
+                [spec] => allowed_types(spec),
+                _ => Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "INPUT optional field descriptor is malformed",
+                )),
+            }
+        })
+        .collect()
 }
 
 /// The value typed into one field, or the message the dialog shows when
@@ -293,19 +347,14 @@ fn input_positions(value: Option<&Value>, count: usize) -> RtResult<Vec<Option<I
 
 /// `INPUT(var | {vars}, [title], [labels], [help], [reset], [initial])`.
 /// `args[0]` holds the current values of the referenced variables and
-/// `args[1]` (added by the compiler) each field's allowed types.
+/// `args[1]` (added by the compiler) preserves each optional field descriptor.
 /// A rejected entry reopens the dialog with an error instead of stopping
 /// the program, the way the calculator keeps its form open.
 /// Hidden arguments 2 and 3 preserve scalar/list form and field positions.
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
-    let allowed: Vec<Vec<i64>> = match args.get(1) {
-        Some(Value::List(l)) => (0..n)
-            .map(|i| l.get(i).map(allowed_types).unwrap_or_default())
-            .collect(),
-        _ => vec![Vec::new(); n],
-    };
+    let allowed = input_type_specs(arg(args, 1, "INPUT")?, n)?;
     let scalar = args
         .get(2)
         .is_some_and(|v| v.expect_i64("INPUT").ok() == Some(1));

@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 /// 2: `Lifecycle`, `Unsupported` and `Import`. 3: `PowerDown`, `Sleeping`.
 /// 4: atomic desktop `Text` packets, translated using observed firmware state.
-pub const VERSION: u32 = 4;
+/// 5: explicit managed-program capabilities, independent of calculator availability.
+/// 6: exact named programs, structured runtime evidence, scoped input and persistence checkpoints.
+pub const VERSION: u32 = 6;
 pub const MAX_PACKET: usize = 4 * 1024 * 1024;
 pub const FRAME_PIXELS: usize = 320 * 240;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +60,34 @@ pub enum Command {
         name: String,
         source: String,
     },
+    /// Session-owned named source assignment. Replacing requires exact old source identity.
+    StoreProgram {
+        request: u64,
+        name: String,
+        source: String,
+        expected_previous_sha256: Option<String>,
+    },
+    /// Execute a stored exact revision; never reassigns or checks its source.
+    RunStored {
+        request: u64,
+        name: String,
+        source_sha256: String,
+        entry: String,
+        arguments: String,
+    },
+    /// Explicit opt-in firmware OFF persistence checkpoint; not a live CPU image.
+    Checkpoint {
+        id: u64,
+        wake: bool,
+    },
+    ScenarioInput {
+        request: u64,
+        run_request: u64,
+        input: CalculatorInput,
+    },
+    ReleaseInput {
+        request: u64,
+    },
     Stop,
     /// Switch the calculator off through the firmware's own OFF (which
     /// saves its state), then end the session. A running program is
@@ -66,6 +96,21 @@ pub enum Command {
     /// End the session at once, without the firmware's OFF.
     Shutdown,
 }
+/// Physical calculator events for an explicitly active managed invocation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CalculatorInput {
+    Key { physical: u8, down: bool },
+    Touch { status: u32, x: u16, y: u16 },
+}
+/// Firmware scan codes from the existing GUI mapping, shared without a GUI dependency.
+pub const PHYSICAL_DEVICE_CODES: [u16; 51] = [
+    0x00B1, 0x0091, 0x0003, 0x0095, 0x0001, 0xE047, 0x00B2, 0x0002, 0x0004, 0x00B4, 0x00B5, 0x00B3,
+    0x0005, 0x0093, 0x0041, 0x0042, 0x0043, 0x0044, 0x0045, 0x000C, 0x0046, 0x0047, 0x0048, 0x0049,
+    0x004A, 0x004B, 0x004C, 0x004D, 0x004E, 0x004F, 0x000D, 0x0050, 0x0051, 0x0052, 0x0053, 0x0054,
+    0x00B6, 0x0055, 0x0056, 0x0057, 0x0058, 0x008B, 0x0059, 0x005A, 0x0033, 0x00B7, 0x0083, 0x0030,
+    0x00B8, 0x0020, 0x00B9,
+];
 /// The live calculator's state as the session observes it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -82,8 +127,16 @@ pub enum Lifecycle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
+    Checkpoint {
+        id: u64,
+        result: crate::checkpoint::CheckpointResult,
+    },
     Hello {
         version: u32,
+    },
+    Capabilities {
+        managed_programs: bool,
+        reason: Option<String>,
     },
     Phase {
         phase: String,
@@ -100,6 +153,18 @@ pub enum Event {
         /// busy, infrastructure failure), never acceptance or rejection.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         check: Option<CheckVerdict>,
+    },
+    /// Correlated terminal runtime evidence, independent of human status text.
+    Execution {
+        request: u64,
+        program: String,
+        source_sha256: String,
+        observation: Box<ExecutionObservation>,
+    },
+    ExecutionStarted {
+        request: u64,
+        source_sha256: String,
+        entry: String,
     },
     Lifecycle {
         state: Lifecycle,
@@ -118,6 +183,27 @@ pub enum Event {
     Closed {
         message: String,
     },
+}
+/// Structured evidence from actual guest execution. Raw representation remains available.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionObservation {
+    pub status: String,
+    pub binding: String,
+    pub entry: String,
+    pub body_entered: bool,
+    pub completed: bool,
+    pub return_value: Option<serde_json::Value>,
+    pub return_representation: serde_json::Value,
+    pub output: Vec<crate::OutputEvent>,
+    pub diagnostics: Vec<crate::Diagnostic>,
+    pub runtime: serde_json::Value,
+    pub image: Option<ExecutionImage>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionImage {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<u32>,
 }
 /// An original-firmware Check verdict observed in the live session.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

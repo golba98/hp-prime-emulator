@@ -58,7 +58,16 @@ impl GuestArgs {
     /// Caller-provided stack argument `i` (0-based): `[sp + 8 + 4*i]`.
     /// The +8 skips the stub's pushed return address and saved r0.
     pub fn stack_arg(&self, mem: &GuestMemory, i: usize) -> MemResult<u32> {
-        mem.read_u32(self.sp + 8 + (i as u32) * 4)
+        let address = u32::try_from(i)
+            .ok()
+            .and_then(|i| i.checked_mul(4))
+            .and_then(|offset| offset.checked_add(8))
+            .and_then(|offset| self.sp.checked_add(offset))
+            .ok_or(MemoryError {
+                va: self.sp,
+                msg: "SVC stack argument address overflow".into(),
+            })?;
+        mem.read_u32(address)
     }
 }
 
@@ -70,7 +79,7 @@ pub struct HandlerFault(pub MemoryError);
 /// A single service invocation context.
 pub struct SvcCtx<'a, 'e> {
     pub uc: &'a mut Unicorn<'e, ()>,
-    pub mem: &'a GuestMemory,
+    pub mem: &'a std::sync::Arc<GuestMemory>,
     pub args: GuestArgs,
     pub shared: &'a SharedState,
     pub trace: &'a TraceHub,
@@ -317,6 +326,9 @@ pub struct SharedState {
     /// OSWaitForEvent: it has finished handling the messages the pump
     /// forwarded to it.
     main_waiting: AtomicBool,
+    /// Main-thread wait entries, allowing transactions to require a fresh
+    /// firmware event-loop boundary after their request was accepted.
+    main_wait_entries: AtomicU64,
     /// Pending non-input UI events (timer events), delivered by GetEvent
     /// before queued input — PrimU2's `special_event` slot, as a small
     /// bounded queue so a SYS_TIMER and a DEVICE_TIMER due together are
@@ -336,6 +348,7 @@ pub struct SharedState {
     pub threads_exiting: Mutex<std::collections::HashSet<std::thread::ThreadId>>,
     /// Live spawned-thread handles for the final report.
     pub thread_handles: Mutex<HashMap<u32, std::thread::JoinHandle<()>>>,
+    thread_failure: Mutex<Option<ThreadFailure>>,
     /// Per-thread instruction counters (liveness evidence).
     pub thread_instructions: Mutex<HashMap<u32, u64>>,
     /// Registered guest ISRs (irq -> guest entry), delivered by the
@@ -420,6 +433,16 @@ impl LcdWatch {
     }
 }
 
+/// Failure of a background guest CPU. Never silently reported as a successful
+/// main-thread run when the runtime observer is disabled.
+#[derive(Debug)]
+pub struct ThreadFailure {
+    pub tid: u32,
+    pub reason: crate::engine::StopReason,
+    pub fault: Option<Box<crate::engine::FaultReport>>,
+    pub detail: String,
+}
+
 /// One touch sample (finger 0). `status` is UI_EVENT_TYPE_TOUCH_BEGIN /
 /// _MOVE / _END; the pump reads x at entry+6 and y at entry+8.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -488,6 +511,7 @@ impl SharedState {
             getevent_parked: AtomicBool::new(false),
             getevent_entries: AtomicU64::new(0),
             main_waiting: AtomicBool::new(false),
+            main_wait_entries: AtomicU64::new(0),
             system_events: Mutex::new(std::collections::VecDeque::new()),
             system_events_delivered: AtomicU64::new(0),
             device_timer_delivered: AtomicU64::new(0),
@@ -496,6 +520,7 @@ impl SharedState {
             thread_spawner: Mutex::new(None),
             threads_exiting: Mutex::new(std::collections::HashSet::new()),
             thread_handles: Mutex::new(HashMap::new()),
+            thread_failure: Mutex::new(None),
             thread_instructions: Mutex::new(HashMap::new()),
             pe_modules: Mutex::new(Vec::new()),
             isrs: Mutex::new(HashMap::new()),
@@ -601,7 +626,14 @@ impl SharedState {
     }
 
     pub fn set_main_waiting(&self, waiting: bool) {
+        if waiting {
+            self.main_wait_entries.fetch_add(1, Ordering::Release);
+        }
         self.main_waiting.store(waiting, Ordering::Release);
+    }
+
+    pub fn main_wait_entries(&self) -> u64 {
+        self.main_wait_entries.load(Ordering::Acquire)
     }
 
     pub fn getevent_entries(&self) -> u64 {
@@ -687,6 +719,18 @@ impl SharedState {
             .lock()
             .unwrap()
             .contains(&std::thread::current().id())
+    }
+
+    pub fn note_thread_failure(&self, failure: ThreadFailure) {
+        let mut first = self.thread_failure.lock().unwrap();
+        if first.is_none() {
+            *first = Some(failure);
+        }
+        self.set_stopping();
+    }
+
+    pub fn take_thread_failure(&self) -> Option<ThreadFailure> {
+        self.thread_failure.lock().unwrap().take()
     }
 
     pub fn register_thread_handle(&self, tid: u32, h: std::thread::JoinHandle<()>) {
@@ -882,7 +926,7 @@ pub enum DispatchOutcome {
 /// Dispatch one intercepted SVC. Applies the verified return convention.
 pub fn dispatch(
     uc: &mut Unicorn<'_, ()>,
-    mem: &GuestMemory,
+    mem: &std::sync::Arc<GuestMemory>,
     registry: &Registry,
     shared: &SharedState,
     trace: &TraceHub,
@@ -910,6 +954,11 @@ pub fn dispatch(
             Err(e) => Err(MemoryError { va: pc, msg: e }),
         };
     }
+    let caller_sp = sp.checked_add(8).ok_or(MemoryError {
+        va: sp,
+        msg: "SVC return stack address overflow".into(),
+    })?;
+    mem.validate_range(sp, 8)?;
     let caller_pc = mem.read_u32(sp)?;
     let stack_slots = [
         mem.read_u32(sp.wrapping_add(8)).unwrap_or(0),
@@ -965,7 +1014,7 @@ pub fn dispatch(
                         ),
                         caller_pc,
                     );
-                    0
+                    return Err(e);
                 }
             }
         }
@@ -985,7 +1034,7 @@ pub fn dispatch(
             va: sp,
             msg: format!("write r0: {e}"),
         })?;
-    uc.reg_write(RegisterARM::SP, (sp + 8) as u64)
+    uc.reg_write(RegisterARM::SP, caller_sp as u64)
         .map_err(|e| MemoryError {
             va: sp,
             msg: format!("write sp: {e}"),
@@ -1011,6 +1060,18 @@ fn reg(uc: &Unicorn<'_, ()>, r: RegisterARM) -> u32 {
 #[cfg(test)]
 mod power_tests {
     use super::*;
+    #[test]
+    fn main_wait_generation_distinguishes_a_fresh_boundary_from_an_old_idle_sample() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.set_main_waiting(true);
+        let old = s.main_wait_entries();
+        assert!(s.main_waiting());
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(false);
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(true);
+        assert_eq!(s.main_wait_entries(), old + 1);
+    }
     fn queued(s: &SharedState) -> Vec<(u32, u16)> {
         s.pop_input_events(64)
             .into_iter()

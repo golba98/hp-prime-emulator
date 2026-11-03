@@ -166,7 +166,7 @@ fn strict_policy_stops_on_unsupported_service() {
         mem,
         registry,
         shared,
-        trace,
+        trace.clone(),
         UnsupportedPolicy::Stop,
         0,
         Vec::new(),
@@ -180,6 +180,7 @@ fn strict_policy_stops_on_unsupported_service() {
         ) => assert_eq!(id, 0x102D1),
         other => panic!("expected strict unsupported stop, got {other:?}"),
     }
+    assert_eq!(trace.svc_totals(), vec![(0x102D1, 1)]);
 }
 
 #[test]
@@ -490,4 +491,60 @@ fn exhausted_malloc_returns_null_to_guest_without_stopping_emulation() {
     ));
     assert_eq!(cpu.reg(unicorn_engine::RegisterARM::R0), 0);
     assert_eq!(mem.read_u32(allocation).unwrap(), 123);
+}
+
+#[test]
+fn handler_memory_fault_stops_with_actual_cpu_context_in_both_policies() {
+    for policy in [UnsupportedPolicy::Stop, UnsupportedPolicy::ZeroReturn] {
+        let (mem, _, shared, trace) = test_env();
+        let mut registry = Registry::new();
+        registry.register_by_name("SetAutoPowerOff", ServiceStatus::Implemented, |ctx| {
+            ctx.guest(0x9000_1234)
+        });
+        let code: Vec<u8> = [0xe92d0001u32, 0xe92d4000, 0xef01002f, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x1000_0000, &code).unwrap();
+        let mut cpu = CpuThread::new(
+            mem,
+            Arc::new(registry),
+            shared,
+            trace,
+            policy,
+            42,
+            Vec::new(),
+        )
+        .unwrap();
+        cpu.set_entry(0x1000_0000, 0x1000_0800, 123).unwrap();
+        cpu.set_lr(0x1000_000c).unwrap();
+        assert!(matches!(
+            cpu.run_slice(32).unwrap(),
+            prime_emulator::engine::RunSliceOutcome::Stopped(
+                prime_emulator::engine::StopReason::Fault
+            )
+        ));
+        let fault = cpu.fault_report().unwrap();
+        assert_eq!(fault.thread_id, 42);
+        assert_eq!(fault.addr, Some(0x9000_1234));
+        assert_eq!(fault.regs[0], 123);
+        assert_eq!(fault.pc, 0x1000_000c);
+    }
+}
+
+#[test]
+fn invalid_stack_arguments_fail_without_wrapping_or_panicking() {
+    let (mem, _, _, _) = test_env();
+    let mut args = GuestArgs {
+        r0: 0,
+        r1: 0,
+        r2: 0,
+        r3: 0,
+        sp: u32::MAX - 4,
+        caller_pc: 0,
+        stack_slots: [0; 2],
+    };
+    assert!(args.stack_arg(&mem, 0).is_err());
+    args.sp = 0x1000_0000;
+    assert!(args.stack_arg(&mem, usize::MAX).is_err());
 }

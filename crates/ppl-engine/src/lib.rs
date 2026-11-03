@@ -1,6 +1,7 @@
 //! Engine integration without GUI, USB, Unicorn, or global signal handlers.
 pub mod arguments;
 pub mod checking;
+pub mod checkpoint;
 #[cfg(target_os = "linux")]
 pub mod direct_check;
 #[cfg(target_os = "linux")]
@@ -9,7 +10,9 @@ pub mod firmware;
 #[path = "firmware_unsupported.rs"]
 pub mod firmware;
 pub mod firmware_options;
+pub mod live;
 pub mod native;
+pub mod preflight;
 pub mod session;
 pub mod source;
 use serde::{Deserialize, Serialize};

@@ -1,0 +1,19 @@
+schema_version = 1
+id = "typed-arithmetic"
+[program]
+source = "EXPORT MAIN() BEGIN RETURN {1+2,\"1\",{2,3}}; END;"
+[[steps]]
+action = "check"
+id = "check"
+[[steps]]
+action = "run"
+id = "run"
+entry = "MAIN"
+[[expect]]
+step = "check"
+path = "/status"
+value = "success"
+[[expect]]
+step = "run"
+path = "/return_value"
+value = { type = "list", value = [{type="real",value="3"},{type="string",value="1"},{type="list",value=[{type="real",value="2"},{type="real",value="3"}]}] }

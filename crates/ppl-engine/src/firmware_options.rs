@@ -47,7 +47,7 @@ impl Default for Options {
 /// (`$XDG_CONFIG_HOME/hp-prime-emulator/firmware.toml`, or `PPL_CONFIG`).
 /// Relative paths in the config file are relative to the file's directory,
 /// so resolution never depends on the current working directory.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AssetPaths {
     pub runner: Option<PathBuf>,
@@ -127,25 +127,7 @@ impl AssetPaths {
             .firmware
             .as_ref()
             .ok_or("Select the G1 firmware ELF file")?;
-        let mut file = std::fs::File::open(firmware)
-            .map_err(|e| format!("Cannot read firmware {}: {e}", firmware.display()))?;
-        let mut header = [0u8; 52];
-        std::io::Read::read_exact(&mut file, &mut header).map_err(|e| {
-            format!(
-                "Firmware {} has a truncated ELF header: {e}",
-                firmware.display()
-            )
-        })?;
-        if &header[..4] != b"\x7fELF"
-            || header[4] != 1
-            || header[5] != 1
-            || u16::from_le_bytes([header[18], header[19]]) != 40
-        {
-            return Err(format!(
-                "{} is not a little-endian ARM ELF32 firmware image",
-                firmware.display()
-            ));
-        }
+        validate_firmware_elf(firmware)?;
         let factory = self
             .factory_a
             .as_ref()
@@ -179,6 +161,30 @@ impl AssetPaths {
     pub fn configured(&self) -> bool {
         self.firmware.is_some() && self.factory_a.is_some()
     }
+}
+
+/// Header-only check shared by startup validation and read-only setup reports.
+pub(crate) fn validate_firmware_elf(firmware: &std::path::Path) -> Result<(), String> {
+    let mut file = std::fs::File::open(firmware)
+        .map_err(|e| format!("Cannot read firmware {}: {e}", firmware.display()))?;
+    let mut header = [0u8; 52];
+    std::io::Read::read_exact(&mut file, &mut header).map_err(|e| {
+        format!(
+            "Firmware {} has a truncated ELF header: {e}",
+            firmware.display()
+        )
+    })?;
+    if &header[..4] != b"\x7fELF"
+        || header[4] != 1
+        || header[5] != 1
+        || u16::from_le_bytes([header[18], header[19]]) != 40
+    {
+        return Err(format!(
+            "{} is not a little-endian ARM ELF32 firmware image",
+            firmware.display()
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

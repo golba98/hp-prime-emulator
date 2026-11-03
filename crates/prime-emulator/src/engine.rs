@@ -186,6 +186,7 @@ impl CpuThread {
             let hs = hooks.clone();
             engine.add_intr_hook(Box::new(move |uc: &mut Unicorn<'_, ()>, _intno: u32| {
                 let hs = &*hs;
+                publish_thread(uc, &hs.trace, hs.thread_id, "svc_entry", None, false);
                 match services::dispatch(
                     uc,
                     &hs.mem,
@@ -202,8 +203,7 @@ impl CpuThread {
                         }
                     }
                     Ok(services::DispatchOutcome::Unsupported { id, caller_pc }) => {
-                        hs.trace
-                            .svc(id, hs.registry.name(id), caller_pc, 0, false, hs.thread_id);
+                        // dispatch already recorded this invocation once.
                         if hs.policy == UnsupportedPolicy::Stop {
                             *hs.stop.lock().unwrap() =
                                 Some(StopReason::UnsupportedService { id, caller_pc });
@@ -211,17 +211,16 @@ impl CpuThread {
                         }
                     }
                     Err(e) => {
-                        hs.trace.fault(format!("SVC dispatch failed: {e}"), 0);
+                        let mut report =
+                            fault_report(uc, &format!("svc-dispatch: {e}"), hs.thread_id);
+                        report.addr = Some(u64::from(e.va));
+                        hs.trace
+                            .fault(format!("SVC dispatch failed: {e}"), report.pc);
+                        if let Some(runtime) = &hs.trace.runtime {
+                            runtime.fault(&report);
+                        }
                         *hs.stop.lock().unwrap() = Some(StopReason::Fault);
-                        *hs.fault.lock().unwrap() = Some(FaultReport {
-                            kind: format!("svc-dispatch: {e}"),
-                            pc: 0,
-                            addr: None,
-                            regs: [0; 16],
-                            cpsr: 0,
-                            thread_id: 0,
-                            last_pcs: Vec::new(),
-                        });
+                        *hs.fault.lock().unwrap() = Some(report);
                         let _ = uc.emu_stop();
                     }
                 }
@@ -279,7 +278,8 @@ impl CpuThread {
                         if sentinel != 0 && address == sentinel {
                             return false; // normal ISR return; not a fault
                         }
-                        let report = fault_report(uc, &format!("{mem_type:?}"), thread_id);
+                        let mut report = fault_report(uc, &format!("{mem_type:?}"), thread_id);
+                        report.addr = Some(address);
                         if let Some(runtime) = &hs.trace.runtime { runtime.fault(&report); }
                         hs.trace.fault(
                             format!(
@@ -491,6 +491,14 @@ impl CpuThread {
         } else {
             self.counted_exact = false;
         }
+        publish_thread(
+            &self.engine,
+            &self.trace,
+            self.thread_id,
+            "slice_return",
+            Some(self.instructions),
+            self.counted_exact,
+        );
         match res {
             Ok(()) => {
                 if let Some(reason) = self.hooks.stop.lock().unwrap().take() {
@@ -527,8 +535,9 @@ impl CpuThread {
                     .as_ref()
                     .map(|t| t.last_code(64))
                     .unwrap_or_default();
-                let report =
-                    fault_report_with(&self.engine, &format!("{e}"), self.thread_id, last_pcs);
+                let report = self.hooks.fault.lock().unwrap().clone().unwrap_or_else(|| {
+                    fault_report_with(&self.engine, &format!("{e}"), self.thread_id, last_pcs)
+                });
                 if let Some(runtime) = &self.trace.runtime {
                     runtime.fault(&report);
                 }
@@ -590,5 +599,92 @@ fn fault_report_with(
         cpsr: uc.reg_read(RegisterARM::CPSR).unwrap_or(0) as u32,
         thread_id,
         last_pcs,
+    }
+}
+
+/// Read registers exclusively on the engine owner. A failed register read
+/// omits the observation rather than manufacturing zero-valued registers.
+fn publish_thread(
+    uc: &Unicorn<'_, ()>,
+    trace: &TraceHub,
+    thread_id: u32,
+    boundary: &str,
+    instructions: Option<u64>,
+    exact: bool,
+) {
+    if !trace.thread_observation_enabled() {
+        return;
+    }
+    let mut registers = [0; 16];
+    for (i, r) in [
+        RegisterARM::R0,
+        RegisterARM::R1,
+        RegisterARM::R2,
+        RegisterARM::R3,
+        RegisterARM::R4,
+        RegisterARM::R5,
+        RegisterARM::R6,
+        RegisterARM::R7,
+        RegisterARM::R8,
+        RegisterARM::R9,
+        RegisterARM::R10,
+        RegisterARM::R11,
+        RegisterARM::R12,
+        RegisterARM::SP,
+        RegisterARM::LR,
+        RegisterARM::PC,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let Ok(value) = uc.reg_read(r) else {
+            return;
+        };
+        registers[i] = value as u32;
+    }
+    let Ok(cpsr) = uc.reg_read(RegisterARM::CPSR) else {
+        return;
+    };
+    trace.note_thread(crate::trace::ThreadObservation {
+        thread_id,
+        sequence: 0,
+        observed_ms: 0.0,
+        boundary: boundary.into(),
+        registers,
+        cpsr: cpsr as u32,
+        instructions_lower_bound: instructions,
+        last_slice_exact: exact,
+    });
+}
+
+#[cfg(test)]
+mod debug_observation_tests {
+    use super::*;
+    use crate::trace::TraceConfig;
+
+    #[test]
+    fn observations_copy_actual_owner_registers_without_resuming_guest() {
+        let mut uc = Unicorn::new(Arch::ARM, Mode::ARM).unwrap();
+        uc.mem_map(0x1000, 0x1000, Prot::ALL).unwrap();
+        // MOV R0,#42; B . — one bounded instruction, no proprietary assets.
+        uc.mem_write(0x1000, &[42, 0, 160, 227, 254, 255, 255, 234])
+            .unwrap();
+        uc.emu_start(0x1000, 0, 0, 1).unwrap();
+        let trace = TraceHub::new(TraceConfig {
+            svc_trace: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        publish_thread(&uc, &trace, 7, "slice_return", Some(1), true);
+        let snapshots = trace.thread_observations();
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].thread_id, 7);
+        assert_eq!(snapshots[0].registers[0], 42);
+        assert_eq!(snapshots[0].registers[15], 0x1004);
+        assert_eq!(snapshots[0].instructions_lower_bound, Some(1));
+        uc.reg_write(RegisterARM::R0, 99).unwrap();
+        assert_eq!(snapshots[0].registers[0], 42);
+        assert_eq!(uc.reg_read(RegisterARM::PC).unwrap(), 0x1004);
     }
 }

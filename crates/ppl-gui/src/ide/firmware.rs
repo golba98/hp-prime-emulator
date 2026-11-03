@@ -40,7 +40,7 @@ pub struct FirmwareSettings {
     pub init_data: String,
 }
 impl FirmwareSettings {
-    pub fn asset_paths(&self) -> Result<ppl_engine::firmware_options::AssetPaths, String> {
+    fn overrides(&self) -> ppl_engine::firmware_options::AssetPaths {
         let path = |s: &str| (!s.trim().is_empty()).then(|| PathBuf::from(s));
         ppl_engine::firmware_options::AssetPaths {
             firmware: path(&self.firmware),
@@ -49,7 +49,12 @@ impl FirmwareSettings {
             os_rom: path(&self.os_rom),
             init_data: path(&self.init_data),
         }
-        .resolve()
+    }
+    pub fn asset_paths(&self) -> Result<ppl_engine::firmware_options::AssetPaths, String> {
+        self.overrides().resolve()
+    }
+    pub fn preflight(&self) -> ppl_engine::preflight::PreflightReport {
+        ppl_engine::preflight::inspect(ppl_engine::Engine::Firmware, self.overrides())
     }
 }
 #[derive(Debug, Clone)]

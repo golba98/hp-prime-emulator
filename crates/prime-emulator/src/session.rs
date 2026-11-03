@@ -11,6 +11,7 @@ use crate::{
     services::{SharedState, TouchSample},
     trace::TraceHub,
 };
+use ppl_engine::checkpoint::{CheckpointReceipt, CheckpointResult};
 use ppl_engine::session::{self, Command, Event, Lifecycle};
 use std::{
     collections::{HashSet, VecDeque},
@@ -27,8 +28,44 @@ struct Output {
     frame: Option<(u64, u64, Vec<u32>)>,
     closed: bool,
 }
+impl Output {
+    /// Reserve replies and lifecycle evidence; only optional notifications may be coalesced.
+    fn enqueue(&mut self, event: Event) -> bool {
+        let optional = |e: &Event| {
+            matches!(
+                e,
+                Event::Status { .. } | Event::Phase { .. } | Event::Unsupported { .. }
+            )
+        };
+        if self.closed {
+            return false;
+        }
+        if self.events.len() >= 256 {
+            if optional(&event) {
+                return true;
+            }
+            if let Some(index) = self.events.iter().position(optional) {
+                self.events.remove(index);
+            }
+        }
+        if self.events.len() >= 512 {
+            self.events.push_back(Event::Error {
+                message: "Mandatory session event queue overflow; session stopped".into(),
+            });
+            self.events.push_back(Event::Closed {
+                message: "Session output consumer did not drain mandatory replies".into(),
+            });
+            self.closed = true;
+            return false;
+        }
+        self.events.push_back(event);
+        true
+    }
+}
 struct Device {
     held: HashSet<u16>,
+    scenario_touch: Option<(u64, u16, u16)>,
+    input_cleanup: Option<(u64, job::IdleMeter, Instant)>,
     delivered: HashSet<u16>,
     repeat: repeat::KeyRepeat,
     typing: typing::Typing,
@@ -45,10 +82,69 @@ struct Device {
     last_key: Instant,
     /// A `PowerDown` in progress: when it began, and whether OFF was sent.
     power_down: Option<(Instant, bool)>,
+    checkpoint: Option<crate::checkpoint::Checkpoint>,
+    checkpoint_idle: job::IdleMeter,
+    checkpoint_wait_entry: u64,
     recovery: Option<Arc<crate::recovery::Recovery>>,
     saved_sleep: Option<u64>,
-    save_result: Option<Result<(), String>>,
-    save_worker: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
+    save_result: Option<Result<CheckpointReceipt, String>>,
+    save_worker: Option<std::sync::mpsc::Receiver<Result<CheckpointReceipt, String>>>,
+}
+/// A key-up is not consumed merely because it left Device.keys. Preserve releases
+/// for canceled transitions already queued to GetEvent, including pending key-ups.
+fn release_input(device: &mut Device, shared: &SharedState) {
+    if let Some((_, x, y)) = device.scenario_touch.take() {
+        shared.push_touch(TouchSample { status: 8, x, y });
+    }
+    let mut releases: HashSet<u16> = shared
+        .pop_input_events(usize::MAX)
+        .into_iter()
+        .map(|e| e.key_code0)
+        .collect();
+    releases.extend(device.keys.drain(..).map(|(code, _)| code));
+    releases.extend(device.held.drain());
+    releases.extend(device.delivered.drain());
+    device.repeat.clear();
+    device.typing.clear();
+    device
+        .keys
+        .extend(releases.into_iter().map(|code| (code, false)));
+}
+fn poll_input_cleanup(device: &mut Device, shared: &SharedState) -> Option<Event> {
+    let done = device
+        .input_cleanup
+        .as_mut()
+        .is_some_and(|(_, meter, _)| meter.settled(shared));
+    let failed = device
+        .input_cleanup
+        .as_ref()
+        .is_some_and(|(_, _, started)| {
+            shared.sleeping()
+                || device.power_down.is_some()
+                || started.elapsed() >= Duration::from_secs(30)
+        });
+    if failed || (done && device.keys.is_empty()) {
+        let (request, _, _) = device.input_cleanup.take()?;
+        Some(Event::Result {
+            request,
+            success: !failed,
+            message: if failed {
+                "Input release did not reach an awake idle boundary before its deadline".into()
+            } else {
+                "Input releases consumed and firmware idle".into()
+            },
+            check: None,
+        })
+    } else {
+        None
+    }
+}
+fn track_touch(touch: &mut Option<(u64, u16, u16)>, run: u64, status: u32, x: u16, y: u16) {
+    if status == 8 {
+        *touch = None;
+    } else {
+        *touch = Some((run, x, y));
+    }
 }
 /// The firmware's OFF: Shift, then ON.
 const SHIFT_KEY: u16 = 0x8B;
@@ -84,6 +180,8 @@ impl LiveSession {
             output: out.clone(),
             device: Mutex::new(Device {
                 held: HashSet::new(),
+                scenario_touch: None,
+                input_cleanup: None,
                 delivered: HashSet::new(),
                 repeat: repeat::KeyRepeat::default(),
                 typing: typing::Typing::default(),
@@ -95,6 +193,9 @@ impl LiveSession {
                 keys: VecDeque::new(),
                 last_key: Instant::now(),
                 power_down: None,
+                checkpoint: None,
+                checkpoint_idle: job::IdleMeter::default(),
+                checkpoint_wait_entry: 0,
                 recovery: None,
                 saved_sleep: None,
                 save_result: None,
@@ -162,8 +263,8 @@ impl LiveSession {
     }
     pub fn event(&self, event: Event) {
         let mut state = self.output.0.lock().unwrap();
-        if state.events.len() < 256 {
-            state.events.push_back(event);
+        if !state.enqueue(event) {
+            self.shutdown.store(true, Ordering::Release);
         }
         self.output.1.notify_one();
     }
@@ -201,7 +302,7 @@ impl LiveSession {
                         device.saved_sleep = Some(shared.sleeps());
                         self.event(Event::Status {
                             message: match &result {
-                                Ok(()) => "Calculator recovery checkpoint saved".into(),
+                                Ok(_) => "Calculator recovery checkpoint saved".into(),
                                 Err(e) => format!(
                                     "Recovery checkpoint failed; previous checkpoint retained: {e}"
                                 ),
@@ -221,6 +322,7 @@ impl LiveSession {
                 let store = device.recovery.as_ref().unwrap().clone();
                 let mem = mem.clone();
                 let shared = shared.clone();
+                let explicit = device.checkpoint.is_some();
                 let (tx, rx) = std::sync::mpsc::channel();
                 device.save_worker = Some(rx);
                 self.event(Event::Status {
@@ -239,7 +341,12 @@ impl LiveSession {
                             std::thread::sleep(Duration::from_millis(5));
                         };
                         shared.vfs.check_durable().map_err(|e| e.to_string())?;
-                        let result = store.checkpoint().map_err(|e| e.to_string());
+                        let result = if explicit {
+                            store.checkpoint_bounded(&crate::recovery::CheckpointPolicy::default())
+                        } else {
+                            store.checkpoint_receipt()
+                        }
+                        .map_err(|e| e.to_string());
                         drop(guard);
                         result
                     })();
@@ -249,6 +356,36 @@ impl LiveSession {
             }
         }
         for command in self.commands.lock().unwrap().try_iter().take(128) {
+            // Once OFF begins, admit no new calculator mutations until the
+            // exact sleep generation has been saved. Shutdown remains an
+            // immediate escape; frame requests do not mutate calculator state.
+            if device.checkpoint.is_some()
+                && !matches!(&command, Command::Shutdown | Command::FrameRequest)
+            {
+                let message = "A firmware persistence checkpoint is in progress".to_string();
+                match command {
+                    Command::Checkpoint { id, .. } => self.event(Event::Checkpoint {
+                        id,
+                        result: CheckpointResult::Deferred { reason: message },
+                    }),
+                    Command::Run { request, .. }
+                    | Command::Compile { request, .. }
+                    | Command::DirectCheck { request, .. }
+                    | Command::LoadSource { request, .. }
+                    | Command::Import { request, .. }
+                    | Command::StoreProgram { request, .. }
+                    | Command::RunStored { request, .. }
+                    | Command::ScenarioInput { request, .. }
+                    | Command::ReleaseInput { request, .. } => self.event(Event::Result {
+                        request,
+                        success: false,
+                        message,
+                        check: None,
+                    }),
+                    _ => self.event(Event::Status { message }),
+                }
+                continue;
+            }
             if matches!(
                 &command,
                 Command::Run { .. }
@@ -256,9 +393,27 @@ impl LiveSession {
                     | Command::DirectCheck { .. }
                     | Command::LoadSource { .. }
                     | Command::Import { .. }
+                    | Command::StoreProgram { .. }
+                    | Command::RunStored { .. }
                     | Command::Script { .. }
             ) {
                 device.typing.clear();
+            }
+            if trace.compiler.is_none() || trace.runtime.is_none() {
+                let request = match &command {
+                    Command::Run { request, .. }
+                    | Command::Compile { request, .. }
+                    | Command::DirectCheck { request, .. }
+                    | Command::LoadSource { request, .. }
+                    | Command::Import { request, .. }
+                    | Command::StoreProgram { request, .. }
+                    | Command::RunStored { request, .. } => Some(*request),
+                    _ => None,
+                };
+                if let Some(request) = request {
+                    self.event(Event::Result { request, success:false, message:"This firmware supports calculator input/display/power, but has no verified compiler/runtime observation profile for managed Check/Run/Import".into(), check:None });
+                    continue;
+                }
             }
             match command {
                 Command::Text { text, paste }
@@ -318,17 +473,60 @@ impl LiveSession {
                     shared.push_touch(TouchSample { status, x, y })
                 }
                 Command::ReleaseAll => {
-                    device.held.clear();
-                    device.repeat.clear();
-                    device.keys.clear();
-                    device.typing.clear();
-                    shared.clear_input_events();
-                    let held: Vec<u16> = device.delivered.drain().collect();
-                    device
-                        .keys
-                        .extend(held.into_iter().map(|code| (code, false)));
+                    release_input(&mut device, shared);
+                }
+                Command::ReleaseInput { request } => {
+                    if device.input_cleanup.is_some()
+                        || shared.sleeping()
+                        || device.power_down.is_some()
+                    {
+                        self.event(Event::Result {
+                            request,
+                            success: false,
+                            message: "Input release requires an awake calculator without shutdown or another pending release".into(),
+                            check: None,
+                        });
+                    } else {
+                        release_input(&mut device, shared);
+                        device.input_cleanup =
+                            Some((request, job::IdleMeter::default(), Instant::now()));
+                    }
                 }
                 Command::Shutdown => shared.set_stopping(),
+                Command::Checkpoint { id, wake } => {
+                    let admission = crate::checkpoint::Admission {
+                        ready: device.lifecycle == Lifecycle::Ready,
+                        sleeping: shared.sleeping(),
+                        recovery_available: device.recovery.is_some(),
+                        program_active: device.jobs.active.is_some() || device.jobs.interrupting(),
+                        guest_call_active: shared.guest_calls.busy(),
+                        script_active: device.script.is_some(),
+                        input_pending: device.input_cleanup.is_some()
+                            || device.scenario_touch.is_some()
+                            || !device.keys.is_empty()
+                            || !device.typing.is_empty()
+                            || shared.input_events_pending() != 0
+                            || shared.touch_pending() != 0,
+                        keys_held: !device.held.is_empty() || !device.delivered.is_empty(),
+                        shutdown_active: device.power_down.is_some(),
+                    };
+                    match crate::checkpoint::Checkpoint::begin(id, wake, &admission) {
+                        Ok(checkpoint) => {
+                            device.jobs.invalidate_prepared();
+                            device.repeat.clear();
+                            device.checkpoint_idle.clear();
+                            device.checkpoint_wait_entry = shared.main_wait_entries();
+                            if shared.sleeping() {
+                                // Even an already sleeping calculator gets a
+                                // new bounded generation for this request.
+                                device.saved_sleep = None;
+                                device.save_result = None;
+                            }
+                            device.checkpoint = Some(checkpoint);
+                        }
+                        Err(result) => self.event(Event::Checkpoint { id, result }),
+                    }
+                }
                 Command::PowerDown => {
                     device.typing.clear();
                     device.jobs.invalidate_prepared();
@@ -367,6 +565,106 @@ impl LiveSession {
                     }
                     Err(message) => self.event(Event::Error { message }),
                 },
+                Command::ScenarioInput {
+                    request,
+                    run_request,
+                    input,
+                } => {
+                    let running = device.jobs.running_request(run_request, trace);
+                    let accepted = match input {
+                        session::CalculatorInput::Key { physical, down } => {
+                            if let Some(&code) =
+                                session::PHYSICAL_DEVICE_CODES.get(physical as usize)
+                            {
+                                if running || (!down && device.held.contains(&code)) {
+                                    if down {
+                                        device.held.insert(code);
+                                    } else {
+                                        device.held.remove(&code);
+                                    }
+                                    device.keys.push_back((code, down));
+                                    true
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        }
+                        session::CalculatorInput::Touch { status, x, y }
+                            if [1, 2, 8].contains(&status)
+                                && x < 320
+                                && y < 240
+                                && (running
+                                    || (status == 8
+                                        && device
+                                            .scenario_touch
+                                            .is_some_and(|t| t.0 == run_request))) =>
+                        {
+                            track_touch(&mut device.scenario_touch, run_request, status, x, y);
+                            shared.push_touch(TouchSample { status, x, y });
+                            true
+                        }
+                        _ => false,
+                    };
+                    self.event(Event::Result {
+                        request,
+                        success: accepted,
+                        message: if accepted {
+                            "queued".into()
+                        } else {
+                            "Input is invalid or its program is no longer running; nothing queued"
+                                .into()
+                        },
+                        check: None,
+                    });
+                }
+                Command::StoreProgram {
+                    request,
+                    name,
+                    source,
+                    expected_previous_sha256,
+                } => {
+                    if let Err(message) = device.jobs.store_named(
+                        request,
+                        name,
+                        source,
+                        expected_previous_sha256,
+                        shared,
+                        trace,
+                    ) {
+                        self.event(Event::Result {
+                            request,
+                            success: false,
+                            message,
+                            check: None,
+                        });
+                    }
+                }
+                Command::RunStored {
+                    request,
+                    name,
+                    source_sha256,
+                    entry,
+                    arguments,
+                } => {
+                    if let Err(message) = device.jobs.run_stored(
+                        request,
+                        name,
+                        source_sha256,
+                        entry,
+                        arguments,
+                        shared,
+                        trace,
+                    ) {
+                        self.event(Event::Result {
+                            request,
+                            success: false,
+                            message,
+                            check: None,
+                        });
+                    }
+                }
                 Command::Import {
                     request,
                     name,
@@ -563,6 +861,9 @@ impl LiveSession {
             }
             device.last_key = Instant::now();
         }
+        if let Some(event) = poll_input_cleanup(&mut device, shared) {
+            self.event(event);
+        }
         // Generate at most one repeat after consumption, never a catch-up burst.
         if device.keys.is_empty()
             && shared.input_events_pending() == 0
@@ -595,6 +896,7 @@ impl LiveSession {
             device.lifecycle = next;
             self.event(Event::Lifecycle { state: next });
         }
+        self.advance_checkpoint(&mut device, shared);
         self.power_down(&mut device, shared);
         let Device {
             unsupported_seen, ..
@@ -623,6 +925,46 @@ impl LiveSession {
             }
         }
     }
+    fn advance_checkpoint(&self, device: &mut Device, shared: &SharedState) {
+        let saved = (device.saved_sleep == Some(shared.sleeps()))
+            .then_some(device.save_result.as_ref())
+            .flatten();
+        let Some(checkpoint) = &mut device.checkpoint else {
+            return;
+        };
+        let id = checkpoint.id;
+        let idle = shared.main_wait_entries() > device.checkpoint_wait_entry
+            && device.checkpoint_idle.settled(shared);
+        match checkpoint.poll(shared.sleeping(), idle, saved) {
+            Some(crate::checkpoint::Action::PowerOff) => {
+                device.keys.extend([
+                    (SHIFT_KEY, true),
+                    (SHIFT_KEY, false),
+                    (crate::services::ON_KEY_CODE, true),
+                    (crate::services::ON_KEY_CODE, false),
+                ]);
+            }
+            Some(crate::checkpoint::Action::Finished { mut result, wake }) => {
+                if let CheckpointResult::Failed { message } = &mut result {
+                    message.push_str(&format!(
+                        " (main waits {}→{}, main waiting={}, input pump parked={}, queued input={}, touch={})",
+                        device.checkpoint_wait_entry, shared.main_wait_entries(),
+                        shared.main_waiting(), shared.getevent_parked(),
+                        shared.input_events_pending(), shared.touch_pending(),
+                    ));
+                }
+                if wake {
+                    device.keys.extend([
+                        (crate::services::ON_KEY_CODE, true),
+                        (crate::services::ON_KEY_CODE, false),
+                    ]);
+                }
+                device.checkpoint = None;
+                self.event(Event::Checkpoint { id, result });
+            }
+            None => {}
+        }
+    }
     /// Advances a PowerDown: once no program runs, press the firmware's
     /// OFF; once it sleeps (its state saved), end the session.
     fn power_down(&self, device: &mut Device, shared: &SharedState) {
@@ -642,7 +984,7 @@ impl LiveSession {
                 return;
             }
             if let Some(store) = &device.recovery {
-                if matches!(device.save_result, Some(Ok(()))) {
+                if matches!(device.save_result, Some(Ok(_))) {
                     if let Err(e) = store.clean_shutdown() {
                         return end(&format!(
                             "Checkpoint saved, but shutdown marker failed: {e}"
@@ -802,6 +1144,7 @@ pub fn run(
             ("ZZT_IDE", "EXPORT MAIN()\nBEGIN\n RETURN 0;\nEND;\n"),
             ("ZZT_LOADER", job::LOADER),
             ("ZZT_IMPORT", job::IMPORTER),
+            ("ZZT_NAMED", job::NAMED_LOADER),
         ] {
             let path = dir.join(format!("{name}.hpprgm"));
             // The IDE's own first loader, recognised by its exact source, is
@@ -836,6 +1179,14 @@ pub fn run(
         session.close(e.to_string());
         return 1;
     }
+    let observed = crate::recovery::resource_hash(&firmware)
+        .is_ok_and(|h| h == crate::compiler::FIRMWARE_SHA256);
+    session.event(Event::Capabilities {
+        managed_programs: observed,
+        reason: (!observed).then(|| {
+            "Calculator-only firmware: no verified compiler/runtime observation profile".into()
+        }),
+    });
     session.event(Event::Lifecycle {
         state: Lifecycle::Booting,
     });
@@ -851,8 +1202,8 @@ pub fn run(
         ui_timers: true,
         on_unsupported: crate::services::UnsupportedPolicy::ZeroReturn,
         trace: crate::trace::TraceConfig {
-            compiler: true,
-            runtime: true,
+            compiler: observed,
+            runtime: observed,
             fs_trace: true,
             verbosity: 0,
             jsonl_path: std::env::var_os("PRIME_SESSION_TRACE").map(std::path::PathBuf::from),
@@ -872,5 +1223,129 @@ pub fn run(
             session.close(e.to_string());
             1
         }
+    }
+}
+
+#[cfg(test)]
+mod output_delivery_tests {
+    use super::*;
+    fn test_device() -> Device {
+        Device {
+            held: HashSet::new(),
+            scenario_touch: None,
+            input_cleanup: None,
+            delivered: HashSet::new(),
+            repeat: repeat::KeyRepeat::default(),
+            typing: typing::Typing::default(),
+            script: None,
+            jobs: job::Jobs::new(),
+            lifecycle: Lifecycle::Ready,
+            boot: job::IdleMeter::default(),
+            unsupported_seen: 0,
+            keys: VecDeque::new(),
+            last_key: Instant::now(),
+            power_down: None,
+            checkpoint: None,
+            checkpoint_idle: job::IdleMeter::default(),
+            checkpoint_wait_entry: 0,
+            recovery: None,
+            saved_sleep: None,
+            save_result: None,
+            save_worker: None,
+        }
+    }
+
+    #[test]
+    fn input_cleanup_fails_once_on_sleep_or_expiry_without_sticking_admission() {
+        for asleep in [true, false] {
+            let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:test".into());
+            let mut device = test_device();
+            let started = if asleep {
+                Instant::now()
+            } else {
+                Instant::now() - Duration::from_secs(31)
+            };
+            device.input_cleanup = Some((77, job::IdleMeter::default(), started));
+            if asleep {
+                shared.enter_sleep();
+            }
+            assert!(matches!(
+                poll_input_cleanup(&mut device, &shared),
+                Some(Event::Result {
+                    request: 77,
+                    success: false,
+                    ..
+                })
+            ));
+            assert!(device.input_cleanup.is_none());
+            assert!(poll_input_cleanup(&mut device, &shared).is_none());
+        }
+    }
+    #[test]
+    fn automatic_touch_release_uses_latest_drag_position() {
+        let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:test".into());
+        let mut device = test_device();
+        track_touch(&mut device.scenario_touch, 9, 1, 20, 30);
+        track_touch(&mut device.scenario_touch, 9, 2, 100, 50);
+        release_input(&mut device, &shared);
+        let up = shared.pop_touch().unwrap();
+        assert_eq!((up.status, up.x, up.y), (8, 100, 50));
+        assert!(device.scenario_touch.is_none());
+    }
+
+    #[test]
+    fn focus_release_preserves_a_guest_queued_key_up() {
+        let shared = SharedState::new("/tmp/unused-m16-input".into(), "A:\\test".into());
+        let mut device = test_device();
+        // The up already left Device.keys, so delivered no longer contains it.
+        shared.push_key_transition(0x0d, false);
+        release_input(&mut device, &shared);
+        assert_eq!(
+            device.keys.into_iter().collect::<Vec<_>>(),
+            vec![(0x0d, false)]
+        );
+        assert_eq!(shared.input_events_pending(), 0);
+    }
+    #[test]
+    fn saturated_status_queue_preserves_correlated_terminal_results() {
+        let mut output = Output::default();
+        for _ in 0..1024 {
+            assert!(output.enqueue(Event::Status {
+                message: "busy".into()
+            }));
+        }
+        assert!(output.enqueue(Event::Result {
+            request: 91,
+            success: true,
+            message: "done".into(),
+            check: None
+        }));
+        assert!(
+            output
+                .events
+                .iter()
+                .any(|e| matches!(e, Event::Result { request: 91, .. }))
+        );
+        assert!(output.events.len() <= 256);
+    }
+    #[test]
+    fn mandatory_overflow_fails_closed_instead_of_silently_losing_replies() {
+        let mut output = Output::default();
+        for request in 0..512 {
+            assert!(output.enqueue(Event::Result {
+                request,
+                success: true,
+                message: "done".into(),
+                check: None
+            }));
+        }
+        assert!(!output.enqueue(Event::Result {
+            request: 513,
+            success: true,
+            message: "done".into(),
+            check: None
+        }));
+        assert!(output.closed);
+        assert!(matches!(output.events.back(), Some(Event::Closed { .. })));
     }
 }

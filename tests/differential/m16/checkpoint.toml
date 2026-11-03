@@ -1,0 +1,48 @@
+schema_version = 2
+id = "m16_checkpoint_lifecycle"
+[programs.ZZT_M16CK]
+source = '''
+EXPORT M16CKSET() BEGIN A:=731; RETURN A; END;
+EXPORT M16CKGET() BEGIN RETURN A; END;
+'''
+[[steps]]
+action = "import"
+id = "load"
+program = "ZZT_M16CK"
+[[steps]]
+action = "run_program"
+id = "set"
+program = "ZZT_M16CK"
+entry = "M16CKSET"
+[[steps]]
+action = "checkpoint"
+id = "saved"
+wake = false
+[[steps]]
+action = "restart"
+id = "fresh"
+[[steps]]
+action = "run_program"
+id = "restored"
+program = "ZZT_M16CK"
+entry = "M16CKGET"
+[[expect]]
+step = "saved"
+path = "/status"
+value = "success"
+[[expect]]
+step = "saved"
+path = "/state_kind"
+value = "firmware_persistence"
+[[expect]]
+step = "saved"
+path = "/safe_point"
+value = "firmware_off"
+[[expect]]
+step = "saved"
+path = "/restores_cpu"
+value = false
+[[expect]]
+step = "restored"
+path = "/return_value"
+value = {type="real",value="731"}

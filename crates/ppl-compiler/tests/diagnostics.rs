@@ -475,3 +475,32 @@ fn editmat_accepts_matrix_expressions_and_reports_native_support() {
         assert!(!c.diags.iter().any(|d| d.code == "unsupported-command"));
     }
 }
+
+#[test]
+fn native_unsupported_input_controls_have_compatibility_diagnostics() {
+    for descriptor in ["0", "-1", "\"checkbox\"", "{\"First\",\"Second\"}"] {
+        let c = check(&format!(
+            "EXPORT ASK() BEGIN LOCAL a; INPUT({{{{a,{descriptor}}}}}); END;"
+        ));
+        c.assert_valid_with_compat_only();
+        let warning = c.find("input-control-unsupported");
+        assert!(
+            warning
+                .hint
+                .as_deref()
+                .unwrap()
+                .contains("G1 Firmware mode")
+        );
+    }
+}
+
+#[test]
+fn computed_vector_descriptors_are_not_misreported_as_scalar_controls() {
+    let c = check("EXPORT ASK() BEGIN LOCAL a; INPUT({{a,-[0,-2]}}); END;");
+    assert!(c.compiled);
+    assert!(
+        !c.diags
+            .iter()
+            .any(|d| d.code == "input-control-unsupported")
+    );
+}

@@ -1,5 +1,6 @@
 //! Optional proprietary-firmware crash test. Uses only a disposable profile;
 //! no physical calculator access. Run with PRIME_TEST_FIRMWARE/INIT_DATA/OS_ROM.
+use ppl_engine::checkpoint::CheckpointResult;
 use ppl_engine::session::{self, Command, Event, Lifecycle, Packet};
 use std::{
     io::Write,
@@ -101,6 +102,19 @@ impl Session {
         self.child.kill().unwrap();
         self.child.wait().unwrap();
     }
+    fn checkpoint(&mut self, id: u64, wake: bool) -> ppl_engine::checkpoint::CheckpointReceipt {
+        self.send(Command::Checkpoint { id, wake });
+        match self.wait(
+            "explicit checkpoint receipt",
+            |e| matches!(e, Event::Checkpoint {id:r,..} if *r == id),
+        ) {
+            Event::Checkpoint {
+                result: CheckpointResult::Saved { receipt },
+                ..
+            } => receipt,
+            other => panic!("checkpoint did not save: {other:?}"),
+        }
+    }
 }
 impl Drop for Session {
     fn drop(&mut self) {
@@ -186,6 +200,79 @@ fn killed_session_restores_last_off_and_archives_interrupted_storage() {
 #[test]
 fn live_off_checkpoint_recovers_after_wake_edit_and_kill() {
     recovery_scenario(true);
+}
+
+#[test]
+fn explicit_checkpoint_restores_collections_after_cas_in_fresh_processes() {
+    collection_recovery_scenario(true);
+}
+
+#[test]
+fn normal_off_restores_collections_after_cas_in_fresh_processes() {
+    collection_recovery_scenario(false);
+}
+
+fn collection_recovery_scenario(explicit_second_save: bool) {
+    let (Some(_), Some(init)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+    ) else {
+        eprintln!("skipping: proprietary firmware test assets not configured");
+        return;
+    };
+    let profile = tempfile::tempdir().unwrap();
+    for drive in ["A", "C"] {
+        copy(&Path::new(&init).join(drive), &profile.path().join(drive));
+    }
+    let mut first = Session::start(profile.path());
+    first.ready();
+    first.run(
+        10,
+        "A:=CAS(\"2+3\"); L1:={1,2,3}; M1:=[[1,2],[3,4]]; RETURN A+L1(2)+M1(2,1);",
+        "returned 10",
+    );
+    let receipt = first.checkpoint(11, false);
+    assert!(!receipt.restores_cpu && !receipt.restores_framebuffer);
+    let generation = profile.path().join(".recovery").join(&receipt.generation);
+    assert_eq!(
+        prime_emulator::sha256::hex(&std::fs::read(generation.join("manifest.json")).unwrap()),
+        receipt.manifest_sha256
+    );
+    assert!(profile.path().join(".recovery/unclean").exists());
+    first.kill();
+
+    let mut second = Session::start(profile.path());
+    second.wait("fresh-process recovery", |e| matches!(e, Event::Status {message} if message.starts_with("Recovered calculator data")));
+    second.ready();
+    second.run(12, "RETURN A+L1(2)+M1(2,1);", "returned 10");
+    second.run(13, "A:=900; RETURN A;", "returned 900");
+    let mut second = if explicit_second_save {
+        let second_receipt = second.checkpoint(14, true);
+        assert_ne!(receipt.generation, second_receipt.generation);
+        second.ready();
+        second
+    } else {
+        second.send(Command::PowerDown);
+        second.wait("baseline normal OFF", |e| matches!(e, Event::Closed { .. }));
+        second.child.wait().unwrap();
+        let mut rebooted = Session::start(profile.path());
+        rebooted.ready();
+        rebooted.run(14, "RETURN A+L1(2)+M1(2,1);", "returned 905");
+        rebooted
+    };
+    second.run(15, "A:=901; RETURN A;", "returned 901");
+    second.kill();
+
+    let mut third = Session::start(profile.path());
+    third.wait("second fresh-process recovery", |e| matches!(e, Event::Status {message} if message.starts_with("Recovered calculator data")));
+    third.ready();
+    third.run(16, "RETURN A+L1(2)+M1(2,1);", "returned 905");
+    third.send(Command::PowerDown);
+    third.wait("normal OFF remains authoritative", |e| {
+        matches!(e, Event::Closed { .. })
+    });
+    third.child.wait().unwrap();
+    assert!(!profile.path().join(".recovery/unclean").exists());
 }
 
 #[test]

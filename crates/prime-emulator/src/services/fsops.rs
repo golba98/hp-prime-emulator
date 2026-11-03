@@ -86,15 +86,38 @@ pub fn w_fopen(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     }
 }
 
+fn transfer_size(ctx: &SvcCtx, address: u32, size: u32, count: u32) -> Result<usize, HandlerFault> {
+    let len = size.checked_mul(count).ok_or_else(|| {
+        HandlerFault(crate::memory::MemoryError {
+            va: address,
+            msg: "file transfer exceeds 32-bit size".into(),
+        })
+    })? as usize;
+    ctx.mem.validate_range(address, len).map_err(HandlerFault)?;
+    Ok(len)
+}
+
+fn transfer_buffer(address: u32, len: usize) -> Result<Vec<u8>, HandlerFault> {
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(len).map_err(|e| {
+        HandlerFault(crate::memory::MemoryError {
+            va: address,
+            msg: format!("host file buffer allocation failed: {e}"),
+        })
+    })?;
+    bytes.resize(len, 0);
+    Ok(bytes)
+}
+
 /// ref: `_fread(dest = r0, size = r1, count = r2, handle = r3)` → bytes read.
 pub fn fread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let dest = ctx.args.r0;
-    let total = ctx.args.r1 as usize * ctx.args.r2 as usize;
+    let total = transfer_size(ctx, dest, ctx.args.r1, ctx.args.r2)?;
     let handle = ctx.args.r3;
     if total == 0 {
         return Ok(0);
     }
-    let mut buf = vec![0u8; total];
+    let mut buf = transfer_buffer(dest, total)?;
     let n = ctx.shared.vfs.read(handle, &mut buf).unwrap_or(0);
     if n > 0 {
         ctx.mem.write_bytes(dest, &buf[..n]).map_err(HandlerFault)?;
@@ -110,8 +133,11 @@ pub fn fread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 /// ref: `_fwrite(src = r0, size = r1, count = r2, handle = r3)` → written.
 pub fn fwrite(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let src = ctx.args.r0;
-    let total = ctx.args.r1 as usize * ctx.args.r2 as usize;
+    let total = transfer_size(ctx, src, ctx.args.r1, ctx.args.r2)?;
     let handle = ctx.args.r3;
+    if total == 0 {
+        return Ok(0);
+    }
     let buf = ctx.mem.read_bytes_alloc(src, total).map_err(HandlerFault)?;
     let n = ctx.shared.vfs.write(handle, &buf).unwrap_or(0);
     fs_trace(
@@ -467,6 +493,9 @@ pub fn close_file(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     }
     let parent_fd = ctx.mem.read_u32(fd + fd::PARENT).map_err(HandlerFault)?;
     if parent_fd == 0 {
+        ctx.mem
+            .validate_range(fd, LOADER_FD_SIZE)
+            .map_err(HandlerFault)?;
         let cart = ctx.mem.read_u32(fd + fd::CART).map_err(HandlerFault)?;
         let _ = ctx.shared.vfs.close(cart);
     }
@@ -517,6 +546,9 @@ pub fn read_file(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     if fd == 0 || size == 0 {
         return Ok(0);
     }
+    ctx.mem
+        .validate_range(fd, LOADER_FD_SIZE)
+        .map_err(HandlerFault)?;
     let cart = ctx.mem.read_u32(fd + fd::CART).map_err(HandlerFault)?;
     let base = ctx
         .mem
@@ -529,11 +561,14 @@ pub fn read_file(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         return Ok(0);
     }
     let to_read = size.min(remaining);
-    let mut buf = vec![0u8; to_read];
+    ctx.mem
+        .validate_range(dest, to_read)
+        .map_err(HandlerFault)?;
+    let mut buf = transfer_buffer(dest, to_read)?;
     let n = ctx
         .shared
         .vfs
-        .read_at(cart, base.wrapping_add(off) as u64, &mut buf)
+        .read_at(cart, u64::from(base) + u64::from(off), &mut buf)
         .unwrap_or(0);
     if n > 0 {
         ctx.mem.write_bytes(dest, &buf[..n]).map_err(HandlerFault)?;

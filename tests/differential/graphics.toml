@@ -1,0 +1,19 @@
+schema_version = 1
+id = "pixel-coordinate"
+[program]
+source = "EXPORT MAIN() BEGIN RECT_P(0,0,319,239,RGB(255,255,255),RGB(255,255,255)); PIXON_P(100,100,RGB(255,0,0)); RETURN 42; END;"
+[[steps]]
+action = "run"
+id = "draw"
+entry = "MAIN"
+[[steps]]
+action = "capture"
+id = "screen"
+[[expect]]
+step = "draw"
+path = "/return_value/value"
+value = "42"
+[[expect]]
+step = "screen"
+path = "/image/pixels/32100"
+value = 16711680

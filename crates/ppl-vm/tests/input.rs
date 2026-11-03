@@ -395,3 +395,79 @@ fn positioned_cancel_retains_original_variables() {
     );
     assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "{0,5,8}");
 }
+
+#[test]
+fn explicit_unsupported_or_malformed_descriptors_never_open_or_write_back() {
+    for (spec, kind) in [
+        ("0", ErrorKind::Unsupported),
+        ("1", ErrorKind::Unsupported),
+        ("\"checkbox\"", ErrorKind::Unsupported),
+        ("{\"First\",\"Second\"}", ErrorKind::Unsupported),
+        ("{0,\"bad\"}", ErrorKind::Unsupported),
+        ("[0,1.5]", ErrorKind::BadArgValue),
+        ("[0,1E-499]", ErrorKind::BadArgValue),
+        ("[1E100]", ErrorKind::BadArgValue),
+        ("[7]", ErrorKind::Unsupported),
+        ("[-1,7]", ErrorKind::Unsupported),
+        ("[[0,2]]", ErrorKind::BadArgValue),
+    ] {
+        let mut r = Run::new(
+            "<descriptors>",
+            &prog(&format!("A:=17; B:=23; INPUT({{{{A,[0]}},{{B,{spec}}}}});")),
+        );
+        let err = r.call("TEST_PROG", &["100", "200"]).unwrap_err();
+        assert_eq!(err.kind, kind, "{spec}: {err:?}");
+        assert!(err.detail.contains("INPUT"), "{spec}: {err:?}");
+        assert!(r.dialogs().is_empty(), "{spec}: dialog must not open");
+        assert_eq!(r.unused_inputs(), 2, "{spec}: host input consumed");
+        for (name, expected) in [("A", "17"), ("B", "23")] {
+            let value = r
+                .machine
+                .globals()
+                .into_iter()
+                .find(|(n, _)| n == name)
+                .unwrap()
+                .1;
+            assert_eq!(text(&value), expected, "{spec}: {name} changed");
+        }
+    }
+}
+
+#[test]
+fn dynamic_descriptors_are_validated_before_host_delivery() {
+    let mut r = Run::new(
+        "<dynamic descriptor>",
+        &prog("LOCAL a:=17,spec:={0,\"bad\"}; INPUT({{a,spec}}); RETURN a;"),
+    );
+    let error = r.call("TEST_PROG", &["100"]).unwrap_err();
+    assert_eq!(error.kind, ErrorKind::Unsupported);
+    assert!(error.detail.contains("Firmware mode"));
+    assert!(r.dialogs().is_empty());
+    assert_eq!(r.unused_inputs(), 1);
+}
+
+#[test]
+fn duplicate_type_codes_preserve_string_only_semantics() {
+    for spec in ["[2,2]", "{2,2}"] {
+        let mut r = Run::new(
+            "<duplicate types>",
+            &prog(&format!(
+                "LOCAL a:=\"old\"; INPUT({{{{a,{spec}}}}}); RETURN a;"
+            )),
+        );
+        let result = r.call("TEST_PROG", &["1+1"]).unwrap();
+        assert!(matches!(result, ppl_vm::Value::Str(_)));
+        assert_eq!(text(&result), "1+1");
+    }
+}
+
+#[test]
+fn omitted_descriptor_and_wildcard_keep_unrestricted_edit_fields() {
+    for field in ["a".to_string(), "{a}".into(), "{a,[-1,2]}".into()] {
+        let mut r = Run::new(
+            "<unrestricted fields>",
+            &prog(&format!("LOCAL a:=17; INPUT({{{field}}}); RETURN a;")),
+        );
+        assert_eq!(text(&r.call("TEST_PROG", &["1+1"]).unwrap()), "2");
+    }
+}

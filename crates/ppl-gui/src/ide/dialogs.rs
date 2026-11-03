@@ -6,6 +6,11 @@ use super::{IdeAction, IdeAppState};
 use crate::theme::TEXT_MUTED;
 use egui::{RichText, Window};
 
+#[derive(Debug)]
+struct SettingsCheck {
+    settings: super::firmware::FirmwareSettings,
+    result: std::sync::mpsc::Receiver<ppl_engine::preflight::PreflightReport>,
+}
 /// Tracks active modal dialog windows in the desktop IDE.
 #[derive(Debug, Default)]
 pub struct DialogHost {
@@ -38,9 +43,65 @@ pub struct DialogHost {
     pub run_config_selected: usize,
     /// Comma-separated PPL argument expressions for the entry point.
     pub run_config_args: String,
+    setup_check: Option<SettingsCheck>,
+    setup_result: Option<(
+        super::firmware::FirmwareSettings,
+        Result<ppl_engine::preflight::PreflightReport, String>,
+    )>,
 }
 
 impl DialogHost {
+    fn start_setup_check(
+        &mut self,
+        settings: super::firmware::FirmwareSettings,
+        ctx: &egui::Context,
+    ) {
+        let (sender, result) = std::sync::mpsc::channel();
+        self.setup_result = None;
+        self.setup_check = Some(SettingsCheck {
+            settings: settings.clone(),
+            result,
+        });
+        let context = ctx.clone();
+        std::thread::spawn(move || {
+            let _ = sender.send(settings.preflight());
+            context.request_repaint();
+        });
+    }
+    fn poll_setup_check(&mut self, state: &mut IdeAppState) {
+        // Bind reports to the exact settings revision. File checks never run
+        // on the rendering thread and an obsolete worker cannot overwrite UI.
+        if self
+            .setup_check
+            .as_ref()
+            .is_some_and(|check| check.settings != state.firmware)
+        {
+            self.setup_check = None;
+        }
+        if self
+            .setup_result
+            .as_ref()
+            .is_some_and(|(settings, _)| settings != &state.firmware)
+        {
+            self.setup_result = None;
+            state.status_message = "Firmware resource paths changed; validate setup again".into();
+        }
+        let Some(check) = &self.setup_check else {
+            return;
+        };
+        let result = match check.result.try_recv() {
+            Ok(report) => Ok(report),
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                Err("Firmware resource check stopped; validate again".to_string())
+            }
+        };
+        state.status_message = result
+            .as_ref()
+            .map_or_else(Clone::clone, |report| report.summary());
+        self.setup_result = Some((check.settings.clone(), result));
+        self.setup_check = None;
+    }
     pub fn has_open(&self) -> bool {
         self.show_about
             || self.show_shortcuts
@@ -147,6 +208,7 @@ impl DialogHost {
                 });
         }
 
+        self.poll_setup_check(state);
         // Settings Dialog
         if self.show_settings {
             let mut open = true;
@@ -200,13 +262,31 @@ impl DialogHost {
                             }
                         });
                     }
-                    if ui.button("Validate firmware resources").clicked() {
-                        state.status_message = match state.firmware.asset_paths().and_then(|p| p.validate_files()) {
-                            Ok(()) => "Firmware files found and ARM ELF header valid; startup will verify helper and firmware capabilities".into(),
-                            Err(message) => message,
-                        };
+                    let checking = self.setup_check.is_some();
+                    if ui.add_enabled(!checking, egui::Button::new(if checking { "Checking resources…" } else { "Validate firmware resources" })).clicked() {
+                        self.start_setup_check(state.firmware.clone(), ctx);
                     }
-                    ui.label(&state.status_message);
+                    if let Some((_, result)) = &self.setup_result {
+                        match result {
+                            Ok(report) => {
+                                ui.label(report.summary());
+                                egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
+                                    for check in &report.checks {
+                                        let prefix = match check.status {
+                                            ppl_engine::preflight::CheckStatus::Passed => "✓",
+                                            ppl_engine::preflight::CheckStatus::Failed => "✗",
+                                            ppl_engine::preflight::CheckStatus::NotChecked => "•",
+                                        };
+                                        ui.label(format!("{prefix} {}: {}", check.component, check.message));
+                                        if let Some(path) = &check.path { ui.small(path.display().to_string()); }
+                                    }
+                                });
+                            }
+                            Err(message) => { ui.label(message); }
+                        }
+                    } else if !checking {
+                        ui.label("Choose paths or use configured defaults, then validate setup.");
+                    }
                     ui.checkbox(&mut state.smooth_display,"Smooth LCD scaling");
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("OK").clicked() {
@@ -500,6 +580,70 @@ pub fn parse_line_col(input: &str, line_count: usize) -> Result<(usize, usize), 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn setup_poll_never_blocks_and_applies_only_current_settings() {
+        let mut state = IdeAppState::default();
+        let mut host = DialogHost::new();
+        let (sender, result) = std::sync::mpsc::channel();
+        host.setup_check = Some(SettingsCheck {
+            settings: state.firmware.clone(),
+            result,
+        });
+        host.poll_setup_check(&mut state);
+        assert!(
+            host.setup_check.is_some(),
+            "unfinished worker remains pending"
+        );
+        let report = ppl_engine::preflight::inspect(ppl_engine::Engine::Native, Default::default());
+        let summary = report.summary();
+        sender.send(report).unwrap();
+        host.poll_setup_check(&mut state);
+        assert!(host.setup_check.is_none());
+        assert_eq!(state.status_message, summary);
+        assert!(host.setup_result.is_some());
+        state.firmware.firmware = "another.elf".into();
+        host.poll_setup_check(&mut state);
+        assert!(
+            host.setup_result.is_none(),
+            "old report is no longer displayed"
+        );
+        assert!(state.status_message.contains("validate setup again"));
+    }
+
+    #[test]
+    fn obsolete_or_disconnected_setup_worker_cannot_misreport_success() {
+        let mut state = IdeAppState::default();
+        let mut host = DialogHost::new();
+        let (sender, result) = std::sync::mpsc::channel();
+        host.setup_check = Some(SettingsCheck {
+            settings: state.firmware.clone(),
+            result,
+        });
+        sender
+            .send(ppl_engine::preflight::inspect(
+                ppl_engine::Engine::Native,
+                Default::default(),
+            ))
+            .unwrap();
+        state.firmware.runner = "changed-helper".into();
+        state.status_message = "Current settings edit".into();
+        host.poll_setup_check(&mut state);
+        assert!(host.setup_result.is_none());
+        assert!(host.setup_check.is_none());
+        assert_eq!(state.status_message, "Current settings edit");
+
+        let (sender, result) = std::sync::mpsc::channel();
+        host.setup_check = Some(SettingsCheck {
+            settings: state.firmware.clone(),
+            result,
+        });
+        drop(sender);
+        host.poll_setup_check(&mut state);
+        assert!(host.setup_check.is_none());
+        assert!(state.status_message.contains("check stopped"));
+        assert!(host.setup_result.unwrap().1.is_err());
+    }
 
     #[test]
     fn go_to_line_input_is_validated() {
