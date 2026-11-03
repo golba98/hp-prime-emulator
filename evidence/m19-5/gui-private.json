@@ -1,0 +1,17 @@
+{
+  "command": [
+    "bash",
+    "tests/ide_xvfb_smoke/run_m12.sh",
+    "m14_function",
+    "180"
+  ],
+  "env_overrides": {
+    "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m19-5-compact-target",
+    "M12_RUN": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private",
+    "PPL_USB_DISABLED": "1"
+  },
+  "returncode": 0,
+  "legacy_files_before": 193,
+  "legacy_files_after": 193,
+  "legacy_capture_hashes_unchanged": true
+}

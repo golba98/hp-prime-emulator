@@ -1,0 +1,5 @@
+{
+  "returncode": 2,
+  "output_created": false,
+  "message": "{\"status\": \"failed\", \"error\": \"cache source/toolchain/configuration identity differs\"}\n"
+}

@@ -1,0 +1,36 @@
+from pathlib import Path
+import hashlib,json,os,subprocess,fcntl,stat
+out=Path('artifacts/m19-5-cleanup');d=json.loads((out/'manifest.json').read_text());roots=[Path(r['path']) for r in d['roots']]
+def sha(p):
+ h=hashlib.sha256()
+ with p.open('rb') as f:
+  for x in iter(lambda:f.read(1048576),b''):h.update(x)
+ return h.hexdigest()
+locks=[]
+for root in roots:
+ for p in root.glob('*/.cargo-lock'):
+  f=p.open('rb');fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB);locks.append(f)
+for proc in Path('/proc').iterdir():
+ if not proc.name.isdigit() or int(proc.name)==os.getpid():continue
+ try:
+  if proc.stat().st_uid!=os.getuid():continue
+  for p in list((proc/'fd').iterdir())+[proc/'exe',proc/'cwd']:
+   try:v=os.readlink(p)
+   except OSError:continue
+   assert not any(v.startswith(str(r)+'/') for r in roots),v
+ except (PermissionError,FileNotFoundError,ProcessLookupError):continue
+removed=[]
+for rec in d['preserved']:
+ src=Path(rec['source']);dst=Path(rec['archive'])
+ assert any(r in src.parents for r in roots) and src.resolve()==src
+ assert sha(dst)==rec['sha256'] and sha(src)==rec['sha256']
+ # Detach archive inode so rebuilding an old target cannot alter preserved bytes.
+ if dst.stat().st_nlink>1:
+  tmp=dst.with_name(dst.name+'.independent-copy')
+  subprocess.run(['cp','--reflink=auto','--preserve=mode,timestamps','--no-clobber',str(dst),str(tmp)],check=True)
+  assert sha(tmp)==rec['sha256'];os.replace(tmp,dst)
+ with src.open('rb') as f:magic=f.read(8)
+ if magic.startswith((b'\x7fELF',b'MZ',b'!<arch>')):
+  assert sha(dst)==rec['sha256'];src.unlink();removed.append(rec)
+(out/'retired-preserved-copies.json').write_text(json.dumps(removed,indent=2)+'\n')
+print('Obsolete copies retired after independent preservation:',len(removed))

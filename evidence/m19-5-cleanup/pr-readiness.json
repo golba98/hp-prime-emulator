@@ -1,0 +1,14 @@
+{
+  "branch": "feat/g1-usability-overhaul",
+  "base": "main",
+  "changed_paths": 332,
+  "firmware_or_build_binary_suffixes": [],
+  "local_linux_status": "all local gates passed, including 10 configured firmware tests and rerun Python tests",
+  "windows_ci": "not run on this unpublished head",
+  "existing_pr": null,
+  "pushed": false,
+  "pr_created": false,
+  "ready_for_fully_green_claim": false,
+  "remaining_gate": "Windows hosted CI on published commit is unverified; no fully-green claim",
+  "commits_ahead_at_start": 112
+}

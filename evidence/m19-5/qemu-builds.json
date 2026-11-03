@@ -1,0 +1,920 @@
+[
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-fullsystem-build",
+    "allocated_bytes": 1028517888,
+    "logical_bytes": 949911322,
+    "raw_entry_allocation_bytes": 1028517888,
+    "files": 31989,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "dfda20a5b7f308bf42ba66dd21060af898f13fcc3c76a73b9ec039b1ea10e851",
+      "patches": [],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-hardware-alignment-build",
+    "allocated_bytes": 256434176,
+    "logical_bytes": 236665285,
+    "raw_entry_allocation_bytes": 256434176,
+    "files": 7942,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "6e993be985092574c6042e4253154933a47df3efd9f782b4d61a7d0936c710d6"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "04d1efeb91fa30697d65966cea34d66c5671da75aff935890cdce232d0f538f1"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "570e2397a532102d01c9d7dfb8c3e1116cc8013ede15705e56cf9ac3c3056c1c"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-hardware-build",
+    "allocated_bytes": 256438272,
+    "logical_bytes": 236665637,
+    "raw_entry_allocation_bytes": 256438272,
+    "files": 7942,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "6e993be985092574c6042e4253154933a47df3efd9f782b4d61a7d0936c710d6"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "fc931fc53786c353ff8231910030e021c6bae92174f6cece1f93ad142e99e9c2"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-hardware-final-build",
+    "allocated_bytes": 256438272,
+    "logical_bytes": 236667016,
+    "raw_entry_allocation_bytes": 256438272,
+    "files": 7942,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "6a0dce1a012d499ed3504270b515cf6ab88605f1938da11dbda531b76ef13919"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "04d1efeb91fa30697d65966cea34d66c5671da75aff935890cdce232d0f538f1"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "876a39d3afea9943e9679174daa2d7115e3549c26d97365658876220ca3c8a09"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-hardware-published-build",
+    "allocated_bytes": 83705856,
+    "logical_bytes": 68643210,
+    "raw_entry_allocation_bytes": 83705856,
+    "files": 5818,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "820f9ba8c884185f977aa207da472c58481edc4b70814e5f73aa3ccf10562116"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['patch', '--batch', '--forward', '-p1']' returned non-zero exit status 2."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-hardware-published-build-02",
+    "allocated_bytes": 256446464,
+    "logical_bytes": 236671960,
+    "raw_entry_allocation_bytes": 256446464,
+    "files": 7943,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-build",
+    "allocated_bytes": 82239488,
+    "logical_bytes": 67950920,
+    "raw_entry_allocation_bytes": 82239488,
+    "files": 5562,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['git', '-C', '/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/scratch/research/qemuPrime/dtc', 'cat-file', '-t', '558cd81bdd432769b59bff01240c44f82cfb1a9d']' returned non-zero exit status 128."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-build-02",
+    "allocated_bytes": 256475136,
+    "logical_bytes": 236704789,
+    "raw_entry_allocation_bytes": 256475136,
+    "files": 7943,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "ed655013bd003e5d8d09a9405054030ce68009d75c21a13fda246881006cadad"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "initial_build_error": "Command '['podman', 'run', '--rm', '--name', 'prime-build-e66f19da299b', '--cidfile', '/home/k9-vortex/.cache/prime-m19-clock-build-02/build.cid', '--network', 'none', '--userns', 'keep-id', '--user', '1000:1000', '--read-only', '--tmpfs', '/tmp:rw,size=256m', '-v', '/home/k9-vortex/.cache/prime-m19-clock-build-02/source:/src:ro,Z', '-v', '/home/k9-vortex/.cache/prime-m19-clock-build-02/build:/build:rw,Z', '-w', '/build', 'localhost/prime-m17-qemu-xenial', '/bin/sh', '-ec', '/src/configure --target-list=arm-softmmu --python=/usr/bin/python2.7 --disable-werror --disable-sdl --disable-gtk --disable-vnc --disable-curses --disable-opengl --disable-tools --disable-docs --disable-kvm --disable-blobs --with-system-pixman > configure.log 2>&1; make -j4 subdir-arm-softmmu > make.log 2>&1; cp /toolchain-packages.txt .; cc --version > compiler.txt']' returned non-zero exit status 2.",
+      "binary_sha256": "e387659e05b4aeb266189303f6b04ed9d9f2a9a5dc3a63099c4c39172027b64e",
+      "corrected_incremental_build": "build/make-correction-02.log"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-final-build",
+    "allocated_bytes": 256479232,
+    "logical_bytes": 236709582,
+    "raw_entry_allocation_bytes": 256479232,
+    "files": 7943,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "e072bddb5a3ebbca0328622deece93ce27cbe92661d2646a7e95796bc9cdf807"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "a267de1a3fbd630fe76b4cde6673b805e56722852bc12fe4bff3e1ebc664381e"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-published-build",
+    "allocated_bytes": 256479232,
+    "logical_bytes": 236707447,
+    "raw_entry_allocation_bytes": 256479232,
+    "files": 7943,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "ed655013bd003e5d8d09a9405054030ce68009d75c21a13fda246881006cadad"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "e387659e05b4aeb266189303f6b04ed9d9f2a9a5dc3a63099c4c39172027b64e"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-published-final-build",
+    "allocated_bytes": 83722240,
+    "logical_bytes": 68653685,
+    "raw_entry_allocation_bytes": 83722240,
+    "files": 5820,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "c0da6c4a7b2854f05b09a1cb4efa52296317e0c785653d9fab7eba6b9a673d06"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['patch', '--batch', '--forward', '-p1']' returned non-zero exit status 1."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-clock-published-final-build-02",
+    "allocated_bytes": 256487424,
+    "logical_bytes": 236717278,
+    "raw_entry_allocation_bytes": 256487424,
+    "files": 7944,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "efec839347c9b9f1e313383ceac88f42a0b32f35ddb02afc9eeee6c78526fa27"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-display-build",
+    "allocated_bytes": 82239488,
+    "logical_bytes": 67950909,
+    "raw_entry_allocation_bytes": 82239488,
+    "files": 5562,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['git', '-C', '/home/k9-vortex/.cache/prime-m18-hardware-published-build-02/dtc-reference', 'cat-file', '-t', '558cd81bdd432769b59bff01240c44f82cfb1a9d']' returned non-zero exit status 128."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-display-build-02",
+    "allocated_bytes": 256471040,
+    "logical_bytes": 236697458,
+    "raw_entry_allocation_bytes": 256471040,
+    "files": 7943,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "3adddb7273c77dff9ab3108c923e1dac84be52e698cac224dcbdf4457d19d5a9"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-integrated-build",
+    "allocated_bytes": 82239488,
+    "logical_bytes": 67950909,
+    "raw_entry_allocation_bytes": 82239488,
+    "files": 5562,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['git', '-C', '/home/k9-vortex/.cache/prime-m18-hardware-published-build-02/dtc-reference', 'cat-file', '-t', '558cd81bdd432769b59bff01240c44f82cfb1a9d']' returned non-zero exit status 128."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-integrated-build-02",
+    "allocated_bytes": 83738624,
+    "logical_bytes": 68669980,
+    "raw_entry_allocation_bytes": 83738624,
+    "files": 5821,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "failed",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "c0da6c4a7b2854f05b09a1cb4efa52296317e0c785653d9fab7eba6b9a673d06"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "error": "Command '['patch', '--batch', '--forward', '-p1']' returned non-zero exit status 1."
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-integrated-build-03",
+    "allocated_bytes": 256614400,
+    "logical_bytes": 236840908,
+    "raw_entry_allocation_bytes": 256614400,
+    "files": 7945,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "5134cf6165540fabbf13f857cf9aa4c01ae9b7403cd08c5992a867fc16ec757b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "953925268cba3763efb037b22e659a46311d80711e8c5eed53386b68e98c18c9"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-integrated-build-04",
+    "allocated_bytes": 256614400,
+    "logical_bytes": 236840914,
+    "raw_entry_allocation_bytes": 256614400,
+    "files": 7945,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-build",
+    "allocated_bytes": 256540672,
+    "logical_bytes": 236759004,
+    "raw_entry_allocation_bytes": 256540672,
+    "files": 7946,
+    "device": 37,
+    "category": "D",
+    "reason": "Mixed/protected or ownership/reference review required",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "cfbfedab20b523cd529ed8e95efeaef15bc1f4943531da16de687bd359398b9c"
+    }
+  }
+]

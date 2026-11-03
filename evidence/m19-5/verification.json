@@ -1,0 +1,838 @@
+{
+  "schema_version": 1,
+  "timestamp_utc": "2026-11-03T01:11:45Z",
+  "baseline_source": "0a259072fdc85d26fad9c64231ba1182bf4e0566",
+  "target": "/home/k9-vortex/.cache/prime-m19-5-compact-target",
+  "workspace_counts": {
+    "passed": 1919,
+    "failed": 0,
+    "ignored": 6
+  },
+  "configured_firmware_tests": {
+    "passed": 10,
+    "failed": 0,
+    "application_cases_expected": 19,
+    "application_known_xfail": 1,
+    "asset_root": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "prime-emulator",
+      "--test",
+      "firmware_session",
+      "--test",
+      "firmware_recovery",
+      "--test",
+      "app_suite",
+      "--",
+      "--nocapture"
+    ],
+    "environment_keys": [
+      "PRIME_TEST_FIRMWARE",
+      "PRIME_TEST_OS_ROM",
+      "PRIME_TEST_INIT_DATA",
+      "PRIME_TEST_FACTORY_A",
+      "PRIME_TEST_APPSUITE_OUT"
+    ]
+  },
+  "python_tests": 64,
+  "gui_cas_function_checks": 24,
+  "private_gui_checks": 8,
+  "qemu_cases": [
+    {
+      "case": "smoke",
+      "command": [
+        "python3",
+        "scripts/emulator/full_system_run.py",
+        "--build-root",
+        "/home/k9-vortex/.cache/prime-m19-5-runtime",
+        "--output",
+        "artifacts/m19-5/smoke"
+      ],
+      "returncode": 0
+    },
+    {
+      "case": "nand",
+      "command": [
+        "python3",
+        "scripts/emulator/full_system_nand.py",
+        "--build-root",
+        "/home/k9-vortex/.cache/prime-m19-5-runtime",
+        "--output",
+        "artifacts/m19-5/nand",
+        "--case",
+        "nand"
+      ],
+      "returncode": 0
+    },
+    {
+      "case": "nand_ecc",
+      "command": [
+        "python3",
+        "scripts/emulator/full_system_nand.py",
+        "--build-root",
+        "/home/k9-vortex/.cache/prime-m19-5-runtime",
+        "--output",
+        "artifacts/m19-5/nand_ecc",
+        "--case",
+        "nand_ecc"
+      ],
+      "returncode": 0
+    },
+    {
+      "case": "boot_chain",
+      "command": [
+        "python3",
+        "scripts/emulator/full_system_nand.py",
+        "--build-root",
+        "/home/k9-vortex/.cache/prime-m19-5-runtime",
+        "--output",
+        "artifacts/m19-5/boot_chain",
+        "--case",
+        "boot_chain"
+      ],
+      "returncode": 0
+    }
+  ],
+  "qemu_results": {
+    "smoke": {
+      "schema_version": 1,
+      "scope": "s3c2416_machine_model_smoke",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "smoke": {
+        "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/smoke/guest/smoke.elf",
+        "sha256": "a02feadb749388fab894f6a051e90a1edbadd268687074aeda9efbaaedb54d5f",
+        "entry": "0x30000000",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306460,
+        "halt_address": 805306460,
+        "mailbox": 1611464705,
+        "aliases": [
+          305419896,
+          305419896,
+          305419896,
+          305419896
+        ],
+        "registers": {
+          "r0": 805310464,
+          "r1": 1611464705,
+          "r2": 905977856,
+          "r3": 305419896,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613203
+      },
+      "gdb.log_sha256": "1eedbfc3b7fdcb96a46ec02a67cb591d30529c5ece1b214b1cdb999bfd3b9616",
+      "execution.log_sha256": "0414b0bda3596d5d7118afa00c98a7895c94309b0fb4607ebba0fc08c5eb4081",
+      "uart.log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "nand": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_nand",
+      "case": "nand",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "kernel_boot_verified": false,
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": true,
+      "host_device_tests_verified": true,
+      "guest": {
+        "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/nand/guest/nand.elf",
+        "sha256": "db561d0d7d7e4379aab20ed343b3b66dc218ff1d303594a08a068ed75fce08da",
+        "entry": "0x30000000",
+        "source_sha256": {
+          "nand_start.S": "5e0a818e216e72e6510eae2c185712d5a78ba49c9cb4a6e7c4233b3097e71ab4",
+          "nand_guest.c": "b29b8b118c283b8176c5f581d5f0c50e2784c889671ef3645017dbdde9444d31",
+          "nand.ld": "317db7432c6db666796b2d882cee6adbc4434953ee1fb6646b3ceb897c8de09a",
+          "nand_stage2.S": "253537efd9aa2dad390aa3884cb4041a8b790c66df8c55b07522249ad2ff8707",
+          "nand_stage2.ld": "ed6ea65df82714d3aad65804d0e5ee6bfff883edf67dddc860ad6627f9814c35"
+        },
+        "linked": true,
+        "executed": true,
+        "compiler": {
+          "path": "/usr/bin/clang",
+          "sha256": "4ea85504401d9f5c05109d6cb05778b241aa8d56fde1da2e5bc7ba46cffd44f5",
+          "version": "clang version 22.1.8 (Fedora 22.1.8-4.fc44)"
+        },
+        "linker": {
+          "path": "/home/k9-vortex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+          "sha256": "d9e01686cf6c278090dd461f9f033e49252829e1388cfa88c9643579701d8c39",
+          "version": "LLD 22.1.2 (/checkout/src/llvm-project/llvm 1cb4e3833c1919c2e6fb579a23ac0e2b22587b7e) (compatible with GNU linkers)"
+        }
+      },
+      "flash": {
+        "format": "interleaved_main_oob",
+        "bytes": 276824064,
+        "page_bytes": 2048,
+        "oob_bytes": 64,
+        "pages_per_block": 64,
+        "pages": 131072,
+        "base_sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b",
+        "overlay_format": "qcow2_v2",
+        "disposable": true,
+        "base_after_sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+      },
+      "host_checks": [
+        "erased_ff",
+        "page_oob_roundtrip",
+        "program_1_to_0",
+        "nfdata_no_fallthrough",
+        "physical_oob_badblock_marker",
+        "erase_main_oob",
+        "last_physical_byte",
+        "malformed_sequence_bounds",
+        "flash_reset_cancels_program",
+        "machine_reset_cancellation",
+        "lock_tight_until_reset",
+        "independent_main512_ecc_vectors",
+        "halfword_word_byte_cycles",
+        "fresh_process_persistence",
+        "readonly_refuses_writes"
+      ],
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306376,
+        "halt_address": 805306376,
+        "mailbox": [
+          1611464729,
+          0,
+          236,
+          218,
+          16,
+          149,
+          68,
+          0,
+          808224,
+          3,
+          2112,
+          0,
+          320,
+          255,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 4294967286,
+          "r1": 0,
+          "r2": 1342177312,
+          "r3": 805307416,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 96,
+          "r13": 805367808,
+          "r14": 208,
+          "r15": 805306376
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4d3139204e414e440a"
+      },
+      "artifacts": {
+        "flash.qcow2": "b755ed875b4c81495fa0c62c52d9cd49e43d7cdda4000167d04191d313c81eb3",
+        "guest_run/gdb.log": "d06260106052ab38f7adbb4966a58751d32b55475141affe43387c5db66ac7a1",
+        "guest_run/launch.json": "946b34eeb0d6cd9116c49c8d24d89580604809fc75404e7f4db88fe4fc3a5ef4",
+        "guest_run/model.log": "96a7af1b48fac4f81a4ef6c7d6a8ce7523725601d113767b78c20df64837ffaf",
+        "guest_run/qmp.json": "e455decf89f7424d5f41c72f3125c86f680bb60655e5c5e793bcc961064c43f6",
+        "guest_run/uart.log": "042081b93eb3aeb52dc926c203109efcf65134b6e91c7cc151e317f823afe75f",
+        "host/launch.json": "23c6140e312c37436d12203e13ad0ecf6f2dea2d2a7cf71ffaeac783c5e2cc1d",
+        "host/model.log": "269302791f37e88ad010ae37361f9f1f8f8e87036029edbb285c77de141d27f4",
+        "host/qmp.json": "a994032ed6bb0a06ce3e3986fb5037e4dfc8030bcf2a755e6a00321e0c661708",
+        "host/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "readonly/launch.json": "731d05cb12b196278307a59505950a09c82a4c811be799d201e5c17264344a3e",
+        "readonly/model.log": "4d597447f73b16900dc189dcf7a566013772b45f65e848ce400a11be2658d535",
+        "readonly/qmp.json": "db5a8d2862cfb9fb628425626eea5a4fd10611c9b83b3ae8f6a51f2f3ac1bee2",
+        "readonly/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reopen/launch.json": "7527fbc7f0370bc3c959877f01295586b72aa7d1754a880add2c91ac204456e4",
+        "reopen/model.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reopen/qmp.json": "db5a8d2862cfb9fb628425626eea5a4fd10611c9b83b3ae8f6a51f2f3ac1bee2",
+        "reopen/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "nand_ecc": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_nand",
+      "case": "nand_ecc",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "kernel_boot_verified": false,
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": true,
+      "host_device_tests_verified": false,
+      "guest": {
+        "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/nand_ecc/guest/nand.elf",
+        "sha256": "4489a2c55fc8b94ccae5c78c265fc4783496f370676d6acd20f0d33239d6d4bd",
+        "entry": "0x30000000",
+        "source_sha256": {
+          "nand_start.S": "5e0a818e216e72e6510eae2c185712d5a78ba49c9cb4a6e7c4233b3097e71ab4",
+          "nand_guest.c": "b29b8b118c283b8176c5f581d5f0c50e2784c889671ef3645017dbdde9444d31",
+          "nand.ld": "317db7432c6db666796b2d882cee6adbc4434953ee1fb6646b3ceb897c8de09a",
+          "nand_stage2.S": "253537efd9aa2dad390aa3884cb4041a8b790c66df8c55b07522249ad2ff8707",
+          "nand_stage2.ld": "ed6ea65df82714d3aad65804d0e5ee6bfff883edf67dddc860ad6627f9814c35"
+        },
+        "linked": true,
+        "executed": true,
+        "compiler": {
+          "path": "/usr/bin/clang",
+          "sha256": "4ea85504401d9f5c05109d6cb05778b241aa8d56fde1da2e5bc7ba46cffd44f5",
+          "version": "clang version 22.1.8 (Fedora 22.1.8-4.fc44)"
+        },
+        "linker": {
+          "path": "/home/k9-vortex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+          "sha256": "d9e01686cf6c278090dd461f9f033e49252829e1388cfa88c9643579701d8c39",
+          "version": "LLD 22.1.2 (/checkout/src/llvm-project/llvm 1cb4e3833c1919c2e6fb579a23ac0e2b22587b7e) (compatible with GNU linkers)"
+        }
+      },
+      "flash": {
+        "format": "interleaved_main_oob",
+        "bytes": 276824064,
+        "page_bytes": 2048,
+        "oob_bytes": 64,
+        "pages_per_block": 64,
+        "pages": 131072,
+        "base_sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b",
+        "overlay_format": "qcow2_v2",
+        "disposable": true,
+        "base_after_sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+      },
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306376,
+        "halt_address": 805306376,
+        "mailbox": [
+          1611464729,
+          0,
+          1603904918,
+          0,
+          15761,
+          65284,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          119,
+          156,
+          193,
+          230,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 8,
+          "r1": 1342177312,
+          "r2": 805307536,
+          "r3": 0,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 805310464,
+          "r13": 805367808,
+          "r14": 1308622852,
+          "r15": 805306376
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4d3139204543430a"
+      },
+      "artifacts": {
+        "flash.qcow2": "fda2c3712fa9fe772b3edfd636993452693c5c3b4b63086d2f210bd5fae1b25c",
+        "guest_run/gdb.log": "d06260106052ab38f7adbb4966a58751d32b55475141affe43387c5db66ac7a1",
+        "guest_run/launch.json": "79140e5bf2dc3863da5ea2d6837c5b06c2689fc077fe8622e19c731ea0a14a90",
+        "guest_run/model.log": "4fc00969b6b32bd1986ac7b5b4ed55f5ef56410674a6e40aa49e57eed5bd2ccd",
+        "guest_run/qmp.json": "5ca7f7c3afb05d95bf3f6846956e8a8bd7e3bdb29ef789a391ff944838ab6510",
+        "guest_run/uart.log": "d21c36ba1b5f30c2d9cbde9460ce17a3ef30bc9ae14ff985a34482796df31ae9"
+      }
+    },
+    "boot_chain": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_nand",
+      "case": "boot_chain",
+      "status": "passed",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        },
+        {
+          "name": "0004-s3c2416-nand.patch",
+          "sha256": "6050f47c30433f812f79a7f74acb3078d174c7e79f4f83e8d988568998182c6b"
+        },
+        {
+          "name": "0005-s3c2416-clocks-reset.patch",
+          "sha256": "f182c05f3b2a9db350e0f8c60374744ec9c4168ed5211e5a877cac0217a6f202"
+        },
+        {
+          "name": "0006-lcd-input.patch",
+          "sha256": "c2e205d5b9bebef81c6e48cd270f80fc4eac9ac7a583d83cc0e34475a21847e7"
+        }
+      ],
+      "kernel_boot_verified": false,
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": true,
+      "host_device_tests_verified": true,
+      "guest": {
+        "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/boot_chain/guest/nand.elf",
+        "sha256": "27ae28a629fbe743e3f2465f6cdbb1f9b519f66751e2e8680fdd5b231d028e6d",
+        "entry": "0x0",
+        "source_sha256": {
+          "nand_start.S": "5e0a818e216e72e6510eae2c185712d5a78ba49c9cb4a6e7c4233b3097e71ab4",
+          "nand_guest.c": "b29b8b118c283b8176c5f581d5f0c50e2784c889671ef3645017dbdde9444d31",
+          "nand.ld": "317db7432c6db666796b2d882cee6adbc4434953ee1fb6646b3ceb897c8de09a",
+          "nand_stage2.S": "253537efd9aa2dad390aa3884cb4041a8b790c66df8c55b07522249ad2ff8707",
+          "nand_stage2.ld": "ed6ea65df82714d3aad65804d0e5ee6bfff883edf67dddc860ad6627f9814c35"
+        },
+        "linked": true,
+        "executed": true,
+        "compiler": {
+          "path": "/usr/bin/clang",
+          "sha256": "4ea85504401d9f5c05109d6cb05778b241aa8d56fde1da2e5bc7ba46cffd44f5",
+          "version": "clang version 22.1.8 (Fedora 22.1.8-4.fc44)"
+        },
+        "linker": {
+          "path": "/home/k9-vortex/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+          "sha256": "d9e01686cf6c278090dd461f9f033e49252829e1388cfa88c9643579701d8c39",
+          "version": "LLD 22.1.2 (/checkout/src/llvm-project/llvm 1cb4e3833c1919c2e6fb579a23ac0e2b22587b7e) (compatible with GNU linkers)"
+        },
+        "stage2_sha256": "06b85fa66d446d1c4094c491e9ec7a7c9e9589b886c01fb730aed9f562700f56",
+        "stage2_crc32": 2876225633,
+        "stage2_size": 96
+      },
+      "flash": {
+        "format": "interleaved_main_oob",
+        "bytes": 276824064,
+        "page_bytes": 2048,
+        "oob_bytes": 64,
+        "pages_per_block": 64,
+        "pages": 131072,
+        "base_sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0",
+        "overlay_format": "qcow2_v2",
+        "disposable": true,
+        "base_after_sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+      },
+      "host_checks": [
+        "bootstrap_skips_oob",
+        "bootstrap_reconstructed_at_reset"
+      ],
+      "observations": {
+        "initial_pc": 0,
+        "initial_mailbox": 0,
+        "stepped_pc": 4,
+        "stopped_pc": 805371968,
+        "halt_address": 805371968,
+        "mailbox": [
+          1611464729,
+          0,
+          2876225633,
+          96,
+          4207804441,
+          1511587842,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 1342177280,
+          "r1": 0,
+          "r2": 805371983,
+          "r3": 61440,
+          "r4": 3988292384,
+          "r5": 0,
+          "r6": 2837483324,
+          "r7": 805310464,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0,
+          "r13": 805367808,
+          "r14": 4328,
+          "r15": 805371968
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4d313920424f4f54320a"
+      },
+      "artifacts": {
+        "boot_reset/launch.json": "b4d14384ec423d91348d14877ee3a5f47a18552ad771208b5e00eaf4efaeaef0",
+        "boot_reset/model.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "boot_reset/qmp.json": "3d2de262f8f30eb0d99e4865cadbbb169cf2c902058f41b7cc46a1529fb3f810",
+        "boot_reset/uart.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "flash.qcow2": "83d10c8f6f891c9c1af8a9f80c96dd1d2f44804a6e5f6fcff4b00f718fe2e283",
+        "guest_run/gdb.log": "fa00e0272e8c2781b9026a64e3f5edc2c6191eaf69ae5a42a5ba34962dd49637",
+        "guest_run/launch.json": "17cf02d96b3773e5a3646b315f6e6aef90215c48ab09a59ebefb3604afa2f893",
+        "guest_run/model.log": "f2b2809eb7200651adfe667d11e305af7d971eadb65704abe25a40648ac0e527",
+        "guest_run/qmp.json": "3c7cfc2cdb06cd9003a46c7fed20c93527dce65610c6baa175dc0c60720dc611",
+        "guest_run/uart.log": "215cfa01f57e90f750216336d20537a08cdf5b611ae68f704a8592986aec069c"
+      }
+    }
+  },
+  "check_logs": {
+    "workspace.log": {
+      "path": "artifacts/m19-5/workspace.log",
+      "sha256": "c4c809c46a39dcda2358d632710271f1e8bffc1dd520006d93170dd1ae89d755"
+    },
+    "clippy.log": {
+      "path": "artifacts/m19-5/clippy.log",
+      "sha256": "e17d38a03f6c09ce476f400a69ed353b7e29c41597d54274a0a150019bbe0bd1"
+    },
+    "fmt.log": {
+      "path": "artifacts/m19-5/fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "release.log": {
+      "path": "artifacts/m19-5/release.log",
+      "sha256": "eb77a924844630a2123305c05a6d9b3391dbc2989c8f4c4689781b910f2bfc3b"
+    },
+    "firmware.log": {
+      "path": "artifacts/m19-5/firmware.log",
+      "sha256": "0633ac46b1c4ce86aa3079ddcccaf82133ab45ecc8cf71338659cfb5b1ae771e"
+    },
+    "python-final-reviewed.log": {
+      "path": "artifacts/m19-5/python-final-reviewed.log",
+      "sha256": "29b36c9bf743aefc2437c6a553f4d299d43d691c2d0d6367bd7971418d33e595"
+    },
+    "ruff-final.log": {
+      "path": "artifacts/m19-5/ruff-final.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    "gui-cas.log": {
+      "path": "artifacts/m19-5/gui-cas.log",
+      "sha256": "b0e67f00af4871b9017ab2a60783a18bdd22e4ea535e5b26c7d6df2a89bfde67"
+    },
+    "gui-function.log": {
+      "path": "artifacts/m19-5/gui-function.log",
+      "sha256": "3b591d8a97f5f5b3ddcef185e2b9d74bc05bf2423ddbc612d02d3bfd72e172d9"
+    },
+    "gui-private-usb-disabled.log": {
+      "path": "artifacts/m19-5/gui-private-usb-disabled.log",
+      "sha256": "dab848a794184ca234ee6e4fbdc14ab0ecf116ac53420497f8281805830377f9"
+    }
+  },
+  "host_binaries": {
+    "ppl": {
+      "path": "/home/k9-vortex/.cache/prime-m19-5-compact-target/release/ppl",
+      "sha256": "63fa7150fa247c9af0c9372dbca76458c1f1fa22b0e724744bd5f0726637e8b1",
+      "bytes": 30052504
+    },
+    "prime-emulator": {
+      "path": "/home/k9-vortex/.cache/prime-m19-5-compact-target/release/prime-emulator",
+      "sha256": "5e5c5cfab9e30e14eb682b06963065eca37ae1d8d082a83de6e5cbb2f25322d4",
+      "bytes": 6988160
+    }
+  },
+  "cleanup_executed": false,
+  "legacy_gui_scratch_exception": "Initial CAS/Function validation reused fixed /tmp captures through the existing harness; prior scratch preservation cannot be asserted. The revised harness was validated with unchanged hashes of all 193 legacy scratch files.",
+  "physical_exclusive_bytes": null,
+  "push_performed": false,
+  "storage_measurement": {
+    "after_json": "evidence/m19-5/after.json",
+    "regular_file_bytes": 258949627904,
+    "logical_file_bytes": 258591545378,
+    "tmpfs_excluded_bytes": 4993024,
+    "project_container_layer_du_bytes": 631357440,
+    "persistent_accounted_bytes": 259575992320,
+    "conditional_cleanup_candidate_bytes": 115074306048,
+    "potential_after_phase1_bytes": 144501686272,
+    "physical_exclusive_bytes": null
+  },
+  "negative_gui_failure": {
+    "command": [
+      "bash",
+      "tests/ide_xvfb_smoke/run_m12.sh",
+      "m14_function",
+      "5"
+    ],
+    "returncode": 1,
+    "env_overrides": {
+      "PPL_BIN": "/bin/false",
+      "PPL_IDE_NO_DEVICE": "1",
+      "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m19-5-compact-target",
+      "M12_RUN": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private-failure"
+    },
+    "retained_profile_recorded": true,
+    "stdout": "exit=1 elapsed=0s display=:300 screen=1280x900x24 scale=native\nevidence: /home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private-failure/m14_function\n",
+    "stderr": ""
+  }
+}

@@ -109,6 +109,23 @@ def build(reference, output, image=IMAGE, dtc_reference=None, overlay=None, jobs
     return record
 
 
+def reuse(reference, existing, output, overlay):
+    """Explicit verified cache hit. Never changes the source build or image."""
+    from full_system_run import checked_manifest
+    from storage_cache import runtime_bundle
+    if git(reference.resolve(), 'rev-parse', 'HEAD') != PIN:
+        raise ValueError('research reference differs from pin')
+    meta = checked_manifest(existing.resolve())
+    requested = [{'name': p.name, 'sha256': sha(p)} for p in overlay or []]
+    containerfile = Path(__file__).resolve().parents[2]/'research/full-system/Containerfile.xenial'
+    if (meta.get('patches') != requested or meta.get('dtc_revision') != DTC_PIN
+            or meta.get('configure_flags') != FLAGS or meta.get('containerfile_sha256') != sha(containerfile)):
+        raise ValueError('cache source/toolchain/configuration identity differs')
+    image = subprocess.check_output(['podman', 'image', 'inspect', meta['image'], '--format', '{{.Id}}'], text=True, timeout=10).strip()
+    if image != meta['image_id']: raise ValueError('cache runtime image identity differs')
+    return runtime_bundle(existing.resolve(), output.resolve())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--reference', type=Path, required=True)
@@ -116,10 +133,12 @@ def main():
     parser.add_argument('--dtc-reference', type=Path)
     parser.add_argument('--overlay', type=Path, action='append', help='repeatable ordered GPL source overlay')
     parser.add_argument('--jobs', type=int, default=4)
+    parser.add_argument('--reuse-build', type=Path, help='verify matching source/configuration then publish a NEW compact runtime bundle')
     args = parser.parse_args()
     try:
-        result = build(args.reference, args.output, dtc_reference=args.dtc_reference,
-                       overlay=args.overlay, jobs=args.jobs)
+        result = (reuse(args.reference, args.reuse_build, args.output, args.overlay) if args.reuse_build else
+                  build(args.reference, args.output, dtc_reference=args.dtc_reference,
+                        overlay=args.overlay, jobs=args.jobs))
         print(json.dumps(result, indent=2))
         return 0 if result['status'] == 'built' else 1
     except (OSError, ValueError, subprocess.SubprocessError) as error:

@@ -1,0 +1,1020 @@
+{
+  "roots": [
+    {
+      "path": "/var/tmp/hp-prime-pr21-build",
+      "device": 39,
+      "inode": 6171652,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-recovery-target",
+      "device": 37,
+      "inode": 26818901,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-target",
+      "device": 37,
+      "inode": 26818905,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m17-native-target",
+      "device": 37,
+      "inode": 27146681,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m17-runtime-target",
+      "device": 37,
+      "inode": 27147952,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m18-native-target",
+      "device": 37,
+      "inode": 27664805,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m18-snapshot-target",
+      "device": 37,
+      "inode": 27670703,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m19-hardware-target",
+      "device": 37,
+      "inode": 28116106,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target",
+      "device": 37,
+      "inode": 28068971,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target",
+      "device": 37,
+      "inode": 23837931,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12",
+      "device": 37,
+      "inode": 24437764,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main",
+      "device": 37,
+      "inode": 24468763,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent",
+      "device": 37,
+      "inode": 26661379,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target",
+      "device": 37,
+      "inode": 26707846,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target",
+      "device": 37,
+      "inode": 26734908,
+      "uid": 1000
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target",
+      "device": 37,
+      "inode": 26715464,
+      "uid": 1000
+    }
+  ],
+  "protected_current": "/home/k9-vortex/.cache/prime-m19-5-compact-target",
+  "preserved": [
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/842164ee19a6ac65dae4a494ebe76bbc8cd068b23a5e8c6b981258eecfd94bae/prime-emulator",
+      "sha256": "842164ee19a6ac65dae4a494ebe76bbc8cd068b23a5e8c6b981258eecfd94bae",
+      "bytes": 35059208
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/20ddcd04a3f738f85d56e129b4267e8e2978fa4d5d2425965c70b42117a036e0/ppl",
+      "sha256": "20ddcd04a3f738f85d56e129b4267e8e2978fa4d5d2425965c70b42117a036e0",
+      "bytes": 65092696
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/assess-a5ed2a668d031803",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c26690c4e869a64c220eda5040bf136b2169e58799fec35f3a19461c3e457c7f/assess-a5ed2a668d031803",
+      "sha256": "c26690c4e869a64c220eda5040bf136b2169e58799fec35f3a19461c3e457c7f",
+      "bytes": 1052816
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/probe_extended-b4b8bd1408eafedb",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/34a0652d919a9e78385dbe05da7627dab1772b0f71facfca8ac512610d62ae48/probe_extended-b4b8bd1408eafedb",
+      "sha256": "34a0652d919a9e78385dbe05da7627dab1772b0f71facfca8ac512610d62ae48",
+      "bytes": 1052832
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/matched_settings-2be8b802f21c556e",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c1fbb83f12e14163196db1202d305eda494a8a5c425a9844b2e30a48c3faa9f6/matched_settings-2be8b802f21c556e",
+      "sha256": "c1fbb83f12e14163196db1202d305eda494a8a5c425a9844b2e30a48c3faa9f6",
+      "bytes": 1052832
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/mirror_diagnostics-812204f832415d2d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/871cdab5d13783ead3a4959763ef437d765185177488b173d5e7fa6522b2c235/mirror_diagnostics-812204f832415d2d",
+      "sha256": "871cdab5d13783ead3a4959763ef437d765185177488b173d5e7fa6522b2c235",
+      "bytes": 1152752
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/value_controls-9df5263e252e63dd",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/580c84a7afbb3ca594fcda816eb2cfceeed4723f7f7888e7b30303dc5a12153a/value_controls-9df5263e252e63dd",
+      "sha256": "580c84a7afbb3ca594fcda816eb2cfceeed4723f7f7888e7b30303dc5a12153a",
+      "bytes": 1052832
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/debug/examples/decode_values-67abbc7fe279a0d0",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/9b6af45f024c00079f78df8c091b62bbdb3db3700be200a982496af5d87150b6/decode_values-67abbc7fe279a0d0",
+      "sha256": "9b6af45f024c00079f78df8c091b62bbdb3db3700be200a982496af5d87150b6",
+      "bytes": 1052832
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/ac584b421b2f0d95e44bbd9fc894c0e5674316c34709a90c5feda91c621dd229/ppl",
+      "sha256": "ac584b421b2f0d95e44bbd9fc894c0e5674316c34709a90c5feda91c621dd229",
+      "bytes": 26687880
+    },
+    {
+      "source": "/var/tmp/hp-prime-pr21-build/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/d2635a40ecf06c66c80f944046a3ad081f8828b03a3ed067dbde68039797e2d3/prime-emulator",
+      "sha256": "d2635a40ecf06c66c80f944046a3ad081f8828b03a3ed067dbde68039797e2d3",
+      "bytes": 23362320
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-recovery-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-recovery-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/d40765825e6ddd3c1b5093faf66837819e77addf7ad927e0808a6e43d84109fa/prime-emulator",
+      "sha256": "d40765825e6ddd3c1b5093faf66837819e77addf7ad927e0808a6e43d84109fa",
+      "bytes": 122184152
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-recovery-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-recovery-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/10fb52a9c4c1bc50bb5c20b44491b9184a17543424397cd65cce59e578068fe8/prime-emulator",
+      "sha256": "10fb52a9c4c1bc50bb5c20b44491b9184a17543424397cd65cce59e578068fe8",
+      "bytes": 23659456
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-stateful-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-stateful-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5a56875935eeda4236fae56b1fc0b86fc34a73a700de6e60acfc3f0fede33fbc/prime-emulator",
+      "sha256": "5a56875935eeda4236fae56b1fc0b86fc34a73a700de6e60acfc3f0fede33fbc",
+      "bytes": 23719160
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-stateful-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m16-stateful-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/109466059fdea45162c3e099e271389ac4bbddcc24c7b59afc99e8eb81c92962/prime-emulator",
+      "sha256": "109466059fdea45162c3e099e271389ac4bbddcc24c7b59afc99e8eb81c92962",
+      "bytes": 124779800
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/4b1daca8bf2c8d64d395794206cee741a5b53a750e3ce8c64cd452ad682d5639/prime-emulator",
+      "sha256": "4b1daca8bf2c8d64d395794206cee741a5b53a750e3ce8c64cd452ad682d5639",
+      "bytes": 128613656
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/bcd64e16c6d412d9f3aca5c00aebafd6d7226fd1f33956c9fce793d44281d797/ppl",
+      "sha256": "bcd64e16c6d412d9f3aca5c00aebafd6d7226fd1f33956c9fce793d44281d797",
+      "bytes": 329754320
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/1ffc5dc817f6f76d877b1058a776a175b24b6074a9818d4ade55ea26c24ae7b7/prime-emulator",
+      "sha256": "1ffc5dc817f6f76d877b1058a776a175b24b6074a9818d4ade55ea26c24ae7b7",
+      "bytes": 23736632
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-native-target/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/ac205081db949ec8c344e9ea80f6249db1a91de9c81b3a82a32902b07b84ae8d/ppl",
+      "sha256": "ac205081db949ec8c344e9ea80f6249db1a91de9c81b3a82a32902b07b84ae8d",
+      "bytes": 29433072
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30/prime-emulator",
+      "sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30",
+      "bytes": 215765480
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/deps/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/1609ff28aca9f13a0c62b637b398905c190741068e811651fe7e9f93962bf036/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "sha256": "1609ff28aca9f13a0c62b637b398905c190741068e811651fe7e9f93962bf036",
+      "bytes": 337362998
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/build/unicorn-engine-sys-84cfa2c8c286cbdc/out/build/CMakeCache.txt",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5143f3eb0dc77205bc27134d80c5738eda71ed19977f7dc1f9003dfad959005c/CMakeCache.txt",
+      "sha256": "5143f3eb0dc77205bc27134d80c5738eda71ed19977f7dc1f9003dfad959005c",
+      "bytes": 17351
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/build/unicorn-engine-sys-6a4f7a69dfbc0c09/out/build/CMakeCache.txt",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/bdbe0270e77fad0322f08e40bd661f96c8a4a35ff4d1124e92065dcb10b37608/CMakeCache.txt",
+      "sha256": "bdbe0270e77fad0322f08e40bd661f96c8a4a35ff4d1124e92065dcb10b37608",
+      "bytes": 17351
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/build/unicorn-engine-sys-adf6a42b049134bc/out/build/CMakeCache.txt",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/eddff07fc451dede6916665e6bd140608e759e9005d7621bb6cd8652a079b35b/CMakeCache.txt",
+      "sha256": "eddff07fc451dede6916665e6bd140608e759e9005d7621bb6cd8652a079b35b",
+      "bytes": 17351
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug/build/unicorn-engine-sys-93caf569331be6a2/out/build/CMakeCache.txt",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/a3d06c5e9bcdeb69d9f722996fadef4acbd7ad251e39a653c56460b9a5f5f60d/CMakeCache.txt",
+      "sha256": "a3d06c5e9bcdeb69d9f722996fadef4acbd7ad251e39a653c56460b9a5f5f60d",
+      "bytes": 17361
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m17-runtime-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/7e96c03ed520820bd57a21a726174d1616b9c23f13e3c40f04ed5eff112780ee/prime-emulator",
+      "sha256": "7e96c03ed520820bd57a21a726174d1616b9c23f13e3c40f04ed5eff112780ee",
+      "bytes": 23874112
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/2f69a5fef636058b1827c77c9705f209d188f56f631607f6b4e1779d2644ffac/ppl",
+      "sha256": "2f69a5fef636058b1827c77c9705f209d188f56f631607f6b4e1779d2644ffac",
+      "bytes": 332809640
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/debug/examples/assess-593a08a99fbf7526",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/af05433cf21e6bd8914d38723dfb6a8a5a393038a119ef8ab2fa86c891938c44/assess-593a08a99fbf7526",
+      "sha256": "af05433cf21e6bd8914d38723dfb6a8a5a393038a119ef8ab2fa86c891938c44",
+      "bytes": 63077168
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/debug/examples/assess",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/af05433cf21e6bd8914d38723dfb6a8a5a393038a119ef8ab2fa86c891938c44/assess",
+      "sha256": "af05433cf21e6bd8914d38723dfb6a8a5a393038a119ef8ab2fa86c891938c44",
+      "bytes": 63077168
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-native-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/fdcf838e7f6a451dafa3a9f9e95c4cd8f9f1891d2865d2fa42f010cf1d9169ad/prime-emulator",
+      "sha256": "fdcf838e7f6a451dafa3a9f9e95c4cd8f9f1891d2865d2fa42f010cf1d9169ad",
+      "bytes": 23991232
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug/deps/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/81f39a846aae869dd561d84d4aaf086bb608ddbe2d555278e0985dc4af3adca0/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "sha256": "81f39a846aae869dd561d84d4aaf086bb608ddbe2d555278e0985dc4af3adca0",
+      "bytes": 337364110
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug/build/unicorn-engine-sys-caa7d0492c2fbeef/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/f234794cec90c14e0962bd4119117eec164fcd69ca34eaaaea65b3c34601c123/libunicorn.a",
+      "sha256": "f234794cec90c14e0962bd4119117eec164fcd69ca34eaaaea65b3c34601c123",
+      "bytes": 334647502
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug/build/unicorn-engine-sys-caa7d0492c2fbeef/out/lib64/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/f234794cec90c14e0962bd4119117eec164fcd69ca34eaaaea65b3c34601c123/libunicorn.a",
+      "sha256": "f234794cec90c14e0962bd4119117eec164fcd69ca34eaaaea65b3c34601c123",
+      "bytes": 334647502
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug/build/unicorn-engine-sys-93caf569331be6a2/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/1ad41cae53ae91cb27541f685af02dbc3ee008d715a220b3fe03d0a68c0c582a/libunicorn.a",
+      "sha256": "1ad41cae53ae91cb27541f685af02dbc3ee008d715a220b3fe03d0a68c0c582a",
+      "bytes": 334647502
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m19-hardware-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m19-hardware-target/debug/deps/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3e51f69bedfef623e3d53beb432d469b80dbd39ff8d4e591056862e05f1bd9c/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "sha256": "e3e51f69bedfef623e3d53beb432d469b80dbd39ff8d4e591056862e05f1bd9c",
+      "bytes": 337364110
+    },
+    {
+      "source": "/home/k9-vortex/.cache/prime-m19-hardware-target/debug/deps/prime_emulator-88c9ad6a464c8852",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/642f7df054fcfc8608ebbdad07ab458728a50b3cee4adbe57d8753f08d421f2c/prime_emulator-88c9ad6a464c8852",
+      "sha256": "642f7df054fcfc8608ebbdad07ab458728a50b3cee4adbe57d8753f08d421f2c",
+      "bytes": 206148664
+    },
+    {
+      "source": "/home/k9-vortex/.cache/.cache/prime-emulator-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/.cache/prime-emulator-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/68fc4f8e9f7f98c67ce85aca9505229675e7f261a91240380f7cb650cb59f0c5/prime-emulator",
+      "sha256": "68fc4f8e9f7f98c67ce85aca9505229675e7f261a91240380f7cb650cb59f0c5",
+      "bytes": 219709184
+    },
+    {
+      "source": "/home/k9-vortex/.cache/.cache/prime-emulator-target/debug/deps/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c7fab85a5bf91a3e9307729d78e6804621951f768d93646e3840d9c427706ec0/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "sha256": "c7fab85a5bf91a3e9307729d78e6804621951f768d93646e3840d9c427706ec0",
+      "bytes": 337367710
+    },
+    {
+      "source": "/home/k9-vortex/.cache/.cache/prime-emulator-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/.cache/.cache/prime-emulator-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165/prime-emulator",
+      "sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+      "bytes": 23847768
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/37407156fcec205864a6eac6d9d7813edef43bd35bbf35c41c017239ec6654e4/prime-emulator",
+      "sha256": "37407156fcec205864a6eac6d9d7813edef43bd35bbf35c41c017239ec6654e4",
+      "bytes": 23984064
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/83541a9712c709ef1b8ed8cbbabd24416cefaa3309c65a4d8dd47fc65c6d3afb/ppl",
+      "sha256": "83541a9712c709ef1b8ed8cbbabd24416cefaa3309c65a4d8dd47fc65c6d3afb",
+      "bytes": 30052632
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/4af6f3e139e6ec990f91e86b7412427708ebe45bf969f7edf5fe44834df209d1/prime-emulator",
+      "sha256": "4af6f3e139e6ec990f91e86b7412427708ebe45bf969f7edf5fe44834df209d1",
+      "bytes": 222293168
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/6fdf57403bb65a2685a3b3c7bd8ae3b199493f1e39601b44cf36cfe6a664d970/ppl",
+      "sha256": "6fdf57403bb65a2685a3b3c7bd8ae3b199493f1e39601b44cf36cfe6a664d970",
+      "bytes": 334340704
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/ppl-e90d37ec6044e2a8",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/26fed2a3aebdbb40184acb9f3ea8155a4f15cdf38c60468ac5259151959cc41f/ppl-e90d37ec6044e2a8",
+      "sha256": "26fed2a3aebdbb40184acb9f3ea8155a4f15cdf38c60468ac5259151959cc41f",
+      "bytes": 310109488
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/loader-504d7d8a62ad2ebd.tmp0f153d3",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c4355f6adc294782657c7b4946fc9ab89337bf4e7553351dca870262feb5d9d4/loader-504d7d8a62ad2ebd.tmp0f153d3",
+      "sha256": "c4355f6adc294782657c7b4946fc9ab89337bf4e7553351dca870262feb5d9d4",
+      "bytes": 87327408
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/hpprgm-3517039ea8d9b190.tmp1114668",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/111616ade6bd50372da2a1c5355e756214ef2f97c89228adc58e7f161655be8e/hpprgm-3517039ea8d9b190.tmp1114668",
+      "sha256": "111616ade6bd50372da2a1c5355e756214ef2f97c89228adc58e7f161655be8e",
+      "bytes": 86215704
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/import-1732ac3173d547fa.tmp9ef69fd",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/1077313c11eab9a92d1730046bcc4c1cd9474639d527226afe00ef80a4ef3788/import-1732ac3173d547fa.tmp9ef69fd",
+      "sha256": "1077313c11eab9a92d1730046bcc4c1cd9474639d527226afe00ef80a4ef3788",
+      "bytes": 86888256
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/loader_files-77366d77b23634ff.tmp3ffa74d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e2bf5333512ea7aca07068e4010f48283cd90dc676a5274e640fbd44cccfd6cf/loader_files-77366d77b23634ff.tmp3ffa74d",
+      "sha256": "e2bf5333512ea7aca07068e4010f48283cd90dc676a5274e640fbd44cccfd6cf",
+      "bytes": 110083072
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/app_suite-1e339db95435f089.tmpc47e0fd",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/a7f4adcfdeb89783093bbb9eddacc7841d1d637f5eb62ead596626bed9e4f9ea/app_suite-1e339db95435f089.tmpc47e0fd",
+      "sha256": "a7f4adcfdeb89783093bbb9eddacc7841d1d637f5eb62ead596626bed9e4f9ea",
+      "bytes": 117738568
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/firmware_display-6088e5bb58cae54f.tmp2778b3d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/b313da4b9edae9f7f3a7f53c3d835f6f6aec7d0e15e5609516c3367ce3ab063f/firmware_display-6088e5bb58cae54f.tmp2778b3d",
+      "sha256": "b313da4b9edae9f7f3a7f53c3d835f6f6aec7d0e15e5609516c3367ce3ab063f",
+      "bytes": 116097528
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/svc_bounds-183a6b7f2f0eb32e.tmpf33b182",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e99383ac8810abaae350092a3a9113643d4d1665f9a9c2947165d0e207a7b909/svc_bounds-183a6b7f2f0eb32e.tmpf33b182",
+      "sha256": "e99383ac8810abaae350092a3a9113643d4d1665f9a9c2947165d0e207a7b909",
+      "bytes": 108084408
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/memory-07cdb207c64bc8c3.tmp0785a87",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/85a02ecdf6510bd2fd16b3ada7004dffc27851dec26aa8c0500ab00f40601c03/memory-07cdb207c64bc8c3.tmp0785a87",
+      "sha256": "85a02ecdf6510bd2fd16b3ada7004dffc27851dec26aa8c0500ab00f40601c03",
+      "bytes": 85958416
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/firmware_recovery-d0b983f340409cce.tmpb0d9003",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/804eb84c3b62125946c669ea6fb673d85f6f91717278fd8b39c417c9e5b17fca/firmware_recovery-d0b983f340409cce.tmpb0d9003",
+      "sha256": "804eb84c3b62125946c669ea6fb673d85f6f91717278fd8b39c417c9e5b17fca",
+      "bytes": 87704224
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/import_transactions-b35c993f02ce0cdd.tmp14010f4",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/3676c61069d166be7259cf3f1fae5a13417a514d696f19d0ca048d920459432e/import_transactions-b35c993f02ce0cdd.tmp14010f4",
+      "sha256": "3676c61069d166be7259cf3f1fae5a13417a514d696f19d0ca048d920459432e",
+      "bytes": 87002368
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/value_representation-6e52f4d9e779b3ab.tmp2d9c0c1",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/133a6738d06de83abf1c983382e94aea289e88a45b594b7ea12cffe58cd04d61/value_representation-6e52f4d9e779b3ab.tmp2d9c0c1",
+      "sha256": "133a6738d06de83abf1c983382e94aea289e88a45b594b7ea12cffe58cd04d61",
+      "bytes": 87118800
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/libunicorn_engine_sys-5b7a7fecb102eeb1.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/209b85aa055322dc872762a395b4814955f11b0cd173c522201965cba9a4c480/libunicorn_engine_sys-5b7a7fecb102eeb1.rlib",
+      "sha256": "209b85aa055322dc872762a395b4814955f11b0cd173c522201965cba9a4c480",
+      "bytes": 337381702
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/3e134604d1982d98dc30643a3febcde0b094190f4d823fafcffb76b23819806a/libunicorn_engine_sys-fb17d09f56764aa2.rlib",
+      "sha256": "3e134604d1982d98dc30643a3febcde0b094190f4d823fafcffb76b23819806a",
+      "bytes": 337381702
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/deps/ppl-01e1ede096e8840f",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/efee585fb156b6fcb72e1cb025f7572ad606f418439553e4fe7ddfb64eb8c11d/ppl-01e1ede096e8840f",
+      "sha256": "efee585fb156b6fcb72e1cb025f7572ad606f418439553e4fe7ddfb64eb8c11d",
+      "bytes": 334646944
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-9f1f4f55183c7541",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5ad4c582ac4d29ed3a1b9ec339b23453db234c8854fdafd0328d8e31abc5238b/probe_extended-9f1f4f55183c7541",
+      "sha256": "5ad4c582ac4d29ed3a1b9ec339b23453db234c8854fdafd0328d8e31abc5238b",
+      "bytes": 42709920
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-6c2f250208863bdf",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/568fccc4f7325e1a2aff7a0d9113ad9af1711f4a6cfae2546c6abc579626edc4/mirror_diagnostics-6c2f250208863bdf",
+      "sha256": "568fccc4f7325e1a2aff7a0d9113ad9af1711f4a6cfae2546c6abc579626edc4",
+      "bytes": 234886944
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-9d9834ac714feb5a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/41a3e341660ae1f321f8a14e0968ef7ddb36169c332220859242fca6ff8ab971/probe_extended-9d9834ac714feb5a",
+      "sha256": "41a3e341660ae1f321f8a14e0968ef7ddb36169c332220859242fca6ff8ab971",
+      "bytes": 41157480
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings-50360bcd3dd45ad4",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/23a174be46ef08dbfc92e373e390f46a54f3081459baaad831e249f57fa15ab3/matched_settings-50360bcd3dd45ad4",
+      "sha256": "23a174be46ef08dbfc92e373e390f46a54f3081459baaad831e249f57fa15ab3",
+      "bytes": 30243104
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-9a4ff3fc4025b33d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/6a546edfec3bf10ecd1cb0e7ecc15823d28c969b5a562046b4ed43b22dd09264/value_controls-9a4ff3fc4025b33d",
+      "sha256": "6a546edfec3bf10ecd1cb0e7ecc15823d28c969b5a562046b4ed43b22dd09264",
+      "bytes": 105885640
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess-abf2654612f73c1e",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/0311b7c3f58914104036ec3da42d85dc0439f6637c0ca72ecbb3b12395877fbc/assess-abf2654612f73c1e",
+      "sha256": "0311b7c3f58914104036ec3da42d85dc0439f6637c0ca72ecbb3b12395877fbc",
+      "bytes": 41185008
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-6d3e7e2f77405b3d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/4428f60c6b0309bcb73a5515cc06664142412143146fc7b5218846f10077e2c7/value_controls-6d3e7e2f77405b3d",
+      "sha256": "4428f60c6b0309bcb73a5515cc06664142412143146fc7b5218846f10077e2c7",
+      "bytes": 108101344
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-58c79b57ecd85b0d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/74104e00beed85483e5691d22ac258a231d443881289857e6ea2b47fa4a2afeb/decode_values-58c79b57ecd85b0d",
+      "sha256": "74104e00beed85483e5691d22ac258a231d443881289857e6ea2b47fa4a2afeb",
+      "bytes": 78268152
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-ee4db2b756391e18",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/24050afcfda0a227ff405e5fd9fde221ca25ce2974c44d8a58d83839476a8972/probe_extended-ee4db2b756391e18",
+      "sha256": "24050afcfda0a227ff405e5fd9fde221ca25ce2974c44d8a58d83839476a8972",
+      "bytes": 44800992
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-21b4407a1438da23",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/59fa8340abaaf7fa48d04451c87be3eb92f0e9dd183174821f3db64b03c956e9/decode_values-21b4407a1438da23",
+      "sha256": "59fa8340abaaf7fa48d04451c87be3eb92f0e9dd183174821f3db64b03c956e9",
+      "bytes": 79995920
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-ecf82bf2d45288e6",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/64d08f866cebf9370d9b96bb82a03d06923bc27f48cba4fce2e84bca33248c46/value_controls-ecf82bf2d45288e6",
+      "sha256": "64d08f866cebf9370d9b96bb82a03d06923bc27f48cba4fce2e84bca33248c46",
+      "bytes": 108104896
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings-d7396c8cfe35fc7c",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/aca84c69744b69b429b3dcb4157e83c3f3d772b8f80bcebffb84743b40d74f84/matched_settings-d7396c8cfe35fc7c",
+      "sha256": "aca84c69744b69b429b3dcb4157e83c3f3d772b8f80bcebffb84743b40d74f84",
+      "bytes": 30242192
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-bd382bcb1dbfd2a4",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/b54a2104a60843247b438c758f04ff14d420ab366af1ff5365189438cc9df41f/mirror_diagnostics-bd382bcb1dbfd2a4",
+      "sha256": "b54a2104a60843247b438c758f04ff14d420ab366af1ff5365189438cc9df41f",
+      "bytes": 236782184
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess-d6e2264458e5b262",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/1f9a5567a79309d6023acdf86f3fa9a7df1c92a35ca06d081461e9a6494c4743/assess-d6e2264458e5b262",
+      "sha256": "1f9a5567a79309d6023acdf86f3fa9a7df1c92a35ca06d081461e9a6494c4743",
+      "bytes": 6887728
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-24ab2ea70543f53f",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/6656195307bbfeb72e430c1b18183e2763951c04f72ecca2d8041fdda5f6f841/decode_values-24ab2ea70543f53f",
+      "sha256": "6656195307bbfeb72e430c1b18183e2763951c04f72ecca2d8041fdda5f6f841",
+      "bytes": 6887816
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-8f228e4d664cacc8",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5fb234cf46f59ce056dc3f891fddb9f9ff1176a2addf874512c0abd349ad8244/value_controls-8f228e4d664cacc8",
+      "sha256": "5fb234cf46f59ce056dc3f891fddb9f9ff1176a2addf874512c0abd349ad8244",
+      "bytes": 6887824
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-bc45506b40d512ff",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/a306a5a81845690f66d8ff0a45f98afde1011555cb388e03232a32734ec61b36/probe_extended-bc45506b40d512ff",
+      "sha256": "a306a5a81845690f66d8ff0a45f98afde1011555cb388e03232a32734ec61b36",
+      "bytes": 6887808
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings-4b1c1ab0f4dfaee3",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/cc00b11b6fd43a1def176113081086cd953887fe43b6390494541121b6f6167f/matched_settings-4b1c1ab0f4dfaee3",
+      "sha256": "cc00b11b6fd43a1def176113081086cd953887fe43b6390494541121b6f6167f",
+      "bytes": 6887800
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-6b92d5d40ea882f0",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/7a3f4510bc6c77534ca1cff8fa71e6670aa15acad5a3324652559e63a6950026/mirror_diagnostics-6b92d5d40ea882f0",
+      "sha256": "7a3f4510bc6c77534ca1cff8fa71e6670aa15acad5a3324652559e63a6950026",
+      "bytes": 8043688
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-830bf5e775ed66b2",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/83b0128e6998a39d7dcfafce6c3866059451bfa97768ab6d0636545e7be83e2f/decode_values-830bf5e775ed66b2",
+      "sha256": "83b0128e6998a39d7dcfafce6c3866059451bfa97768ab6d0636545e7be83e2f",
+      "bytes": 87833904
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-c282443780488d3d",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e1e5802b15246c40157b37be0d064389a8affc7603b9ac3ab7bc48cfe5501e67/value_controls-c282443780488d3d",
+      "sha256": "e1e5802b15246c40157b37be0d064389a8affc7603b9ac3ab7bc48cfe5501e67",
+      "bytes": 116307008
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-8d43a9bb845e6f11",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/3bd36d50d63a729067ccf619349a4a0743018c5de8eb53d2b1c46b5c9330167a/mirror_diagnostics-8d43a9bb845e6f11",
+      "sha256": "3bd36d50d63a729067ccf619349a4a0743018c5de8eb53d2b1c46b5c9330167a",
+      "bytes": 243798376
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess-8cbda4d528e47d45",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/68edbdf47f7dbc9c13eeb7baaf4df52530cac22b5889a78f8dab4c8bc85c8e40/assess-8cbda4d528e47d45",
+      "sha256": "68edbdf47f7dbc9c13eeb7baaf4df52530cac22b5889a78f8dab4c8bc85c8e40",
+      "bytes": 44125456
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-715054af41864a0b",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/2314d663969085b91676ea7769fe6f4971f049b00a2f61b98c28eefe6b19bcc3/probe_extended-715054af41864a0b",
+      "sha256": "2314d663969085b91676ea7769fe6f4971f049b00a2f61b98c28eefe6b19bcc3",
+      "bytes": 48595416
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings-2b181238d3654d8e",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/3ba7697ba0ae1e1496bd0368c604435d636e51ad05fde2ed4192b35a1ba5cf64/matched_settings-2b181238d3654d8e",
+      "sha256": "3ba7697ba0ae1e1496bd0368c604435d636e51ad05fde2ed4192b35a1ba5cf64",
+      "bytes": 36335088
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-1665e3efb505130f",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e34610130b01f811a6e1ae3d15a133faf26e46d08fbdf61952b4a902237bcda6/mirror_diagnostics-1665e3efb505130f",
+      "sha256": "e34610130b01f811a6e1ae3d15a133faf26e46d08fbdf61952b4a902237bcda6",
+      "bytes": 243957400
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess-593a08a99fbf7526",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5ee9e9e9127484ef8394dd6b4637fd129942c4f1bdd0b28c2af64da6f267bfba/assess-593a08a99fbf7526",
+      "sha256": "5ee9e9e9127484ef8394dd6b4637fd129942c4f1bdd0b28c2af64da6f267bfba",
+      "bytes": 58466000
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-af6ae18a8772d18a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/eb0cfe537c2934fbd4e878eac8a04903587a64dc422e2d22d7b7c79cae14113d/decode_values-af6ae18a8772d18a",
+      "sha256": "eb0cfe537c2934fbd4e878eac8a04903587a64dc422e2d22d7b7c79cae14113d",
+      "bytes": 98638888
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-685aeb462edcaf62",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/58bb12ec1bd17ffe0dcc75f239761d74b132b1a7157b9ead8133c53963b5827e/value_controls-685aeb462edcaf62",
+      "sha256": "58bb12ec1bd17ffe0dcc75f239761d74b132b1a7157b9ead8133c53963b5827e",
+      "bytes": 128425096
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended-9368322ced7b3220",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/59d0c02e0299c3fb9bfcb7e454a37c16ca4ab72a66023fdf00ba85bd82bbaf7e/probe_extended-9368322ced7b3220",
+      "sha256": "59d0c02e0299c3fb9bfcb7e454a37c16ca4ab72a66023fdf00ba85bd82bbaf7e",
+      "bytes": 62449952
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/probe_extended",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/59d0c02e0299c3fb9bfcb7e454a37c16ca4ab72a66023fdf00ba85bd82bbaf7e/probe_extended",
+      "sha256": "59d0c02e0299c3fb9bfcb7e454a37c16ca4ab72a66023fdf00ba85bd82bbaf7e",
+      "bytes": 62449952
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess-90bb85e3fef8cbe9",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/16f94f8201797ab2f65f716dbd50b5497429ad9a0cb53756040e50f0bf41e499/assess-90bb85e3fef8cbe9",
+      "sha256": "16f94f8201797ab2f65f716dbd50b5497429ad9a0cb53756040e50f0bf41e499",
+      "bytes": 65289296
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/assess",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/16f94f8201797ab2f65f716dbd50b5497429ad9a0cb53756040e50f0bf41e499/assess",
+      "sha256": "16f94f8201797ab2f65f716dbd50b5497429ad9a0cb53756040e50f0bf41e499",
+      "bytes": 65289296
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values-77fff875ef5693a9",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/dee0f4263a108f148b5afcc53706b180f378490d44a1090fffc674d3b2b94290/decode_values-77fff875ef5693a9",
+      "sha256": "dee0f4263a108f148b5afcc53706b180f378490d44a1090fffc674d3b2b94290",
+      "bytes": 192920032
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/decode_values",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/dee0f4263a108f148b5afcc53706b180f378490d44a1090fffc674d3b2b94290/decode_values",
+      "sha256": "dee0f4263a108f148b5afcc53706b180f378490d44a1090fffc674d3b2b94290",
+      "bytes": 192920032
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls-58ea30a47eab36b7",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/d957157579d96efa75527f6e9fb815d20499b932bc8032b7256da0dc98bb4ca8/value_controls-58ea30a47eab36b7",
+      "sha256": "d957157579d96efa75527f6e9fb815d20499b932bc8032b7256da0dc98bb4ca8",
+      "bytes": 217038960
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/value_controls",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/d957157579d96efa75527f6e9fb815d20499b932bc8032b7256da0dc98bb4ca8/value_controls",
+      "sha256": "d957157579d96efa75527f6e9fb815d20499b932bc8032b7256da0dc98bb4ca8",
+      "bytes": 217038960
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings-00657ded791e49bc",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/707b17299e18b94df96df4063b3af3b7edaf8a67389036400584f0a9e782d443/matched_settings-00657ded791e49bc",
+      "sha256": "707b17299e18b94df96df4063b3af3b7edaf8a67389036400584f0a9e782d443",
+      "bytes": 43999616
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/matched_settings",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/707b17299e18b94df96df4063b3af3b7edaf8a67389036400584f0a9e782d443/matched_settings",
+      "sha256": "707b17299e18b94df96df4063b3af3b7edaf8a67389036400584f0a9e782d443",
+      "bytes": 43999616
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics-34b7921d7e228a88",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e9a378d8af99dbac37eeeeb76bd29f48d5dfa4202c10f6bd5445d21a9a666002/mirror_diagnostics-34b7921d7e228a88",
+      "sha256": "e9a378d8af99dbac37eeeeb76bd29f48d5dfa4202c10f6bd5445d21a9a666002",
+      "bytes": 259826856
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/examples/mirror_diagnostics",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e9a378d8af99dbac37eeeeb76bd29f48d5dfa4202c10f6bd5445d21a9a666002/mirror_diagnostics",
+      "sha256": "e9a378d8af99dbac37eeeeb76bd29f48d5dfa4202c10f6bd5445d21a9a666002",
+      "bytes": 259826856
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-377d58fadc7c75f5/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/131846bed7e3e5af7c63ba06195808ac3dfcfed900217a328052ea74d6fe0665/libunicorn.a",
+      "sha256": "131846bed7e3e5af7c63ba06195808ac3dfcfed900217a328052ea74d6fe0665",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-377d58fadc7c75f5/out/lib64/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/131846bed7e3e5af7c63ba06195808ac3dfcfed900217a328052ea74d6fe0665/libunicorn.a",
+      "sha256": "131846bed7e3e5af7c63ba06195808ac3dfcfed900217a328052ea74d6fe0665",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-e7e5884a444956c6/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/109ff20f2ba9adda99e0f71efa16d56a7323811db9129c34777e43f3d2029a71/libunicorn.a",
+      "sha256": "109ff20f2ba9adda99e0f71efa16d56a7323811db9129c34777e43f3d2029a71",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-e7e5884a444956c6/out/lib64/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/109ff20f2ba9adda99e0f71efa16d56a7323811db9129c34777e43f3d2029a71/libunicorn.a",
+      "sha256": "109ff20f2ba9adda99e0f71efa16d56a7323811db9129c34777e43f3d2029a71",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-93caf569331be6a2/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/8a488eab27e5593dee2bd0e065ae8495d22a00e0f8da9c21540c40687f055b86/libunicorn.a",
+      "sha256": "8a488eab27e5593dee2bd0e065ae8495d22a00e0f8da9c21540c40687f055b86",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-93caf569331be6a2/out/lib64/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/8a488eab27e5593dee2bd0e065ae8495d22a00e0f8da9c21540c40687f055b86/libunicorn.a",
+      "sha256": "8a488eab27e5593dee2bd0e065ae8495d22a00e0f8da9c21540c40687f055b86",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-caa7d0492c2fbeef/out/build/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/40dd3782bfaa106d22c7a87263cf4e480fc8bc08d4c3e21320a29226178e3804/libunicorn.a",
+      "sha256": "40dd3782bfaa106d22c7a87263cf4e480fc8bc08d4c3e21320a29226178e3804",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/build/unicorn-engine-sys-caa7d0492c2fbeef/out/lib64/libunicorn.a",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/40dd3782bfaa106d22c7a87263cf4e480fc8bc08d4c3e21320a29226178e3804/libunicorn.a",
+      "sha256": "40dd3782bfaa106d22c7a87263cf4e480fc8bc08d4c3e21320a29226178e3804",
+      "bytes": 334665014
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5f0b0bff5ff1ffbee000e1acab6271aa482192425d0744cc4a7fff037624ec00/ppl",
+      "sha256": "5f0b0bff5ff1ffbee000e1acab6271aa482192425d0744cc4a7fff037624ec00",
+      "bytes": 26688024
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c1fe07a16acfe442dad9fc6e36dc9fb0459052a30afe518b2a1cae2278ceb1e7/prime-emulator",
+      "sha256": "c1fe07a16acfe442dad9fc6e36dc9fb0459052a30afe518b2a1cae2278ceb1e7",
+      "bytes": 23362336
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/d7d840b49db232bb0a4f30a7cd8d2dc2bb5ab665722a9940ed043c44644cb7b6/ppl",
+      "sha256": "d7d840b49db232bb0a4f30a7cd8d2dc2bb5ab665722a9940ed043c44644cb7b6",
+      "bytes": 308171392
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/9ba540c959f23bcfd42a4825f4a31dac341772ff390f8dc35c28462adf4dac97/prime-emulator",
+      "sha256": "9ba540c959f23bcfd42a4825f4a31dac341772ff390f8dc35c28462adf4dac97",
+      "bytes": 118605024
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5cc69b955b8f9366b3e902d593158c76aa3a752598e391ca95b654f4be12a3e2/ppl",
+      "sha256": "5cc69b955b8f9366b3e902d593158c76aa3a752598e391ca95b654f4be12a3e2",
+      "bytes": 26688024
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/release/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/release/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/b164a5c584b99153353984c01c4f7710451511d59b46b3fca0ed45cc71b9a411/prime-emulator",
+      "sha256": "b164a5c584b99153353984c01c4f7710451511d59b46b3fca0ed45cc71b9a411",
+      "bytes": 23669472
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/release/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/0062369eaeca0119e18d2b2430d6701345261f8a7f45adc3128891f216c32f95/ppl",
+      "sha256": "0062369eaeca0119e18d2b2430d6701345261f8a7f45adc3128891f216c32f95",
+      "bytes": 26921528
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/prime-emulator",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/beb98cc4aaa11fe8e22bed0321051b362007b832496e9001ad1c69736b3630cf/prime-emulator",
+      "sha256": "beb98cc4aaa11fe8e22bed0321051b362007b832496e9001ad1c69736b3630cf",
+      "bytes": 121051432
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/examples/value_controls-fa322db45aeaaa5f",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5b8ffe40ba78a2ce2a71d1c0b9ccaab815a520fb94b384f276bd56b2bcb47eb1/value_controls-fa322db45aeaaa5f",
+      "sha256": "5b8ffe40ba78a2ce2a71d1c0b9ccaab815a520fb94b384f276bd56b2bcb47eb1",
+      "bytes": 116102768
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/examples/decode_values-28bb8fd2a3eaee29",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/f3b30ba790c0428e41452b17295ab33079152ac8c4c478ab180a33e88f528a1f/decode_values-28bb8fd2a3eaee29",
+      "sha256": "f3b30ba790c0428e41452b17295ab33079152ac8c4c478ab180a33e88f528a1f",
+      "bytes": 87394912
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/examples/value_controls",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/5b8ffe40ba78a2ce2a71d1c0b9ccaab815a520fb94b384f276bd56b2bcb47eb1/value_controls",
+      "sha256": "5b8ffe40ba78a2ce2a71d1c0b9ccaab815a520fb94b384f276bd56b2bcb47eb1",
+      "bytes": 116102768
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug/examples/decode_values",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/f3b30ba790c0428e41452b17295ab33079152ac8c4c478ab180a33e88f528a1f/decode_values",
+      "sha256": "f3b30ba790c0428e41452b17295ab33079152ac8c4c478ab180a33e88f528a1f",
+      "bytes": 87394912
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/6d3bb851e7650a638e9e74477ab06b218a5a8e20af6dc508cc6a8d63a5016ff8/ppl",
+      "sha256": "6d3bb851e7650a638e9e74477ab06b218a5a8e20af6dc508cc6a8d63a5016ff8",
+      "bytes": 315416352
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/debug/examples/assess-593a08a99fbf7526",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/afefd81f3b40b16681fc123e6efd0b3928b036bad2cea5b81895223322b54c8b/assess-593a08a99fbf7526",
+      "sha256": "afefd81f3b40b16681fc123e6efd0b3928b036bad2cea5b81895223322b54c8b",
+      "bytes": 52656384
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/debug/examples/assess",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/afefd81f3b40b16681fc123e6efd0b3928b036bad2cea5b81895223322b54c8b/assess",
+      "sha256": "afefd81f3b40b16681fc123e6efd0b3928b036bad2cea5b81895223322b54c8b",
+      "bytes": 52656384
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/debug/.cargo-lock",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/.cargo-lock",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/debug/ppl",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c2bc5653e573c07e67c4df646016b40c3ae41035b3eb3a690ae73f486abe8c69/ppl",
+      "sha256": "c2bc5653e573c07e67c4df646016b40c3ae41035b3eb3a690ae73f486abe8c69",
+      "bytes": 310658856
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/debug/examples/mirror_diagnostics-8d43a9bb845e6f11",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c5bf2134b64524f75808038ac3ae29076ada72cec5e6a80345338525d4f49784/mirror_diagnostics-8d43a9bb845e6f11",
+      "sha256": "c5bf2134b64524f75808038ac3ae29076ada72cec5e6a80345338525d4f49784",
+      "bytes": 244051768
+    },
+    {
+      "source": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/debug/examples/mirror_diagnostics",
+      "archive": "/home/k9-vortex/.cache/hp-prime-emulator/research/rust-binaries/c5bf2134b64524f75808038ac3ae29076ada72cec5e6a80345338525d4f49784/mirror_diagnostics",
+      "sha256": "c5bf2134b64524f75808038ac3ae29076ada72cec5e6a80345338525d4f49784",
+      "bytes": 244051768
+    }
+  ],
+  "candidate_files": 202204,
+  "candidate_entry_allocation_bytes": 159060144128,
+  "activity_gaps": [
+    {
+      "pid": "1895",
+      "name": "(sd-pam)"
+    },
+    {
+      "pid": "219730",
+      "name": "Discord"
+    },
+    {
+      "pid": "395742",
+      "name": "Discord"
+    }
+  ],
+  "skipped_unknown_policy": "All files not positively identified as compilation outputs remain in place; target/tmp untouched."
+}

@@ -1,0 +1,130 @@
+{
+  "timestamp_utc": "2026-11-03T00:57:10Z",
+  "results": [
+    {
+      "command": [
+        "findmnt",
+        "-T",
+        "/home/k9-vortex",
+        "-o",
+        "TARGET,SOURCE,FSTYPE,OPTIONS"
+      ],
+      "returncode": 0,
+      "stdout": "TARGET SOURCE                                                       FSTYPE OPTIONS\n/home  /dev/mapper/luks-59ed2695-0377-4bbd-997b-c39603c06020[/home] btrfs  rw,relatime,seclabel,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=257,subvol=/home\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "findmnt",
+        "-T",
+        "/var/tmp",
+        "-o",
+        "TARGET,SOURCE,FSTYPE,OPTIONS"
+      ],
+      "returncode": 0,
+      "stdout": "TARGET SOURCE                                                       FSTYPE OPTIONS\n/      /dev/mapper/luks-59ed2695-0377-4bbd-997b-c39603c06020[/root] btrfs  rw,relatime,seclabel,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/root\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "findmnt",
+        "-T",
+        "/tmp",
+        "-o",
+        "TARGET,SOURCE,FSTYPE,OPTIONS"
+      ],
+      "returncode": 0,
+      "stdout": "TARGET SOURCE FSTYPE OPTIONS\n/tmp   tmpfs  tmpfs  rw,nosuid,nodev,seclabel,nr_inodes=1048576,inode64,usrquota\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "podman",
+        "system",
+        "df",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout": "Images space usage:\n\nREPOSITORY                       TAG            IMAGE ID      CREATED     SIZE        SHARED SIZE  UNIQUE SIZE  CONTAINERS\nmcr.microsoft.com/playwright     v1.63.0-noble  2c1f4e0fd645  8 weeks     2.839GB     0B           2.839GB      0\ndocker.io/library/node           20-alpine      11cedc39e663  6 months    138.2MB     0B           138.2MB      0\ndocker.io/library/postgres       16-alpine      81bd698b4594  6 weeks     297.1MB     0B           297.1MB      0\nmcr.microsoft.com/playwright     v1.64.1-noble  d8e19ba36e14  11 days     2.542GB     0B           2.542GB      0\ndocker.io/library/ubuntu         <none>         b6f507652425  5 years     138.9MB     138.9MB      5.662kB      0\n<none>                           <none>         100dc1b0a68c  8 hours     138.9MB     138.9MB      5.17kB       0\n<none>                           <none>         cd643c47b265  8 hours     594.5MB     138.9MB      455.6MB      0\nlocalhost/prime-m17-qemu-xenial  latest         ebb5b50b3fee  8 hours     599.3MB     138.9MB      460.4MB      0\n\nContainers space usage:\n\nCONTAINER ID  IMAGE       COMMAND     LOCAL VOLUMES  SIZE        CREATED     STATUS      NAMES\n\nLocal Volumes space usage:\n\nVOLUME NAME                                                       LINKS       SIZE\n85431a874ffb5a7907c9837aabcd41dd1bce3aa9792f07a9e4c07be23ddde7ba  0           48.26MB\n3faa65f278e642e01c7ffc2058753d147b5c4503739bc9e280eb567924f63365  0           40.48MB\nb56fea5d749b2564945dffa77c359c07f35c40b6a5ad3f083646e005d909931d  0           40.5MB\n734bb7f10452f19fcc296367f70ca537c11e446ca77e04705f3abea289d33a37  0           80.87MB\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "worktree",
+        "list",
+        "--porcelain"
+      ],
+      "returncode": 0,
+      "stdout": "worktree /home/k9-vortex/Development/4-Rust/3-HP Prime Emulator\nHEAD 0a259072fdc85d26fad9c64231ba1182bf4e0566\nbranch refs/heads/feat/g1-usability-overhaul\n\nworktree /home/k9-vortex/.cache/prime-m16-capture-worktree\nHEAD 0373194f5f368e09fd32d502cab794793066b118\nbranch refs/heads/feat/m16-capture\n\nworktree /home/k9-vortex/.cache/prime-m16-recovery-worktree\nHEAD b6456948e7ad424bab8216e3dae3896677482b2d\nbranch refs/heads/feat/m16-recovery\n\nworktree /home/k9-vortex/.cache/prime-m16-stateful-worktree\nHEAD 5bb4d7c1bf7c283995c86ddc8dd334417d4ca530\nbranch refs/heads/feat/m16-checkpoint-scenarios\n\nworktree /home/k9-vortex/.cache/prime-m17-fullsystem-worktree\nHEAD 1aea1422bd4fd59721e8aa6f590ab7ef0d1ca767\nbranch refs/heads/feat/m17-fullsystem\n\nworktree /home/k9-vortex/.cache/prime-m17-native-worktree\nHEAD 5ed7d0cfa9c1dc55daf290803c9eb37f7ef51bfb\nbranch refs/heads/feat/m17-native\n\nworktree /home/k9-vortex/.cache/prime-m17-runtime-worktree\nHEAD bb6827822c06c6aaba4995e85896b1ee91716d74\nbranch refs/heads/feat/m17-runtime\n\nworktree /home/k9-vortex/.cache/prime-m18-hardware-worktree\nHEAD 5c1bbbb0bd0c2020e7daab071f6644cbcf199fca\nbranch refs/heads/feat/m18-hardware\n\nworktree /home/k9-vortex/.cache/prime-m18-native-worktree\nHEAD 8de31c3bfe5c74476b42ba4f0b4f947d7230bbb1\nbranch refs/heads/feat/m18-native\n\nworktree /home/k9-vortex/.cache/prime-m18-snapshot-worktree\nHEAD 138f1de70d5a3052e2c001445ae189fba9ca72c8\nbranch refs/heads/feat/m18-snapshot\n\nworktree /home/k9-vortex/.cache/prime-m19-display-worktree\nHEAD 62c056fea6faeabde30df9dac604d612677b03e3\nbranch refs/heads/feat/m19-display\n\nworktree /home/k9-vortex/.cache/prime-m19-hardware-worktree\nHEAD a7698b0e7a8c965d0b1a61743e29fc67c1f94681\nbranch refs/heads/feat/m19-hardware\n\nworktree /home/k9-vortex/.cache/prime-m19-nand-worktree\nHEAD 961d1f8466588cca232214661b645ec86f1b73e6\nbranch refs/heads/feat/m19-nand\n\nworktree /tmp/hp-prime-pr-21\nHEAD e7635964b72e5a70eeb23db89aab58eab7413e73\nbranch refs/heads/resolve-native-session\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-next-core\nHEAD bb0a9a3e8865d3651d7bf41a3f6500cb2812ce1f\nbranch refs/heads/feat/prime-next-core\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-next-differential\nHEAD 3bf1e7a63f77812542fb161e275cdcfbf21b7fe1\nbranch refs/heads/feat/prime-next-differential\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-next-native\nHEAD 0b015b92a9a4ecabff3e0d17b7029c02e86002d6\nbranch refs/heads/feat/prime-next-native\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-overhaul-baseline\nHEAD 3399675696c00a57c21677736f061acd69522dec\nbranch refs/heads/feat/overhaul-baseline\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-overhaul-keyboard\nHEAD 020949a7a2d4b3fd47e41b4b266651db9dd2ccf2\nbranch refs/heads/feat/overhaul-keyboard\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-overhaul-native\nHEAD 38b60565c3593cd8978a31e963b0d63dfa61a69d\nbranch refs/heads/feat/overhaul-native\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-overhaul-performance\nHEAD 1869d5482a01444b715c13513cb3a37c9337a42e\nbranch refs/heads/feat/overhaul-performance\nprunable gitdir file points to non-existent location\n\nworktree /tmp/prime-overhaul-recovery\nHEAD b939d7034bed7c9382bc0896202e75565d727051\nbranch refs/heads/feat/overhaul-recovery\nprunable gitdir file points to non-existent location\n\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "count-objects",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout": "count: 2444\nsize: 12768\nin-pack: 2102\npacks: 2\nsize-pack: 4945\nprune-packable: 0\ngarbage: 0\nsize-garbage: 0\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "podman",
+        "ps",
+        "-a",
+        "--format",
+        "json"
+      ],
+      "returncode": 0,
+      "stdout": "[]\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "scratch/research/qemuPrime",
+        "status",
+        "--porcelain"
+      ],
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "df",
+        "-B1",
+        "/home/k9-vortex",
+        "/var/tmp",
+        "/tmp"
+      ],
+      "returncode": 0,
+      "stdout": "Filesystem                                                1B-blocks         Used    Available Use% Mounted on\n/dev/mapper/luks-59ed2695-0377-4bbd-997b-c39603c06020 1021415067648 759359455232 256875020288  75% /home\n/dev/mapper/luks-59ed2695-0377-4bbd-997b-c39603c06020 1021415067648 759359455232 256875020288  75% /\ntmpfs                                                   16652763136    664424448  15988338688   4% /tmp\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "compsize",
+        "-b",
+        "Cargo.toml"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Cargo.toml: SEARCH_V2: Operation not permitted\n"
+    },
+    {
+      "command": [
+        "btrfs",
+        "subvolume",
+        "list",
+        "/home"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "ERROR: can't perform the search: Operation not permitted\n"
+    }
+  ]
+}

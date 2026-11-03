@@ -1,0 +1,524 @@
+[
+  {
+    "path": "/var/tmp/hp-prime-pr21-build",
+    "baseline_allocation_bytes": 6088675328,
+    "profiles": [
+      {
+        "path": "/var/tmp/hp-prime-pr21-build/debug",
+        "allocated_bytes": 4551917568,
+        "logical_bytes": 4533825101,
+        "raw_entry_allocation_bytes": 4752863232,
+        "files": 8706,
+        "device": 39,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/var/tmp/hp-prime-pr21-build/release",
+        "allocated_bytes": 1331712000,
+        "logical_bytes": 1321759015,
+        "raw_entry_allocation_bytes": 1480544256,
+        "files": 3619,
+        "device": 39,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/var/tmp/hp-prime-pr21-build/tmp",
+        "allocated_bytes": 225280,
+        "logical_bytes": 8193,
+        "raw_entry_allocation_bytes": 225280,
+        "files": 55,
+        "device": 39,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/var/tmp/hp-prime-pr21-build/x86_64-pc-windows-gnu",
+        "allocated_bytes": 204816384,
+        "logical_bytes": 198426089,
+        "raw_entry_allocation_bytes": 204816384,
+        "files": 1953,
+        "device": 39,
+        "category": "B",
+        "reason": "Cargo fingerprints; preserve referenced binaries before rebuild"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m16-recovery-target",
+    "baseline_allocation_bytes": 5372313600,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-recovery-target/debug",
+        "allocated_bytes": 4760768512,
+        "logical_bytes": 4739826750,
+        "raw_entry_allocation_bytes": 5315870720,
+        "files": 8607,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-recovery-target/release",
+        "allocated_bytes": 611540992,
+        "logical_bytes": 607206654,
+        "raw_entry_allocation_bytes": 658960384,
+        "files": 1682,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-recovery-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m16-stateful-target",
+    "baseline_allocation_bytes": 5561081856,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-stateful-target/debug",
+        "allocated_bytes": 4949086208,
+        "logical_bytes": 4931384342,
+        "raw_entry_allocation_bytes": 5393084416,
+        "files": 8246,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-stateful-target/release",
+        "allocated_bytes": 611987456,
+        "logical_bytes": 607669647,
+        "raw_entry_allocation_bytes": 671297536,
+        "files": 1677,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m16-stateful-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-native-target",
+    "baseline_allocation_bytes": 10719756288,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-native-target/debug",
+        "allocated_bytes": 9253904384,
+        "logical_bytes": 9220811551,
+        "raw_entry_allocation_bytes": 10501550080,
+        "files": 14650,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-native-target/release",
+        "allocated_bytes": 1465843712,
+        "logical_bytes": 1455287037,
+        "raw_entry_allocation_bytes": 1585569792,
+        "files": 3834,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-native-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-runtime-target",
+    "baseline_allocation_bytes": 9291272192,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-runtime-target/debug",
+        "allocated_bytes": 8676032512,
+        "logical_bytes": 8651850908,
+        "raw_entry_allocation_bytes": 9412329472,
+        "files": 10506,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-runtime-target/release",
+        "allocated_bytes": 615231488,
+        "logical_bytes": 610914875,
+        "raw_entry_allocation_bytes": 662863872,
+        "files": 1676,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m17-runtime-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-native-target",
+    "baseline_allocation_bytes": 9925238784,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m18-native-target/debug",
+        "allocated_bytes": 9305939968,
+        "logical_bytes": 9275044005,
+        "raw_entry_allocation_bytes": 10349162496,
+        "files": 13897,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m18-native-target/release",
+        "allocated_bytes": 619012096,
+        "logical_bytes": 614655863,
+        "raw_entry_allocation_bytes": 666763264,
+        "files": 1688,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m18-native-target/tmp",
+        "allocated_bytes": 278528,
+        "logical_bytes": 8916,
+        "raw_entry_allocation_bytes": 278528,
+        "files": 68,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m18-snapshot-target",
+    "baseline_allocation_bytes": 5246259200,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m18-snapshot-target/debug",
+        "allocated_bytes": 5246251008,
+        "logical_bytes": 5234520144,
+        "raw_entry_allocation_bytes": 5465149440,
+        "files": 4969,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m18-snapshot-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-hardware-target",
+    "baseline_allocation_bytes": 5002608640,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/prime-m19-hardware-target/debug",
+        "allocated_bytes": 5002600448,
+        "logical_bytes": 4991843566,
+        "raw_entry_allocation_bytes": 5191438336,
+        "files": 4526,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/prime-m19-hardware-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target",
+    "baseline_allocation_bytes": 5781565440,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target/debug",
+        "allocated_bytes": 5041717248,
+        "logical_bytes": 5031888506,
+        "raw_entry_allocation_bytes": 5398671360,
+        "files": 4236,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target/release",
+        "allocated_bytes": 739840000,
+        "logical_bytes": 734913246,
+        "raw_entry_allocation_bytes": 788594688,
+        "files": 1880,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target",
+    "baseline_allocation_bytes": 81913999360,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug",
+        "allocated_bytes": 79539957760,
+        "logical_bytes": 80405322376,
+        "raw_entry_allocation_bytes": 84145913856,
+        "files": 79882,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/release",
+        "allocated_bytes": 2371104768,
+        "logical_bytes": 2358253076,
+        "raw_entry_allocation_bytes": 2500517888,
+        "files": 4918,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/tmp",
+        "allocated_bytes": 2928640,
+        "logical_bytes": 111362,
+        "raw_entry_allocation_bytes": 2928640,
+        "files": 715,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12",
+    "baseline_allocation_bytes": 6500261888,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/debug",
+        "allocated_bytes": 5168427008,
+        "logical_bytes": 5151021488,
+        "raw_entry_allocation_bytes": 6156595200,
+        "files": 7785,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12/release",
+        "allocated_bytes": 1331826688,
+        "logical_bytes": 1321902256,
+        "raw_entry_allocation_bytes": 1480679424,
+        "files": 3619,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main",
+    "baseline_allocation_bytes": 902918144,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main/release",
+        "allocated_bytes": 902909952,
+        "logical_bytes": 895054645,
+        "raw_entry_allocation_bytes": 966373376,
+        "files": 2664,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent",
+    "baseline_allocation_bytes": 6708527104,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/debug",
+        "allocated_bytes": 5373374464,
+        "logical_bytes": 5347924843,
+        "raw_entry_allocation_bytes": 5763846144,
+        "files": 9607,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/release",
+        "allocated_bytes": 1335144448,
+        "logical_bytes": 1324352289,
+        "raw_entry_allocation_bytes": 1439264768,
+        "files": 3600,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target",
+    "baseline_allocation_bytes": 5841788928,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/debug",
+        "allocated_bytes": 5841780736,
+        "logical_bytes": 5826788211,
+        "raw_entry_allocation_bytes": 6399213568,
+        "files": 7137,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target",
+    "baseline_allocation_bytes": 4798742528,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/debug",
+        "allocated_bytes": 4798734336,
+        "logical_bytes": 4776700473,
+        "raw_entry_allocation_bytes": 5553799168,
+        "files": 9003,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target",
+    "baseline_allocation_bytes": 5277523968,
+    "profiles": [
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/debug",
+        "allocated_bytes": 5277515776,
+        "logical_bytes": 5255479354,
+        "raw_entry_allocation_bytes": 6381350912,
+        "files": 9550,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      },
+      {
+        "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target/tmp",
+        "allocated_bytes": 0,
+        "logical_bytes": 0,
+        "raw_entry_allocation_bytes": 0,
+        "files": 0,
+        "device": 37,
+        "category": "D",
+        "reason": "Mixed/protected or ownership/reference review required"
+      }
+    ],
+    "errors": []
+  }
+]

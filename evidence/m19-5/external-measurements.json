@@ -1,0 +1,46 @@
+{
+  "units": "bytes",
+  "project_container_layers": 631357440,
+  "validated_container_layers": 390946816,
+  "old_project_image_unique": 240410624,
+  "all_podman_storage": 9745911808,
+  "unresolved_unreferenced_layers": 3235745792,
+  "docker_desktop_shared_vm": 25225699328,
+  "cargo_home_shared": 1985187840,
+  "rustup_shared": 2396643328,
+  "qemu_build_roots": 19,
+  "qemu_build_allocation": 4610547712,
+  "nand_base_files": 29,
+  "nand_base_allocation": 8027897856,
+  "nand_overlay_files": 29,
+  "nand_overlay_allocation": 12242944,
+  "nand_groups": [
+    {
+      "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b",
+      "count": 21
+    },
+    {
+      "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0",
+      "count": 7
+    },
+    {
+      "sha256": "42368b43f80916ff95a5d27216e02662611b0431e44f0467f95e8bac1c51b435",
+      "count": 1
+    }
+  ],
+  "firmware_elf_copies": 1673,
+  "firmware_elf_allocation_before_extent_dedup": 13876617216,
+  "sample_firmware_reflink_confirmed": true,
+  "physical_exclusive_bytes": null,
+  "physical_error": "compsize SEARCH_V2 EPERM; sudo -n unavailable; snapshot enumeration EPERM",
+  "measurement_commands": [
+    "du -x -B1",
+    "stat/lstat unique inode walk",
+    "btrfs filesystem du -s --raw",
+    "filefrag -v",
+    "podman info/system df/image inspect",
+    "podman unshare du",
+    "qemu-img info --backing-chain",
+    "SHA256 streamed over all 29 NAND bases"
+  ]
+}
