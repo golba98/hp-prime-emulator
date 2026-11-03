@@ -203,6 +203,7 @@ pub(super) fn required_overlay(case: &str) -> Option<&'static str> {
     }
 }
 
+#[cfg(unix)]
 pub(super) fn validate_artifacts(
     d: &Value,
     root: &std::path::Path,

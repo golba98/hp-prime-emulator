@@ -3,15 +3,22 @@ use crate::{
     Cancellation,
     checkpoint::{CheckpointResult, RECEIPT_VERSION},
     firmware_options::Options,
-    session::{self, CheckVerdict, Command, Event, ExecutionObservation, Lifecycle, Packet},
+    session::{self, CheckVerdict, Command, Event, ExecutionObservation, Lifecycle},
 };
 use std::{
     collections::BTreeMap,
-    io::Read,
     path::Path,
-    process::{Child, ChildStdin, Command as Process, Stdio},
+    process::{Child, ChildStdin},
     sync::{Arc, Mutex, mpsc},
     time::{Duration, Instant},
+};
+
+#[cfg(target_os = "linux")]
+use crate::session::Packet;
+#[cfg(target_os = "linux")]
+use std::{
+    io::Read,
+    process::{Command as Process, Stdio},
 };
 
 type RunIdentity = (String, String, String);
@@ -546,6 +553,7 @@ fn verify_inspection(
     }
     Ok(())
 }
+#[cfg(any(target_os = "linux", test))]
 fn checkpoint_fingerprint(
     firmware: &Path,
     rom: Option<&Path>,
