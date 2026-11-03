@@ -1,0 +1,70 @@
+{
+  "created_utc": "20261103T121138Z",
+  "backup_directory": "/home/k9-vortex/prime-emulator-backups/publication-20261103T121138Z",
+  "worker_evidence_archive": "/home/k9-vortex/prime-emulator-backups/publication-20261103T121138Z/m16-unique-evidence.tar.gz",
+  "archive_sha256": "335669a4f2b1c502a0b8bbb6d194e662fa14c7e3475394022313e5ac66b4bd0a",
+  "worker_files": [
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/async-real.json",
+      "archive_member": "evidence/m16/async-real.json",
+      "bytes": 1827548,
+      "sha256": "81633844908f3675673312566cba9241f5ac818eb5799bb9ec34a42521dcff72"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/async-release-fixed.json",
+      "archive_member": "evidence/m16/async-release-fixed.json",
+      "bytes": 3655640,
+      "sha256": "8f9cbfd7e1218d76b27e9ae802bc4775d67222cafe9b1501429dfc229ab8a9a4"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/checkpoint-scenario.json",
+      "archive_member": "evidence/m16/checkpoint-scenario.json",
+      "bytes": 3652542,
+      "sha256": "c5c8d8ae6af59e46a86d81aafdff1e30e1c1fea847b04213722e0b49c0a5c887"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/draw-return.png",
+      "archive_member": "evidence/m16/draw-return.png",
+      "bytes": 791,
+      "sha256": "b97c71d4fd0e7faf3c4777e21e3c94eed9a30f91ccc4632919e2a3658ed1069a"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/lifecycle-real.json",
+      "archive_member": "evidence/m16/lifecycle-real.json",
+      "bytes": 14790858,
+      "sha256": "6be75cfb56e91c6a995c58526a0f2dc4bc9595deb6bd02cbedd22159bfd9d855"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/stateful-edited-real.json",
+      "archive_member": "evidence/m16/stateful-edited-real.json",
+      "bytes": 10949816,
+      "sha256": "05d42099edd67ceb1fb7a4fb647c529c0b6db18899c4bcf4bc80f96b34fb21f5"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/stateful-final.json",
+      "archive_member": "evidence/m16/stateful-final.json",
+      "bytes": 10949769,
+      "sha256": "b05eeecd31a669ff60be5ff0bd5e371fdf35d0fec659c3fdce11b787217d211d"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/stateful-first.json",
+      "archive_member": "evidence/m16/stateful-first.json",
+      "bytes": 3602,
+      "sha256": "b52bf2a3d29f538e1604eef67d670eaf11114f874a9af0d04450753c853598f2"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/stateful-real.json",
+      "archive_member": "evidence/m16/stateful-real.json",
+      "bytes": 9127598,
+      "sha256": "b9aae67f5b3f7a23e54cb27cfef5fc547787c9a0d814a5ef0a942eb2d8939d6a"
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-worktree/evidence/m16/summary.json",
+      "archive_member": "evidence/m16/summary.json",
+      "bytes": 5156,
+      "sha256": "1f1f6247a3b4215baa48ee9670dc4260a1a28b0bdee65cb6a9157bcba5b5cf48"
+    }
+  ],
+  "proprietary_resources": "Firmware, saves and private profiles remain local; no firmware images or storage archives are published.",
+  "source_status": "Canonical tree clean at start; other extant worktrees clean except the ten archived evidence files."
+}
