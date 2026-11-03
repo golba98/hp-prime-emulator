@@ -38,3 +38,17 @@ codegen-units = 4
 # project Rust debugging, guest timers and checkpoint safety rules stay intact.
 [profile.dev.package.unicorn-engine-sys]
 opt-level = 2
+
+# Compact development is the default; full Rust locals remain available explicitly.
+[profile.dev]
+debug = 1
+incremental = false
+
+[profile.test]
+debug = 1
+incremental = false
+
+[profile.dev-full]
+inherits = "dev"
+debug = 2
+incremental = true

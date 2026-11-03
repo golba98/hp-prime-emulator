@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "dry_run": true,
+  "physical_reclaimable_bytes": null,
+  "accounting": "unique-inode allocation, not physical exclusive bytes",
+  "candidate_allocation_bytes": 115074306048,
+  "candidates": [
+    {
+      "path": "/var/tmp/hp-prime-pr21-build",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 6088675328,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/var/tmp/hp-prime-pr21-build"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-recovery-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5372313600,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m16-recovery-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m16-stateful-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5561081856,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m16-stateful-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m17-native-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 10719756288,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m17-native-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m17-runtime-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 9291272192,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m17-runtime-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m18-native-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 9925238784,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m18-native-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m18-snapshot-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5246259200,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m18-snapshot-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/prime-m19-hardware-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5002608640,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/prime-m19-hardware-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/.cache/.cache/prime-emulator-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5781565440,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/.cache/.cache/prime-emulator-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 6500261888,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-m12"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 902918144,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target-main"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 6708527104,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-keyboard-target-agent"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5841788928,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-next-core-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 4798742528,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-next-differential-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target",
+      "owner": "project Cargo fingerprints; historical build slot",
+      "category": "B",
+      "allocation_bytes": 5277523968,
+      "risk": "low only after all guards pass",
+      "shared": "hardlink/reflink references require renewed assessment",
+      "recovery": "rebuild from retained branch/lockfile/toolchain; time varies by historical configuration",
+      "reason": "superseded build products; source and history elsewhere",
+      "authorization": "NOT AUTHORIZED",
+      "guards": [
+        "preserve any referenced exact binaries/manifests first",
+        "confirm owner release and no active/open-file references",
+        "recheck device/inode/path and inventory at approval time"
+      ],
+      "proposed_command": [
+        "cargo",
+        "clean",
+        "--target-dir",
+        "/home/k9-vortex/Development/4-Rust/.cache/prime-next-native-target"
+      ]
+    },
+    {
+      "path": "/home/k9-vortex/Development/4-Rust/.cache/prime-emulator-target/debug/incremental",
+      "category": "B",
+      "allocation_bytes": 22055772160,
+      "authorization": "NOT AUTHORIZED",
+      "owner": "canonical compiler incremental cache",
+      "risk": "low after activity check; slower next build",
+      "reason": "compact defaults no longer use incremental compilation",
+      "proposed_action": "remove ONLY this exact directory after explicit approval; no parent or wildcard removal"
+    }
+  ],
+  "protected": [
+    "all source and Git history",
+    "all unknown/mixed evidence and Windows VM backing chain",
+    "user firmware, saves, backups and recovery generations",
+    "current validated QEMU build and toolchain",
+    "active compact target and newly published immutable bases"
+  ],
+  "confirmed_orphans": [],
+  "unresolved_activity": "Three same-user process fd directories were unreadable during planning scan; absence of visible users is not proof of inactivity."
+}

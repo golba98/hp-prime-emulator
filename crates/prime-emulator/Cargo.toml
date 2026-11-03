@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 ppl-engine = { path = "../ppl-engine" }
-unicorn-engine = "2.1"
+unicorn-engine = { version = "2.1", default-features = false, features = ["arch_arm"] }
 goblin = "0.10"
 memmap2 = "0.9"
 clap = { workspace = true }

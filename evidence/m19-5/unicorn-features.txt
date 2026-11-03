@@ -1,0 +1,7 @@
+unicorn-engine-sys v2.1.5
+└── unicorn-engine v2.1.5
+    └── unicorn-engine feature "arch_arm"
+        └── prime-emulator v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/prime-emulator)
+            └── prime-emulator feature "default" (command-line)
+└── unicorn-engine-sys feature "arch_arm"
+    └── unicorn-engine feature "arch_arm" (*)

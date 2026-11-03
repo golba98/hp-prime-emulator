@@ -33,25 +33,38 @@ export PPL_FIRMWARE_INIT_DATA="$(asset init_data)"
 export PPL_FIRMWARE_RUNNER="$TARGET_DIR/release/prime-emulator"
 RUN="${M12_RUN:-$ROOT/artifacts/m12/$(date -u +%Y%m%dT%H%M%SZ)}"
 OUT="$RUN/$NAME"
-mkdir -p "$OUT"
+mkdir -p "$RUN"
+# Never clear or overwrite captures from an earlier invocation.
+mkdir "$OUT" || { echo "run output already exists: $OUT" >&2; exit 2; }
+OUT="$(readlink -f "$OUT")"
+python3 "$HERE/isolate_scenario.py" "$SCRIPT" "$OUT/scenario.json" || exit 2
+SCRIPT="$OUT/scenario.json"
+export PPL_IDE_LOG_DIR="$OUT"
 ISO="$(mktemp -d /tmp/ppl-m12-XXXXXX)"
+cleanup_profile() {
+  CODE=$?
+  if [ "$CODE" -eq 0 ] && [ -f "$OUT/leftover-pids.txt" ] && [ ! -s "$OUT/leftover-pids.txt" ]; then
+    rm -rf -- "$ISO"
+  else
+    printf '%s\n' "$ISO" >"$OUT/retained-profile.txt"
+  fi
+}
+trap cleanup_profile EXIT
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}" RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export HOME="$ISO/home" XDG_CONFIG_HOME="$ISO/config" XDG_DATA_HOME="$ISO/data"
 export PPL_FIRMWARE_PROFILE="${M12_PROFILE:-$ISO/profile}"
 mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
-E2E=/tmp/ppl-ide-e2e/m12/$NAME
-rm -rf "$E2E"; mkdir -p "$E2E"
 pgrep -af "prime-emulator session" >"$OUT/pids-before.txt" || true
 "$HERE/run_ide_auto.sh" "$SCRIPT" "$TIMEOUT" | tee "$OUT/run.txt"
+RUN_CODE=${PIPESTATUS[0]}
 # Helpers of this profile still alive after the IDE exited (must be none).
 sleep 1
 pgrep -af "prime-emulator session.*$ISO" >"$OUT/leftover-pids.txt" || true
+if [ -s "$OUT/leftover-pids.txt" ]; then RUN_CODE=1; fi
 pgrep -af "prime-emulator session" >"$OUT/pids-after.txt" || true
-cp -r "$E2E"/. "$OUT"/ 2>/dev/null || true
-cp /tmp/ppl-ide-e2e/ide_run.log "$OUT/ide_run.log" 2>/dev/null || true
 for f in session.log ide-reports; do
   [ -e "$PPL_FIRMWARE_PROFILE/$f" ] && cp -r "$PPL_FIRMWARE_PROFILE/$f" "$OUT/"
 done
 ls "$PPL_FIRMWARE_PROFILE/C/DATA" >"$OUT/profile-programs.txt" 2>/dev/null || true
-rm -rf "$ISO"
 echo "evidence: $OUT"
+exit "$RUN_CODE"

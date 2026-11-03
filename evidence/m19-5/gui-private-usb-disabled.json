@@ -1,0 +1,59 @@
+{
+  "command": [
+    "bash",
+    "tests/ide_xvfb_smoke/run_m12.sh",
+    "m14_function",
+    "180"
+  ],
+  "env_overrides": {
+    "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m19-5-compact-target",
+    "M12_RUN": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private-usb-disabled",
+    "PPL_IDE_NO_DEVICE": "1"
+  },
+  "returncode": 0,
+  "legacy_files_before": 193,
+  "legacy_files_after": 193,
+  "legacy_capture_hashes_unchanged": true,
+  "checks": [
+    {
+      "check": "M14 Function: no firmware helper outlived the IDE",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function: no new unsupported OS service",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "M14 Function: F1 and F2 set and checked by the firmware",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function plot: matches the verified reference function-plot.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function zoom_in: matches the verified reference function-zoom_in.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function num: matches the verified reference function-num.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function: trace moves the cursor (Right)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function: zoom out differs from zoom in",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

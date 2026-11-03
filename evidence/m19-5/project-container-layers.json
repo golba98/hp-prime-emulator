@@ -1,0 +1,136 @@
+{
+  "images": [
+    {
+      "Id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "RepoTags": [
+        "localhost/prime-m17-qemu-xenial:latest"
+      ],
+      "Parent": "100dc1b0a68c50ad5bfcce46a855da52d160339c2409aef18fdcac7a6e0bf5b9",
+      "GraphDriver": {
+        "Name": "overlay",
+        "Data": {
+          "LowerDir": "/home/k9-vortex/.local/share/containers/storage/overlay/aebf9e8223107e5d3f8c503739694933c7d98191d6fecec9ec8b1bdd978b66b5/diff:/home/k9-vortex/.local/share/containers/storage/overlay/1cdcc9455e8808fe54a7d1995354b0744dec107f60180c79e58135464fe5d561/diff:/home/k9-vortex/.local/share/containers/storage/overlay/4ec2b6f9218a162f4c1882bafcbbac370a97d4c3d323a5e01c0afcf80f63420a/diff:/home/k9-vortex/.local/share/containers/storage/overlay/be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069/diff",
+          "UpperDir": "/home/k9-vortex/.local/share/containers/storage/overlay/032e8ff59297d6e39e8c4d6859722ab239f7adf7288a2aaffa290b24d7b9ab26/diff",
+          "WorkDir": "/home/k9-vortex/.local/share/containers/storage/overlay/032e8ff59297d6e39e8c4d6859722ab239f7adf7288a2aaffa290b24d7b9ab26/work"
+        }
+      },
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069",
+          "sha256:df54c846128da3c71cc11b2150a3df39ec86fb170e299765daf6bb016a0705c2",
+          "sha256:47ef83afae74745639f6738a05fe5320fcfca9e6c7765fba4f25e270bc0df9dc",
+          "sha256:1251204ef8fc20da275e09f6e3ab9205421d4ff34732f2d50a1d3e86d2995edd",
+          "sha256:4c5e2dcfcfe9a38d4058dce28eb1be0c00b3598de00c8926c829996131bb68af"
+        ]
+      },
+      "history_recipe_markers": [
+        {
+          "sha256": "ca73d969a91e6a7fcc1b2e491c9026b9a096a330750c14781c22ea95b27e8831",
+          "mentions_qemu_toolchain": true
+        },
+        {
+          "sha256": "3c13ce2d13dc31ec04fe6221ca3aed9357b1df2725fee70c54bf00839df88169",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "0895c29a6556ba35d76e356077ad3dde343c5a4a000dadde1e7ae2c1262c48dd",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "b96bc838d60c2a67436ff6787be56f4aadd831e86753ad12b34e2c2065822b24",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "ad56a9ccc323f192464af868ea9fa4c71f76b2fcf8b2546db1d9d88e82525f57",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "32a1d40f3510b885414f82a7bb93d5525df305de029ce09beb8725af953f047a",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "ca322e407a17917a5ec8a6dd19ef73fbed46ac79d8d4fb9683a91e39e206a8f2",
+          "mentions_qemu_toolchain": false
+        }
+      ]
+    },
+    {
+      "Id": "cd643c47b2656a4f2accd3bf1a81b899734b9259b2eecdba7e8aae2a41ca7015",
+      "RepoTags": [],
+      "Parent": "100dc1b0a68c50ad5bfcce46a855da52d160339c2409aef18fdcac7a6e0bf5b9",
+      "GraphDriver": {
+        "Name": "overlay",
+        "Data": {
+          "LowerDir": "/home/k9-vortex/.local/share/containers/storage/overlay/aebf9e8223107e5d3f8c503739694933c7d98191d6fecec9ec8b1bdd978b66b5/diff:/home/k9-vortex/.local/share/containers/storage/overlay/1cdcc9455e8808fe54a7d1995354b0744dec107f60180c79e58135464fe5d561/diff:/home/k9-vortex/.local/share/containers/storage/overlay/4ec2b6f9218a162f4c1882bafcbbac370a97d4c3d323a5e01c0afcf80f63420a/diff:/home/k9-vortex/.local/share/containers/storage/overlay/be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069/diff",
+          "UpperDir": "/home/k9-vortex/.local/share/containers/storage/overlay/e5c0bef70c29f1f0a066515e9ffbed810e5ef50881d23ca87483f1ebef2c6cd7/diff",
+          "WorkDir": "/home/k9-vortex/.local/share/containers/storage/overlay/e5c0bef70c29f1f0a066515e9ffbed810e5ef50881d23ca87483f1ebef2c6cd7/work"
+        }
+      },
+      "RootFS": {
+        "Type": "layers",
+        "Layers": [
+          "sha256:be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069",
+          "sha256:df54c846128da3c71cc11b2150a3df39ec86fb170e299765daf6bb016a0705c2",
+          "sha256:47ef83afae74745639f6738a05fe5320fcfca9e6c7765fba4f25e270bc0df9dc",
+          "sha256:1251204ef8fc20da275e09f6e3ab9205421d4ff34732f2d50a1d3e86d2995edd",
+          "sha256:20512688377a1e2eaac9d154d64fa06303ba26b01e66fecc46f6da1e2ca13d84"
+        ]
+      },
+      "history_recipe_markers": [
+        {
+          "sha256": "b713e4d47fccdb14d366cd284c522e9a4c15c0f9a7efeb0c8162a193eec715e9",
+          "mentions_qemu_toolchain": true
+        },
+        {
+          "sha256": "3c13ce2d13dc31ec04fe6221ca3aed9357b1df2725fee70c54bf00839df88169",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "0895c29a6556ba35d76e356077ad3dde343c5a4a000dadde1e7ae2c1262c48dd",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "b96bc838d60c2a67436ff6787be56f4aadd831e86753ad12b34e2c2065822b24",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "ad56a9ccc323f192464af868ea9fa4c71f76b2fcf8b2546db1d9d88e82525f57",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "32a1d40f3510b885414f82a7bb93d5525df305de029ce09beb8725af953f047a",
+          "mentions_qemu_toolchain": false
+        },
+        {
+          "sha256": "ca322e407a17917a5ec8a6dd19ef73fbed46ac79d8d4fb9683a91e39e206a8f2",
+          "mentions_qemu_toolchain": false
+        }
+      ]
+    }
+  ],
+  "unique_layer_roots": [
+    "/home/k9-vortex/.local/share/containers/storage/overlay/032e8ff59297d6e39e8c4d6859722ab239f7adf7288a2aaffa290b24d7b9ab26",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/1cdcc9455e8808fe54a7d1995354b0744dec107f60180c79e58135464fe5d561",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/4ec2b6f9218a162f4c1882bafcbbac370a97d4c3d323a5e01c0afcf80f63420a",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/aebf9e8223107e5d3f8c503739694933c7d98191d6fecec9ec8b1bdd978b66b5",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/e5c0bef70c29f1f0a066515e9ffbed810e5ef50881d23ca87483f1ebef2c6cd7"
+  ],
+  "measurement_command": [
+    "podman",
+    "unshare",
+    "du",
+    "-sx",
+    "-B1",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/032e8ff59297d6e39e8c4d6859722ab239f7adf7288a2aaffa290b24d7b9ab26",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/1cdcc9455e8808fe54a7d1995354b0744dec107f60180c79e58135464fe5d561",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/4ec2b6f9218a162f4c1882bafcbbac370a97d4c3d323a5e01c0afcf80f63420a",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/aebf9e8223107e5d3f8c503739694933c7d98191d6fecec9ec8b1bdd978b66b5",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069",
+    "/home/k9-vortex/.local/share/containers/storage/overlay/e5c0bef70c29f1f0a066515e9ffbed810e5ef50881d23ca87483f1ebef2c6cd7"
+  ],
+  "measurement_stdout": "243298304\t/home/k9-vortex/.local/share/containers/storage/overlay/032e8ff59297d6e39e8c4d6859722ab239f7adf7288a2aaffa290b24d7b9ab26\n8192\t/home/k9-vortex/.local/share/containers/storage/overlay/1cdcc9455e8808fe54a7d1995354b0744dec107f60180c79e58135464fe5d561\n45056\t/home/k9-vortex/.local/share/containers/storage/overlay/4ec2b6f9218a162f4c1882bafcbbac370a97d4c3d323a5e01c0afcf80f63420a\n12288\t/home/k9-vortex/.local/share/containers/storage/overlay/aebf9e8223107e5d3f8c503739694933c7d98191d6fecec9ec8b1bdd978b66b5\n147582976\t/home/k9-vortex/.local/share/containers/storage/overlay/be96a3f634de79f523f07c7e4e0216c28af45eb5776e7a6238a2392f71e01069\n240410624\t/home/k9-vortex/.local/share/containers/storage/overlay/e5c0bef70c29f1f0a066515e9ffbed810e5ef50881d23ca87483f1ebef2c6cd7\n",
+  "measurement_stderr": "",
+  "returncode": 0
+}

@@ -1,0 +1,292 @@
+[
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-boot-final/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28077690,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-boot-published/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28095497,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-boot-release/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28157236,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-boot01/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28060636,
+    "sparse_candidate": false,
+    "sha256": "42368b43f80916ff95a5d27216e02662611b0431e44f0467f95e8bac1c51b435"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-boot02/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28066187,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-cancel/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28114566,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-cancel02/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28139589,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc-final/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28077323,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc-published/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28095250,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc-release/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28156774,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-ecc01/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28060622,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-final/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28078223,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-published/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28102127,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-release/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28157705,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-run02/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28027032,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-run03/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28038201,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-run04/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28044571,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-run05/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28048211,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m19-nand-run06/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28058311,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand-0/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28185889,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand_ecc-0/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28187507,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-boot_chain-0/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28188466,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand-1/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28191131,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand_ecc-1/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28191600,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-boot_chain-1/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28191971,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand-2/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28194833,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-nand_ecc-2/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28196299,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/integrated-boot_chain-2/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28197024,
+    "sparse_candidate": false,
+    "sha256": "1785ecc15bbfb2fbe9d1334afa8db549ae24ac1a0179ca243e7b95aa65d88ae0"
+  },
+  {
+    "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/cancel-nand/run/base.raw",
+    "allocated_bytes": 276824064,
+    "logical_bytes": 276824064,
+    "links": 1,
+    "device": 37,
+    "inode": 28203807,
+    "sparse_candidate": false,
+    "sha256": "fbee2e0f41769c042340dff3211f37f3933c097684bce976a69222767d10656b"
+  }
+]

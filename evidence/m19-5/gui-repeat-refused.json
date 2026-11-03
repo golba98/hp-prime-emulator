@@ -1,0 +1,11 @@
+{
+  "command": [
+    "bash",
+    "tests/ide_xvfb_smoke/run_m12.sh",
+    "m14_function",
+    "180"
+  ],
+  "returncode": 2,
+  "stdout": "",
+  "stderr": "mkdir: cannot create directory \u2018/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private-usb-disabled/m14_function\u2019: File exists\nrun output already exists: /home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19-5/gui-private-usb-disabled/m14_function\n"
+}

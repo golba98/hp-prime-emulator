@@ -125,21 +125,8 @@ def build_guest(output, case):
 
 def create_image(output, bootstrap=b'', stage=b''):
     base = output/'base.raw'
-    # Sparse holes read as00; erased NAND must instead contain explicit FF.
-    with base.open('xb') as stream:
-        block = b'\xff' * (1024 * 1024)
-        remaining = IMAGE_SIZE
-        while remaining:
-            stream.write(block[:min(len(block), remaining)])
-            remaining -= min(len(block), remaining)
-    if bootstrap or stage:
-        with base.open('r+b') as stream:
-            for offset in range(0, len(bootstrap), PAGE):
-                stream.seek((offset // PAGE) * (PAGE + OOB))
-                stream.write(bootstrap[offset:offset + PAGE])
-            stream.seek(4 * (PAGE + OOB))
-            stream.write(stage)
-    before = digest(base)
+    from storage_cache import nand_base
+    before = nand_base(output, bootstrap, stage)
     subprocess.run(['qemu-img', 'create', '-f', 'qcow2', '-o', 'compat=0.10', '-F', 'raw',
                     '-b', 'base.raw', 'flash.qcow2'], cwd=output, stdout=subprocess.DEVNULL, check=True, timeout=30)
     return {'format': 'interleaved_main_oob', 'bytes': IMAGE_SIZE, 'page_bytes': PAGE,

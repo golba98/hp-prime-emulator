@@ -1,0 +1,110 @@
+[
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-fullsystem-build/repro-build",
+    "du_allocated_bytes": 256819200,
+    "included_in": "/home/k9-vortex/.cache/prime-m17-fullsystem-build",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "8999951785d361a087531241d3001796cc3847ea72e402a6d7b1932b9a760bd7"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-fullsystem-build/overlay-repro",
+    "du_allocated_bytes": 256815104,
+    "included_in": "/home/k9-vortex/.cache/prime-m17-fullsystem-build",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "8999951785d361a087531241d3001796cc3847ea72e402a6d7b1932b9a760bd7"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46"
+    }
+  },
+  {
+    "path": "/home/k9-vortex/.cache/prime-m17-fullsystem-build/published-overlay-build",
+    "du_allocated_bytes": 256815104,
+    "included_in": "/home/k9-vortex/.cache/prime-m17-fullsystem-build",
+    "manifest": {
+      "schema_version": 1,
+      "status": "built",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+      "image": "localhost/prime-m17-qemu-xenial",
+      "configure_flags": [
+        "--target-list=arm-softmmu",
+        "--python=/usr/bin/python2.7",
+        "--disable-werror",
+        "--disable-sdl",
+        "--disable-gtk",
+        "--disable-vnc",
+        "--disable-curses",
+        "--disable-opengl",
+        "--disable-tools",
+        "--disable-docs",
+        "--disable-kvm",
+        "--disable-blobs",
+        "--with-system-pixman"
+      ],
+      "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        }
+      ],
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46"
+    }
+  }
+]

@@ -1,0 +1,131 @@
+{
+  "scope": "CAS and Function only; no claim for m14_apps or m14_appwork GUI scenarios",
+  "checks": [
+    {
+      "check": "M14 CAS: no wait step timed out",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "M14 CAS: no firmware helper outlived the IDE",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS: no new unsupported OS service",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "M14 CAS int(2*x,x): result glyph == the glyph of x\u00b2",
+      "pass": true,
+      "detail": "20\u00d714 px block"
+    },
+    {
+      "check": "M14 CAS int(2*x,x): result differs from the control 2*x",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS diff(sin(x),x): result glyph == the glyph of cos(x)",
+      "pass": true,
+      "detail": "18\u00d741 px block"
+    },
+    {
+      "check": "M14 CAS diff(sin(x),x): result differs from the control sin(x)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS factor(x\u00b2-1): result differs from the unfactored control",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS solve(x\u00b2=4,x): result glyph == the glyph of {-2,2}",
+      "pass": true,
+      "detail": "18\u00d741 px block"
+    },
+    {
+      "check": "M14 CAS solve(x\u00b2=4,x): result differs from the control {2,3}",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS 1/3>+1/6>: result glyph == the glyph of 1/2>",
+      "pass": true,
+      "detail": "29\u00d710 px block"
+    },
+    {
+      "check": "M14 CAS 1/3>+1/6>: result differs from the control 1/3>",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS 3*\u03c0-\u03c0: result glyph == the glyph of 2*\u03c0",
+      "pass": true,
+      "detail": "10\u00d725 px block"
+    },
+    {
+      "check": "M14 CAS 3*\u03c0-\u03c0: result differs from the control 3*\u03c0",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 CAS expand((x+1)\u00b2): result glyph == the glyph of x\u00b2+2*x+1",
+      "pass": true,
+      "detail": "20\u00d759 px block"
+    },
+    {
+      "check": "M14 CAS expand((x+1)\u00b2): result differs from the control x\u00b2+1",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function: no firmware helper outlived the IDE",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function: no new unsupported OS service",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "check": "M14 Function: F1 and F2 set and checked by the firmware",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function plot: matches the verified reference function-plot.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function zoom_in: matches the verified reference function-zoom_in.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function num: matches the verified reference function-num.png below the status bar",
+      "pass": true,
+      "detail": "changed rows []"
+    },
+    {
+      "check": "M14 Function: trace moves the cursor (Right)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "M14 Function: zoom out differs from zoom in",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "notes": [
+    {
+      "note": "M14 CAS factor(x\u00b2-1)",
+      "detail": "result (x\u22121)\u00b7(x+1), read on the CAS screen"
+    }
+  ]
+}
