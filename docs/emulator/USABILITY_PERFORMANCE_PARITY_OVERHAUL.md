@@ -640,3 +640,50 @@ tiny rerun 0.751 to 0.776 s; large launch 3.033 to 3.131 s; syntax feedback
 1.746 to 1.702 s. All 13 workloads remained within 10% of baseline.
 Exact samples/hashes: evidence/m16/benchmark-summary.json. No major new speedup
 is claimed. Nothing was pushed or published.
+
+## M17 integrated implementation
+
+See [M17 runtime fidelity and full-system execution](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md)
+for the final source, evidence and limits. Native external functions now execute
+in one linked VM across the SDK, CLI and IDE, with revision-bound private state,
+shared calculator slots, dependency invalidation and callee diagnostics. Three
+real retained Native/HLE scenarios pass 51 assertions, including initialization,
+edits, nested matrices/vectors, complex values and integer variants.
+
+Boot responsiveness is separated from strict checkpoint quiescence. Desktop
+translation now waits for actual main-UI acknowledgement, correcting an observed
+partial bracket paste. Mode-aware OFF fixes the proven prelatched-Shift failure
+without clearing Alpha or weakening safe persistence. Four modifier controls
+save, wake and shut down successfully; Alpha lock persists on wake.
+
+Protocol 7 provides bounded inspection and owner safe-point accounting. Heap /
+allocator and read-only VFS components restore independently in fresh processes;
+full running-calculator restoration remains unsupported. Integrity, resource,
+corruption, FIFO preflight and descriptor-leak controls pass. Source-bound
+forensics survive disposable profile cleanup; oversized semantic omissions are
+explicitly unobserved. The inherited-description journal-lock failure is fixed;
+attribution of every older intermittent flake remains unproven.
+
+The pinned hp-prime QEMU model executes the self-authored ARM926 smoke under GDB.
+The GPL INTC overlay fixes reproduced reset and FIQ-selection failures. Kernel
+boot, FullSystem PPL and new physical-device verification remain unavailable.
+All 77 historical classifications are preserved: 68 exact, four partial, five
+transcription, zero mismatches.
+
+Final regression evidence: 1,853 workspace tests passed, zero failures, six
+ignored; formatting and warnings-denied workspace Clippy passed; 127 actual GUI
+assertions; 19 configured release cases; 25 Python tooling tests. The final
+debug CAS/OFF/fresh-process recovery passed in 71.91 seconds. Optimizing only the
+native Unicorn dev dependency reduced matched-source recovery median from
+91.22 to 80.51 seconds, without changing Rust debug settings, guest clocks or
+the strict 80% checkpoint admission rule. Busy debug sessions can still refuse
+that rule safely; retained diagnostics distinguish admission from power/save.
+
+Five alternating production benchmark pairs verified all 130 expected results.
+Median tiny rerun: 0.752 seconds; large cold launch: 3.008 seconds; large rerun:
+1.354 seconds; edited Check: 1.748 seconds; syntax feedback: 1.792 seconds.
+All 13 workload medians stayed within 2.7% of their fresh matched M16 baseline.
+Production performance is preserved; no additional major speedup is claimed.
+Exact samples, hashes, source and profile identities are in
+evidence/m17/benchmark-summary.json and the final M17 report.
+Nothing was pushed, published or written to physical hardware.

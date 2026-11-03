@@ -186,3 +186,68 @@ Schema 2 and the genuine named-program HLE session adapter are implemented. See
 authored probes, asynchronous input, restart semantics, actual firmware fixtures
 and explicit unsupported capabilities. Schema 1 and historical physical replay
 retain their original scope.
+
+## M17 multi-module execution and retained diagnostics
+
+Native resolves exported functions through one linked bytecode image. Calls
+share a VM stack, calculator globals, settings and execution limits; private
+variables remain bound to the owning source revision. Import/Edit initializes
+the installed module, matching the observed firmware installation timing.
+Unrelated broken sources do not block a valid dependency closure. Missing,
+private and ambiguous exports fail explicitly. See [Native linkage](M17_NATIVE_LINKAGE.md)
+for limitations and source-bound call traces.
+
+The same fixtures run against Native and the real retained HLE session:
+
+```sh
+ppl differential tests/differential/m17/initialization.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/linkage.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/typed_values.toml --backend native,firmware-hle
+cargo test -p ppl-compat --test m17_differential
+```
+
+The integration test's real-firmware case requires PRIME_TEST_FIRMWARE,
+PRIME_TEST_INIT_DATA and PRIME_TEST_RUNNER, with PRIME_TEST_OS_ROM when needed.
+Without those resources only Native is exercised; an ungated workspace pass
+does not establish firmware verification. PRIME_M17_EVIDENCE_DIR optionally
+retains structured comparisons. Integrated local-firmware verification passed
+12 initialization, 22 linkage and17 typed-value assertions, including an edited dependency.
+This is firmware-versus-Native evidence, not new physical verification.
+
+HLE raw reports preserve each job's bounded debug bundle before its disposable
+profile is removed. The capture verifies request and source identity, schema,
+file kind and size; failures remain explicitly unavailable. These diagnostics
+are metadata and never normalize errors or change semantic comparison. Register
+capture still requires tracing; a valid bundle need not contain registers.
+
+The FullSystem scenario adapter remains unavailable. Actual execution of the
+separate self-authored ARM926 smoke on qemuPrime's hp-prime model does not imply
+calculator kernel boot or PPL execution capability.
+
+Controlled firmware captures now establish matrices/vectors, complex numbers
+and integer variants, including nested values. The typed scenario preserves
+vector identity, dimensions, element types, complex components, integer width
+and base. Seven deliberate mismatch controls verify their exact JSON paths.
+See [typed values](M17_TYPED_VALUES.md) for captured layouts and unsupported
+representations. Codec replay of local-firmware bytes is classified separately
+from executing the current HLE; neither is a new physical capture.
+
+## Modifier and checkpoint controls
+
+[Modifier checkpoint controls](M17_MODIFIER_CHECKPOINT_CONTROLS.md) provide an
+isolated, resource-bound headless runner for neutral, Shift, one-shot Alpha and
+Alpha-lock states. It retains exact key actions, real framebuffer masks,
+inspection, checkpoint outcomes and normal-OFF cleanup. Ten mock/protocol tests
+run without firmware or hardware. Real local-firmware controls established the
+Shift-latched OFF bug and verify its correction while preserving Alpha lock.
+These captures are HLE evidence, not physical verification.
+
+Transport projection is explicit: missing raw representations/call histories
+are forensic metadata, while omitted images, output, diagnostics, return values
+or unknown future semantic scopes make an observation unobserved. A truncated
+reply cannot become a successful empty output or fake runtime error. Three
+adapter controls and actual oversized-packet tests enforce this distinction.
+
+Final M17 fixtures and regression results are recorded in
+[the M17 report](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md). FullSystem PPL remains
+unavailable despite the independent executed ARM research smoke.

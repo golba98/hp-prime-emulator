@@ -1,0 +1,9 @@
+# Isolated historical build/runtime userspace for pinned qemuPrime 2.10.1.
+# No proprietary inputs. Image is local only and never published by our tooling.
+FROM docker.io/library/ubuntu@sha256:a3785f78ab8547ae2710c89e627783cfa7ee7824d3468cae6835c9f4eae23ff7
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential flex bison python2.7 pkg-config libglib2.0-dev libpixman-1-dev \
+    zlib1g-dev libfdt-dev ca-certificates && \
+    dpkg-query -W > /toolchain-packages.txt && \
+    rm -rf /var/lib/apt/lists/*

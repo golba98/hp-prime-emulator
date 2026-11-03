@@ -287,6 +287,16 @@ fn spawn_device_thread(
             let (mut sys, mut dev, mut inject) = (Instant::now(), Instant::now(), Instant::now());
             let mut script_running = driver.is_some();
             while !shared.stopping() {
+                // Deadlines must also wake an engine parked inside a host SVC.
+                // Checking only after run_slice returns cannot bound an infinite
+                // GetEvent/OSWaitForEvent with no producers.
+                if started.elapsed().as_secs_f64() >= max_seconds {
+                    trace.limit(format!(
+                        "device wall-clock limit reached ({max_seconds:.1}s)"
+                    ));
+                    shared.set_stopping();
+                    break;
+                }
                 if let Some(s) = &session {
                     s.tick(&mem, &shared, &trace);
                     s.capture(&mem, &shared);
@@ -659,6 +669,10 @@ pub fn run_with_session(
                         } else {
                             evidence = "guest fault (no report)".into();
                         }
+                    }
+                    StopReason::Requested if start.elapsed().as_secs_f64() >= cfg.max_seconds => {
+                        outcome = Outcome::LimitReached;
+                        evidence = format!("time limit reached ({:.1}s)", cfg.max_seconds);
                     }
                     StopReason::Requested if cfg.program.is_some() => {
                         outcome = Outcome::ProgramComplete;
@@ -1195,6 +1209,23 @@ mod worker_tests {
             Arc::new(TraceHub::new(TraceConfig::default()).unwrap()),
         )
     }
+    #[test]
+    fn wall_clock_deadline_wakes_a_host_wait_without_input_or_timers() {
+        let (mem, _, shared, trace) = setup();
+        let cfg = RunConfig {
+            max_seconds: 0.025,
+            ui_timers: false,
+            ..Default::default()
+        };
+        let device = spawn_device_thread(&cfg, mem, shared.clone(), trace, None);
+        let event = crate::services::sync::HostEvent::new(false, false);
+        let started = Instant::now();
+        assert!(!event.wait(u32::MAX, &|| shared.stopping()));
+        assert!(shared.stopping());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        device.handle.join().unwrap();
+    }
+
     fn wait_finished(shared: &SharedState, tid: u32) {
         let deadline = Instant::now() + Duration::from_secs(2);
         loop {

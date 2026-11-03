@@ -32,3 +32,9 @@ softbuffer = "0.4"
 [profile.release]
 lto = "thin"
 codegen-units = 4
+
+# Keep the native ARM backend optimized with symbols in dev/test builds.
+# cmake selects RelWithDebInfo instead of an unoptimized Debug Unicorn;
+# project Rust debugging, guest timers and checkpoint safety rules stay intact.
+[profile.dev.package.unicorn-engine-sys]
+opt-level = 2

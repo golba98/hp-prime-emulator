@@ -20,6 +20,26 @@ pub struct Modifiers {
     pub lower: Option<bool>,
     pub shift: bool,
 }
+/// The input pump can park before the main UI processes a delivered key.
+/// Character translation must observe a fresh main-loop wait after that press.
+#[derive(Default)]
+pub struct UiAcknowledgement {
+    last_press_wait: Option<u64>,
+}
+impl UiAcknowledgement {
+    pub fn baseline(&self) -> Option<u64> {
+        self.last_press_wait
+    }
+    pub fn pressed(&mut self, main_wait: u64) {
+        self.last_press_wait = Some(main_wait);
+    }
+    pub fn ready(&self, main_waiting: bool, main_wait: u64) -> bool {
+        main_waiting
+            && self
+                .last_press_wait
+                .is_none_or(|previous| main_wait > previous)
+    }
+}
 /// Recognise only the exact indicator glyphs in the firmware framebuffer.
 /// Unrelated colours/text, absent status bars and partial frames are rejected.
 pub fn observe(bytes: &[u8]) -> Option<Modifiers> {
@@ -68,6 +88,12 @@ pub struct Typing {
     attempts: u8,
 }
 impl Typing {
+    pub fn pending_len(&self) -> usize {
+        self.queue.len()
+    }
+    pub fn observes_modifiers(&self) -> bool {
+        matches!(self.queue.front(), Some(Item::Character(_)))
+    }
     pub fn is_empty(&self) -> bool {
         self.queue.is_empty()
     }
@@ -234,6 +260,37 @@ mod tests {
     use super::*;
     fn state(lower: Option<bool>, shift: bool) -> Option<Modifiers> {
         Some(Modifiers { lower, shift })
+    }
+    #[test]
+    fn input_pump_consumption_does_not_acknowledge_main_ui_rendering() {
+        let mut ack = UiAcknowledgement::default();
+        assert!(
+            !ack.ready(false, 7),
+            "an executing renderer is not an observation point"
+        );
+        assert!(ack.ready(true, 7));
+        ack.pressed(7);
+        assert!(
+            !ack.ready(true, 7),
+            "old main wait can remain flagged while the pump has already parked"
+        );
+        assert!(
+            !ack.ready(false, 8),
+            "a new wait followed by resumed rendering is not settled"
+        );
+        assert!(ack.ready(true, 8));
+        ack.pressed(8);
+        assert!(!ack.ready(true, 8));
+        assert!(ack.ready(true, 9));
+    }
+    #[test]
+    fn raw_key_releases_do_not_need_modifier_observation() {
+        let mut typing = Typing::default();
+        typing.key(ALPHA, false);
+        assert!(!typing.observes_modifiers());
+        assert_eq!(typing.next(None).unwrap(), vec![(ALPHA, false)]);
+        typing.text("a").unwrap();
+        assert!(typing.observes_modifiers());
     }
     #[test]
     fn letter_uses_observed_case_instead_of_home_assumption() {

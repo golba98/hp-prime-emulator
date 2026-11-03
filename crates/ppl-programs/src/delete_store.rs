@@ -212,6 +212,35 @@ impl Operation {
         ControlObject::parse(&self.control).map_err(disk)
     }
 }
+fn journal_file_identity(file: &std::fs::File) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        file.metadata()
+            .map(|m| format!("dev={} inode={}", m.dev(), m.ino()))
+            .unwrap_or_else(|_| "file identity unavailable".into())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = file;
+        "file identity unavailable".into()
+    }
+}
+
+/// The journal lease belongs to this owner, not to incidental descriptors
+/// inherited by an unrelated fork before close-on-exec runs.
+#[derive(Debug)]
+pub struct JournalLock {
+    file: std::fs::File,
+}
+impl Drop for JournalLock {
+    fn drop(&mut self) {
+        // flock ownership follows the open file description. Merely closing
+        // our descriptor can leave it locked in a concurrently spawned child.
+        let _ = fs2::FileExt::unlock(&self.file);
+    }
+}
+
 pub struct Store {
     pub root: PathBuf,
 }
@@ -220,7 +249,7 @@ impl Store {
         Self { root: root.into() }
     }
     /// Held across journal read/modify/write, independently of the HID lock.
-    pub fn lock(&self) -> Result<std::fs::File> {
+    pub fn lock(&self) -> Result<JournalLock> {
         durable_directory(&self.root).map_err(disk)?;
         let file = std::fs::OpenOptions::new()
             .read(true)
@@ -229,9 +258,17 @@ impl Store {
             .truncate(false)
             .open(self.root.join("operations.lock"))
             .map_err(disk)?;
-        fs2::FileExt::try_lock_exclusive(&file)
-            .map_err(|e| DeviceError::Busy(format!("operation journal is locked: {e}")))?;
-        Ok(file)
+        fs2::FileExt::try_lock_exclusive(&file).map_err(|e| {
+            // Retain nonblocking refusal semantics; identify the contending
+            // file precisely for intermittent-lock investigations.
+            let identity = journal_file_identity(&file);
+            DeviceError::Busy(format!(
+                "operation journal is locked: {e}; path={}; pid={}; {identity}",
+                self.root.join("operations.lock").display(),
+                std::process::id()
+            ))
+        })?;
+        Ok(JournalLock { file })
     }
     pub fn directory(&self, id: &str) -> Result<PathBuf> {
         ppl_device::validate_test_name(id)?;
@@ -440,6 +477,25 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn owner_release_does_not_wait_for_inherited_description() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::new(directory.path());
+        let owner = store.lock().unwrap();
+        // dup and fork both retain the same open file description.
+        let inherited = owner.file.try_clone().unwrap();
+        assert!(store.lock().is_err());
+        drop(owner);
+        let next_owner = store.lock().unwrap();
+        drop(inherited);
+        assert!(
+            store.lock().is_err(),
+            "closing an old descriptor must not unlock the next owner"
+        );
+        drop(next_owner);
+        assert!(store.lock().is_ok());
+    }
+
     #[test]
     fn ownership_requires_device_type_exact_name_content_and_active_receipt() {
         let root = std::env::temp_dir().join(ppl_device::fresh_test_name());

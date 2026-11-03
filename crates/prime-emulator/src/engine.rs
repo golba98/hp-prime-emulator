@@ -85,6 +85,7 @@ pub struct CpuThread {
     stopped: Arc<AtomicBool>,
     /// The `--lcd-watch` framebuffer hook is installed on this engine.
     lcd_hooked: bool,
+    _owner: crate::safepoint::OwnerLease,
 }
 
 impl CpuThread {
@@ -296,6 +297,7 @@ impl CpuThread {
             )?;
         }
 
+        let owner = shared.safe_points.register(thread_id);
         Ok(CpuThread {
             engine,
             _mem: mem,
@@ -310,6 +312,7 @@ impl CpuThread {
             sentinel_pc: None,
             stopped: Arc::new(AtomicBool::new(false)),
             lcd_hooked: false,
+            _owner: owner,
         })
     }
 
@@ -475,6 +478,8 @@ impl CpuThread {
     }
 
     pub fn run_slice(&mut self, slice: usize) -> Result<RunSliceOutcome, uc_error> {
+        self._shared.safe_points.boundary(self.thread_id);
+        self._shared.safe_points.executing(self.thread_id);
         let memory = self._mem.clone();
         let _active = memory.snapshot_gate.enter();
         self.ensure_lcd_hook()?;

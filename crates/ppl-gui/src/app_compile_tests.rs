@@ -1058,3 +1058,96 @@ fn a_direct_firmware_check_is_marked_like_any_firmware_check() {
             .is_none()
     );
 }
+
+fn linked_app() -> IdeDesktopApp {
+    let mut app =
+        app_with("LOCAL count:=100; EXPORT TOP() BEGIN count:=count+1; RETURN count+LEAF(); END;");
+    app.editor.new_tab(
+        "LEAF.ppl",
+        "LOCAL count:=10; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;",
+    );
+    app.editor
+        .new_tab("UNRELATED.ppl", "EXPORT BROKEN() BEGIN RETURN 1+; END;");
+    app.editor.active_tab_index = 0;
+    app
+}
+#[test]
+fn open_tab_native_catalog_checks_runs_retains_and_relinks_edits() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    settle(&mut app, &ctx);
+    assert_eq!(app.analysis_state(0), AnalysisState::Valid);
+    assert_eq!(app.analysis_state(1), AnalysisState::Valid);
+    assert!(matches!(
+        app.analysis_state(2),
+        AnalysisState::Invalid { .. }
+    ));
+    for expected in ["112", "114"] {
+        app.handle_action(IdeAction::RunProgram, &ctx);
+        finish_run(&mut app);
+        assert!(
+            matches!(app.controller.outcome(),Some(WorkerOutcome::Success {value_str,..}) if value_str==expected),
+            "{}",
+            console(&app)
+        );
+    }
+    app.editor.tabs[1].content =
+        "LOCAL count:=40; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;".into();
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    finish_run(&mut app);
+    assert!(
+        matches!(app.controller.outcome(),Some(WorkerOutcome::Success {value_str,..}) if value_str=="144"),
+        "{}",
+        console(&app)
+    );
+    app.editor.tabs[1].content = "EXPORT LEAF(x) BEGIN RETURN x; END;".into();
+    settle(&mut app, &ctx);
+    assert!(matches!(
+        app.analysis_state(0),
+        AnalysisState::Invalid { .. }
+    ));
+}
+#[test]
+fn dependency_edit_supersedes_inflight_native_compile_without_executing() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    app.editor.tabs[1].content = "EXPORT LEAF() BEGIN RETURN 99; END;".into();
+    finish_run(&mut app);
+    assert!(!app.controller.worker_alive());
+    assert!(app.state.status_message.contains("sources changed"));
+    assert!(app.state.native.last_outcome.as_ref().unwrap()["status"] == "blocked");
+}
+#[test]
+fn linked_runtime_failure_points_to_the_actual_dependency_source() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.editor.tabs[1].content = "EXPORT LEAF()\nBEGIN\n RETURN 1/0;\nEND;".into();
+    let dependency = app.editor.tabs[1].id;
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    finish_run(&mut app);
+    let problem = &app.runtime_problems[0].0;
+    assert_eq!(problem.tab, Some(dependency));
+    assert_eq!(problem.file, "LEAF.ppl");
+    assert_eq!(problem.line, 3);
+}
+#[test]
+fn linked_debug_is_explicitly_blocked_until_module_navigation_exists() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.begin_native_compile(true, true, true, &ctx);
+    finish_run(&mut app);
+    assert!(!app.controller.worker_alive());
+    assert!(
+        app.state
+            .status_message
+            .contains("per-module source debugging")
+    );
+}
+
+#[test]
+fn missing_catalog_root_is_an_analysis_failure_instead_of_a_lost_worker() {
+    let result = diagnostics::analyze_catalog("missing", &Default::default(), 1);
+    assert!(result.failure.is_some());
+    assert!(result.program.is_none());
+}

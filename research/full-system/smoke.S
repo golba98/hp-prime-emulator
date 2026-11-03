@@ -35,4 +35,5 @@ failed:
 report:
     ldr r0, =0x30001000
     str r1, [r0]
-1:  b 1b
+.global smoke_halt
+smoke_halt: b smoke_halt

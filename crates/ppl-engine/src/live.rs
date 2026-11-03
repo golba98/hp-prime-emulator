@@ -37,6 +37,8 @@ pub struct LiveSession {
     stderr: Option<std::thread::JoinHandle<String>>,
     sent: BTreeMap<u64, Option<RunIdentity>>,
     checkpoint: PendingCheckpoint,
+    inspection: Option<u64>,
+    started: BTreeMap<u64, (String, String)>,
     lifecycle: Lifecycle,
     executions: BTreeMap<u64, ExecutionObservation>,
     results: BTreeMap<u64, Response>,
@@ -120,6 +122,8 @@ impl LiveSession {
                     firmware: checkpoint_firmware,
                     ..Default::default()
                 },
+                inspection: None,
+                started: BTreeMap::new(),
                 lifecycle: Lifecycle::Booting,
                 executions: BTreeMap::new(),
                 results: BTreeMap::new(),
@@ -128,7 +132,24 @@ impl LiveSession {
             let deadline = Instant::now() + options.boot_timeout;
             let mut hello = false;
             loop {
-                match s.event(deadline, cancel)? {
+                let event = match s.event(deadline, cancel) {
+                    Ok(event) => event,
+                    Err(reason) => {
+                        let inspection = if cancel.cancelled() {
+                            None
+                        } else {
+                            s.inspect(u64::MAX, Duration::from_millis(250), cancel).ok()
+                        };
+                        return Err(match inspection {
+                            Some(report) => format!(
+                                "{reason}; boot inspection: {}",
+                                serde_json::to_string(&report).unwrap_or_default()
+                            ),
+                            None => format!("{reason}; live boot inspection unavailable"),
+                        });
+                    }
+                };
+                match event {
                     Event::Hello { version } if version == session::VERSION => hello = true,
                     Event::Hello { version } => {
                         return Err(format!(
@@ -185,6 +206,9 @@ impl LiveSession {
     }
     fn validate_event(&mut self, event: &Event) -> Result<(), String> {
         match event {
+            Event::Inspection { request, report } => {
+                verify_inspection(self.inspection, *request, report, &self.checkpoint.firmware)?;
+            }
             Event::Checkpoint { id, result } => self.checkpoint.accept(*id, result)?,
             Event::Lifecycle { state } => self.lifecycle = *state,
             Event::Execution {
@@ -299,6 +323,71 @@ impl LiveSession {
         self.checkpoint.id = None;
         outcome
     }
+    /// Nonmutating live diagnostics; CPU restoration is explicitly unavailable.
+    pub fn inspect(
+        &mut self,
+        id: u64,
+        timeout: Duration,
+        cancel: &Cancellation,
+    ) -> Result<crate::inspection::SessionInspection, String> {
+        if self.inspection.is_some()
+            || self.checkpoint.id.is_some()
+            || self.sent.contains_key(&id)
+            || self.results.contains_key(&id)
+            || timeout.is_zero()
+            || cancel.cancelled()
+        {
+            return Err(
+                "Inspection request is duplicate, cancelled or conflicts with a checkpoint".into(),
+            );
+        }
+        self.inspection = Some(id);
+        let result = (|| {
+            session::write_command(&mut self.stdin, &Command::Inspect { request: id })
+                .map_err(|e| e.to_string())?;
+            let deadline = Instant::now() + timeout;
+            loop {
+                match self.event(deadline, cancel)? {
+                    Event::Inspection { report, .. } => return Ok(*report),
+                    Event::Execution {
+                        request,
+                        observation,
+                        ..
+                    } => {
+                        self.executions.insert(request, *observation);
+                    }
+                    Event::ExecutionStarted {
+                        request,
+                        source_sha256,
+                        entry,
+                    } => {
+                        self.started.insert(request, (source_sha256, entry));
+                    }
+                    Event::Result {
+                        request,
+                        success,
+                        message,
+                        check,
+                    } => {
+                        let execution = self.executions.remove(&request);
+                        self.results.insert(
+                            request,
+                            Response {
+                                success,
+                                message,
+                                check,
+                                execution,
+                            },
+                        );
+                    }
+                    Event::Closed { message } | Event::Error { message } => return Err(message),
+                    _ => {}
+                }
+            }
+        })();
+        self.inspection = None;
+        result
+    }
     pub fn request(
         &mut self,
         id: u64,
@@ -316,6 +405,7 @@ impl LiveSession {
         cancel: &Cancellation,
     ) -> Result<Response, String> {
         if let Some(result) = self.results.remove(&id) {
+            self.started.remove(&id);
             return Ok(result);
         }
         let deadline = Instant::now() + timeout;
@@ -360,6 +450,13 @@ impl LiveSession {
         timeout: Duration,
         cancel: &Cancellation,
     ) -> Result<(), String> {
+        if let Some((hash, actual_entry)) = self.started.remove(&id) {
+            return if hash == source_hash && actual_entry == entry {
+                Ok(())
+            } else {
+                Err("Cached execution-start identity mismatch".into())
+            };
+        }
         let deadline = Instant::now() + timeout;
         loop {
             match self.event(deadline, cancel)? {
@@ -437,6 +534,25 @@ impl LiveSession {
 }
 /// Must match helper bootstrap: the receipt binds the ELF, optional ROM and
 /// profile resource payload, not a filename or ELF-only version label.
+fn verify_inspection(
+    expected: Option<u64>,
+    id: u64,
+    report: &crate::inspection::SessionInspection,
+    resource: &str,
+) -> Result<(), String> {
+    if expected != Some(id)
+        || report.version != crate::inspection::VERSION
+        || report.resource_identity.as_deref() != Some(resource)
+        || report.owners.len() > 128
+        || report.readiness.blockers.len() > 32
+        || report.readiness.live_restore_ready
+    {
+        return Err(
+            "Inspection identity, version, bounds or unsupported live-restore claim".into(),
+        );
+    }
+    Ok(())
+}
 #[cfg(any(target_os = "linux", test))]
 fn checkpoint_fingerprint(
     firmware: &Path,
@@ -459,6 +575,9 @@ fn checkpoint_fingerprint(
 }
 fn standard_request_id(command: &Command) -> Result<Option<u64>, String> {
     Ok(match command {
+        Command::Inspect { .. } => {
+            return Err("Use LiveSession::inspect for typed inspection results".into());
+        }
         Command::Checkpoint { .. } => {
             return Err("Use LiveSession::checkpoint for typed checkpoint results".into());
         }
@@ -573,6 +692,53 @@ pub fn copy_profile(from: &Path, to: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+#[cfg(test)]
+mod inspection_tests {
+    use super::*;
+    fn report() -> crate::inspection::SessionInspection {
+        crate::inspection::SessionInspection {
+            version: 1,
+            resource_identity: Some("resource".into()),
+            lifecycle: Lifecycle::Ready,
+            readiness: crate::inspection::SnapshotReadiness {
+                memory_gate_acquired: false,
+                owners_paused: false,
+                active_engines: 1,
+                parked_native_callbacks: 1,
+                live_restore_ready: false,
+                blockers: vec!["native_callback".into()],
+            },
+            owners: vec![],
+            resources: serde_json::json!({}),
+            diagnostics: serde_json::json!({}),
+        }
+    }
+    #[test]
+    fn inspections_bind_request_resources_and_explicit_nonresumability() {
+        let mut r = report();
+        assert!(verify_inspection(Some(7), 7, &r, "resource").is_ok());
+        assert!(verify_inspection(None, 7, &r, "resource").is_err());
+        assert!(verify_inspection(Some(8), 7, &r, "resource").is_err());
+        assert!(verify_inspection(Some(7), 7, &r, "wrong").is_err());
+        r.readiness.live_restore_ready = true;
+        assert!(verify_inspection(Some(7), 7, &r, "resource").is_err());
+        r.readiness.live_restore_ready = false;
+        let owner = serde_json::from_value(
+            serde_json::json!({"thread_id":0,"phase":"boundary","acknowledged_epoch":0}),
+        )
+        .unwrap();
+        r.owners = vec![owner; 129];
+        assert!(verify_inspection(Some(7), 7, &r, "resource").is_err());
+    }
+    #[test]
+    fn inspections_require_their_own_waiter_and_known_version() {
+        assert!(standard_request_id(&Command::Inspect { request: 7 }).is_err());
+        let mut r = report();
+        r.version = 99;
+        assert!(verify_inspection(Some(7), 7, &r, "resource").is_err());
+    }
+}
+
 #[cfg(test)]
 mod identity_tests {
     use super::*;

@@ -5,12 +5,16 @@ use std::io::{self, Read, Write};
 /// 4: atomic desktop `Text` packets, translated using observed firmware state.
 /// 5: explicit managed-program capabilities, independent of calculator availability.
 /// 6: exact named programs, structured runtime evidence, scoped input and persistence checkpoints.
-pub const VERSION: u32 = 6;
+/// 7: correlated live inspection and explicit snapshot-readiness blockers.
+pub const VERSION: u32 = 7;
 pub const MAX_PACKET: usize = 4 * 1024 * 1024;
 pub const FRAME_PIXELS: usize = 320 * 240;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum Command {
+    Inspect {
+        request: u64,
+    },
     /// Bounded, prevalidated desktop text; never interprets newlines as Enter.
     Text {
         text: String,
@@ -127,6 +131,10 @@ pub enum Lifecycle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum Event {
+    Inspection {
+        request: u64,
+        report: Box<crate::inspection::SessionInspection>,
+    },
     Checkpoint {
         id: u64,
         result: crate::checkpoint::CheckpointResult,

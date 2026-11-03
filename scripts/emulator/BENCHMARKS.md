@@ -11,6 +11,26 @@ python3 scripts/emulator/benchmark_run.py \
 
 The output directory must not exist. `--initial-data PATH` selects an alternative initialized profile to copy. Keep the assets, initial profile, script and workloads identical when comparing helpers. Copy each built helper to a distinct path before rebuilding another revision. Run on a quiet machine; concurrent tests and builds affect timings.
 
+For repeated trials, alternate before/after runs, then validate and summarize:
+
+```sh
+python3 scripts/emulator/benchmark_compare.py \
+  --before evidence/before-*/results.json \
+  --after evidence/after-*/results.json \
+  --output evidence/summary.json
+python3 -m unittest discover -s scripts/emulator -p test_benchmark_compare.py
+```
+
+The comparison requires equal nonempty groups, all13 workloads including fresh
+restart, matching script/firmware/host/initial-profile and source identities,
+unchanged helper identity within each group, valid durations and successful
+expected verdicts. Empty, truncated, changed-source or failed trials cannot
+become a passing performance summary. It preserves every sample and reports
+medians and percentage changes. Initial-profile identity covers names,
+directories and file bytes, excluding timestamps; symlinks and special files
+are rejected. Older reports without these identity fields remain historical
+records and cannot be silently mixed into a new comparison.
+
 The workloads cover tiny, mathematical, medium and 10,160-byte successful programs, unchanged reruns, edited-source Check then Run, alternating sources, a syntax error, recovery after the error, and two runs after a normal OFF/restart. `large_cold` means the first large-source submission in an already booted session; `tiny_cold` includes initial loader preparation. Boot is measured separately. All expected values and rejection verdicts are checked, and an unexpected result causes a nonzero exit status.
 
 `results.json` contains request-to-Result wall times, Linux helper-process user/system CPU time when available, source and executable hashes, verdicts, and observed pipeline timings. Each session directory retains source fixtures, stage reports and stderr. This measures the helper pipeline, excluding IDE dispatch/rendering latency. It does not measure emulated instruction counts or establish physical hardware parity.

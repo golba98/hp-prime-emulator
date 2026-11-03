@@ -154,6 +154,12 @@ impl SessionContext {
             programs: self.programs.clone(),
         }
     }
+    /// An explicit source replacement invalidates initialization even if a
+    /// later edit restores identical text. Ordinary unchanged Run does not.
+    pub fn invalidate_module(&mut self, name: &str) {
+        self.modules.remove(name);
+    }
+
     pub fn record_failure(&mut self) {
         self.generation += 1;
         self.last_value = None;
@@ -235,6 +241,92 @@ impl SessionContext {
         }
     }
 
+    /// Execute one independently linked catalog using the same VM stack and calculator state.
+    /// Module initializer flags/private values are retained by exact source revision.
+    pub fn run_linked(
+        &mut self,
+        image: crate::LinkedProgram,
+        host: Box<dyn Host>,
+        limits: Limits,
+        promote_ans: bool,
+        invoke: impl FnOnce(&mut Machine) -> RtResult<Value>,
+    ) -> SessionRun {
+        let mut machine = Machine::new(image.program.clone(), host, self.settings.clone(), limits);
+        machine.grobs = self.grobs.clone();
+        machine.notes = self.notes.clone();
+        machine.programs = self.programs.clone();
+        machine.terminal = self.terminal.clone();
+        machine.display = self.display;
+        machine.rng = self.rng.clone();
+        let states: Vec<_> = image
+            .modules
+            .iter()
+            .map(|id| {
+                self.modules
+                    .get(&id.name)
+                    .filter(|m| m.revision == id.revision)
+                    .is_some_and(|m| m.initialized)
+            })
+            .collect();
+        for (i, slot) in image.program.globals.iter().enumerate() {
+            let stored = match image.global_owners[i] {
+                Some(module) => {
+                    let id = &image.modules[module];
+                    self.modules
+                        .get(&id.name)
+                        .filter(|m| m.revision == id.revision)
+                        .and_then(|m| m.values.get(&slot.name))
+                }
+                None => self.globals.get(&slot.name),
+            };
+            if let Some(value) = stored {
+                machine.globals[i] = value.to_value();
+            }
+        }
+        machine.linked = Some((image.clone(), states));
+        let start = Instant::now();
+        let result = invoke(&mut machine);
+        let elapsed = start.elapsed();
+        let steps = machine.steps();
+        let mut values = vec![BTreeMap::new(); image.modules.len()];
+        for (i, slot) in image.program.globals.iter().enumerate() {
+            let value = PortableValue::from(&machine.globals[i]);
+            if let Some(module) = image.global_owners[i] {
+                values[module].insert(slot.name.clone(), value);
+            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_)) {
+                self.globals.insert(slot.name.clone(), value);
+            }
+        }
+        let (_, states) = machine.linked.take().unwrap();
+        for ((id, initialized), values) in image.modules.into_iter().zip(states).zip(values) {
+            self.modules.insert(
+                id.name,
+                ModuleState {
+                    revision: id.revision,
+                    initialized,
+                    values,
+                },
+            );
+        }
+        self.settings = machine.settings.clone();
+        self.grobs = machine.grobs;
+        self.notes = machine.notes;
+        self.programs = machine.programs;
+        self.terminal = machine.terminal;
+        self.display = machine.display;
+        self.rng = machine.rng;
+        self.generation += 1;
+        self.last_value = result.as_ref().ok().map(PortableValue::from);
+        if promote_ans && let Some(value) = &self.last_value {
+            self.globals.insert("Ans".into(), value.clone());
+        }
+        SessionRun {
+            result,
+            steps,
+            elapsed,
+        }
+    }
+
     pub fn evaluate_home(&mut self, text: &str, host: Box<dyn Host>, limits: Limits) -> SessionRun {
         let compiled = self.compile_home(text);
         match compiled {
@@ -304,6 +396,7 @@ impl SessionContext {
             &ast,
             &ppl_compiler::CompileOptions {
                 default_int_base: self.settings.int_base,
+                ..Default::default()
             },
         );
         program.ok_or_else(|| {

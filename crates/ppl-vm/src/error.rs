@@ -88,6 +88,8 @@ impl ErrorKind {
 /// One entry of a runtime stack trace.
 #[derive(Clone, Debug)]
 pub struct TraceFrame {
+    /// Original source/revision for a linked module frame.
+    pub module: Option<crate::SourceIdentity>,
     pub function: String,
     pub span: Span,
 }

@@ -80,6 +80,7 @@ pub trait Debugger {
 
 pub struct Machine {
     prog: Rc<CompiledProgram>,
+    pub(crate) linked: Option<(crate::LinkedProgram, Vec<bool>)>,
     consts: Vec<Value>,
     pub(crate) globals: Vec<Value>,
     setting_slots: Vec<Option<Setting>>,
@@ -155,6 +156,7 @@ impl Machine {
         let interrupt = host.interrupt_flag();
         Machine {
             prog,
+            linked: None,
             consts,
             globals,
             setting_slots,
@@ -179,6 +181,33 @@ impl Machine {
             interrupt,
             init_done: false,
         }
+    }
+
+    pub fn new_linked(
+        image: crate::LinkedProgram,
+        host: Box<dyn Host>,
+        settings: Settings,
+        limits: Limits,
+    ) -> Self {
+        let states = vec![false; image.modules.len()];
+        let mut machine = Self::new(image.program.clone(), host, settings, limits);
+        machine.linked = Some((image, states));
+        machine
+    }
+    /// Install reachable dependencies in deterministic catalog order before
+    /// the root's file initializers. Already initialized units are not repeated.
+    pub fn initialize_dependencies(&mut self) -> RtResult<()> {
+        let Some((image, _)) = &self.linked else {
+            return Ok(());
+        };
+        let root = image.root;
+        let count = image.modules.len();
+        for module in 0..count {
+            if module != root {
+                self.initialize_module(module)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn program(&self) -> &CompiledProgram {
@@ -246,6 +275,23 @@ impl Machine {
 
     /// Program-level variables and calculator variables used by the program.
     pub fn globals(&self) -> Vec<(String, Value)> {
+        if let Some((image, _)) = &self.linked {
+            let owner = self
+                .frames
+                .last()
+                .and_then(|f| image.function_owners.get(f.func))
+                .copied()
+                .unwrap_or(image.root);
+            let mut visible = std::collections::BTreeMap::new();
+            for private in [false, true] {
+                for (i, slot) in self.prog.globals.iter().enumerate() {
+                    if image.global_owners[i] == if private { Some(owner) } else { None } {
+                        visible.insert(slot.name.clone(), self.load_global(i));
+                    }
+                }
+            }
+            return visible.into_iter().collect();
+        }
         self.prog
             .globals
             .iter()
@@ -282,6 +328,9 @@ impl Machine {
 
     /// Runs file-level variable initialisers once.
     pub fn run_init(&mut self) -> RtResult<()> {
+        if let Some((image, _)) = &self.linked {
+            return self.initialize_module(image.root);
+        }
         if self.init_done {
             return Ok(());
         }
@@ -293,6 +342,29 @@ impl Machine {
         result
     }
 
+    fn initialize_module(&mut self, module: usize) -> RtResult<()> {
+        let (func, initialized) = {
+            let (image, states) = self.linked.as_ref().expect("linked call");
+            (image.initializers[module], states[module])
+        };
+        if initialized {
+            return Ok(());
+        }
+        self.linked.as_mut().unwrap().1[module] = true;
+        let result = self.execute(func, vec![]).map(|_| ());
+        if result.is_err() {
+            self.linked.as_mut().unwrap().1[module] = false;
+        }
+        result
+    }
+    pub fn current_source(&self) -> Option<&crate::SourceIdentity> {
+        let frame = self.frames.last()?;
+        let (image, _) = self.linked.as_ref()?;
+        image
+            .function_owners
+            .get(frame.func)
+            .map(|&m| &image.modules[m])
+    }
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {
         let idx = self.prog.function_index(name).ok_or_else(|| {
             RuntimeError::new(ErrorKind::Undefined, format!("no function named {name}"))
@@ -380,6 +452,12 @@ impl Machine {
                             .map(|f| TraceFrame {
                                 function: self.fn_name(f.func).to_string(),
                                 span: self.frame_span(f),
+                                module: self.linked.as_ref().and_then(|(image, _)| {
+                                    image
+                                        .function_owners
+                                        .get(f.func)
+                                        .map(|&m| image.modules[m].clone())
+                                }),
                             })
                             .collect();
                     }
@@ -625,6 +703,32 @@ impl Machine {
                 let args = self.pop_n(argc as usize);
                 self.push_frame(func as usize, args)?;
             }
+            Op::CallExternal { name, .. } => {
+                return Err(RuntimeError::new(
+                    ErrorKind::Undefined,
+                    format!(
+                        "external {} requires a linked module catalog",
+                        prog.names[name as usize]
+                    ),
+                ));
+            }
+            Op::CallLinked { func, argc } => {
+                let args = self.pop_n(argc as usize);
+                if self.chunk(func as usize).params as usize != args.len() {
+                    return Err(RuntimeError::new(
+                        ErrorKind::InvalidInput,
+                        "external argument count changed",
+                    ));
+                }
+                let module = self
+                    .linked
+                    .as_ref()
+                    .expect("linked image")
+                    .0
+                    .function_owners[func as usize];
+                self.initialize_module(module)?;
+                self.push_frame(func as usize, args)?;
+            }
             Op::Builtin { id, argc } => {
                 let args = self.pop_n(argc as usize);
                 let v = builtins::call(self, id, args)?;
@@ -728,6 +832,19 @@ impl Machine {
                     Value::Str(s) => s.to_string(),
                     other => other.display(self.settings.format()),
                 };
+                if op == Op::StoreProgram
+                    && self.linked.as_ref().is_some_and(|(image, _)| {
+                        image
+                            .modules
+                            .iter()
+                            .any(|m| m.name.eq_ignore_ascii_case(&name))
+                    })
+                {
+                    return Err(RuntimeError::new(
+                        ErrorKind::Unsupported,
+                        "replacing an executable catalog module during a call is unsupported; edit between invocations",
+                    ));
+                }
                 let store = if op == Op::StoreNote {
                     &mut self.notes
                 } else {

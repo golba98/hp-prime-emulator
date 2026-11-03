@@ -91,4 +91,72 @@ allocator/handles/timers and coordinated owner-thread safe points.
 Stateful capture bundles reuse the scenario source manifest and exact semantic
 comparator. Physical qualification remains evidence-derived. Full-system
 execution stays a separate unavailable backend until an independent boot is
-demonstrated. The self-authored ARM926 smoke now compiles/links, but has not run.
+demonstrated. M17 executes the self-authored ARM926 smoke on qemuPrime's
+hp-prime model through isolated QEMU/GDB tooling. This establishes actual ARM
+and RAM-alias execution; it does not boot the proprietary kernel or provide a
+FullSystem PPL backend.
+
+## M17 integrated boundaries
+
+Native external calls link independently compiled modules into one worker-local
+execution image. Retained state contains source-bound values, not transferable
+Rc bytecode. Per-module identity accompanies call frames; calculator globals
+alias one live slot while private globals remain revision-owned. Installation
+initialization is separately verified against firmware.
+
+Boot responsiveness and persistent-save quiescence are distinct policies.
+Readiness now requires a validated LCD and genuine event-pump round trips,
+followed by a fresh main wait. The strict checkpoint/interrupt idle threshold
+is unchanged. Wall-clock deadlines also wake a main engine blocked in a native
+SVC, preventing bounded headless runs from waiting indefinitely.
+
+Differential raw reports retain source/request-bound diagnostics after isolated
+profile cleanup. Their register snapshots remain owner-thread observations,
+not resumable Unicorn contexts. Snapshot admission and component reconstruction
+now include independently reconstructed heap/allocator and read-only VFS
+components. Their bounded, checksummed formats bind resource identity and require
+fresh exclusive targets. Actual child-process tests verify allocator hole reuse,
+handle/cursor identity and descriptor stability. They exclude CPU state,
+blocked SVCs, writable handles and active directory searches. Arbitrary live
+restoration stays unsupported; see M17_SNAPSHOT_COMPONENTS.md.
+
+Session protocol7 exposes non-mutating request/resource-bound inspection. Real
+engine owners acknowledge expiring pause epochs only outside Unicorn/native
+callbacks. Names materialize when inspected, keeping the SVC accounting path
+allocation-free. Expiry is reported explicitly. An acquired RAM gate does not
+prove that native callback continuations can resume in a fresh process.
+
+The Native IDE uses immutable revision-bound catalogs of open tabs for Check,
+Run and diagnostics. Dependency changes invalidate compiled callers; runtime
+frames map back to the callee's source. Multi-module debugger navigation remains
+unsupported and is refused explicitly, preserving the single-module debugger.
+
+Typed HLE evidence now includes controlled matrix/vector, complex and integer
+representations. Bounds and exact structure remain part of comparison; semantic
+type distinctions are not normalized away. Representation capture and transport
+budgets are separate admission concerns. Unknown objects stay undecoded even
+when their bounded allocation bytes are retained for diagnostics.
+
+## M17 input, OFF and development build boundaries
+
+Entering a native wait is distinct from the exact owner being blocked on an
+unsignaled event. Desktop translation now requires that actual main-UI state
+and a fresh generation after the preceding keydown, rechecked under the memory
+gate. Raw releases and cancellation bypass character admission. These checks
+prevent sampling a partial redraw without adding a machine-dependent delay.
+
+Internal OFF sequencing observes firmware Shift state. It sends ON directly
+when Shift is active, otherwise acknowledges one Shift before ON, preserving
+Alpha lock. Unrecognized checkpoint contexts defer before input; normal shutdown
+retains its native shortcut fallback. Strict idle admission remains 80% over
+the existing sample window and retains its 30-second deadline. Failure reports
+distinguish admission, input, sleep and durable-save stages; PRIME_TEST_EVIDENCE
+can preserve isolated failed test profiles and bounded inspection/screenshots.
+
+Cargo dev/test builds optimize only unicorn-engine-sys at level 2. This selects
+the native backend's RelWithDebInfo configuration while retaining project Rust
+debug settings. Matched-source recovery tests improved from median 91.22 to
+80.51 seconds. Guest clocks, instruction limits and checkpoint policy did not
+change. Busy firmware can still fail strict admission safely; optimization is
+not proof of universal quiescence. Native-engine assertion/debug work can use
+`cargo --config 'profile.dev.package.unicorn-engine-sys.opt-level=0' ...`.

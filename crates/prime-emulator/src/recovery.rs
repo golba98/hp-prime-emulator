@@ -210,6 +210,10 @@ fn tree_bytes(root: &Path, entries: &mut usize) -> io::Result<u64> {
     Ok(bytes)
 }
 impl Recovery {
+    pub fn resource_identity(&self) -> &str {
+        &self.firmware
+    }
+
     /// Called before bootstrap mutations and while holding the helper lock.
     pub fn begin(root: &Path, firmware: String) -> io::Result<(Self, bool)> {
         fs::create_dir_all(root)?;

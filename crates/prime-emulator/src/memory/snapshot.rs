@@ -16,6 +16,7 @@ pub const STARVED_AFTER: Duration = Duration::from_millis(100);
 #[derive(Default)]
 struct State {
     active: HashSet<ThreadId>,
+    parked: HashSet<ThreadId>,
     capturing: bool,
     requested: Option<Instant>,
     /// First busy capture attempt since the last successful capture.
@@ -59,18 +60,21 @@ impl Gate {
         }
         state
     }
+    pub fn counts(&self) -> (usize, usize) {
+        let state = self.state.lock().unwrap();
+        (state.active.len(), state.parked.len())
+    }
     pub fn enter(&self) -> Active<'_> {
         let mut state = self.wait_entry(self.state.lock().unwrap());
         let owned = state.active.insert(thread::current().id());
         Active { gate: self, owned }
     }
     pub fn park(&self) -> Parked<'_> {
-        let owned = self
-            .state
-            .lock()
-            .unwrap()
-            .active
-            .remove(&thread::current().id());
+        let mut state = self.state.lock().unwrap();
+        let owned = state.active.remove(&thread::current().id());
+        if owned {
+            state.parked.insert(thread::current().id());
+        }
         Parked { gate: self, owned }
     }
     pub fn try_snapshot(&self) -> Option<Snapshot<'_>> {
@@ -119,6 +123,7 @@ impl Drop for Parked<'_> {
     fn drop(&mut self) {
         if self.owned {
             let mut state = self.gate.wait_entry(self.gate.state.lock().unwrap());
+            state.parked.remove(&thread::current().id());
             state.active.insert(thread::current().id());
         }
     }

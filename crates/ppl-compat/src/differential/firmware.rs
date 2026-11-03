@@ -186,23 +186,100 @@ pub fn run_firmware(s: &LoadedScenario, options: &Options, cancel: &Cancellation
     report
 }
 
-fn execution_data(o: &ppl_engine::session::ExecutionObservation) -> serde_json::Value {
-    let status = match o.status.as_str() {
-        "completed" if o.body_entered && o.completed => {
-            if o.return_value.is_some() {
-                "success"
-            } else {
-                "unobserved"
-            }
+/// Preserve forensics before the scenario's disposable profile is removed.
+/// Debug data never participates in semantic comparisons.
+fn execution_evidence(
+    profile: &std::path::Path,
+    request: u64,
+    o: &ppl_engine::session::ExecutionObservation,
+) -> serde_json::Value {
+    let mut raw = serde_json::to_value(o).unwrap();
+    let hash = o.runtime["invocations"][0]["source_sha256"]
+        .as_str()
+        .unwrap_or("");
+    raw["debug_capture"] = match job_debug(profile, request, hash) {
+        Ok(debug) => {
+            json!({"status":"captured","request":request,"source_sha256":hash,"data":debug})
         }
-        "runtime_error" => "runtime_error",
-        "cancelled" => "cancelled",
-        "timed_out" => "timed_out",
-        "invalid_arguments" => "invalid_arguments",
-        _ => "infrastructure_error",
+        Err(reason) => json!({"status":"unavailable","request":request,"reason":reason}),
+    };
+    raw
+}
+fn job_debug(
+    profile: &std::path::Path,
+    request: u64,
+    source_hash: &str,
+) -> Result<serde_json::Value, String> {
+    use std::io::Read;
+    const LIMIT: u64 = 4 * 1024 * 1024;
+    let parent = profile.join("ide-reports");
+    let metadata = std::fs::symlink_metadata(&parent).map_err(|e| e.to_string())?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err("Invalid job-report directory".into());
+    }
+    let path = parent.join(format!("request-{request}.json"));
+    let metadata = std::fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > LIMIT {
+        return Err("Job report must be a bounded regular file".into());
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .map_err(|e| e.to_string())?
+        .take(LIMIT + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > LIMIT {
+        return Err("Job report grew beyond its bound".into());
+    }
+    let report: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    if report["request"] != request
+        || source_hash.is_empty()
+        || report["source_sha256"] != source_hash
+    {
+        return Err("Job diagnostics request/source identity differs".into());
+    }
+    let debug = report.get("debug").ok_or("Job has no debug bundle")?;
+    if !debug.is_object() || debug["schema_version"] != 1 || !debug["threads"].is_array() {
+        return Err("Job debug bundle schema is unavailable or invalid".into());
+    }
+    Ok(debug.clone())
+}
+
+fn execution_data(o: &ppl_engine::session::ExecutionObservation) -> serde_json::Value {
+    let gaps = o.runtime.get("wire_observation_gaps");
+    let semantic_gap = gaps.is_some_and(|value| {
+        value.as_array().is_none_or(|items| {
+            items.iter().any(|gap| {
+                !matches!(
+                    gap["scope"].as_str(),
+                    Some("raw_value_representations" | "runtime_call_history")
+                )
+            })
+        })
+    });
+    let status = if semantic_gap {
+        "unobserved"
+    } else {
+        match o.status.as_str() {
+            "completed" if o.body_entered && o.completed => {
+                if o.return_value.is_some() {
+                    "success"
+                } else {
+                    "unobserved"
+                }
+            }
+            "runtime_error" => "runtime_error",
+            "cancelled" => "cancelled",
+            "timed_out" => "timed_out",
+            "invalid_arguments" => "invalid_arguments",
+            _ => "infrastructure_error",
+        }
     };
     let mut value = json!({"status":status,"return_value":o.return_value,"output":o.output.iter().filter(|e|e.kind=="print").filter_map(|e|e.text.clone()).collect::<Vec<_>>()});
-    if let Some(d) = o.diagnostics.first() {
+    if semantic_gap {
+        value["observation_gap"] = gaps.cloned().unwrap();
+    }
+    if let Some(d) = o.diagnostics.iter().find(|d| d.severity == "error") {
         value["error"] =
             json!({"kind":"RuntimeError","message":d.message,"line":d.line,"column":d.column});
     }
@@ -416,7 +493,7 @@ fn run_live(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> Bac
                     id+=1;let released=l.request(id,&Command::ReleaseInput{request:id},options.compile_timeout,cancel)?;
                     if !released.success{return Err(released.message);}
                     last_image=o.image.as_ref().map(|i|Image{width:i.width,height:i.height,pixels:i.pixels.clone()});
-                    let data=execution_data(&o);report.raw_reports.push(serde_json::to_value(o).unwrap());data
+                    let data=execution_data(&o);report.raw_reports.push(execution_evidence(&profile,request,&o));data
                 }
                 Step::Key{code,down,..}=>{
                     let run_request=active.values().next().ok_or("Scripted keys require an active Start before Await")?.0;
@@ -451,7 +528,7 @@ fn run_live(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> Bac
                     let o=r.execution.ok_or_else(||format!("No structured execution result: {}",r.message))?;
                     if o.entry!=*entry || o.runtime["invocations"][0]["source_sha256"]!=imported[name]{return Err("Execution source/entry differs from requested program".into());}
                     last_image=o.image.as_ref().map(|i|Image{width:i.width,height:i.height,pixels:i.pixels.clone()});
-                    let data=execution_data(&o);report.raw_reports.push(serde_json::to_value(o).unwrap());data
+                    let data=execution_data(&o);report.raw_reports.push(execution_evidence(&profile,id,&o));data
                 }
                 Step::Probe{program,entry,names,..}=>{
                     let hash=imported.get(program).ok_or("Probe requires an imported program")?.clone();
@@ -459,7 +536,7 @@ fn run_live(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> Bac
                     let o=r.execution.ok_or_else(||format!("Probe has no structured runtime result: {}",r.message))?;
                     if o.entry!=*entry || o.runtime["invocations"][0]["source_sha256"]!=hash{return Err("Probe source/entry identity differs".into());}
                     let data=if o.status=="completed"&&o.body_entered&&o.completed{super::native::probe_data(o.return_value.as_ref().unwrap_or(&serde_json::Value::Null),names)}else{execution_data(&o)};
-                    report.raw_reports.push(serde_json::to_value(o).unwrap());data
+                    report.raw_reports.push(execution_evidence(&profile,id,&o));data
                 }
                 Step::Capture{..}=>last_image.as_ref().map(|i|json!({"status":"success","image":i})).unwrap_or_else(||json!({"status":"unobserved","reason":"no preceding program-output frame"})),
                 Step::PowerOff{..}=>{live.as_mut().ok_or("Calculator is already off")?.power_down(Duration::from_secs(60),cancel)?;live.take();json!({"status":"success"})},
@@ -485,4 +562,115 @@ fn run_live(s: &LoadedScenario, options: &Options, cancel: &Cancellation) -> Bac
         report.reason = Some(reason);
     }
     report
+}
+
+#[cfg(test)]
+mod forensic_tests {
+    use super::*;
+    fn projected(scope: &str) -> ppl_engine::session::ExecutionObservation {
+        serde_json::from_value(json!({
+            "status":"completed", "binding":"stored", "entry":"TEST",
+            "body_entered":true, "completed":true,
+            "return_value":{"type":"real","value":"42"},
+            "return_representation":{"kind":"decoded"}, "output":[],
+            "diagnostics":[{"source":"emulator-transport","severity":"warning",
+                "code":"firmware_observation_gap", "message":"evidence omitted"}],
+            "runtime":{"wire_observation_gaps":[{"scope":scope,"omitted":1}]},
+            "image":null
+        }))
+        .unwrap()
+    }
+    #[test]
+    fn forensic_projection_does_not_invent_a_runtime_error() {
+        for scope in ["raw_value_representations", "runtime_call_history"] {
+            let data = execution_data(&projected(scope));
+            assert_eq!(data["status"], "success");
+            assert!(data.get("error").is_none(), "{data}");
+        }
+    }
+    #[test]
+    fn omitted_semantic_collections_cannot_become_successful_empty_observations() {
+        for scope in [
+            "image",
+            "complete_output_collection",
+            "complete_diagnostic_collection",
+            "complete_return_value",
+            "future_unknown_scope",
+        ] {
+            let data = execution_data(&projected(scope));
+            assert_eq!(data["status"], "unobserved", "{scope}: {data}");
+            assert!(data["observation_gap"].is_array());
+        }
+    }
+    #[test]
+    fn a_transport_warning_cannot_hide_the_actual_runtime_error() {
+        let mut observation = projected("raw_value_representations");
+        observation.status = "runtime_error".into();
+        observation.diagnostics.push(
+            serde_json::from_value(json!({
+                "source":"firmware-runtime", "severity":"error", "message":"actual error", "line":3
+            }))
+            .unwrap(),
+        );
+        let data = execution_data(&observation);
+        assert_eq!(data["status"], "runtime_error");
+        assert_eq!(data["error"]["message"], "actual error");
+        assert_eq!(data["error"]["line"], 3);
+    }
+    #[test]
+    fn reports_require_exact_request_and_source_and_survive_profile_removal() {
+        let temporary = tempfile::tempdir().unwrap();
+        let directory = temporary.path().join("ide-reports");
+        std::fs::create_dir(&directory).unwrap();
+        let path = directory.join("request-7.json");
+        let write = |id, hash| {
+            std::fs::write(&path,serde_json::to_vec(&json!({"request":id,"source_sha256":hash,"debug":{"schema_version":1,"threads":[{"thread_id":2}],"coherent_machine_snapshot":false}})).unwrap()).unwrap()
+        };
+        write(7, "source");
+        let copied = job_debug(temporary.path(), 7, "source").unwrap();
+        write(8, "source");
+        assert!(job_debug(temporary.path(), 7, "source").is_err());
+        write(7, "changed");
+        assert!(job_debug(temporary.path(), 7, "source").is_err());
+        temporary.close().unwrap();
+        assert_eq!(copied["threads"][0]["thread_id"], 2);
+    }
+    #[test]
+    fn null_debug_data_cannot_claim_a_captured_bundle() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join("ide-reports")).unwrap();
+        std::fs::write(
+            directory.path().join("ide-reports/request-1.json"),
+            br#"{"request":1,"source_sha256":"source","debug":null}"#,
+        )
+        .unwrap();
+        assert!(
+            job_debug(directory.path(), 1, "source")
+                .unwrap_err()
+                .contains("schema")
+        );
+    }
+
+    #[test]
+    fn oversized_or_missing_reports_are_not_read_as_forensics() {
+        let temporary = tempfile::tempdir().unwrap();
+        assert!(job_debug(temporary.path(), 1, "source").is_err());
+        std::fs::create_dir(temporary.path().join("ide-reports")).unwrap();
+        let file =
+            std::fs::File::create(temporary.path().join("ide-reports/request-1.json")).unwrap();
+        file.set_len(4 * 1024 * 1024 + 1).unwrap();
+        assert!(
+            job_debug(temporary.path(), 1, "source")
+                .unwrap_err()
+                .contains("bounded")
+        );
+    }
+    #[cfg(unix)]
+    #[test]
+    fn symlink_report_directory_is_refused() {
+        let temporary = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(other.path(), temporary.path().join("ide-reports")).unwrap();
+        assert!(job_debug(temporary.path(), 1, "source").is_err());
+    }
 }

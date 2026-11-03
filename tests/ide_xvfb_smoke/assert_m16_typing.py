@@ -14,6 +14,13 @@ r = Report()
 dump = json.loads((root / 'dump.json').read_text())
 r.check('all GUI waits completed', not dump['wait_timeouts'])
 r.check('firmware remained alive', dump['firmware_alive'])
+# A stable LCD can also be a partially typed expression after the translator
+# rejected an unsettled status indicator. Pixel equality cannot establish that
+# the complete text packet was accepted.
+typing_status = dump.get('firmware_status')
+r.check('desktop translation did not stop',
+        isinstance(typing_status, str) and
+        not typing_status.startswith('Desktop typing stopped:'))
 for name, crop in [('home', (0, 14, 200, 218)),
                    ('cas', (0, 14, 200, 218)),
                    ('editor', (8, 23, 19, 37))]:

@@ -7,6 +7,7 @@
 //! guest accesses go through the validated accessors here; handlers never
 //! touch raw pointers themselves.
 
+pub mod component;
 pub mod snapshot;
 
 use std::collections::HashMap;

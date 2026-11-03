@@ -4,9 +4,9 @@ use ppl_engine::checkpoint::CheckpointResult;
 use ppl_engine::session::{self, Command, Event, Lifecycle, Packet};
 use std::{
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command as Process, Stdio},
-    sync::mpsc,
+    sync::{Arc, Mutex, mpsc},
     time::Duration,
 };
 
@@ -14,6 +14,8 @@ struct Session {
     child: Child,
     input: ChildStdin,
     events: mpsc::Receiver<Event>,
+    profile: PathBuf,
+    last_frame: Arc<Mutex<Option<prime_emulator::display::Frame>>>,
 }
 impl Session {
     fn start(profile: &Path) -> Self {
@@ -32,10 +34,21 @@ impl Session {
         let input = child.stdin.take().unwrap();
         let mut output = child.stdout.take().unwrap();
         let (tx, events) = mpsc::channel();
+        let last_frame = Arc::new(Mutex::new(None));
+        let frame_out = last_frame.clone();
         std::thread::spawn(move || {
             while let Ok(packet) = session::read_packet(&mut output) {
-                if let Packet::Event(e) = packet {
-                    let _ = tx.send(e);
+                match packet {
+                    Packet::Event(e) => {
+                        let _ = tx.send(e);
+                    }
+                    Packet::Frame { pixels, .. } => {
+                        *frame_out.lock().unwrap() = Some(prime_emulator::display::Frame {
+                            width: 320,
+                            height: 240,
+                            pixels,
+                        });
+                    }
                 }
             }
         });
@@ -43,6 +56,8 @@ impl Session {
             child,
             input,
             events,
+            profile: profile.to_owned(),
+            last_frame,
         }
     }
     fn send(&mut self, command: Command) {
@@ -112,7 +127,51 @@ impl Session {
                 result: CheckpointResult::Saved { receipt },
                 ..
             } => receipt,
-            other => panic!("checkpoint did not save: {other:?}"),
+            other => {
+                self.capture_checkpoint_failure(id, &other);
+                panic!("checkpoint did not save: {other:?}");
+            }
+        }
+    }
+    fn capture_checkpoint_failure(&mut self, id: u64, event: &Event) {
+        if std::env::var_os("PRIME_TEST_EVIDENCE").is_none() {
+            return;
+        }
+        let _ = std::fs::write(
+            self.profile.join(format!("failed-checkpoint-{id}.json")),
+            serde_json::to_vec_pretty(event).unwrap(),
+        );
+        let request = u64::MAX - id;
+        if session::write_command(&mut self.input, &Command::Inspect { request })
+            .and_then(|_| self.input.flush())
+            .is_ok()
+        {
+            let deadline = std::time::Instant::now() + Duration::from_secs(2);
+            while let Ok(event) = self
+                .events
+                .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+            {
+                if let Event::Inspection {
+                    request: seen,
+                    report,
+                } = &event
+                    && *seen == request
+                {
+                    let _ = std::fs::write(
+                        self.profile.join(format!("failed-inspection-{id}.json")),
+                        serde_json::to_vec_pretty(report).unwrap(),
+                    );
+                    break;
+                }
+                if std::time::Instant::now() >= deadline {
+                    break;
+                }
+            }
+        }
+        if let Ok(frame) = self.last_frame.try_lock()
+            && let Some(frame) = frame.as_ref()
+        {
+            let _ = frame.save_png(&self.profile.join(format!("failed-screen-{id}.png")));
         }
     }
 }
@@ -212,6 +271,140 @@ fn normal_off_restores_collections_after_cas_in_fresh_processes() {
     collection_recovery_scenario(false);
 }
 
+#[test]
+fn explicit_checkpoint_with_observed_prelatched_shift_saves_without_toggling_it_off() {
+    let (Some(_), Some(init)) = (
+        std::env::var_os("PRIME_TEST_FIRMWARE"),
+        std::env::var_os("PRIME_TEST_INIT_DATA"),
+    ) else {
+        eprintln!("skipping: proprietary firmware test assets not configured");
+        return;
+    };
+    let profile = isolated_profile();
+    for drive in ["A", "C"] {
+        copy(&Path::new(&init).join(drive), &profile.path().join(drive));
+    }
+    let mut session = Session::start(profile.path());
+    session.ready();
+    let idle_deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let baseline = loop {
+        session.send(Command::Inspect { request: 50 });
+        let Event::Inspection { report, .. } = session.wait("idle before Shift", |e| {
+            matches!(e, Event::Inspection { request: 50, .. })
+        }) else {
+            unreachable!()
+        };
+        if report.resources["main_ui_idle"] == true {
+            break report.resources["main_wait_generation"].as_u64().unwrap();
+        }
+        assert!(
+            std::time::Instant::now() < idle_deadline,
+            "firmware never reached a blocked UI boundary before the Shift control"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    session.send(Command::Key {
+        code: 0x8b,
+        down: true,
+    });
+    session.send(Command::Key {
+        code: 0x8b,
+        down: false,
+    });
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        session.send(Command::FrameRequest);
+        session.send(Command::Inspect { request: 51 });
+        let Event::Inspection { report, .. } = session.wait("observed Shift", |e| {
+            matches!(e, Event::Inspection { request: 51, .. })
+        }) else {
+            unreachable!()
+        };
+        let mask = session.last_frame.lock().unwrap().as_ref().map(|frame| {
+            std::array::from_fn::<u32, 8, _>(|y| {
+                (0..14).fold(0, |row, x| {
+                    let p = frame.pixels[y * 320 + x];
+                    let (r, g, b) = ((p >> 16) & 255, (p >> 8) & 255, p & 255);
+                    if r < 60 && g > 180 && b > 180 {
+                        row | (1 << x)
+                    } else {
+                        row
+                    }
+                })
+            })
+        });
+        if report.resources["main_ui_idle"] == true
+            && report.resources["main_wait_generation"].as_u64().unwrap() > baseline
+            && report.resources["typing_last_keydown_main_wait"]
+                .as_u64()
+                .is_some_and(|press| {
+                    report.resources["main_wait_generation"].as_u64().unwrap() > press
+                })
+            && mask == Some([0, 1800, 2204, 190, 1820, 2076, 2204, 1820])
+        {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "firmware did not display the actual latched Shift control"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let receipt = session.checkpoint(11, false);
+    assert!(!receipt.restores_cpu);
+    assert!(
+        profile
+            .path()
+            .join(".recovery")
+            .join(&receipt.generation)
+            .join("manifest.json")
+            .is_file()
+    );
+    session.send(Command::PowerDown);
+    session.wait("normal OFF cleanup", |e| matches!(e, Event::Closed { .. }));
+    assert!(session.child.wait().unwrap().success());
+    assert!(!profile.path().join(".recovery/unclean").exists());
+}
+
+struct Profile {
+    dir: tempfile::TempDir,
+    preserve_failure: bool,
+}
+impl Profile {
+    fn path(&self) -> &Path {
+        self.dir.path()
+    }
+}
+impl Drop for Profile {
+    fn drop(&mut self) {
+        if self.preserve_failure && std::thread::panicking() {
+            self.dir.disable_cleanup(true);
+            eprintln!(
+                "preserved failed firmware profile: {}",
+                self.dir.path().display()
+            );
+        }
+    }
+}
+
+fn isolated_profile() -> Profile {
+    if let Some(base) = std::env::var_os("PRIME_TEST_EVIDENCE") {
+        std::fs::create_dir_all(&base).unwrap();
+        Profile {
+            dir: tempfile::Builder::new()
+                .prefix("post-cas-")
+                .tempdir_in(base)
+                .unwrap(),
+            preserve_failure: true,
+        }
+    } else {
+        Profile {
+            dir: tempfile::tempdir().unwrap(),
+            preserve_failure: false,
+        }
+    }
+}
+
 fn collection_recovery_scenario(explicit_second_save: bool) {
     let (Some(_), Some(init)) = (
         std::env::var_os("PRIME_TEST_FIRMWARE"),
@@ -220,7 +413,7 @@ fn collection_recovery_scenario(explicit_second_save: bool) {
         eprintln!("skipping: proprietary firmware test assets not configured");
         return;
     };
-    let profile = tempfile::tempdir().unwrap();
+    let profile = isolated_profile();
     for drive in ["A", "C"] {
         copy(&Path::new(&init).join(drive), &profile.path().join(drive));
     }

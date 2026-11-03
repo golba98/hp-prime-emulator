@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub mod component;
+
 const FIRST_HANDLE: u32 = 0x0001_0001;
 
 pub struct VFile {
@@ -64,6 +66,10 @@ impl Vfs {
         }
     }
 
+    pub fn inspection(&self) -> serde_json::Value {
+        let files = self.files.try_lock().ok();
+        serde_json::json!({"open_files":files.as_ref().map(|f| f.len()),"writable_files":files.as_ref().map(|f| f.values().filter(|v|v.writable).count()),"searches":self.finds.try_lock().ok().map(|f|f.len())})
+    }
     pub fn root(&self) -> &Path {
         &self.root
     }

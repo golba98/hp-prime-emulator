@@ -94,6 +94,7 @@ fn interaction_report(source: &str, inputs: &[&str]) -> Report {
         Source::text(source, "TRACE").unwrap(),
         Operation::Run,
         ppl_engine::native::Options {
+            modules: Default::default(),
             entry: None,
             args: "[]".into(),
             json_arguments: true,

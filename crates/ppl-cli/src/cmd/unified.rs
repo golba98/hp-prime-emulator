@@ -27,6 +27,9 @@ pub struct EngineOptions {
     /// is used; otherwise native. `PPL_ENGINE=native|firmware` overrides.
     #[arg(long, value_enum)]
     pub engine: Option<EngineChoice>,
+    /// Native dependency source (repeatable NAME=PATH); only the root closure is linked.
+    #[arg(long = "module", value_name = "NAME=PATH")]
+    pub modules: Vec<String>,
     /// Emit one versioned JSON result on stdout.
     #[arg(long)]
     pub json: bool,
@@ -73,6 +76,7 @@ impl EngineOptions {
             && self.report.is_none()
             && self.args_format.is_none()
             && !self.firmware_flags()
+            && self.modules.is_empty()
     }
     fn firmware_flags(&self) -> bool {
         self.firmware.is_some()
@@ -231,7 +235,8 @@ pub fn run(c: RunCommand) -> u8 {
         });
         // Native-only controls and legacy PPL-syntax arguments keep native.
         e.engine = default_engine(
-            o.no_time_limit
+            !e.modules.is_empty()
+                || o.no_time_limit
                 || o.max_steps.is_some()
                 || o.max_depth.is_some()
                 || o.keys.is_some()
@@ -276,6 +281,9 @@ fn execute_run(o: &RunOpts, e: &EngineOptions) -> Result<Report, (Status, String
             Status::InvalidRequest,
             "firmware options require --engine firmware".into(),
         ));
+    }
+    if !e.native() && !e.modules.is_empty() {
+        return Err((Status::Unsupported,"--module is a Native catalog option; use stateful differential scenarios for firmware modules".into()));
     }
     if !e.native() {
         let explicit_native_setting = std::env::args().any(|a| {
@@ -326,6 +334,14 @@ fn execute_run(o: &RunOpts, e: &EngineOptions) -> Result<Report, (Status, String
             .map_err(|e| (Status::InvalidArguments, e))?;
         host.echo = !e.json && o.print_mode != PrintMode::Screen;
         let options = ppl_engine::native::Options {
+            modules: load_modules(
+                &e.modules,
+                &[e.report.as_deref(), o.png.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(|e| (Status::InvalidArguments, e))?,
             entry: o.entry.clone(),
             args: o.args.clone().unwrap_or_else(|| {
                 if e.json_arguments() {
@@ -375,7 +391,7 @@ pub fn check(c: CheckCommand) -> u8 {
         all_backends,
     } = c;
     if e.engine.is_none() && !all_backends {
-        e.engine = default_engine(o.dump_bytecode || o.deny_warnings);
+        e.engine = default_engine(o.dump_bytecode || o.deny_warnings || !e.modules.is_empty());
     }
     if all_backends {
         let result = (|| -> Result<ppl_engine::checking::CheckReport, String> {
@@ -384,7 +400,8 @@ pub fn check(c: CheckCommand) -> u8 {
                     return Err("report path aliases source".into());
                 }
             }
-            if o.dump_bytecode
+            if !e.modules.is_empty()
+                || o.dump_bytecode
                 || o.deny_warnings
                 || e.runtime_keys.is_some()
                 || e.args_format.is_some()
@@ -459,6 +476,13 @@ pub fn check(c: CheckCommand) -> u8 {
                 "argument format and runtime input apply only to run".into(),
             ));
         }
+        if !e.native() && !e.modules.is_empty() {
+            return Err((
+                Status::Unsupported,
+                "--module requires Native checking; use firmware scenarios for multi-program Check"
+                    .into(),
+            ));
+        }
         if !e.native() && (o.dump_bytecode || o.deny_warnings) {
             return Err((
                 Status::Unsupported,
@@ -478,6 +502,11 @@ pub fn check(c: CheckCommand) -> u8 {
                 source,
                 Operation::Check,
                 ppl_engine::native::Options {
+                    modules: load_modules(
+                        &e.modules,
+                        &e.report.as_deref().into_iter().collect::<Vec<_>>(),
+                    )
+                    .map_err(|e| (Status::InvalidArguments, e))?,
                     entry: None,
                     args: "[]".into(),
                     json_arguments: true,
@@ -554,7 +583,12 @@ fn finish(
         serde_json::json!(serialize_started.elapsed().as_secs_f64());
     r.timings["json_bytes_before_timing"] = serde_json::json!(probe.len());
     if let Some(path) = &o.report {
-        if input.is_some_and(|input| same_path(input, path)) {
+        if input.is_some_and(|input| same_path(input, path))
+            || o.modules
+                .iter()
+                .filter_map(|m| m.split_once('=').map(|(_, p)| Path::new(p)))
+                .any(|input| same_path(input, path))
+        {
             r.fail(
                 Status::IoError,
                 "report",
@@ -655,4 +689,28 @@ fn finish(
         }
     }
     r.exit_code
+}
+
+fn load_modules(
+    specs: &[String],
+    outputs: &[&Path],
+) -> Result<std::collections::BTreeMap<String, Source>, String> {
+    let mut modules = std::collections::BTreeMap::new();
+    for spec in specs {
+        let (name, path) = spec.split_once('=').ok_or("--module requires NAME=PATH")?;
+        if name.is_empty() || path.is_empty() || modules.contains_key(name) {
+            return Err("module names/paths must be nonempty and names unique".into());
+        }
+        let module = Source::file(Path::new(path))?;
+        if module
+            .identity
+            .path
+            .as_ref()
+            .is_some_and(|input| outputs.iter().any(|output| same_path(input, output)))
+        {
+            return Err("output path aliases a dependency source".into());
+        }
+        modules.insert(name.to_owned(), module);
+    }
+    Ok(modules)
 }

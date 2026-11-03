@@ -21,27 +21,43 @@ pub const CRITSEC_MAGIC: u32 = 0x202;
 /// Manual/auto-reset event. `flag` in the guest descriptor mirrors
 /// `signaled`; the reference clears it on a resolved auto-reset wait.
 pub struct HostEvent {
-    state: Mutex<bool>,
+    state: Mutex<EventState>,
     manual: bool,
     cv: Condvar,
+}
+struct EventState {
+    signaled: bool,
+    blocked: std::collections::HashSet<ThreadId>,
 }
 
 impl HostEvent {
     pub fn new(manual: bool, initial: bool) -> HostEvent {
         HostEvent {
-            state: Mutex::new(initial),
+            state: Mutex::new(EventState {
+                signaled: initial,
+                blocked: Default::default(),
+            }),
             manual,
             cv: Condvar::new(),
         }
     }
 
     pub fn set(&self) {
-        *self.state.lock().unwrap() = true;
+        self.state.lock().unwrap().signaled = true;
         self.cv.notify_all();
     }
 
     pub fn reset(&self) {
-        *self.state.lock().unwrap() = false;
+        self.state.lock().unwrap().signaled = false;
+    }
+
+    /// A callback entry (or a consumed signal awaiting engine reentry) is not
+    /// an idle UI. Query the actual owner's unsignaled condition-variable wait.
+    /// Callers observing guest state also hold the guest-memory snapshot gate.
+    pub fn waiter_blocked(&self, owner: ThreadId) -> bool {
+        self.state
+            .try_lock()
+            .is_ok_and(|s| !s.signaled && s.blocked.contains(&owner))
     }
 
     /// Wait up to `timeout_ms` (u32::MAX = infinite, Win32 INFINITE).
@@ -52,9 +68,9 @@ impl HostEvent {
             std::time::Instant::now() + std::time::Duration::from_millis(u64::from(timeout_ms));
         let mut g = self.state.lock().unwrap();
         loop {
-            if *g {
+            if g.signaled {
                 if !self.manual {
-                    *g = false;
+                    g.signaled = false;
                 }
                 return true;
             }
@@ -72,8 +88,11 @@ impl HostEvent {
             if slice.is_zero() {
                 return false;
             }
+            let owner = std::thread::current().id();
+            g.blocked.insert(owner);
             let (ng, _) = self.cv.wait_timeout(g, slice).unwrap();
             g = ng;
+            g.blocked.remove(&owner);
         }
     }
 }
@@ -244,3 +263,45 @@ impl Drop for SyncEntry {
 /// Live objects keyed by guest descriptor address; waiters release the table
 /// lock before blocking, retaining a descriptor lease instead.
 pub type SyncMap = HashMap<u32, std::sync::Arc<SyncEntry>>;
+
+#[cfg(test)]
+mod blocked_wait_tests {
+    use super::*;
+    #[test]
+    fn pending_signal_and_resolved_callback_cannot_acknowledge_ui_idle() {
+        let event = std::sync::Arc::new(HostEvent::new(false, true));
+        let owner = std::thread::current().id();
+        assert!(!event.waiter_blocked(owner));
+        assert!(event.wait(u32::MAX, &|| false));
+        assert!(
+            !event.waiter_blocked(owner),
+            "auto-reset consumed the flag, but this owner never blocked"
+        );
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (done, release) = std::sync::mpsc::channel();
+        let worker = event.clone();
+        let thread = std::thread::spawn(move || {
+            tx.send(std::thread::current().id()).unwrap();
+            assert!(worker.wait(u32::MAX, &|| false));
+            // Model a resolved native callback unable to reenter Unicorn while
+            // the observation gate is held. It is not an idle UI waiter.
+            tx.send(std::thread::current().id()).unwrap();
+            release.recv().unwrap();
+        });
+        let worker_id = rx.recv().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while !event.waiter_blocked(worker_id) {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert!(
+            !event.waiter_blocked(owner),
+            "another blocked owner does not acknowledge this one"
+        );
+        event.set();
+        rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(!event.waiter_blocked(worker_id));
+        done.send(()).unwrap();
+        thread.join().unwrap();
+    }
+}

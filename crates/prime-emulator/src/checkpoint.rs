@@ -8,6 +8,82 @@ use std::time::{Duration, Instant};
 
 pub const LIMIT: Duration = Duration::from_secs(30);
 
+/// A single firmware-native OFF attempt. Mode is observed from firmware, not
+/// remembered by the host. The owner admits advance only at a coherent, truly
+/// blocked main-UI boundary with all preceding input consumed.
+pub struct OffSequence {
+    phase: OffPhase,
+    native_unknown_fallback: bool,
+}
+enum OffPhase {
+    Observe,
+    AwaitShift(Option<u64>),
+    AwaitSleep,
+    Unsupported,
+}
+pub enum OffAction {
+    Shift,
+    On,
+    Unsupported,
+}
+impl OffSequence {
+    pub fn new(native_unknown_fallback: bool) -> Self {
+        Self {
+            phase: OffPhase::Observe,
+            native_unknown_fallback,
+        }
+    }
+    pub fn phase(&self) -> &'static str {
+        match self.phase {
+            OffPhase::Observe => "observe_shift",
+            OffPhase::AwaitShift(None) => "shift_queued",
+            OffPhase::AwaitShift(Some(_)) => "await_shift_ack",
+            OffPhase::AwaitSleep => "await_firmware_sleep",
+            OffPhase::Unsupported => "unsupported_status",
+        }
+    }
+    pub fn shift_delivered(&mut self, main_wait: u64) {
+        if matches!(self.phase, OffPhase::AwaitShift(None)) {
+            self.phase = OffPhase::AwaitShift(Some(main_wait));
+        }
+    }
+    pub fn advance(&mut self, shift: Option<bool>, main_wait: u64) -> Option<OffAction> {
+        match self.phase {
+            OffPhase::Observe => match shift {
+                Some(true) => {
+                    self.phase = OffPhase::AwaitSleep;
+                    Some(OffAction::On)
+                }
+                Some(false) => {
+                    self.phase = OffPhase::AwaitShift(None);
+                    Some(OffAction::Shift)
+                }
+                None if self.native_unknown_fallback => {
+                    self.phase = OffPhase::AwaitShift(None);
+                    Some(OffAction::Shift)
+                }
+                None => {
+                    self.phase = OffPhase::Unsupported;
+                    Some(OffAction::Unsupported)
+                }
+            },
+            OffPhase::AwaitShift(Some(after)) if main_wait > after => match shift {
+                Some(true) => {
+                    self.phase = OffPhase::AwaitSleep;
+                    Some(OffAction::On)
+                }
+                None if self.native_unknown_fallback => {
+                    self.phase = OffPhase::AwaitSleep;
+                    Some(OffAction::On)
+                }
+                // Never press Shift again to manufacture an acknowledgement.
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Admission {
     pub ready: bool,
@@ -58,6 +134,12 @@ pub enum Action {
     },
 }
 impl Checkpoint {
+    pub fn off_sent(&self) -> bool {
+        self.off_sent
+    }
+    pub fn elapsed_ms(&self) -> f64 {
+        self.started.elapsed().as_secs_f64() * 1000.0
+    }
     pub fn begin(id: u64, wake: bool, admission: &Admission) -> Result<Self, CheckpointResult> {
         if let Some(reason) = admission.refusal() {
             return Err(CheckpointResult::Deferred {
@@ -152,6 +234,44 @@ mod tests {
         }
     }
     #[test]
+    fn off_sequence_respects_latched_shift_and_waits_for_actual_press_acknowledgement() {
+        let mut active = OffSequence::new(false);
+        assert!(matches!(active.advance(Some(true), 7), Some(OffAction::On)));
+        assert!(active.advance(Some(true), 8).is_none());
+        let mut neutral = OffSequence::new(false);
+        assert!(matches!(
+            neutral.advance(Some(false), 7),
+            Some(OffAction::Shift)
+        ));
+        assert!(
+            neutral.advance(Some(true), 8).is_none(),
+            "an undelivered Shift has no acknowledgement"
+        );
+        neutral.shift_delivered(9);
+        assert!(neutral.advance(Some(true), 9).is_none());
+        assert!(
+            neutral.advance(Some(false), 10).is_none(),
+            "an acknowledged but inactive Shift must never produce ON or a retry"
+        );
+        assert!(matches!(
+            neutral.advance(Some(true), 10),
+            Some(OffAction::On)
+        ));
+        assert!(neutral.advance(Some(true), 11).is_none());
+    }
+    #[test]
+    fn unknown_checkpoint_context_is_refused_before_any_key() {
+        assert!(matches!(
+            OffSequence::new(false).advance(None, 0),
+            Some(OffAction::Unsupported)
+        ));
+        let mut shutdown = OffSequence::new(true);
+        assert!(matches!(shutdown.advance(None, 0), Some(OffAction::Shift)));
+        shutdown.shift_delivered(0);
+        assert!(shutdown.advance(None, 0).is_none());
+        assert!(matches!(shutdown.advance(None, 1), Some(OffAction::On)));
+    }
+    #[test]
     fn busy_input_and_guest_operations_are_deferred_before_off() {
         let mut a = admission();
         a.program_active = true;
@@ -177,8 +297,10 @@ mod tests {
         let mut c =
             Checkpoint::begin(2, true, &admission()).unwrap_or_else(|_| panic!("admission"));
         let saved = Ok(receipt());
+        assert!(!c.off_sent());
         assert!(c.poll(false, false, None).is_none());
         assert!(matches!(c.poll(false, true, None), Some(Action::PowerOff)));
+        assert!(c.off_sent());
         assert!(c.poll(false, true, Some(&saved)).is_none());
         assert!(c.poll(true, false, None).is_none());
         assert!(matches!(
@@ -225,6 +347,7 @@ mod tests {
         let mut c =
             Checkpoint::begin(5, true, &admission()).unwrap_or_else(|_| panic!("admission"));
         assert!(c.poll(false, false, None).is_none());
+        assert!(!c.off_sent());
         assert!(matches!(
             c.poll_at(c.started + LIMIT, false, false, None),
             Some(Action::Finished {
