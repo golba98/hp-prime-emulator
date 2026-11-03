@@ -257,24 +257,32 @@ fn lock_profile(profile: &Path) -> Result<(std::fs::File, std::fs::File), String
 /// folder next to it, which is never deleted, and the next start seeds a
 /// new one. The firmware's own memory-clear key combination is read by
 /// the G1's boot code, which is not emulated, so this is done on the host.
-/// Refused while a session holds the profile.
+/// Refused while a session holds the profile. Atomic locked-directory rotation
+/// is supported on Unix; other platforms preserve the profile and return an error.
 pub fn reset_profile(settings: &FirmwareSettings) -> Result<PathBuf, String> {
     let profile = profile_path(settings)?;
     if !profile.join("A").exists() {
         return Err("The calculator has no stored memory to reset".into());
     }
     let _locks = lock_profile(&profile)?;
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let name = profile.file_name().unwrap_or_default().to_string_lossy();
-    let backup = profile.with_file_name(format!("{name}.backup-{stamp}"));
-    if backup.exists() {
-        return Err(format!("{} already exists", backup.display()));
+    #[cfg(not(unix))]
+    {
+        Err("Calculator memory reset is not supported on this platform; stored memory was preserved".into())
     }
-    std::fs::rename(&profile, &backup).map_err(|e| e.to_string())?;
-    Ok(backup)
+    #[cfg(unix)]
+    {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let name = profile.file_name().unwrap_or_default().to_string_lossy();
+        let backup = profile.with_file_name(format!("{name}.backup-{stamp}"));
+        if backup.exists() {
+            return Err(format!("{} already exists", backup.display()));
+        }
+        std::fs::rename(&profile, &backup).map_err(|e| e.to_string())?;
+        Ok(backup)
+    }
 }
 /// Files an interrupted write left in the calculator's storage (a pending
 /// install or an importer temporary). They are reported, never deleted.
@@ -598,13 +606,26 @@ mod tests {
         assert!(lock_profile(&profile).is_err());
         assert!(profile.join("C/DATA/MINE.hpprgm").is_file());
         drop(helper);
-        let backup = reset_profile(&settings).unwrap();
-        assert!(!profile.exists(), "the next start seeds a fresh profile");
-        assert_eq!(
-            std::fs::read_to_string(backup.join("C/DATA/MINE.hpprgm")).unwrap(),
-            "user program"
-        );
-        assert!(reset_profile(&settings).is_err(), "nothing left to reset");
+        #[cfg(unix)]
+        {
+            let backup = reset_profile(&settings).unwrap();
+            assert!(!profile.exists(), "the next start seeds a fresh profile");
+            assert_eq!(
+                std::fs::read_to_string(backup.join("C/DATA/MINE.hpprgm")).unwrap(),
+                "user program"
+            );
+            assert!(reset_profile(&settings).is_err(), "nothing left to reset");
+        }
+        #[cfg(not(unix))]
+        {
+            let error = reset_profile(&settings).unwrap_err();
+            assert!(error.contains("stored memory was preserved"), "{error}");
+            assert!(profile.join("A").is_dir());
+            assert_eq!(
+                std::fs::read_to_string(profile.join("C/DATA/MINE.hpprgm")).unwrap(),
+                "user program"
+            );
+        }
         let _ = std::fs::remove_dir_all(&root);
     }
 
