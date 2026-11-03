@@ -48,7 +48,7 @@ impl LiveSession {
         #[cfg(not(target_os = "linux"))]
         {
             let _ = (options, profile, cancel);
-            return Err("Firmware live sessions currently require Linux".into());
+            Err("Firmware live sessions currently require Linux".into())
         }
         #[cfg(target_os = "linux")]
         {
