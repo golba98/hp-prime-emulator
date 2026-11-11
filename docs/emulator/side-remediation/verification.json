@@ -103,7 +103,8 @@
     "cargo_target_dir": "/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target",
     "cas_helper": "/home/k9-vortex/.local/share/hp-prime-emulator/cas/ppl-giac-helper",
     "desktop_device_access": "PPL_IDE_NO_DEVICE=1",
-    "firmware_asset_variables": "See REMEDIATION.md"
+    "firmware_asset_variables": "See REMEDIATION.md",
+    "rustc": "1.96.0 (ac68faa20 2026-05-25) for original recorded local validation"
   },
   "screenshots": [
     "evidence/native_side_graph.png",
@@ -116,5 +117,19 @@
     "branch": "pr/hp-prime-side-remediation",
     "base": "feat/g1-usability-overhaul",
     "purpose": "Preserve the tested implementation, tests, all 33 outcomes and retained limitations in a reviewable PR."
+  },
+  "ci_compiler_followup": {
+    "initial_head": "04ae163eb3b7967cd88cd9eab001c613d775c0cc",
+    "failed_runs": [
+      43119260418,
+      43119298030
+    ],
+    "failed_step": "Check on Linux and Windows",
+    "compiler": "1.99.1 (58cf8f9c3 2026-10-13)",
+    "cause": "float_literal_f32_fallback denied for three new egui stroke widths",
+    "fix": "Explicit f32 widths in native_app_ui.rs and native_plot_view.rs",
+    "local_check": "cargo +1.99.1 check --locked --workspace --all-targets with RUSTFLAGS=-D warnings: passed",
+    "local_clippy": "cargo +1.99.1 clippy --locked --workspace --all-targets -- -D warnings with RUSTFLAGS=-D warnings: passed",
+    "hosted_results": "https://github.com/golba98/hp-prime-emulator/pull/30/checks"
   }
 }

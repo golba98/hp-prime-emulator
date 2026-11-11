@@ -190,6 +190,15 @@ or opaque heap captures are included in the repository.
 
 ## Verification record
 
+The original local results used Rust 1.96.0. The first hosted runs on PR #30
+used Rust 1.99.1 and failed the Check step on both Linux and Windows: three
+new graph strokes relied on implicit float fallback to f32, rejected by the
+new compiler with warnings denied. The corrective change explicitly types those
+widths as f32. Warnings remain denied; the workflow and test assertions were not
+relaxed. Check and all-target Clippy also passed locally with Rust 1.99.1 after
+that correction. Hosted results are available in the
+[PR checks](https://github.com/golba98/hp-prime-emulator/pull/30/checks).
+
 Commands below were run in the canonical checkout. All Cargo commands used
 `CARGO_TARGET_DIR=/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target`.
 CAS commands used the genuine separately installed Giac helper. Counts from

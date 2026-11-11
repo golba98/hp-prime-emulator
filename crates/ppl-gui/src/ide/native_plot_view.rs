@@ -36,13 +36,13 @@ pub fn show(
         if window.ymin <= 0. && window.ymax >= 0. {
             painter.line_segment(
                 [project([window.xmin, 0.]), project([window.xmax, 0.])],
-                egui::Stroke::new(0.5, egui::Color32::GRAY),
+                egui::Stroke::new(0.5_f32, egui::Color32::GRAY),
             );
         }
         if window.xmin <= 0. && window.xmax >= 0. {
             painter.line_segment(
                 [project([0., window.ymin]), project([0., window.ymax])],
-                egui::Stroke::new(0.5, egui::Color32::GRAY),
+                egui::Stroke::new(0.5_f32, egui::Color32::GRAY),
             );
         }
     }

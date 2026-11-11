@@ -473,7 +473,7 @@ pub fn show(
                 ) {
                     painter.line_segment(
                         [project(a), project(b)],
-                        egui::Stroke::new(1., egui::Color32::BLUE),
+                        egui::Stroke::new(1.0_f32, egui::Color32::BLUE),
                     );
                 }
             }
