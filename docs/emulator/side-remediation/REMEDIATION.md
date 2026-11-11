@@ -199,6 +199,24 @@ relaxed. Check and all-target Clippy also passed locally with Rust 1.99.1 after
 that correction. Hosted results are available in the
 [PR checks](https://github.com/golba98/hp-prime-emulator/pull/30/checks).
 
+The follow-up also corrects Windows Native profile persistence: the copied
+backup is reopened with write access for FlushFileBuffers, the staged file is
+closed before replacement, and directory syncing uses the existing
+platform-aware helper. A new regression rotates three generations, corrupts the
+current image, recovers the previous image, and verifies the corrupt bytes were
+preserved. File contents are synced on all supported platforms; directory fsync
+is applied on Unix, with the existing OS-managed directory durability policy on
+Windows. This follows the documented
+[Windows file-flush access requirement](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers).
+
+With the correction, Rust 1.99.1 GUI tests passed **533 / 0 failed / 2 existing
+ignored** and all-target GUI Clippy passed with warnings denied. The preceding
+CI-equivalent all-targets workspace run passed **2,219 / 0 failed / 6 existing
+ignored** with the CAS helper deliberately unavailable; the new profile
+regression additionally passed in the corrected GUI run. Original validation
+counts below remain the historical Rust 1.96 record.
+
+
 Commands below were run in the canonical checkout. All Cargo commands used
 `CARGO_TARGET_DIR=/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target`.
 CAS commands used the genuine separately installed Giac helper. Counts from

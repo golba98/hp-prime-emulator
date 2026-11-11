@@ -1,7 +1,7 @@
 //! Single-writer Native profiles. Disk work never runs in an egui frame.
 use serde_json::{Value, json};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, mpsc},
@@ -167,14 +167,19 @@ fn write(directory: &Path, value: &Value) -> Result<(), String> {
             .open(&temp)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
+        drop(file);
         if current.exists() && read(&current).is_ok() {
             let previous_temp = directory.join("state-v1.previous.tmp");
             fs::copy(&current, &previous_temp)?;
-            File::open(&previous_temp)?.sync_all()?;
+            // Windows FlushFileBuffers requires a writable file handle.
+            OpenOptions::new()
+                .write(true)
+                .open(&previous_temp)?
+                .sync_all()?;
             fs::rename(previous_temp, &backup)?;
         }
         fs::rename(&temp, &current)?;
-        File::open(directory)?.sync_all()?;
+        ppl_programs::delete_store::sync_dir(directory)?;
         Ok(())
     };
     io().map_err(|e| e.to_string())
@@ -228,5 +233,46 @@ mod tests {
         fs::write(dir.join("state-v1.json"), content).unwrap();
         assert!(NativeProfile::open(&dir).is_err());
         assert_eq!(fs::read(dir.join("state-v1.json")).unwrap(), content);
+    }
+
+    #[test]
+    fn repeated_profile_rotation_recovers_the_last_valid_generation() {
+        let dir = std::env::temp_dir().join(format!(
+            "ppl-native-rotation-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        for generation in 1..=3 {
+            write(
+                &dir,
+                &json!({"version":1,"memory":null,"ui":{"generation":generation}}),
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            read(&dir.join("state-v1.json")).unwrap()["ui"]["generation"],
+            3
+        );
+        assert_eq!(
+            read(&dir.join("state-v1.previous.json")).unwrap()["ui"]["generation"],
+            2
+        );
+        fs::write(dir.join("state-v1.json"), b"incomplete write").unwrap();
+        let (profile, recovered) = NativeProfile::open(&dir).unwrap();
+        assert_eq!(recovered["ui"]["generation"], 2);
+        profile.flush().unwrap();
+        assert_eq!(read(&dir.join("state-v1.json")).unwrap(), recovered);
+        assert!(fs::read_dir(&dir).unwrap().any(|entry| {
+            let path = entry.unwrap().path();
+            path.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("state-v1.corrupt-")
+                && fs::read(path).unwrap() == b"incomplete write"
+        }));
     }
 }

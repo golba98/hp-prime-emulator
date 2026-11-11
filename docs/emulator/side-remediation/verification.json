@@ -130,6 +130,27 @@
     "fix": "Explicit f32 widths in native_app_ui.rs and native_plot_view.rs",
     "local_check": "cargo +1.99.1 check --locked --workspace --all-targets with RUSTFLAGS=-D warnings: passed",
     "local_clippy": "cargo +1.99.1 clippy --locked --workspace --all-targets -- -D warnings with RUSTFLAGS=-D warnings: passed",
-    "hosted_results": "https://github.com/golba98/hp-prime-emulator/pull/30/checks"
+    "hosted_results": "https://github.com/golba98/hp-prime-emulator/pull/30/checks",
+    "local_ci_equivalent_tests": {
+      "compiler": "1.99.1",
+      "command": "cargo +1.99.1 test --locked --workspace --all-targets",
+      "env": {
+        "RUSTFLAGS": "-D warnings",
+        "PPL_CAS_HELPER": "/nonexistent/ci-cas-helper"
+      },
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6,
+      "log": "/tmp/side-ci199-tests.log"
+    },
+    "profile_portability": {
+      "fix": "Writable backup flush handle, close staged file before rename, reuse platform-aware directory sync",
+      "regression": "Repeated rotation, corruption recovery and corrupt-byte preservation",
+      "gui_passed": 533,
+      "gui_failed": 0,
+      "gui_existing_ignored": 2,
+      "clippy": "all targets passed with warnings denied",
+      "log": "/tmp/side-ci199-gui-tests.log"
+    }
   }
 }
