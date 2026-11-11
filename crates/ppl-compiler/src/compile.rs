@@ -141,6 +141,19 @@ pub fn is_system_variable(name: &str) -> bool {
 
 /// Calculator variables that always exist.
 fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
+    let plot_default = match name.to_ascii_lowercase().as_str() {
+        "xmin" | "ymin" => Some("-10"),
+        "xmax" | "ymax" => Some("10"),
+        "numstart" | "tmin" => Some("0"),
+        "numstep" | "nmin" => Some("1"),
+        "nmax" => Some("100"),
+        "tmax" => Some("6.28318530718"),
+        _ => None,
+    };
+    if let Some(value) = plot_default {
+        return Some((GlobalInit::Real(Real::parse(value).unwrap()), false));
+    }
+
     let b = name.as_bytes();
     if b.len() == 1 && b[0].is_ascii_uppercase() || name == "θ" {
         return Some((GlobalInit::Zero, false));
@@ -160,6 +173,10 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
         "hformat" => Setting::HFormat,
         "hdigits" => Setting::HDigits,
         "hcomplex" => Setting::HComplex,
+        "aangle" => Setting::AAngle,
+        "aformat" => Setting::AFormat,
+        "adigits" => Setting::ADigits,
+        "acomplex" => Setting::AComplex,
         "base" => Setting::Base,
         "bits" => Setting::Bits,
         "signed" => Setting::Signed,
@@ -171,10 +188,25 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
 
 fn canonical_system_name(name: &str) -> String {
     match name.to_ascii_lowercase().as_str() {
+        "xmin" => "Xmin".into(),
+        "xmax" => "Xmax".into(),
+        "ymin" => "Ymin".into(),
+        "ymax" => "Ymax".into(),
+        "numstart" => "NumStart".into(),
+        "numstep" => "NumStep".into(),
+        "nmin" => "Nmin".into(),
+        "nmax" => "Nmax".into(),
+        "tmin" => "Tmin".into(),
+        "tmax" => "Tmax".into(),
+
         "hangle" => "HAngle".into(),
         "hformat" => "HFormat".into(),
         "hdigits" => "HDigits".into(),
         "hcomplex" => "HComplex".into(),
+        "aangle" => "AAngle".into(),
+        "aformat" => "AFormat".into(),
+        "adigits" => "ADigits".into(),
+        "acomplex" => "AComplex".into(),
         "base" => "Base".into(),
         "bits" => "Bits".into(),
         "signed" => "Signed".into(),
@@ -902,11 +934,26 @@ impl<'a> Compiler<'a> {
                 // the result-note writers of campaign runs). They resolve to
                 // built-ins here, not variables, so they get their own store
                 // operations.
+                if idx.len() == 2
+                    && builtins::lookup_case_insensitive(name)
+                        .is_some_and(|spec| spec.builtin == Builtin::Hvars)
+                {
+                    self.expr(&idx[0]);
+                    self.expr(&idx[1]);
+                    self.expr(value);
+                    self.cur.emit(Op::StoreHomeParameters, target.span);
+                    if !want_value {
+                        self.cur.emit(Op::Pop, span);
+                    }
+                    return;
+                }
                 if idx.len() == 1 {
                     let sys_store =
                         builtins::lookup_case_insensitive(name).and_then(|s| match s.builtin {
                             Builtin::Notes => Some(Op::StoreNote),
                             Builtin::Programs => Some(Op::StoreProgram),
+                            Builtin::Hvars => Some(Op::StoreHomeVariable),
+                            Builtin::Afiles => Some(Op::StoreAppFile),
                             _ => None,
                         });
                     if let Some(op) = sys_store {
@@ -1079,67 +1126,11 @@ impl<'a> Compiler<'a> {
             ExprKind::Assign(t, v) => self.assign(t, v, true, span),
             ExprKind::Store(v, t) => self.assign(t, v, true, span),
             ExprKind::Quoted(inner) => {
-                let mut unknown = Vec::new();
-                self.collect_unknown(inner, &mut unknown);
-                if let Some(name) = unknown.first() {
-                    self.error(
-                        "undeclared-identifier",
-                        span,
-                        format!("undeclared name `{name}` in quoted expression"),
-                    )
-                    .hint = Some(
-                        "strings use double quotes; single quotes make a symbolic expression"
-                            .into(),
-                    );
-                } else {
-                    self.compat(
-                        "symbolic-unsupported",
-                        span,
-                        "quoted (symbolic) expressions are not emulated",
-                    )
-                    .hint =
-                        Some("evaluating this expression raises an \"unsupported\" error".into());
-                }
-                self.unsupported("'symbolic expression'", 0, span);
+                self.constant(Const::Symbolic(crate::symbolic::source(inner)), span);
             }
             ExprKind::Error => {
                 self.cur.emit(Op::Zero, span);
             }
-        }
-    }
-
-    fn collect_unknown(&mut self, e: &Expr, out: &mut Vec<String>) {
-        match &e.kind {
-            ExprKind::Ident(n) => {
-                if self.resolve_var(n).is_none()
-                    && !self.fn_map.contains_key(n)
-                    && builtins::lookup(n).is_none()
-                    && !matches!(n.as_str(), "π" | "ⅈ" | "ℯ" | "∞" | "\u{E003}")
-                {
-                    out.push(n.clone());
-                }
-            }
-            ExprKind::Binary(_, a, b)
-            | ExprKind::ComplexPair(a, b)
-            | ExprKind::Assign(a, b)
-            | ExprKind::Store(a, b) => {
-                self.collect_unknown(a, out);
-                self.collect_unknown(b, out);
-            }
-            ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
-                self.collect_unknown(a, out)
-            }
-            ExprKind::List(xs) | ExprKind::Bracket(xs) => {
-                for x in xs {
-                    self.collect_unknown(x, out);
-                }
-            }
-            ExprKind::Call(_, xs) | ExprKind::Index(_, xs) => {
-                for x in xs {
-                    self.collect_unknown(x, out);
-                }
-            }
-            _ => {}
         }
     }
 
@@ -1410,6 +1401,28 @@ impl<'a> Compiler<'a> {
             );
             return;
         }
+        if let Some(function) = name.strip_prefix("CAS.") {
+            let source = format!(
+                "{}({})",
+                function,
+                args.iter()
+                    .map(|a| match &a.kind {
+                        ExprKind::Str(s) => s.clone(),
+                        _ => crate::symbolic::source(a),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+            self.constant(Const::Symbolic(source), span);
+            self.cur.emit(
+                Op::Builtin {
+                    id: Builtin::CasCall,
+                    argc: 1,
+                },
+                span,
+            );
+            return;
+        }
         if name.contains('.') {
             // `CAS.solve(...)`, `Finance.TvmFV(...)`: documented forms for
             // reaching the CAS and app functions from a program.
@@ -1448,6 +1461,25 @@ impl<'a> Compiler<'a> {
         };
         let Some(spec) = spec else {
             if let Some(entry) = catalog::lookup_case_insensitive(name) {
+                if entry.kind == CatalogKind::Cas {
+                    let source = format!(
+                        "{}({})",
+                        entry.name,
+                        args.iter()
+                            .map(crate::symbolic::source)
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    );
+                    self.constant(Const::Symbolic(source), span);
+                    self.cur.emit(
+                        Op::Builtin {
+                            id: Builtin::CasCall,
+                            argc: 1,
+                        },
+                        span,
+                    );
+                    return;
+                }
                 let d = self.compat(
                     "unsupported-command",
                     callee.span,
@@ -1518,13 +1550,16 @@ impl<'a> Compiler<'a> {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
             // Firmware EDITMAT writes back bare M0–M9 names, even when
             // locally declared. Other local names are value expressions.
-            Builtin::Editmat
+            Builtin::Editmat | Builtin::Editlist
                 if args.first().is_some_and(|arg| {
                     matches!(&arg.kind, ExprKind::Ident(name) if name.len() == 2
-                    && name.starts_with('M') && name.as_bytes()[1].is_ascii_digit())
+                    && name.starts_with(if spec.builtin == Builtin::Editmat { 'M' } else { 'L' }) && name.as_bytes()[1].is_ascii_digit())
                 }) =>
             {
                 self.ref_builtin(spec.builtin, args, span);
+            }
+            Builtin::LineP | Builtin::Line | Builtin::TriangleP | Builtin::Triangle => {
+                self.graphics_builtin(spec.builtin, args, span);
             }
             _ if spec.ref_args > 0 => self.ref_builtin(spec.builtin, args, span),
             _ => {
@@ -1561,6 +1596,58 @@ impl<'a> Compiler<'a> {
             },
             span,
         );
+    }
+
+    /// Graphics overloads choose an optional z-string at runtime. Preserve
+    /// candidate variable arguments without mistaking a coordinate/color for
+    /// a mandatory reference. Identity tokens keep aliases coherent on writeback.
+    fn graphics_builtin(&mut self, id: Builtin, args: &[Expr], span: Span) {
+        let mut positions = vec![args.len().saturating_sub(1)];
+        if matches!(id, Builtin::TriangleP | Builtin::Triangle) && args.len() >= 4 {
+            positions.push(args.len() - 4);
+        }
+        positions.sort_unstable();
+        positions.dedup();
+        let mut targets = Vec::new();
+        for position in positions {
+            if let Some(expr) = args.get(position)
+                && let ExprKind::Ident(name) = &expr.kind
+                && let Some(target) = self.resolve_var(name)
+                && !matches!(target, VarRef::Global(slot) if self.globals[slot as usize].read_only)
+            {
+                targets.push((position, target, expr.span));
+            }
+        }
+        if targets.is_empty() {
+            self.builtin(id, args, span);
+            return;
+        }
+        for argument in args {
+            self.expr(argument);
+        }
+        for &(position, target, at) in &targets {
+            self.constant(Const::Real(Real::from_i64(position as i64)), at);
+            self.constant(
+                Const::Str(match target {
+                    VarRef::Local(slot) => format!("L{slot}"),
+                    VarRef::Global(slot) => format!("G{slot}"),
+                }),
+                at,
+            );
+            self.cur.emit(Op::MakeList(2), at);
+        }
+        self.cur.emit(Op::MakeList(targets.len() as u32), span);
+        self.cur.emit(
+            Op::BuiltinRef {
+                id,
+                argc: (args.len() + 1).min(255) as u8,
+                refs: targets.len() as u8,
+            },
+            span,
+        );
+        for &(_, target, at) in targets.iter().rev() {
+            self.store(target, at);
+        }
     }
 
     /// Commands whose first argument is a variable they write to.
@@ -1714,16 +1801,6 @@ impl<'a> Compiler<'a> {
     /// (-1 any, 0 real, 1 integer, 2 string, 3 complex, 4 matrix, 6 list,
     /// 8 function, 9 unit: User Guide INPUT entry and TYPE codes).
     fn check_input_types(&mut self, e: &Expr) {
-        if matches!(e.kind, ExprKind::Number(_) | ExprKind::Str(_))
-            || matches!(&e.kind, ExprKind::Unary(UnOp::Neg, inner) if matches!(inner.kind, ExprKind::Number(_)))
-            || matches!(&e.kind, ExprKind::List(items) if items.iter().any(|item| matches!(item.kind, ExprKind::Str(_))))
-        {
-            self.compat(
-                "input-control-unsupported",
-                e.span,
-                "Native INPUT cannot display this field descriptor",
-            ).hint = Some("Use G1 Firmware mode for checkbox, radio and choice controls; Native edit fields accept a vector of TYPE codes".into());
-        }
         let ExprKind::Bracket(items) = &e.kind else {
             return;
         };

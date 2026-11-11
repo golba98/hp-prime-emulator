@@ -117,6 +117,11 @@ fn int_of(v: &Value) -> Option<HpInt> {
 }
 
 fn scalar(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> {
+    if op == BinOp::Polar {
+        let magnitude = a.expect_real("polar magnitude")?;
+        let angle = b.expect_real("polar angle")?;
+        return crate::builtins::math::polar(magnitude, angle, s).map(norm_complex);
+    }
     // Integer arithmetic when one side is an HP integer and the other is
     // an integer-valued number.
     if let (Some(x), Some(y)) = (int_of(a), int_of(b)) {

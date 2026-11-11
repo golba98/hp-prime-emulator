@@ -8,6 +8,7 @@ use crate::builtins::Builtin;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Const {
+    Symbolic(String),
     Real(Real),
     Int(HpInt),
     Complex(Complex),
@@ -87,6 +88,9 @@ pub enum Op {
     /// Stack: name, value → writes a calculator note (empty value deletes
     /// it); pushes the value back.
     StoreNote,
+    StoreHomeVariable,
+    StoreHomeParameters,
+    StoreAppFile,
     /// Stack: name, value → writes a calculator program (empty value
     /// deletes it); pushes the value back.
     StoreProgram,
@@ -141,6 +145,7 @@ impl Chunk {
 #[derive(Clone, Debug, PartialEq)]
 pub enum GlobalInit {
     Zero,
+    Real(Real),
     EmptyList,
     ZeroMatrix,
     ComplexZero,
@@ -155,6 +160,10 @@ pub enum Setting {
     HFormat,
     HDigits,
     HComplex,
+    AAngle,
+    AFormat,
+    ADigits,
+    AComplex,
     Base,
     Bits,
     Signed,

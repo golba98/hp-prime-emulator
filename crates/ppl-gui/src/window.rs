@@ -80,6 +80,7 @@ pub struct GuiApp {
     /// Last cursor position in window pixels (from `CursorMoved`).
     pub last_cursor: Option<(f64, f64)>,
     pub modifiers: ModifiersState,
+    pressed_key_codes: std::collections::HashMap<winit::keyboard::PhysicalKey, i64>,
     /// The worker has finished (the title shows it).
     pub finished: bool,
     /// The window is closing (user close, `exit_after` or `exit_on_finish`).
@@ -110,6 +111,7 @@ impl GuiApp {
             is_mouse_down: false,
             last_cursor: None,
             modifiers: ModifiersState::empty(),
+            pressed_key_codes: std::collections::HashMap::new(),
             finished: false,
             closing: false,
             outcome: None,
@@ -188,6 +190,16 @@ impl GuiApp {
         self.modifiers = modifiers;
     }
 
+    pub fn handle_focus(&mut self, focused: bool) {
+        if !focused {
+            self.modifiers = ModifiersState::empty();
+            self.pressed_key_codes.clear();
+            self.state.clear_held_keys();
+            self.is_mouse_down = false;
+            self.state.set_touch(None);
+        }
+    }
+
     /// Handle keyboard input logically (unit testable without window).
     pub fn handle_key_input(
         &mut self,
@@ -201,10 +213,32 @@ impl GuiApp {
             if state == ElementState::Pressed {
                 // The calculator's On key: stop the running program.
                 self.state.interrupt();
+                self.pressed_key_codes.clear();
+                self.state.clear_held_keys();
+                self.state.set_touch(None);
             }
             return;
         }
-        let code = map_winit_key(logical, physical, text);
+        let mut code = map_winit_key(logical, physical, text);
+        let tab = matches!(
+            logical,
+            winit::keyboard::Key::Named(winit::keyboard::NamedKey::Tab)
+        ) || matches!(
+            physical,
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Tab)
+        );
+        if state == ElementState::Released {
+            code = self.pressed_key_codes.remove(&physical).or(code);
+        } else {
+            if tab && self.modifiers.shift_key() {
+                code = Some(crate::keymap::KEY_SHIFT);
+            }
+            if let Some(pressed) = self.pressed_key_codes.get(&physical) {
+                code = Some(*pressed);
+            } else if let Some(code) = code {
+                self.pressed_key_codes.insert(physical, code);
+            }
+        }
         match state {
             ElementState::Pressed => {
                 if let Some(code) = code {
@@ -427,6 +461,8 @@ impl ApplicationHandler<GuiCustomEvent> for GuiApp {
                 self.close(event_loop);
             }
 
+            WindowEvent::Focused(focused) => self.handle_focus(focused),
+
             WindowEvent::ModifiersChanged(m) => {
                 self.handle_modifiers(m.state());
             }
@@ -574,6 +610,17 @@ mod tests {
             })
         );
         assert!(!state.held_keys.lock().unwrap().contains(&KEY_8));
+        app.handle_key_input(
+            &Key::Character("8".into()),
+            PhysicalKey::Code(KeyCode::Digit8),
+            Some("8"),
+            ElementState::Released,
+            false,
+        );
+        assert!(
+            !state.is_key_down(KEY_TIMES),
+            "a changed host Shift modifier must not leave multiplication held"
+        );
         // A letter with no HP key still reaches INPUT dialogs as a character.
         press(
             &mut app,
@@ -724,5 +771,81 @@ mod tests {
         app.handle_mouse_button(ElementState::Released, MouseButton::Left, None);
         assert!(!app.is_mouse_down);
         assert_eq!(*state.touch_pos.lock().unwrap(), None);
+    }
+    #[test]
+    fn standalone_tab_shift_tab_and_focus_loss_keep_correct_held_keys() {
+        use crate::keymap::{KEY_ALPHA, KEY_SHIFT};
+        let (mut app, state) = headless_app();
+        press(&mut app, Key::Named(NamedKey::Tab), KeyCode::Tab, None);
+        assert_eq!(
+            state.key_queue.lock().unwrap().pop_front(),
+            Some(KeyPress::code(KEY_ALPHA))
+        );
+        app.handle_key_input(
+            &Key::Named(NamedKey::Tab),
+            PhysicalKey::Code(KeyCode::Tab),
+            None,
+            ElementState::Released,
+            false,
+        );
+        assert!(!state.is_key_down(KEY_ALPHA));
+        app.handle_modifiers(ModifiersState::SHIFT);
+        press(&mut app, Key::Named(NamedKey::Tab), KeyCode::Tab, None);
+        assert_eq!(
+            state.key_queue.lock().unwrap().pop_front(),
+            Some(KeyPress::code(KEY_SHIFT))
+        );
+        assert!(state.is_key_down(KEY_SHIFT));
+        app.handle_modifiers(ModifiersState::empty());
+        app.handle_key_input(
+            &Key::Named(NamedKey::Tab),
+            PhysicalKey::Code(KeyCode::Tab),
+            None,
+            ElementState::Released,
+            false,
+        );
+        assert!(
+            !state.is_key_down(KEY_SHIFT),
+            "releasing Shift first must not strand calculator Shift"
+        );
+        app.handle_modifiers(ModifiersState::SHIFT);
+        press(&mut app, Key::Named(NamedKey::Tab), KeyCode::Tab, None);
+        app.handle_focus(false);
+        assert!(!state.is_key_down(KEY_SHIFT));
+        assert!(!state.is_key_down(KEY_ALPHA));
+        app.handle_focus(true);
+        press(&mut app, Key::Named(NamedKey::Tab), KeyCode::Tab, None);
+        assert!(state.is_key_down(KEY_ALPHA));
+    }
+    #[test]
+    fn standalone_function_keys_use_side_emulator_shortcuts_and_keep_on_break() {
+        for (named, physical, pc) in [
+            (NamedKey::F1, KeyCode::F1, egui::Key::F1),
+            (NamedKey::F2, KeyCode::F2, egui::Key::F2),
+            (NamedKey::F3, KeyCode::F3, egui::Key::F3),
+            (NamedKey::F4, KeyCode::F4, egui::Key::F4),
+            (NamedKey::F5, KeyCode::F5, egui::Key::F5),
+            (NamedKey::F6, KeyCode::F6, egui::Key::F6),
+            (NamedKey::F7, KeyCode::F7, egui::Key::F7),
+            (NamedKey::F8, KeyCode::F8, egui::Key::F8),
+            (NamedKey::F9, KeyCode::F9, egui::Key::F9),
+            (NamedKey::F10, KeyCode::F10, egui::Key::F10),
+            (NamedKey::F11, KeyCode::F11, egui::Key::F11),
+        ] {
+            let (mut app, state) = headless_app();
+            press(&mut app, Key::Named(named), physical, None);
+            let expected = crate::keymap::lookup_by_pc_key(pc)
+                .map(|key| KeyPress::code(i64::from(key.ppl_code)));
+            assert_eq!(
+                state.key_queue.lock().unwrap().pop_front(),
+                expected,
+                "{pc:?}"
+            );
+            assert!(!state.is_interrupted());
+        }
+        let (mut app, state) = headless_app();
+        press(&mut app, Key::Named(NamedKey::F12), KeyCode::F12, None);
+        assert!(state.is_interrupted());
+        assert!(state.key_queue.lock().unwrap().is_empty());
     }
 }

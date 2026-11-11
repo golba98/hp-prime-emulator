@@ -116,13 +116,159 @@ pub fn get_master_id_info(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 }
 
 /// ref: `WriteComDebugMsg(fmt = r0, ...)` is the firmware's debug printf.
-/// The reference marshals a full va_list; we log the format string only
-/// (partial: argument formatting not implemented).
+/// Common SDK integer, pointer and narrow/wide string format arguments use
+/// the ARM variadic register/stack ABI. Floating point/64-bit formats remain
+/// explicitly reported rather than printing a plausible but wrong value.
 pub fn write_com_debug_msg(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     if let Some(fmt) = ctx.guest_str(ctx.args.r0)? {
-        ctx.trace.thread_event(format!("guest: {fmt}"));
+        let mut index = 0;
+        let formatted = format_debug(
+            &fmt,
+            || {
+                let value = match index {
+                    0 => Ok(ctx.args.r1),
+                    1 => Ok(ctx.args.r2),
+                    2 => Ok(ctx.args.r3),
+                    n => ctx.stack_arg(n - 3),
+                };
+                index += 1;
+                value
+            },
+            |address, wide| {
+                if address == 0 {
+                    Ok("(null)".into())
+                } else if wide {
+                    Ok(ctx.guest_wstr(address)?.unwrap_or_default())
+                } else {
+                    Ok(ctx.guest_str(address)?.unwrap_or_default())
+                }
+            },
+        )?;
+        match formatted {
+            Some(message) => ctx.trace.thread_event(format!("guest: {message}")),
+            None => ctx
+                .trace
+                .thread_event(format!("guest debug format unsupported: {fmt}")),
+        }
     }
     Ok(0)
+}
+
+fn format_debug(
+    format: &str,
+    mut argument: impl FnMut() -> Result<u32, HandlerFault>,
+    mut text: impl FnMut(u32, bool) -> Result<String, HandlerFault>,
+) -> Result<Option<String>, HandlerFault> {
+    let mut out = String::new();
+    let mut chars = format.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            out.push(ch);
+            continue;
+        }
+        if chars.peek() == Some(&'%') {
+            chars.next();
+            out.push('%');
+            continue;
+        }
+        let mut left = false;
+        let mut zero = false;
+        let mut plus = false;
+        let mut space = false;
+        let mut alternate = false;
+        while let Some(flag) = chars.peek() {
+            match flag {
+                '-' => left = true,
+                '0' => zero = true,
+                '+' => plus = true,
+                '#' => alternate = true,
+                ' ' => space = true,
+                _ => break,
+            }
+            chars.next();
+        }
+        let mut width = 0usize;
+        while let Some(digit) = chars.peek().and_then(|c| c.to_digit(10)) {
+            width = width.saturating_mul(10).saturating_add(digit as usize);
+            chars.next();
+        }
+        if width > 4096 {
+            return Ok(None);
+        }
+        let mut wide = false;
+        if chars.peek() == Some(&'l') {
+            chars.next();
+            wide = true;
+        }
+        let Some(spec) = chars.next() else {
+            return Ok(None);
+        };
+        if wide && spec != 's' {
+            return Ok(None);
+        }
+        if !matches!(spec, 'd' | 'i' | 'u' | 'x' | 'X' | 'o' | 'p' | 's' | 'c') {
+            return Ok(None);
+        }
+        let value = argument()?;
+        let mut value = match spec {
+            'd' | 'i' => {
+                let signed = value as i32;
+                if plus && signed >= 0 {
+                    format!("+{signed}")
+                } else if space && signed >= 0 {
+                    format!(" {signed}")
+                } else {
+                    signed.to_string()
+                }
+            }
+            'u' => value.to_string(),
+            'x' => {
+                if alternate && value != 0 {
+                    format!("0x{value:x}")
+                } else {
+                    format!("{value:x}")
+                }
+            }
+            'X' => {
+                if alternate && value != 0 {
+                    format!("0X{value:X}")
+                } else {
+                    format!("{value:X}")
+                }
+            }
+            'o' => {
+                if alternate && value != 0 {
+                    format!("0{value:o}")
+                } else {
+                    format!("{value:o}")
+                }
+            }
+            'p' => format!("0x{value:08x}"),
+            's' => text(value, wide)?,
+            'c' => char::from_u32(value & 255).unwrap().to_string(),
+            _ => unreachable!(),
+        };
+        let padding = width.saturating_sub(value.chars().count());
+        if left {
+            value.extend(std::iter::repeat_n(' ', padding));
+        } else if zero && !matches!(spec, 's' | 'c') {
+            let prefix = if value.starts_with(['-', '+', ' ']) {
+                1
+            } else if value.starts_with("0x") || value.starts_with("0X") {
+                2
+            } else {
+                0
+            };
+            value.insert_str(prefix, &"0".repeat(padding));
+        } else {
+            value.insert_str(0, &" ".repeat(padding));
+        }
+        out.push_str(&value);
+        if out.len() > 16384 {
+            return Ok(None);
+        }
+    }
+    Ok(Some(out))
 }
 
 /// Emulated user storage capacity (the G1's 256 MiB flash). Provisional:
@@ -383,4 +529,61 @@ pub fn device_io_control(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         }
     };
     Ok(ret)
+}
+
+#[cfg(test)]
+mod debug_format_tests {
+    use super::*;
+    #[test]
+    fn formats_common_arm_debug_arguments_in_order() {
+        let mut args = [u32::MAX, 123, 0xabcd, 0x100, 65, 7].into_iter();
+        assert_eq!(
+            format_debug(
+                "n=%d u=%u x=%#08x s=%ls c=%c tail=%u %%",
+                || Ok(args.next().unwrap()),
+                |p, wide| {
+                    assert_eq!(p, 0x100);
+                    assert!(wide);
+                    Ok("hello".into())
+                }
+            )
+            .unwrap(),
+            Some("n=-1 u=123 x=0x00abcd s=hello c=A tail=7 %".into())
+        );
+        assert!(args.next().is_none());
+    }
+    #[test]
+    fn preserves_sign_and_string_padding_and_reports_unknown_formats() {
+        let mut args = [(-12i32) as u32, 3].into_iter();
+        assert_eq!(
+            format_debug(
+                "%06d %-5s",
+                || Ok(args.next().unwrap()),
+                |_, _| Ok("abc".into())
+            )
+            .unwrap(),
+            Some("-00012 abc  ".into())
+        );
+        let mut args = [7, 0, 0].into_iter();
+        assert_eq!(
+            format_debug(
+                "% 05d %#x %#X",
+                || Ok(args.next().unwrap()),
+                |_, _| unreachable!()
+            )
+            .unwrap(),
+            Some(" 0007 0 0".into())
+        );
+        for format in ["%f", "%lld", "%n", "%999999999d", "%"] {
+            assert_eq!(
+                format_debug(
+                    format,
+                    || panic!("unsupported format must not read arguments"),
+                    |_, _| unreachable!()
+                )
+                .unwrap(),
+                None
+            );
+        }
+    }
 }

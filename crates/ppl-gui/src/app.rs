@@ -4,14 +4,24 @@
 //! execution controller, and debugger panels into one eframe application.
 //! The plain winit calculator window lives in [`crate::window`].
 
+#[path = "app_catalog.rs"]
+mod catalog_integration;
 #[path = "app_check.rs"]
 mod checking_integration;
 #[path = "app_device.rs"]
 mod device_integration;
 #[path = "app_firmware.rs"]
 mod firmware_integration;
+#[path = "app_lcd_capture.rs"]
+mod lcd_capture_integration;
+#[path = "app_math_entry.rs"]
+mod math_entry_integration;
 #[path = "app_native.rs"]
 mod native_integration;
+#[path = "app_tools.rs"]
+mod native_tools_integration;
+#[path = "app_user_keys.rs"]
+mod user_keys_integration;
 #[path = "app_workspace.rs"]
 mod workspace;
 
@@ -40,6 +50,20 @@ use crate::theme;
 
 /// Native Desktop IDE Application implementing `eframe::App`.
 pub struct IdeDesktopApp {
+    catalog_task: Option<catalog_integration::CatalogTask>,
+    catalog_program_return: Option<catalog_integration::CatalogProgramReturn>,
+    native_lcd_capture: crate::ide::native_lcd_capture::NativeLcdCapture,
+    tool_capture_stamp: Option<crate::ide::native_lcd_capture::CaptureStamp>,
+    lcd_capture_actions: Vec<crate::ide::native_lcd_capture::CaptureAction>,
+    pub native_tools: crate::ide::native_tools::NativeTools,
+    cas_task: Option<native_tools_integration::CasTask>,
+    math_entry: Option<math_entry_integration::MathEntry>,
+    model_task: Option<native_tools_integration::ModelTask>,
+    user_key_task: Option<user_keys_integration::UserKeyTask>,
+    profile_ui_last: serde_json::Value,
+    pub profile_problem: Option<String>,
+    installed_catalog_sources: std::collections::BTreeMap<String, String>,
+    installed_catalog_entries: Vec<crate::ide::native::CatalogEntry>,
     pub state: IdeAppState,
     pub firmware: Option<crate::ide::firmware::FirmwareClient>,
     /// A switched-off session whose helper may still be exiting; the next
@@ -167,6 +191,20 @@ struct DiagRequest {
 impl Default for IdeDesktopApp {
     fn default() -> Self {
         Self {
+            catalog_task: None,
+            catalog_program_return: None,
+            native_lcd_capture: Default::default(),
+            tool_capture_stamp: None,
+            lcd_capture_actions: Vec::new(),
+            native_tools: Default::default(),
+            cas_task: None,
+            math_entry: None,
+            model_task: None,
+            user_key_task: None,
+            profile_ui_last: serde_json::Value::Null,
+            profile_problem: None,
+            installed_catalog_sources: Default::default(),
+            installed_catalog_entries: Vec::new(),
             state: IdeAppState::default(),
             firmware: None,
             firmware_retired: None,
@@ -299,6 +337,7 @@ impl IdeDesktopApp {
         if let Some(p) = load_panel_preferences(cc.storage, path.as_deref()) {
             app.state.apply_persistent(&p);
         }
+        app.initialize_native_memory();
         let root = app.state.workspace_root.clone();
         app.explorer.refresh_workspace(root.as_deref());
         app.device.start_polling(&cc.egui_ctx);
@@ -318,6 +357,9 @@ impl IdeDesktopApp {
     }
 
     pub fn execution_busy(&self) -> bool {
+        if self.cas_task.is_some() || self.model_task.is_some() {
+            return true;
+        }
         if self.state.firmware_backend {
             matches!(self.firmware_state, crate::ide::VmExecutionState::Running)
         } else {
@@ -490,7 +532,7 @@ impl IdeDesktopApp {
         stop_at_entry: bool,
         ctx: &egui::Context,
     ) {
-        if self.native_compile.is_some() || (run && self.controller.worker_alive()) {
+        if self.native_compile.is_some() || (run && self.controller.running()) {
             self.state.status_message = "A program is already running (use Stop first)".into();
             return;
         }
@@ -995,6 +1037,12 @@ impl IdeDesktopApp {
 
     /// Drains worker terminal output, outcomes, and debugger pauses into the UI.
     fn poll_execution(&mut self) {
+        if self.poll_native_catalog_task() {
+            return;
+        }
+        if self.poll_native_user_key() {
+            return;
+        }
         if self.native_stopping {
             if self.controller.worker_alive() {
                 return;
@@ -1359,6 +1407,9 @@ impl IdeDesktopApp {
             IdeAction::RestartProgram if self.state.firmware_backend => {
                 self.request_firmware(true, _ctx)
             }
+            IdeAction::RunProgram if self.cas_task.is_some() || self.model_task.is_some() => {
+                self.state.status_message = "Calculator is busy".into();
+            }
             IdeAction::RunProgram => {
                 if self.state.vm_state == crate::ide::VmExecutionState::Paused {
                     self.handle_action(IdeAction::ContinueExecution, _ctx);
@@ -1403,9 +1454,13 @@ impl IdeDesktopApp {
             }
             IdeAction::NativeHome | IdeAction::NativeCatalog => {
                 if !self.state.firmware_backend
-                    && !self.controller.worker_alive()
+                    && !self.controller.running()
                     && self.native_compile.is_none()
                 {
+                    if matches!(action, IdeAction::NativeHome) {
+                        self.switch_native_environment(false, _ctx);
+                        return;
+                    }
                     self.refresh_native_catalog();
                     self.state.native.outcome_handled = true;
                     self.set_native_view(
@@ -1420,6 +1475,11 @@ impl IdeDesktopApp {
             }
             IdeAction::NativeSubmit => self.submit_native_home(_ctx),
             IdeAction::NativeRunSelected => self.run_native_selected(_ctx),
+            IdeAction::StartDebugging | IdeAction::RestartProgram
+                if self.cas_task.is_some() || self.model_task.is_some() =>
+            {
+                self.state.status_message = "Calculator is busy".into();
+            }
             IdeAction::RestartProgram => {
                 self.cancel_native_compile();
                 self.native_restart = Some(_ctx.clone());
@@ -1527,6 +1587,10 @@ impl IdeDesktopApp {
                 self.state.calculator_mode = mode;
                 self.state.show_calculator = true;
             }
+            IdeAction::SelectBackend(_) if self.cas_task.is_some() || self.model_task.is_some() => {
+                self.state.status_message =
+                    "Stop the current calculation before changing the engine".into();
+            }
             IdeAction::SelectBackend(firmware) => {
                 if !self.state.firmware_backend {
                     self.native_vm_state = self.state.vm_state.clone();
@@ -1597,6 +1661,13 @@ impl IdeDesktopApp {
                     .set_file_name("screenshot.png")
                     .save_file()
                 {
+                    if !self.state.firmware_backend && self.native_tools.page.is_some() {
+                        self.request_composed_lcd(
+                            crate::ide::native_lcd_capture::CaptureAction::Save(file),
+                            _ctx,
+                        );
+                        return;
+                    }
                     let Some((grob, _)) = self.capture_compare_frame() else {
                         self.state.status_message =
                             "No current frame from the selected engine".into();
@@ -1690,6 +1761,7 @@ impl eframe::App for IdeDesktopApp {
         if !self.state.firmware_backend {
             self.route_native_keyboard(ctx);
         }
+        self.poll_native_tools(ctx);
 
         // Handle keyboard shortcuts
         self.menu_bar.handle_shortcuts(ctx, &mut self.state);
@@ -1743,7 +1815,38 @@ impl eframe::App for IdeDesktopApp {
         }
 
         self.render_workspace(ctx);
+        self.consume_native_tool(ctx);
+        if self.native_tools.page.is_none() {
+            self.route_native_pointer(ctx);
+        }
+        self.render_native_tools(ctx);
+        self.poll_composed_lcd(ctx);
+        if self
+            .controller
+            .shared
+            .active_dialog
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+            && ctx.input(|i| i.pointer.primary_pressed())
+        {
+            if let Some(touch) = ctx
+                .input(|i| i.pointer.interact_pos())
+                .and_then(|pos| self.display.project_pointer_pos(pos))
+            {
+                self.controller
+                    .shared
+                    .push_dialog_event(crate::dialog::DialogEvent::Pointer {
+                        x: touch.x,
+                        y: touch.y,
+                    });
+            }
+        }
+        if let Some(text) = self.controller.shared.take_dialog_clipboard() {
+            ctx.copy_text(text);
+        }
         self.forward_touch(ctx);
+        self.persist_native_ui();
 
         // Focus transition: clear held keys when focus is lost.
         if (self.last_calc_input_focus || prev_calc_focus) && !self.state.calc_input_focus {
@@ -1818,7 +1921,14 @@ impl eframe::App for IdeDesktopApp {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // Stop the worker on the way out (the handle's Drop also interrupts).
-        self.controller.stop();
+        self.stop_calculator_tasks();
+        self.controller.join_current();
+        self.persist_native_ui();
+        if let Some(profile) = self.controller.native_profile() {
+            if let Err(error) = profile.flush() {
+                eprintln!("Native profile save: {error}");
+            }
+        }
         self.controller.reap_async();
         // Wait (bounded) for the firmware helpers, so none outlives the IDE.
         for client in [self.firmware.take(), self.firmware_retired.take()]
@@ -2187,7 +2297,7 @@ mod tests {
         let mut app = IdeDesktopApp::default();
         let ctx = egui::Context::default();
         app.editor.active_tab_mut().unwrap().content =
-            "EXPORT EV()\nBEGIN\n  PRINT(1);\n  RETURN EVAL(\"1+1\");\nEND;\n".to_string();
+            "EXPORT EV()\nBEGIN\n  PRINT(1);\n  RETURN AFilesB(\"x\");\nEND;\n".to_string();
         app.handle_action(IdeAction::RunProgram, &ctx);
         for _ in 0..300 {
             app.poll_execution();
@@ -2205,11 +2315,11 @@ mod tests {
         assert_eq!(runtime.len(), 1, "{:#?}", app.problems.items);
         assert_eq!(runtime[0].line, 4);
         assert!(
-            runtime[0].message.contains("EVAL"),
+            runtime[0].message.contains("AFilesB"),
             "{}",
             runtime[0].message
         );
-        // The compatibility warning about EVAL is a separate entry.
+        // The compatibility warning about AFilesB is a separate entry.
         assert!(
             app.problems
                 .items
@@ -2700,3 +2810,15 @@ mod versioned_preferences_tests {
         assert_eq!(load_panel_preferences(Some(&storage), None), Some(current));
     }
 }
+
+#[cfg(test)]
+#[path = "app_catalog_tests.rs"]
+mod catalog_tests;
+
+#[cfg(test)]
+#[path = "app_plot_tests.rs"]
+mod plot_view_tests;
+
+#[cfg(all(test, feature = "giac-integration"))]
+#[path = "app_cas_catalog_tests.rs"]
+mod cas_catalog_tests;

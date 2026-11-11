@@ -1002,12 +1002,13 @@ impl LiveSession {
         if shared.input_events_pending() != 0
             || shared.touch_pending() != 0
             || !device.held.is_empty()
+            || !device.keys.is_empty()
             || device.scenario_touch.is_some()
         {
             blockers.push("input_pending_or_held".into());
         }
         let owners = shared.safe_points.observations();
-        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_ui_idle":shared.main_ui_waiting(),"power_sequence":device.power_sequence.as_ref().map(|s|s.phase()),"typing_pending":device.typing.pending_len(),"typing_last_keydown_main_wait":device.typing_ack.baseline(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
+        let resources = serde_json::json!({"vfs":shared.vfs.inspection(),"sync_objects":shared.sync_objects.try_lock().ok().map(|m|m.len()),"guest_call_busy":shared.guest_calls.inspected_busy(),"main_waiting":shared.main_waiting(),"main_ui_idle":shared.main_ui_waiting(),"power_sequence":device.power_sequence.as_ref().map(|s|s.phase()),"typing_pending":device.typing.pending_len(),"queued_keys":device.keys.len(),"typing_last_keydown_main_wait":device.typing_ack.baseline(),"main_wait_generation":shared.main_wait_entries(),"pump_parked":shared.getevent_parked(),"pump_entries":shared.getevent_entries(),"timers_delivered":shared.system_events_delivered(),"input_pending":shared.input_events_pending(),"touch_pending":shared.touch_pending()});
         let diagnostics = trace.diagnostic_bundle();
         let paused = pause.as_ref().is_ok_and(|lease| lease.is_current());
         if pause.is_ok() && !paused {

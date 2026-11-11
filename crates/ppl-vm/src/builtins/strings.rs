@@ -1,7 +1,7 @@
 //! String commands. Positions are 1-based and count characters.
 
 use ppl_compiler::builtins::Builtin;
-use ppl_math::NumFormat;
+mod formatting;
 
 use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
@@ -106,30 +106,7 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             c.rotate_left(k);
             Ok(s(c))
         }
-        B::StringFn => {
-            if args.len() > 3 {
-                return Err(RuntimeError::new(
-                    ErrorKind::Unsupported,
-                    "STRING: the separator and size-limit arguments are not emulated",
-                ));
-            }
-            let mut opts = m.settings.format();
-            if let Some(mode) = args.get(1) {
-                let digits = args
-                    .get(2)
-                    .map(|v| v.expect_i64(name))
-                    .transpose()?
-                    .unwrap_or(m.settings.hdigits)
-                    .clamp(0, 11) as u8;
-                opts.format = match mode.expect_i64(name)? {
-                    2 => NumFormat::Fixed(digits),
-                    3 => NumFormat::Scientific(digits),
-                    4 => NumFormat::Engineering(digits),
-                    _ => NumFormat::Standard,
-                };
-            }
-            Ok(Value::str(a0.string_form(opts)))
-        }
+        B::StringFn => formatting::string(m, args),
         B::Upper => Ok(Value::str(a0.expect_str(name)?.to_uppercase())),
         B::Lower => Ok(Value::str(a0.expect_str(name)?.to_lowercase())),
         B::Replace => {

@@ -77,6 +77,17 @@ pub struct NativeSession {
     context: Arc<Mutex<SessionContext>>,
     published: Arc<Mutex<SessionSnapshot>>,
     busy: Arc<AtomicBool>,
+    profile: Arc<Mutex<Option<crate::ide::native_profile::NativeProfile>>>,
+}
+/// Exclusive ownership across VM, CAS and app calculations. Dropping a completed
+/// operation releases admission; cancellation alone never admits another worker.
+pub struct SessionLease {
+    busy: Arc<AtomicBool>,
+}
+impl Drop for SessionLease {
+    fn drop(&mut self) {
+        self.busy.store(false, Ordering::Release);
+    }
 }
 impl Default for NativeSession {
     fn default() -> Self {
@@ -86,10 +97,86 @@ impl Default for NativeSession {
             context: Arc::new(Mutex::new(context)),
             published: Arc::new(Mutex::new(snapshot)),
             busy: Arc::new(AtomicBool::new(false)),
+            profile: Arc::new(Mutex::new(None)),
         }
     }
 }
 impl NativeSession {
+    pub fn reserve(&self) -> Result<SessionLease, String> {
+        self.busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "Calculator is busy")?;
+        Ok(SessionLease {
+            busy: self.busy.clone(),
+        })
+    }
+    pub fn mutate_reserved(
+        &self,
+        lease: &SessionLease,
+        change: impl FnOnce(&mut SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        if !Arc::ptr_eq(&lease.busy, &self.busy) || !self.busy.load(Ordering::Acquire) {
+            return Err("Invalid calculator operation owner".into());
+        }
+        let mut context = self
+            .context
+            .try_lock()
+            .map_err(|_| "Calculator memory is busy")?;
+        change(&mut context)?;
+        *self.published.lock().unwrap_or_else(|e| e.into_inner()) = context.snapshot();
+        if let Some(profile) = self.profile() {
+            profile.update("memory", context.memory_json());
+        }
+        Ok(())
+    }
+    pub fn open_profile(&self, path: &std::path::Path) -> Result<serde_json::Value, String> {
+        let (profile, state) = crate::ide::native_profile::NativeProfile::open(path)?;
+        if !state["memory"].is_null() {
+            self.context
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .restore_memory(&state["memory"])?;
+        }
+        *self.published.lock().unwrap_or_else(|e| e.into_inner()) = self
+            .context
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .snapshot();
+        *self.profile.lock().unwrap_or_else(|e| e.into_inner()) = Some(profile);
+        Ok(state["ui"].clone())
+    }
+    pub fn profile(&self) -> Option<crate::ide::native_profile::NativeProfile> {
+        self.profile
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
+    pub fn mutate(
+        &self,
+        change: impl FnOnce(&mut SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        if self
+            .busy
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return Err("Calculator is executing a program".into());
+        }
+        let result = (|| {
+            let mut context = self
+                .context
+                .try_lock()
+                .map_err(|_| "Calculator memory is busy")?;
+            change(&mut context)?;
+            *self.published.lock().unwrap_or_else(|e| e.into_inner()) = context.snapshot();
+            if let Some(p) = self.profile() {
+                p.update("memory", context.memory_json());
+            }
+            Ok(())
+        })();
+        self.busy.store(false, Ordering::Release);
+        result
+    }
     pub fn operation_active(&self) -> bool {
         self.busy.load(Ordering::Acquire)
     }
@@ -101,6 +188,24 @@ impl NativeSession {
             .clone()
     }
     fn perform(&self, run: impl FnOnce(&mut SessionContext) -> WorkerOutcome) -> WorkerOutcome {
+        let outcome = self.perform_context(run);
+        self.busy.store(false, Ordering::Release);
+        outcome
+    }
+
+    /// A reserved operation keeps admission closed until its owning closure ends.
+    fn perform_reserved(
+        &self,
+        _owner: SessionLease,
+        run: impl FnOnce(&mut SessionContext) -> WorkerOutcome,
+    ) -> WorkerOutcome {
+        self.perform_context(run)
+    }
+
+    fn perform_context(
+        &self,
+        run: impl FnOnce(&mut SessionContext) -> WorkerOutcome,
+    ) -> WorkerOutcome {
         let mut context = self.context.lock().unwrap_or_else(|e| e.into_inner());
         let outcome =
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&mut context))) {
@@ -114,7 +219,9 @@ impl NativeSession {
                 }
             };
         *self.published.lock().unwrap_or_else(|e| e.into_inner()) = context.snapshot();
-        self.busy.store(false, Ordering::Release);
+        if let Some(profile) = self.profile() {
+            profile.update("memory", context.memory_json());
+        }
         outcome
     }
 }
@@ -128,6 +235,38 @@ pub struct WorkerHandle {
 }
 
 impl WorkerHandle {
+    pub fn spawn_store_variable(
+        name: String,
+        text: String,
+        state: Arc<GuiSharedState>,
+        session: NativeSession,
+    ) -> Self {
+        session.busy.store(true, Ordering::Release);
+        Self::spawn_task(state.clone(), None, move |_| {
+            session.perform(|context| {
+                match context.evaluate_argument(
+                    &text,
+                    Box::new(GuiHost::new(state)),
+                    Limits {
+                        max_steps: Some(1_000_000),
+                        ..Default::default()
+                    },
+                ) {
+                    Ok(value) => {
+                        match context.set_variable(&name, ppl_vm::PortableValue::from(&value)) {
+                            Ok(()) => WorkerOutcome::Success {
+                                value_str: value.display(context.settings.format()),
+                                steps: 0,
+                                elapsed: Duration::ZERO,
+                            },
+                            Err(error) => WorkerOutcome::Error(error),
+                        }
+                    }
+                    Err(error) => WorkerOutcome::Error(error),
+                }
+            })
+        })
+    }
     /// Spawns a background thread to run the PPL program.
     pub fn spawn(config: WorkerConfig, state: Arc<GuiSharedState>) -> Self {
         Self::spawn_with_notify(config, state, None)
@@ -158,16 +297,111 @@ impl WorkerHandle {
         })
     }
 
+    /// Link and execute a calculator-owned source snapshot on this worker.
+    /// Its non-Home return value never changes Ans. The ordinary GuiHost gives
+    /// INPUT, graphics and ON exactly the same lifecycle as other VM calls.
+    pub(super) fn spawn_source_in_session(
+        namespace: String,
+        entry: Option<String>,
+        args: Option<String>,
+        catalog: Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+        state: Arc<GuiSharedState>,
+        session: NativeSession,
+        owner: SessionLease,
+    ) -> Self {
+        Self::spawn_task(state, None, move |state| {
+            session.perform_reserved(owner, |context| {
+                let execute = || -> ppl_vm::RtResult<(ppl_vm::LinkedProgram, String)> {
+                    if state.interrupt.load(Ordering::Acquire) {
+                        return Err(RuntimeError::new(
+                            ErrorKind::Interrupted,
+                            "Calculator operation interrupted",
+                        ));
+                    }
+                    let image = ppl_vm::link_sources_with_base(
+                        &catalog,
+                        &namespace,
+                        context.settings.int_base,
+                    )?;
+                    let selected = image
+                        .program()
+                        .pick_entry_with_stem(entry.as_deref(), Some(&namespace))
+                        .map_err(|message| RuntimeError::new(ErrorKind::Undefined, message))?;
+                    if state.interrupt.load(Ordering::Acquire) {
+                        return Err(RuntimeError::new(
+                            ErrorKind::Interrupted,
+                            "Calculator operation interrupted",
+                        ));
+                    }
+                    Ok((image, selected))
+                };
+                let (image, entry) = match execute() {
+                    Ok(result) => result,
+                    Err(error) => {
+                        context.record_failure();
+                        return WorkerOutcome::Error(error);
+                    }
+                };
+                let limits = Limits {
+                    max_steps: None,
+                    max_time: None,
+                    ..Limits::default()
+                };
+                let args = match source_operation_args(
+                    &image,
+                    &entry,
+                    args.as_deref(),
+                    context,
+                    &state,
+                    &limits,
+                ) {
+                    Ok(args) => args,
+                    Err(error) => {
+                        context.record_failure();
+                        return WorkerOutcome::Error(error);
+                    }
+                };
+                let run = context.run_linked(
+                    image,
+                    Box::new(GuiHost::new(state)),
+                    limits,
+                    false,
+                    |machine| {
+                        machine.initialize_dependencies()?;
+                        machine.call_function(&entry, args)
+                    },
+                );
+                session_outcome(run, &context.settings)
+            })
+        })
+    }
+
     pub fn spawn_home(
         text: String,
         state: Arc<GuiSharedState>,
         session: NativeSession,
         limits: Limits,
     ) -> Self {
+        Self::spawn_home_with_catalog(text, state, session, limits, None)
+    }
+    pub fn spawn_home_with_catalog(
+        text: String,
+        state: Arc<GuiSharedState>,
+        session: NativeSession,
+        limits: Limits,
+        catalog: Option<Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>>,
+    ) -> Self {
         session.busy.store(true, Ordering::Release);
         Self::spawn_task(state, None, move |state| {
             session.perform(|context| {
-                let run = context.evaluate_home(&text, Box::new(GuiHost::new(state)), limits);
+                let empty = std::collections::BTreeMap::new();
+                let sources = catalog.as_deref().unwrap_or(&empty);
+                let run = context.evaluate_home_with_sources(
+                    &text,
+                    sources,
+                    Box::new(GuiHost::new(state)),
+                    limits,
+                );
                 session_outcome(run, &context.settings)
             })
         })
@@ -383,6 +617,89 @@ fn run_session_program(
         )
     };
     session_outcome(run, &context.settings)
+}
+
+/// Saved programs request argument expressions without opening an IDE tab.
+/// Explicit arguments and User keys retain the common argument evaluator.
+fn source_operation_args(
+    image: &ppl_vm::LinkedProgram,
+    entry: &str,
+    text: Option<&str>,
+    context: &mut SessionContext,
+    state: &Arc<GuiSharedState>,
+    limits: &Limits,
+) -> ppl_vm::RtResult<Vec<Value>> {
+    use ppl_vm::host::{Dialog, DialogResult, Host, InputControl, InputField};
+    let function = &image.program().functions[image.program().function_index(entry).unwrap()];
+    if text.is_some() || function.params == 0 {
+        return parse_session_args(text, context, state, limits);
+    }
+    let mut fields = (0..function.params as usize)
+        .map(|index| InputField {
+            label: function
+                .local_names
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| format!("Argument {}", index + 1)),
+            help: "PPL expression".into(),
+            current: "0".into(),
+            string_only: false,
+            control: InputControl::Edit,
+            reset_text: None,
+            position: None,
+            page_title: None,
+        })
+        .collect::<Vec<_>>();
+    let mut error = None;
+    let mut focus = 0;
+    'input: loop {
+        let screen = state.get_frame();
+        let response = GuiHost::new(state.clone()).dialog(
+            &Dialog::Input {
+                title: format!("Run {entry}"),
+                fields: fields.clone(),
+                error: error.take(),
+                focus,
+            },
+            &screen,
+        )?;
+        let values = match response {
+            DialogResult::Cancelled => {
+                return Err(RuntimeError::new(
+                    ErrorKind::Interrupted,
+                    "Program arguments cancelled",
+                ));
+            }
+            DialogResult::Entered(values) if values.len() == fields.len() => values,
+            _ => {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "Incomplete program arguments",
+                ));
+            }
+        };
+        for (field, value) in fields.iter_mut().zip(values) {
+            field.current = value;
+        }
+        let mut arguments = Vec::with_capacity(fields.len());
+        for (index, field) in fields.iter().enumerate() {
+            match parse_session_args(Some(&field.current), context, state, limits) {
+                Ok(mut values) if values.len() == 1 => arguments.push(values.remove(0)),
+                Ok(_) => {
+                    error = Some("Enter one expression for each parameter".into());
+                    focus = index;
+                    continue 'input;
+                }
+                Err(failure) if failure.kind == ErrorKind::Interrupted => return Err(failure),
+                Err(failure) => {
+                    error = Some(failure.to_string());
+                    focus = index;
+                    continue 'input;
+                }
+            }
+        }
+        return Ok(arguments);
+    }
 }
 
 fn parse_session_args(

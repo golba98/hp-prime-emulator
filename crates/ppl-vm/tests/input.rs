@@ -399,11 +399,7 @@ fn positioned_cancel_retains_original_variables() {
 #[test]
 fn explicit_unsupported_or_malformed_descriptors_never_open_or_write_back() {
     for (spec, kind) in [
-        ("0", ErrorKind::Unsupported),
-        ("1", ErrorKind::Unsupported),
         ("\"checkbox\"", ErrorKind::Unsupported),
-        ("{\"First\",\"Second\"}", ErrorKind::Unsupported),
-        ("{0,\"bad\"}", ErrorKind::Unsupported),
         ("[0,1.5]", ErrorKind::BadArgValue),
         ("[0,1E-499]", ErrorKind::BadArgValue),
         ("[1E100]", ErrorKind::BadArgValue),
@@ -434,21 +430,19 @@ fn explicit_unsupported_or_malformed_descriptors_never_open_or_write_back() {
 }
 
 #[test]
-fn dynamic_descriptors_are_validated_before_host_delivery() {
+fn dynamic_choice_descriptors_are_delivered_as_choices() {
     let mut r = Run::new(
         "<dynamic descriptor>",
         &prog("LOCAL a:=17,spec:={0,\"bad\"}; INPUT({{a,spec}}); RETURN a;"),
     );
-    let error = r.call("TEST_PROG", &["100"]).unwrap_err();
-    assert_eq!(error.kind, ErrorKind::Unsupported);
-    assert!(error.detail.contains("Firmware mode"));
-    assert!(r.dialogs().is_empty());
-    assert_eq!(r.unused_inputs(), 1);
+    let result = r.call("TEST_PROG", &["2"]).unwrap();
+    assert_eq!(text(&result), "2");
+    assert_eq!(r.unused_inputs(), 0);
 }
 
 #[test]
 fn duplicate_type_codes_preserve_string_only_semantics() {
-    for spec in ["[2,2]", "{2,2}"] {
+    for spec in ["[2,2]", "[2,2,2]"] {
         let mut r = Run::new(
             "<duplicate types>",
             &prog(&format!(
@@ -470,4 +464,42 @@ fn omitted_descriptor_and_wildcard_keep_unrestricted_edit_fields() {
         );
         assert_eq!(text(&r.call("TEST_PROG", &["1+1"]).unwrap()), "2");
     }
+}
+
+#[test]
+fn checkbox_radio_and_choice_descriptors_write_back_typed_values() {
+    let mut r = Run::new(
+        "<controls>",
+        &prog(
+            "LOCAL a:=0,b:=1,c:=0,d:=1; INPUT({{a,1},{b,2},{c,0},{d,{\"First\",\"Second\"}}}); RETURN {a,b,c,d};",
+        ),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["1", "0", "1", "2"]).unwrap()),
+        "{1,0,1,2}"
+    );
+}
+#[test]
+fn checkbox_and_choice_invalid_entries_reopen_without_partial_writeback() {
+    let mut r = Run::new(
+        "<controls>",
+        &prog("LOCAL a:=0,b:=1; INPUT({{a,1},{b,{\"First\",\"Second\"}}}); RETURN {a,b};"),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["2", "1", "1", "2"]).unwrap()),
+        "{1,2}"
+    );
+    assert!(r.dialogs().iter().any(|s| s.contains("Checkbox requires")));
+}
+#[test]
+fn radio_group_rejects_multiple_checked_values_and_cancel_preserves_originals() {
+    let mut r = Run::new(
+        "<radio>",
+        &prog("LOCAL a:=0,b:=1; LOCAL ok:=INPUT({{a,2},{b,0}}); RETURN {ok,a,b};"),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["1", "1", "<ESC>"]).unwrap()),
+        "{0,0,1}"
+    );
+    assert!(r.dialogs().iter().any(|s| s.contains("Only one radio")));
 }

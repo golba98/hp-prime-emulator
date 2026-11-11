@@ -2,6 +2,7 @@
 //! host interface.
 
 pub mod builtins;
+pub mod cas;
 pub mod collections;
 pub mod error;
 pub mod host;
@@ -19,8 +20,8 @@ pub use host::{
 };
 pub use machine::{DebugAction, Debugger, Limits, Machine, eval_text_with};
 pub use session::{PortableValue, SessionContext, SessionRun, SessionSnapshot, SourceIdentity};
-pub use settings::{AngleMode, Settings};
+pub use settings::{AngleMode, AppSettings, Settings};
 pub use value::Value;
 
 pub mod linker;
-pub use linker::{LinkedProgram, ModuleSource, link_sources};
+pub use linker::{LinkedProgram, ModuleSource, link_sources, link_sources_with_base};

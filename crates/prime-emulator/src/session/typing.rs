@@ -75,10 +75,13 @@ pub fn observe(bytes: &[u8]) -> Option<Modifiers> {
     Some(Modifiers { lower, shift })
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Item {
     Key(u16, bool),
     Character(char),
+    /// Leave a power template after its complete parsed exponent. This is
+    /// separate from leaving a parenthesized group inside that exponent.
+    PowerEnd,
 }
 #[derive(Default)]
 pub struct Typing {
@@ -109,13 +112,25 @@ impl Typing {
     /// Validate the complete packet before queuing any part of it. Pasted
     /// newlines are never Enter, and unsupported Unicode is never discarded.
     pub fn paste(&mut self, text: &str) -> Result<(), String> {
+        let mut ends = std::collections::BTreeMap::new();
         if text.contains('^') {
-            return Err("Calculator paste does not translate linear powers (^): use the power key (F11), then Right to leave the exponent. No text from this paste was queued".into());
+            let (expression, diagnostics) = ppl_syntax::parse_expression(text);
+            if diagnostics.has_errors() {
+                return Err("Calculator power paste requires one complete expression; no text from this paste was queued".into());
+            }
+            power_ends(&expression, &mut ends);
         }
-        self.text(text)
+        self.enqueue(text, &ends)
     }
     pub fn text(&mut self, text: &str) -> Result<(), String> {
-        if self.queue.len() + text.chars().count() > LIMIT {
+        self.enqueue(text, &std::collections::BTreeMap::new())
+    }
+    fn enqueue(
+        &mut self,
+        text: &str,
+        ends: &std::collections::BTreeMap<usize, usize>,
+    ) -> Result<(), String> {
+        if self.queue.len() + text.chars().count() + ends.values().sum::<usize>() > LIMIT {
             return Err("Calculator typing queue is full; wait for the current text or press Escape to cancel".into());
         }
         let mut pairs = self.pairs.clone();
@@ -124,6 +139,7 @@ impl Typing {
             match item {
                 Item::Character(ch) => delimiter(*ch, &mut pairs)?,
                 Item::Key(..) => pairs.clear(),
+                Item::PowerEnd => {}
             }
         }
         for ch in text.chars() {
@@ -134,7 +150,17 @@ impl Typing {
             }
             delimiter(ch, &mut pairs)?;
         }
-        self.queue.extend(text.chars().map(Item::Character));
+        for (offset, ch) in text.char_indices() {
+            if let Some(count) = ends.get(&offset) {
+                self.queue
+                    .extend(std::iter::repeat_n(Item::PowerEnd, *count));
+            }
+            self.queue.push_back(Item::Character(ch));
+        }
+        if let Some(count) = ends.get(&text.len()) {
+            self.queue
+                .extend(std::iter::repeat_n(Item::PowerEnd, *count));
+        }
         Ok(())
     }
     /// Called only after previously delivered key transitions were consumed.
@@ -149,6 +175,11 @@ impl Typing {
             self.pairs.clear();
             self.attempts = 0;
             return Ok(vec![key]);
+        }
+        if matches!(item, Item::PowerEnd) {
+            self.queue.pop_front();
+            self.attempts = 0;
+            return Ok(tap(0x04));
         }
         let Item::Character(ch) = item else {
             unreachable!()
@@ -207,9 +238,47 @@ impl Typing {
             '_' => vec![SHIFT, 0x20],
             ':' => vec![0xb7],
             ';' => vec![0xb9],
+            'π' => vec![SHIFT, 0x33],
+            'ⅈ' => vec![SHIFT, 0x5a],
             _ => vec![plain_key(ch).expect("prevalidated character")],
         };
         Ok(keys.into_iter().flat_map(tap).collect())
+    }
+}
+/// AST spans include grouped expressions, so the Right key is emitted after
+/// the whole exponent, including nested powers and parenthesized expressions.
+fn power_ends(
+    expression: &ppl_syntax::ast::Expr,
+    ends: &mut std::collections::BTreeMap<usize, usize>,
+) {
+    use ppl_syntax::ast::{BinOp, ExprKind};
+    match &expression.kind {
+        ExprKind::Binary(op, left, right) => {
+            power_ends(left, ends);
+            power_ends(right, ends);
+            if *op == BinOp::Pow {
+                *ends.entry(right.span.end as usize).or_default() += 1;
+            }
+        }
+        ExprKind::Unary(_, e) | ExprKind::Postfix(_, e) | ExprKind::Quoted(e) => {
+            power_ends(e, ends)
+        }
+        ExprKind::List(values) | ExprKind::Bracket(values) => {
+            for e in values {
+                power_ends(e, ends);
+            }
+        }
+        ExprKind::ComplexPair(a, b) | ExprKind::Assign(a, b) | ExprKind::Store(a, b) => {
+            power_ends(a, ends);
+            power_ends(b, ends);
+        }
+        ExprKind::Call(callee, args) | ExprKind::Index(callee, args) => {
+            power_ends(callee, ends);
+            for e in args {
+                power_ends(e, ends);
+            }
+        }
+        _ => {}
     }
 }
 fn tap(code: u16) -> Vec<(u16, bool)> {
@@ -228,7 +297,7 @@ fn supported(ch: char) -> bool {
         || plain_key(ch).is_some()
         || matches!(
             ch,
-            '(' | ')' | '[' | ']' | '{' | '}' | '=' | '_' | ':' | ';'
+            '(' | ')' | '[' | ']' | '{' | '}' | '=' | '_' | ':' | ';' | 'π' | 'ⅈ'
         )
 }
 fn plain_key(ch: char) -> Option<u16> {
@@ -244,9 +313,9 @@ fn plain_key(ch: char) -> Option<u16> {
         '8' => 0x52,
         '9' => 0x53,
         '+' => 0xb9,
-        '-' => 0xb7,
-        '*' => 0x58,
-        '/' => 0x54,
+        '-' | '−' => 0xb7,
+        '*' | '×' | '·' => 0x58,
+        '/' | '÷' => 0x54,
         '.' => 0xb8,
         ',' => 0x4f,
         ' ' => 0x20,
@@ -338,11 +407,65 @@ mod tests {
         assert!(t.next(state(None, false)).unwrap().is_empty());
     }
     #[test]
-    fn paste_never_silently_turns_a_linear_power_into_a_template() {
+    fn pasted_power_leaves_the_exponent_before_the_following_operator() {
         let mut t = Typing::default();
-        assert!(t.paste("2^3+4").is_err());
+        t.paste("2^3+4").unwrap();
+        for code in [0x5a, 0x46, 0x33, 0x04, 0xb9, 0x55] {
+            assert_eq!(t.next(state(None, false)).unwrap(), tap(code));
+        }
         assert!(t.is_empty());
         assert!(t.text("^").is_ok()); // explicit desktop power shortcut
+    }
+    #[test]
+    fn nested_and_grouped_power_paste_emits_each_required_exit() {
+        let mut t = Typing::default();
+        t.paste("2^(3+4)^5+6").unwrap();
+        let mut codes = Vec::new();
+        while !t.is_empty() {
+            codes.extend(
+                t.next(state(None, false))
+                    .unwrap()
+                    .into_iter()
+                    .filter_map(|(code, down)| down.then_some(code)),
+            );
+        }
+        // 2, power, (, 3,+,4, close parenthesis, power,5, leave inner
+        // power, leave outer power,+,6. Right associativity is preserved.
+        assert_eq!(
+            codes,
+            vec![
+                0x5a, 0x46, 0x4e, 0x33, 0xb9, 0x55, 0x04, 0x46, 0x56, 0x04, 0x04, 0xb9, 0x57
+            ]
+        );
+    }
+    #[test]
+    fn malformed_power_paste_is_atomic() {
+        let mut t = Typing::default();
+        t.text("7").unwrap();
+        for expression in ["2^", "2^3\n4", "2^(3+)"] {
+            assert!(t.paste(expression).is_err());
+        }
+        assert_eq!(t.next(state(None, false)).unwrap(), tap(0x51));
+        assert!(t.is_empty());
+    }
+    #[test]
+    fn supported_unicode_uses_actual_calculator_keys() {
+        let mut t = Typing::default();
+        t.paste("π×2−ⅈ÷3").unwrap();
+        assert_eq!(
+            t.next(state(None, false)).unwrap(),
+            vec![(SHIFT, true), (SHIFT, false), (0x33, true), (0x33, false)]
+        );
+        for code in [0x58, 0x5a, 0xb7] {
+            assert_eq!(t.next(state(None, false)).unwrap(), tap(code));
+        }
+        assert_eq!(
+            t.next(state(None, false)).unwrap(),
+            vec![(SHIFT, true), (SHIFT, false), (0x5a, true), (0x5a, false)]
+        );
+        assert_eq!(t.next(state(None, false)).unwrap(), tap(0x54));
+        assert_eq!(t.next(state(None, false)).unwrap(), tap(0x33));
+        assert!(t.is_empty());
     }
     #[test]
     fn physical_edit_invalidates_the_desktop_pair() {

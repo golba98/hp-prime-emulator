@@ -75,7 +75,13 @@ impl Complex {
 
     /// Argument in radians.
     pub fn arg_radians(self) -> Result<Real, MathError> {
-        Real::from_f64(self.im.to_f64().atan2(self.re.to_f64()))
+        // atan2 is scale invariant. Normalize by an exact decimal exponent
+        // before f64 conversion so both components do not overflow or flush
+        // to zero outside the binary float exponent range.
+        let scale = self.scale_exp();
+        let imaginary = self.im.scale10(-scale)?.to_f64();
+        let real = self.re.scale10(-scale)?.to_f64();
+        Real::from_f64(imaginary.atan2(real))
     }
 
     pub fn sqrt(self) -> Result<Complex, MathError> {
@@ -121,6 +127,30 @@ impl Complex {
         } else {
             let sign = if self.im.is_negative() { '-' } else { '+' };
             format!("{}{sign}{im_part}", self.re.format(opts))
+        }
+    }
+}
+
+#[cfg(test)]
+mod argument_tests {
+    use super::*;
+    #[test]
+    fn argument_is_scale_invariant_across_full_decimal_range() {
+        for scale in ["1E400", "1E-400", "1"] {
+            let part = Real::parse(scale).unwrap();
+            let angle = Complex::new(part, part).arg_radians().unwrap().to_f64();
+            assert!(
+                (angle - std::f64::consts::FRAC_PI_4).abs() < 1e-12,
+                "{scale}: {angle}"
+            );
+            let angle = Complex::new(Real::ZERO, part.neg())
+                .arg_radians()
+                .unwrap()
+                .to_f64();
+            assert!(
+                (angle + std::f64::consts::FRAC_PI_2).abs() < 1e-11,
+                "{scale}: {angle}"
+            );
         }
     }
 }

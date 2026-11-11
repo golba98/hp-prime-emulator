@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "date": "2026-11-12",
+  "baseline": "8d7535e",
+  "no_physical_device_access": true,
+  "results": {
+    "workspace": {
+      "command": "cargo test --workspace",
+      "log": "/tmp/side-final-workspace-tests.log",
+      "log_sha256": "eb00d8d0e11fb20d24fe51a96aa02aa92acc992ceb782c5de31398dedd72efe7",
+      "exit_code": 0,
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6
+    },
+    "gui_giac": {
+      "command": "cargo test -p ppl-gui --lib --features giac-integration",
+      "log": "/tmp/side-gui-integration-final.log",
+      "log_sha256": "660b107615886b5244b4a023d908ad7e34a98e17f8a13f33133d238a2a56b062",
+      "exit_code": 0,
+      "passed": 552,
+      "failed": 0,
+      "ignored": 2
+    },
+    "vm_cas_giac": {
+      "command": "cargo test -p ppl-cas -p ppl-vm --features giac-integration",
+      "log": "/tmp/side-final-giac-tests.log",
+      "log_sha256": "ce11a4c23353349fda628a2e723b0bfe0e53863fbfea3e96941248eee9381138",
+      "exit_code": 0,
+      "passed": 256,
+      "failed": 0,
+      "ignored": 0
+    },
+    "desktop": {
+      "command": "bash tests/ide_xvfb_smoke/run_native_side.sh",
+      "log": "/tmp/side-native-acceptance-final.log",
+      "log_sha256": "68e727dcce7f7eb07113fb1ea77ab5c07d345ae02e5f39cb00040540156e5faa",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=3s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=3s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nNative side input: 21 behavioral assertions passed\nNative side workflows: 77 behavioral assertions passed\nPreserved Native desktop evidence: /tmp/prime-native-side-K05Ieh"
+    },
+    "crash_restart": {
+      "command": "python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py",
+      "log": "/tmp/side-crash-restart-final.log",
+      "log_sha256": "85c6bf8869e7a5e72c6a9629251ab4e3c47a3a03970517313f3f679f1102da83",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nForced-termination desktop restart: 8 assertions passed; evidence /tmp/prime-native-crash-6m3x3qya"
+    },
+    "m17": {
+      "command": "bash tests/ide_xvfb_smoke/run_m17_native_linkage.sh",
+      "log": "/tmp/side-final-m17.log",
+      "log_sha256": "81aaec86a84961d81578824f53de4a71a9b1200becec208ccd44ed661fff5884",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\n15 M17 Native linked IDE assertions passed"
+    },
+    "m18": {
+      "command": "bash tests/ide_xvfb_smoke/run_m18_native_debug.sh",
+      "log": "/tmp/side-final-m18.log",
+      "log_sha256": "b2d62fe2bff1120dbd39d9148e85ce8caf6e29ed406825b44cefd09e55a1f0a3",
+      "exit_code": 0,
+      "output": "40 M18 linked Native debugger GUI assertions passed"
+    },
+    "check": {
+      "command": "cargo check --workspace",
+      "log": "/tmp/side-final-check.log",
+      "log_sha256": "dbf7bc90c9f5c4076f315ab294c4e4182dc6ea07da80eb50173f27a594b4c7bd",
+      "exit_code": 0,
+      "output": "Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-bench v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-bench)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking prime-emulator v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/prime-emulator)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Checking ppl-cli v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cli)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.86s"
+    },
+    "clippy": {
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "log": "/tmp/side-final-clippy.log",
+      "log_sha256": "a4bcc7a7f6079e26f9cc197c6f0a8c33274c2364bb41b95b816724537ed10b98",
+      "exit_code": 0,
+      "output": "Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-bench v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-bench)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking prime-emulator v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/prime-emulator)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Checking ppl-cli v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cli)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.45s"
+    },
+    "clippy_giac": {
+      "command": "cargo clippy -p ppl-cas -p ppl-vm -p ppl-gui --all-targets --features giac-integration -- -D warnings",
+      "log": "/tmp/side-final-giac-clippy.log",
+      "log_sha256": "c12f4b22d6e7274eec2c4068ef25188d2677b71953d8d22a8cd67d3aea9c1b6f",
+      "exit_code": 0,
+      "output": "Blocking waiting for file lock on build directory\n    Checking ppl-cas v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cas)\n    Checking ppl-device v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-device)\n    Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.24s"
+    },
+    "private_fixture": {
+      "command": "cargo test -p ppl-gui --lib private_hardware_fixture_matches_the_standalone_decoder -- --ignored",
+      "log": "/tmp/side-final-private-fixture.log",
+      "log_sha256": "6cc6489067dd1b85d952b827d33ff21b65565aa3d7dfcf7cd98019f01c2e6621",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "firmware_live": {
+      "command": "cargo test -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture",
+      "log": "/tmp/side-firmware-live-final.log",
+      "log_sha256": "e4f90989f72d0290a632e09c1d1603e05aa8904f746e1cbb7988698fadf745c8",
+      "exit_code": 0,
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "environment": {
+    "cargo_target_dir": "/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target",
+    "cas_helper": "/home/k9-vortex/.local/share/hp-prime-emulator/cas/ppl-giac-helper",
+    "desktop_device_access": "PPL_IDE_NO_DEVICE=1",
+    "firmware_asset_variables": "See REMEDIATION.md"
+  },
+  "screenshots": [
+    "evidence/native_side_graph.png",
+    "evidence/native_side_graph_lcd.png",
+    "evidence/native_side_solve_lcd.png"
+  ],
+  "implementation_phase_no_commits_or_pushes": true,
+  "publication": {
+    "authorized_by_user": true,
+    "branch": "pr/hp-prime-side-remediation",
+    "base": "feat/g1-usability-overhaul",
+    "purpose": "Preserve the tested implementation, tests, all 33 outcomes and retained limitations in a reviewable PR."
+  }
+}

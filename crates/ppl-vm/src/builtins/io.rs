@@ -6,8 +6,8 @@ use ppl_graphics::{BLACK, WHITE, rgb, text};
 use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::host::{
-    Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputField, InputPosition,
-    MatrixDialog,
+    Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputControl, InputField,
+    InputPosition, MatrixDialog,
 };
 use crate::machine::Machine;
 use crate::value::Value;
@@ -40,7 +40,13 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         B::Msgbox => {
             let text = text_of(m, arg(args, 0, name)?);
             let screen = m.screen().clone();
-            let r = m.blocking(|h| h.dialog(&Dialog::Message { text }, &screen))?;
+            let ok_cancel = args
+                .get(1)
+                .map(|v| v.expect_real(name).map(|n| !n.is_zero()))
+                .transpose()?
+                .unwrap_or(false);
+            let r =
+                m.blocking(|h| h.dialog(&Dialog::MessageChoice { text, ok_cancel }, &screen))?;
             Ok(Value::from_bool(r != DialogResult::Cancelled))
         }
         B::Getkey => {
@@ -73,7 +79,11 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             // it used to return [[],[]], which crashed such programs).
             let t = m.blocking(|h| h.touch())?;
             let Some(t) = t else {
-                return Ok(Value::list(Vec::new()));
+                return Ok(if args.is_empty() {
+                    Value::list(Vec::new())
+                } else {
+                    Value::from_i64(-1)
+                });
             };
             let finger = Value::list(vec![
                 Value::from_i64(t.x),
@@ -115,11 +125,21 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         B::Freeze => {
             m.display = DisplayMode::Graphics;
             m.present_now();
+            m.blocking(|host| host.wait_key(None))?;
             Ok(Value::zero())
         }
         B::Drawmenu => {
             // Six 53-pixel soft-key slots on the bottom 20 rows (approximation).
-            let labels: Vec<String> = args.iter().map(|v| text_of(m, v)).collect();
+            let labels: Vec<String> = match args {
+                [Value::List(items)] => items.iter().map(|v| text_of(m, v)).collect(),
+                _ => args.iter().map(|v| text_of(m, v)).collect(),
+            };
+            if labels.len() > 6 {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "DRAWMENU accepts at most six labels",
+                ));
+            }
             let px = 12.0;
             let g = m.grobs[0].as_mut().unwrap();
             for i in 0..6i64 {
@@ -230,9 +250,12 @@ fn allowed_types(spec: &Value) -> RtResult<Vec<i64>> {
     Ok(codes)
 }
 
-/// Each compiler-produced entry is {} for omission or {descriptor} for an
-/// explicit descriptor. This distinction must survive through to the dialog.
-fn input_type_specs(value: &Value, count: usize) -> RtResult<Vec<Vec<i64>>> {
+/// Preserve omitted edit descriptors, typed vectors, checkbox groups and choice lists.
+fn input_specs(
+    m: &Machine,
+    value: &Value,
+    count: usize,
+) -> RtResult<(Vec<Vec<i64>>, Vec<InputControl>)> {
     let fields = value.expect_list("INPUT field descriptors")?;
     if fields.len() != count {
         return Err(RuntimeError::new(
@@ -240,20 +263,111 @@ fn input_type_specs(value: &Value, count: usize) -> RtResult<Vec<Vec<i64>>> {
             "INPUT field descriptor count does not match its variables",
         ));
     }
-    fields
-        .iter()
-        .map(|field| {
-            let optional = field.expect_list("INPUT optional field descriptor")?;
-            match optional.as_slice() {
-                [] => Ok(Vec::new()),
-                [spec] => allowed_types(spec),
-                _ => Err(RuntimeError::new(
+    let mut allowed = Vec::with_capacity(count);
+    let mut controls = Vec::with_capacity(count);
+    let mut radio_end = 0;
+    let mut radio_start = 0;
+    for (index, field) in fields.iter().enumerate() {
+        let optional = field.expect_list("INPUT optional field descriptor")?;
+        let (types, mut control) = match optional.as_slice() {
+            [] => (Vec::new(), InputControl::Edit),
+            [Value::Real(number)] => {
+                if *number > ppl_math::Real::ONE {
+                    let n = number
+                        .to_i64()
+                        .filter(|_| *number == number.trunc())
+                        .and_then(|n| usize::try_from(n).ok())
+                        .filter(|n| index.checked_add(*n).is_some_and(|end| end <= count))
+                        .ok_or_else(|| {
+                            RuntimeError::new(
+                                ErrorKind::BadArgValue,
+                                "INPUT radio group exceeds its fields or has a fractional size",
+                            )
+                        })?;
+                    if index < radio_end {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgValue,
+                            "INPUT radio groups overlap",
+                        ));
+                    }
+                    radio_start = index;
+                    radio_end = index + n;
+                }
+                (Vec::new(), InputControl::Checkbox { group: None })
+            }
+            [Value::List(items)] => {
+                if items.is_empty() {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        "INPUT choose field needs at least one item",
+                    ));
+                }
+                (
+                    Vec::new(),
+                    InputControl::Choice {
+                        items: items.iter().map(|v| text_of(m, v)).collect(),
+                    },
+                )
+            }
+            [spec] => (allowed_types(spec)?, InputControl::Edit),
+            _ => {
+                return Err(RuntimeError::new(
                     ErrorKind::BadArgValue,
                     "INPUT optional field descriptor is malformed",
-                )),
+                ));
             }
-        })
-        .collect()
+        };
+        if index < radio_end {
+            if !matches!(control, InputControl::Checkbox { .. }) {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "INPUT radio group requires consecutive checkbox controls",
+                ));
+            }
+            control = InputControl::Checkbox {
+                group: Some(radio_start),
+            };
+        }
+        allowed.push(types);
+        controls.push(control);
+    }
+    Ok((allowed, controls))
+}
+
+fn control_value(
+    m: &Machine,
+    text: &str,
+    current: &Value,
+    allowed: &[i64],
+    control: &InputControl,
+) -> Result<Value, String> {
+    match control {
+        InputControl::Edit => field_value(m, text, current, allowed),
+        InputControl::Checkbox { .. } => {
+            let value = m
+                .eval_text(text)
+                .map_err(|_| "Checkbox requires 0 or 1".to_owned())?;
+            let value = value
+                .expect_real("INPUT checkbox")
+                .map_err(|_| "Checkbox requires 0 or 1".to_owned())?;
+            if value != ppl_math::Real::ZERO && value != ppl_math::Real::ONE {
+                return Err("Checkbox requires 0 or 1".into());
+            }
+            Ok(Value::real(value))
+        }
+        InputControl::Choice { items } => {
+            let value = m
+                .eval_text(text)
+                .map_err(|_| "Choose a valid item".to_owned())?;
+            let index = value
+                .expect_i64("INPUT choice")
+                .map_err(|_| "Choose a valid item".to_owned())?;
+            if index < 1 || index as usize > items.len() {
+                return Err("Choose a valid item".into());
+            }
+            Ok(Value::from_i64(index))
+        }
+    }
 }
 
 /// The value typed into one field, or the message the dialog shows when
@@ -354,7 +468,7 @@ fn input_positions(value: Option<&Value>, count: usize) -> RtResult<Vec<Option<I
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
-    let allowed = input_type_specs(arg(args, 1, "INPUT")?, n)?;
+    let (allowed, controls) = input_specs(m, arg(args, 1, "INPUT")?, n)?;
     let scalar = args
         .get(2)
         .is_some_and(|v| v.expect_i64("INPUT").ok() == Some(1));
@@ -407,6 +521,7 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
                 help: helps[i].clone(),
                 current: texts[i].clone(),
                 string_only: allowed[i] == [2],
+                control: controls[i].clone(),
                 position: positions[i],
                 page_title: titles
                     .get(positions[i].map_or(i, |p| p.line) / INPUT_LINES_PER_PAGE)
@@ -437,7 +552,7 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
                 continue;
             };
             *text = typed.clone();
-            match field_value(m, typed, &current[i], &allowed[i]) {
+            match control_value(m, typed, &current[i], &allowed[i], &controls[i]) {
                 Ok(v) => out.push(v),
                 Err(msg) => {
                     error = Some(msg);
@@ -447,7 +562,20 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
             }
         }
         if out.len() == n {
-            return Ok((Value::from_i64(1), out));
+            let mut selected = std::collections::BTreeSet::new();
+            for (i, control) in controls.iter().enumerate() {
+                if let InputControl::Checkbox { group: Some(group) } = control {
+                    if !out[i].expect_real("INPUT checkbox")?.is_zero() && !selected.insert(*group)
+                    {
+                        error = Some("Only one radio option may be selected".into());
+                        focus = i;
+                        break;
+                    }
+                }
+            }
+            if error.is_none() {
+                return Ok((Value::from_i64(1), out));
+            }
         }
     }
 }
@@ -537,6 +665,7 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         column_headers,
         rows: matrix.rows,
         cols: matrix.cols,
+        vector: matrix.vector,
         cells: matrix
             .data
             .iter()
@@ -552,9 +681,20 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         if read_only {
             return Ok(original.clone());
         }
-        let entered = match response {
+        let (rows, cols, entered) = match response {
             DialogResult::Cancelled => return Ok(original.clone()),
-            DialogResult::Entered(entered) if entered.len() == matrix.data.len() => entered,
+            DialogResult::Entered(entered) if entered.len() == matrix.data.len() => {
+                (matrix.rows, matrix.cols, entered)
+            }
+            DialogResult::MatrixEdited { rows, cols, cells }
+                if rows > 0
+                    && cols > 0
+                    && rows.checked_mul(cols) == Some(cells.len())
+                    && cells.len() <= 1_000_000
+                    && (!matrix.vector || rows == 1) =>
+            {
+                (rows, cols, cells)
+            }
             _ => {
                 return Err(RuntimeError::new(
                     ErrorKind::InvalidInput,
@@ -562,14 +702,17 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
                 ));
             }
         };
+        dialog.rows = rows;
+        dialog.cols = cols;
         dialog.cells = entered;
         dialog.error = None;
-        let mut edited = (**matrix).clone();
+        let mut edited = crate::value::Matrix::zeros(rows, cols);
+        edited.vector = matrix.vector;
         for (index, cell) in dialog.cells.iter().enumerate() {
             let value = if cell.trim().is_empty() {
-                Err("Enter a numeric expression; Native EDITMAT cannot remove cells".into())
+                Err("Enter a numeric expression".into())
             } else {
-                field_value(m, cell, &matrix.data[index], &[0, 1, 3])
+                field_value(m, cell, &Value::zero(), &[0, 1, 3])
             };
             match value {
                 Ok(Value::Int(value)) => {
@@ -585,6 +728,55 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         }
         if dialog.error.is_none() {
             return Ok(Value::Matrix(std::rc::Rc::new(edited)));
+        }
+    }
+}
+
+/// Interactive list editor; the original list survives cancellation without partial writes.
+pub fn editlist(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
+    let original = arg(args, 0, "EDITLIST")?;
+    let values = original.expect_list("EDITLIST")?;
+    let mut items: Vec<String> = values
+        .iter()
+        .map(|v| v.string_form(m.settings.format()))
+        .collect();
+    let screen = m.screen().clone();
+    let mut error = None;
+    let mut focus = 0;
+    loop {
+        let dialog = Dialog::List {
+            title: "List".into(),
+            items: items.clone(),
+            error: error.take(),
+            focus,
+        };
+        match m.blocking(|h| h.dialog(&dialog, &screen))? {
+            DialogResult::Cancelled => return Ok(original.clone()),
+            DialogResult::Entered(entered) => {
+                items = entered;
+                let mut result = Vec::with_capacity(items.len());
+                let mut valid = true;
+                for (index, item) in items.iter().enumerate() {
+                    match field_value(m, item, &Value::zero(), &[]) {
+                        Ok(value) => result.push(value),
+                        Err(message) => {
+                            error = Some(message);
+                            focus = index;
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                if valid {
+                    return Ok(Value::list(result));
+                }
+            }
+            _ => {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "EDITLIST host returned an invalid result",
+                ));
+            }
         }
     }
 }

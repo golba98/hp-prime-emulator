@@ -75,7 +75,7 @@ pub fn install(registry: &mut Registry) {
     //    registers (irq, isr=r2) and returns 1; Mask/Disable/Done return 1.
     //    Note: id 0x1001F's verified SDKLIB export name is InterruptEnable;
     //    PrimU2's enum mislabels it InterruptMask — same id, same handler.)
-    //    Partial: ISRs are recorded but not dispatched yet) ──
+    //    Partial: synchronous slice-boundary dispatch, not hardware preemption) ──
     registry.register_by_name(
         "InterruptInitialize",
         ServiceStatus::PartiallyImplemented,
@@ -84,7 +84,7 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "InterruptEnable",
         ServiceStatus::PartiallyImplemented,
-        interrupt_noop_one,
+        interrupt_enable,
     );
     registry.register_by_name(
         "InterruptDisable",
@@ -94,7 +94,7 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "InterruptDone",
         ServiceStatus::PartiallyImplemented,
-        interrupt_noop_one,
+        interrupt_done,
     );
 
     // ── Threads (fw: OSCreateThread hit during M2 run 2; ref: native
@@ -117,17 +117,17 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "OSSuspendThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_suspend_thread,
     );
     registry.register_by_name(
         "OSResumeThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_resume_thread,
     );
     registry.register_by_name(
         "OSWakeUpThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_resume_thread,
     );
     registry.register_by_name(
         "OSSetThreadPriority",
@@ -461,7 +461,7 @@ fn os_sleep(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ms = ctx.args.r0 as u64;
     let mut left = ms;
     while left > 0 {
-        if ctx.shared.stopping() {
+        if ctx.shared.stopping() || ctx.shared.guest_thread_terminated(ctx.thread_id) {
             break;
         }
         let step = left.min(25);
@@ -639,7 +639,7 @@ fn get_event_type(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 // ─────────────────────────────── interrupts ───────────────────────────
 
 /// ref: `InterruptInitialize(irq = r0, ? = r1, isr = r2)` registers the ISR
-/// and returns 1. Partial: recorded, not dispatched.
+/// and returns 1. The runner dispatches registered, enabled ISRs between slices.
 fn interrupt_initialize(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let irq = ctx.args.r0;
     let isr = ctx.args.r2;
@@ -649,18 +649,23 @@ fn interrupt_initialize(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     Ok(1)
 }
 
-/// ref: InterruptMask / InterruptDisable / InterruptDone return 1.
-fn interrupt_noop_one(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    Ok(1)
+fn interrupt_enable(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    Ok(u32::from(ctx.shared.enable_isr(ctx.args.r0)))
 }
 
-/// ref: `InterruptDisable(irq = r0)` unregisters the ISR (PrimU2
-/// `InterruptController::UnregisterISR`), preventing further delivery until
-/// the firmware re-registers it with InterruptInitialize.
+/// ISR callbacks run to completion synchronously. Acknowledging a registered
+/// interrupt needs no host wait or fabricated resource handle.
+fn interrupt_done(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    Ok(u32::from(
+        ctx.shared.isrs.lock().unwrap().contains_key(&ctx.args.r0),
+    ))
+}
+
+/// Mask delivery while retaining the handler so InterruptEnable can restore it.
 fn interrupt_disable(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let irq = ctx.args.r0;
-    ctx.shared.unregister_isr(irq);
+    let disabled = ctx.shared.disable_isr(irq);
     ctx.trace
-        .thread_event(format!("guest disabled IRQ {irq} (unregistered)"));
-    Ok(1)
+        .thread_event(format!("guest disabled IRQ {irq} (masked={disabled})"));
+    Ok(u32::from(disabled))
 }

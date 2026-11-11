@@ -1,0 +1,116 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_symbolic.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "X^2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "definition"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 500
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_graph.png"
+    },
+    {
+      "step": "snapshot",
+      "label": "graph"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_graph_lcd.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "snapshot",
+      "label": "trace_first"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "snapshot",
+      "label": "trace_next"
+    },
+    {
+      "step": "calc_key",
+      "code": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "zoomed"
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "numeric"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

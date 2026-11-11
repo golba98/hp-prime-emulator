@@ -18,6 +18,23 @@ pub mod keypad;
 pub mod layout;
 pub mod menu;
 pub mod native;
+pub mod native_app_models;
+pub mod native_app_ui;
+pub mod native_app_views;
+pub mod native_apps;
+pub(crate) mod native_equations;
+pub mod native_graph_context;
+pub mod native_inference;
+pub mod native_inference_plots;
+pub mod native_inference_ui;
+pub mod native_integer;
+pub mod native_lcd_capture;
+pub mod native_model_plots;
+pub mod native_plot_controls;
+pub mod native_plot_view;
+pub mod native_profile;
+pub mod native_tools;
+pub mod native_user_keys;
 pub mod problems;
 pub mod programs;
 pub mod research;
@@ -588,3 +605,6 @@ impl IdeAppState {
         self.keys_down.clear();
     }
 }
+
+#[cfg(test)]
+mod native_plot_view_tests;

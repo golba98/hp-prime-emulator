@@ -79,6 +79,14 @@ pub trait Debugger {
 }
 
 pub struct Machine {
+    pub cas_context: ppl_cas::CasSession,
+    pub active_app: String,
+    pub app_settings: std::collections::BTreeMap<String, crate::AppSettings>,
+    pub app_files: std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, crate::PortableValue>,
+    >,
+    pub home_variables: std::collections::BTreeMap<String, Value>,
     prog: Rc<CompiledProgram>,
     pub(crate) linked: Option<(crate::LinkedProgram, Vec<bool>)>,
     initializing_modules: std::collections::BTreeSet<usize>,
@@ -117,6 +125,82 @@ enum Flow {
 }
 
 impl Machine {
+    /// Initialize graph/inspection workers from an immutable calculator snapshot
+    /// before executing any code. Never replace a live module from inside a call.
+    pub fn seed_object_stores(
+        &mut self,
+        notes: &std::collections::BTreeMap<String, String>,
+        programs: &std::collections::BTreeMap<String, String>,
+    ) -> RtResult<()> {
+        if !self.frames.is_empty() {
+            return Err(RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Object stores can only be seeded before execution",
+            ));
+        }
+        self.notes = notes.clone();
+        self.programs = programs.clone();
+        Ok(())
+    }
+    pub fn remaining_time(&self) -> Option<Duration> {
+        self.limits
+            .max_time
+            .map(|limit| limit.saturating_sub(self.started.elapsed()))
+    }
+
+    pub fn cas_home_values(&self) -> std::collections::BTreeMap<String, ppl_cas::CasValue> {
+        let mut home = self
+            .home_variables
+            .iter()
+            .filter_map(|(name, value)| {
+                crate::cas::to_cas(value).map(|value| (name.clone(), value))
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for (index, (slot, value)) in self.prog.globals.iter().zip(&self.globals).enumerate() {
+            let owned = self
+                .linked
+                .as_ref()
+                .map_or(!slot.program_var, |(image, _)| {
+                    image.global_owners[index].is_none()
+                });
+            if owned
+                && !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && let Some(value) = crate::cas::to_cas(value)
+            {
+                home.insert(slot.name.clone(), value);
+            }
+        }
+        home
+    }
+    pub fn store_home_value(&mut self, name: &str, value: Value) -> RtResult<()> {
+        self.home_variables.insert(name.into(), value.clone());
+        if let Some(slot) = self
+            .prog
+            .globals
+            .iter()
+            .enumerate()
+            .find_map(|(index, slot)| {
+                let owned = self
+                    .linked
+                    .as_ref()
+                    .map_or(!slot.program_var, |(image, _)| {
+                        image.global_owners[index].is_none()
+                    });
+                (slot.name == name && owned).then_some(index)
+            })
+        {
+            self.store_global(slot, value)?;
+        }
+        Ok(())
+    }
+    pub fn calculator_global(&self, name: &str) -> Option<&Value> {
+        self.prog
+            .globals
+            .iter()
+            .position(|slot| slot.name == name)
+            .map(|slot| &self.globals[slot])
+            .or_else(|| self.home_variables.get(name))
+    }
     pub fn new(
         prog: Rc<CompiledProgram>,
         host: Box<dyn Host>,
@@ -131,6 +215,9 @@ impl Machine {
                 Const::Int(i) => Value::Int(*i),
                 Const::Complex(c) => Value::Complex(*c),
                 Const::Str(s) => Value::str(s.as_str()),
+                Const::Symbolic(s) => {
+                    Value::Symbolic(Rc::new(ppl_cas::CasValue::Symbolic(s.clone())))
+                }
             })
             .collect();
         let mut grobs = vec![None; 10];
@@ -139,6 +226,7 @@ impl Machine {
             .globals
             .iter()
             .map(|g| match &g.init {
+                GlobalInit::Real(value) => Value::Real(*value),
                 GlobalInit::Zero | GlobalInit::Setting(_) => Value::zero(),
                 GlobalInit::EmptyList => Value::list(Vec::new()),
                 GlobalInit::ZeroMatrix => Value::Matrix(Rc::new(Matrix::zeros(1, 1))),
@@ -156,6 +244,11 @@ impl Machine {
             .collect();
         let interrupt = host.interrupt_flag();
         Machine {
+            cas_context: Default::default(),
+            active_app: "Function".into(),
+            app_settings: Default::default(),
+            app_files: Default::default(),
+            home_variables: Default::default(),
             prog,
             linked: None,
             initializing_modules: Default::default(),
@@ -553,6 +646,9 @@ impl Machine {
     }
 
     pub(crate) fn present_now(&mut self) {
+        if self.screen_dirty {
+            self.host.output_requested();
+        }
         let terminal = if self.display == DisplayMode::Terminal {
             Some(self.terminal.as_slice())
         } else {
@@ -623,7 +719,16 @@ impl Machine {
         match self.setting_slots.get(slot).copied().flatten() {
             Some(s) => {
                 let st = &self.settings;
+                let app = self
+                    .app_settings
+                    .get(&self.active_app)
+                    .cloned()
+                    .unwrap_or_default();
                 Value::from_i64(match s {
+                    Setting::AAngle => app.angle,
+                    Setting::AFormat => app.format,
+                    Setting::ADigits => app.digits,
+                    Setting::AComplex => app.complex,
                     Setting::HAngle => st.angle.code(),
                     Setting::HFormat => st.hformat,
                     Setting::HDigits => st.hdigits,
@@ -643,11 +748,37 @@ impl Machine {
     }
 
     fn store_global(&mut self, slot: usize, v: Value) -> RtResult<()> {
+        let name = &self.prog.globals[slot].name;
+        let home_owned = self
+            .linked
+            .as_ref()
+            .map_or(!self.prog.globals[slot].program_var, |(image, _)| {
+                image.global_owners[slot].is_none()
+            });
+        if home_owned && self.home_variables.contains_key(name) {
+            self.home_variables.insert(name.clone(), v.clone());
+        }
         match self.setting_slots.get(slot).copied().flatten() {
             Some(s) => {
                 let n = v.expect_i64("setting")?;
                 let st = &mut self.settings;
                 match s {
+                    Setting::AAngle | Setting::AFormat | Setting::ADigits | Setting::AComplex => {
+                        let name = match s {
+                            Setting::AAngle => "aangle",
+                            Setting::AFormat => "aformat",
+                            Setting::ADigits => "adigits",
+                            Setting::AComplex => "acomplex",
+                            _ => unreachable!(),
+                        };
+                        let mut app = self
+                            .app_settings
+                            .get(&self.active_app)
+                            .cloned()
+                            .unwrap_or_default();
+                        app.set_code(name, n)?;
+                        self.app_settings.insert(self.active_app.clone(), app);
+                    }
                     Setting::HAngle => {
                         st.angle = AngleMode::from_code(n).ok_or_else(|| {
                             RuntimeError::new(ErrorKind::BadArgValue, "HAngle must be 0, 1 or 2")
@@ -729,13 +860,22 @@ impl Machine {
             Op::Bin(b) => {
                 let r = self.pop();
                 let l = self.pop();
-                let v = ops::binary(b, &l, &r, &self.settings)?;
+                let v = if matches!(l, Value::Symbolic(_)) || matches!(r, Value::Symbolic(_)) {
+                    crate::cas::binary(self, b, &l, &r)?
+                } else {
+                    ops::binary(b, &l, &r, &self.settings)?
+                };
                 self.check_value(&v)?;
                 self.stack.push(v);
             }
             Op::Neg => {
                 let v = self.pop();
-                self.stack.push(ops::negate(&v)?);
+                let value = if matches!(v, Value::Symbolic(_)) {
+                    crate::cas::evaluate(self, &format!("-({})", crate::cas::expression(&v)))?
+                } else {
+                    ops::negate(&v)?
+                };
+                self.stack.push(value);
             }
             Op::Not => {
                 let v = self.pop();
@@ -743,7 +883,11 @@ impl Machine {
             }
             Op::Sqrt => {
                 let v = self.pop();
-                let r = builtins::math::sqrt(self, &v)?;
+                let r = if matches!(v, Value::Symbolic(_)) {
+                    crate::cas::evaluate(self, &format!("sqrt({})", crate::cas::expression(&v)))?
+                } else {
+                    builtins::math::sqrt(self, &v)?
+                };
                 self.stack.push(r);
             }
             Op::Factorial => {
@@ -868,7 +1012,21 @@ impl Machine {
             Op::Index(n) => {
                 let idx = self.pop_n(n as usize);
                 let base = self.pop();
-                let v = index_value(&base, &idx, self)?;
+                let v = if matches!(base, Value::Symbolic(_)) {
+                    crate::cas::evaluate_math(
+                        self,
+                        &format!(
+                            "({})({})",
+                            crate::cas::expression(&base),
+                            idx.iter()
+                                .map(crate::cas::expression)
+                                .collect::<Vec<_>>()
+                                .join(",")
+                        ),
+                    )?
+                } else {
+                    index_value(&base, &idx, self)?
+                };
                 self.stack.push(v);
             }
             Op::StoreIndexLocal { slot, n } => {
@@ -887,6 +1045,83 @@ impl Machine {
                 let target = &mut self.globals[slot as usize];
                 store_index(target, &idx, v.clone(), max)?;
                 self.stack.push(v);
+            }
+            Op::StoreHomeParameters => {
+                let parameters = self.pop();
+                let selector = self.pop();
+                let index = self.pop();
+                if selector.expect_i64("HVars")? != 2 {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        "HVars metadata selector must be 2",
+                    ));
+                }
+                let name = match index {
+                    Value::Str(name) => name.to_string(),
+                    other => {
+                        let n = other.expect_i64("HVars")?;
+                        if n < 1 {
+                            return Err(RuntimeError::kind(ErrorKind::BadArgValue));
+                        }
+                        self.home_variables
+                            .keys()
+                            .filter(|name| !ppl_compiler::is_system_variable(name))
+                            .nth((n - 1) as usize)
+                            .cloned()
+                            .ok_or_else(|| RuntimeError::kind(ErrorKind::Undefined))?
+                    }
+                };
+                let value = self
+                    .home_variables
+                    .get(&name)
+                    .ok_or_else(|| RuntimeError::kind(ErrorKind::Undefined))?
+                    .clone();
+                let function =
+                    crate::cas::with_parameters(&value, &parameters.expect_list("HVars")?)?;
+                self.store_home_value(&name, function)?;
+                self.stack.push(parameters);
+            }
+            Op::StoreHomeVariable | Op::StoreAppFile => {
+                let value = self.pop();
+                let index = self.pop();
+                if op == Op::StoreAppFile {
+                    let Value::Str(name) = index else {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "AFiles needs a file name",
+                        ));
+                    };
+                    self.app_files
+                        .entry(self.active_app.clone())
+                        .or_default()
+                        .insert(name.to_string(), crate::PortableValue::from(&value));
+                } else {
+                    let name = match index {
+                        Value::Str(name) => name.to_string(),
+                        other => {
+                            let n = other.expect_i64("HVars")?;
+                            if n < 1 {
+                                return Err(RuntimeError::kind(ErrorKind::BadArgValue));
+                            }
+                            self.home_variables
+                                .keys()
+                                .filter(|n| !ppl_compiler::is_system_variable(n))
+                                .nth((n - 1) as usize)
+                                .cloned()
+                                .ok_or_else(|| RuntimeError::kind(ErrorKind::BadArgValue))?
+                        }
+                    };
+                    self.home_variables.insert(name.clone(), value.clone());
+                    if let Some(slot) = self
+                        .prog
+                        .globals
+                        .iter()
+                        .position(|s| s.name == name && !s.program_var)
+                    {
+                        self.store_global(slot, value.clone())?;
+                    }
+                }
+                self.stack.push(value);
             }
             Op::StoreNote | Op::StoreProgram => {
                 let v = self.pop();

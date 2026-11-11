@@ -102,3 +102,14 @@ out.png
 
 # Living emulator overhaul implementation report.
 !docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md
+
+# Side-emulator remediation implementation and verification records.
+!docs/emulator/side-remediation/REMEDIATION.md
+!docs/emulator/SIDE_FIRMWARE_CAS_REMEDIATION.md
+!docs/development/native-graphics-data.md
+!docs/emulator/NATIVE_APP_SETTINGS.md
+!docs/emulator/NATIVE_CARTESIAN_GRAPHICS.md
+
+!docs/development/native-catalog-routing.md
+
+!docs/emulator/side-remediation/evidence/*.png

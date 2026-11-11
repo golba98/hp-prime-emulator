@@ -144,10 +144,28 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
         },
         B::Append => {
-            let mut items: Vec<Value> = a0.expect_list(name)?.iter().cloned().collect();
-            items.push(arg(args, 1, name)?.clone());
-            m.check_len(items.len())?;
-            Ok(Value::list(items))
+            let item = arg(args, 1, name)?.clone();
+            match a0 {
+                Value::Matrix(vector) if vector.vector => {
+                    if !matches!(item, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "APPEND to a vector requires a numeric element",
+                        ));
+                    }
+                    m.check_len(vector.data.len() + 1)?;
+                    let mut vector = (**vector).clone();
+                    vector.data.push(item);
+                    vector.cols = vector.data.len();
+                    Ok(Value::Matrix(std::rc::Rc::new(vector)))
+                }
+                _ => {
+                    let mut items: Vec<Value> = a0.expect_list(name)?.iter().cloned().collect();
+                    m.check_len(items.len() + 1)?;
+                    items.push(item);
+                    Ok(Value::list(items))
+                }
+            }
         }
         other => Err(RuntimeError::new(
             ErrorKind::Unsupported,

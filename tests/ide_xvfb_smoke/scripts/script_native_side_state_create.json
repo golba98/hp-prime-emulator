@@ -1,0 +1,155 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_state_create.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "A:=2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "SAVED",
+      "content": "EXPORT SAVED() BEGIN RETURN A+5; END;"
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "L1",
+      "content": "{1,2,3}"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "M1",
+      "content": "[[1,2],[3,4]]"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "native_object",
+      "kind": "note",
+      "name": "NOTE",
+      "content": "Retained calculator note"
+    },
+    {
+      "step": "native_cas",
+      "expression": "factor(x^2-1)"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_factor"
+    },
+    {
+      "step": "native_cas",
+      "expression": "2+2"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "native_cas",
+      "expression": "Ans*3"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_answer"
+    },
+    {
+      "step": "native_tool",
+      "name": "info"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 92
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "Retained app information"
+    },
+    {
+      "step": "snapshot",
+      "label": "app_info"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "native_catalog"
+    },
+    {
+      "step": "snapshot",
+      "label": "stored_catalog"
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "stored_run"
+    },
+    {
+      "step": "close_tab"
+    },
+    {
+      "step": "native_catalog"
+    },
+    {
+      "step": "snapshot",
+      "label": "closed_tab_catalog"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

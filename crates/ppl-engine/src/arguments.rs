@@ -145,6 +145,7 @@ pub fn encode(v: &Value) -> Json {
         Value::Matrix(m) => {
             json!({"type":"matrix","rows":m.rows,"columns":m.cols,"vector":m.vector,"value":m.data.iter().map(encode).collect::<Vec<_>>()})
         }
+        Value::Symbolic(v) => json!({"type":"symbolic","value":v.as_ref()}),
         Value::Grob(n) => json!({"type":"grob","index":n}),
     }
 }

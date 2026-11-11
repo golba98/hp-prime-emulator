@@ -163,7 +163,7 @@ builtins! {
     Conj "CONJ" 1..=1 Math Implemented;
     Arg "ARG" 1..=1 Math Implemented;
     Approx "APPROX" 1..=1 Math Approximate;
-    Exact "EXACT" 1..=1 Math Unsupported;
+    Exact "EXACT" 1..=1 Math Approximate;
     Hms "→HMS" 1..=1 Math Implemented;
     HmsFrom "HMS→" 1..=1 Math Implemented;
     Nthroot "NTHROOT" 2..=2 Math Implemented;
@@ -259,6 +259,7 @@ builtins! {
     InvertP "INVERT_P" 0..=5 Graphics Implemented;
     FillpolyP "FILLPOLY_P" 2..=4 Graphics Implemented;
     TriangleP "TRIANGLE_P" 0..=15 Graphics Approximate;
+    Triangle "TRIANGLE" 0..=15 Graphics Approximate;
     GrobwP "GROBW_P" 1..=1 Graphics Implemented;
     GrobhP "GROBH_P" 1..=1 Graphics Implemented;
     Rgb "RGB" 3..=4 Graphics Implemented;
@@ -274,23 +275,22 @@ builtins! {
     Disp "DISP" 2..=2 Io Approximate;
     Freeze "FREEZE" 0..=0 Io Approximate;
     Drawmenu "DRAWMENU" 0..=6 Io Approximate;
-    Editlist "EDITLIST" 1..=1 Io Unsupported;
+    Editlist "EDITLIST" 1..=1 Io Implemented;
     // ---- time ----
     Ticks "TICKS" 0..=0 Time Implemented;
     Time "TIME" 0..=0 Time Implemented;
     Date "DATE" 0..=0 Time Implemented;
     // ---- system ----
     Type "TYPE" 1..=1 System Implemented;
-    Eval "EVAL" 1..=1 System Unsupported;
-    Startapp "STARTAPP" 1..=1 System Unsupported;
-    Startview "STARTVIEW" 1..=2 System Unsupported;
-    Recall "RECALL" 1..=1 System Unsupported;
+    Eval "EVAL" 1..=1 System Approximate;
+    Startapp "STARTAPP" 1..=1 System Approximate;
+    Startview "STARTVIEW" 1..=2 System Approximate;
     Notes "NOTES" 0..=1 System Implemented;
     Programs "PROGRAMS" 0..=1 System Implemented;
-    Afiles "AFILES" 0..=1 System Unsupported;
-    Hvars "HVARS" 0..=1 System Unsupported;
-    // ---- CAS (separate subsystem, not emulated) ----
-    CasCall "CAS" 0..=N Cas Unsupported;
+    Afiles "AFILES" 0..=1 System Implemented;
+    Hvars "HVARS" 0..=2 System Approximate;
+    // ---- CAS (supervised external algebra service) ----
+    CasCall "CAS" 0..=N Cas Approximate;
 }
 
 pub fn spec(b: Builtin) -> &'static BuiltinSpec {

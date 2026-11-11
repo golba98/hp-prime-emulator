@@ -29,6 +29,76 @@ impl LinkedProgram {
     pub fn module_identities(&self) -> &[SourceIdentity] {
         &self.modules
     }
+
+    /// Read-only graph of calculator slots reachable from one function and the
+    /// file initializers selected by the Native module lifecycle. Compiler scopes distinguish local
+    /// parameters/file globals from shared calculator globals. No VM code runs.
+    pub fn calculator_dependencies(&self, entry: &str) -> RtResult<CalculatorDependencies> {
+        let entry = self.program.function_index(entry).ok_or_else(|| {
+            RuntimeError::new(ErrorKind::Undefined, "Dependency entry function is missing")
+        })?;
+        let mut output = CalculatorDependencies::default();
+        // Machine::initialize_dependencies runs every selected module's file
+        // initializer before the graph root. Include those actual reads even
+        // when a module was linked by another function's uncalled dependency.
+        let mut pending = self.initializers.clone();
+        pending.push(entry);
+        let mut functions = std::collections::BTreeSet::new();
+        while let Some(function) = pending.pop() {
+            if !functions.insert(function) {
+                continue;
+            }
+            let owner = self.function_owners[function];
+            pending.push(self.initializers[owner]);
+            let chunk = &self.program.functions[function];
+            let mut positions = vec![0usize];
+            let mut seen = std::collections::BTreeSet::new();
+            while let Some(position) = positions.pop() {
+                if position >= chunk.code.len() || !seen.insert(position) {
+                    continue;
+                }
+                let op = chunk.code[position];
+                match op {
+                    Op::LoadGlobal(slot)
+                    | Op::StoreGlobal(slot)
+                    | Op::StoreIndexGlobal { slot, .. } => {
+                        if let Some(owner) = self.global_owners[slot as usize] {
+                            pending.push(self.initializers[owner]);
+                        } else {
+                            let name = self.program.globals[slot as usize].name.clone();
+                            if !matches!(op, Op::StoreGlobal(_)) {
+                                output.reads.insert(name.clone());
+                            }
+                            if !matches!(op, Op::LoadGlobal(_)) {
+                                output.writes.insert(name);
+                            }
+                        }
+                    }
+                    Op::Call { func, .. } | Op::CallLinked { func, .. } => {
+                        pending.push(func as usize)
+                    }
+                    _ => (),
+                }
+                match op {
+                    Op::Jump(target) => positions.push(target as usize),
+                    Op::JumpIfFalse(target) | Op::TryBegin(target) => {
+                        positions.push(target as usize);
+                        positions.push(position + 1);
+                    }
+                    Op::Return | Op::Kill => (),
+                    _ => positions.push(position + 1),
+                }
+            }
+        }
+        Ok(output)
+    }
+}
+
+/// Shared calculator names potentially accessed by a reachable call graph.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CalculatorDependencies {
+    pub reads: std::collections::BTreeSet<String>,
+    pub writes: std::collections::BTreeSet<String>,
 }
 
 /// Build one execution image, sharing calculator slots but isolating file locals.
@@ -36,6 +106,31 @@ impl LinkedProgram {
 pub fn link_sources(
     sources: &BTreeMap<String, ModuleSource>,
     root: &str,
+) -> RtResult<LinkedProgram> {
+    link_sources_with_base(sources, root, ppl_math::IntBase::Hex)
+}
+pub fn link_sources_with_base(
+    sources: &BTreeMap<String, ModuleSource>,
+    root: &str,
+    default_int_base: ppl_math::IntBase,
+) -> RtResult<LinkedProgram> {
+    link_sources_internal(sources, root, default_int_base, None)
+}
+/// Home may call installed program exports inside an arbitrary expression.
+/// Calculator-owned names remain shared slots rather than module imports.
+pub fn link_home_sources(
+    sources: &BTreeMap<String, ModuleSource>,
+    root: &str,
+    base: ppl_math::IntBase,
+    variables: &std::collections::BTreeSet<String>,
+) -> RtResult<LinkedProgram> {
+    link_sources_internal(sources, root, base, Some(variables))
+}
+fn link_sources_internal(
+    sources: &BTreeMap<String, ModuleSource>,
+    root: &str,
+    default_int_base: ppl_math::IntBase,
+    home: Option<&std::collections::BTreeSet<String>>,
 ) -> RtResult<LinkedProgram> {
     let mut signatures = BTreeMap::new();
     let mut owners = BTreeMap::<String, Vec<String>>::new();
@@ -85,7 +180,8 @@ pub fn link_sources(
             "root program is not installed",
         ));
     }
-    let options = ppl_compiler::CompileOptions {
+    let mut options = ppl_compiler::CompileOptions {
+        default_int_base,
         external_functions: signatures,
         external_variables: variable_owners.keys().cloned().collect(),
         ambiguous_externals: owners
@@ -93,8 +189,10 @@ pub fn link_sources(
             .filter(|(_, names)| names.len() > 1)
             .map(|(name, _)| name.clone())
             .collect(),
-        ..Default::default()
     };
+    if let Some(home) = home {
+        options.external_variables.extend(home.iter().cloned());
+    }
     let mut diagnostics = Vec::new();
     let mut selected = BTreeMap::new();
     let mut pending = vec![root.to_owned()];
@@ -104,10 +202,55 @@ pub fn link_sources(
         }
         let module = &sources[&name];
         let file = ppl_syntax::SourceFile::new(&name, &module.source);
-        let (unit, diags) = ppl_compiler::compile_source(&file, &options);
-        let unit = unit.ok_or_else(|| compile_error(&name, &diags))?;
+        let (unit, diags) = if name == root && home.is_some() {
+            let (mut ast, parse_diags) = ppl_syntax::parse(&module.source);
+            if parse_diags.has_errors() {
+                return Err(compile_error(&name, &parse_diags));
+            }
+            let [ppl_syntax::ast::Item::Function(function)] = ast.items.as_mut_slice() else {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "Home expects an expression or statement",
+                ));
+            };
+            if let Some(last) = function.body.last_mut()
+                && let ppl_syntax::ast::StmtKind::Expr(expression) = &last.kind
+            {
+                last.kind = ppl_syntax::ast::StmtKind::Return(Some(expression.clone()));
+            }
+            let (mut unit, diags) = ppl_compiler::compile(&ast, &options);
+            if let Some(unit) = &mut unit {
+                for slot in &mut unit.globals {
+                    if slot.external && home.is_some_and(|names| names.contains(&slot.name)) {
+                        slot.external = false;
+                        slot.program_var = false;
+                    }
+                }
+            }
+            (unit, diags)
+        } else {
+            ppl_compiler::compile_source(&file, &options)
+        };
+        let mut unit = unit.ok_or_else(|| compile_error(&name, &diags))?;
+        // A dependency may be the only reader of a calculator-owned name.
+        // Such slots must exist in the shared image even when the Home root
+        // expression never mentions them directly.
+        for slot in &mut unit.globals {
+            if slot.external
+                && home.is_some_and(|names| names.contains(&slot.name))
+                && !variable_owners.contains_key(&slot.name)
+            {
+                slot.external = false;
+                slot.program_var = false;
+            }
+        }
         diagnostics.push((module.identity.clone(), diags));
         for slot in unit.globals.iter().filter(|slot| slot.external) {
+            if home.is_some_and(|home| home.contains(&slot.name))
+                && !variable_owners.contains_key(&slot.name)
+            {
+                continue;
+            }
             let candidates = &variable_owners[&slot.name];
             if candidates.len() != 1 || owners.contains_key(&slot.name) {
                 return Err(RuntimeError::new(
@@ -219,12 +362,15 @@ pub fn link_sources(
             .enumerate()
             .filter(|(_, slot)| slot.external)
         {
-            global_maps[module][index] = *exported_globals.get(&slot.name).ok_or_else(|| {
-                RuntimeError::new(
-                    ErrorKind::Undefined,
-                    format!("unresolved external variable {}", slot.name),
-                )
-            })?;
+            global_maps[module][index] = *exported_globals
+                .get(&slot.name)
+                .or_else(|| shared_globals.get(&slot.name))
+                .ok_or_else(|| {
+                    RuntimeError::new(
+                        ErrorKind::Undefined,
+                        format!("unresolved external variable {}", slot.name),
+                    )
+                })?;
         }
     }
     for (index, chunk) in image.functions.iter_mut().enumerate() {

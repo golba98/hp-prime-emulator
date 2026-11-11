@@ -31,10 +31,18 @@ pub fn os_create_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         .map_err(HandlerFault)?;
     ctx.mem.write_u32(desc + 0x18, func).map_err(HandlerFault)?;
 
+    let tid = ctx.shared.alloc_thread_id();
+    ctx.mem.write_u32(desc + 0x14, tid).map_err(HandlerFault)?;
+    ctx.shared.create_guest_thread(
+        tid,
+        super::ThreadRecord {
+            entry: func,
+            arg: user_data,
+            stack_size,
+        },
+        defer_start != 0,
+    );
     if defer_start == 0 {
-        let tid = ctx.shared.alloc_thread_id();
-        ctx.mem.write_u32(desc + 0x14, tid).map_err(HandlerFault)?;
-        ctx.shared.spawn_thread(tid, func, user_data, stack_size);
         ctx.trace.thread_event(format!(
             "guest thread {tid} spawned: func {func:#010X} arg {user_data:#010X} stack {stack_size:#X}"
         ));
@@ -47,13 +55,21 @@ pub fn os_create_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 }
 
 /// ref: `OSTerminateThread(desc, exit_code)` writes exit_code at +0xC and
-/// returns 0 (reference stub; thread keep running there).
+/// returns 0. The execution owner and blocked service waits observe termination.
 pub fn os_terminate_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let desc = ctx.args.r0;
     if desc != 0 {
+        if ctx.mem.read_u32(desc).map_err(HandlerFault)? != THREAD_MAGIC {
+            return Ok(0);
+        }
+        let tid = ctx.mem.read_u32(desc + 0x14).map_err(HandlerFault)?;
+        ctx.shared.terminate_guest_thread(tid);
         ctx.mem
             .write_u32(desc + 0x0C, ctx.args.r1)
             .map_err(HandlerFault)?;
+        if tid == ctx.thread_id {
+            let _ = ctx.uc.emu_stop();
+        }
     }
     Ok(0)
 }
@@ -70,10 +86,32 @@ pub fn os_exit_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     Ok(0)
 }
 
-/// ref: OSSuspendThread / OSResumeThread / OSWakeUpThread are stubs that
-/// return 1 (threads keep running in the reference too).
-pub fn os_thread_stub_one(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    Ok(1)
+fn descriptor_thread(ctx: &SvcCtx) -> Result<Option<u32>, HandlerFault> {
+    if ctx.args.r0 == 0 {
+        return Ok(None);
+    }
+    if ctx.mem.read_u32(ctx.args.r0).map_err(HandlerFault)? != THREAD_MAGIC {
+        return Ok(None);
+    }
+    Ok(Some(
+        ctx.mem.read_u32(ctx.args.r0 + 0x14).map_err(HandlerFault)?,
+    ))
+}
+pub fn os_suspend_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    let Some(tid) = descriptor_thread(ctx)? else {
+        return Ok(0);
+    };
+    let suspended = ctx.shared.suspend_guest_thread(tid);
+    if suspended && tid == ctx.thread_id {
+        let _ = ctx.uc.emu_stop();
+    }
+    Ok(u32::from(suspended))
+}
+pub fn os_resume_thread(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    let Some(tid) = descriptor_thread(ctx)? else {
+        return Ok(0);
+    };
+    Ok(u32::from(ctx.shared.resume_guest_thread(tid)))
 }
 
 /// ref: `OSSetThreadPriority(desc, slot)` stores the slot at +0x22.
@@ -156,6 +194,7 @@ pub fn os_wait_for_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
         let _parked = ctx.mem.snapshot_gate.park();
         ev.wait(timeout, &|| {
             ctx.shared.stopping()
+                || ctx.shared.guest_thread_terminated(ctx.thread_id)
                 || obj.closed()
                 || (call_point && ctx.shared.guest_calls.pending())
         })
@@ -278,7 +317,11 @@ pub fn os_wait_for_semaphore(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let ok = {
         let _blocked = ctx.shared.safe_points.blocked(ctx.thread_id, Some(desc));
         let _parked = ctx.mem.snapshot_gate.park();
-        sem.wait(timeout, &|| ctx.shared.stopping() || obj.closed())
+        sem.wait(timeout, &|| {
+            ctx.shared.stopping()
+                || ctx.shared.guest_thread_terminated(ctx.thread_id)
+                || obj.closed()
+        })
     };
     if obj.closed() {
         return Ok(super::sync::WAIT_RESULT_ERROR);
@@ -335,7 +378,11 @@ pub fn os_enter_critical_section(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> 
         let entered = {
             let _blocked = ctx.shared.safe_points.blocked(ctx.thread_id, Some(ptr));
             let _parked = ctx.mem.snapshot_gate.park();
-            cs.enter_until(&|| ctx.shared.stopping() || obj.as_ref().unwrap().closed())
+            cs.enter_until(&|| {
+                ctx.shared.stopping()
+                    || ctx.shared.guest_thread_terminated(ctx.thread_id)
+                    || obj.as_ref().unwrap().closed()
+            })
         };
         if !entered || obj.as_ref().unwrap().closed() {
             return Ok(0);

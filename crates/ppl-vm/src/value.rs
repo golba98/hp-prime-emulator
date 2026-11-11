@@ -13,6 +13,7 @@ use crate::error::{ErrorKind, RuntimeError};
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Symbolic(Rc<ppl_cas::CasValue>),
     Real(Real),
     Int(HpInt),
     Complex(Complex),
@@ -101,6 +102,7 @@ impl Value {
             Value::List(_) => "list",
             Value::Matrix(_) => "matrix",
             Value::Grob(_) => "graphic",
+            Value::Symbolic(_) => "symbolic",
         }
     }
 
@@ -113,6 +115,7 @@ impl Value {
             Value::Matrix(_) => type_code::MATRIX,
             Value::List(_) => type_code::LIST,
             Value::Grob(_) => type_code::GRAPHIC,
+            Value::Symbolic(_) => 9,
         }
     }
 
@@ -124,6 +127,14 @@ impl Value {
     /// honours `Signed` here).
     pub fn as_real(&self) -> Option<Real> {
         match self {
+            Value::Symbolic(v) => match v.as_ref() {
+                ppl_cas::CasValue::Integer(s) | ppl_cas::CasValue::Decimal(s) => Real::parse(s),
+                ppl_cas::CasValue::Rational {
+                    numerator,
+                    denominator,
+                } => Real::parse(numerator)?.div(Real::parse(denominator)?).ok(),
+                _ => None,
+            },
             Value::Real(r) => Some(*r),
             // `from_u64`, not `as i64`: a 64-bit word with the top bit set
             // must not turn negative.
@@ -177,6 +188,12 @@ impl Value {
     /// PPL truth: non-zero numbers are true.
     pub fn truthy(&self) -> Result<bool, RuntimeError> {
         match self {
+            Value::Symbolic(value) => crate::cas::numeric_truth(value).ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::BadArgType,
+                    "A symbolic condition must evaluate to a number",
+                )
+            }),
             Value::Real(r) => Ok(!r.is_zero()),
             Value::Int(i) => Ok(i.unsigned() != 0),
             Value::Complex(c) => Ok(!(c.re.is_zero() && c.im.is_zero())),
@@ -191,6 +208,7 @@ impl Value {
     pub fn approx_bytes(&self) -> usize {
         match self {
             Value::Str(s) => 16 + s.len(),
+            Value::Symbolic(v) => 32 + v.expression().len(),
             Value::List(l) => 16 + l.iter().map(Value::approx_bytes).sum::<usize>(),
             Value::Matrix(m) => 32 + m.data.len() * 24,
             _ => 24,
@@ -217,6 +235,7 @@ impl Value {
 
     fn write_display(&self, out: &mut String, opts: FormatOptions, nested: bool) {
         match self {
+            Value::Symbolic(v) => out.push_str(&v.to_string()),
             Value::Real(r) => out.push_str(&r.format(opts)),
             Value::Int(i) => out.push_str(&i.to_string()),
             Value::Complex(c) => out.push_str(&c.format(opts)),
@@ -290,6 +309,7 @@ impl Value {
                     && a.data.iter().zip(&b.data).all(|(x, y)| x.equals(y))
             }
             (Value::Grob(a), Value::Grob(b)) => a == b,
+            (Value::Symbolic(a), Value::Symbolic(b)) => a == b,
             (Value::Complex(a), b) | (b, Value::Complex(a)) => match b {
                 Value::Complex(c) => a == c,
                 other => other.as_real().is_some_and(|r| a.im.is_zero() && a.re == r),

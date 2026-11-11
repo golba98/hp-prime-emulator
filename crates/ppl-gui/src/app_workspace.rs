@@ -11,6 +11,8 @@ impl IdeDesktopApp {
         self.update_display_texture(ui.ctx());
         let status = if self.state.firmware_backend {
             self.firmware_status.as_str()
+        } else if let Some(problem) = self.profile_problem.as_deref() {
+            problem
         } else {
             if self.state.can_dismiss_output() {
                 "Native PPL · Esc returns to the caller"

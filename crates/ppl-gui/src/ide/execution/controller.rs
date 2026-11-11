@@ -139,6 +139,7 @@ fn value_details(val: &Value, fmt: FormatOptions) -> (&'static str, VariableDeta
             },
         ),
         Value::Grob(_) => ("Grob", VariableDetailSnapshot::Scalar),
+        Value::Symbolic(_) => ("Symbolic", VariableDetailSnapshot::Scalar),
     }
 }
 
@@ -502,8 +503,38 @@ impl ExecutionController {
     pub fn session_snapshot(&self) -> ppl_vm::SessionSnapshot {
         self.session.snapshot()
     }
+    pub fn open_native_profile(&self, path: &std::path::Path) -> Result<serde_json::Value, String> {
+        self.session.open_profile(path)
+    }
+    pub fn native_profile(&self) -> Option<crate::ide::native_profile::NativeProfile> {
+        self.session.profile()
+    }
+    pub fn mutate_memory(
+        &self,
+        change: impl FnOnce(&mut ppl_vm::SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.session.mutate(change)
+    }
+    pub fn reserve_native_operation(&self) -> Result<super::worker::SessionLease, String> {
+        self.session.reserve()
+    }
+    pub fn commit_native_operation(
+        &self,
+        owner: &super::worker::SessionLease,
+        change: impl FnOnce(&mut ppl_vm::SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.session.mutate_reserved(owner, change)
+    }
 
     pub fn evaluate_home(&mut self, text: &str, max_steps: Option<u64>) -> RunStart {
+        self.evaluate_home_with_catalog(text, max_steps, None)
+    }
+    pub fn evaluate_home_with_catalog(
+        &mut self,
+        text: &str,
+        max_steps: Option<u64>,
+        catalog: Option<Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>>,
+    ) -> RunStart {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
@@ -516,7 +547,7 @@ impl ExecutionController {
         lock(&self.bridge.commands).clear();
         self.last_file = Some(SourceFile::new("<home>", text));
         self.session_open = true;
-        self.worker = Some(WorkerHandle::spawn_home(
+        self.worker = Some(WorkerHandle::spawn_home_with_catalog(
             text.into(),
             self.shared.clone(),
             self.session.clone(),
@@ -525,6 +556,23 @@ impl ExecutionController {
                 max_time: None,
                 ..ppl_vm::Limits::default()
             },
+            catalog,
+        ));
+        RunStart::Started
+    }
+    pub fn store_variable(&mut self, name: String, text: String) -> RunStart {
+        if self.running() {
+            return RunStart::AlreadyRunning;
+        }
+        self.shared.reset_for_run();
+        self.terminal_seen = 0;
+        self.is_interrupted.store(false, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::SeqCst);
+        self.worker = Some(WorkerHandle::spawn_store_variable(
+            name,
+            text,
+            self.shared.clone(),
+            self.session.clone(),
         ));
         RunStart::Started
     }
@@ -732,6 +780,80 @@ impl ExecutionController {
         self.worker = Some(worker);
         self.is_running.store(true, Ordering::SeqCst);
         RunStart::Started
+    }
+
+    /// Run an exact User keyboard source snapshot without blocking the UI for
+    /// compilation/linking. Ordinary program, CAS and app workers share admission.
+    pub fn start_user_key(
+        &mut self,
+        namespace: &str,
+        source: &str,
+        entry: &str,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        self.start_source_operation(namespace, source, Some(entry), Some(""), catalog)
+    }
+
+    /// Execute a calculator program independently of IDE tabs, retaining its
+    /// stable object namespace and preferring its named exported entry.
+    pub fn start_catalog_program(
+        &mut self,
+        name: &str,
+        source: &str,
+        entry: Option<&str>,
+        args: Option<&str>,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        self.start_source_operation(name, source, entry, args, catalog)
+    }
+
+    fn start_source_operation(
+        &mut self,
+        namespace: &str,
+        source: &str,
+        entry: Option<&str>,
+        args: Option<&str>,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        if self.running() {
+            return Err("Calculator is busy".into());
+        }
+        let owner = self.session.reserve()?;
+        let mut sources = (*catalog).clone();
+        // The binding owns this source revision even if its IDE tab changes
+        // between resolution and execution. Preserve an already exact identity.
+        if sources
+            .get(namespace)
+            .is_none_or(|module| module.source != source)
+        {
+            sources.insert(
+                namespace.to_owned(),
+                ppl_vm::ModuleSource {
+                    identity: ppl_vm::SourceIdentity::new(namespace, source),
+                    source: source.into(),
+                },
+            );
+        }
+        self.shared.reset_for_run();
+        self.terminal_seen = 0;
+        self.is_interrupted.store(false, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::SeqCst);
+        self.is_paused.store(false, Ordering::SeqCst);
+        self.bridge.paused_line.store(0, Ordering::SeqCst);
+        *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
+        self.last_file = Some(SourceFile::new(namespace, source));
+        self.session_open = true;
+        self.worker = Some(WorkerHandle::spawn_source_in_session(
+            namespace.into(),
+            entry.map(str::to_owned),
+            args.map(str::to_owned),
+            std::sync::Arc::new(sources),
+            self.shared.clone(),
+            self.session.clone(),
+            owner,
+        ));
+        Ok(())
     }
 
     /// New terminal output lines since the last poll.
