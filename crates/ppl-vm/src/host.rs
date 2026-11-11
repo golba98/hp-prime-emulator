@@ -13,6 +13,16 @@ use crate::error::{ErrorKind, RuntimeError};
 #[derive(Clone, Debug)]
 pub enum Dialog {
     Matrix(MatrixDialog),
+    List {
+        title: String,
+        items: Vec<String>,
+        error: Option<String>,
+        focus: usize,
+    },
+    MessageChoice {
+        text: String,
+        ok_cancel: bool,
+    },
     Message {
         text: String,
     },
@@ -40,6 +50,7 @@ pub struct MatrixDialog {
     pub column_headers: Vec<String>,
     pub rows: usize,
     pub cols: usize,
+    pub vector: bool,
     pub cells: Vec<String>,
     pub read_only: bool,
     pub error: Option<String>,
@@ -56,12 +67,22 @@ pub struct InputField {
     /// Allowed types are exactly `[2]`: the entry is stored as a string
     /// verbatim instead of being evaluated (no quotes needed).
     pub string_only: bool,
+    /// Interactive widget semantics; editor values remain textual until VM validation.
+    pub control: InputControl,
     /// Explicit reset value, formatted for this field.
     pub reset_text: Option<String>,
     /// Horizontal percentages of the 320-pixel screen and a zero-based line.
     pub position: Option<InputPosition>,
     /// Page title selected by the VM from INPUT's optional title list.
     pub page_title: Option<String>,
+}
+
+/// Documented INPUT control descriptors.
+#[derive(Clone, Debug, PartialEq)]
+pub enum InputControl {
+    Edit,
+    Checkbox { group: Option<usize> },
+    Choice { items: Vec<String> },
 }
 
 /// Maximum documented INPUT control lines per page.
@@ -84,6 +105,11 @@ pub enum DialogResult {
     Chosen(usize),
     /// Text typed for each input field.
     Entered(Vec<String>),
+    MatrixEdited {
+        rows: usize,
+        cols: usize,
+        cells: Vec<String>,
+    },
 }
 
 /// Touch/mouse state in pixel coordinates.
@@ -101,10 +127,21 @@ pub enum DisplayMode {
 }
 
 pub trait Host {
+    /// Native app/view state changes. A graphical host acknowledges actual presentation.
+    fn calculator_view(&mut self, _request: CalculatorView) -> Result<bool, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "This host does not provide calculator application state; use the Native desktop app or G1 Firmware mode",
+        ))
+    }
     /// One `PRINT` line.
     fn print(&mut self, text: &str);
     fn clear_terminal(&mut self) {}
     /// The screen changed; `terminal` is set when the terminal view is shown.
+    /// The running operation explicitly changed its visible terminal/G0 view.
+    /// Re-presenting retained state or drawing a temporary host dialog does
+    /// not request a persistent program-output screen.
+    fn output_requested(&mut self) {}
     fn present(&mut self, _screen: &Grob, _terminal: Option<&[String]>) {}
     /// `GETKEY`: next key code, or `None` (-1) when no key is pressed.
     fn poll_key(&mut self) -> Result<Option<i64>, RuntimeError>;
@@ -121,6 +158,11 @@ pub trait Host {
     fn interrupt_flag(&self) -> Option<Arc<AtomicBool>> {
         None
     }
+}
+#[derive(Clone, Debug)]
+pub enum CalculatorView {
+    StartApp(String),
+    StartView { number: i64, draw: bool },
 }
 
 /// One scripted INPUT dialog response for headless runs.
@@ -287,7 +329,30 @@ impl Host for HeadlessHost {
                 }
                 Ok(DialogResult::Entered(cells))
             }
-            Dialog::Message { text } => {
+            Dialog::List {
+                title,
+                items,
+                error,
+                ..
+            } => {
+                if let Some(error) = error {
+                    self.dialogs.push(format!("EDITLIST-ERROR: {error}"));
+                }
+                self.dialogs.push(format!("EDITLIST: {title}"));
+                let mut out = Vec::new();
+                for _ in items {
+                    match self
+                        .inputs
+                        .pop_front()
+                        .ok_or_else(|| self.exhausted("EDITLIST"))?
+                    {
+                        ScriptedInput::Text(text) => out.push(text),
+                        ScriptedInput::Cancel => return Ok(DialogResult::Cancelled),
+                    }
+                }
+                Ok(DialogResult::Entered(out))
+            }
+            Dialog::Message { text } | Dialog::MessageChoice { text, .. } => {
                 self.dialogs.push(format!("MSGBOX: {text}"));
                 Ok(DialogResult::Ok)
             }

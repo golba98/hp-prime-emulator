@@ -1,14 +1,24 @@
 //! Native calculator views. Computation belongs to the persistent VM session.
+pub mod decimal_display;
+pub mod expression;
+pub mod keys;
+pub mod math_layout;
+pub mod polar_display;
+pub mod sexagesimal;
+
+use expression::ExpressionEditor;
+use keys::{AlphaMode, Tool};
 use std::collections::VecDeque;
 
 use ppl_graphics::{Grob, text::draw_text};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::editor::TabId;
 
 pub fn portable_json(value: &ppl_vm::PortableValue) -> serde_json::Value {
     use ppl_vm::PortableValue::*;
     match value {
+        Symbolic(v) => serde_json::json!({"type":"symbolic","value":v}),
         Real(v) => serde_json::json!({"type":"real","value":v.to_string()}),
         Integer(v) => serde_json::json!({"type":"integer","value":format!("{v:?}")}),
         Complex(v) => {
@@ -67,7 +77,7 @@ pub enum InputOwner {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CatalogEntry {
-    pub tab: TabId,
+    pub tab: Option<TabId>,
     pub revision: u64,
     pub file: String,
     pub name: String,
@@ -75,7 +85,7 @@ pub struct CatalogEntry {
     pub source_sha256: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HomeEntry {
     pub expression: String,
     pub result: String,
@@ -96,9 +106,19 @@ pub enum NativeOperation {
 
 #[derive(Debug)]
 pub struct NativeUiState {
+    pub cas_mode: bool,
+    pub edit_title: Option<String>,
     pub view: NativeView,
     pub caller: NativeCaller,
     pub home_input: String,
+    pub editor: ExpressionEditor,
+    pub alpha: AlphaMode,
+    pub user_keys: super::native_user_keys::UserKeyboard,
+    pub alpha_default_lower: bool,
+    pub pending_tool: Option<Tool>,
+    pub sleeping: bool,
+    pub history_position: Option<usize>,
+    pub history_draft: String,
     pub history: VecDeque<HomeEntry>,
     pub catalog: Vec<CatalogEntry>,
     pub selected: usize,
@@ -117,9 +137,19 @@ pub struct NativeUiState {
 impl Default for NativeUiState {
     fn default() -> Self {
         Self {
+            cas_mode: false,
+            edit_title: None,
             view: NativeView::Catalog,
             caller: NativeCaller::Catalog,
             home_input: String::new(),
+            editor: ExpressionEditor::default(),
+            alpha: AlphaMode::Off,
+            user_keys: Default::default(),
+            alpha_default_lower: false,
+            pending_tool: None,
+            sleeping: false,
+            history_position: None,
+            history_draft: String::new(),
             history: VecDeque::new(),
             catalog: Vec::new(),
             selected: 0,
@@ -177,9 +207,8 @@ impl NativeUiState {
             error,
             typed_result,
         });
-        while self.history.len() > 200 {
-            self.history.pop_front();
-        }
+        self.history_position = None;
+        self.history_draft.clear();
         self.touch_view();
     }
     pub fn record(&mut self, mut record: serde_json::Value) {
@@ -208,46 +237,106 @@ impl NativeUiState {
             self.trace.pop_front();
         }
     }
+    /// Legacy home_input remains a compatibility mirror for automation and
+    /// persisted profiles; all edits pass through the document.
+    pub fn edit(&mut self, edit: impl FnOnce(&mut ExpressionEditor)) {
+        self.editor.sync_external(&self.home_input);
+        edit(&mut self.editor);
+        self.home_input = self.editor.text().to_string();
+        self.touch_view();
+    }
+    pub fn history_move(&mut self, delta: i8) {
+        if self.history.is_empty() {
+            return;
+        }
+        let next = if delta < 0 {
+            match self.history_position {
+                Some(index) => index.saturating_sub(1),
+                None => {
+                    self.history_draft = self.home_input.clone();
+                    self.history.len() - 1
+                }
+            }
+        } else {
+            let Some(index) = self.history_position else {
+                return;
+            };
+            if index + 1 == self.history.len() {
+                let draft = self.history_draft.clone();
+                self.edit(|e| e.set_text(&draft));
+                self.history_position = None;
+                return;
+            }
+            index + 1
+        };
+        let expression = self.history[next].expression.clone();
+        self.edit(|e| e.set_text(&expression));
+        self.history_position = Some(next);
+    }
+    pub fn history_first_visible(&self) -> usize {
+        self.history_position.map_or_else(
+            || self.history.len().saturating_sub(4),
+            |p| p.saturating_sub(3),
+        )
+    }
     pub fn supports_key(&self, code: i64) -> bool {
-        use crate::keymap::*;
-        match self.view {
-            NativeView::ProgramOutput | NativeView::Error => {
-                matches!(code, KEY_ESC | KEY_HOME | KEY_MENU)
-            }
-            NativeView::Catalog => matches!(
-                code,
-                KEY_ESC | KEY_HOME | KEY_MENU | KEY_UP | KEY_DOWN | KEY_ENTER | KEY_SHIFT | KEY_1
-            ),
-            NativeView::Home => {
-                crate::dialog::char_of_key(code).is_some()
-                    || matches!(
-                        code,
-                        KEY_ESC
-                            | KEY_HOME
-                            | KEY_MENU
-                            | KEY_ENTER
-                            | KEY_DEL
-                            | KEY_UP
-                            | KEY_DOWN
-                            | KEY_SHIFT
-                            | KEY_SIN
-                            | KEY_COS
-                            | KEY_TAN
-                            | KEY_LN
-                            | KEY_LOG
-                            | KEY_SQR
-                    )
-            }
+        let Some(action) = keys::resolve_key(code, self.shifted) else {
+            return false;
+        };
+        if matches!(self.view, NativeView::ProgramOutput | NativeView::Error) {
+            return matches!(
+                action,
+                keys::KeyAction::Back
+                    | keys::KeyAction::Home
+                    | keys::KeyAction::Tool(_)
+                    | keys::KeyAction::Shift
+                    | keys::KeyAction::Alpha
+                    | keys::KeyAction::On
+                    | keys::KeyAction::Off
+                    | keys::KeyAction::Programs
+            );
+        }
+        true
+    }
+    fn displayed_editor(&self) -> ExpressionEditor {
+        if self.editor.text() == self.home_input {
+            self.editor.clone()
+        } else {
+            ExpressionEditor::from_text(&self.home_input)
         }
     }
+    pub fn editor_scroll_x(&self) -> i64 {
+        let editor = self.displayed_editor();
+        let layout = math_layout::layout(&editor, 34);
+        (layout.cursor(editor.cursor()).0 - 294).max(0)
+    }
+    pub fn editor_byte_at_x(&self, x: i64) -> usize {
+        self.editor_byte_at_position(x, 220)
+    }
+    pub fn editor_byte_at_position(&self, x: i64, y: i64) -> usize {
+        let editor = self.displayed_editor();
+        let layout = math_layout::layout(&editor, 34);
+        let (_, cy, h) = layout.cursor(editor.cursor());
+        let top = 203 + (34 - layout.height).max(0) / 2 - (cy + h - 34).max(0);
+        layout.hit_test(x - 9 + self.editor_scroll_x(), y - top)
+    }
     pub fn screen(&self) -> Option<Grob> {
+        if self.sleeping {
+            let mut screen = Grob::screen();
+            screen.fill_rect(0, 0, 319, 239, 0);
+            return Some(screen);
+        }
         if self.view == NativeView::ProgramOutput {
             return None;
         }
         let mut screen = Grob::screen();
         screen.fill_rect(0, 0, 319, 23, 0x26384a);
         let title = match self.view {
-            NativeView::Home => "Home",
+            NativeView::Home => {
+                self.edit_title
+                    .as_deref()
+                    .unwrap_or(if self.cas_mode { "CAS" } else { "Home" })
+            }
             NativeView::Catalog => "Programs · open in IDE",
             NativeView::Error => "Error",
             NativeView::ProgramOutput => unreachable!(),
@@ -255,9 +344,12 @@ impl NativeUiState {
         draw_text(&mut screen, title, 8, 4, 14.0, 0xffffff, Some(304), None);
         match self.view {
             NativeView::Home => {
-                let first = self.history.len().saturating_sub(4);
-                for (i, entry) in self.history.iter().skip(first).enumerate() {
+                let first = self.history_first_visible();
+                for (i, entry) in self.history.iter().skip(first).take(4).enumerate() {
                     let y = 29 + i as i64 * 39;
+                    if self.history_position == Some(first + i) {
+                        screen.fill_rect(3, y - 1, 316, y + 36, 0xe0eaf8);
+                    }
                     draw_text(
                         &mut screen,
                         &entry.expression,
@@ -280,14 +372,33 @@ impl NativeUiState {
                     );
                 }
                 screen.fill_rect(0, 202, 319, 239, 0xeaf0f6);
+                let editor = self.displayed_editor();
+                let layout = math_layout::layout(&editor, 34);
+                let (_, cy, h) = layout.cursor(editor.cursor());
+                let top = 1 + (34 - layout.height).max(0) / 2 - (cy + h - 34).max(0);
+                let mut entry = Grob::new(320, 38, 0xeaf0f6);
+                layout.paint(
+                    &mut entry,
+                    9 - self.editor_scroll_x(),
+                    top,
+                    editor.selection(),
+                    editor.cursor(),
+                );
+                screen.blit((0, 202, 320, 240), &entry, (0, 0, 320, 38), None, 255);
+                let indicator = format!(
+                    "{}{} {}",
+                    if self.shifted { "⇧ " } else { "" },
+                    self.alpha.indicator(),
+                    self.user_keys.mode.indicator()
+                );
                 draw_text(
                     &mut screen,
-                    &format!("> {}▏", self.home_input),
-                    6,
-                    208,
-                    14.0,
-                    0x111111,
-                    Some(308),
+                    &indicator,
+                    255,
+                    5,
+                    11.0,
+                    0xffffff,
+                    Some(60),
                     None,
                 );
             }

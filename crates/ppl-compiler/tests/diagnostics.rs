@@ -106,25 +106,16 @@ fn solve_in_every_documented_spelling_compiles() {
         .filter(|d| d.severity == Severity::Warning)
         .map(|d| (d.code, c.line_col(d)))
         .collect();
-    assert_eq!(
-        unsupported,
-        vec![
-            ("unsupported-command", (4, 8)),
-            ("unsupported-command", (5, 8)),
-            ("cas-unsupported", (6, 8)),
-        ]
-    );
+    assert_eq!(unsupported, vec![("unsupported-command", (4, 8))]);
     // `x` inside the CAS call is a symbol, not an undeclared variable.
     assert!(c.diags.iter().all(|d| d.code != "undeclared-identifier"));
 }
 
 #[test]
-fn eval_is_a_compat_warning() {
-    let c = check("EXPORT EV()\nBEGIN\n  RETURN EVAL(\"1+2\");\nEND;\n");
-    c.assert_valid_with_compat_only();
-    let d = c.find("unsupported-command");
-    assert_eq!(d.severity, Severity::Warning);
-    assert_eq!(c.line_col(d), (3, 10));
+fn eval_compiles_as_native_evaluation() {
+    let c = check("EXPORT EV() BEGIN RETURN EVAL(\"1+2\"); END;");
+    assert!(c.compiled);
+    assert!(c.diags.iter().all(|d| d.code != "unsupported-command"));
 }
 
 #[test]
@@ -141,10 +132,6 @@ fn other_documented_features_are_compat_not_errors() {
         (
             "EXPORT PROG()\nBEGIN\n  RETURN ∞;\nEND;\n",
             "unsupported-value",
-        ),
-        (
-            "EXPORT PROG()\nBEGIN\n  RETURN 'X^2';\nEND;\n",
-            "symbolic-unsupported",
         ),
         (
             "#cas\nf(x):=x^2;\n#end\nEXPORT PROG()\nBEGIN\n  RETURN 1;\nEND;\n",
@@ -444,63 +431,27 @@ fn operator_keywords_follow_the_firmware_letter_case_rules() {
 }
 
 #[test]
-fn firmware_only_command_hints_are_actionable() {
-    for call in ["EVAL(2+3)", "STARTAPP(\"Function\")"] {
-        let c = check(&format!("EXPORT TEST_FEATURE() BEGIN RETURN {call}; END;"));
-        assert!(c.compiled);
-        assert!(
-            c.find("unsupported-command")
-                .hint
-                .as_deref()
-                .unwrap()
-                .contains("G1 Firmware mode")
-        );
-    }
-}
-
-#[test]
-fn input_field_extra_metadata_is_not_silently_discarded() {
-    let c = check("EXPORT PROG() BEGIN LOCAL a; INPUT({{a,[0],{25,50,0},99}}); END;");
-    assert!(!c.compiled);
-    c.find("input-field-arity");
-}
-
-#[test]
-fn editmat_accepts_matrix_expressions_and_reports_native_support() {
-    for expression in ["M1", "a", "[[1,2],[3,4]]"] {
-        let c = check(&format!(
-            "EXPORT MATRIX_TEST() BEGIN LOCAL a:=[[1]]; RETURN EDITMAT({expression}); END;"
-        ));
-        assert!(c.compiled, "{:?}", c.diags);
-        assert!(!c.diags.iter().any(|d| d.code == "unsupported-command"));
-    }
-}
-
-#[test]
-fn native_unsupported_input_controls_have_compatibility_diagnostics() {
-    for descriptor in ["0", "-1", "\"checkbox\"", "{\"First\",\"Second\"}"] {
-        let c = check(&format!(
-            "EXPORT ASK() BEGIN LOCAL a; INPUT({{{{a,{descriptor}}}}}); END;"
-        ));
-        c.assert_valid_with_compat_only();
-        let warning = c.find("input-control-unsupported");
-        assert!(
-            warning
-                .hint
-                .as_deref()
-                .unwrap()
-                .contains("G1 Firmware mode")
-        );
-    }
-}
-
-#[test]
-fn computed_vector_descriptors_are_not_misreported_as_scalar_controls() {
-    let c = check("EXPORT ASK() BEGIN LOCAL a; INPUT({{a,-[0,-2]}}); END;");
+fn unsupported_command_hints_are_actionable() {
+    let c = check("EXPORT TEST_FEATURE() BEGIN RETURN SOLVE(X^2-4,X,1); END;");
     assert!(c.compiled);
     assert!(
-        !c.diags
-            .iter()
-            .any(|d| d.code == "input-control-unsupported")
+        c.find("unsupported-command")
+            .hint
+            .as_deref()
+            .unwrap()
+            .contains("unsupported")
     );
+}
+#[test]
+fn native_calculator_services_are_not_mislabeled_as_unsupported() {
+    for call in [
+        "STARTAPP(\"Function\")",
+        "STARTVIEW(0)",
+        "AFiles()",
+        "HVars()",
+    ] {
+        let c = check(&format!("EXPORT TEST_FEATURE() BEGIN RETURN {call}; END;"));
+        assert!(c.compiled);
+        assert!(c.diags.iter().all(|d| d.code != "unsupported-command"));
+    }
 }

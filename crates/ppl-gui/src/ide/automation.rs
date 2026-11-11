@@ -57,6 +57,7 @@ pub enum AutoStep {
     },
     /// Wait until the VM is idle (finished/failed) with a timeout in ms.
     WaitIdle(u64),
+    WaitDialog(String, u64),
     /// Wait until the debugger is paused, with a timeout in ms.
     WaitPaused(u64),
     /// Wait until the live firmware reports the program running (entered
@@ -70,6 +71,14 @@ pub enum AutoStep {
     ClickCalculatorKey(i64),
     Snapshot(PathBuf),
     Detach,
+    NativeTool(String),
+    NativeApp(String),
+    NativeObject {
+        kind: String,
+        name: String,
+        content: String,
+    },
+    NativeCas(String),
     NativeHome,
     NativeCatalog,
     IdeSettings,
@@ -240,6 +249,7 @@ impl Automation {
                         entry: s.get("entry").and_then(|v| v.as_str()).map(String::from),
                         args: get_str("args"),
                     },
+                    "wait_dialog" => AutoStep::WaitDialog(get_str("kind"), get_ms("timeout_ms")),
                     "wait_idle" => AutoStep::WaitIdle(get_ms("timeout_ms")),
                     "wait_paused" => AutoStep::WaitPaused(get_ms("timeout_ms")),
                     "wait_running" => AutoStep::WaitRunning(get_ms("timeout_ms")),
@@ -251,6 +261,14 @@ impl Automation {
                     ),
                     "snapshot" => AutoStep::Snapshot(get_path("path").unwrap_or_default()),
                     "detach" => AutoStep::Detach,
+                    "native_tool" => AutoStep::NativeTool(get_str("name")),
+                    "native_app" => AutoStep::NativeApp(get_str("name")),
+                    "native_object" => AutoStep::NativeObject {
+                        kind: get_str("kind"),
+                        name: get_str("name"),
+                        content: get_str("content"),
+                    },
+                    "native_cas" => AutoStep::NativeCas(get_str("expression")),
                     "native_home" => AutoStep::NativeHome,
                     "native_catalog" => AutoStep::NativeCatalog,
                     "ide_settings" => AutoStep::IdeSettings,
@@ -398,6 +416,10 @@ impl Automation {
             return;
         }
         self.last_pump_frame = Some(frame);
+        if app.lcd_capture_pending() {
+            ctx.request_repaint_after(Duration::from_millis(16));
+            return;
+        }
         loop {
             if self.next >= self.steps.len() {
                 // Script finished without an explicit exit: dump and close.
@@ -408,7 +430,9 @@ impl Automation {
                 // Wait for the frame capture requested by WindowScreenshot.
                 let image = ctx.input(|i| {
                     i.events.iter().find_map(|e| match e {
-                        egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                        egui::Event::Screenshot {
+                            image, user_data, ..
+                        } if user_data.data.is_none() => Some(image.clone()),
                         _ => None,
                     })
                 });
@@ -466,6 +490,7 @@ impl Automation {
             }
             match step {
                 AutoStep::WaitIdle(_)
+                | AutoStep::WaitDialog(..)
                 | AutoStep::WaitPaused(_)
                 | AutoStep::WaitCheck(_)
                 | AutoStep::WaitRunning(_)
@@ -474,6 +499,11 @@ impl Automation {
                 | AutoStep::WaitLcdSettled { .. } => {
                     let deadline = *self.wait_deadline.get_or_insert_with(Instant::now);
                     let (ms, done) = match &self.steps[self.next] {
+                        AutoStep::WaitDialog(kind, ms) => (
+                            *ms,
+                            app.native_input_snapshot()["active_dialog"]["kind"].as_str()
+                                == Some(kind),
+                        ),
                         AutoStep::WaitIdle(ms) => (*ms, !app.execution_busy()),
                         AutoStep::WaitPaused(ms) => (*ms, app.controller.paused()),
                         AutoStep::WaitCheck(ms) => (*ms, !app.check_pending()),
@@ -596,6 +626,7 @@ impl Automation {
                 app.handle_action(IdeAction::RunProgram, ctx);
             }
             AutoStep::WaitIdle(_)
+            | AutoStep::WaitDialog(..)
             | AutoStep::WaitPaused(_)
             | AutoStep::WaitCheck(_)
             | AutoStep::WaitRunning(_)
@@ -606,7 +637,18 @@ impl Automation {
             }
             AutoStep::CalcKeyTransition(code, down) => {
                 app.state.set_key_down(code, down);
-                app.send_calc_transition(code, down);
+                if app.state.firmware_backend {
+                    app.send_calc_transition(code, down);
+                } else {
+                    app.controller.shared.set_key_down(code, down);
+                    if down {
+                        app.route_native_press(
+                            crate::dialog::KeyPress::code(code),
+                            "automation-hold",
+                            ctx,
+                        );
+                    }
+                }
             }
             AutoStep::CalcFocus => {
                 app.state.calc_input_focus = true;
@@ -664,8 +706,15 @@ impl Automation {
                 };
             }
             AutoStep::CalcKey(code) => {
-                app.send_calc_transition(code, true);
-                app.send_calc_transition(code, false);
+                app.state.set_key_down(code, true);
+                if app.state.firmware_backend {
+                    app.send_calc_transition(code, true);
+                    app.send_calc_transition(code, false);
+                } else {
+                    app.route_native_press(crate::dialog::KeyPress::code(code), "automation", ctx);
+                }
+                app.state.set_key_down(code, false);
+                app.controller.shared.set_key_down(code, false);
             }
             AutoStep::CalcTouch { status, x, y } => {
                 if let Some(f) = &app.firmware {
@@ -673,6 +722,13 @@ impl Automation {
                 }
             }
             AutoStep::Screenshot(path) => {
+                if app.native_tools.page.is_some() {
+                    app.request_composed_lcd(
+                        super::native_lcd_capture::CaptureAction::Save(path),
+                        ctx,
+                    );
+                    return;
+                }
                 if let Some((grob, _)) = app.capture_compare_frame() {
                     match grob.save_png(&path) {
                         Ok(()) => {
@@ -733,6 +789,57 @@ impl Automation {
                 let snapshot = self.dump_state(app, ctx);
                 let _ = std::fs::write(&self.dump_path, snapshot);
                 self.dumped = true;
+            }
+            AutoStep::NativeApp(name) => {
+                app.handle_native_tool_request(super::native_tools::Request::SelectApp(name), ctx);
+                let page = super::native_tools::NativeTools::entry_page(
+                    &app.native_tools.memory.selected_app,
+                );
+                app.native_tools.open(page);
+                if page == super::native_tools::Page::Plot {
+                    app.native_tools.plot(app.controller.session_snapshot());
+                }
+            }
+            AutoStep::NativeTool(name) => {
+                use super::native_tools::Page;
+                let page = match name.as_str() {
+                    "apps" => Page::Apps,
+                    "symbolic" => Page::Symbolic,
+                    "plot" => Page::Plot,
+                    "numeric" => Page::Numeric,
+                    "settings" => Page::Settings,
+                    "programs" => Page::Programs,
+                    "lists" => Page::Lists,
+                    "matrices" => Page::Matrices,
+                    "notes" => Page::Notes,
+                    "variables" => Page::Variables,
+                    "templates" => Page::Templates,
+                    "help" => Page::Help,
+                    "info" => Page::Info,
+                    _ => Page::Toolbox,
+                };
+                app.native_tools.open(page);
+            }
+            AutoStep::NativeObject {
+                kind,
+                name,
+                content,
+            } => {
+                use super::native_tools::Request;
+                let request = match kind.as_str() {
+                    "program" => Request::SaveProgram(name, content),
+                    "note" => Request::SaveNote(name, content),
+                    "delete_program" => Request::DeleteProgram(name),
+                    "delete_note" => Request::DeleteNote(name),
+                    "delete_variable" => Request::DeleteVariable(name),
+                    _ => Request::StoreVariable(name, content),
+                };
+                app.handle_native_tool_request(request, ctx);
+            }
+            AutoStep::NativeCas(expression) => {
+                app.switch_native_environment(true, ctx);
+                app.state.native.edit(|e| e.set_text(&expression));
+                app.submit_native_home(ctx);
             }
             AutoStep::NativeHome => app.handle_action(IdeAction::NativeHome, ctx),
             AutoStep::NativeCatalog => app.handle_action(IdeAction::NativeCatalog, ctx),
@@ -1023,6 +1130,21 @@ impl Automation {
                 "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
             },
         });
+        dump["native_model_results"] = json!(app.native_tools.memory.models.results);
+        dump["native_plot_trace"] = json!(app.native_tools.trace);
+        dump["calculator_cas"] = json!(app.controller.session_snapshot().cas);
+        dump["native_tools"] = json!({"page":app.native_tools.page,"memory":app.native_tools.memory,"error":app.native_tools.error,"plot_points":app.native_tools.plot_samples(),"table":app.native_tools.numeric_table(),"integer_edit":app.native_tools.integer_edit,"calculating":app.native_tools.calculating()});
+        let memory = app.controller.session_snapshot();
+        dump["calculator_memory"] = json!(
+            memory
+                .globals
+                .iter()
+                .map(|(k, v)| (k.clone(), super::native::portable_json(v)))
+                .collect::<serde_json::Map<String, serde_json::Value>>()
+        );
+        dump["calculator_programs"] = json!(memory.programs);
+        dump["calculator_notes"] = json!(memory.notes);
+
         dump["research_diagnostics_open"] = json!(app.dialogs.research.open);
         dump["research_result"] = json!(app.dialogs.research.execution_result());
         dump["full_system_build_root"] = json!(state.full_system_build_root);

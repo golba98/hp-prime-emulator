@@ -1,5 +1,14 @@
 # Usability, performance and parity overhaul
 
+## Side-emulator continuation — 2026-11-12
+
+The 33-finding implementation and current verification record is maintained in
+[side-remediation/REMEDIATION.md](side-remediation/REMEDIATION.md), with the original
+audit, inventory and per-finding matrix beside it. This continuation implements
+Native calculator workflows and concrete firmware fixes; unresolved firmware
+clipboard, live restore, OS/device coverage and remaining native parity limits
+are explicitly retained. No new physical-device verification is claimed.
+
 ## Current integration status — 2026-11-02
 
 Working branch: `feat/g1-usability-overhaul`, based on `3399675` (the first

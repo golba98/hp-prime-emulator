@@ -1,0 +1,341 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_input.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 42
+    },
+    {
+      "step": "calc_key",
+      "code": 18
+    },
+    {
+      "step": "calc_key",
+      "code": 43
+    },
+    {
+      "step": "calc_key",
+      "code": 8
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction"
+    },
+    {
+      "step": "click_lcd",
+      "x": 9,
+      "y": 231
+    },
+    {
+      "step": "key",
+      "key": "Delete"
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_pointer_edit"
+    },
+    {
+      "step": "calc_key",
+      "code": 8
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_fraction.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_result"
+    },
+    {
+      "step": "type",
+      "text": "12"
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "paste",
+      "text": "3"
+    },
+    {
+      "step": "snapshot",
+      "label": "cursor_paste"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 21
+    },
+    {
+      "step": "snapshot",
+      "label": "inverse_sin"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "calc_key",
+      "code": 49
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 50
+    },
+    {
+      "step": "snapshot",
+      "label": "space_ans"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "calc_key",
+      "code": 36
+    },
+    {
+      "step": "calc_key",
+      "code": 14
+    },
+    {
+      "step": "calc_key",
+      "code": 36
+    },
+    {
+      "step": "calc_key",
+      "code": 36
+    },
+    {
+      "step": "calc_key",
+      "code": 15
+    },
+    {
+      "step": "calc_key",
+      "code": 16
+    },
+    {
+      "step": "calc_key",
+      "code": 36
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_lock"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "type",
+      "text": "1+1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "type",
+      "text": "2+2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "type",
+      "text": "3+3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "calc_key",
+      "code": 2
+    },
+    {
+      "step": "calc_key",
+      "code": 2
+    },
+    {
+      "step": "calc_key",
+      "code": 2
+    },
+    {
+      "step": "snapshot",
+      "label": "older_history"
+    },
+    {
+      "step": "calc_key",
+      "code": 12
+    },
+    {
+      "step": "calc_key",
+      "code": 12
+    },
+    {
+      "step": "calc_key",
+      "code": 12
+    },
+    {
+      "step": "snapshot",
+      "label": "history_draft"
+    },
+    {
+      "step": "new_program",
+      "name": "FIRST"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FIRST() BEGIN RETURN 1; END;"
+    },
+    {
+      "step": "new_program",
+      "name": "SECOND"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SECOND() BEGIN RETURN 1; END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "native_catalog"
+    },
+    {
+      "step": "calc_key",
+      "code": 12
+    },
+    {
+      "step": "snapshot",
+      "label": "catalog_before_tap"
+    },
+    {
+      "step": "click_lcd",
+      "x": 30,
+      "y": 36
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "catalog_after_tap"
+    },
+    {
+      "step": "new_program",
+      "name": "LOOP"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LOOP() BEGIN REPEAT WAIT(0.01); UNTIL 0; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "calc_key",
+      "code": 46
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "on_interrupt"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LOOP() BEGIN RETURN 7; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "after_interrupt"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

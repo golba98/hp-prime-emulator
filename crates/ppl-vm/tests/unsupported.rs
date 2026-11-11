@@ -74,22 +74,16 @@ fn documented_short_forms_run() {
 }
 
 #[test]
-fn documented_but_unemulated_forms_raise_unsupported() {
-    for body in [
-        "LINE_P({[0,0,0],[1,1,1]}, {{1,2}}, [[1,0,0],[0,1,0],[0,0,1]]);",
-        "TRIANGLE_P();",
-        "DIMGROB_P(G1, {1, 2});",
-        "RETURN STRING(1, 2, 3, \",\");",
-    ] {
-        assert_eq!(run_body(body), Err(ErrorKind::Unsupported), "{body}");
-    }
+fn undocumented_transformed_point_cache_remains_explicitly_unsupported() {
+    let body = "LINE_P(\"opaque firmware point cache\", {{1,2}});";
+    assert_eq!(run_body(body), Err(ErrorKind::Unsupported));
 }
 
 #[test]
-fn firmware_only_commands_explain_the_missing_native_service() {
+fn graphical_commands_explain_the_missing_headless_service() {
     for (call, reason) in [
-        ("EVAL(2+3)", "symbolic evaluation"),
         ("STARTAPP(\"Function\")", "application state"),
+        ("STARTVIEW(0)", "application state"),
     ] {
         let (mut m, _) = machine(&format!("EXPORT TST() BEGIN RETURN {call}; END;"));
         let err = m.call_function("TST", vec![]).unwrap_err();
@@ -98,4 +92,9 @@ fn firmware_only_commands_explain_the_missing_native_service() {
         assert!(err.to_string().contains("G1 Firmware mode"), "{err}");
         assert!(!err.trace.is_empty());
     }
+}
+
+#[test]
+fn eval_numeric_is_native_and_preserves_value() {
+    assert_eq!(run_body("RETURN EVAL(2+3);").unwrap(), "5");
 }

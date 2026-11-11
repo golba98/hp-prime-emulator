@@ -645,8 +645,9 @@ pub fn run_with_session(
                     if shared.stopping() {
                         break;
                     }
-                    let _ = cpu.run_isr(isr_va, irq);
-                    shared.note_irq_delivered(irq);
+                    if cpu.run_isr(isr_va, irq).is_ok() {
+                        shared.note_irq_delivered(irq);
+                    }
                 }
             }
         }

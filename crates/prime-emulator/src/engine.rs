@@ -406,7 +406,12 @@ impl CpuThread {
         self.engine.reg_write(RegisterARM::PC, isr_va as u64)?;
         self.hooks.isr_sentinel.store(SENTINEL, Ordering::Relaxed);
         let mut guard = 0;
+        let mut failure = None;
         loop {
+            if self._shared.stopping() {
+                failure = Some(uc_error::EXCEPTION);
+                break;
+            }
             let res = self.engine.emu_start(self.resume_addr(), 0, 0, 100_000);
             match res {
                 Ok(()) => {
@@ -420,6 +425,8 @@ impl CpuThread {
                             "ISR {isr_va:#010X} (irq {irq}) did not return (pc {:#010X})",
                             self.pc()
                         ));
+                        *self.hooks.stop.lock().unwrap() = Some(StopReason::Fault);
+                        failure = Some(uc_error::EXCEPTION);
                         break;
                     }
                 }
@@ -432,6 +439,7 @@ impl CpuThread {
                         format!("ISR {isr_va:#010X} (irq {irq}) error: {e}"),
                         self.pc(),
                     );
+                    failure = Some(e);
                     break;
                 }
             }
@@ -440,7 +448,10 @@ impl CpuThread {
         for (r, v) in SAVED.iter().zip(&saved) {
             self.engine.reg_write(*r, *v)?;
         }
-        Ok(())
+        match failure {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     /// Run up to `slice` instructions, then return control to the scheduler.
@@ -479,6 +490,9 @@ impl CpuThread {
 
     pub fn run_slice(&mut self, slice: usize) -> Result<RunSliceOutcome, uc_error> {
         self._shared.safe_points.boundary(self.thread_id);
+        if !self._shared.guest_thread_checkpoint(self.thread_id) {
+            return Ok(RunSliceOutcome::Stopped(StopReason::Requested));
+        }
         self._shared.safe_points.executing(self.thread_id);
         let memory = self._mem.clone();
         let _active = memory.snapshot_gate.enter();

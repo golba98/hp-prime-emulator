@@ -114,3 +114,83 @@ impl Settings {
         }
     }
 }
+
+/// Per-application Symbolic Setup overrides. HP Prime User Guide, chapter 28,
+/// pages 637–638. Zero means System for angle, complex and format; ADigits is
+/// independent and used when an app selects its own numeric format.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AppSettings {
+    /// 0 System, 1 Radians, 2 Degrees, 3 Gradians.
+    pub angle: i64,
+    /// 0 System, 1 ON, 2 OFF.
+    pub complex: i64,
+    /// 0 System, 1 Standard, 2 Fixed, 3 Scientific, 4 Engineering.
+    pub format: i64,
+    /// ADigits: documented integer range 0 < n < 11.
+    pub digits: i64,
+}
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            angle: 0,
+            complex: 0,
+            format: 0,
+            digits: 4,
+        }
+    }
+}
+impl AppSettings {
+    pub fn validate(&self) -> Result<(), String> {
+        if !(0..=3).contains(&self.angle) {
+            return Err("AAngle must be 0, 1, 2 or 3".into());
+        }
+        if !(0..=2).contains(&self.complex) {
+            return Err("AComplex must be 0, 1 or 2".into());
+        }
+        if !(0..=4).contains(&self.format) {
+            return Err("AFormat must be 0, 1, 2, 3 or 4".into());
+        }
+        if !(1..=10).contains(&self.digits) {
+            return Err("ADigits must be between 1 and 10".into());
+        }
+        Ok(())
+    }
+    pub(crate) fn set_code(&mut self, name: &str, code: i64) -> crate::RtResult<()> {
+        let mut next = self.clone();
+        match name {
+            "aangle" => next.angle = code,
+            "acomplex" => next.complex = code,
+            "aformat" => next.format = code,
+            "adigits" => next.digits = code,
+            _ => {
+                return Err(crate::RuntimeError::new(
+                    crate::ErrorKind::BadArgValue,
+                    "Unknown app setting",
+                ));
+            }
+        }
+        next.validate()
+            .map_err(|error| crate::RuntimeError::new(crate::ErrorKind::BadArgValue, error))?;
+        *self = next;
+        Ok(())
+    }
+    /// A graph/numeric worker receives this clone; Home memory is unchanged.
+    pub fn effective(&self, home: &Settings) -> Settings {
+        let mut effective = home.clone();
+        effective.angle = match self.angle {
+            1 => AngleMode::Radians,
+            2 => AngleMode::Degrees,
+            3 => AngleMode::Gradians,
+            _ => home.angle,
+        };
+        effective.complex_results = match self.complex {
+            1 => true,
+            2 => false,
+            _ => home.complex_results,
+        };
+        if (1..=4).contains(&self.format) {
+            effective.set_format(self.format - 1, self.digits);
+        }
+        effective
+    }
+}

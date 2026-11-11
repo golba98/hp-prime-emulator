@@ -255,6 +255,9 @@ impl IdeDesktopApp {
 
     pub(super) fn current_compare_identity(&self) -> Option<crate::ide::compare::ScreenIdentity> {
         use crate::ide::compare::ScreenIdentity;
+        if !self.state.firmware_backend && self.native_tools.page.is_some() {
+            return self.composed_tool_identity();
+        }
         let generation = if self.state.firmware_backend {
             let firmware = self.firmware.as_ref()?;
             if !firmware.alive.load(std::sync::atomic::Ordering::Acquire) {
@@ -279,6 +282,9 @@ impl IdeDesktopApp {
         &self,
     ) -> Option<(ppl_graphics::Grob, crate::ide::compare::ScreenIdentity)> {
         use crate::ide::compare::ScreenIdentity;
+        if !self.state.firmware_backend && self.native_tools.page.is_some() {
+            return self.composed_tool_frame();
+        }
         if self.state.firmware_backend {
             let firmware = self.firmware.as_ref()?;
             if !firmware.alive.load(std::sync::atomic::Ordering::Acquire) {
@@ -314,6 +320,10 @@ impl IdeDesktopApp {
 
     /// Captures the selected emulator frame and reads the G1 on the worker.
     pub(super) fn begin_compare(&mut self, ctx: &egui::Context) {
+        if !self.state.firmware_backend && self.native_tools.page.is_some() {
+            self.request_composed_lcd(crate::ide::native_lcd_capture::CaptureAction::Compare, ctx);
+            return;
+        }
         self.state.show_compare = true;
         if self.device.busy().is_some() {
             return;

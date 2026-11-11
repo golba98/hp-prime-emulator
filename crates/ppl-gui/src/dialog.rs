@@ -14,7 +14,10 @@
 //! | CHOOSE | Enter (30), digit 1–9 within range | Esc, On | Up (2) / Down (12) move the selection |
 //! | INPUT  | Enter (30) | Esc, On | typed characters append, Del/Backspace (19) deletes, Up/Down switch field |
 
+mod list;
 mod matrix;
+use crate::ide::native::expression::{EditCommand, ExpressionEditor, TemplateKind};
+use ppl_vm::host::InputControl;
 
 use ppl_graphics::Grob;
 use ppl_graphics::text::{draw_text, measure};
@@ -49,17 +52,78 @@ impl KeyPress {
     }
 }
 
-/// A modal dialog driven by key presses.
+/// Input delivered through the same worker-owned modal state machine.
+#[derive(Clone, Debug)]
+pub enum DialogEvent {
+    Key(KeyPress),
+    Text(String),
+    Edit(EditCommand),
+    Template(TemplateKind),
+    Sign,
+    Sexagesimal,
+    Pointer { x: i64, y: i64 },
+    Copy,
+    Cut,
+}
+
 pub trait ModalDialog: Send {
-    /// Feeds one key; `Some` ends the dialog with that result.
     fn handle(&mut self, key: KeyPress) -> Option<DialogResult>;
-    /// Draws the dialog over `base` (the program's screen).
     fn render(&self, base: &Grob) -> Grob;
+    fn pointer(&mut self, _x: i64, _y: i64) -> Option<DialogResult> {
+        None
+    }
+    fn edit(&mut self, _command: EditCommand) {}
+    fn template(&mut self, _template: TemplateKind) {}
+    fn sign(&mut self) {}
+    fn sexagesimal(&mut self) {}
+    fn clipboard(&mut self, _cut: bool) -> Option<String> {
+        None
+    }
+    fn event(&mut self, event: DialogEvent) -> Option<DialogResult> {
+        match event {
+            DialogEvent::Key(key) => self.handle(key),
+            DialogEvent::Pointer { x, y } => self.pointer(x, y),
+            DialogEvent::Text(text) => {
+                for ch in text.chars().filter(|c| !c.is_control()) {
+                    if let Some(result) = self.handle(KeyPress::with_char(None, ch)) {
+                        return Some(result);
+                    }
+                }
+                None
+            }
+            DialogEvent::Edit(command) => {
+                self.edit(command);
+                None
+            }
+            DialogEvent::Template(template) => {
+                self.template(template);
+                None
+            }
+            DialogEvent::Sexagesimal => {
+                self.sexagesimal();
+                None
+            }
+            DialogEvent::Sign => {
+                self.sign();
+                None
+            }
+            DialogEvent::Copy | DialogEvent::Cut => None,
+        }
+    }
 }
 
 /// Builds the state machine for a VM dialog request.
 pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
     match dialog {
+        Dialog::List {
+            title,
+            items,
+            error,
+            focus,
+        } => Box::new(list::ListBox::new(title, items.clone()).with_error(*focus, error.clone())),
+        Dialog::MessageChoice { text, ok_cancel } => {
+            Box::new(MessageBox::with_cancel(text, *ok_cancel))
+        }
         Dialog::Matrix(matrix) => Box::new(matrix::MatrixBox::new(matrix.clone())),
         Dialog::Message { text } => Box::new(MessageBox::new(text)),
         Dialog::Choose {
@@ -80,6 +144,8 @@ pub fn make_dialog(dialog: &Dialog) -> Box<dyn ModalDialog> {
                     .map(|f| (f.label.clone(), f.help.clone(), f.current.clone()))
                     .collect(),
             )
+            .with_literals(fields.iter().map(|f| f.string_only).collect())
+            .with_controls(fields.iter().map(|f| f.control.clone()).collect())
             .with_resets(fields.iter().map(|f| f.reset_text.clone()).collect())
             .with_layout(
                 fields
@@ -132,6 +198,21 @@ pub fn char_of_key(code: i64) -> Option<char> {
         KEY_ANS => ' ',
         _ => return None,
     })
+}
+
+/// Choose a UTF-8 window that keeps the actual caret visible, shared with pointer hit testing.
+fn editor_window(editor: &ExpressionEditor, width: i64) -> std::ops::Range<usize> {
+    let text = editor.text();
+    let cursor = editor.cursor();
+    let mut start = 0;
+    while start < cursor && measure(&text[start..cursor], PX) > width.saturating_sub(10) {
+        start += text[start..].chars().next().unwrap().len_utf8();
+    }
+    let mut end = text.len();
+    while end > cursor && measure(&text[start..end], PX) > width.saturating_sub(10) {
+        end = text[..end].char_indices().next_back().unwrap().0;
+    }
+    start..end
 }
 
 // ---- drawing helpers -------------------------------------------------------
@@ -202,15 +283,36 @@ pub fn wrap_text(text: &str, width: i64, px: f32) -> Vec<String> {
 #[derive(Clone, Debug)]
 pub struct MessageBox {
     pub text: String,
+    pub ok_cancel: bool,
 }
 
 impl MessageBox {
     pub fn new(text: &str) -> Self {
-        Self { text: text.into() }
+        Self {
+            text: text.into(),
+            ok_cancel: true,
+        }
+    }
+    pub fn with_cancel(text: &str, ok_cancel: bool) -> Self {
+        Self {
+            text: text.into(),
+            ok_cancel,
+        }
     }
 }
 
 impl ModalDialog for MessageBox {
+    fn pointer(&mut self, x: i64, y: i64) -> Option<DialogResult> {
+        if (168..=188).contains(&y) {
+            if (20..=155).contains(&x) {
+                return Some(DialogResult::Ok);
+            }
+            if self.ok_cancel && (156..=299).contains(&x) {
+                return Some(DialogResult::Cancelled);
+            }
+        }
+        None
+    }
     fn handle(&mut self, key: KeyPress) -> Option<DialogResult> {
         match key.code {
             Some(KEY_ENTER) => Some(DialogResult::Ok),
@@ -237,7 +339,11 @@ impl ModalDialog for MessageBox {
         }
         draw_text(
             &mut g,
-            "[Enter] OK   [Esc] Cancel",
+            if self.ok_cancel {
+                "[Enter] OK   [Esc] Cancel"
+            } else {
+                "[Enter] OK"
+            },
             30,
             172,
             PX_HINT,
@@ -291,6 +397,27 @@ impl ChooseBox {
 }
 
 impl ModalDialog for ChooseBox {
+    fn pointer(&mut self, x: i64, y: i64) -> Option<DialogResult> {
+        if (24..=287).contains(&x) && (55..183).contains(&y) {
+            let selected = self.scroll + ((y - 55) / CHOOSE_ROW_H) as usize;
+            if selected < self.items.len() {
+                self.selected = selected;
+                self.fix_scroll();
+            }
+        } else if (190..=208).contains(&y) {
+            if (25..=178).contains(&x) {
+                return Some(DialogResult::Chosen(self.selected + 1));
+            }
+            if (179..=299).contains(&x) {
+                return Some(DialogResult::Cancelled);
+            }
+        } else if (289..=297).contains(&x) && (55..183).contains(&y) && !self.items.is_empty() {
+            self.selected =
+                (((y - 55) as usize * self.items.len()) / 128).min(self.items.len() - 1);
+            self.fix_scroll();
+        }
+        None
+    }
     fn handle(&mut self, key: KeyPress) -> Option<DialogResult> {
         if self.items.is_empty() {
             return Some(DialogResult::Cancelled);
@@ -372,10 +499,12 @@ impl ModalDialog for ChooseBox {
 pub struct EditField {
     pub label: String,
     pub help: String,
-    pub text: String,
+    pub editor: ExpressionEditor,
+    pub control: InputControl,
     /// The field still shows its initial value: the first typed character
     /// replaces it (like the calculator's edit line).
     pub fresh: bool,
+    pub literal: bool,
     pub reset: Option<String>,
     pub position: Option<InputPosition>,
     pub page_title: Option<String>,
@@ -395,6 +524,7 @@ pub struct InputBox {
     pub scroll: usize,
     /// Why the previous entry was rejected (shown in place of the help).
     pub error: Option<String>,
+    choice: Option<ChooseBox>,
 }
 
 impl InputBox {
@@ -407,8 +537,10 @@ impl InputBox {
                 .map(|(label, help, text)| EditField {
                     label,
                     help,
-                    text,
+                    editor: ExpressionEditor::from_text(&text),
+                    control: InputControl::Edit,
                     fresh: true,
+                    literal: true,
                     reset: None,
                     position: None,
                     page_title: None,
@@ -417,7 +549,21 @@ impl InputBox {
             focus: 0,
             scroll: 0,
             error: None,
+            choice: None,
         }
+    }
+
+    pub fn with_literals(mut self, literals: Vec<bool>) -> Self {
+        for (field, literal) in self.fields.iter_mut().zip(literals) {
+            field.literal = literal;
+        }
+        self
+    }
+    pub fn with_controls(mut self, controls: Vec<InputControl>) -> Self {
+        for (field, control) in self.fields.iter_mut().zip(controls) {
+            field.control = control;
+        }
+        self
     }
 
     pub fn with_resets(mut self, resets: Vec<Option<String>>) -> Self {
@@ -470,7 +616,42 @@ impl InputBox {
     }
 
     pub fn values(&self) -> Vec<String> {
-        self.fields.iter().map(|f| f.text.clone()).collect()
+        self.fields
+            .iter()
+            .map(|f| f.editor.text().to_owned())
+            .collect()
+    }
+
+    fn finish_choice(&mut self, result: Option<DialogResult>) {
+        if let Some(result) = result {
+            if let DialogResult::Chosen(index) = result {
+                self.fields[self.focus].editor.set_text(&index.to_string());
+            }
+            self.choice = None;
+        }
+    }
+    fn toggle_checkbox(&mut self) {
+        let Some(field) = self.fields.get(self.focus) else {
+            return;
+        };
+        let InputControl::Checkbox { group } = field.control else {
+            return;
+        };
+        let turn_on = field.editor.text() == "0";
+        if turn_on {
+            if let Some(group) = group {
+                for field in &mut self.fields {
+                    if matches!(field.control,InputControl::Checkbox {group:Some(other)} if other==group)
+                    {
+                        field.editor.set_text("0");
+                    }
+                }
+            }
+        }
+        self.fields[self.focus]
+            .editor
+            .set_text(if turn_on { "1" } else { "0" });
+        self.error = None;
     }
 
     fn fix_scroll(&mut self) {
@@ -484,7 +665,162 @@ impl InputBox {
 }
 
 impl ModalDialog for InputBox {
+    fn template(&mut self, template: TemplateKind) {
+        if let Some(field) = self.fields.get_mut(self.focus) {
+            if matches!(field.control, InputControl::Edit) {
+                if field.fresh {
+                    field.editor.set_text("");
+                    field.fresh = false;
+                }
+                field.editor.insert_template(template);
+                self.error = None;
+            }
+        }
+    }
+    fn sexagesimal(&mut self) {
+        if let Some(field) = self.fields.get_mut(self.focus) {
+            if matches!(field.control, InputControl::Edit) {
+                field.fresh = false;
+                crate::ide::native::sexagesimal::insert_unit(&mut field.editor);
+                self.error = None;
+            }
+        }
+    }
+    fn sign(&mut self) {
+        if let Some(field) = self.fields.get_mut(self.focus) {
+            if matches!(field.control, InputControl::Edit) {
+                field.fresh = false;
+                field.editor.toggle_sign();
+                self.error = None;
+            }
+        }
+    }
+
+    fn edit(&mut self, command: EditCommand) {
+        if let Some(field) = self.fields.get_mut(self.focus) {
+            if matches!(field.control, InputControl::Edit) {
+                field.fresh = false;
+                field.editor.apply(command);
+                self.error = None;
+            }
+        }
+    }
+    fn clipboard(&mut self, cut: bool) -> Option<String> {
+        let field = self.fields.get_mut(self.focus)?;
+        if !matches!(field.control, InputControl::Edit) {
+            return None;
+        }
+        if field.fresh {
+            field.editor.apply(EditCommand::SelectAll);
+        }
+        let text = if cut {
+            field.fresh = false;
+            field.editor.cut()
+        } else {
+            field.editor.selected_text()
+        };
+        Some(text)
+    }
+    fn pointer(&mut self, x: i64, y: i64) -> Option<DialogResult> {
+        if let Some(choice) = &mut self.choice {
+            let result = choice.pointer(x, y);
+            self.finish_choice(result);
+            return None;
+        }
+        if (216..=236).contains(&y) {
+            if x < 108 {
+                return Some(DialogResult::Entered(self.values()));
+            }
+            if x < 214 {
+                return Some(DialogResult::Cancelled);
+            }
+            self.handle(KeyPress::code(KEY_MENU));
+            return None;
+        }
+        for index in 0..self.fields.len() {
+            if let Some((left, top, right, bottom)) = self.field_rect(index) {
+                if x >= left && x <= right && y >= top && y <= bottom {
+                    self.focus = index;
+                    match &self.fields[index].control {
+                        InputControl::Checkbox { .. } => self.toggle_checkbox(),
+                        InputControl::Choice { items } => {
+                            let current = self.fields[index].editor.text().parse().unwrap_or(1);
+                            self.choice = Some(ChooseBox::new(
+                                &self.fields[index].label,
+                                items.clone(),
+                                current,
+                            ));
+                        }
+                        InputControl::Edit => {
+                            let field = &mut self.fields[index];
+                            field.fresh = false;
+                            let window = editor_window(&field.editor, right - left - 8);
+                            let mut position = window.start;
+                            for (byte, ch) in field.editor.text()[window.clone()].char_indices() {
+                                if measure(
+                                    &field.editor.text()
+                                        [window.start..window.start + byte + ch.len_utf8()],
+                                    PX,
+                                ) > x - left - 4
+                                {
+                                    break;
+                                }
+                                position = window.start + byte + ch.len_utf8();
+                            }
+                            field.editor.set_cursor(position, false);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        None
+    }
     fn handle(&mut self, key: KeyPress) -> Option<DialogResult> {
+        if let Some(choice) = &mut self.choice {
+            let result = choice.handle(key);
+            self.finish_choice(result);
+            return None;
+        }
+        if (key.code == Some(KEY_ANS) || key.ch == Some(' '))
+            && self
+                .fields
+                .get(self.focus)
+                .is_some_and(|f| matches!(f.control, InputControl::Checkbox { .. }))
+        {
+            self.toggle_checkbox();
+            return None;
+        }
+        if matches!(
+            key.code,
+            Some(crate::keymap::KEY_LEFT | crate::keymap::KEY_RIGHT)
+        ) {
+            if let Some(field) = self.fields.get_mut(self.focus) {
+                match &field.control {
+                    InputControl::Edit => {
+                        field.fresh = false;
+                        field
+                            .editor
+                            .apply(if key.code == Some(crate::keymap::KEY_LEFT) {
+                                EditCommand::Left(false)
+                            } else {
+                                EditCommand::Right(false)
+                            });
+                    }
+                    InputControl::Choice { items } => {
+                        let current = field.editor.text().parse::<usize>().unwrap_or(1);
+                        let next = if key.code == Some(crate::keymap::KEY_LEFT) {
+                            current.saturating_sub(1).max(1)
+                        } else {
+                            (current + 1).min(items.len())
+                        };
+                        field.editor.set_text(&next.to_string());
+                    }
+                    _ => {}
+                }
+            }
+            return None;
+        }
         match key.code {
             Some(KEY_ENTER) => return Some(DialogResult::Entered(self.values())),
             c if is_cancel(c) => return Some(DialogResult::Cancelled),
@@ -493,7 +829,7 @@ impl ModalDialog for InputBox {
         if key.code == Some(KEY_MENU) {
             for field in &mut self.fields {
                 if let Some(reset) = &field.reset {
-                    field.text = reset.clone();
+                    field.editor.set_text(reset);
                     field.fresh = true;
                 }
             }
@@ -503,7 +839,7 @@ impl ModalDialog for InputBox {
         let field = self.fields.get_mut(self.focus)?;
         match key.code {
             Some(KEY_DEL) => {
-                field.text.pop();
+                field.editor.apply(EditCommand::Backspace);
                 field.fresh = false;
                 return None;
             }
@@ -526,16 +862,29 @@ impl ModalDialog for InputBox {
             .filter(|c| !c.is_control())
             .or_else(|| key.code.and_then(char_of_key));
         if let Some(c) = ch {
+            if !matches!(field.control, InputControl::Edit) {
+                if c.is_ascii_digit() {
+                    field.editor.set_text(&c.to_string());
+                }
+                return None;
+            }
             if field.fresh {
-                field.text.clear();
+                field.editor.set_text("");
                 field.fresh = false;
             }
-            field.text.push(c);
+            if field.literal {
+                field.editor.insert(&c.to_string());
+            } else {
+                field.editor.insert_math_text(&c.to_string());
+            }
         }
         None
     }
 
     fn render(&self, base: &Grob) -> Grob {
+        if let Some(choice) = &self.choice {
+            return choice.render(base);
+        }
         let mut g = base.clone();
         let title = if self.page_title().is_empty() {
             "Input"
@@ -579,9 +928,30 @@ impl ModalDialog for InputBox {
             let focused = idx == self.focus;
             let edge = if focused { C_SELECT } else { 0x0080_8080 };
             g.rect(left, top, right, bottom, edge, C_WHITE);
-            let mut shown = f.text.clone();
-            if focused {
-                shown.push('_');
+            let mut shown = match &f.control {
+                InputControl::Edit => {
+                    f.editor.text()[editor_window(&f.editor, right - left - 8)].to_owned()
+                }
+                InputControl::Checkbox { .. } => {
+                    if f.editor.text() == "0" {
+                        "[ ]".into()
+                    } else {
+                        "[x]".into()
+                    }
+                }
+                InputControl::Choice { items } => f
+                    .editor
+                    .text()
+                    .parse::<usize>()
+                    .ok()
+                    .and_then(|i| i.checked_sub(1))
+                    .and_then(|i| items.get(i))
+                    .cloned()
+                    .unwrap_or_default(),
+            };
+            if focused && matches!(f.control, InputControl::Edit) {
+                let window = editor_window(&f.editor, right - left - 8);
+                shown.insert(f.editor.cursor() - window.start, '_');
             }
             let text_width = right - left - 8;
             // Keep the end of long values (where the cursor is) visible.
@@ -614,9 +984,9 @@ impl ModalDialog for InputBox {
         draw_text(
             &mut g,
             if self.fields.iter().any(|f| f.reset.is_some()) {
-                "[Enter] OK  [Esc] Cancel  [Menu] Reset"
+                "OK             Cancel          Reset"
             } else {
-                "[Enter] OK  [Esc] Cancel  [Del] Erase"
+                "OK             Cancel"
             },
             16,
             220,
@@ -947,5 +1317,84 @@ mod tests {
         assert!(lines.len() > 1);
         assert!(lines.iter().all(|l| measure(l, 12.0) <= 60));
         assert_eq!(wrap_text("a\nb", 100, 12.0), vec!["a", "b"]);
+    }
+    #[test]
+    fn pointer_selects_and_confirms_choose_and_message_controls() {
+        let mut choice = ChooseBox::new("Pick", vec!["First".into(), "Second".into()], 1);
+        assert_eq!(choice.pointer(40, 75), None);
+        assert_eq!(choice.selected, 1);
+        assert_eq!(choice.pointer(80, 198), Some(DialogResult::Chosen(2)));
+        let mut message = MessageBox::with_cancel("Message", true);
+        assert_eq!(message.pointer(210, 180), Some(DialogResult::Cancelled));
+        let mut message = MessageBox::with_cancel("Message", false);
+        assert_eq!(message.pointer(210, 180), None);
+        assert_eq!(message.pointer(80, 180), Some(DialogResult::Ok));
+    }
+    #[test]
+    fn input_pointer_editor_clipboard_and_undo_share_the_same_document() {
+        let mut form = InputBox::new("Edit", vec![("N".into(), "".into(), "12".into())]);
+        form.pointer(112, 45);
+        form.event(DialogEvent::Text("3".into()));
+        assert_eq!(form.values(), vec!["312"]);
+        form.edit(EditCommand::SelectAll);
+        assert_eq!(form.clipboard(false), Some("312".into()));
+        assert_eq!(form.clipboard(true), Some("312".into()));
+        assert_eq!(form.values(), vec![""]);
+        form.edit(EditCommand::Undo);
+        assert_eq!(form.values(), vec!["312"]);
+        form.event(DialogEvent::Text("4".into()));
+        assert_eq!(form.values(), vec!["4"]);
+        assert_eq!(
+            form.pointer(35, 227),
+            Some(DialogResult::Entered(vec!["4".into()]))
+        );
+    }
+    #[test]
+    fn checkbox_radio_and_choice_widgets_change_real_values() {
+        let mut form = InputBox::new(
+            "Controls",
+            vec![
+                ("A".into(), "".into(), "1".into()),
+                ("B".into(), "".into(), "0".into()),
+                ("C".into(), "".into(), "1".into()),
+            ],
+        )
+        .with_controls(vec![
+            InputControl::Checkbox { group: Some(0) },
+            InputControl::Checkbox { group: Some(0) },
+            InputControl::Choice {
+                items: vec!["First".into(), "Second".into()],
+            },
+        ]);
+        form.pointer(120, 66);
+        assert_eq!(form.values(), vec!["0", "1", "1"]);
+        form.pointer(120, 88);
+        form.pointer(40, 75);
+        form.pointer(80, 198);
+        assert_eq!(form.values(), vec!["0", "1", "2"]);
+    }
+    #[test]
+    fn modal_fraction_fields_and_sign_use_the_shared_expression_editor() {
+        let mut form = InputBox::new("T", vec![("N".into(), "".into(), "12".into())]);
+        form.event(DialogEvent::Sign);
+        assert_eq!(form.values(), vec!["-12"]);
+        let mut form = InputBox::new("T", vec![("N".into(), "".into(), "12".into())]);
+        form.event(DialogEvent::Template(TemplateKind::Fraction));
+        form.event(DialogEvent::Text("1".into()));
+        form.event(DialogEvent::Edit(EditCommand::Right(false)));
+        form.event(DialogEvent::Text("2".into()));
+        assert_eq!(form.values(), vec!["(1)/(2)"]);
+    }
+    #[test]
+    fn modal_hexagesimal_shortcut_uses_current_editor_cursor() {
+        let mut form = InputBox::new(
+            "DMS",
+            vec![("Angle".into(), "".into(), "12+36°40′20″".into())],
+        );
+        form.event(DialogEvent::Edit(EditCommand::Home(false)));
+        form.event(DialogEvent::Edit(EditCommand::Right(false)));
+        form.event(DialogEvent::Edit(EditCommand::Right(false)));
+        form.event(DialogEvent::Sexagesimal);
+        assert_eq!(form.values(), vec!["12°+36°40′20″"]);
     }
 }

@@ -1,0 +1,91 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_dialogs.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "DIALOGS"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL n:=3,ok; M1:=[[1,2],[3,4]]; ok:=INPUT(n,\"Input\",\"Number\"); IF NOT ok THEN RETURN -1; END; ok:=EDITMAT(M1); RETURN {n,M1,ok}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "input_open"
+    },
+    {
+      "step": "calc_key",
+      "code": 19
+    },
+    {
+      "step": "calc_key",
+      "code": 39
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "matrix",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_open"
+    },
+    {
+      "step": "calc_key",
+      "code": 34
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 200
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "resized"
+    },
+    {
+      "step": "click_lcd",
+      "x": 45,
+      "y": 225
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "dialog_result"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

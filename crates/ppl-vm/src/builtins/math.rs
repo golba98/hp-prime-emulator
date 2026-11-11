@@ -76,6 +76,18 @@ fn trig(s: &Settings, x: Real, which: u8) -> RtResult<Real> {
     Ok(Real::from_f64(v)?)
 }
 
+/// Native Home polar-complex entry. Magnitude multiplication remains decimal
+/// across the full BCD exponent range. Explicit complex entry is allowed even
+/// when HComplex disables implicit complex results from real-domain functions.
+pub(crate) fn polar(magnitude: Real, angle: Real, settings: &Settings) -> RtResult<Complex> {
+    if magnitude.is_zero() {
+        return Ok(Complex::new(Real::ZERO, Real::ZERO));
+    }
+    let real = magnitude.mul(trig(settings, angle, 1)?)?;
+    let imaginary = magnitude.mul(trig(settings, angle, 0)?)?;
+    Ok(Complex::new(real, imaginary))
+}
+
 fn inverse_trig(s: &Settings, x: Real, f: fn(f64) -> f64, domain_check: bool) -> RtResult<Real> {
     let v = x.to_f64();
     if domain_check && !(-1.0..=1.0).contains(&v) {
@@ -153,6 +165,69 @@ fn stats_values(args: &[Value], name: &str) -> RtResult<Vec<Real>> {
         ));
     }
     Ok(out)
+}
+
+fn numeric_series(value: &Value, name: &str) -> RtResult<Vec<Real>> {
+    match value {
+        Value::List(values) => values.iter().map(|v| v.expect_real(name)).collect(),
+        Value::Matrix(matrix) if matrix.vector => {
+            matrix.data.iter().map(|v| v.expect_real(name)).collect()
+        }
+        _ => Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            format!("{name} requires a list or vector"),
+        )),
+    }
+}
+/// Population deviation, matching local firmware stddev(), without expanding
+/// weights or squaring huge/tiny unscaled decimal values.
+fn weighted_deviation(values: &[Real], weights: Option<&[Real]>) -> RtResult<Real> {
+    if values.is_empty() || weights.is_some_and(|weights| weights.len() != values.len()) {
+        return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
+    }
+    let weights = weights.map_or_else(|| vec![Real::ONE; values.len()], <[Real]>::to_vec);
+    if weights.iter().any(|v| v.is_negative()) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "STDDEV weights must be nonnegative",
+        ));
+    }
+    let largest_weight = weights
+        .iter()
+        .copied()
+        .max_by(|a, b| a.cmp_value(*b))
+        .unwrap();
+    if largest_weight.is_zero() {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "STDDEV requires a positive total weight",
+        ));
+    }
+    let largest_value = values
+        .iter()
+        .map(|v| v.abs())
+        .max_by(|a, b| a.cmp_value(*b))
+        .unwrap();
+    if largest_value.is_zero() {
+        return Ok(Real::ZERO);
+    }
+    // Powers of ten preserve finite decimal inputs exactly during scaling.
+    let weight_scale = Real::from_parts(false, 1, largest_weight.exp10())?;
+    let scale = Real::from_parts(false, 1, largest_value.exp10())?;
+    let mut total = Real::ZERO;
+    let mut sum = Real::ZERO;
+    for (value, weight) in values.iter().zip(&weights) {
+        let weight = weight.div(weight_scale)?;
+        total = total.add(weight)?;
+        sum = sum.add(value.div(scale)?.mul(weight)?)?;
+    }
+    let mean = sum.div(total)?;
+    let mut variance = Real::ZERO;
+    for (value, weight) in values.iter().zip(weights) {
+        let delta = value.div(scale)?.sub(mean)?;
+        variance = variance.add(delta.mul(delta)?.mul(weight.div(weight_scale)?)?)?;
+    }
+    Ok(variance.div(total)?.sqrt()?.mul(scale)?)
 }
 
 pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult<Value> {
@@ -436,13 +511,38 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
         }
         B::Stddev => {
-            // Population standard deviation (unverified: the Prime may use
-            // the sample form).
-            let v = stats_values(args, name)?;
-            let n = v.len() as f64;
-            let mean = v.iter().map(|x| x.to_f64()).sum::<f64>() / n;
-            let var = v.iter().map(|x| (x.to_f64() - mean).powi(2)).sum::<f64>() / n;
-            Ok(Value::Real(Real::from_f64(var.sqrt())?))
+            let data = arg(args, 0, name)?;
+            let weights = args.get(1).map(|v| numeric_series(v, name)).transpose()?;
+            if let Value::Matrix(matrix) = data {
+                if !matrix.vector {
+                    if weights.is_some() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgValue,
+                            "STDDEV(matrix) does not take a weight vector",
+                        ));
+                    }
+                    let mut columns = Vec::with_capacity(matrix.cols);
+                    for col in 0..matrix.cols {
+                        m.check_limits()?;
+                        let values = (0..matrix.rows)
+                            .map(|row| matrix.data[row * matrix.cols + col].expect_real(name))
+                            .collect::<RtResult<Vec<_>>>()?;
+                        columns.push(Value::Real(weighted_deviation(&values, None)?));
+                    }
+                    return Ok(Value::Matrix(std::rc::Rc::new(crate::value::Matrix {
+                        rows: 1,
+                        cols: columns.len(),
+                        vector: true,
+                        data: columns,
+                    })));
+                }
+            }
+            let values = numeric_series(data, name)?;
+            m.check_limits()?;
+            Ok(Value::Real(weighted_deviation(
+                &values,
+                weights.as_deref(),
+            )?))
         }
         B::Ifte => {
             let c = a0()?.truthy()?;

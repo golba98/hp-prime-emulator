@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "baseline_commit": "8d7535e",
+  "findings": [
+    {
+      "id": 1,
+      "finding": "[Native, CODE] Apps and app views are absent.",
+      "baseline": "[Native, CODE] Apps and app views are absent.\n   NativeView contains only Home, Catalog, ProgramOutput and Error. Apps, Symb,\n   Plot, Num and View are disabled while idle. There is no native app library,\n   app symbolic/numeric/plot view or associated app setup UI.\n   Source: crates/ppl-gui/src/ide/native.rs:34,211.",
+      "root_cause": "The native view reducer had no app model or evaluation path.",
+      "expected_behavior": "Apps open their supported Symbolic/Plot/Numeric/setup views and perform computations using shared expressions and app memory.",
+      "implementation": [
+        "17 app entries with editable models; worker-based Function/Parametric/Polar/Sequence/implicit sampling, tables, window controls, solver/statistics/finance/inference/spreadsheet/geometry computations.",
+        "App view availability/entry pages follow documented app distinctions; asynchronous Solve uses shared Home/CAS context; finance amortization and inference distributions use common plot controls."
+      ],
+      "tests": [
+        "native_apps, native_graph_context, native_equations, native_app_models, native_inference and native_plot_view_tests; real desktop graph, graph_context, solve and models workflows"
+      ],
+      "verification": "partial: app-specific HP parity remains incomplete, including full Geometry constructions, spreadsheet formatting/functions, all statistics fits and app-specific plot tools.",
+      "affected_components": [
+        "native_tools.rs",
+        "native_apps.rs",
+        "native_app_models.rs",
+        "native_app_ui.rs",
+        "native_inference.rs",
+        "native_graph_context.rs",
+        "native_equations.rs",
+        "native_model_plots.rs",
+        "native_plot_controls.rs",
+        "native_plot_view.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 2,
+      "finding": "[Native, CODE] CAS and its settings UI are absent.",
+      "baseline": "[Native, CODE] CAS and its settings UI are absent.\n   CAS key is disabled. CAS/EVAL/EXACT do not supply a symbolic engine.\n   Firmware mode is the existing route to firmware CAS.\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-vm/src/builtins/mod.rs:205.",
+      "root_cause": "CAS keys were disconnected and runtime had no symbolic value or algebra engine.",
+      "expected_behavior": "CAS evaluates symbolic/numeric expressions, preserves separate answer/history/settings, and exchanges supported named values with Home.",
+      "implementation": [
+        "Supervised genuine Giac service, typed exact values, independent CAS history/Ans/settings, Home/CAS variable bridge, cancellation, persisted bindings, CAS evaluation dialogs."
+      ],
+      "tests": [
+        "CAS genuine/supervision/validation/Home/units tests; VM cas tests; desktop create/reopen",
+        "app_cas_catalog_tests: five actual egui/async Giac and process-restart tests"
+      ],
+      "verification": "implemented for supported Giac operations; external helper installation required, no claim of every HP CAS command matching Giac.",
+      "affected_components": [
+        "ppl-cas",
+        "ppl-vm/cas.rs",
+        "compiler/symbolic.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 3,
+      "finding": "[Native, CODE] Calculator settings have no idle keypad route.",
+      "baseline": "[Native, CODE] Calculator settings have no idle keypad route.\n   Shift+Home returns Home; there is no native Home Settings view. Other shifted\n   setup legends do not have corresponding native views. PPL settings variables\n   exist separately; their existence does not supply these screens.\n   Source: crates/ppl-gui/src/app_native.rs:307;\n   crates/ppl-gui/src/ide/native.rs:34.",
+      "root_cause": "Shift setup actions reused primary navigation and had no settings controls.",
+      "expected_behavior": "Shift setup keys open editable Home/CAS/app settings used by evaluation and graph workers.",
+      "implementation": [
+        "Home/CAS settings edit the runtime; per-app AAngle/AComplex/AFormat/ADigits overrides are validated, persisted and used in evaluation/plots."
+      ],
+      "tests": [
+        "settings/session tests; keypad table tests"
+      ],
+      "verification": "implemented and covered by settings/session/keypad and integrated GUI tests",
+      "affected_components": [
+        "native/keys.rs",
+        "native_tools.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 4,
+      "finding": "[Native, CODE] Help/Info and User-key mode have no idle UI.",
+      "baseline": "[Native, CODE] Help/Info and User-key mode have no idle UI.\n   Help is outside supports_key; NativeView has no help or user-key screen.\n   Source: crates/ppl-gui/src/ide/native.rs:211.",
+      "root_cause": "No help route, KEY discovery or background invocation existed.",
+      "expected_behavior": "Help offers supported command information; temporary and locked User key modes execute discovered KEY handlers.",
+      "implementation": [
+        "Help text, exact temporary/persistent User mode chords, declarative 198 assignable forms, KEY AST discovery, strict ambiguity, cancellable shared VM execution, typed insertion without changing Ans/history.",
+        "Shift+Apps and STARTVIEW(6) open a persistent per-app Info note, separate from Help and standalone Notes; STARTAPP opens the documented entry view."
+      ],
+      "tests": [
+        "26 User reducer/worker tests; native_side_user desktop",
+        "app_info_tests; native_side_state_create/reopen Info note assertions"
+      ],
+      "verification": "implemented; User worker/reducer tests and actual desktop temporary/locked workflows passed",
+      "affected_components": [
+        "native_user_keys.rs",
+        "app_user_keys.rs",
+        "execution/worker.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 5,
+      "finding": "[Native, CODE] Vars, Toolbox and Templates are absent.",
+      "baseline": "[Native, CODE] Vars, Toolbox and Templates are absent.\n   No idle variable browser, command browser, structured math template picker,\n   character palette, units picker or memory manager is routed from their keys.\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-gui/src/app_native.rs:300-378.",
+      "root_cause": "No object/tool request dispatcher or editable native tool pages existed.",
+      "expected_behavior": "Vars, Toolbox, Templates, Characters, Units and Memory provide real insertion, inspection or management actions.",
+      "implementation": [
+        "Variables, command and template catalogs, character/relation pickers, units, Define, memory information and Edit Integer.",
+        "Home/CAS variable scopes browse actual bindings and use transactional workers; Help searches supported builtin signatures and links the official guide."
+      ],
+      "tests": [
+        "editor/catalog/session/CAS units tests",
+        "app_cas_catalog_tests and catalog_tests: actual object scope/store/edit/delete/button execution"
+      ],
+      "verification": "partial: Help/menu contents cover supported native functions; full HP catalog/help database not bundled.",
+      "affected_components": [
+        "native_tools.rs",
+        "app_tools.rs",
+        "native_integer.rs",
+        "ppl-cas/units.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 6,
+      "finding": "[Native, REPRODUCED/CODE] Alpha does not enable letter entry on the keypad.",
+      "baseline": "[Native, REPRODUCED/CODE] Alpha does not enable letter entry on the keypad.\n   Alpha and Vars/A clicks leave Home input empty. Alpha is disabled by\n   supports_key; NativeUiState has shifted but no alpha mode/case state.\n   Desktop text entry does work and is a separate path.\n   Source: crates/ppl-gui/src/ide/native.rs:116,211.",
+      "root_cause": "No Alpha state machine or central modifier dispatch.",
+      "expected_behavior": "Alpha enters every printed letter and implements documented one-shot, opposite-case and locking modes.",
+      "implementation": [
+        "One-shot/locked upper/lower Alpha and Shift+Alpha combinations through central dispatcher."
+      ],
+      "tests": [
+        "all printed Alpha labels and locking tests; desktop native_side_input"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/keys.rs",
+        "app_native.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 7,
+      "finding": "[Native, CODE] Sixteen primary keys are disabled at idle Home.",
+      "baseline": "[Native, CODE] Sixteen primary keys are disabled at idle Home.\n   Apps, Symb, Help, Plot, Left, Right, View, CAS, Num, Vars, Toolbox,\n   Templates, x/t/theta/n, fraction, Alpha, On.\n   These are still painted like normal keys; only the hover text explains the\n   disabled state. Down is accepted but has no Home handler (see item 13).\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-gui/src/ide/keypad.rs:99,303.",
+      "root_cause": "supports_key excluded sixteen primary actions and routing fell through.",
+      "expected_behavior": "All 51 primary keys dispatch their context-sensitive calculator action through one input mechanism.",
+      "implementation": [
+        "All51 physical entries resolve declarative supported actions and context-sensitive dispatch."
+      ],
+      "tests": [
+        "51-key table and app reducer tests; native_side_input/graph/user"
+      ],
+      "verification": "implemented; full declarative primary/Shift/Alpha coverage and desktop input/navigation exercised",
+      "affected_components": [
+        "native/keys.rs",
+        "app_native.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 8,
+      "finding": "[Native, REPRODUCED/CODE] Shifted scientific functions are disconnected.",
+      "baseline": "[Native, REPRODUCED/CODE] Shifted scientific functions are disconnected.\n   Shift+SIN inserts SIN(, not ASIN(. The handler clears shifted before token\n   selection. The same route ignores ASIN/ACOS/ATAN, exp, 10^x and sqrt legends.\n   Source: crates/ppl-gui/src/app_native.rs:316-353.",
+      "root_cause": "Handler consumed Shift before resolving function action.",
+      "expected_behavior": "Shift scientific keys insert the printed inverse/exponential/root functions before consuming Shift.",
+      "implementation": [
+        "Resolve before consuming modifier; inverse trig, exponential, powers and roots insert editable function templates."
+      ],
+      "tests": [
+        "shifted function tests; inverse_sin desktop snapshot"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/keys.rs",
+        "native/expression.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 9,
+      "finding": "[Native, CODE] Most other secondary legends have no implementation.",
+      "baseline": "[Native, CODE] Most other secondary legends have no implementation.\n   Shift+1 opens Programs, but list/matrix/notes catalogs, store, pi, i,\n   comparisons, reciprocal, factorial, nth root, absolute value, Base, Copy,\n   Paste, Clear and approximate evaluation are not routed as those functions.\n   Some are expressible by desktop typing or PPL; the missing part is keypad UI.\n   Source: crates/ppl-gui/src/app_native.rs:300-378;\n   crates/ppl-gui/src/ide/keypad/definitions.rs.",
+      "root_cause": "Secondary legends were not represented as calculator actions.",
+      "expected_behavior": "Every printed secondary legend dispatches its supported function, catalog, editing or presentation action.",
+      "implementation": [
+        "Catalogs, store, constants, relational symbols, factorial/roots/reciprocal, clipboard, approximate evaluation, Base dialog, polar input and HMS work."
+      ],
+      "tests": [
+        "all-key mappings; native input tests; polar tests; integer tests"
+      ],
+      "verification": "implemented for supported actions; HMS/DMS and polar entry/answer toggles have parser, numeric and GUI regressions; full formatted-value metadata remains partial",
+      "affected_components": [
+        "native/keys.rs",
+        "app_tools.rs",
+        "native_integer.rs",
+        "syntax lexer/parser"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 10,
+      "finding": "[Native, REPRODUCED] Space and Ans are mapped inconsistently with the skin.",
+      "baseline": "[Native, REPRODUCED] Space and Ans are mapped inconsistently with the skin.\n    Clicking the space key inserts Ans; clicking Shift+Plus inserts + even\n    though the skin labels that secondary action Ans. Desktop Space enters a\n    literal space through the text path, so keyboard and virtual keypad differ.\n    Source: crates/ppl-gui/src/app_native.rs:336;\n    crates/ppl-gui/src/keymap.rs:59;\n    crates/ppl-gui/src/ide/keypad/definitions.rs:bottom row.",
+      "root_cause": "Space was aliased to Ans and Shift+Plus reused primary plus.",
+      "expected_behavior": "Physical Space enters space; Shift+Plus inserts Ans through all input methods.",
+      "implementation": [
+        "Physical49 inserts space, Shift+Plus inserts Ans, desktop/keypad use same actions."
+      ],
+      "tests": [
+        "keymap/table tests; native_side_input space_ans"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "keymap.rs",
+        "native/keys.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 11,
+      "finding": "[Native, REPRODUCED/CODE] Parentheses and sign entry are incomplete.",
+      "baseline": "[Native, REPRODUCED/CODE] Parentheses and sign entry are incomplete.\n    Clicking ( ), 2, ( ) produces (2(. There is no paired-delimiter editor or\n    keypad closing-parenthesis path. +/- appends '-' rather than changing the\n    sign of an editable operand. Fraction key has no native template action.\n    Source: crates/ppl-gui/src/dialog.rs:118;\n    crates/ppl-gui/src/app_native.rs:340.",
+      "root_cause": "Append-only string handler could not pair delimiters or edit operands.",
+      "expected_behavior": "Paired parentheses, operand sign changes and editable fraction templates support nested input.",
+      "implementation": [
+        "Paired/nested delimiter fields, operand sign editing, editable fraction/root/power templates."
+      ],
+      "tests": [
+        "structured editor tests; real fraction/pointer/evaluation workflow"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/expression.rs",
+        "native/math_layout.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 12,
+      "finding": "[Native, REPRODUCED/CODE] Home has no cursor, selection or edit history.",
+      "baseline": "[Native, REPRODUCED/CODE] Home has no cursor, selection or edit history.\n    Type 12, Left, 3 -> 123. Input is a String; insertion only pushes at its end,\n    and Backspace only pops the final character. No cursor movement, in-place\n    editing, select/cut/copy, undo/redo or long-line horizontal scroll state.\n    The framebuffer renderer clips the input to 308 pixels.\n    Source: crates/ppl-gui/src/app_native.rs:294,329;\n    crates/ppl-gui/src/ide/native.rs:113,288.",
+      "root_cause": "Input was a String with pop/push editing and no geometry.",
+      "expected_behavior": "Cursor, selection, arbitrary insertion/deletion, undo/redo and pointer placement share one editor state.",
+      "implementation": [
+        "Shared cursor/selection editor, insertion/backspace/delete, undo/redo, clipboard, template field navigation, horizontal viewport and pointer caret geometry."
+      ],
+      "tests": [
+        "expression/layout tests; native_side_input; shared app field graph workflow"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/expression.rs",
+        "native/math_layout.rs",
+        "app_math_entry.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 13,
+      "finding": "[Native, REPRODUCED/CODE] History navigation is incomplete.",
+      "baseline": "[Native, REPRODUCED/CODE] History navigation is incomplete.\n    After 1+1 and 2+2, Up, Up, Down all leave input at 2+2. Up always clones\n    history.back(); Down has no Home action. Only the newest four history\n    entries are drawn; up to 200 are retained but older ones are inaccessible\n    through the Home view. There is no history result selection/copy/reuse UI.\n    Source: crates/ppl-gui/src/app_native.rs:331;\n    crates/ppl-gui/src/ide/native.rs:180,258.",
+      "root_cause": "Up always cloned the newest entry; no position/draft state.",
+      "expected_behavior": "Older/newer expression recall preserves ordering, boundaries, original history and the unsent draft.",
+      "implementation": [
+        "Ordered unbounded-with-profile-limit typed history, boundary-safe older/newer recall, draft restoration, editing/resubmission and restart persistence."
+      ],
+      "tests": [
+        "history tests; native_side_input older_history/history_draft; restart workflow"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "ide/native.rs",
+        "app_native.rs",
+        "native_profile.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 14,
+      "finding": "[Native, REPRODUCED/CODE] Clipboard paste is ignored.",
+      "baseline": "[Native, REPRODUCED/CODE] Clipboard paste is ignored.\n    Pasting 45 into input 123 leaves 123. route_native_keyboard handles Text,\n    not Paste. The same router owns INPUT/EDITMAT/CHOOSE interaction while active,\n    so it has no clipboard paste delivery path for calculator dialogs either.\n    Source: crates/ppl-gui/src/app_native.rs:382-521.",
+      "root_cause": "Paste events were omitted from the native event router.",
+      "expected_behavior": "OS paste, copy and cut reach the active calculator editor or interactive dialog.",
+      "implementation": [
+        "Paste/copy/cut routed to shared editor or active dialog; actual OS clipboard events integrated."
+      ],
+      "tests": [
+        "clipboard/selection tests; native_side_input cursor_paste"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "host.rs",
+        "dialog.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 15,
+      "finding": "[Native, REPRODUCED/CODE] LCD touch does not operate idle native views.",
+      "baseline": "[Native, REPRODUCED/CODE] LCD touch does not operate idle native views.\n    With SECOND selected, tapping FIRST leaves SECOND selected. There is no\n    native catalog/history/input hit-testing. Touch is only forwarded into the\n    shared VM touch state; it does not navigate NativeUiState.\n    Source: crates/ppl-gui/src/app_firmware.rs:573;\n    crates/ppl-gui/src/ide/native.rs:243.",
+      "root_cause": "LCD pointer events only updated program touch state.",
+      "expected_behavior": "LCD taps select catalog/history entries and place the structured-input caret.",
+      "implementation": [
+        "Idle history/catalog/editor hit testing and real tool buttons/fields inside clipped LCD."
+      ],
+      "tests": [
+        "catalog tap and fraction pointer desktop assertions; graph entry via click",
+        "native_plot_view_tests: incremental/release-frame pan, pointer projection and visually nearest computed sample"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "native/math_layout.rs",
+        "native_tools.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 16,
+      "finding": "[Native, CODE] Calculator dialogs are keyboard-only.",
+      "baseline": "[Native, CODE] Calculator dialogs are keyboard-only.\n    MSGBOX/CHOOSE/INPUT/EDITMAT expose handle(KeyPress) and render(), without a\n    touch handler. Clicking fields, list choices, cells or painted buttons is\n    not wired to the modal state machines. Program MOUSE input is separate.\n    Source: crates/ppl-gui/src/dialog.rs:57;\n    crates/ppl-gui/src/host.rs:modal dialog loop.",
+      "root_cause": "Modal trait exposed only handle/render.",
+      "expected_behavior": "All rendered Native modal controls support pointer and equivalent keyboard interaction with validation and cancel.",
+      "implementation": [
+        "Modal pointer/focus controls, confirmation/cancel, fields/cells/list choices, structured editor events and clipboard bridge."
+      ],
+      "tests": [
+        "modal functional tests; native_side_dialogs desktop"
+      ],
+      "verification": "implemented for native dialog controls",
+      "affected_components": [
+        "dialog.rs",
+        "dialog/matrix.rs",
+        "dialog/list.rs",
+        "host.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 17,
+      "finding": "[Native, REPRODUCED/CODE] ON does not break a running program.",
+      "baseline": "[Native, REPRODUCED/CODE] ON does not break a running program.\n    A running WAIT loop remains Running after the actual ON key is clicked.\n    Native routing forwards ON to the key queue; it does not call Stop/interrupt.\n    Firmware ON has a separate break path. Native Stop/Shift+F5 does work.\n    Source: crates/ppl-gui/src/app_native.rs:283;\n    crates/ppl-gui/src/app_firmware.rs:423;\n    crates/ppl-gui/src/host.rs:101.",
+      "root_cause": "ON was queued as GETKEY rather than signalling VM cancellation.",
+      "expected_behavior": "ON interrupts actual VM loops, nested calls, waits and interactive operations and permits a subsequent run.",
+      "implementation": [
+        "ON precedes program/modal forwarding, interrupts actual VM, wakes dialogs/waits/debugger; admission stays held until worker retires."
+      ],
+      "tests": [
+        "native_side_input ON/next run; User nested-loop/INPUT cancellation tests"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "execution/controller.rs",
+        "host.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 18,
+      "finding": "[Native, CODE] There is no native ON/OFF lifecycle or saved calculator image.",
+      "baseline": "[Native, CODE] There is no native ON/OFF lifecycle or saved calculator image.\n    ON is disabled at idle, and Shift+ON has no sleep/save action. IDE persistent\n    state saves panel/configuration fields, not NativeUiState history or VM\n    globals. Native execution state persists within the session, not as a\n    calculator memory image across IDE restarts.\n    Source: crates/ppl-gui/src/ide/mod.rs:48;\n    crates/ppl-gui/src/app.rs:1652;\n    crates/ppl-gui/src/ide/native.rs:211.",
+      "root_cause": "Calculator memory and UI state only lived in operation/desktop structs.",
+      "expected_behavior": "Native Off/On preserves calculator memory, with durable versioned state across process restarts.",
+      "implementation": [
+        "ON/OFF sleep/wake; durable version1 exact memory and UI history/app state; atomic writer, exclusive profile lock, recovery and future-version refusal."
+      ],
+      "tests": [
+        "memory/profile tests; two-process create/reopen desktop",
+        "SIGKILL/reopen desktop: eight assertions, including independent app Info memory"
+      ],
+      "verification": "implemented for calculator memory; no suspended Native VM stack persistence promised",
+      "affected_components": [
+        "native_profile.rs",
+        "execution/worker.rs",
+        "session/memory.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 19,
+      "finding": "[Native, CODE] Programs is an open-tab export list, not a calculator catalog.",
+      "baseline": "[Native, CODE] Programs is an open-tab export list, not a calculator catalog.\n    refresh_native_catalog scans exported functions in open IDE tabs. Closed\n    files and independently stored program objects do not populate it. Catalog\n    actions are Up/Down/Enter; create/edit/rename/delete/search and independent\n    program storage are not available within the calculator catalog itself.\n    IDE program editing and physical-device program management exist separately.\n    Source: crates/ppl-gui/src/app_native.rs:41,363,700.",
+      "root_cause": "Program discovery scanned only open IDE exports.",
+      "expected_behavior": "Calculator programs are independently stored, discoverable after IDE tabs close, and runnable with stable local state and parameters.",
+      "implementation": [
+        "Persistent installed source catalog, rename/search/delete, stable module worker with explicit entry/arguments or real INPUT parameter prompt; no IDE tabs opened."
+      ],
+      "tests": [
+        "session installed/nested/restart tests; native_side_state closed_tab_catalog/restored_program",
+        "30 consecutive catalog parameter-cancel stress runs; explicit entry/args and persistent counter tests"
+      ],
+      "verification": "implemented; 17 real egui/controller/VM management tests plus restart and linked-program desktop workflows",
+      "affected_components": [
+        "app_native.rs",
+        "native_tools.rs",
+        "session.rs",
+        "linker.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 20,
+      "finding": "[Native, CODE] Lists, matrices and notes lack standalone calculator editors.",
+      "baseline": "[Native, CODE] Lists, matrices and notes lack standalone calculator editors.\n    There are no List/Matrix/Notes native views. EDITLIST is unsupported.\n    EDITMAT exists as a program-requested fixed-size modal, so matrix editing\n    must not be described as entirely absent.\n    Source: crates/ppl-gui/src/ide/native.rs:34;\n    crates/ppl-vm/src/builtins/mod.rs:217.",
+      "root_cause": "No catalog object forms and EDITLIST unsupported.",
+      "expected_behavior": "Lists, matrices and notes have shared persistent CRUD and standalone editors.",
+      "implementation": [
+        "Persistent list/matrix/note CRUD; shared PPL object stores; standalone collection editors reuse actual EDITLIST/EDITMAT host paths."
+      ],
+      "tests": [
+        "session CRUD/restart; native_side_state; EDITLIST tests"
+      ],
+      "verification": "implemented; real egui list/matrix/note CRUD, transactional editors, profile reopen and desktop object restart verified",
+      "affected_components": [
+        "native_tools.rs",
+        "dialog/list.rs",
+        "dialog/matrix.rs",
+        "session.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 21,
+      "finding": "[Native, CODE] EDITMAT cannot change matrix shape.",
+      "baseline": "[Native, CODE] EDITMAT cannot change matrix shape.\n    Existing cells and paging work, but no insert/delete row or column,\n    dimension editing, or touch editing is implemented.\n    Source: crates/ppl-gui/src/dialog/matrix.rs:10,32,50.",
+      "root_cause": "Matrix modal assumed original fixed dimensions.",
+      "expected_behavior": "EDITMAT can edit dimensions and insert/delete rows and columns with transactional confirm/cancel.",
+      "implementation": [
+        "Dimension editing, insert/delete row/column, vector constraints, cell editing and transactional shape commit/cancel."
+      ],
+      "tests": [
+        "editmat tests; desktop native_side_dialogs inserted row and cell9"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "dialog/matrix.rs",
+        "host.rs",
+        "builtins/io.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 22,
+      "finding": "[Native, CODE] INPUT supports only part of the calculator's control model.",
+      "baseline": "[Native, CODE] INPUT supports only part of the calculator's control model.\n    Checkbox, radio and choice descriptors are explicitly rejected. TYPE codes\n    outside -1,0,1,2,3,4,6,8,9 are rejected. Only one reset/initial value per field\n    is supported; other default-list forms require firmware.\n    Source: crates/ppl-vm/src/builtins/io.rs:185,217,374.",
+      "root_cause": "INPUT rejected control descriptors and lacked default/control state.",
+      "expected_behavior": "INPUT implements documented supported typed/control descriptors, defaults, reset, variable updates and confirmation/cancellation.",
+      "implementation": [
+        "Checkbox/radio/choice controls, initial/reset/default handling, typed values, validation/reopen, cancel and reference updates through suspended VM."
+      ],
+      "tests": [
+        "input.rs VM tests; modal controls tests; actual desktop INPUT"
+      ],
+      "verification": "implemented for tested documented control forms; other unsupported type codes remain explicit errors",
+      "affected_components": [
+        "builtins/io.rs",
+        "dialog.rs",
+        "host.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 23,
+      "finding": "[Native, CODE] Nine declared commands are entirely unsupported.",
+      "baseline": "[Native, CODE] Nine declared commands are entirely unsupported.\n    EXACT, EDITLIST, EVAL, STARTAPP, STARTVIEW, RECALL, AFILES, HVARS, CAS.\n    These raise errors; the parser recognizing their names is not implementation.\n    Source: crates/ppl-compiler/src/builtins.rs;\n    crates/ppl-vm/src/builtins/mod.rs:205-222.",
+      "root_cause": "Builtin declarations had no semantics or host interface.",
+      "expected_behavior": "Previously unsupported entries execute documented semantics or retain explicit precise unsupported outcomes.",
+      "implementation": [
+        "EXACT/EVAL/CAS genuine algebra; EDITLIST; STARTAPP/STARTVIEW acknowledged by GUI; persistent per-app AFiles; HVars read/write/function metadata. RECALL audit entry corrected: genuine firmware rejects RECALL(\"A\")."
+      ],
+      "tests": [
+        "cas/input/editmat/session tests; actual local firmware STARTAPP/STARTVIEW/RECALL probes"
+      ],
+      "verification": "partial: app/view subset tracks Native apps; not every HP app-specific view is implemented.",
+      "affected_components": [
+        "compiler/builtins.rs",
+        "compiler/compile.rs",
+        "vm builtins/cas/session",
+        "host.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 24,
+      "finding": "[Native, COVERAGE/CODE] Twenty-seven commands are marked Approximate.",
+      "baseline": "[Native, COVERAGE/CODE] Twenty-seven commands are marked Approximate.\n    APPROX, STDDEV, STRING, EXPR, APPEND, EDITMAT, RECT, LINE, PIXON, PIXOFF,\n    GETPIX, CIRCLE, FILLCIRCLE_P, ARC, TEXTOUT_P, TEXTOUT, BLIT, DIMGROB,\n    SUBGROB, TRIANGLE_P, MSGBOX, INPUT, CHOOSE, MOUSE, DISP, FREEZE, DRAWMENU.\n    Specific missing forms include LINE's 3D points/lines, DIMGROB(G,list)\n    pixel-data input, and TRIANGLE_P forms outside scalar x/y/color arguments.\n    Approximate is the table's status, not a claim every form fails.\n    Source: crates/ppl-compiler/src/builtins.rs;\n    crates/ppl-vm/src/builtins/graphics.rs:142,258,331.",
+      "root_cause": "Approximate statuses reflected missing overloads, coordinate models and control semantics.",
+      "expected_behavior": "Previously approximate entries implement supported overloads accurately; remaining HP-specific mismatches stay explicit.",
+      "implementation": [
+        "Weighted BCD STDDEV, vector APPEND, STRING options, interactive controls, Cartesian pixel/GROB forms, packed DIMGROB data, 3D mesh transforms/clipping/cache/depth writeback, FREEZE/DRAWMENU/MOUSE fixes."
+      ],
+      "tests": [
+        "overloads.rs; io_contracts.rs; parity.rs; input.rs; editmat.rs"
+      ],
+      "verification": "partial: exact fonts/raster, opaque firmware caches, raw UTF-16 string semantics and remaining HP overloads require work; see command-by-command report",
+      "affected_components": [
+        "builtins/{graphics,io,lists,math,strings}.rs",
+        "dialog modules"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 25,
+      "finding": "[Native, CODE] The Home display lacks calculator status and softkey state.",
+      "baseline": "[Native, CODE] The Home display lacks calculator status and softkey state.\n    The screen draws a title, history and a plain input line. No native\n    Shift/Alpha annunciator, angle/number-format status or context-sensitive\n    calculator softkey menu exists in this renderer. Structured textbook\n    expression/result layout is also absent: text is rendered as strings.\n    Source: crates/ppl-gui/src/ide/native.rs:243-386.",
+      "root_cause": "Renderer had no modifier/status/editor geometry model.",
+      "expected_behavior": "Home renders real modifiers, environment/settings and structured input with working contextual controls.",
+      "implementation": [
+        "Shift/Alpha/User and environment/angle/format indicators, structured input layout and context controls; composed LCD capture includes actual egui tools."
+      ],
+      "tests": [
+        "layout tests; native_lcd_capture10; actual graph LCD screenshot"
+      ],
+      "verification": "partial: full textbook layout for all result types and exact HP softkey parity remain incomplete",
+      "affected_components": [
+        "ide/native.rs",
+        "native/math_layout.rs",
+        "native_tools.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 26,
+      "finding": "[Both, CODE] A held virtual key does not generate host repeat events.",
+      "baseline": "[Both, CODE] A held virtual key does not generate host repeat events.\n    VirtualKeypad captures one press and one release. Native Home editing and\n    catalog navigation process queued presses, with no held-key repeat loop.\n    Firmware may repeat keys internally; this is a Native UI limitation, not\n    evidence that firmware key holding fails.\n    Source: crates/ppl-gui/src/ide/keypad.rs:84-145.",
+      "root_cause": "Virtual keypad emitted only initial press/release.",
+      "expected_behavior": "Holding repeatable virtual Native keys generates bounded repeat events until release or ownership loss.",
+      "implementation": [
+        "Bounded repeat schedule for repeatable native editing/navigation keys; releases/ownership transitions stop repetition."
+      ],
+      "tests": [
+        "held/release/repeat tests; native input regressions"
+      ],
+      "verification": "implemented; firmware continues receiving actual held transitions",
+      "affected_components": [
+        "ide/keypad.rs"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": 27,
+      "finding": "[Firmware, CODE] Desktop paste/typing has deliberate restrictions.",
+      "baseline": "[Firmware, CODE] Desktop paste/typing has deliberate restrictions.\n    Paste rejects ^, newlines and unsupported characters before delivery.\n    Desktop text recognizes a limited character set, paired delimiters it\n    created itself, and exact firmware Alpha/Shift indicator glyphs. Unknown\n    status bars stop typing. Existing templates require physical navigation.\n    Source: crates/prime-emulator/src/session/typing.rs:110-245;\n    crates/ppl-gui/src/app_firmware.rs:494.",
+      "root_cause": "Firmware desktop translator rejected powers and several mathematical Unicode inputs.",
+      "expected_behavior": "Firmware desktop typing translates supported expressions to genuine key sequences and rejects unsupported batches before delivery.",
+      "implementation": [
+        "AST-aware power template exits, Unicode translations, atomic validation and queued-input inspection."
+      ],
+      "tests": [
+        "local firmware typing three exact pixel comparisons; translator tests"
+      ],
+      "verification": "partial: unsupported text/newlines/template contexts and unknown status glyphs still rejected atomically",
+      "affected_components": [
+        "prime-emulator/session/typing.rs",
+        "session.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 28,
+      "finding": "[Firmware, CODE/COVERAGE] Firmware selection cannot be copied out as text.",
+      "baseline": "[Firmware, CODE/COVERAGE] Firmware selection cannot be copied out as text.\n    The IDE forwards Text/Paste and key transitions, not firmware-selected text\n    to the system clipboard. Screen PNG saving exists. Complete dialog/catalog\n    desktop behavior and additional firmware-build typing coverage remain\n    unverified; no new firmware interaction test was performed in this audit.\n    Source: crates/ppl-gui/src/app_firmware.rs:489-570;\n    docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md:300-315.",
+      "root_cause": "Firmware host transport exposes pixels/events, not selected text.",
+      "expected_behavior": "Firmware-selected text can be retrieved through a verified guest selection interface and copied to the system clipboard.",
+      "implementation": [
+        "Preserved working paste/key and screenshot behavior; no fabricated copy-out."
+      ],
+      "tests": [
+        "existing firmware regression tests; source interface evidence"
+      ],
+      "verification": "unresolved: requires a verified firmware selected-text/clipboard ABI, not OCR or framebuffer content",
+      "affected_components": [
+        "ppl-gui/app_firmware.rs",
+        "prime-emulator/session/typing.rs"
+      ],
+      "status": "unresolved"
+    },
+    {
+      "id": 29,
+      "finding": "[Firmware, CODE] Live whole-calculator save/resume is absent.",
+      "baseline": "[Firmware, CODE] Live whole-calculator save/resume is absent.\n    Recovery stores durable OFF checkpoints and restarts the firmware; it does\n    not serialize live CPU/thread/host state. Synthetic snapshot facilities are\n    separate and do not provide a live calculator save-state button.\n    Source: crates/prime-emulator/src/recovery.rs:1.",
+      "root_cause": "Live CPU/host continuations and resource handles are not serializable.",
+      "expected_behavior": "A live firmware snapshot captures and restores CPU, RAM, peripherals, scheduler, host resources and in-flight execution.",
+      "implementation": [
+        "Retained genuine durable OFF recovery and explicit live-restore readiness blockers."
+      ],
+      "tests": [
+        "genuine local firmware session lifecycle tests; snapshot/safepoint tests"
+      ],
+      "verification": "unresolved: complete CPU context export, native callback continuation state machines and resource reconstruction required",
+      "affected_components": [
+        "prime-emulator/session.rs",
+        "safepoint.rs",
+        "memory/component.rs",
+        "services/fs/component.rs"
+      ],
+      "status": "unresolved"
+    },
+    {
+      "id": 30,
+      "finding": "[Firmware, COVERAGE] The OS interface is far from fully implemented.",
+      "baseline": "[Firmware, COVERAGE] The OS interface is far from fully implemented.\n    Static registry: 742 service slots; 48 Implemented, 31 PartiallyImplemented,\n    663 NotInvestigated/no handler. Full slot-by-slot inventory is attached as\n    implementation-inventory.json. No-handler slots are coverage gaps; many\n    are not used by common calculator flows. Do not turn 663 into a count of\n    demonstrated broken features. The GUI uses ZeroReturn and reports observed\n    unsupported call sites, so some unimplemented paths continue with 0.\n    Source: crates/prime-emulator/src/services/{names,mod,handlers}.rs;\n    crates/prime-emulator/src/session.rs:1373;\n    crates/ppl-gui/src/ide/calculator.rs:88.",
+      "root_cause": "Registry contains many uninvestigated OS ABI slots; fallback zero is not implementation.",
+      "expected_behavior": "Used firmware OS services implement their real ABI; unhandled slots remain accurately inventoried.",
+      "implementation": [
+        "Investigated separate from Native and repaired concrete thread/IRQ/debug services; inventory retained."
+      ],
+      "tests": [
+        "service/ARM/synchronization/lifecycle tests"
+      ],
+      "verification": "partial: 663 slots remain unhandled; exact signatures/resource ABI evidence and implementations required",
+      "affected_components": [
+        "prime-emulator/services/{names,mod,handlers}.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 31,
+      "finding": "[Firmware, CODE] Several registered OS services are still stubs/partial.",
+      "baseline": "[Firmware, CODE] Several registered OS services are still stubs/partial.\n    Suspend/Resume/WakeUp thread calls return 1 without the corresponding thread\n    behavior. Interrupt enable/done return 1; registered ISR dispatch is not\n    provided by this HLE route. SetAutoPowerOff returns 0. Debug printf logs\n    the format string without formatting arguments. These are distinct from\n    synthetic full-system hardware tests.\n    Source: crates/prime-emulator/src/services/threading.rs:73;\n    crates/prime-emulator/src/services/handlers.rs:75,643;\n    crates/prime-emulator/src/services/system2.rs:120,162.",
+      "root_cause": "Deferred/thread control and IRQ masking were stubs; debug printf ignored varargs. Audit missed existing ISR dispatcher.",
+      "expected_behavior": "Thread suspension/resumption/termination, IRQ enable/done/dispatch and formatted debug output alter real execution state.",
+      "implementation": [
+        "Deferred launch, suspension/resumption/termination, interrupt masking/reenable/done, deterministic ISR delivery/error propagation, bounded common ARM printf marshalling."
+      ],
+      "tests": [
+        "thread_control6; svc16; sync_lifecycle6; emulator lib157; genuine local firmware lifecycle"
+      ],
+      "verification": "partial: priority scheduling, wake semantics, auto-power-off and extended printf formats remain incomplete",
+      "affected_components": [
+        "prime-emulator/services/threading.rs",
+        "services/mod.rs",
+        "services/system2.rs",
+        "runner.rs"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": 32,
+      "finding": "[Firmware, CODE] Device/environment behavior is simulated in several paths.",
+      "baseline": "[Firmware, CODE] Device/environment behavior is simulated in several paths.\n    Battery status is fixed (full/not charging); USB/USBHOST/INDICATOR IOCTL\n    paths simply succeed. Unknown devices return synthetic FF-filled output.\n    Storage-capacity reporting fills only an observed field of the OS struct.\n    These do not supply a faithful physical battery/link/device environment.\n    Source: crates/prime-emulator/src/services/system2.rs:138,287-402.",
+      "root_cause": "Host device environment uses fixed/synthetic battery, USB and storage replies.",
+      "expected_behavior": "Firmware device replies reflect an implemented virtual battery/USB/storage/environment model.",
+      "implementation": [
+        "Preserved existing simulated environment; no claim synthetic device replies are physical parity."
+      ],
+      "tests": [
+        "service/device-state unit tests; code evidence in firmware report"
+      ],
+      "verification": "unresolved: device contracts, changing virtual environment and observed OS struct layouts need implementation/ABI evidence",
+      "affected_components": [
+        "prime-emulator/services/system2.rs"
+      ],
+      "status": "unresolved"
+    },
+    {
+      "id": 33,
+      "finding": "[Test tooling, CODE] calc_key is misleading for Native input tests.",
+      "baseline": "[Test tooling, CODE] calc_key is misleading for Native input tests.\n    The automation comment says it follows keypad behavior in either backend,\n    but AutoStep::CalcKey invokes send_calc_transition, whose Native branch\n    only updates held keys and never routes a press to Native Home. This audit\n    used real click_calculator_key pointer events, separated by 80ms, for the\n    final keypad evidence. Tests based on calc_key alone can miss UI behavior.\n    Source: crates/ppl-gui/src/ide/automation.rs:114,666;\n    crates/ppl-gui/src/app_firmware.rs:423-443.",
+      "root_cause": "Native calc_key automation bypassed the Native reducer.",
+      "expected_behavior": "Automation calc_key dispatches through the same production reducer as actual on-screen Native clicks.",
+      "implementation": [
+        "calc_key invokes central production native dispatcher; held transitions remain distinct; waits include actual CAS/app/VM tasks. Added WaitDialog for real interaction synchronization."
+      ],
+      "tests": [
+        "native_side_input21 behavior assertions; graph/state/dialog/User workflows"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "ide/automation.rs"
+      ],
+      "status": "implemented"
+    }
+  ],
+  "verification_notes": [
+    "No physical hardware accessed; no new physical VERIFIED claim.",
+    "Exact final integrated command results are recorded in REMEDIATION.md; earlier agent checks are not substituted for final integration.",
+    "Unresolved/partial rows remain required work and are not called complete."
+  ],
+  "verification_commands": {
+    "workspace": "CARGO_TARGET_DIR=/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target cargo test --workspace",
+    "gui_giac": "cargo test -p ppl-gui --lib --features giac-integration",
+    "vm_cas_giac": "cargo test -p ppl-cas -p ppl-vm --features giac-integration",
+    "lint": "cargo clippy --workspace --all-targets -- -D warnings",
+    "lint_giac": "cargo clippy -p ppl-cas -p ppl-vm -p ppl-gui --all-targets --features giac-integration -- -D warnings",
+    "gui_desktop": "PPL_BIN=<debug/ppl> PPL_CAS_HELPER=<installed real helper> bash tests/ide_xvfb_smoke/run_native_side.sh",
+    "forced_restart": "PPL_BIN=<debug/ppl> python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py"
+  },
+  "verified_counts": {
+    "workspace": {
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6
+    },
+    "gui_default": {
+      "passed": 532,
+      "failed": 0,
+      "ignored": 2
+    },
+    "gui_giac": {
+      "passed": 552,
+      "failed": 0,
+      "ignored": 2
+    },
+    "vm_cas_giac": {
+      "passed": 256,
+      "failed": 0,
+      "ignored": 0
+    },
+    "desktop": {
+      "sessions": 11,
+      "input_assertions": 21,
+      "workflow_assertions": 77,
+      "failed": 0,
+      "evidence": "/tmp/prime-native-side-K05Ieh"
+    },
+    "forced_restart": {
+      "assertions": 8,
+      "failed": 0,
+      "evidence": "/tmp/prime-native-crash-6m3x3qya"
+    }
+  }
+}

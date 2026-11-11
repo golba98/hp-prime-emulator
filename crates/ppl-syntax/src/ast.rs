@@ -124,6 +124,8 @@ pub enum BinOp {
     Mul,
     Div,
     Pow,
+    /// Native calculator polar-complex entry r∠θ.
+    Polar,
     Mod,
     IntDiv,
     Eq,
@@ -145,6 +147,7 @@ impl BinOp {
             BinOp::Mul => "*",
             BinOp::Div => "/",
             BinOp::Pow => "^",
+            BinOp::Polar => "∠",
             BinOp::Mod => "MOD",
             BinOp::IntDiv => "DIV",
             BinOp::Eq => "==",

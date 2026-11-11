@@ -359,7 +359,7 @@ fn runtime_errors_are_runtime_problems_until_the_source_changes() {
 #[test]
 fn compatibility_warnings_allow_running_and_stay_distinct() {
     let ctx = egui::Context::default();
-    let mut app = app_with("EXPORT EV()\nBEGIN\n  RETURN EVAL(\"1+1\");\nEND;\n");
+    let mut app = app_with("EXPORT EV()\nBEGIN\n  RETURN AFilesB(\"x\");\nEND;\n");
     settle(&mut app, &ctx);
     assert_eq!(app.state.analysis, AnalysisState::ValidWithWarnings(1));
     assert_eq!(app.problems.error_count(), 0);

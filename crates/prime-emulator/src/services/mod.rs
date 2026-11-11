@@ -359,6 +359,7 @@ pub struct SharedState {
     /// Registered guest ISRs (irq -> guest entry), delivered by the
     /// runner's virtual IRQ dispatcher.
     pub isrs: Mutex<HashMap<u32, u32>>,
+    disabled_isrs: Mutex<std::collections::HashSet<u32>>,
     /// Count of delivered virtual IRQs per irq number.
     pub irq_delivered: Mutex<HashMap<u32, u64>>,
     /// Loaded guest PE modules.
@@ -368,6 +369,8 @@ pub struct SharedState {
     pub stub_block: Mutex<Option<(u32, u32)>>,
     /// Guest thread records (tid -> entry point), for OSCreateThread & co.
     pub threads: Mutex<HashMap<u32, ThreadRecord>>,
+    thread_control: Mutex<HashMap<u32, ThreadControl>>,
+    thread_wake: std::sync::Condvar,
     /// Next guest thread id (matches reference: first thread is 0).
     next_thread_id: AtomicU64,
 }
@@ -473,6 +476,13 @@ pub struct ThreadRecord {
     pub stack_size: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ThreadControl {
+    started: bool,
+    suspended: u32,
+    terminated: bool,
+}
+
 /// Runner hook that creates a real guest thread (engine + native thread).
 pub type ThreadSpawner = std::sync::Arc<dyn Fn(u32, u32, u32, usize) + Send + Sync>;
 
@@ -531,11 +541,14 @@ impl SharedState {
             thread_instructions: Mutex::new(HashMap::new()),
             pe_modules: Mutex::new(Vec::new()),
             isrs: Mutex::new(HashMap::new()),
+            disabled_isrs: Mutex::new(std::collections::HashSet::new()),
             irq_delivered: Mutex::new(HashMap::new()),
             stub_block: Mutex::new(None),
             data_dir,
             input_events: Mutex::new(std::collections::VecDeque::new()),
             threads: Mutex::new(HashMap::new()),
+            thread_control: Mutex::new(HashMap::new()),
+            thread_wake: std::sync::Condvar::new(),
             next_thread_id: AtomicU64::new(1),
             stopping: std::sync::atomic::AtomicBool::new(false),
             power: Mutex::new(Power::default()),
@@ -736,6 +749,101 @@ impl SharedState {
         }
     }
 
+    /// Register all launch arguments even for a deferred guest thread. A
+    /// later Resume must start this exact invocation, once only.
+    pub fn create_guest_thread(&self, tid: u32, record: ThreadRecord, deferred: bool) {
+        self.threads.lock().unwrap().insert(tid, record);
+        self.thread_control.lock().unwrap().insert(
+            tid,
+            ThreadControl {
+                started: !deferred,
+                suspended: u32::from(deferred),
+                terminated: false,
+            },
+        );
+        if !deferred {
+            self.spawn_thread(tid, record.entry, record.arg, record.stack_size);
+        }
+    }
+    pub fn suspend_guest_thread(&self, tid: u32) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        let Some(control) = controls.get_mut(&tid) else {
+            return false;
+        };
+        if control.terminated {
+            return false;
+        }
+        let Some(count) = control.suspended.checked_add(1) else {
+            return false;
+        };
+        control.suspended = count;
+        true
+    }
+    pub fn resume_guest_thread(&self, tid: u32) -> bool {
+        let start = {
+            let mut controls = self.thread_control.lock().unwrap();
+            let Some(control) = controls.get_mut(&tid) else {
+                return false;
+            };
+            if control.terminated {
+                return false;
+            }
+            control.suspended = control.suspended.saturating_sub(1);
+            let start = !control.started && control.suspended == 0;
+            if start {
+                control.started = true;
+            }
+            start
+        };
+        if start {
+            let record = self.threads.lock().unwrap().get(&tid).copied();
+            if let Some(record) = record {
+                self.spawn_thread(tid, record.entry, record.arg, record.stack_size);
+            }
+        }
+        self.thread_wake.notify_all();
+        true
+    }
+    pub fn terminate_guest_thread(&self, tid: u32) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        let Some(control) = controls.get_mut(&tid) else {
+            return false;
+        };
+        control.terminated = true;
+        control.suspended = 0;
+        self.thread_wake.notify_all();
+        true
+    }
+    pub fn guest_thread_terminated(&self, tid: u32) -> bool {
+        self.thread_control
+            .lock()
+            .unwrap()
+            .get(&tid)
+            .is_some_and(|control| control.terminated)
+    }
+    /// Execution owners stop at a slice boundary while suspended. This wait
+    /// occurs before acquiring the memory gate and stays interruptible during
+    /// shutdown/termination; it does not park a live Unicorn callback.
+    pub fn guest_thread_checkpoint(&self, tid: u32) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        loop {
+            if self.stopping() {
+                return false;
+            }
+            match controls.get(&tid) {
+                Some(control) if control.terminated => return false,
+                Some(control) if control.suspended != 0 => {
+                    controls = self
+                        .thread_wake
+                        .wait_timeout(controls, Duration::from_millis(25))
+                        .unwrap()
+                        .0;
+                }
+                _ => return true,
+            }
+        }
+    }
+
     pub fn mark_thread_exiting(&self) {
         self.threads_exiting
             .lock()
@@ -837,21 +945,40 @@ impl SharedState {
     /// Register / replace a guest ISR (ref: InterruptInitialize).
     pub fn register_isr(&self, irq: u32, isr_va: u32) {
         self.isrs.lock().unwrap().insert(irq, isr_va);
+        self.disabled_isrs.lock().unwrap().remove(&irq);
     }
 
     pub fn unregister_isr(&self, irq: u32) {
         self.isrs.lock().unwrap().remove(&irq);
+        self.disabled_isrs.lock().unwrap().remove(&irq);
+    }
+    pub fn enable_isr(&self, irq: u32) -> bool {
+        if !self.isrs.lock().unwrap().contains_key(&irq) {
+            return false;
+        }
+        self.disabled_isrs.lock().unwrap().remove(&irq);
+        true
+    }
+    pub fn disable_isr(&self, irq: u32) -> bool {
+        if !self.isrs.lock().unwrap().contains_key(&irq) {
+            return false;
+        }
+        self.disabled_isrs.lock().unwrap().insert(irq);
+        true
     }
 
     /// Snapshot of ISRs due for delivery (the dispatcher calls this each
     /// tick; delivered IRQs are counted).
     pub fn take_due_isrs(&self) -> Vec<(u32, u32)> {
-        self.isrs
-            .lock()
-            .unwrap()
+        let handlers = self.isrs.lock().unwrap();
+        let disabled = self.disabled_isrs.lock().unwrap();
+        let mut due: Vec<_> = handlers
             .iter()
+            .filter(|(irq, _)| !disabled.contains(*irq))
             .map(|(&k, &v)| (k, v))
-            .collect()
+            .collect();
+        due.sort_unstable_by_key(|(irq, _)| *irq);
+        due
     }
 
     pub fn note_irq_delivered(&self, irq: u32) {

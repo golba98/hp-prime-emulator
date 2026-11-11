@@ -2610,6 +2610,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ppl-cas"
+version = "0.2.0"
+dependencies = [
+ "nix",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "ppl-cli"
 version = "0.2.0"
 dependencies = [
@@ -2704,6 +2714,7 @@ dependencies = [
  "egui",
  "fs2",
  "png",
+ "ppl-cas",
  "ppl-compiler",
  "ppl-device",
  "ppl-engine",
@@ -2744,10 +2755,12 @@ version = "0.2.0"
 name = "ppl-vm"
 version = "0.2.0"
 dependencies = [
+ "ppl-cas",
  "ppl-compiler",
  "ppl-graphics",
  "ppl-math",
  "ppl-syntax",
+ "serde_json",
 ]
 
 [[package]]
@@ -2780,6 +2793,7 @@ dependencies = [
  "memmap2",
  "png",
  "ppl-engine",
+ "ppl-syntax",
  "serde",
  "serde_json",
  "tempfile",

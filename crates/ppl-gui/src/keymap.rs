@@ -56,7 +56,9 @@ pub const KEY_MINUS: i64 = 45;
 pub const KEY_ON: i64 = 46;
 pub const KEY_0: i64 = 47;
 pub const KEY_DOT: i64 = 48;
-pub const KEY_ANS: i64 = 49;
+pub const KEY_SPACE: i64 = 49;
+/// Historical alias for physical key 49. Ans is Shift+Plus, not an extra key.
+pub const KEY_ANS: i64 = KEY_SPACE;
 pub const KEY_PLUS: i64 = 50;
 
 /// Human-readable name for an HP Prime key code.
@@ -111,7 +113,7 @@ pub fn hp_key_name(code: i64) -> Option<&'static str> {
         KEY_ON => Some("On"),
         KEY_0 => Some("0"),
         KEY_DOT => Some("."),
-        KEY_ANS => Some("Ans/Space"),
+        KEY_ANS => Some("Space"),
         KEY_PLUS => Some("+"),
         _ => None,
     }
@@ -120,7 +122,7 @@ pub fn hp_key_name(code: i64) -> Option<&'static str> {
 /// Maps a winit keyboard event to an HP Prime key code (0–50).
 ///
 /// Priority:
-/// 1. Logical `NamedKey` (Enter, Escape, arrows, Backspace, F1–F10, …)
+/// 1. Logical `NamedKey` (Enter, Escape, arrows, Backspace, F1–F12, …)
 /// 2. The logical (layout-aware) character, when it is an HP key: so
 ///    Shift+8 on a US layout (`*`) gives × and Shift+= (`+`) gives +.
 /// 3. The physical key position (number row, numpad, letter shortcuts), so
@@ -128,31 +130,7 @@ pub fn hp_key_name(code: i64) -> Option<&'static str> {
 pub fn map_winit_key(logical: &Key, physical: PhysicalKey, text: Option<&str>) -> Option<i64> {
     // 1. Check logical NamedKey
     if let Key::Named(named) = logical {
-        let code = match named {
-            NamedKey::Enter => Some(KEY_ENTER),
-            NamedKey::Escape => Some(KEY_ESC),
-            NamedKey::Backspace | NamedKey::Delete => Some(KEY_DEL),
-            NamedKey::ArrowUp => Some(KEY_UP),
-            NamedKey::ArrowDown => Some(KEY_DOWN),
-            NamedKey::ArrowLeft => Some(KEY_LEFT),
-            NamedKey::ArrowRight => Some(KEY_RIGHT),
-            NamedKey::Home => Some(KEY_HOME),
-            NamedKey::Space => Some(KEY_ANS),
-            NamedKey::Tab => Some(KEY_TEMPLATE),
-            NamedKey::Shift => Some(KEY_SHIFT),
-            NamedKey::Control | NamedKey::Alt => Some(KEY_ALPHA),
-            NamedKey::F1 => Some(KEY_APPS),
-            NamedKey::F2 => Some(KEY_SYMB),
-            NamedKey::F3 => Some(KEY_PLOT),
-            NamedKey::F4 => Some(KEY_NUM),
-            NamedKey::F5 => Some(KEY_CAS),
-            NamedKey::F6 => Some(KEY_TOOLBOX),
-            NamedKey::F7 => Some(KEY_MENU),
-            NamedKey::F8 => Some(KEY_VARS),
-            NamedKey::F9 => Some(KEY_HELP),
-            NamedKey::F10 => Some(KEY_VIEW),
-            _ => None,
-        };
+        let code = named_pc_key(named).and_then(egui_key_to_hp);
         if code.is_some() {
             return code;
         }
@@ -753,66 +731,102 @@ pub fn egui_key_to_hp(key: egui::Key) -> Option<i64> {
     lookup_by_pc_key(key).map(|m| m.ppl_code as i64)
 }
 
-/// HP key for a physical key position.
-fn map_physical(key_code: KeyCode) -> Option<i64> {
-    match key_code {
-        // Digits
-        KeyCode::Digit0 | KeyCode::Numpad0 => Some(KEY_0),
-        KeyCode::Digit1 | KeyCode::Numpad1 => Some(KEY_1),
-        KeyCode::Digit2 | KeyCode::Numpad2 => Some(KEY_2),
-        KeyCode::Digit3 | KeyCode::Numpad3 => Some(KEY_3),
-        KeyCode::Digit4 | KeyCode::Numpad4 => Some(KEY_4),
-        KeyCode::Digit5 | KeyCode::Numpad5 => Some(KEY_5),
-        KeyCode::Digit6 | KeyCode::Numpad6 => Some(KEY_6),
-        KeyCode::Digit7 | KeyCode::Numpad7 => Some(KEY_7),
-        KeyCode::Digit8 | KeyCode::Numpad8 => Some(KEY_8),
-        KeyCode::Digit9 | KeyCode::Numpad9 => Some(KEY_9),
-
-        // Controls
-        KeyCode::Enter | KeyCode::NumpadEnter => Some(KEY_ENTER),
-        KeyCode::Escape => Some(KEY_ESC),
-        KeyCode::Backspace | KeyCode::Delete => Some(KEY_DEL),
-        KeyCode::Space => Some(KEY_ANS),
-        KeyCode::Tab => Some(KEY_TEMPLATE),
-        KeyCode::Home => Some(KEY_HOME),
-
-        // Arrows
-        KeyCode::ArrowUp => Some(KEY_UP),
-        KeyCode::ArrowDown => Some(KEY_DOWN),
-        KeyCode::ArrowLeft => Some(KEY_LEFT),
-        KeyCode::ArrowRight => Some(KEY_RIGHT),
-
-        // Operators & Punctuation
-        KeyCode::NumpadAdd | KeyCode::Equal => Some(KEY_PLUS),
-        KeyCode::NumpadSubtract | KeyCode::Minus => Some(KEY_MINUS),
-        KeyCode::NumpadMultiply => Some(KEY_TIMES),
-        KeyCode::NumpadDivide | KeyCode::Slash => Some(KEY_DIV),
-        KeyCode::Period | KeyCode::NumpadDecimal => Some(KEY_DOT),
-        KeyCode::Comma => Some(KEY_COMMA),
-
-        // HP functions / letters
-        KeyCode::KeyX => Some(KEY_TIMES),
-        KeyCode::KeyS => Some(KEY_SIN),
-        KeyCode::KeyC => Some(KEY_COS),
-        KeyCode::KeyT => Some(KEY_TAN),
-        KeyCode::KeyL => Some(KEY_LN),
-
-        // Function keys
-        KeyCode::F1 => Some(KEY_APPS),
-        KeyCode::F2 => Some(KEY_SYMB),
-        KeyCode::F3 => Some(KEY_PLOT),
-        KeyCode::F4 => Some(KEY_NUM),
-        KeyCode::F5 => Some(KEY_CAS),
-        KeyCode::F6 => Some(KEY_TOOLBOX),
-        KeyCode::F7 => Some(KEY_MENU),
-        KeyCode::F8 => Some(KEY_VARS),
-        KeyCode::F9 => Some(KEY_HELP),
-        KeyCode::F10 => Some(KEY_VIEW),
-        KeyCode::F11 => Some(KEY_POW),
-        KeyCode::F12 => Some(KEY_ON),
-
-        _ => None,
-    }
+/// Platform enum adapters contain no calculator actions. Every shortcut's HP
+/// code is selected by the same table used by the side emulator.
+fn named_pc_key(named: &NamedKey) -> Option<egui::Key> {
+    use egui::Key as P;
+    Some(match named {
+        NamedKey::Enter => P::Enter,
+        NamedKey::Escape => P::Escape,
+        NamedKey::Backspace => P::Backspace,
+        NamedKey::Delete => P::Delete,
+        NamedKey::ArrowUp => P::ArrowUp,
+        NamedKey::ArrowDown => P::ArrowDown,
+        NamedKey::ArrowLeft => P::ArrowLeft,
+        NamedKey::ArrowRight => P::ArrowRight,
+        NamedKey::Home => P::Home,
+        NamedKey::End => P::End,
+        NamedKey::PageUp => P::PageUp,
+        NamedKey::PageDown => P::PageDown,
+        NamedKey::Space => P::Space,
+        NamedKey::Tab => P::Tab,
+        NamedKey::F1 => P::F1,
+        NamedKey::F2 => P::F2,
+        NamedKey::F3 => P::F3,
+        NamedKey::F4 => P::F4,
+        NamedKey::F5 => P::F5,
+        NamedKey::F6 => P::F6,
+        NamedKey::F7 => P::F7,
+        NamedKey::F8 => P::F8,
+        NamedKey::F9 => P::F9,
+        NamedKey::F10 => P::F10,
+        NamedKey::F11 => P::F11,
+        NamedKey::F12 => P::F12,
+        // Host modifiers do not generate extra calculator key presses.
+        // Calculator Alpha is Tab; calculator Shift is Shift+Tab.
+        _ => return None,
+    })
+}
+fn physical_pc_key(code: KeyCode) -> Option<egui::Key> {
+    use egui::Key as P;
+    Some(match code {
+        KeyCode::Digit0 | KeyCode::Numpad0 => P::Num0,
+        KeyCode::Digit1 | KeyCode::Numpad1 => P::Num1,
+        KeyCode::Digit2 | KeyCode::Numpad2 => P::Num2,
+        KeyCode::Digit3 | KeyCode::Numpad3 => P::Num3,
+        KeyCode::Digit4 | KeyCode::Numpad4 => P::Num4,
+        KeyCode::Digit5 | KeyCode::Numpad5 => P::Num5,
+        KeyCode::Digit6 | KeyCode::Numpad6 => P::Num6,
+        KeyCode::Digit7 | KeyCode::Numpad7 => P::Num7,
+        KeyCode::Digit8 | KeyCode::Numpad8 => P::Num8,
+        KeyCode::Digit9 | KeyCode::Numpad9 => P::Num9,
+        KeyCode::Enter | KeyCode::NumpadEnter => P::Enter,
+        KeyCode::Escape => P::Escape,
+        KeyCode::Backspace | KeyCode::NumpadBackspace => P::Backspace,
+        KeyCode::Delete => P::Delete,
+        KeyCode::Space => P::Space,
+        KeyCode::Tab => P::Tab,
+        KeyCode::Home => P::Home,
+        KeyCode::End => P::End,
+        KeyCode::PageUp => P::PageUp,
+        KeyCode::PageDown => P::PageDown,
+        KeyCode::ArrowUp => P::ArrowUp,
+        KeyCode::ArrowDown => P::ArrowDown,
+        KeyCode::ArrowLeft => P::ArrowLeft,
+        KeyCode::ArrowRight => P::ArrowRight,
+        // Physical Equal retains the plus-key position fallback; a typed '='
+        // still wins in map_winit_key's layout-aware character stage.
+        KeyCode::NumpadAdd | KeyCode::Equal => P::Plus,
+        KeyCode::NumpadSubtract | KeyCode::Minus => P::Minus,
+        KeyCode::NumpadMultiply => P::X,
+        KeyCode::NumpadDivide | KeyCode::Slash => P::Slash,
+        KeyCode::Period | KeyCode::NumpadDecimal => P::Period,
+        KeyCode::Comma | KeyCode::NumpadComma => P::Comma,
+        KeyCode::NumpadEqual => P::Equals,
+        KeyCode::KeyX => P::X,
+        KeyCode::KeyS => P::S,
+        KeyCode::KeyC => P::C,
+        KeyCode::KeyT => P::T,
+        KeyCode::KeyL => P::L,
+        KeyCode::KeyE => P::E,
+        KeyCode::F1 => P::F1,
+        KeyCode::F2 => P::F2,
+        KeyCode::F3 => P::F3,
+        KeyCode::F4 => P::F4,
+        KeyCode::F5 => P::F5,
+        KeyCode::F6 => P::F6,
+        KeyCode::F7 => P::F7,
+        KeyCode::F8 => P::F8,
+        KeyCode::F9 => P::F9,
+        KeyCode::F10 => P::F10,
+        KeyCode::F11 => P::F11,
+        KeyCode::F12 => P::F12,
+        _ => return None,
+    })
+}
+/// HP key for a physical fallback position, using the central PC table.
+fn map_physical(code: KeyCode) -> Option<i64> {
+    physical_pc_key(code).and_then(egui_key_to_hp)
 }
 
 /// Whether the key is the emulator's break key, i.e. the calculator's
@@ -1295,6 +1309,106 @@ mod tests {
         assert_eq!(lookup_by_pc_key(egui::Key::F8).unwrap().ppl_code, 11); // Num
         assert_eq!(lookup_by_pc_key(egui::Key::F9).unwrap().ppl_code, 13); // Menu
         assert_eq!(lookup_by_pc_key(egui::Key::Tab).unwrap().ppl_code, 36); // ALPHA
+    }
+    #[test]
+    fn standalone_named_and_physical_shortcuts_match_central_pc_table() {
+        use egui::Key as P;
+        let aliases = [
+            (NamedKey::Enter, KeyCode::Enter, P::Enter),
+            (NamedKey::Escape, KeyCode::Escape, P::Escape),
+            (NamedKey::Backspace, KeyCode::Backspace, P::Backspace),
+            (NamedKey::Delete, KeyCode::Delete, P::Delete),
+            (NamedKey::ArrowUp, KeyCode::ArrowUp, P::ArrowUp),
+            (NamedKey::ArrowDown, KeyCode::ArrowDown, P::ArrowDown),
+            (NamedKey::ArrowLeft, KeyCode::ArrowLeft, P::ArrowLeft),
+            (NamedKey::ArrowRight, KeyCode::ArrowRight, P::ArrowRight),
+            (NamedKey::Home, KeyCode::Home, P::Home),
+            (NamedKey::End, KeyCode::End, P::End),
+            (NamedKey::PageUp, KeyCode::PageUp, P::PageUp),
+            (NamedKey::PageDown, KeyCode::PageDown, P::PageDown),
+            (NamedKey::Space, KeyCode::Space, P::Space),
+            (NamedKey::Tab, KeyCode::Tab, P::Tab),
+            (NamedKey::F1, KeyCode::F1, P::F1),
+            (NamedKey::F2, KeyCode::F2, P::F2),
+            (NamedKey::F3, KeyCode::F3, P::F3),
+            (NamedKey::F4, KeyCode::F4, P::F4),
+            (NamedKey::F5, KeyCode::F5, P::F5),
+            (NamedKey::F6, KeyCode::F6, P::F6),
+            (NamedKey::F7, KeyCode::F7, P::F7),
+            (NamedKey::F8, KeyCode::F8, P::F8),
+            (NamedKey::F9, KeyCode::F9, P::F9),
+            (NamedKey::F10, KeyCode::F10, P::F10),
+            (NamedKey::F11, KeyCode::F11, P::F11),
+            (NamedKey::F12, KeyCode::F12, P::F12),
+        ];
+        for (named, physical, pc) in aliases {
+            let expected = lookup_by_pc_key(pc).map(|key| i64::from(key.ppl_code));
+            assert_eq!(
+                map_winit_key(&Key::Named(named), unid(), None),
+                expected,
+                "{pc:?} logical"
+            );
+            assert_eq!(
+                map_winit_key(
+                    &Key::Unidentified(winit::keyboard::NativeKey::Unidentified),
+                    PhysicalKey::Code(physical),
+                    None
+                ),
+                expected,
+                "{pc:?} physical"
+            );
+        }
+        for (physical, pc) in [
+            (KeyCode::Digit0, P::Num0),
+            (KeyCode::Digit1, P::Num1),
+            (KeyCode::Digit2, P::Num2),
+            (KeyCode::Digit3, P::Num3),
+            (KeyCode::Digit4, P::Num4),
+            (KeyCode::Digit5, P::Num5),
+            (KeyCode::Digit6, P::Num6),
+            (KeyCode::Digit7, P::Num7),
+            (KeyCode::Digit8, P::Num8),
+            (KeyCode::Digit9, P::Num9),
+            (KeyCode::Numpad0, P::Num0),
+            (KeyCode::Numpad1, P::Num1),
+            (KeyCode::Numpad2, P::Num2),
+            (KeyCode::Numpad3, P::Num3),
+            (KeyCode::Numpad4, P::Num4),
+            (KeyCode::Numpad5, P::Num5),
+            (KeyCode::Numpad6, P::Num6),
+            (KeyCode::Numpad7, P::Num7),
+            (KeyCode::Numpad8, P::Num8),
+            (KeyCode::Numpad9, P::Num9),
+            (KeyCode::NumpadEnter, P::Enter),
+            (KeyCode::NumpadBackspace, P::Backspace),
+            (KeyCode::NumpadComma, P::Comma),
+            (KeyCode::NumpadEqual, P::Equals),
+            (KeyCode::NumpadAdd, P::Plus),
+            (KeyCode::Equal, P::Plus),
+            (KeyCode::Minus, P::Minus),
+            (KeyCode::NumpadSubtract, P::Minus),
+            (KeyCode::NumpadMultiply, P::X),
+            (KeyCode::NumpadDivide, P::Slash),
+            (KeyCode::Slash, P::Slash),
+            (KeyCode::Period, P::Period),
+            (KeyCode::NumpadDecimal, P::Period),
+            (KeyCode::Comma, P::Comma),
+            (KeyCode::KeyS, P::S),
+            (KeyCode::KeyC, P::C),
+            (KeyCode::KeyT, P::T),
+            (KeyCode::KeyL, P::L),
+            (KeyCode::KeyE, P::E),
+            (KeyCode::KeyX, P::X),
+        ] {
+            assert_eq!(map_physical(physical), egui_key_to_hp(pc), "{physical:?}");
+        }
+        for named in [NamedKey::Shift, NamedKey::Control, NamedKey::Alt] {
+            assert_eq!(
+                map_winit_key(&Key::Named(named), unid(), None),
+                None,
+                "host modifiers must not emit stray calculator keys"
+            );
+        }
     }
 }
 

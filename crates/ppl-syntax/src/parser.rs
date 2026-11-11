@@ -10,7 +10,7 @@
 //! | 4 | `NOT` (prefix) |
 //! | 5 | `=` `==` `≠` `<>` `<` `≤` `>` `≥` |
 //! | 6 | `+` `-` |
-//! | 7 | `*` `/` `MOD` `DIV` |
+//! | 7 | `*` `/` `MOD` `DIV`, native Home `∠` |
 //! | 8 | unary `-` |
 //! | 9 | `^` (right) |
 //! | 10 | postfix `!` `²` `³`, calls `f(…)`, indexing `x[…]`, prefix `√` |
@@ -22,6 +22,33 @@ use crate::ast::*;
 use crate::diag::{Category, Diagnostic, Diagnostics};
 use crate::lexer::{Keyword as K, Tok, Token, lex};
 use crate::source::Span;
+
+fn decimal_integer_literal(number: &str) -> bool {
+    let (mantissa, exponent) = match number.split_once(['e', 'E']) {
+        Some((mantissa, exponent)) => match exponent.parse::<i32>() {
+            Ok(exponent) => (mantissa, exponent),
+            Err(_) => return false,
+        },
+        None => (number, 0),
+    };
+    let fraction = mantissa
+        .split_once('.')
+        .map_or(0, |(_, digits)| digits.len());
+    let digits: Vec<_> = mantissa.bytes().filter(|b| *b != b'.').collect();
+    if digits.iter().all(|b| *b == b'0') {
+        return true;
+    }
+    let scale = i64::try_from(fraction).unwrap_or(i64::MAX) - i64::from(exponent);
+    if scale <= 0 {
+        return true;
+    }
+    if scale > digits.len() as i64 {
+        return false;
+    }
+    digits[digits.len() - scale as usize..]
+        .iter()
+        .all(|b| *b == b'0')
+}
 
 pub fn parse(src: &str) -> (Program, Diagnostics) {
     let mut diags = Diagnostics::default();
@@ -1084,6 +1111,7 @@ impl Parser {
             let op = match self.peek() {
                 Tok::Star => BinOp::Mul,
                 Tok::Slash => BinOp::Div,
+                Tok::Angle => BinOp::Polar,
                 // MOD, AND, OR and XOR are operators in any letter case
                 // (k06, k21, k25-k29); DIV only in upper case (k32, k33).
                 Tok::Kw(K::Mod) => BinOp::Mod,
@@ -1207,11 +1235,90 @@ impl Parser {
         }
     }
 
+    /// HP Prime User Guide p.15: DMS is a single numeric entity, so a
+    /// following square/power applies to the whole value. Desugaring here
+    /// preserves that grouping and uses ordinary BCD arithmetic at runtime.
+    fn sexagesimal(&mut self, degrees: String, start: Span) -> Expr {
+        self.advance(); // degree sign
+        if !decimal_integer_literal(&degrees) {
+            self.error(
+                "sexagesimal-integer",
+                start,
+                "degree entries must be integers",
+            );
+        }
+        let value = Expr {
+            kind: ExprKind::Number(degrees),
+            span: start,
+        };
+        let mut components = Vec::new();
+        for unit in [Tok::Minute, Tok::Second] {
+            let component = if let Tok::Number(number) = self.peek().clone() {
+                if self
+                    .toks
+                    .get(self.pos + 1)
+                    .is_some_and(|token| token.tok == unit)
+                {
+                    let number_span = self.advance().span;
+                    self.advance();
+                    if unit == Tok::Minute && !decimal_integer_literal(&number) {
+                        self.error(
+                            "sexagesimal-integer",
+                            number_span,
+                            "minute entries must be integers",
+                        );
+                    }
+                    Some(Expr {
+                        kind: ExprKind::Number(number),
+                        span: number_span,
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            components.push(component);
+        }
+        let seconds = components.pop().flatten();
+        let minutes = components.pop().flatten();
+        let divide = |number: Expr, divisor: &str| {
+            let span = number.span;
+            Self::bin(
+                number,
+                BinOp::Div,
+                Expr {
+                    kind: ExprKind::Number(divisor.into()),
+                    span,
+                },
+            )
+        };
+        // Form the fractional part before adding degrees, avoiding loss of
+        // seconds from rounding the degree+minute subtotal to twelve digits.
+        let fraction = match (minutes, seconds) {
+            (Some(minutes), Some(seconds)) => Some(divide(
+                Self::bin(minutes, BinOp::Add, divide(seconds, "60")),
+                "60",
+            )),
+            (Some(minutes), None) => Some(divide(minutes, "60")),
+            (None, Some(seconds)) => Some(divide(seconds, "3600")),
+            (None, None) => None,
+        };
+        let mut value = if let Some(fraction) = fraction {
+            Self::bin(value, BinOp::Add, fraction)
+        } else {
+            value
+        };
+        value.span = start.to(self.prev_span());
+        value
+    }
+
     fn primary(&mut self) -> Expr {
         self.soft_to_ident();
         let t = self.advance();
         let span = t.span;
         let kind = match t.tok {
+            Tok::Number(n) if *self.peek() == Tok::Degree => return self.sexagesimal(n, span),
             Tok::Number(n) => ExprKind::Number(n),
             Tok::HashInt(h) => ExprKind::HashInt(h),
             Tok::Str(s) => ExprKind::Str(s),
@@ -1244,6 +1351,7 @@ impl Parser {
             Tok::LParen => {
                 let e = self.expr();
                 if self.eat(&Tok::Comma) {
+                    let polar = self.eat(&Tok::Angle);
                     let im = self.expr();
                     if !self.eat(&Tok::RParen) {
                         self.error(
@@ -1254,7 +1362,11 @@ impl Parser {
                     }
                     let full = span.to(self.prev_span());
                     return Expr {
-                        kind: ExprKind::ComplexPair(Box::new(e), Box::new(im)),
+                        kind: if polar {
+                            ExprKind::Binary(BinOp::Polar, Box::new(e), Box::new(im))
+                        } else {
+                            ExprKind::ComplexPair(Box::new(e), Box::new(im))
+                        },
                         span: full,
                     };
                 }
