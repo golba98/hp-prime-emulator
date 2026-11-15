@@ -2481,3 +2481,67 @@ fn physical_sequence_reset_at_9f_retires_connection_without_any_mutation() {
     assert_eq!(before, mock.cmds());
     assert!(!mock.cmds().iter().any(|c| matches!(*c, 0xf7 | 0xeb | 0xec)));
 }
+
+#[test]
+fn ambiguous_output_failure_retires_connection_without_resending() {
+    #[derive(Clone)]
+    struct Failing {
+        writes: Arc<Mutex<usize>>,
+        error: bool,
+    }
+    impl Transport for Failing {
+        fn write(&mut self, report: &[u8]) -> Result<usize> {
+            *self.writes.lock().unwrap() += 1;
+            if self.error {
+                Err(DeviceError::Hid(
+                    "disconnected after partial delivery".into(),
+                ))
+            } else {
+                Ok(report.len() - 1)
+            }
+        }
+        fn read_timeout(&mut self, _: &mut [u8], _: i32) -> Result<usize> {
+            Ok(0)
+        }
+    }
+    for error in [false, true] {
+        let writes = Arc::new(Mutex::new(0));
+        let mut prime = Prime::with_transport(
+            detected("offline:ambiguous"),
+            Box::new(Failing {
+                writes: writes.clone(),
+                error,
+            }),
+        );
+        assert!(matches!(prime.check_ready(), Err(DeviceError::Hid(_))));
+        assert!(matches!(
+            prime.check_ready(),
+            Err(DeviceError::Inconclusive(_))
+        ));
+        assert_eq!(*writes.lock().unwrap(), 1);
+    }
+}
+
+#[test]
+fn oversized_transport_report_is_rejected_and_retires_connection() {
+    struct Oversized;
+    impl Transport for Oversized {
+        fn write(&mut self, _: &[u8]) -> Result<usize> {
+            panic!("no command may follow malformed drain")
+        }
+        fn read_timeout(&mut self, buf: &mut [u8], _: i32) -> Result<usize> {
+            Ok(buf.len() + 1)
+        }
+    }
+    let mut prime = Prime::with_transport(detected("offline:oversized"), Box::new(Oversized));
+    assert!(matches!(
+        prime.read_report(Duration::ZERO),
+        Err(DeviceError::Protocol(_))
+    ));
+    assert!(prime.require_healthy().is_err());
+    let mut prime = Prime::with_transport(detected("offline:drain"), Box::new(Oversized));
+    assert!(matches!(
+        prime.check_ready(),
+        Err(DeviceError::Inconclusive(_))
+    ));
+}

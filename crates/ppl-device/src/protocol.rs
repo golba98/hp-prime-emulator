@@ -3,7 +3,7 @@
 /// Extracts runs of printable UTF-16LE text of at least `min` characters.
 pub fn utf16_runs(bytes: &[u8], min: usize) -> Vec<String> {
     let mut out = Vec::new();
-    for start in 0..2 {
+    for start in 0..bytes.len().min(2) {
         let units: Vec<u16> = bytes[start..]
             .chunks_exact(2)
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
@@ -53,4 +53,26 @@ pub fn crc16(data: &[u8]) -> u16 {
         }
     }
     crc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn empty_and_truncated_utf16_payloads_are_not_text() {
+        for raw in [&[][..], &[0][..], &[0xff][..], &[0, 0][..], &[0, 0xd8][..]] {
+            assert!(utf16_runs(raw, 1).is_empty(), "{raw:?}");
+        }
+    }
+    #[test]
+    fn both_alignments_keep_complete_text_and_ignore_a_dangling_byte() {
+        let encoded: Vec<u8> = "Prime15157"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        for prefix in [&[][..], &[0xff][..]] {
+            let raw = [prefix, &encoded, &[0xff]].concat();
+            assert!(utf16_runs(&raw, 3).iter().any(|run| run == "Prime15157"));
+        }
+    }
 }
