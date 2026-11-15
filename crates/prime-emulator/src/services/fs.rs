@@ -18,12 +18,15 @@ pub mod image;
 const FIRST_HANDLE: u32 = 0x0001_0001;
 
 fn next_guest_handle(counter: &AtomicU64) -> Option<u32> {
-    counter
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
-            (value != 0 && value <= u64::from(u32::MAX)).then(|| value + 1)
-        })
-        .ok()
-        .and_then(|value| u32::try_from(value).ok())
+    let mut value = counter.load(Ordering::Relaxed);
+    loop {
+        let handle = u32::try_from(value).ok().filter(|handle| *handle != 0)?;
+        match counter.compare_exchange_weak(value, value + 1, Ordering::Relaxed, Ordering::Relaxed)
+        {
+            Ok(_) => return Some(handle),
+            Err(observed) => value = observed,
+        }
+    }
 }
 
 pub struct VFile {

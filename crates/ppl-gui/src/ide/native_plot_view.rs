@@ -90,14 +90,14 @@ fn show_impl(
             if x <= window.xmax {
                 painter.line_segment(
                     [project([x, window.ymin]), project([x, window.ymax])],
-                    egui::Stroke::new(0.5, egui::Color32::from_gray(192)),
+                    egui::Stroke::new(0.5_f32, egui::Color32::from_gray(192)),
                 );
             }
             let y = (window.ymin / dy).ceil() * dy + i as f64 * dy;
             if y <= window.ymax {
                 painter.line_segment(
                     [project([window.xmin, y]), project([window.xmax, y])],
-                    egui::Stroke::new(0.5, egui::Color32::from_gray(192)),
+                    egui::Stroke::new(0.5_f32, egui::Color32::from_gray(192)),
                 );
             }
         }
