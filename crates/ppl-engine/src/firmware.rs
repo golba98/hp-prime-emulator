@@ -745,7 +745,7 @@ esac
 shift
 done
 case '{mode}' in
-hang) trap '' INT TERM; echo "$$" > "$(dirname "$0")/ready.tmp"; mv "$(dirname "$0")/ready.tmp" "$(dirname "$0")/ready"; sleep 30 & wait;;
+hang) trap '' INT TERM; sleep 30 & child=$!; echo "$$ $child" > "$(dirname "$0")/ready.tmp"; mv "$(dirname "$0")/ready.tmp" "$(dirname "$0")/ready"; wait;;
 malformed) echo 'not JSON' > "$report"; exit 0;;
 missing) exit 0;;
 esac
@@ -856,33 +856,40 @@ exit 0
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(5));
         }
-        let pid: i32 = std::fs::read_to_string(dir.path().join("ready"))
+        // The fixture publishes its own PID and the child it actually started.
+        // Linux sandboxes can expose /proc/PID/stat without the optional
+        // /proc/PID/task/PID/children interface. Do not infer startup from that
+        // interface: retain the same real descendant-cleanup acceptance here.
+        let ready = std::fs::read_to_string(dir.path().join("ready")).unwrap();
+        let pids: Vec<i32> = ready
+            .split_whitespace()
+            .map(|pid| pid.parse().unwrap())
+            .collect();
+        assert_eq!(pids.len(), 2, "fixture must publish helper and child PIDs");
+        let pid = pids[0];
+        let descendant = pids[1];
+        assert_ne!(pid, descendant);
+        let child_state = std::fs::read_to_string(format!("/proc/{descendant}/stat"))
             .unwrap()
-            .trim()
-            .parse()
-            .unwrap();
-        let child_list = format!("/proc/{pid}/task/{pid}/children");
-        let descendants = loop {
-            let pids = std::fs::read_to_string(&child_list).unwrap_or_default();
-            if !pids.trim().is_empty() {
-                break pids;
-            }
-            assert!(Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(5));
-        };
+            .split_whitespace()
+            .nth(2)
+            .unwrap()
+            .to_owned();
+        assert_ne!(
+            child_state, "Z",
+            "fixture child must be alive before cancel"
+        );
         let stopped = Instant::now();
         signal.cancel();
         let report = worker.join().unwrap();
         assert_eq!(report.status, Status::Cancelled);
         assert!(stopped.elapsed() < Duration::from_secs(4));
         assert!(!Path::new(&format!("/proc/{pid}")).exists());
-        for descendant in descendants.split_whitespace() {
-            let state = std::fs::read_to_string(format!("/proc/{descendant}/stat"));
-            assert!(
-                state.is_err() || state.unwrap().split_whitespace().nth(2) == Some("Z"),
-                "running orphan descendant {descendant}"
-            );
-        }
+        let state = std::fs::read_to_string(format!("/proc/{descendant}/stat"));
+        assert!(
+            state.is_err() || state.unwrap().split_whitespace().nth(2) == Some("Z"),
+            "running orphan descendant {descendant}"
+        );
         let (_dir, source, mut options) = fixture("valid");
         options.runner = Some(PathBuf::from("/missing/explicit/runner"));
         assert_eq!(
