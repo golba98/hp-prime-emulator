@@ -214,6 +214,11 @@ impl Renderer {
         Ok(face)
     }
     fn metrics(&self, style: FontStyle, px: f32) -> Result<(i64, i64)> {
+        // FreeType positions are 26.6 fixed-point C longs: 32-bit on Windows,
+        // 64-bit on Linux. Normalize both to the graphics API's i64 pixels.
+        fn pixels(position: impl Into<i64>) -> i64 {
+            position.into() / 64
+        }
         let metrics = self
             .face(style, px)?
             .size_metrics()
@@ -230,12 +235,12 @@ impl Renderer {
                 18 => 18,
                 20 => 20,
                 22 => 22,
-                _ => metrics.ascender / 64,
+                _ => pixels(metrics.ascender),
             }
         } else {
-            metrics.ascender / 64
+            pixels(metrics.ascender)
         };
-        Ok(((metrics.height / 64).max(1), ascent))
+        Ok((pixels(metrics.height).max(1), ascent))
     }
     fn glyph(&mut self, style: FontStyle, ch: char, px: f32) -> Result<Arc<Glyph>> {
         self.glyph_codepoint(style, ch as u32, px)
