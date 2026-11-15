@@ -156,7 +156,12 @@ impl Calculation {
                 let data = match name.as_str() {
                     "Statistics 1Var" => {
                         if let Some(book) = &model.statistics1_book {
-                            super::native_statistics::plots::one(book, model.histogram, cancel)
+                            super::native_statistics::plots::one_in(
+                                book,
+                                model.histogram,
+                                snapshot,
+                                cancellation.clone(),
+                            )
                         } else if let Some(spec) = &model.histogram {
                             plot::histogram(&model.statistics1, spec, cancel)
                         } else {

@@ -484,25 +484,55 @@ impl<'a> Evaluator<'a> {
                 value => values.push(value),
             }
         }
+        let operation = name.to_ascii_uppercase();
+        if operation == "COUNT" {
+            let count = values
+                .iter()
+                .filter(|value| matches!(value, Value::Real(_) | Value::Int(_) | Value::Complex(_)))
+                .count();
+            return Ok(Value::Real(Real::from_i64(count as i64)));
+        }
         let count = values.len();
-        let mut sum = Value::Real(Real::ZERO);
-        for value in values {
+        let mut sum = Value::Real(if operation == "PRODUCT" {
+            Real::ONE
+        } else {
+            Real::ZERO
+        });
+        for (index, value) in values.into_iter().enumerate() {
             self.check()?;
             if !matches!(value, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
                 return Err(format!("{name} range contains a non-numeric object"));
             }
-            sum = ppl_vm::ops::binary(
-                ppl_syntax::ast::BinOp::Add,
-                &sum,
-                &value,
-                &self.context.settings,
-            )
-            .map_err(|e| e.to_string())?;
-        }
-        if name.eq_ignore_ascii_case("AVERAGE") {
-            if count == 0 {
-                return Err("AVERAGE has no numeric cells".into());
+            use ppl_syntax::ast::BinOp;
+            if operation == "MIN" || operation == "MAX" {
+                if index == 0 {
+                    sum = value;
+                    continue;
+                }
+                let op = if operation == "MIN" {
+                    BinOp::Lt
+                } else {
+                    BinOp::Gt
+                };
+                let selected = ppl_vm::ops::binary(op, &value, &sum, &self.context.settings)
+                    .map_err(|e| e.to_string())?;
+                if selected.as_real().is_some_and(|value| !value.is_zero()) {
+                    sum = value;
+                }
+            } else {
+                let op = if operation == "PRODUCT" {
+                    BinOp::Mul
+                } else {
+                    BinOp::Add
+                };
+                sum = ppl_vm::ops::binary(op, &sum, &value, &self.context.settings)
+                    .map_err(|e| e.to_string())?;
             }
+        }
+        if count == 0 && ["AVERAGE", "MIN", "MAX"].contains(&operation.as_str()) {
+            return Err(format!("{name} has no numeric cells"));
+        }
+        if operation == "AVERAGE" {
             sum = ppl_vm::ops::binary(
                 ppl_syntax::ast::BinOp::Div,
                 &sum,
@@ -558,15 +588,30 @@ impl<'a> Evaluator<'a> {
                 }
                 let token = &source[start..pos];
                 let next = source[pos..].trim_start();
-                if (token.eq_ignore_ascii_case("SUM") || token.eq_ignore_ascii_case("AVERAGE"))
+                if ["SUM", "AVERAGE", "COUNT", "MIN", "MAX", "PRODUCT"]
+                    .iter()
+                    .any(|name| token.eq_ignore_ascii_case(name))
                     && next.starts_with('(')
+                    && !source[..start].trim_end().ends_with('.')
                 {
                     let open = source.len() - next.len();
                     let end = call_end(source, open)?;
-                    let value =
-                        self.aggregate(token, &source[open + 1..end - 1], address, depth)?;
-                    out.push_str(&self.slot(value)?);
-                    pos = end;
+                    let body = source[open + 1..end - 1].trim();
+                    let range_only =
+                        token.eq_ignore_ascii_case("MIN") || token.eq_ignore_ascii_case("MAX");
+                    if range_only
+                        && Range::parse(body).is_none()
+                        && !self.sheet.names.contains_key(body)
+                    {
+                        // Leave ordinary scalar/list calls to the PPL compiler.
+                        // In particular, parsing a comma-separated argument body
+                        // as one expression would turn MIN(1,2) into a complex value.
+                        out.push_str(token);
+                    } else {
+                        let value = self.aggregate(token, body, address, depth)?;
+                        out.push_str(&self.slot(value)?);
+                        pos = end;
+                    }
                 } else if !next.starts_with('(') && !source[..start].ends_with('.') {
                     if let Some(cell) = Address::parse(token) {
                         let value = self.cell(&cell.name())?;
@@ -918,6 +963,58 @@ mod tests {
             sheet.evaluate_in("B5", &memory, no_cancel()).unwrap(),
             CellValue::Text("SUM(A1:A2)".into())
         );
+    }
+    #[test]
+    fn ordinary_min_max_and_qualified_calls_keep_normal_ppl_semantics() {
+        let mut sheet = Spreadsheet::default();
+        let memory = snapshot();
+        sheet.set("A1", "3").unwrap();
+        sheet.set("A2", "5").unwrap();
+        for (formula, expected) in [
+            ("MIN(1,2)", 1.),
+            ("MAX({1,2})", 2.),
+            ("MIN(A1,A2)", 3.),
+            ("MAX(A1:A2)", 5.),
+            ("MIN({5,3})", 3.),
+        ] {
+            sheet.set("B1", &format!("={formula}")).unwrap();
+            assert_eq!(number(&sheet, "B1", &memory), expected, "{formula}");
+        }
+        let mut evaluator = Evaluator::new(&sheet, &memory, no_cancel()).unwrap();
+        for source in ["CAS.MIN(1,2)", "CAS.SUM({1,2})", "CAS . MAX({1,2})"] {
+            assert_eq!(
+                evaluator
+                    .expand(source, Address::parse("B1").unwrap(), 0)
+                    .unwrap(),
+                source
+            );
+        }
+    }
+    #[test]
+    fn spreadsheet_range_functions_keep_typed_values_sparse_cells_and_cycles() {
+        let mut sheet = Spreadsheet::default();
+        let memory = snapshot();
+        for (cell, source) in [("A1", "0.1"), ("A2", "2"), ("A4", "3"), ("D1", "\"text\"")] {
+            sheet.set(cell, source).unwrap();
+        }
+        for (formula, expected) in [
+            ("COUNT(A1:A4)", 3.),
+            ("PRODUCT(A1:A4)", 0.6),
+            ("MIN(A1:A4)", 0.1),
+            ("MAX(A1:A4)", 3.),
+            ("COUNT(D1:D3)", 0.),
+            ("PRODUCT(E1:E3)", 1.),
+        ] {
+            sheet.set("B1", &format!("={formula}")).unwrap();
+            assert_eq!(number(&sheet, "B1", &memory), expected, "{formula}");
+        }
+        for formula in ["MIN(E1:E3)", "MAX(E1:E3)", "MIN(D1:D3)", "COUNT(B1:B2)"] {
+            sheet.set("B1", &format!("={formula}")).unwrap();
+            assert!(
+                sheet.evaluate_in("B1", &memory, no_cancel()).is_err(),
+                "{formula}"
+            );
+        }
     }
     #[test]
     fn ranges_use_bcd_arithmetic_and_values_do_not_overflow_through_f64() {

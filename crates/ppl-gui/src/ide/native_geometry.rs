@@ -545,6 +545,122 @@ mod tests {
         assert!(!snapshot.settings.complex_results);
     }
     #[test]
+    fn similarity_transforms_preserve_shapes_and_recalculate_dependencies() {
+        let mut b = book(&[
+            ("A", "point(0,0)"),
+            ("B", "point(3,4)"),
+            ("C", "segment(GA,GB)"),
+            ("D", "translation(2+i,GC)"),
+            ("E", "circle(GA,2)"),
+            ("F", "homothety(GA,-3,GE)"),
+            ("H", "reflection(line(point(0),point(1)),GE)"),
+            (
+                "I",
+                "rotation(GA,π/2,polygon(point(0),point(2),point(2,1)))",
+            ),
+            ("J", "translation(2+i,inter(GE,line(point(-3),point(3))))"),
+        ]);
+        let s = scene(&b);
+        assert_eq!(
+            shape(&s, "D"),
+            Shape::Line {
+                a: Point2 { x: 2., y: 1. },
+                b: Point2 { x: 5., y: 5. },
+                extent: Extent::Segment,
+            }
+        );
+        assert_eq!(
+            shape(&s, "F"),
+            Shape::Circle {
+                center: Point2 { x: 0., y: 0. },
+                radius: 6.,
+            }
+        );
+        assert_eq!(
+            shape(&s, "H"),
+            Shape::Circle {
+                center: Point2 { x: 0., y: 0. },
+                radius: 2.,
+            }
+        );
+        match shape(&s, "I") {
+            Shape::Polygon(p) => {
+                assert_eq!(p.len(), 3);
+                assert!((p[1].x).abs() < 1e-9 && (p[1].y - 2.).abs() < 1e-9);
+                assert!((p[2].x + 1.).abs() < 1e-9 && (p[2].y - 2.).abs() < 1e-9);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(
+            shape(&s, "J"),
+            Shape::Points(vec![Point2 { x: 0., y: 1. }, Point2 { x: 4., y: 1. },])
+        );
+        b.move_point("B", Point2 { x: 5., y: 6. }).unwrap();
+        assert_eq!(
+            shape(&scene(&b), "D"),
+            Shape::Line {
+                a: Point2 { x: 2., y: 1. },
+                b: Point2 { x: 7., y: 7. },
+                extent: Extent::Segment,
+            }
+        );
+        let restored: Book = serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();
+        assert_eq!(scene(&restored), scene(&b));
+    }
+
+    #[test]
+    fn transforms_use_geometry_angle_settings_and_refuse_collapsed_constructions() {
+        let b = book(&[
+            ("A", "point(0)"),
+            ("B", "rotation(GA,90,half_line(point(1),point(2)))"),
+            ("C", "homothety(GA,0,line(point(0),point(1)))"),
+            ("D", "homothety(GA,0,circle(GA,1))"),
+            ("E", "translation(1E499,point(1))"),
+            ("F", "reflection(point(1,2),segment(point(0),point(3)))"),
+        ]);
+        let mut snapshot = ppl_vm::SessionContext::default().snapshot();
+        snapshot.app_settings.insert(
+            "Geometry".into(),
+            ppl_vm::AppSettings {
+                angle: 2,
+                ..Default::default()
+            },
+        );
+        let s = b
+            .calculate(&snapshot, Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        match shape(&s, "B") {
+            Shape::Line {
+                a,
+                b,
+                extent: Extent::Ray,
+            } => {
+                assert!(a.x.abs() < 1e-9 && (a.y - 1.).abs() < 1e-9);
+                assert!(b.x.abs() < 1e-9 && (b.y - 2.).abs() < 1e-9);
+            }
+            other => panic!("{other:?}"),
+        }
+        for name in ["C", "D", "E"] {
+            assert!(
+                s.objects
+                    .iter()
+                    .find(|o| o.name == name)
+                    .unwrap()
+                    .value
+                    .is_err()
+            );
+        }
+        assert_eq!(
+            shape(&s, "F"),
+            Shape::Line {
+                a: Point2 { x: 2., y: 4. },
+                b: Point2 { x: -1., y: 4. },
+                extent: Extent::Segment,
+            }
+        );
+    }
+
+    #[test]
     fn empty_book_is_valid_and_failed_edits_are_atomic() {
         assert!(scene(&Book::default()).objects.is_empty());
         let b = book(&[("A", "point(3,4)")]);

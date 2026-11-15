@@ -1,6 +1,30 @@
 //! Euclidean primitives shared by construction and measurement evaluation.
 use super::{Extent, Shape, number, point};
 use crate::ide::native_app_models::{Geometry, Point2};
+/// Map a similarity transform over every supported construction.  Revalidate
+/// each result so collapsed lines/circles and non-finite coordinates never
+/// enter the dependency cache or saved geometry model.
+pub fn transform(
+    shape: Shape,
+    radius_scale: f64,
+    mut map: impl FnMut(Point2) -> Result<Point2, String>,
+) -> Result<Shape, String> {
+    match shape {
+        Shape::Point(p) => Ok(Shape::Point(point(map(p)?)?)),
+        Shape::Number { re, im } => Ok(Shape::Point(point(map(Point2 { x: re, y: im })?)?)),
+        Shape::Line { a, b, extent } => line(map(a)?, map(b)?, extent),
+        Shape::Circle { center, radius } => circle(map(center)?, radius * radius_scale.abs()),
+        Shape::Polygon(points) => {
+            polygon(points.into_iter().map(&mut map).collect::<Result<_, _>>()?)
+        }
+        Shape::Points(points) => Ok(Shape::Points(
+            points
+                .into_iter()
+                .map(|p| point(map(p)?))
+                .collect::<Result<_, _>>()?,
+        )),
+    }
+}
 pub fn delta(a: Point2, b: Point2) -> Point2 {
     Point2 {
         x: b.x - a.x,

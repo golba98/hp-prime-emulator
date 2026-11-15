@@ -142,9 +142,18 @@ fn value(v: &Value, px: f32) -> MathLayout {
                         .unwrap_or(0)
                 })
                 .collect();
+            // Align row baselines, rather than centering a scalar beside a
+            // fraction or power. A row needs the maximum ascent and descent.
+            let baselines: Vec<i64> = cells
+                .chunks(cols)
+                .map(|row| row.iter().map(|l| l.baseline).max().unwrap_or(0))
+                .collect();
             let heights: Vec<i64> = cells
                 .chunks(cols)
-                .map(|row| row.iter().map(|l| l.height).max().unwrap_or(0))
+                .zip(&baselines)
+                .map(|(row, baseline)| {
+                    baseline + row.iter().map(|l| l.height - l.baseline).max().unwrap_or(0)
+                })
                 .collect();
             let height = heights.iter().sum::<i64>() + (rows as i64 - 1) * 6 + 6;
             let width = widths.iter().sum::<i64>() + (cols as i64 - 1) * 12 + 16;
@@ -161,7 +170,7 @@ fn value(v: &Value, px: f32) -> MathLayout {
                     out.append(
                         cell.clone(),
                         x + (widths[c] - cell.width) / 2,
-                        y + (heights[r] - cell.height) / 2,
+                        y + baselines[r] - cell.baseline,
                     );
                     x += widths[c] + 12;
                 }
@@ -198,7 +207,10 @@ fn value(v: &Value, px: f32) -> MathLayout {
             ),
             px,
         ),
-        Some("string") => text(&format!("\"{}\"", v["value"].as_str().unwrap_or("")), px),
+        Some("string") => text(
+            &serde_json::to_string(v["value"].as_str().unwrap_or("")).unwrap(),
+            px,
+        ),
         _ => {
             let s = v["value"].as_str().unwrap_or("");
             expression(s, px)
@@ -209,6 +221,34 @@ fn value(v: &Value, px: f32) -> MathLayout {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn mixed_matrix_cells_share_a_baseline_without_clipping_descenders() {
+        let matrix = json!({"type":"matrix","rows":1,"cols":2,"value":[
+            {"type":"real","value":"0.5","display":"1/2"},
+            {"type":"real","value":"9","display":"9"}]});
+        let layout = result("", Some(&matrix), 17.);
+        let fraction = expression("1/2", 17.);
+        let scalar = expression("9", 17.);
+        let nine = layout.glyphs.iter().find(|g| g.text == "9").unwrap();
+        assert_eq!(
+            nine.y + scalar.baseline,
+            3 + fraction.baseline.max(scalar.baseline)
+        );
+        assert!(layout.height >= nine.y + scalar.height + 3);
+    }
+    #[test]
+    fn legacy_collection_strings_preserve_quotes_and_backslashes_as_literals() {
+        let values = json!({"type":"list","value":[
+            {"type":"string","value":"\"1/2\"\\path"}]});
+        let layout = result("", Some(&values), 17.);
+        assert!(layout.rules.is_empty());
+        let ink = layout
+            .glyphs
+            .iter()
+            .map(|g| g.text.as_str())
+            .collect::<String>();
+        assert_eq!(ink, "{\"\\\"1/2\\\"\\\\path\"}");
+    }
     #[test]
     fn tall_matrix_brackets_clip_continuously_to_a_scrolled_viewport() {
         let matrix = json!({"type":"matrix","rows":12,"cols":1,"vector":false,"value":

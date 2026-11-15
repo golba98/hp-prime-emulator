@@ -52,6 +52,7 @@ enum Need {
     Line,
     Circle,
     Shape,
+    Object,
     Curve,
 }
 #[derive(Debug, Clone, Copy)]
@@ -80,6 +81,11 @@ const POINTS: &[Command] = &[
         label: "Intersection",
         function: "single_inter",
         needs: &[Need::Curve, Need::Curve],
+    },
+    Command {
+        label: "Projection",
+        function: "projection",
+        needs: &[Need::Line, Need::Point],
     },
 ];
 const LINES: &[Command] = &[
@@ -129,11 +135,18 @@ const LINES: &[Command] = &[
         needs: &[Need::Point, Need::Point, Need::Point],
     },
 ];
-const POLYGONS: &[Command] = &[Command {
-    label: "Triangle",
-    function: "triangle",
-    needs: &[Need::Point, Need::Point, Need::Point],
-}];
+const POLYGONS: &[Command] = &[
+    Command {
+        label: "Triangle",
+        function: "triangle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Polygon",
+        function: "polygon",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+];
 const CURVES: &[Command] = &[
     Command {
         label: "Circle",
@@ -155,17 +168,22 @@ const TRANSFORMS: &[Command] = &[
     Command {
         label: "Reflection",
         function: "reflection",
-        needs: &[Need::Line, Need::Point],
+        needs: &[Need::Line, Need::Object],
     },
     Command {
         label: "Rotation",
         function: "rotation",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::Object],
     },
     Command {
         label: "Dilation",
         function: "homothety",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::Object],
+    },
+    Command {
+        label: "Translation",
+        function: "translation",
+        needs: &[Need::Point, Need::Point, Need::Object],
     },
 ];
 const MEASURES: &[Command] = &[
@@ -513,6 +531,7 @@ impl NativeTools {
             let name = if let Some((name, Ok(shape))) = hovered {
                 let matches = match need {
                     Need::Point => matches!(shape, Shape::Point(_)),
+                    Need::Object => !matches!(shape, Shape::Number { .. }),
                     Need::Line => matches!(shape, Shape::Line { .. }),
                     Need::Circle => matches!(shape, Shape::Circle { .. }),
                     Need::Curve => matches!(shape, Shape::Line { .. } | Shape::Circle { .. }),
@@ -551,6 +570,8 @@ impl NativeTools {
                         geo::canonical(p.x),
                         geo::canonical(p.y)
                     )
+                } else if command.function == "translation" {
+                    format!("translation({}-{},{})", args[1], args[0], args[2])
                 } else if command.function == "circle" {
                     format!("circle({},{}-{})", args[0], args[1], args[0])
                 } else if command.function == "rotation" {
@@ -577,7 +598,7 @@ impl NativeTools {
                     .as_ref()
                     .unwrap()
                     .next_name();
-                if matches!(command.function, "rotation" | "homothety") {
+                if matches!(command.function, "rotation" | "homothety" | "polygon") {
                     return vec![Request::EditMath(MathTarget::GeometryObject {
                         name,
                         preset: Some(source),
@@ -776,5 +797,166 @@ impl NativeTools {
         }
         self.dirty();
         Some(vec![])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    #[test]
+    fn translation_menu_constructs_selected_circle_from_two_point_vector() {
+        let mut tools = NativeTools {
+            page: Some(Page::Plot),
+            ..Default::default()
+        };
+        tools.memory.selected_app = "Geometry".into();
+        let book = Book {
+            objects: [
+                ("A", "point(1,2)"),
+                ("B", "point(4,6)"),
+                ("C", "circle(point(0),2)"),
+            ]
+            .into_iter()
+            .map(|(name, source)| Object {
+                name: name.into(),
+                source: source.into(),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        };
+        let snapshot = ppl_vm::SessionContext::default().snapshot();
+        let scene = book
+            .calculate(&snapshot, Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        tools
+            .memory
+            .models
+            .results
+            .insert("Geometry".into(), serde_json::to_value(scene).unwrap());
+        tools.memory.models.geometry_book = Some(book.clone());
+        assert!(
+            tools
+                .geometry_menu_items(Some(5))
+                .iter()
+                .any(|s| s == "Translation")
+        );
+        tools.geometry_choose_menu(Menu {
+            category: Some(5),
+            index: commands(5)
+                .iter()
+                .position(|c| c.function == "translation")
+                .unwrap(),
+            first: 0,
+        });
+        for name in ["A", "B"] {
+            tools.geometry_panel.hover = Some(name.into());
+            assert!(tools.geometry_confirm().is_empty());
+        }
+        tools.geometry_panel.hover = Some("C".into());
+        let requests = tools.geometry_confirm();
+        let [
+            Request::Calculate(crate::ide::native_app_ui::Calculation::GeometryEdit {
+                source,
+                name,
+                ..
+            }),
+        ] = requests.as_slice()
+        else {
+            panic!("Expected real Geometry calculation")
+        };
+        assert_eq!(source, "translation(GB-GA,GC)");
+        let (_, scene) = book
+            .enter(name, source, &snapshot, Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        assert_eq!(
+            scene.objects.last().unwrap().value,
+            Ok(Shape::Circle {
+                center: Point2 { x: 3., y: 4. },
+                radius: 2.
+            })
+        );
+    }
+    #[test]
+    fn projection_menu_constructs_a_constrained_point_and_polygon_remains_editable() {
+        let mut tools = NativeTools {
+            page: Some(Page::Plot),
+            ..Default::default()
+        };
+        tools.memory.selected_app = "Geometry".into();
+        let book = Book {
+            objects: [
+                ("A", "point(1,2)"),
+                ("B", "point(4,2)"),
+                ("C", "point(3,6)"),
+                ("D", "line(GA,GB)"),
+            ]
+            .into_iter()
+            .map(|(name, source)| Object {
+                name: name.into(),
+                source: source.into(),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        };
+        let snapshot = ppl_vm::SessionContext::default().snapshot();
+        let scene = book
+            .calculate(&snapshot, Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        tools
+            .memory
+            .models
+            .results
+            .insert("Geometry".into(), serde_json::to_value(scene).unwrap());
+        tools.memory.models.geometry_book = Some(book.clone());
+        tools.geometry_choose_menu(Menu {
+            category: Some(1),
+            index: commands(1)
+                .iter()
+                .position(|c| c.function == "projection")
+                .unwrap(),
+            first: 0,
+        });
+        tools.geometry_panel.hover = Some("D".into());
+        assert!(tools.geometry_confirm().is_empty());
+        tools.geometry_panel.hover = Some("C".into());
+        let requests = tools.geometry_confirm();
+        let [
+            Request::Calculate(crate::ide::native_app_ui::Calculation::GeometryEdit {
+                source,
+                name,
+                ..
+            }),
+        ] = requests.as_slice()
+        else {
+            panic!("Expected projection calculation")
+        };
+        let (_, result) = book
+            .enter(name, source, &snapshot, Arc::new(AtomicBool::new(false)))
+            .unwrap();
+        assert_eq!(
+            result.objects.last().unwrap().value,
+            Ok(Shape::Point(Point2 { x: 3., y: 2. }))
+        );
+        tools.geometry_choose_menu(Menu {
+            category: Some(3),
+            index: commands(3)
+                .iter()
+                .position(|c| c.function == "polygon")
+                .unwrap(),
+            first: 0,
+        });
+        for name in ["A", "B"] {
+            tools.geometry_panel.hover = Some(name.into());
+            assert!(tools.geometry_confirm().is_empty());
+        }
+        tools.geometry_panel.hover = Some("C".into());
+        let requests = tools.geometry_confirm();
+        assert!(
+            matches!(requests.as_slice(), [Request::EditMath(MathTarget::GeometryObject { preset: Some(source), .. })] if source=="polygon(GA,GB,GC)")
+        );
     }
 }

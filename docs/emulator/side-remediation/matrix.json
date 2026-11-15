@@ -16,7 +16,8 @@
         "Production Spreadsheet qualified reads/writes use typed live VM snapshots with cancellation, epoch and source fencing. Actual attribute0/1/3, Home/app settings and INPUT/CHOOSE controls execute without phantom globals. Original stale worksheet-cache behavior remains a recorded difference.",
         "Measured supported17-app gallery with chronological keyboard/touch navigation, sorting/MRU and persistence; original four-column layout and genuine names do not imply omitted/custom apps exist.",
         "Function Symbolic rows, inline editor, real Show/Eval, true F0/X0/Y0/R0 labels, graph colors and bounded parsed dependencies in graph/table calculations. Per-app formats0..6 and digits0..11 follow original15751 controls; profiles roundtrip and reject malformed values transactionally.",
-        "Numeric Setup is VM-owned per application: NumStart/NumStep/NumZoom/NumType and NumIndep share live PPL/catalog state and schema5 exact-value persistence. Integrated Function Numeric/Setup uses typed asynchronous tables, fonts, custom rows, scrolling, Zoom/Go To and Plot confirmation. Entire app parity remains open."
+        "Numeric Setup is VM-owned per application: NumStart/NumStep/NumZoom/NumType and NumIndep share live PPL/catalog state and schema5 exact-value persistence. Integrated Function Numeric/Setup uses typed asynchronous tables, fonts, custom rows, scrolling, Zoom/Go To and Plot confirmation. Entire app parity remains open.",
+        "Additional implemented app behavior: persisted Statistics1 chart dispatch (rather than unconditional histogram), weighted plot definitions, Geometry Translation and shape-preserving transforms, Projection and Polygon tools, and Spreadsheet COUNT/MIN/MAX/PRODUCT ranges. Full Geometry PPL bindings and remaining app parity are not established."
       ],
       "tests": [
         "native_apps, native_graph_context, native_equations, native_app_models, native_inference and native_plot_view_tests; real desktop graph, graph_context, solve and models workflows",
@@ -25,7 +26,7 @@
         "Actual Statistics desktop: ten columns,5weighted analyses,all13fits,realSIN cell editing/evaluation,full-screen plot controls and separate-process reopen.",
         "Original Spreadsheet qualified controls and actual process/reopen GUI; Function Symbolic four actual GUI sessions with both fonts and two value/pixel assertions; app_settings six tests plus genuine six source controls."
       ],
-      "verification": "Partial: recorded applications, Function Home/PPL/EXPR/CAS transport, Symbolic/Setup and typed Numeric computations pass their scoped regressions. Remaining Geometry bridge/tools, Spreadsheet attributes/functions/formatting,1Var plots and other app tools remain open.",
+      "verification": "Partial: native app computations, selected charts, live data definitions, Geometry GUI transformations/tools and range aggregates have offline regressions. Qualified Geometry PPL bindings, Spreadsheet Range Sort/Textbook controls and full firmware-referenced app fidelity remain open; no new physical/reference acceptance is implied.",
       "affected_components": [
         "native_tools.rs",
         "native_apps.rs",
@@ -144,7 +145,8 @@
       "expected_behavior": "Help offers supported command information; temporary and locked User key modes execute discovered KEY handlers.",
       "implementation": [
         "Help text, exact temporary/persistent User mode chords, declarative 198 assignable forms, KEY AST discovery, strict ambiguity, cancellable shared VM execution, typed insertion without changing Ans/history.",
-        "Shift+Apps and STARTVIEW(6) open a persistent per-app Info note, separate from Help and standalone Notes; STARTAPP opens the documented entry view."
+        "Shift+Apps and STARTVIEW(6) open a persistent per-app Info note, separate from Help and standalone Notes; STARTAPP opens the documented entry view.",
+        "Native Help now browses optional installed books asynchronously in eight languages, with Unicode search, stable topic identity and original spans/metadata. Book membership remains distinct from Native command support; original rich markup rendering remains open."
       ],
       "tests": [
         "26 User reducer/worker tests; native_side_user desktop",
@@ -377,7 +379,7 @@
       "limitations": [
         "No physical calculator was accessed. The installed legitimate G1 is the firmware reference.",
         "Exact font/glyph/raw-UTF16 and remaining numerical compatibility are tracked separately in24; full textbook results and exact softkey parity remain25.",
-        "The alternate input glyph \u2220 remains a Native alias; genuine G1 PPL accepts \u2221."
+        "The alternate input glyph ∠ remains a Native alias; genuine G1 PPL accepts ∡."
       ]
     },
     {
@@ -462,7 +464,7 @@
       "tests": [
         "expression/layout tests; native_side_input; shared app field graph workflow",
         "Regression cases for nested roots/functions, empty fractions/powers, implied products, explicit selection, quoted/escaped strings, digits, undo and redo; actual desktop keypad and typed sin Backspace plus undo/redo.",
-        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3→4*3→12; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
       ],
       "verification": "implemented",
       "affected_components": [
@@ -498,7 +500,7 @@
       ],
       "tests": [
         "history tests; native_side_input older_history/history_draft; restart workflow",
-        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3→4*3→12; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
       ],
       "verification": "implemented",
       "affected_components": [
@@ -870,7 +872,7 @@
         "Full workspace2463default/2524genuine-Giac,0failed/6existing ignores; warnings-denied workspace Clippy, format/build/diff checks.",
         "33 independently captured installed-G1 typed controls: assignment/function arguments, runtime string data, exact scalar/list conversion, undefined/infinities, TYPE/STRING, Native side effects and collection values.",
         "Real IDE compilation/Run/production worker executes all33 controls; actual calculator keyboard CAS entry, failed assignment rollback and separate-process restoration pass.",
-        "26 app-specific view actions, original Function8\u201313 controls, refused out-of-range menu entries, live bounds, actual computed traces/tables and visible immutable split plots pass.",
+        "26 app-specific view actions, original Function8–13 controls, refused out-of-range menu entries, live bounds, actual computed traces/tables and visible immutable split plots pass.",
         "Actual36-session Native desktop run plus16 forced-termination checks,15 linked IDE and40 linked debugger assertions pass."
       ],
       "verification": "Implemented for all nine audited entries: actual standard/app-specific views and live PPL state, EDITLIST/AFiles/HVars, typed Giac CAS/EXACT/EVAL, source/data distinctions and assignment error values. Genuine G1 rejects RECALL; that original inventory error remains explicit.",
@@ -924,7 +926,7 @@
         "EXPR incrementally links referenced installed/open-editor exports in the actual running Machine, preserving lexical visibility, active frame indices, host, limits, debugger and independent module initializer/private state. Home and module state survive process restoration; unrelated broken catalog files stay unexecuted.",
         "Raw UTF16 values and Native memory schema3 now preserve isolated units through ASC/CHAR/DIM/indexing/edits/copies/calls and exact packed depth writeback. The legacy tagged depth reader remains for migration; new output is actual packed units.",
         "Optional legitimately installed Prime Sans uses the current FreeType parser with a bounded, reentrant standalone FreeType2.8 scan converter. Regular baselines, seven-bit coverage and RGB composition match all pixels of three independent complete G1 framebuffers; actual PPL and both CLI paths pass. TEXTOUT ignores LF as the G1 does. Missing selected resources fail explicitly; raw isolated UTF16 font units now render their original font indices.",
-        "Signed-width/system-base word values, correct mixed-real promotion, saturating rounded R\u2192B, wrapping SETBITS, exact64-bit word comparisons, word-aware lazy logic, strict settings, numeric matrix normalization and lossless arguments/memory/firmware returns match independently captured controls.",
+        "Signed-width/system-base word values, correct mixed-real promotion, saturating rounded R→B, wrapping SETBITS, exact64-bit word comparisons, word-aware lazy logic, strict settings, numeric matrix normalization and lossless arguments/memory/firmware returns match independently captured controls.",
         "STRING now composes UTF16 numeric/complex/collection results and measures each installed16-bit font index. Symbol selection, NUL boundaries, grouping admission and16fitting thresholds match original firmware without replacement units.",
         "Colored LINE interpolation, major-axis ordering, inclusive pixel/color sampling, offscreen clipping and coincident endpoints match six independent original-firmware source controls, including complete small frames. Numeric row/complex-point admission follows the observed forms rather than an invented colored-complex-row overload.",
         "Scalar ARC and elliptical-radius/filled-sector/transparency overloads, plus calculator LINE clipping, match independent complete original frames. Thin-ellipse uninitialized end-cap variation is recorded rather than imitated with arbitrary pixels.",
@@ -935,11 +937,12 @@
         "MOUSE now transports two optional typed pointer packets, zero-based indexing, origins and New/Drag lifecycle from real desktop LCD input. Idle is two empty lists; missing indexed coordinates are real -1. Real GUI interaction passes at1 and1.5scale. Other touch gesture types remain outside established desktop input coverage.",
         "Real arithmetic now preserves bounded exact rational and pi coefficients, source digits, exact comparisons and decimal fallback provenance. Active-app angle/complex computation, explicit complex-zero types, scaled complex functions and signed finite overflow saturation match independent original controls for both builds. Default GUI model/history rollout remains open.",
         "DRAWMENU uses actual installed resource textures and selected fonts;13 complete original frames and actual IDE Run/Enter interactions match without tolerance. Empty lists and extra-item admission follow original controls.",
-        "TEXTOUT raw16-bit glyphs, grouped typed labels, bitmap-column clipping, zero-width behavior and measured backgrounds match six additional complete original frames and all returned endpoints."
+        "TEXTOUT raw16-bit glyphs, grouped typed labels, bitmap-column clipping, zero-width behavior and measured backgrounds match six additional complete original frames and all returned endpoints.",
+        "Graphics work is clipped to visible pixels for extreme finite circles, generic lines and rectangle borders; independent midpoint/Bresenham controls and real VM extreme-coordinate regressions cover overflow and unbounded work. This does not assert every firmware raster/overload matches."
       ],
       "tests": [
         "overloads.rs; io_contracts.rs; parity.rs; input.rs; editmat.rs",
-        "Raw UTF16 actual keyboard/reopen controls and independent installed-G1 fixture; genuine packed depth220\u219256540 unit writeback.",
+        "Raw UTF16 actual keyboard/reopen controls and independent installed-G1 fixture; genuine packed depth220→56540 unit writeback.",
         "Three unmasked320x240 original-G1 framebuffer hashes (joined seven fonts,63 isolated glyphs, colored text and LF). Actual PPL programs and12 legacy/unified CLI comparisons match exactly, including configured/explicit selection and invalid-selection output preservation.",
         "31independent original-firmware STRING word cases,4VM word/context/persistence tests,strict argument and carrier admission;8actual stored firmware typed returns.",
         "Original UTF16 STRING ASC/DIM/grouping controls and16exact installed-font fitting thresholds.",
@@ -1030,13 +1033,15 @@
         "Exact number origin and canonical typed history recall survive GUI copy/evaluation and independent restart; fresh profiles select Current15751 while older schema4 restores Legacy.",
         "Validated installed Help data API decodes eight language books/18808indexes/6962095UTF16units plus281interface-string groups/29181strings; Native browser and markup/math rendering remain open. PPL menu texture/font parity is separately verified.",
         "Shared installed menu texture/native label ink/popup corners match two entire original320x20Function/Statistics strips. Primary732GUItests and18actual affected GUI processes/10assertions across both fonts and reopen pass.",
-        "Original ARM grouped-string decoder executes against all281groups/29181strings and matches every Native UTF16 byte and NUL. Earlier auxiliary-image naming was corrected from executable firmware evidence."
+        "Original ARM grouped-string decoder executes against all281groups/29181strings and matches every Native UTF16 byte and NUL. Earlier auxiliary-image naming was corrected from executable firmware evidence.",
+        "Structural matrix rows align cell baselines and history Show preserves structural inspection independently of linear history display. Full original result/softkey parity remains unverified.",
+        "Palette structural geometry is now cached nearest-filtered native LCD pixels, avoiding host-stroke border widening. All18 forms and the unchanged reference-pixel controls pass at pixel-perfect display scale; full housing still exercises insertion and navigation."
       ],
       "tests": [
         "layout tests; native_lcd_capture10; actual graph LCD screenshot",
-        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3→4*3→12; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
       ],
-      "verification": "partial: full textbook layout for all result types and exact HP softkey parity remain incomplete",
+      "verification": "Partial: Home chrome, typed history, structural matrix baselines and structured Show independence from linear history have regressions; complete original textbook/result metadata, rich-note and softkey fidelity remain unverified.",
       "affected_components": [
         "ide/native.rs",
         "native/math_layout.rs",
@@ -1109,7 +1114,7 @@
         "GUI and backend admit the same bounded UTF16 packet atomically; embedded NUL/oversize input is refused before queuing. No newline-to-Enter rewrite or2048-character GUI restriction."
       ],
       "tests": [
-        "verify_firmware_literal_text.py: genuine editor replacement/save/execute returns17 with exact Unicode source; Unicode multiline Notes readback; SIN template digits; actual quoted caret preserves\u2148\u00d7\ud83d\ude00; running INPUT12.5 returns25.",
+        "verify_firmware_literal_text.py: genuine editor replacement/save/execute returns17 with exact Unicode source; Unicode multiline Notes readback; SIN template digits; actual quoted caret preservesⅈ×😀; running INPUT12.5 returns25.",
         "verify_desktop_typing.py: three expressions match genuine physical Copy/Paste in both complete caret phases; powers also match physical keys. Fraction key-entry caret differs by51 pixels and is retained in evidence.",
         "firmware_text.rs: actual saved producer contains undelivered text; own helper killed, fresh process resumes, genuine Copy returns314159265 exactly once.",
         "Actual GUI Text/Paste creates a note with Unicode/newlines/unmatched delimiter and more than2048 characters; genuine PPL Notes readback matches every character.",
@@ -1360,7 +1365,7 @@
       "implementation": [
         "Unique priority slots0..63 and ROM automatic allocation16..54 drive serialized, bounded CPU slices with priority selection and per-slot time quanta. Thread descriptors use the observed0x74 size, minimum stack0x1000 and bit0 deferred flag.",
         "Suspend is idempotent; Resume clears the suspend flag and fails if already running. Wake cancels only timed sleep, including the65535 indefinite sentinel, and does not resume a suspended owner. Accepted wakes survive continuation serialization.",
-        "Auto-power-off implements modes0\u20133, previous-state returns, u16 minutes-to-seconds storage, system-mode inhibition, activity reset and wake interval bounds. Actual ARM owners pause and continue from the same instruction on ON.",
+        "Auto-power-off implements modes0–3, previous-state returns, u16 minutes-to-seconds storage, system-mode inhibition, activity reset and wake interval bounds. Actual ARM owners pause and continue from the same instruction on ON.",
         "A common monotonic guest clock stops service deadlines and UI/IRQ timers during power/inspection pauses. Clock images exclude host downtime; fresh-process CPU/RAM/wait reconstruction preserves a timed sleep.",
         "WriteComDebugMsg validates bounded formats, decodes AAPCS32 aligned64-bit and floating arguments, flags, width/precision and narrow/wide text; percent-n writes use validated guest memory. Registered ISR masking/delivery/errors retain executable behavior."
       ],

@@ -67,9 +67,18 @@ pub(super) struct Panel {
     plot_equation: Option<usize>,
     equation_x: i64,
     equation_y: i64,
+    stem_first: usize,
+    stem_x: i64,
     menu: Option<Menu>,
     texture: Option<egui::TextureHandle>,
     pixels: Vec<u32>,
+}
+impl Panel {
+    fn scroll_stem(&mut self, rows: i64, pixels: i64, count: usize, width: i64) {
+        self.stem_first =
+            (self.stem_first as i64 + rows).clamp(0, count.saturating_sub(12) as i64) as usize;
+        self.stem_x = (self.stem_x + pixels).clamp(0, (width - 310).max(0));
+    }
 }
 pub fn app(two: bool) -> &'static str {
     if two {
