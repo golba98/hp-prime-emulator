@@ -22,8 +22,14 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def selection():
-    baseline = json.loads((PREVIOUS / "results.json").read_text())
+def selection(baseline_path=None):
+    """Select pending cases from explicit evidence, defaulting to the local campaign.
+
+    Callers testing selection may provide synthetic input in a temporary file;
+    the default continues to require the real campaign and never invents evidence.
+    """
+    path = PREVIOUS / "results.json" if baseline_path is None else Path(baseline_path)
+    baseline = json.loads(path.read_text())
     pending = {(r["suite"], r["id"]) for r in baseline["records"]
                if r["engine"] == "native" and r["verdict"] == "not_run"}
     seen = set()

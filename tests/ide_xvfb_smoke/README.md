@@ -13,7 +13,7 @@ JSON, which the assertions below check.
 
 ## Prerequisites
 
-- `Xvfb`, ImageMagick `import`/`magick`
+- `Xvfb`, ImageMagick `import`/`magick`, Python Pillow (for PNG assertions)
 - `cargo build --workspace --release` (the runner uses `release/ppl` in Cargo's
   target directory, as reported by `cargo metadata`; set `PPL_BIN` to override)
 
@@ -158,3 +158,5 @@ Compile gate (the compiler decides what Run executes):
 ./run_ide_auto.sh scripts/script_compile_gate.json 60
 python3 assert_compile_gate.py /tmp/ppl-ide-e2e/dump_compile_gate.json
 ```
+
+The palette reference-pixel capture uses Screen Only, whose integer physical LCD scale preserves one-pixel separators. Full housing can shrink the LCD below 1× on a small Xvfb desktop and necessarily drop those lines. The scenario restores Full Calculator before exercising all palette clicks and editing; the exact reference-pixel assertions remain unchanged. Stop acceptance waits for cancellation to reach idle before closing the app.
