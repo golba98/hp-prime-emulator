@@ -178,3 +178,140 @@ updated for the workspace's current semantic highlighter, retaining exact
 string coverage and comment-boundary checks without changing GUI behavior.
 
 Final unattended-deletion validation: 891 workspace tests passed, 0 failed, 1 existing GUI smoke test ignored. Workspace build, formatting, all-target Clippy with warnings denied, and diff checks passed. See `artifacts/automatic-deletion/validation-summary.json`. No commits or pushes were made.
+
+## Local acceptance after offline development
+
+This procedure is for the developer who has the physical G1 and its private
+journals. It is not authorization to access that device. Run it only after the
+owner authorizes physical access; uploads, replacement, deletion, experimental
+FC04 requests and remote keys each retain their separate approval requirements.
+No step below grants permission for an agent to mutate calculator data. Keep
+raw captures, serials, program contents, backups and operation journals local.
+
+Build the current revision with `cargo build --locked --bin ppl`. In the examples,
+`ppl` must refer to that built executable, `DEVICE_ID` is the cryptographic
+serial-id from `device status`, and each `NEW_*` path is a fresh local directory.
+Stop unrelated USB applications and running calculator programs first. Use one
+exclusive owner; do not interleave CLI requests with a mirror or Connectivity
+Kit. Close and reconnect after an incomplete backup or an ambiguous/failed write;
+never interpret a new handle as evidence that an old operation did not execute.
+
+### Identity, inventory and display: read-only checks
+
+```sh
+ppl device detect
+ppl device status --json
+ppl device --device DEVICE_ID probe-anchor --json
+ppl device --device DEVICE_ID programs list --json
+ppl device --device DEVICE_ID programs show EXISTING_NAME --json
+ppl device --device DEVICE_ID programs export EXISTING_NAME --out NEW_EXPORT.hpprgm --json
+```
+
+Require the selected G1/product/build identity before using its recorded
+capabilities. Inventory can return a validated prefix and exit 9:
+`inventory_incomplete` is expected until complete-catalog semantics are verified.
+Do not use it to prove that a name is absent. Exact source reads must agree with
+the returned name/type/CRC and preserve the payload hash. Export must refuse an
+existing destination or sidecar. Retain original exports before editing copies.
+
+On the local graphical desktop, run the following separately, closing each
+window before starting the next:
+
+```sh
+ppl device --device DEVICE_ID mirror --quality full --filter nearest --diagnostics NEW_FULL
+ppl device --device DEVICE_ID mirror --quality fast --filter nearest --diagnostics NEW_FAST
+```
+
+Manually change a stable calculator screen; compare the actual physical LCD,
+retained decoded image and displayed window. Exercise pause/resume, scales 1–4,
+resize/letterboxing, snapshot and close during a slow read. Test real Wayland
+and fractional compositor scaling separately from Xvfb. Record changed frames,
+duplicates and presentation submissions separately: request throughput is not
+physical screen-change FPS, and a faithfully displayed noisy source is not a
+successful source-image repair.
+
+### Experimental incremental acceptance: separate approval
+
+After approval for the exact bounded experiment, run:
+
+```sh
+ppl device --device DEVICE_ID verify-incremental --acknowledge-experimental-fc04 --updates 5 --out-dir NEW_VISUAL
+```
+
+Wait for the baseline/manual-change prompt, visibly change the calculator screen
+by hand, then keep it stable through the updates and full reference. Require a
+changed baseline/reference, a changed patch, valid framing/CRC and zero
+composed/reference mismatches over all 76,800 pixels. A static success does not
+qualify. Preserve all failed captures; do not edit a report to satisfy admission.
+
+Only after reviewing that genuine changed-screen pass and obtaining separate
+approval for streaming, run:
+
+```sh
+ppl device --device DEVICE_ID verify-incremental-stream --acknowledge-experimental-fc04 --reviewed-visual-report NEW_VISUAL/report.json --out-dir NEW_STREAM --seconds 120 --max-updates 200
+```
+
+Make at least two distinct manual stable-screen changes, leave the screen stable
+at full-reference checkpoints, and perform one controlled manual disconnect and
+reconnect. The diagnostic enforces global attempt/time bounds, exact identity
+on reconnection, reference comparisons and a checkpoint for the final interval
+of the latest connection. Require `sustained_verification_passed`; a timeout,
+static sequence, missing final checkpoint or pixel mismatch is not acceptance.
+Review the raw evidence independently. This diagnostic intentionally does not
+set `hardware_verified` or enable production incremental mirroring; a successful
+run is input to a later reviewed capability-profile change, not an automatic
+capability promotion. See [incremental capture](INCREMENTAL_SCREEN_MIRROR.md).
+
+### Program mutations: one reviewed target and operation at a time
+
+The exact fixtures and command sequence for revised management acceptance are in
+[program transfer acceptance](PROGRAM_TRANSFER_AND_LIMITS.md#later-physical-acceptance--separate-authorization-required).
+Prepare them locally with
+`python3 scripts/device/prepare_program_management_acceptance.py --out-dir NEW_FIXTURES`.
+They reserve `ZZT_PM_SN01` as an unchanged sentinel, `ZZT_PM_SM01` as the small
+target, and `ZZT_PM_LG01` as an over-policy refusal control. If any reserved name
+already exists, stop; its prefix alone does not authorize reuse or deletion.
+Do not substitute an ordinary user program or an unresolved historical target.
+
+Obtain separate authorization for each create, the exact content-bound
+replacement plan, and the exact deletion. Read back both source revisions,
+verify backup hashes and durable journals, and compare the sentinel after each
+operation. Reopen an independent connection for final verification. A collision,
+changed content, lost anchor or stream ambiguity must refuse without another
+mutation. Keep the sentinel; this procedure performs no automatic cleanup.
+Current production transfer must still refuse the large fixture. Raising the
+15,928-byte legacy policy requires an evidenced transport path, not just a
+larger host buffer, a length field or a successful native compilation.
+
+Recover an uncertain operation using its returned operation ID, never by
+resubmitting:
+
+```sh
+ppl device --device DEVICE_ID replace verify-upload --operation-id UPLOAD_ID --json
+ppl device --device DEVICE_ID replace verify --operation-id REPLACEMENT_ID --json
+ppl device --device DEVICE_ID delete verify --operation-id DELETION_ID --json
+```
+
+These verification commands read the calculator and can append local evidence;
+none grants a new delete/upload. Use the correct journal kind. Matching readback,
+verified absence, still-present and unresolved states must remain distinct.
+Retain the source snapshot, original record and raw backup across process restarts.
+See [transaction recovery](DELETE_TRANSACTION_RECOVERY.md).
+
+### Diagnostic and execution boundaries
+
+`ppl device diagnose --engine physical FILE --json` must report unsupported
+capability on an unverified physical-check profile; it must not claim that a
+native or locally emulated firmware verdict came from the G1. The separate
+local-firmware command uses private assets on the local machine, as documented
+in [diagnostic provenance](PROGRAM_CHECK_AND_DIAGNOSTICS.md).
+
+Unattended Check/Run remains an implementation-and-evidence objective, not a
+capability enabled by these transport repairs. A usable physical mechanism must
+first demonstrate repeated correlated requests, argument-bearing calls,
+new-code installation, trapped-error recovery and completion without another
+manual Run. The existing listener experiment above supplies exact nonce controls;
+its failed historical observations must remain visible. Upload success, emulator
+execution and mocks cannot substitute for that acceptance. No remote keys,
+firmware writes, clock changes or undocumented memory writes are part of this
+procedure.
