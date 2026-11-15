@@ -283,6 +283,27 @@ pub fn paint_softkeys(screen: &mut Grob, labels: &[&str; 6]) {
 mod tests {
     use super::*;
     #[test]
+    fn show_keeps_matrix_structure_when_history_display_is_linear() {
+        let mut state = NativeUiState::default();
+        let matrix = serde_json::json!({"type":"matrix","rows":12,"cols":1,"value":
+            (0..12).map(|n|serde_json::json!({"type":"real","value":n.to_string()})).collect::<Vec<_>>()});
+        state.add_history(
+            "MAKEMAT(I,12,1)".into(),
+            "matrix".into(),
+            false,
+            Some(matrix),
+        );
+        state.history_position = Some(0);
+        state.history_result = true;
+        let structured = state.history_layout();
+        state.presentation.textbook_display = false;
+        let inspected = state.history_layout();
+        assert!(inspected.height > 196);
+        assert_eq!(inspected.height, structured.height);
+        assert_eq!(inspected.width, structured.width);
+        assert!(state.history_rows()[0].height < inspected.height);
+    }
+    #[test]
     fn deleting_a_result_keeps_its_expression_draft_and_other_calculations() {
         let mut s = NativeUiState::default();
         s.add_history("1+2".into(), "3".into(), false, None);

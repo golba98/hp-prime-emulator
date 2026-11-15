@@ -5,6 +5,24 @@ use crate::ide::{native::chrome, native_model_plots::PlotStyle, native_tools::Pa
 use ppl_graphics::Grob;
 const ZOOM: [&str; 6] = ["In", "Out", "Auto Scale", "Decimal", "Integer", "Trig"];
 impl NativeTools {
+    fn stem_bounds(&self) -> Option<(usize, i64)> {
+        let value = self.memory.models.results.get("Statistics 1Var:plot")?;
+        let labels = value.get("labels")?.as_array()?;
+        if labels.is_empty()
+            || !labels
+                .iter()
+                .all(|label| label.as_str().is_some_and(|s| s.contains(" StemLeaf ")))
+        {
+            return None;
+        }
+        let width = labels
+            .iter()
+            .filter_map(|v| v.as_str())
+            .map(|s| s.chars().count() as i64 * 9)
+            .max()
+            .unwrap_or(0);
+        Some((labels.len(), width))
+    }
     pub fn statistics_plot_x(&self) -> f64 {
         self.trace
             .current(&self.trace_samples())
@@ -115,6 +133,20 @@ impl NativeTools {
             self.dirty();
             return true;
         }
+        if self.memory.selected_app == "Statistics 1Var" {
+            if let Some((rows, width)) = self.stem_bounds() {
+                let (vertical, horizontal) = match action {
+                    A::History(delta) => (i64::from(delta), 0),
+                    A::Edit(E::Left(_)) => (0, -40),
+                    A::Edit(E::Right(_)) => (0, 40),
+                    _ => return false,
+                };
+                self.statistics_panel
+                    .scroll_stem(vertical, horizontal, rows, width);
+                self.dirty();
+                return true;
+            }
+        }
         false
     }
     pub(crate) fn show_statistics_plot(
@@ -160,6 +192,38 @@ impl NativeTools {
             .or_else(|| self.statistics_panel.equation.clone());
         let mut image = Grob::new(320, 240, 0xffffff);
         image.fill_rect(0, 220, 319, 239, 0xe8f1f6);
+        let stem_leaf = data.as_ref().is_some_and(|d| {
+            !d.labels.is_empty() && d.labels.iter().all(|s| s.contains(" StemLeaf "))
+        });
+        if stem_leaf {
+            if let Some(data) = &data {
+                self.statistics_panel.scroll_stem(
+                    0,
+                    0,
+                    data.labels.len(),
+                    data.labels
+                        .iter()
+                        .map(|s| s.chars().count() as i64 * 9)
+                        .max()
+                        .unwrap_or(0),
+                );
+                for (row, label) in data
+                    .labels
+                    .iter()
+                    .skip(self.statistics_panel.stem_first)
+                    .take(12)
+                    .enumerate()
+                {
+                    text(
+                        &mut image,
+                        &label.replace("StemLeaf ", ""),
+                        4 - self.statistics_panel.stem_x,
+                        4 + row as i64 * 17,
+                    );
+                }
+            }
+        }
+
         if let Some(source) = &equation {
             let layout = crate::ide::native::math_layout::expression(source, 17.);
             let mut body = Grob::new(320, 220, 0xffffff);
@@ -203,6 +267,9 @@ impl NativeTools {
                     222,
                 );
             }
+        }
+        if stem_leaf && equation.is_none() {
+            chrome::softkeys(&mut image, &["Up", "Down", "PgUp", "PgDn", "Left", "Right"]);
         }
         if let Some(index) = self.statistics_panel.plot_zoom {
             image.rect(0, 89, 150, 219, 0, 0xffffff);
@@ -250,7 +317,7 @@ impl NativeTools {
                     egui::Color32::WHITE,
                 );
                 if equation.is_none() {
-                    if let Some(data) = &data {
+                    if let Some(data) = data.as_ref().filter(|_| !stem_leaf) {
                         let visible = self.memory.statistics_fit_visible[usize::from(two)];
                         let curves = data
                             .curves
@@ -296,7 +363,7 @@ impl NativeTools {
                         if interaction.drag_stopped {
                             self.plot(snapshot.clone());
                         }
-                    } else {
+                    } else if !stem_leaf {
                         ui.painter().text(
                             lcd.min + egui::vec2(5. * scale, 10. * scale),
                             egui::Align2::LEFT_TOP,
@@ -347,6 +414,19 @@ impl NativeTools {
                             self.statistics_panel.equation = None;
                             self.statistics_panel.plot_equation = None;
                         }
+                    } else if stem_leaf {
+                        if let Some((rows, width)) = self.stem_bounds() {
+                            let (vertical, horizontal) = match key {
+                                0 => (-1, 0),
+                                1 => (1, 0),
+                                2 => (-12, 0),
+                                3 => (12, 0),
+                                4 => (0, -40),
+                                _ => (0, 40),
+                            };
+                            self.statistics_panel
+                                .scroll_stem(vertical, horizontal, rows, width);
+                        }
                     } else if key == 5 {
                         self.statistics_panel.plot_controls = !self.statistics_panel.plot_controls;
                     } else if self.statistics_panel.plot_controls {
@@ -375,5 +455,21 @@ impl NativeTools {
                     ctx.request_repaint();
                 }
             });
+    }
+}
+
+#[cfg(test)]
+mod stem_tests {
+    #[test]
+    fn stem_table_pages_and_horizontal_scroll_are_bounded_after_data_changes() {
+        let mut panel = super::super::Panel::default();
+        panel.scroll_stem(12, 40, 40, 800);
+        assert_eq!((panel.stem_first, panel.stem_x), (12, 40));
+        panel.scroll_stem(1000, 1000, 40, 800);
+        assert_eq!((panel.stem_first, panel.stem_x), (28, 490));
+        panel.scroll_stem(0, 0, 5, 100);
+        assert_eq!((panel.stem_first, panel.stem_x), (0, 0));
+        panel.scroll_stem(-100, -100, 40, 800);
+        assert_eq!((panel.stem_first, panel.stem_x), (0, 0));
     }
 }

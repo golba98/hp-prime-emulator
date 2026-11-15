@@ -943,6 +943,7 @@ impl NativeTools {
                 );
             }
             Page::Help => {
+                self.help_panel.show(ui, &mut self.memory);
                 ui.label("Arrow keys edit; Shift selects. Alpha enters letters. ON interrupts. Apps share Plot and Numeric definitions.");
                 ui.add(
                     egui::TextEdit::singleline(&mut self.memory.help_query)

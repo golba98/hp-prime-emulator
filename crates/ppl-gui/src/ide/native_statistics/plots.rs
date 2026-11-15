@@ -7,16 +7,88 @@ pub fn one(
     spec: Option<HistogramSpec>,
     cancel: &AtomicBool,
 ) -> Result<PlotData, String> {
+    one_with(book, spec, cancel, |index| book.model(index))
+}
+/// Evaluate definition expressions in the same pinned app memory used by the
+/// worker. Scalar frequency expressions apply to every observation.
+pub fn one_in(
+    book: &OneBook,
+    spec: Option<HistogramSpec>,
+    snapshot: &ppl_vm::SessionSnapshot,
+    cancel: std::sync::Arc<AtomicBool>,
+) -> Result<PlotData, String> {
+    one_with(book, spec, &cancel, |index| {
+        let data =
+            super::one_data::Data::evaluate(&book.analyses[index], snapshot, cancel.clone())?;
+        let observations = data
+            .values
+            .iter()
+            .zip(data.weights)
+            .filter(|(_, weight)| *weight > 0)
+            .map(|(x, weight)| {
+                let n = x.to_f64();
+                if !n.is_finite() || (!x.is_zero() && n == 0.) {
+                    Err("Statistics plot value exceeds numerical range".to_owned())
+                } else {
+                    Ok((n, weight))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let (samples, frequencies) = observations.into_iter().unzip();
+        Ok(super::Statistics1 {
+            samples,
+            frequencies,
+        })
+    })
+}
+fn one_with(
+    book: &OneBook,
+    spec: Option<HistogramSpec>,
+    cancel: &AtomicBool,
+    model: impl Fn(usize) -> Result<super::Statistics1, String>,
+) -> Result<PlotData, String> {
     book.validate()?;
+    let enabled = book
+        .analyses
+        .iter()
+        .filter(|a| a.enabled)
+        .collect::<Vec<_>>();
+    if enabled
+        .iter()
+        .any(|a| a.chart == super::one::Chart::StemLeaf)
+        && enabled
+            .iter()
+            .any(|a| a.chart != super::one::Chart::StemLeaf)
+    {
+        return Err("Display stem and leaf separately from graphical charts".into());
+    }
     let mut result = PlotData::new("Value", "Frequency");
     for (index, _) in book.analyses.iter().enumerate().filter(|(_, a)| a.enabled) {
         check(cancel)?;
-        let model = book.model(index)?;
-        let data = if let Some(spec) = spec {
+        let model = model(index)?;
+        let data = if book.analyses[index].chart != super::one::Chart::Histogram {
+            super::charts::render(
+                &model,
+                book.analyses[index].chart,
+                book.analyses[index].option,
+                cancel,
+            )?
+        } else if let Some(spec) = spec {
             plots::histogram(&model, &spec, cancel)?
         } else {
             plots::histogram_auto(&model, cancel)?
         };
+        if result.curves.is_empty() {
+            result.x_label = data.x_label.clone();
+            result.y_label = data.y_label.clone();
+        } else {
+            if result.x_label != data.x_label {
+                result.x_label = "Mixed chart coordinates".into();
+            }
+            if result.y_label != data.y_label {
+                result.y_label = "Mixed chart coordinates".into();
+            }
+        }
         for ((label, style), curve) in data.labels.into_iter().zip(data.styles).zip(data.curves) {
             result.push(format!("H{} {label}", index + 1), style, curve)?;
         }
@@ -78,7 +150,9 @@ pub fn two(
             check(cancel)?;
             let x = min + (max - min) * sample as f64 / 256.;
             let pole = fit.kind == crate::ide::native_regression::FitKind::Inverse
-                && previous.is_some_and(|p| p * x < 0.);
+                && previous.is_some_and(|p| {
+                    p != 0. && x != 0. && p.is_sign_negative() != x.is_sign_negative()
+                });
             if pole && !line.is_empty() {
                 result.push(&label, PlotStyle::Line, std::mem::take(&mut line))?;
             }
@@ -108,6 +182,40 @@ mod tests {
         native_regression::FitKind,
         native_statistics::{OneAnalysis, TwoAnalysis},
     };
+    #[test]
+    fn zero_frequency_extreme_values_do_not_break_projection_or_axis_labels() {
+        let mut book = OneBook::default();
+        book.analyses[0].data_source = Some("{1,1E400}".into());
+        book.analyses[0].frequency_source = Some("{1,0}".into());
+        book.analyses[0].chart = super::super::one::Chart::Dot;
+        let plot = one_in(
+            &book,
+            None,
+            &ppl_vm::SessionContext::default().snapshot(),
+            std::sync::Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        assert_eq!(plot.curves[0], vec![[1., 1.]]);
+        assert_eq!(
+            (plot.x_label.as_str(), plot.y_label.as_str()),
+            ("Value", "Count")
+        );
+    }
+    #[test]
+    fn plot_uses_live_definition_expressions_and_scalar_frequency() {
+        let mut book = OneBook::default();
+        book.analyses[0].data_source = Some("{1+3,2+3}".into());
+        book.analyses[0].frequency_source = Some("2".into());
+        book.analyses[0].chart = super::super::one::Chart::Dot;
+        let plot = one_in(
+            &book,
+            None,
+            &ppl_vm::SessionContext::default().snapshot(),
+            std::sync::Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        assert_eq!(plot.curves[0], vec![[4., 1.], [4., 2.], [5., 1.], [5., 2.]]);
+    }
     #[test]
     fn selected_histograms_use_their_own_data_and_frequency_columns() {
         let mut book = OneBook::default();

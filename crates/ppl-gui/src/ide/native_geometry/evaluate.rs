@@ -381,40 +381,52 @@ impl Evaluator<'_> {
                 let p = self.pt(&args[1], source)?;
                 Ok(Shape::Point(g::project(p, a, b)?))
             }
+            "translation" => {
+                arity(2)?;
+                let vector = self.pt(&args[0], source)?;
+                let object = self.value(&args[1], source)?;
+                g::transform(object, 1., |p| {
+                    point(Point2 {
+                        x: p.x + vector.x,
+                        y: p.y + vector.y,
+                    })
+                })
+            }
             "reflection" => {
                 arity(2)?;
                 let axis = self.value(&args[0], source)?;
-                let p = self.pt(&args[1], source)?;
-                let p = match axis {
-                    Shape::Line { a, b, .. } => g::reflect(p, a, b)?,
+                let object = self.value(&args[1], source)?;
+                match axis {
+                    Shape::Line { a, b, .. } => g::transform(object, 1., |p| g::reflect(p, a, b)),
                     center => {
                         let c = as_point(center)?;
-                        point(Point2 {
-                            x: 2. * c.x - p.x,
-                            y: 2. * c.y - p.y,
-                        })?
+                        g::transform(object, 1., |p| {
+                            point(Point2 {
+                                x: 2. * c.x - p.x,
+                                y: 2. * c.y - p.y,
+                            })
+                        })
                     }
-                };
-                Ok(Shape::Point(p))
+                }
             }
             "rotation" => {
                 arity(3)?;
                 let center = self.pt(&args[0], source)?;
-                let angle = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(
-                    p.rotate(center, angle * 360. / self.angle_turn())?,
-                ))
+                let angle = self.real(&args[1], source)? * 360. / self.angle_turn();
+                let object = self.value(&args[2], source)?;
+                g::transform(object, 1., |p| p.rotate(center, angle))
             }
             "homothety" => {
                 arity(3)?;
                 let c = self.pt(&args[0], source)?;
                 let k = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(point(Point2 {
-                    x: c.x + k * (p.x - c.x),
-                    y: c.y + k * (p.y - c.y),
-                })?))
+                let object = self.value(&args[2], source)?;
+                g::transform(object, k, |p| {
+                    point(Point2 {
+                        x: c.x + k * (p.x - c.x),
+                        y: c.y + k * (p.y - c.y),
+                    })
+                })
             }
             _ => self.numeric(e, source),
         }
@@ -558,6 +570,7 @@ fn known(name: &str) -> bool {
             | "reflection"
             | "rotation"
             | "homothety"
+            | "translation"
     )
 }
 fn scalar(n: f64) -> Result<Shape, String> {

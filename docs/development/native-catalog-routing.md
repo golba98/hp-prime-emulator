@@ -54,6 +54,26 @@ Program output remains visible until dismissed. Escape returns to the originatin
 Programs page, and interruption restores that page immediately. A cancelled
 argument form is recorded as cancelled, without a fabricated program result.
 
+## Installed Help and the Native command catalog
+
+The Help page can browse a separately installed original Help book through
+`ppl-engine::help`, selected with `PPL_PRIME_HELP_RESOURCE` (or the existing
+font/factory resource configuration). No original documentation is bundled or
+downloaded. The optional book loads outside the UI thread, one load at a time;
+changing language discards the old language before presenting the new result.
+All eight decoder languages are selectable. Unicode title search retains topic
+IDs, so identically named topics from different apps stay separately selectable.
+The profile remembers language and selected topic identity. Reload retries the
+configured resource without restarting the IDE.
+
+Original topic spans and category/mode metadata appear separately from the
+Native command support and insertion controls. An absent book preserves the
+Native catalog; an unreadable or malformed configured book produces a visible
+error rather than silently substituting documentation. The topic list is
+virtualized. Original formatting codes are currently displayed as text; exact
+original markup and embedded mathematical layout are not implemented. A Help
+entry is never a claim that its command executes in the Native backend.
+
 ## Verification
 
 `app_catalog_tests.rs` drives real egui button shapes and pointer events, the

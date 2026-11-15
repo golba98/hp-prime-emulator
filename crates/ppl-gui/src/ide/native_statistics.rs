@@ -11,6 +11,7 @@ use std::{
     collections::BTreeMap,
     sync::atomic::{AtomicBool, Ordering},
 };
+mod charts;
 pub mod evaluation;
 pub mod one;
 pub mod one_data;
