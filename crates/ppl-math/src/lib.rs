@@ -9,13 +9,23 @@
 // traits are intentionally not used for binary operations.
 #![allow(clippy::should_implement_trait)]
 
+mod angle;
 mod complex;
+mod display;
 mod int;
+mod policy;
 mod real;
+mod sexagesimal;
 
-pub use complex::Complex;
+pub use angle::AngleMode;
+pub use complex::{Complex, ComplexPresentation};
+pub use display::{ComplexFormat, DigitGrouping};
 pub use int::{DEFAULT_BITS, HpInt, IntBase};
-pub use real::{DIGITS, FormatOptions, MAX_EXP10, MIN_EXP10, NumFormat, Real};
+pub use policy::{OverflowPolicy, overflow_result, with_overflow_policy};
+pub use real::{
+    DIGITS, FormatOptions, MAX_EXP10, MIN_EXP10, NumFormat, NumericVersion, Real, RealOrigin,
+    RealPresentation,
+};
 
 /// Numeric failures, mapped to PPL runtime errors by the VM.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

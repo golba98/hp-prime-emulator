@@ -1,0 +1,138 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_service_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Function"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_service_reopened.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "type",
+      "text": "{F1(2),F2(2),X}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_function"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_service_reopened_function.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "type",
+      "text": "{Spreadsheet.F1,Spreadsheet.F1(2),Function.F1(2)}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_sheet"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_service_reopened_sheet.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

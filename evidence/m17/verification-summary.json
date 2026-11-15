@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "milestone": "M17",
+  "branch": "feat/g1-usability-overhaul",
+  "base_checkpoint": "7e33a62",
+  "tested_source_checkpoint": "ebfe0f962060c35f857a1c766b6a929f302ca861",
+  "final_production_helper_sha256": "68744637ff033ec44a448d4616e7c7ff80ffe66966e86c2076efd94e4fe29e70",
+  "workspace": {
+    "passed": 1853,
+    "failed": 0,
+    "ignored": 6,
+    "parallel": true,
+    "log": "artifacts/m17/workspace-optimized-dev.log"
+  },
+  "formatting": {
+    "passed": true,
+    "log": "artifacts/m17/fmt-optimized-dev.log"
+  },
+  "clippy": {
+    "passed": true,
+    "warnings_denied": true,
+    "all_targets": true,
+    "log": "artifacts/m17/clippy-optimized-dev.log"
+  },
+  "gui": {
+    "passed": 127,
+    "failed": 0,
+    "firmware_15751": 101,
+    "calculator_only_15157": 11,
+    "native_linked": 15,
+    "artifacts": [
+      "artifacts/m17/gui-power",
+      "artifacts/m17/gui15157-power",
+      "artifacts/m17/native-gui-power"
+    ],
+    "screenshots_visually_inspected": true
+  },
+  "configured_release": {
+    "passed": 19,
+    "failed": 0,
+    "logs": [
+      "artifacts/m17/firmware-power-final.log",
+      "artifacts/m17/stateful-power-final.log",
+      "artifacts/m17/checkpoints-power-final.log",
+      "artifacts/m17/m17-power-final.log"
+    ]
+  },
+  "differential": {
+    "genuine_running_firmware": true,
+    "assertions": 51,
+    "initialization": 12,
+    "linkage": 22,
+    "typed_values": 17,
+    "artifacts": "artifacts/m17/automated-power-final"
+  },
+  "debug_recovery": {
+    "final_passed": true,
+    "seconds": 71.91,
+    "log": "artifacts/m17/debug-post-cas-optimized-root.log",
+    "earlier_failures_preserved": true,
+    "strict_busy_admission_may_still_refuse": true
+  },
+  "python_tooling": {
+    "passed": 25,
+    "failed": 0,
+    "log": "artifacts/m17/python-final-controls.log"
+  },
+  "snapshot_components": {
+    "tests_passed": 12,
+    "fresh_processes_verified": true,
+    "vfs_reopen_cycles": 32,
+    "descriptor_counts_stable": true,
+    "live_calculator_resume": false
+  },
+  "power_controls": {
+    "all_four_modes_saved": true,
+    "wake_and_normal_off_verified": true,
+    "alpha_lock_preserved": true,
+    "seconds": {
+      "neutral": 1.0491213139994215,
+      "shift": 0.8888438619997032,
+      "alpha": 1.1108353449999413,
+      "alpha_lock": 1.0558866749997833
+    },
+    "artifacts": "artifacts/m17/power-controls-root"
+  },
+  "historical_physical_replay": {
+    "cases": 77,
+    "exact": 68,
+    "partial": 4,
+    "transcription": 5,
+    "mismatches": 0,
+    "firmware_build": 15157,
+    "artifacts": "artifacts/m17/parity-complete"
+  },
+  "native_historical_leg": {
+    "exact": 49,
+    "transcription": 4,
+    "missing": 24
+  },
+  "research": {
+    "machine": "hp-prime",
+    "cpu": "ARM926",
+    "self_authored_arm_executed": true,
+    "entry": "0x30000000",
+    "single_step": "0x30000004",
+    "halt": "0x3000005c",
+    "mailbox": "0x600d0001",
+    "ram_alias_values": [
+      "0x12345678",
+      "0x12345678",
+      "0x12345678",
+      "0x12345678"
+    ],
+    "intc_reset_and_fiq_cycles_each": 3,
+    "qtest_cpu_input_checks_are_not_guest_interrupt_handlers": true,
+    "real_kernel_boot": false,
+    "full_system_ppl_backend": false,
+    "evidence": [
+      "research/full-system/evidence/m17-smoke.json",
+      "research/full-system/evidence/m17-intc.json"
+    ]
+  },
+  "verification_categories": {
+    "native_only": true,
+    "hle_verified": true,
+    "firmware_versus_native": true,
+    "historical_physical_replay": true,
+    "newly_physical_verified": 0,
+    "untested": [
+      "live calculator CPU restoration",
+      "real kernel boot",
+      "new physical-device observations",
+      "simultaneous FIQ priority",
+      "linked multi-source debugger navigation"
+    ]
+  },
+  "production_benchmarks": {
+    "paired_trials": 5,
+    "workloads": 13,
+    "verified_results": 130,
+    "maximum_median_change_percent": 2.6899540002915057,
+    "summary": "evidence/m17/benchmark-summary.json"
+  },
+  "external_actions": {
+    "pushed": false,
+    "published": false,
+    "physical_device_writes": false,
+    "proprietary_firmware_modified": false
+  }
+}

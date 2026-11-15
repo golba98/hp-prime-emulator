@@ -1,0 +1,84 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_numeric_exact_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Function"
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_tiny"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_exact_reopened_tiny.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_tiny_setup"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_exact_reopened_tiny_setup.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

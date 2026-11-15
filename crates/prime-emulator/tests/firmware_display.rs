@@ -62,15 +62,32 @@ fn copy_tree(src: &Path, dst: &Path) {
     }
 }
 
+fn evidence_directory(prefix: &str) -> tempfile::TempDir {
+    let mut directory = if let Some(root) = std::env::var_os("PRIME_TEST_EVIDENCE_DIR") {
+        std::fs::create_dir_all(&root).unwrap();
+        tempfile::Builder::new()
+            .prefix(prefix)
+            .tempdir_in(root)
+            .unwrap()
+    } else {
+        tempfile::tempdir().unwrap()
+    };
+    if std::env::var_os("PRIME_TEST_EVIDENCE_DIR").is_some() {
+        directory.disable_cleanup(true);
+        eprintln!("factory display evidence: {}", directory.path().display());
+    }
+    directory
+}
+
 /// Boots the firmware on a fresh copy of the factory tree and runs `keys`.
 fn run_script(env: &Env, keys: &str, lcd_watch: bool) -> (Outcome, RunReport, tempfile::TempDir) {
-    let tmp = tempfile::tempdir().unwrap();
+    let tmp = evidence_directory("factory-display-");
     copy_tree(&env.factory_a, &tmp.path().join("data/A"));
     let cfg = RunConfig {
         firmware_path: env.firmware.clone(),
         os_rom_path: env.os_rom.clone(),
         data_dir: tmp.path().join("data"),
-        on_unsupported: UnsupportedPolicy::ZeroReturn,
+        on_unsupported: UnsupportedPolicy::Stop,
         max_instructions: 4_000_000_000,
         max_seconds: 300.0,
         script: Some(ScriptConfig {
@@ -84,6 +101,11 @@ fn run_script(env: &Env, keys: &str, lcd_watch: bool) -> (Outcome, RunReport, te
         ..RunConfig::default()
     };
     let summary = runner::run(&cfg).expect("run produces a report");
+    std::fs::write(
+        tmp.path().join("report.json"),
+        serde_json::to_vec_pretty(&summary.report).unwrap(),
+    )
+    .unwrap();
     (summary.outcome, summary.report, tmp)
 }
 
@@ -134,7 +156,10 @@ fn m4b_a_digit_key_draws_on_the_home_edit_line() {
     // edit line, drawn by firmware code.
     assert_eq!(two.code, 0x5A);
     assert!(two.delivered_ms.is_some());
-    assert_eq!(two.delivered_to_thread, 1, "the UI pump (guest thread 1)");
+    let heartbeat = r.heartbeat.as_ref().expect("observed firmware input pump");
+    assert_eq!(two.delivered_to_thread, heartbeat.thread_id);
+    assert!(in_firmware(heartbeat.caller_pc));
+    assert!(heartbeat.events_delivered > 0 && heartbeat.pump_reentries > 0);
     let [x0, y0, x1, y1] = two.stable_change.bbox.expect("a lasting change");
     assert!(two.stable_change.changed > 20, "{two:?}");
     assert!(
@@ -151,7 +176,7 @@ fn m4b_a_digit_key_draws_on_the_home_edit_line() {
 #[test]
 fn m4c_two_plus_two_is_four_on_the_firmware() {
     let Some(env) = env() else { return };
-    let out = tempfile::tempdir().unwrap();
+    let out = evidence_directory("factory-calculation-");
     let cfg = CalcVerifyConfig {
         firmware_path: env.firmware.clone(),
         os_rom_path: env.os_rom.clone(),
@@ -241,5 +266,15 @@ fn key_codes_match_the_firmwares_own_table() {
     for &(name, idx) in expected {
         let code = KEYS.iter().find(|k| k.0 == name).unwrap().1;
         assert_eq!(index_of(code), idx, "{name} ({code:#06X})");
+    }
+    for (physical, device) in ppl_engine::session::PHYSICAL_DEVICE_CODES
+        .iter()
+        .enumerate()
+    {
+        assert_eq!(
+            index_of(*device),
+            physical as i8,
+            "managed PPL key{physical} device{device:#06X} must follow the original firmware map"
+        );
     }
 }

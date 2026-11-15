@@ -1,7 +1,9 @@
 //! The PPL virtual machine: values, execution, built-in commands and the
 //! host interface.
 
+mod app_numeric;
 pub mod builtins;
+pub mod cas;
 pub mod collections;
 pub mod error;
 pub mod host;
@@ -10,8 +12,10 @@ pub mod ops;
 pub mod rng;
 pub mod session;
 pub mod settings;
+mod statistics_columns;
 pub mod value;
 
+pub use app_numeric::AppNumericSettings;
 pub use error::{ErrorKind, ResourceKind, RtResult, RuntimeError};
 pub use host::{
     Dialog, DialogResult, DisplayMode, HeadlessHost, Host, ScriptEvent, ScriptedInput,
@@ -19,5 +23,8 @@ pub use host::{
 };
 pub use machine::{DebugAction, Debugger, Limits, Machine, eval_text_with};
 pub use session::{PortableValue, SessionContext, SessionRun, SessionSnapshot, SourceIdentity};
-pub use settings::{AngleMode, Settings};
+pub use settings::{AngleMode, AppSettings, Settings, StringFormatVersion};
 pub use value::Value;
+
+pub mod linker;
+pub use linker::{LinkedProgram, ModuleSource, link_sources, link_sources_with_base};

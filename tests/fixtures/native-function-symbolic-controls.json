@@ -1,0 +1,135 @@
+{
+  "provenance": "Isolated original virtual G1 firmware screens captured for this change; no physical verification and no vendor pixels/font/firmware bytes bundled.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "guide_pages": [
+    72,
+    73,
+    74,
+    75,
+    76,
+    109
+  ],
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "operation": "Function Symbolic View",
+      "capture": "01-symbolic.png",
+      "png_sha256": "55538c633cf7d27a2d06dde20b319148346308699551c0eb645896093721384d",
+      "rows_visible": 7,
+      "fields": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+        "F8",
+        "F9",
+        "F0"
+      ],
+      "row_pitch": 26,
+      "paper": 15266294,
+      "selected_fill": 11390207,
+      "first_expression": [
+        77,
+        21,
+        314,
+        44
+      ],
+      "first_checkbox": [
+        1,
+        26,
+        14,
+        38
+      ],
+      "first_color": [
+        17,
+        23,
+        35,
+        41
+      ],
+      "softkeys": [
+        "Edit",
+        "\u221a",
+        "X",
+        "",
+        "Show",
+        "Eval"
+      ]
+    },
+    {
+      "operation": "inline Edit",
+      "capture": "03-draft.png",
+      "png_sha256": "bf4ebcf9910997c72cfd2454f19f57d9ac0a8083029243ac9848514fd52bfb1c",
+      "typed_source": "X^2+1",
+      "display": "X\u00b2+1",
+      "softkeys": [
+        "",
+        "F",
+        "X",
+        "",
+        "Cancel",
+        "OK"
+      ]
+    },
+    {
+      "operation": "commit",
+      "capture": "04-committed.png",
+      "png_sha256": "2bea2719b11c28f6a7dce2e2c552a1cb1581ecfb812e5a31d4a49c680a77244f",
+      "result": "Definition is enabled and next field selected"
+    },
+    {
+      "operation": "Show",
+      "capture": "01-show.png",
+      "png_sha256": "0b90962d905e2af0171a8c296924f3e3db424979a09cfc7bf3212286efcffc72",
+      "result": "Full white screen with centered expression and final OK softkey"
+    },
+    {
+      "operation": "dependent definition Eval",
+      "before_capture": "02-dependent.png",
+      "before_png_sha256": "9d0c8988507a66d150217b869863938fc16cb1ba6e0caf0220ccf9aabf6da14e",
+      "after_capture": "03-eval.png",
+      "after_png_sha256": "403a9e08e785fc6fa6ecbe5b06a6d7146587d2001c92a51ebb835de8a023fd2d",
+      "definitions": {
+        "F1": "X^2+1",
+        "F2": "F1(X)+2"
+      },
+      "before_display": "F1(X)+2",
+      "after_display": "X\u00b2+1+2",
+      "note": "Rendered expression observation, not extracted raw internal source bytes; dependent reference is expanded without combining 1+2."
+    },
+    {
+      "operation": "color focus and picker",
+      "capture": "05-color-picker.png",
+      "png_sha256": "f4b49e5f8475f82c72860c5b7e0093f2745a484193e1d1b59b90dd3b3b7e476a",
+      "result": "Color focus changes Edit to Choose; Choose opens basic palette and custom-color tile"
+    },
+    {
+      "operation": "editing unchecked definition",
+      "unchecked_capture": "01-unchecked.png",
+      "unchecked_png_sha256": "2e5cdb7c6328e68259ee5722e447578fa7408be3ad0cacbe2677b9c89e773d5b",
+      "edited_capture": "03-edited.png",
+      "edited_png_sha256": "653cb97748e27299ebbc1d7509a9c03325634868f6c5ebaa308e37fac691e111",
+      "typed_source": "X+5",
+      "result": "Edited definition is enabled again and selection advances"
+    }
+  ],
+  "tests": [
+    "tests/ide_xvfb_smoke/scripts/script_native_side_function_symbolic.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_function_symbolic_reopen.json",
+    "tests/ide_xvfb_smoke/assert_native_function_symbolic.py"
+  ],
+  "limits": [
+    "Measured Symbolic screen currently applies to Function; other graph-app Symbolic screens remain simpler layouts.",
+    "Native offers eight basic graph colors; the original custom-color dialog is not implemented.",
+    "Native may retain additional parentheses during dependent definition expansion.",
+    "Definition references are bound in graph sampling and numeric tables; Home/PPL app-function binding is not established by this fixture.",
+    "Other Function Numeric/Plot/setup screen layouts and full plot analysis tools remain unfinished."
+  ]
+}

@@ -26,6 +26,40 @@ pub enum Angle {
     Grad,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum StringVersion {
+    #[value(name = "15157")]
+    Legacy15157,
+    #[default]
+    #[value(name = "15751")]
+    Current15751,
+}
+impl StringVersion {
+    fn setting(self) -> ppl_vm::StringFormatVersion {
+        match self {
+            Self::Legacy15157 => ppl_vm::StringFormatVersion::Legacy15157,
+            Self::Current15751 => ppl_vm::StringFormatVersion::Current15751,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+pub enum NumberVersion {
+    #[default]
+    #[value(name = "15157")]
+    Legacy15157,
+    #[value(name = "15751")]
+    Current15751,
+}
+impl NumberVersion {
+    fn setting(self) -> ppl_math::NumericVersion {
+        match self {
+            Self::Legacy15157 => ppl_math::NumericVersion::Legacy15157,
+            Self::Current15751 => ppl_math::NumericVersion::Current15751,
+        }
+    }
+}
+
 /// Options shared by `run`, `gui`, `debug` and `compare`.
 #[derive(Args, Debug, Clone)]
 pub struct RunOpts {
@@ -71,6 +105,12 @@ pub struct RunOpts {
     /// Native engine: initial angle mode (HAngle).
     #[arg(long, value_enum, default_value_t = Angle::Rad)]
     pub angle: Angle,
+    /// Native STRING fraction-format version (does not change BCD arithmetic).
+    #[arg(long, value_enum, default_value_t = StringVersion::Current15751)]
+    pub string_format_version: StringVersion,
+    /// Native numeric model: legacy12-digit BCD or build15751 exact reals.
+    #[arg(long, value_enum, default_value_t = NumberVersion::Legacy15157)]
+    pub numeric_version: NumberVersion,
     /// Native engine: seed for RANDOM/RANDINT.
     #[arg(long, default_value_t = 0x5EED)]
     pub seed: u64,
@@ -85,6 +125,8 @@ pub struct RunOpts {
 impl RunOpts {
     pub fn settings(&self) -> Settings {
         Settings {
+            numeric_version: self.numeric_version.setting(),
+            string_format_version: self.string_format_version.setting(),
             angle: match self.angle {
                 Angle::Rad => AngleMode::Radians,
                 Angle::Deg => AngleMode::Degrees,
@@ -207,17 +249,40 @@ pub fn run(o: RunOpts) -> u8 {
             return exit::USAGE;
         }
     };
+    let fonts = match ppl_engine::fonts::configured() {
+        Ok(fonts) => fonts,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return exit::IO;
+        }
+    };
     let mut m = Machine::new(prog, Box::new(host), settings, o.limits());
     m.set_seed(o.seed);
     let t0 = Instant::now();
-    let result = m.call_function(&entry, args);
+    let draw = || {
+        let result = m.call_function(&entry, args);
+        let image = o.png.as_ref().map(|_| {
+            if m.display_mode() == DisplayMode::Terminal {
+                render_terminal(&m.terminal)
+            } else {
+                m.screen().clone()
+            }
+        });
+        (result, image)
+    };
+    let rendered = match fonts {
+        Some(fonts) => ppl_graphics::text::with_prime_fonts(fonts, draw),
+        None => Ok(draw()),
+    };
+    let (result, image) = match rendered {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return exit::IO;
+        }
+    };
     let elapsed = t0.elapsed();
-    if let Some(path) = &o.png {
-        let img = if m.display_mode() == DisplayMode::Terminal {
-            render_terminal(&m.terminal)
-        } else {
-            m.screen().clone()
-        };
+    if let (Some(path), Some(img)) = (&o.png, image) {
         if let Err(e) = img.save_png(path) {
             eprintln!("error: cannot write {}: {e}", path.display());
             return exit::IO;

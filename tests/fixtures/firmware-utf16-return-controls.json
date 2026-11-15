@@ -1,0 +1,71 @@
+{
+  "provenance": "Self-authored CHAR returns executed in disposable original G1 profiles. Expected units independently checked by genuine ASC and DIM programs; only source and value data, no opaque guest bytes or physical hardware.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "projection_source": "EXPORT UPROJ() BEGIN RETURN {ASC(CHAR(55296)),ASC(CHAR(56320)),ASC(CHAR({65,0,66})),DIM(CHAR({65,0,66})),ASC(CHAR({65,55296,66}))}; END;",
+  "projection_result": "G1 firmware returned {{55296}, {56320}, {65, 0, 66}, 3, {65, 55296, 66}}",
+  "cases": [
+    {
+      "name": "high",
+      "source": "EXPORT UHIGH() BEGIN RETURN CHAR(55296); END;",
+      "source_sha256": "9a2e622e1b3f1451629ee26f80d4acb61efe1505ab5848e8b0c6c4081b59b0cb",
+      "expected": {
+        "type": "utf16",
+        "value": [
+          55296
+        ]
+      },
+      "entry": "UHIGH"
+    },
+    {
+      "name": "low",
+      "source": "EXPORT ULOW() BEGIN RETURN CHAR(56320); END;",
+      "source_sha256": "f9bacfd8306d019a16ae6ad1c205ad21ebf38957da900b57e13cf02e95792183",
+      "expected": {
+        "type": "utf16",
+        "value": [
+          56320
+        ]
+      },
+      "entry": "ULOW"
+    },
+    {
+      "name": "nul",
+      "source": "EXPORT UNUL() BEGIN RETURN CHAR({65,0,66}); END;",
+      "source_sha256": "313d733daf9ce4ea23c910444da4aad58c838bc11442ce6c8ad2e372fe322c2f",
+      "expected": {
+        "type": "string",
+        "value": "A\u0000B"
+      },
+      "entry": "UNUL"
+    },
+    {
+      "name": "mixed",
+      "source": "EXPORT UMIXED() BEGIN RETURN {CHAR({65,55296,66}),CHAR({55357,56832}),CHAR(56320)}; END;",
+      "source_sha256": "55d84f5c56ae62a5e907e4fbb7d37f8673b5b2903e566adb0bc5dd85a508ae9c",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "utf16",
+            "value": [
+              65,
+              55296,
+              66
+            ]
+          },
+          {
+            "type": "string",
+            "value": "😀"
+          },
+          {
+            "type": "utf16",
+            "value": [
+              56320
+            ]
+          }
+        ]
+      },
+      "entry": "UMIXED"
+    }
+  ]
+}

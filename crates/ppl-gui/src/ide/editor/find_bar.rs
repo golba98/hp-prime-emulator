@@ -164,6 +164,12 @@ impl FindBar {
 
     /// Executes `cmd` on `tab`.
     pub fn run(&mut self, ctx: &egui::Context, tab: &mut EditorTab, cmd: FindCommand) {
+        if tab.debug_source.is_some()
+            && matches!(cmd, FindCommand::Replace | FindCommand::ReplaceAll)
+        {
+            self.status = "Debug source snapshots are read-only".into();
+            return;
+        }
         self.status.clear();
         let id = edit_id(tab.id);
         if cmd == FindCommand::Close {

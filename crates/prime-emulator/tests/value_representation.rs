@@ -183,13 +183,35 @@ fn fresh_firmware_captures_replay_to_exact_typed_values() {
 }
 
 #[test]
+fn managed_lists_ignore_only_the_unused_byte_and_keep_payload_admission() {
+    let mem = memory();
+    rational(&mem, 0x1100, 7);
+    for unused in 0..=255u32 {
+        list(&mem, 0x1000, &[0x1100]);
+        mem.write_u32(0x1000, (unused << 24) | 0x0016_0001).unwrap();
+        let evidence = runtime_value::decode_return(&mem, 0x1000);
+        assert_eq!(evidence.value.as_ref().unwrap().display(), "{7}");
+        let graph = evidence.representation.unwrap();
+        assert!(graph.complete && graph.coherent);
+        assert_eq!(
+            runtime_value::decode_representation(graph).value,
+            evidence.value
+        );
+        mem.write_u32(0x1008, 0xffff_fffc).unwrap();
+        assert!(runtime_value::decode_return(&mem, 0x1000).value.is_none());
+        mem.write_u32(0x1004, u32::MAX).unwrap();
+        assert!(runtime_value::decode_return(&mem, 0x1000).value.is_none());
+    }
+}
+
+#[test]
 fn unseen_subtypes_and_unknown_children_cannot_become_partial_successes() {
     let mem = memory();
     rational(&mem, 0x1100, 1);
     list(&mem, 0x1000, &[0x1100]);
-    // Subtype 0x01 is covered by the independent G1 2.4.2 controls;
-    // 0x10 remains unobserved and must fail closed.
-    mem.write_u32(0x1000, 0x1016_0001).unwrap();
+    // Managed tag16 has no byte3 subtype. An unestablished tag26/header
+    // combination must still fail closed.
+    mem.write_u32(0x1000, 0x1026_0001).unwrap();
     let value = runtime_value::decode_return(&mem, 0x1000);
     assert!(value.value.is_none());
     assert!(value.unavailable.unwrap().contains("0x10"));
@@ -240,4 +262,152 @@ fn declared_item_limit_and_mapped_rom_elements_are_supported() {
         decoded["value"][4095],
         serde_json::json!({"type":"real","value":"7"})
     );
+}
+
+#[test]
+fn utf16_strings_keep_isolated_units_nul_and_valid_pairs_but_check_the_terminator() {
+    let mem = memory();
+    let address = 0x1000;
+    for (units, expected) in [
+        (
+            vec![0xd800],
+            serde_json::json!({"type":"utf16","value":[55296]}),
+        ),
+        (
+            vec![0xdc00],
+            serde_json::json!({"type":"utf16","value":[56320]}),
+        ),
+        (
+            vec![65, 0, 66],
+            serde_json::json!({"type":"string","value":"A\u{0}B"}),
+        ),
+        (
+            vec![0xd83d, 0xde00],
+            serde_json::json!({"type":"string","value":"😀"}),
+        ),
+    ] {
+        mem.write_u32(address, 0x0012_0001).unwrap();
+        mem.write_u32(address + 4, units.len() as u32).unwrap();
+        let bytes: Vec<u8> = units
+            .iter()
+            .copied()
+            .chain([0u16])
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        mem.write_bytes(address + 8, &bytes).unwrap();
+        let evidence = runtime_value::decode_return(&mem, address);
+        assert!(evidence.unavailable.is_none(), "{:?}", evidence.unavailable);
+        assert_eq!(serde_json::to_value(evidence.value).unwrap(), expected);
+        mem.write_bytes(address + 8 + units.len() as u32 * 2, &[1, 0])
+            .unwrap();
+        assert!(
+            runtime_value::decode_return(&mem, address)
+                .unavailable
+                .unwrap()
+                .contains("terminator")
+        );
+    }
+}
+
+#[test]
+fn repeated_raw_utf16_strings_share_the_existing_capture_and_decoded_output_budget() {
+    let mem = memory();
+    list(&mem, 0x1000, &[0x10000; 200]);
+    mem.write_u32(0x10000, 0x0012_0001).unwrap();
+    mem.write_u32(0x10004, 1000).unwrap();
+    mem.write_bytes(
+        0x10008,
+        &std::iter::repeat_n([0, 0xd8], 1000)
+            .flatten()
+            .chain([0, 0])
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let evidence = runtime_value::decode_return(&mem, 0x1000);
+    assert!(evidence.representation.unwrap().complete);
+    assert!(evidence.value.is_none());
+    assert!(evidence.unavailable.unwrap().contains("decoded output"));
+}
+
+#[test]
+fn signed_width_carriers_admit_only_coherent_positive_or_sign_extended_values() {
+    // Constructed ABI-boundary inputs, independent of the actual firmware test.
+    let mem = memory();
+    for (raw, width, tag) in [
+        (255u64, -8i8, 0x91u8),
+        (u64::MAX, -8, 0x11),
+        (u64::MAX - 255, -8, 0x11),
+        (u64::MAX, -63, 0x11),
+        (u64::MAX, 64, 0x91),
+    ] {
+        mem.write_u32(
+            0x1000,
+            ((width as u8 as u32) << 24) | ((tag as u32) << 16) | 1,
+        )
+        .unwrap();
+        mem.write_u32(0x1004, 0xaabb_ccdd).unwrap();
+        mem.write_bytes(0x1008, &raw.to_le_bytes()).unwrap();
+        let decoded = runtime_value::decode_return(&mem, 0x1000);
+        assert!(
+            decoded.unavailable.is_none(),
+            "{raw}/{width}: {:?}",
+            decoded.unavailable
+        );
+        let encoded = serde_json::to_value(decoded.value.unwrap()).unwrap();
+        assert_eq!(encoded["bits"], width.unsigned_abs());
+        if width < 0 {
+            assert_eq!(encoded["signed_word"], true);
+            assert_eq!(
+                encoded["numeric"],
+                if raw == 255 {
+                    "255".to_owned()
+                } else {
+                    (raw as i64).to_string()
+                }
+            );
+        }
+    }
+    for (raw, width) in [
+        (256u64, -8i8),
+        (0xffff_ffff_0000_0001, -8),
+        (0, -64),
+        (0, 0),
+    ] {
+        mem.write_u32(0x1000, ((width as u8 as u32) << 24) | 0x0011_0001)
+            .unwrap();
+        mem.write_bytes(0x1008, &raw.to_le_bytes()).unwrap();
+        assert!(runtime_value::decode_return(&mem, 0x1000).value.is_none());
+    }
+}
+
+#[test]
+fn observed_list_flag30_keeps_tag_pointer_cycle_and_allocation_admission() {
+    let mut mem = GuestMemory::new();
+    mem.map("heap", 0x10000, 0x10000).unwrap();
+    mem.set_heap(0x10000, 0x10000);
+    let root = mem.heap_alloc(12).unwrap();
+    let child = mem.heap_alloc(24).unwrap();
+    rational(&mem, child, 7);
+    mem.write_u32(root, 0x3016_0001).unwrap();
+    mem.write_u32(root + 4, 1).unwrap();
+    mem.write_u32(root + 8, child).unwrap();
+    let valid = runtime_value::decode_return(&mem, root);
+    assert!(valid.unavailable.is_none());
+    assert_eq!(
+        serde_json::to_value(valid.value.unwrap()).unwrap(),
+        serde_json::json!({"type":"list","value":[{"type":"real","value":"7"}]})
+    );
+    mem.write_u32(root, 0x3036_0001).unwrap();
+    let wrong_tag = runtime_value::decode_return(&mem, root);
+    assert!(wrong_tag.value.is_none());
+    assert_eq!(wrong_tag.representation.unwrap().nodes.len(), 1);
+    mem.write_u32(root, 0x3016_0001).unwrap();
+    mem.write_u32(root + 8, root).unwrap();
+    assert!(runtime_value::decode_return(&mem, root).value.is_none());
+    mem.write_u32(root + 8, child).unwrap();
+    mem.write_u32(root + 4, 8).unwrap();
+    let oversized = runtime_value::decode_return(&mem, root);
+    assert!(oversized.value.is_none());
+    assert!(oversized.unavailable.unwrap().contains("allocation"));
+    assert_eq!(oversized.representation.unwrap().nodes.len(), 1);
 }

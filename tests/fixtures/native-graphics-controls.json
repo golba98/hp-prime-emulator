@@ -1,0 +1,584 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "genuine-local-firmware",
+  "physical_device": false,
+  "notes": [
+    "Self-authored probes executed by original locally supplied firmware. No physical-device verification claim.",
+    "Binary firmware, opaque point caches and raw heap representations excluded."
+  ],
+  "cases": [
+    {
+      "name": "PACKED",
+      "source": "EXPORT PACKED()\nBEGIN\n LOCAL r:={};\n IFERR DIMGROB_P(G1,2,2,{#000003E07C00001F:64h}); r:=CONCAT(r,{\"fourth\",GROBW_P(G1),GROBH_P(G1),GETPIX_P(G1,0,0),GETPIX_P(G1,1,0),GETPIX_P(G1,0,1),GETPIX_P(G1,1,1)}); THEN r:=CONCAT(r,{\"fourth-error\"}); END;\n IFERR DIMGROB_P(G2,{2,2,{#000003E07C00001F:64h}}); r:=CONCAT(r,{\"nested\",GETPIX_P(G2,0,0)}); THEN r:=CONCAT(r,{\"nested-error\"}); END;\n IFERR DIMGROB_P(G3,2,2,{#801F:16h,#7C00:16h,#3E0:16h,#0:16h}); r:=CONCAT(r,{\"words\",GETPIX_P(G3,0,0),GETPIX_P(G3,1,0),GETPIX_P(G3,0,1),GETPIX_P(G3,1,1)}); THEN r:=CONCAT(r,{\"words-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "20197c717a4dd7ad37f0b9809fe3297dbbc350c2e6e83a29c8a7bcc7c57e87d2",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "fourth"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF0000h",
+            "bits": 32,
+            "unsigned": "16711680",
+            "signed": "16711680"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF00h",
+            "bits": 32,
+            "unsigned": "65280",
+            "signed": "65280"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "string",
+            "value": "nested-error"
+          },
+          {
+            "type": "string",
+            "value": "words"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          }
+        ]
+      },
+      "return_display": "{\"fourth\", 2, 2, #FFh, #FF0000h, #FF00h, #0h, \"nested-error\", \"words\", #FFFFFFh, #0h, #0h, #0h}",
+      "local_report": "/tmp/prime-native-3d-probes/packed-report.json"
+    },
+    {
+      "name": "GEOM",
+      "source": "EXPORT GEOM()\nBEGIN\n LOCAL r:={}, c;\n IFERR DIMGROB_P(G1,6,1,{#1F:16h}); r:=CONCAT(r,{\"short\",GETPIX_P(G1,0,0),GETPIX_P(G1,3,0),GETPIX_P(G1,4,0)}); THEN r:=CONCAT(r,{\"short-error\"}); END;\n IFERR DIMGROB_P(G2,2,1,{#42100001:64h}); r:=CONCAT(r,{\"shades\",GETPIX_P(G2,0,0),GETPIX_P(G2,1,0)}); THEN r:=CONCAT(r,{\"shades-error\"}); END;\n IFERR DIMGROB_P(G3,2,1,{31}); r:=CONCAT(r,{\"real\",GETPIX_P(G3,0,0),GETPIX_P(G3,1,0)}); THEN r:=CONCAT(r,{\"real-error\"}); END;\n IFERR DIMGROB_P(G4,2,1,{}); r:=CONCAT(r,{\"empty\",GETPIX_P(G4,0,0)}); THEN r:=CONCAT(r,{\"empty-error\"}); END;\n DIMGROB_P(G5,150,50);\n IFERR c:=LINE_P(G5,{{10,10,1},{20,10,1}},{{1,2,#FF0000h}},{[[1,0,0,100],[0,1,0,0],[0,0,1,0]],\"\",-1,{0,30,0,30,0,30}}); r:=CONCAT(r,{\"clip\",GETPIX_P(G5,110,10),GETPIX_P(G5,15,10),DIM(c)}); THEN r:=CONCAT(r,{\"clip-error\"}); END;\n DIMGROB_P(G6,100,60);\n IFERR c:=LINE_P(G6,{{10,10,2},{20,10,4}},{{1,2,#FF0000h}},{-1,\"N\",{-60,-20,2}}); r:=CONCAT(r,{\"projection\",GETPIX_P(G6,70,30),GETPIX_P(G6,70,25),DIM(c)}); THEN r:=CONCAT(r,{\"projection-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "88e82c90c6febe141926e45cdd42e951dbbc9118499761a30be0e9e44dd60ff6",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "short"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "string",
+            "value": "shades"
+          },
+          {
+            "type": "integer",
+            "literal": "#42100001h",
+            "bits": 32,
+            "unsigned": "1108344833",
+            "signed": "1108344833"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "string",
+            "value": "real"
+          },
+          {
+            "type": "integer",
+            "literal": "#1Fh",
+            "bits": 32,
+            "unsigned": "31",
+            "signed": "31"
+          },
+          {
+            "type": "integer",
+            "literal": "#0h",
+            "bits": 32,
+            "unsigned": "0",
+            "signed": "0"
+          },
+          {
+            "type": "string",
+            "value": "empty"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "string",
+            "value": "clip"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF0000h",
+            "bits": 32,
+            "unsigned": "16711680",
+            "signed": "16711680"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "real",
+            "value": "587"
+          },
+          {
+            "type": "string",
+            "value": "projection"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF0000h",
+            "bits": 32,
+            "unsigned": "16711680",
+            "signed": "16711680"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF0000h",
+            "bits": 32,
+            "unsigned": "16711680",
+            "signed": "16711680"
+          },
+          {
+            "type": "real",
+            "value": "587"
+          }
+        ]
+      },
+      "return_display": "{\"short\", #FFh, #0h, #FFFFFFh, \"shades\", #42100001h, #0h, \"real\", #1Fh, #0h, \"empty\", #FFFFFFh, \"clip\", #FF0000h, #FFFFFFh, 587, \"projection\", #FF0000h, #FF0000h, 587}",
+      "local_report": "/tmp/prime-native-3d-probes/geom-report.json"
+    },
+    {
+      "name": "PACKFMT",
+      "source": "EXPORT PACKFMT()\nBEGIN\n LOCAL r:={};\n DIMGROB_P(G1,2,2,{#1122334455667788:64h,#99AABBCCDDEEFF00:64h});\n r:=CONCAT(r,{\"two\",GETPIX_P(G1,0,0),GETPIX_P(G1,1,0),GETPIX_P(G1,0,1),GETPIX_P(G1,1,1)});\n DIMGROB_P(G2,2,2,{#1122334455667788:64h});\n r:=CONCAT(r,{\"one\",GETPIX_P(G2,0,0),GETPIX_P(G2,1,0),GETPIX_P(G2,0,1),GETPIX_P(G2,1,1)});\n DIMGROB_P(G3,1,1,{#801F:16h}); r:=CONCAT(r,{\"single\",GETPIX_P(G3,0,0)});\n DIMGROB_P(G4,2,2,{#80007FFF801F4210:64h}); r:=CONCAT(r,{\"alpha\",GETPIX_P(G4,0,0),GETPIX_P(G4,1,0),GETPIX_P(G4,0,1),GETPIX_P(G4,1,1)});\n RETURN r;\nEND;\n",
+      "source_sha256": "e2f64e5d2217ef2cabf4fc6a16faa28e7a00c8190af389cf171048264291d80c",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "two"
+          },
+          {
+            "type": "integer",
+            "literal": "#55667788h",
+            "bits": 32,
+            "unsigned": "1432778632",
+            "signed": "1432778632"
+          },
+          {
+            "type": "integer",
+            "literal": "#11223344h",
+            "bits": 32,
+            "unsigned": "287454020",
+            "signed": "287454020"
+          },
+          {
+            "type": "integer",
+            "literal": "#DDEEFF00h",
+            "bits": 32,
+            "unsigned": "3723427584",
+            "signed": "-571539712"
+          },
+          {
+            "type": "integer",
+            "literal": "#99AABBCCh",
+            "bits": 32,
+            "unsigned": "2578103244",
+            "signed": "-1716864052"
+          },
+          {
+            "type": "string",
+            "value": "one"
+          },
+          {
+            "type": "integer",
+            "literal": "#EFE742h",
+            "bits": 32,
+            "unsigned": "15722306",
+            "signed": "15722306"
+          },
+          {
+            "type": "integer",
+            "literal": "#AD5A31h",
+            "bits": 32,
+            "unsigned": "11360817",
+            "signed": "11360817"
+          },
+          {
+            "type": "integer",
+            "literal": "#63D621h",
+            "bits": 32,
+            "unsigned": "6542881",
+            "signed": "6542881"
+          },
+          {
+            "type": "integer",
+            "literal": "#214A10h",
+            "bits": 32,
+            "unsigned": "2181648",
+            "signed": "2181648"
+          },
+          {
+            "type": "string",
+            "value": "single"
+          },
+          {
+            "type": "integer",
+            "literal": "#801Fh",
+            "bits": 32,
+            "unsigned": "32799",
+            "signed": "32799"
+          },
+          {
+            "type": "string",
+            "value": "alpha"
+          },
+          {
+            "type": "integer",
+            "literal": "#848484h",
+            "bits": 32,
+            "unsigned": "8684676",
+            "signed": "8684676"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          }
+        ]
+      },
+      "return_display": "{\"two\", #55667788h, #11223344h, #DDEEFF00h, #99AABBCCh, \"one\", #EFE742h, #AD5A31h, #63D621h, #214A10h, \"single\", #801Fh, \"alpha\", #848484h, #FFFFFFh, #FFFFFFh, #FFFFFFh}",
+      "local_report": "/tmp/prime-native-3d-probes/packfmt-report.json"
+    },
+    {
+      "name": "AFFINE",
+      "source": "EXPORT AFFINE()\nBEGIN\n LOCAL r:={};\n DIMGROB_P(G1,100,100);\n IFERR LINE_P(G1,{{10,10,5},{20,10,5}},{{1,2,#FF0000h}},[[1,0,2],[0,1,3]]); r:=CONCAT(r,{\"matrix\",GETPIX_P(G1,12,13),GETPIX_P(G1,20,25)}); THEN r:=CONCAT(r,{\"matrix-error\"}); END;\n DIMGROB_P(G2,4,4); LOCAL z:=TRIANGLE_P(G2);\n IFERR TRIANGLE_P(G2,{0,0,#FFh,10},{4,0,#FFh,10},{0,4,#FFh,10},z); r:=CONCAT(r,{\"z\",DIM(z),ASC(LEFT(z,2)),GETPIX_P(G2,0,0),GETPIX_P(G2,1,1)}); THEN r:=CONCAT(r,{\"z-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "2e23e46f5cfd4fa4e25a1df2832625739c495b5a549f83400e6f4ed706a79cd2",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "matrix"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "integer",
+            "literal": "#FF0000h",
+            "bits": 32,
+            "unsigned": "16711680",
+            "signed": "16711680"
+          },
+          {
+            "type": "string",
+            "value": "z"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "65535"
+              },
+              {
+                "type": "real",
+                "value": "65535"
+              }
+            ]
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          }
+        ]
+      },
+      "return_display": "{\"matrix\", #FFFFFFh, #FF0000h, \"z\", 8, {65535, 65535}, #FFFFFFh, #FFFFFFh}",
+      "local_report": "/tmp/prime-native-3d-probes/affine-report.json"
+    },
+    {
+      "name": "ZBUFFER",
+      "source": "EXPORT ZBUFFER()\nBEGIN\n LOCAL r:={}, z, c;\n DIMGROB_P(G1,8,8); TRIANGLE_P(G1,0,0,8,0,0,8,#FFh); r:=CONCAT(r,{\"basic\",GETPIX_P(G1,1,1)});\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR TRIANGLE_P(G1,0,0,8,0,0,8,#FFh,z,10,10,10); r:=CONCAT(r,{\"scalar\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"scalar-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR TRIANGLE_P(G1,{0,0,#FFh,10},{8,0,#FFh,10},{0,8,#FFh,10},z); r:=CONCAT(r,{\"cz\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"cz-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR TRIANGLE_P(G1,{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh},z); r:=CONCAT(r,{\"zc\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"zc-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},-1,z); r:=CONCAT(r,{\"mesh\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"mesh-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,3,2}},-1,z); r:=CONCAT(r,{\"reverse\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"reverse-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "90494a148a1554c47f945a37435ba604ef91f9b4bd96b1dafb6c37025d2f9962",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "basic"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "string",
+            "value": "scalar"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "2570"
+              }
+            ]
+          },
+          {
+            "type": "string",
+            "value": "cz"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "65535"
+              }
+            ]
+          },
+          {
+            "type": "string",
+            "value": "zc"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFFFFFh",
+            "bits": 32,
+            "unsigned": "16777215",
+            "signed": "16777215"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "65535"
+              }
+            ]
+          },
+          {
+            "type": "string",
+            "value": "mesh-error"
+          },
+          {
+            "type": "string",
+            "value": "reverse-error"
+          }
+        ]
+      },
+      "return_display": "{\"basic\", #FFh, \"scalar\", #FFh, {2570}, \"cz\", #FFFFFFh, {65535}, \"zc\", #FFFFFFh, {65535}, \"mesh-error\", \"reverse-error\"}",
+      "local_report": "/tmp/prime-native-3d-probes/zbuffer-report.json"
+    },
+    {
+      "name": "MESHZ",
+      "source": "EXPORT MESHZ()\nBEGIN\n LOCAL r:={}, z, c;\n DIMGROB_P(G1,8,8);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},[[1,0,0],[0,1,0],[0,0,1]]); r:=CONCAT(r,{\"mesh\",GETPIX_P(G1,1,1)}); THEN r:=CONCAT(r,{\"mesh-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},{-1},z); r:=CONCAT(r,{\"z\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"z-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,3,2}},{-1},z); r:=CONCAT(r,{\"reverse\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"reverse-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "6495f42146387725deb687d28aefd021cf540808a120030304dec9a6a6b7752d",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "mesh"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "string",
+            "value": "z-error"
+          },
+          {
+            "type": "string",
+            "value": "reverse-error"
+          }
+        ]
+      },
+      "return_display": "{\"mesh\", #FFh, \"z-error\", \"reverse-error\"}",
+      "local_report": "/tmp/prime-native-3d-probes/meshz-report.json"
+    },
+    {
+      "name": "MESHZI",
+      "source": "EXPORT MESHZI()\nBEGIN\n LOCAL r:={}, z, c;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},[[1,0,0],[0,1,0],[0,0,1]],z); r:=CONCAT(r,{\"identity\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"identity-error\"}); END;\n DIMGROB_P(G1,8,8); z:=TRIANGLE_P(G1);\n IFERR c:=TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},{-1,\"\"},z); r:=CONCAT(r,{\"options\",GETPIX_P(G1,1,1),ASC(LEFT(z,1))}); THEN r:=CONCAT(r,{\"options-error\"}); END;\n RETURN r;\nEND;\n",
+      "source_sha256": "d50020f2a44b5262f860ba1c6f9df7e52c355b1f89d85d67900c049665316f6b",
+      "compilation": "valid",
+      "execution": "completed",
+      "return_value": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "identity"
+          },
+          {
+            "type": "integer",
+            "literal": "#FFh",
+            "bits": 32,
+            "unsigned": "255",
+            "signed": "255"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "2570"
+              }
+            ]
+          },
+          {
+            "type": "string",
+            "value": "options-error"
+          }
+        ]
+      },
+      "return_display": "{\"identity\", #FFh, {2570}, \"options-error\"}",
+      "local_report": "/tmp/prime-native-3d-probes/meshzi-report.json"
+    }
+  ],
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+}

@@ -1,0 +1,123 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/firmware_text/text.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        47
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "type",
+      "text": "GUINOTE"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "paste",
+      "text": "literal πⅈ 😀\nsecond line);\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 1500
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_text/note.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        4,
+        5
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_GUI_TEXT"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_GUI_TEXT() BEGIN RETURN Notes(\"GUINOTE\"); END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "run_config",
+      "entry": "ZZT_GUI_TEXT",
+      "args": ""
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "snapshot",
+      "label": "note_readback"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_text/readback.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

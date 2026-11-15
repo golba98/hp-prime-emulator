@@ -2,3 +2,10 @@
 *.hpprgm -text
 *.HPPRGM -text
 *.ppl -text
+
+# Local evidence and installed assets never belong in source exports.
+/.private export-ignore
+/artifacts export-ignore
+/.agents export-ignore
+/firmware export-ignore
+/.env* export-ignore

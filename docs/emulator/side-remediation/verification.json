@@ -1,0 +1,1480 @@
+{
+  "version": 1,
+  "date": "2026-11-12",
+  "baseline": "8d7535e",
+  "no_physical_device_access": true,
+  "results": {
+    "workspace": {
+      "command": "cargo test --workspace",
+      "log": "/tmp/side-final-workspace-tests.log",
+      "log_sha256": "eb00d8d0e11fb20d24fe51a96aa02aa92acc992ceb782c5de31398dedd72efe7",
+      "exit_code": 0,
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6
+    },
+    "gui_giac": {
+      "command": "cargo test -p ppl-gui --lib --features giac-integration",
+      "log": "/tmp/side-gui-integration-final.log",
+      "log_sha256": "660b107615886b5244b4a023d908ad7e34a98e17f8a13f33133d238a2a56b062",
+      "exit_code": 0,
+      "passed": 552,
+      "failed": 0,
+      "ignored": 2
+    },
+    "vm_cas_giac": {
+      "command": "cargo test -p ppl-cas -p ppl-vm --features giac-integration",
+      "log": "/tmp/side-final-giac-tests.log",
+      "log_sha256": "ce11a4c23353349fda628a2e723b0bfe0e53863fbfea3e96941248eee9381138",
+      "exit_code": 0,
+      "passed": 256,
+      "failed": 0,
+      "ignored": 0
+    },
+    "desktop": {
+      "command": "bash tests/ide_xvfb_smoke/run_native_side.sh",
+      "log": "/tmp/side-native-acceptance-final.log",
+      "log_sha256": "68e727dcce7f7eb07113fb1ea77ab5c07d345ae02e5f39cb00040540156e5faa",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=3s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=3s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:301 screen=1280x900x24 scale=native\nexit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\nNative side input: 21 behavioral assertions passed\nNative side workflows: 77 behavioral assertions passed\nPreserved Native desktop evidence: /tmp/prime-native-side-K05Ieh"
+    },
+    "crash_restart": {
+      "command": "python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py",
+      "log": "/tmp/side-crash-restart-final.log",
+      "log_sha256": "85c6bf8869e7a5e72c6a9629251ab4e3c47a3a03970517313f3f679f1102da83",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=1s display=:301 screen=1280x900x24 scale=native\nForced-termination desktop restart: 8 assertions passed; evidence /tmp/prime-native-crash-6m3x3qya"
+    },
+    "m17": {
+      "command": "bash tests/ide_xvfb_smoke/run_m17_native_linkage.sh",
+      "log": "/tmp/side-final-m17.log",
+      "log_sha256": "81aaec86a84961d81578824f53de4a71a9b1200becec208ccd44ed661fff5884",
+      "exit_code": 0,
+      "output": "exit=0 elapsed=2s display=:300 screen=1280x900x24 scale=native\n15 M17 Native linked IDE assertions passed"
+    },
+    "m18": {
+      "command": "bash tests/ide_xvfb_smoke/run_m18_native_debug.sh",
+      "log": "/tmp/side-final-m18.log",
+      "log_sha256": "b2d62fe2bff1120dbd39d9148e85ce8caf6e29ed406825b44cefd09e55a1f0a3",
+      "exit_code": 0,
+      "output": "40 M18 linked Native debugger GUI assertions passed"
+    },
+    "check": {
+      "command": "cargo check --workspace",
+      "log": "/tmp/side-final-check.log",
+      "log_sha256": "dbf7bc90c9f5c4076f315ab294c4e4182dc6ea07da80eb50173f27a594b4c7bd",
+      "exit_code": 0,
+      "output": "Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-bench v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-bench)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking prime-emulator v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/prime-emulator)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Checking ppl-cli v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cli)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.86s"
+    },
+    "clippy": {
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "log": "/tmp/side-final-clippy.log",
+      "log_sha256": "a4bcc7a7f6079e26f9cc197c6f0a8c33274c2364bb41b95b816724537ed10b98",
+      "exit_code": 0,
+      "output": "Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-bench v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-bench)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking prime-emulator v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/prime-emulator)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Checking ppl-cli v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cli)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.45s"
+    },
+    "clippy_giac": {
+      "command": "cargo clippy -p ppl-cas -p ppl-vm -p ppl-gui --all-targets --features giac-integration -- -D warnings",
+      "log": "/tmp/side-final-giac-clippy.log",
+      "log_sha256": "c12f4b22d6e7274eec2c4068ef25188d2677b71953d8d22a8cd67d3aea9c1b6f",
+      "exit_code": 0,
+      "output": "Blocking waiting for file lock on build directory\n    Checking ppl-cas v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-cas)\n    Checking ppl-device v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-device)\n    Checking ppl-vm v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-vm)\n    Checking ppl-engine v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-engine)\n    Checking ppl-compat v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-compat)\n    Checking ppl-programs v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-programs)\n    Checking ppl-gui v0.2.0 (/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/crates/ppl-gui)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.24s"
+    },
+    "private_fixture": {
+      "command": "cargo test -p ppl-gui --lib private_hardware_fixture_matches_the_standalone_decoder -- --ignored",
+      "log": "/tmp/side-final-private-fixture.log",
+      "log_sha256": "6cc6489067dd1b85d952b827d33ff21b65565aa3d7dfcf7cd98019f01c2e6621",
+      "exit_code": 0,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    "firmware_live": {
+      "command": "cargo test -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture",
+      "log": "/tmp/side-firmware-live-final.log",
+      "log_sha256": "e4f90989f72d0290a632e09c1d1603e05aa8904f746e1cbb7988698fadf745c8",
+      "exit_code": 0,
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "environment": {
+    "cargo_target_dir": "/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target",
+    "cas_helper": "/home/k9-vortex/.local/share/hp-prime-emulator/cas/ppl-giac-helper",
+    "desktop_device_access": "PPL_IDE_NO_DEVICE=1",
+    "firmware_asset_variables": "See REMEDIATION.md",
+    "rustc": "1.96.0 (ac68faa20 2026-05-25) for original recorded local validation"
+  },
+  "screenshots": [
+    "evidence/native_side_graph.png",
+    "evidence/native_side_graph_lcd.png",
+    "evidence/native_side_solve_lcd.png"
+  ],
+  "implementation_phase_no_commits_or_pushes": true,
+  "publication": {
+    "authorized_by_user": true,
+    "branch": "pr/hp-prime-side-remediation",
+    "base": "feat/g1-usability-overhaul",
+    "purpose": "Preserve the tested implementation, tests, all 33 outcomes and retained limitations in a reviewable PR."
+  },
+  "ci_compiler_followup": {
+    "initial_head": "04ae163eb3b7967cd88cd9eab001c613d775c0cc",
+    "failed_runs": [
+      43119260418,
+      43119298030
+    ],
+    "failed_step": "Check on Linux and Windows",
+    "compiler": "1.99.1 (58cf8f9c3 2026-10-13)",
+    "cause": "float_literal_f32_fallback denied for three new egui stroke widths",
+    "fix": "Explicit f32 widths in native_app_ui.rs and native_plot_view.rs",
+    "local_check": "cargo +1.99.1 check --locked --workspace --all-targets with RUSTFLAGS=-D warnings: passed",
+    "local_clippy": "cargo +1.99.1 clippy --locked --workspace --all-targets -- -D warnings with RUSTFLAGS=-D warnings: passed",
+    "hosted_results": "https://github.com/golba98/hp-prime-emulator/pull/30/checks",
+    "local_ci_equivalent_tests": {
+      "compiler": "1.99.1",
+      "command": "cargo +1.99.1 test --locked --workspace --all-targets",
+      "env": {
+        "RUSTFLAGS": "-D warnings",
+        "PPL_CAS_HELPER": "/nonexistent/ci-cas-helper"
+      },
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6,
+      "log": "/tmp/side-ci199-tests.log"
+    },
+    "profile_portability": {
+      "fix": "Writable backup flush handle, close staged file before rename, reuse platform-aware directory sync",
+      "regression": "Repeated rotation, corruption recovery and corrupt-byte preservation",
+      "gui_passed": 533,
+      "gui_failed": 0,
+      "gui_existing_ignored": 2,
+      "clippy": "all targets passed with warnings denied",
+      "log": "/tmp/side-ci199-gui-tests.log"
+    }
+  },
+  "continuation": {
+    "baseline": "2c80c4c",
+    "date": "2026-11-14",
+    "no_physical_device_access": true,
+    "results": {
+      "workspace": {
+        "command": "PPL_CONFIG=<isolated empty assets> env -u PPL_CAS_HELPER cargo test --workspace",
+        "exit_code": 0,
+        "log_sha256": "170ba7499ebf71d47da9940acfe614870ade6f64297ca0d3e240ae4218fe492f",
+        "passed": 2396,
+        "failed": 0,
+        "ignored": 6,
+        "scope": "Integrated full live-machine backend, desktop Save/Resume controls and Native presentation checkpoint."
+      },
+      "giac": {
+        "command": "PPL_CAS_HELPER=<genuine installed helper> cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration",
+        "exit_code": 0,
+        "log_sha256": "4f497e880e5b0c8b555ba90c5d58e5dca6621d2629ec1b557860b697e2c045e6",
+        "passed": 835,
+        "failed": 0,
+        "ignored": 2
+      },
+      "clippy": {
+        "command": "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+        "exit_code": 0,
+        "log_sha256": "812a38b528b666727fb39acd449d3ff110960ff01c36553f32c093c9caead7a2"
+      },
+      "firmware": {
+        "command": "cargo test -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture (local firmware asset variables configured)",
+        "exit_code": 0,
+        "log_sha256": "0e566029ea6dc371a732dc12a494038b4c1e19a5f828b65dc62ef4ed2b992bf9",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "scope": "Earlier continuation validation. Current firmware outcomes are in firmware_live; current ordinary desktop outcomes are in desktop."
+      },
+      "desktop": {
+        "command": "PPL_IDE_NO_DEVICE=1 bash tests/ide_xvfb_smoke/run_native_side.sh",
+        "exit_code": 0,
+        "log_sha256": "f5ab8f8fbc3164bf8e495f4d0beb9fc6e1219e24d9ae999d14218a28ad51fe8a",
+        "sessions": 21,
+        "input_assertions": 21,
+        "workflow_assertions": 90,
+        "editing_assertions": 19,
+        "formatted_assertions": 32,
+        "presentation_history_special_views": "passed"
+      },
+      "crash_restart": {
+        "command": "python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py",
+        "exit_code": 0,
+        "log_sha256": "078c75ef5783bd1d38ebc58e4c7119aee10ad6abc2ccd30911809b553af9a354",
+        "assertions": 16
+      },
+      "ide_linkage": {
+        "command": "bash tests/ide_xvfb_smoke/run_m17_native_linkage.sh",
+        "exit_code": 0,
+        "log_sha256": "3f3d13d5f171ebb3a49578351b16c73090e5dcebc4ff67e0bc6901c069c99534",
+        "assertions": 15
+      },
+      "debugger": {
+        "command": "bash tests/ide_xvfb_smoke/run_m18_native_debug.sh",
+        "exit_code": 0,
+        "log_sha256": "b2d62fe2bff1120dbd39d9148e85ce8caf6e29ed406825b44cefd09e55a1f0a3",
+        "assertions": 40
+      },
+      "special_hidpi": {
+        "command": "WINIT_X11_SCALE_FACTOR=2 PPL_XVFB_SCREEN=2560x1800x24 bash tests/ide_xvfb_smoke/run_ide_auto.sh tests/ide_xvfb_smoke/scripts/script_native_side_special_views.json 90; python3 tests/ide_xvfb_smoke/assert_native_special_views.py",
+        "exit_code": 0,
+        "log_sha256": "edf54764be0c3d88812c1983e1d74ba3aecd9c4fee1035610f13c6f14cd8de8a",
+        "scope": "Earlier continuation validation. Current firmware outcomes are in firmware_live; current ordinary desktop outcomes are in desktop."
+      },
+      "firmware_live": {
+        "command": "cargo test -p prime-emulator --test firmware_session --test firmware_inspection --test firmware_storage --test os_rom_contract -- --test-threads=1 --nocapture (all genuine PRIME_TEST assets)",
+        "exit_code": 0,
+        "log_sha256": "0f5500dd21f9506af56e0490b699d45e25ebc636a450f180e76e1b93f3b336a8",
+        "firmware_passed": 4,
+        "os_rom_controls_passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "scope": "Lifecycle2, owner inspection1, actual stored state boot1; isolated original OS ROM code controls3, without physical hardware"
+      },
+      "firmware_explicit_wait_inspection": {
+        "command": "PRIME_TEST_* cargo test -p prime-emulator --test firmware_inspection -- --test-threads=1 --nocapture",
+        "exit_code": 0,
+        "log_sha256": "3b8b40ea6cc595534e0d8eeca7bdb5cd719dbee2e52e79b165f72932c32b4842",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "outcome": "Coherent reconstructible idle and active WAIT boundaries report readiness; real PPL resumes7."
+      },
+      "firmware_clipboard": {
+        "command": "python3 scripts/emulator/verify_firmware_clipboard.py --runner <current runner> --firmware <legitimate ELF> --init-data <initial data> --os-rom <legitimate ROM> --out <new isolated evidence>",
+        "exit_code": 0,
+        "log_sha256": "2c37765fc16e80137451ea5051a75a3279109e3250eb599e4ea0507a1d1e5562",
+        "cases": 5,
+        "scope": "Physical-key Home source, repeat/partial Copy and exact Unicode multiline program Copy/Cut; no physical device"
+      },
+      "firmware_clipboard_desktop": {
+        "command": "PPL_BIN=<built ppl> PPL_FIRMWARE_RUNNER=<built helper> PPL_IDE_NO_DEVICE=1 bash tests/ide_xvfb_smoke/run_m12.sh tests/ide_xvfb_smoke/scripts/script_firmware_clipboard.json 240; python3 tests/ide_xvfb_smoke/assert_firmware_clipboard.py <isolated dump>",
+        "exit_code": 0,
+        "log_sha256": "1e387b883fe89fb25866313bc1ec3443d5e32a2e616a8b1a8b92b38f1f910d89",
+        "assertions": 7
+      },
+      "firmware_typing": {
+        "command": "python3 scripts/emulator/verify_desktop_typing.py --runner <current runner> --firmware <legitimate ELF> --init-data <initial data> --os-rom <legitimate ROM> --out <new isolated evidence>",
+        "exit_code": 0,
+        "log_sha256": "6ef9814d101ec0a0c02096c9dd2b7b1aa7599cb43b78a8cf1e6b9112e0814d20",
+        "expressions": 3,
+        "blink_phases_per_expression": 2,
+        "different_pixels": 0,
+        "scope": "Exact complete LCD rows20\u2013239 in both stable cursor phases; no cursor mask or tolerance",
+        "report_sha256": "81e349933c9261092b5306747bedb6938f9dea4a2961687501830b1b35432c0f"
+      },
+      "runtime_capture_race": {
+        "failed_genuine_run_log_sha256": "0b9c409321aaa9dc48e0b8ae518fdb4a4682acbe8bf96532a0e890713497bc70",
+        "failed_case": "live_session_migrates_chunk_loader_and_preserves_unicode_source, request11 after a rejected program",
+        "observed_cause": "Return value unavailable: coherent value snapshot busy at observation hook; body entered and evaluator returned.",
+        "fix": "Park the observing engine and acquire bounded exclusive coherent memory before the observer mutex; only that hook capture admits nested decoder reads. Preserve ordinary busy-capture refusal.",
+        "regressions": [
+          "ephemeral_return_is_captured_after_a_contending_engine_leaves_its_slice",
+          "simultaneous_parked_hooks_capture_in_turn_and_nested_decoders_keep_exclusion",
+          "a_runtime_hook_waits_for_a_peer_slice_but_times_out_without_retaining_a_hold",
+          "busy_snapshot_cannot_produce_a_decoded_return (existing test retained unchanged)"
+        ],
+        "genuine_post_fix": "Two lifecycle workflows and inspection passed on final source; both post-invalid-source request11 values were42 with coherent representations and no caveats.",
+        "component_test_log_sha256": "c81160b6c74ce654629a904830d0c11b9f45aee22f9d42f494ef506e80dbd734"
+      },
+      "documentation_check": {
+        "command": "python3 scripts/maintenance/check_documentation.py",
+        "outcome": "Unavailable in this isolated continuation baseline: scripts/maintenance/check_documentation.py does not exist. No publication was requested or performed. Existing report pages were updated; no public Markdown page was added.",
+        "exit_code": 2
+      },
+      "managed_call_images": {
+        "command": "PRIME_TEST_FIRMWARE=<legitimate local ELF> cargo test -p prime-emulator --lib guest_call::image -- --nocapture",
+        "exit_code": 0,
+        "log_sha256": "0096a5c7eb4a16dff1da6f7dd913fed90ee136a6998ffd5b0063b5bad53f5807",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "scope": "Code identity uses the legitimate G1. Controlled callee values exercise component phases; fresh-process self-authored ARM return proves context rebinding. This is not a genuine whole-calculator snapshot or compiler verdict."
+      },
+      "storage_components": {
+        "command": "cargo test -p prime-emulator --lib --test storage_image --test vfs_restore",
+        "exit_code": 0,
+        "log_sha256": "5bfe63f20cd3990102e4b4f5011bedc4736050d826ba09858a13924f2e1209a3",
+        "passed": 184,
+        "failed": 0,
+        "ignored": 0
+      },
+      "storage_windows_compile": {
+        "command": "cargo check --manifest-path <isolated portability harness referencing actual storage/image.rs> --target x86_64-pc-windows-gnu --offline",
+        "exit_code": 0,
+        "log_sha256": "1269f2328a4a8ad8292c1d84616227c7976ad910a2196155b29c5065462e0a9b",
+        "scope": "Actual production storage module compiled. Windows runtime and a full Unicorn Windows binary were not exercised; MinGW C compiler is absent."
+      },
+      "formatted_values": {
+        "command": "cargo test -p ppl-vm --test formatted_values -- --nocapture",
+        "exit_code": 0,
+        "log_sha256": "85c5d095db0830057e8fe9521f78f32bfbb0265a213d4c5703cf6b16bdc8bdc1",
+        "passed": 5,
+        "failed": 0,
+        "ignored": 0,
+        "reference_results": 79,
+        "numeric_tolerance": "none",
+        "glyph_mapping": {
+          "\u2212": "-",
+          "\ue003": "i"
+        },
+        "controls": "tests/fixtures/native-formatted-controls.json",
+        "scope": "Native numeric/type/presentation comparisons use legitimate installed G1 execution; no physical calculator evidence. Scalar/list conversion and matrix/nonreal refusals have separate genuine controls."
+      },
+      "formatted_argument_execution": {
+        "command": "cargo test -p ppl-engine --test core native_tagged_values_round_trip -- --nocapture",
+        "exit_code": 0,
+        "log_sha256": "7b23ea6202da69d2d28f1c0e593f9e9f4e55ab75d8cfa7657c87ceb864839f5a",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      },
+      "native_view_intermittent": {
+        "failed_log_sha256": "3f32494d2dca963ebcfd0e295704bacfe1435c7ba9ea6e0dd7dafe3dc30ea677",
+        "observed": "One STARTVIEW regression ended with Runtime error before detailed VM diagnostics were present. Exact error cause was not retained.",
+        "followup": "Enhanced wait diagnostics;30 complete GUI-suite reruns and subsequent workspace suites passed. Passing reruns are not represented as a root-cause repair.",
+        "finding": 23,
+        "scope": "Historical failed log retained. A later full run reproduced Stale calculator view request; see reproduced_startview_failure and view_operation_ownership for the established root cause, repair and deterministic validation."
+      },
+      "workspace_with_giac": {
+        "command": "PPL_CONFIG=<isolated empty assets> PPL_CAS_HELPER=<matched protocol3 helper> cargo test --workspace --features giac-integration",
+        "exit_code": 0,
+        "log_sha256": "73d4c39c09ccc15b568ba19e7e6eca9d5450a5356f588704e4fdfe1d62a1e677",
+        "passed": 2454,
+        "failed": 0,
+        "ignored": 6
+      },
+      "firmware_target_entry": {
+        "command": "Three legitimate local asset variables; cargo test -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture",
+        "exit_code": 0,
+        "log_sha256": "823a313d7872081dcd28565ce1b6041d65195d323f524221b0ea356a384fc70a",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "scope": "Each real target-start notification matches PERFSESS and exact source hash, precedes result and is emitted once; loader bodies cannot masquerade as source execution."
+      },
+      "view_operation_ownership": {
+        "command": "cargo test -p ppl-gui --features giac-integration --lib catalog_tests::",
+        "exit_code": 0,
+        "log_sha256": "e7cc9abeb8ba26e60c963a4da56703ad225ba4923b852b48f596393913cdc519",
+        "passed": 29,
+        "scope": "Deterministic launch-key-release interleaving, new-run invalidation, old-host rejection and actual view presentation; full feature workspace separately passes."
+      },
+      "g1_input_type_controls": {
+        "command": "Local genuine firmware source/descriptor/default/edited/untouched probes plus matched Giac native regression tests",
+        "scope": "Local G1 image only; no physical hardware. Numeric/list/matrix/CAS/unit types, lexical scope, valid defaults, reserved filters and transactional cancellation observed. Premature loader-entry probes1/2/3 are excluded.",
+        "log_sha256": {
+          "input-expression-reference": "bc21afcb5f650cc38bae61a85832948ab7c5e951053511e94aa2939cbcdc5443",
+          "input-descriptor-reference-4": "ad20c8dac386265274fc5c4395a02dacd8f45f8904e06452e350fb6217c1aba4",
+          "input-defaults-reference": "de8444aa9c5d60b3497fb64d34f91d2330f2e1050f96fd0205708eaabe4e4429",
+          "input-filter-final-reference": "f093e35cbd5a694f12a50fbb8011286c7da330921065d61dd77712a4cf941fa0",
+          "input-filter-untouched-reference": "0aa6301cb690f79e8f3925690d36bee8dbcf2968535faa120717ab69a1b83127",
+          "input-cas-types-reference": "4f7c9ebe3787b9da8b3444c55fd43ac30458bb59c3bde0983aaddcf7f44a48ef",
+          "input-cas-shapes-reference": "1552117632f0f12b61fe1a9896cce217a40d315cd1c0cadc0d41393f81c24c72",
+          "input-cas-shapes-reference-2": "65829d2ab1a236c82990d6fdf155b123f888141661a44fb6896022433f51ed30",
+          "input-cas-scope-reference": "2eb93022b3a8afb39fcc50f3dc57ff61844e049dbc4081420abeb4784a412a66",
+          "input-function-type-reference": "7f730ea8f062f376d8a70bd1c3fd5dc18c712a8d5bb2342166102ac65e3f659d"
+        }
+      },
+      "helper_protocol3": {
+        "command": "Matched helper rebuilt from tools/giac-helper/main.cc; actual-helper legacy1/2 and typed3 round trips in ppl-cas/tests/giac.rs; full feature workspace",
+        "helper_sha256": "b2ae692c15e034307bc6f4ebc0b645d86f9d662da19bbff4586b292e4f43696a",
+        "legacy_installed_helper_preserved": true,
+        "no_system_package_installation": true,
+        "scope": "Structural units and ordinary vectors vs explicit lists are negotiated; old clients retain old response tags. App chooses adjacent matching helper; stale helpers error explicitly.",
+        "parse_only": "Operation byte0 evaluates;1 strictly parses without evaluating or restoring saved assignments. Legacy unit types migrate through structural parsing. Installed old helper is unchanged."
+      },
+      "reproduced_startview_failure": {
+        "command": "cargo test --workspace --features giac-integration",
+        "exit_code": 101,
+        "log_sha256": "19c196b260dde24aaec2ff02d29950350a04f33eddef01960c77bca5587fe632",
+        "error": "Unsupported by emulator (Stale calculator view request)",
+        "root_cause": "Transient keyboard epoch changed after the worker queued a legitimate view; execution ownership was conflated with key/dialog ownership.",
+        "repair": "Separate execution epoch captured by creating GuiHost; deterministic key-release/retired-owner test and full feature workspace pass.",
+        "finding": 23
+      },
+      "os_service_execution": {
+        "command": "PRIME_TEST_OS_ROM=<legitimate ROM> cargo test -p prime-emulator --test thread_control --test os_rom_contract",
+        "exit_code": 0,
+        "log_sha256": "c672ec27b6ee16a0a66b59626f7d9e78e02a68b888af550279205bf2cac92778",
+        "os_rom_controls": 3,
+        "arm_thread_tests_at_that_checkpoint": 10,
+        "current_arm_thread_tests": 11,
+        "os_rom_sha256": "f6aeba161189a5aa1acb57be428dc5730cfa5ff7cd534494e59225debd5a8999",
+        "scope": "Original ROM ABI code plus real production ARM wake/priority/power execution. Current eleventh test additionally verifies frozen sleep deadlines."
+      },
+      "guest_clock_restoration": {
+        "command": "cargo test -p prime-emulator --test sync_restore --test thread_control --lib",
+        "exit_code": 0,
+        "log_sha256": "b87881d712941b9314148367a2fe090396c6e5f30c8c23d4bf837e17d3bb6dad",
+        "library_passed": 190,
+        "sync_restore_passed": 4,
+        "thread_control_passed": 11,
+        "scope": "Shared clock/power/inspection freezing and fresh-process actual ARM sleep/CPU/RAM/sync components; not a whole-calculator image"
+      },
+      "ambient_configuration_failure": {
+        "command": "cargo test --workspace --features giac-integration (ambient user asset configuration)",
+        "exit_code": 101,
+        "log_sha256": "9842e5a6391c0b2688203574418becc8966dfa9dc526c0959574935b65a0e74b",
+        "case": "ppl-programs::transactions::cancelled_replacement_keeps_backup_and_allows_a_fresh_plan",
+        "error": "replacement source checking failed; inspect local and configured firmware diagnostics",
+        "scope": "Tests discovered the older installed firmware runner through user config. Isolated workspace runs avoid that implicit external dependency; genuine new-source firmware tests run separately. No passing retry is represented as a source repair for this failure."
+      },
+      "scheduler_request_lifetime_failure": {
+        "command": "cargo test -p prime-emulator --lib --test thread_control --test svc --test sync_restore",
+        "exit_code": 101,
+        "log_sha256": "41c78f1c2a9a2eb56019a6cd180ad3406c13d1aa03d26e5ac7389c68bbb30ff0",
+        "error": "A completed CPU slice retained a ready request and blocked the next restored-resource operation.",
+        "repair": "Remove the granting owner from ready requests on permit drop; retain quantum usage separately. Fresh-process sync restoration and full workspace subsequently pass.",
+        "fixed_log_sha256": "3085be19fa8a53d80640698e4443f2e14a77cfe3730f0f96e5e0ce942737c041"
+      },
+      "typing_phase_sampling_failure": {
+        "exit_code": 1,
+        "log_sha256": "e58a178837bf261116483f0e07819899ecd2c27ec4c8ee5eb2b172237029ed75",
+        "report_sha256": "c5005958458a0d8187240acf2ea7ec65dfee0071f2073e3d66362e1058690fe3",
+        "different_pixels": 38,
+        "observed_bounds": {
+          "x": [
+            66,
+            66
+          ],
+          "y": [
+            181,
+            218
+          ]
+        },
+        "cause": "The two captures sampled opposite blink phases at the identical caret position.",
+        "repair": "Capture both stable phases and require exact full-area equality for each; current three expressions have [0,0] differences."
+      },
+      "kernel_workspace": {
+        "command": "PPL_CONFIG=<isolated empty asset config> env -u PPL_CAS_HELPER cargo test --workspace",
+        "exit_code": 0,
+        "log_sha256": "06152bbdbdf75406d1839e04252b8adce64a8ea3f8b7e0e97ef1c5cf318466ee",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "passed": 2370,
+        "failed": 0,
+        "ignored": 6
+      },
+      "kernel_workspace_giac": {
+        "command": "PPL_CONFIG=<isolated empty asset config> PPL_CAS_HELPER=<matched genuine helper> cargo test --workspace --features giac-integration",
+        "exit_code": 0,
+        "log_sha256": "cf9af5f73cbd1a5681338d3d5ec9339239b991544f043aa7531d6bc387e60bf2",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "passed": 2428,
+        "failed": 0,
+        "ignored": 6
+      },
+      "kernel_genuine": {
+        "command": "Configured original assets: firmware_environment, firmware_inspection, firmware_session, firmware_storage, os_rom_contract; test threads1",
+        "exit_code": 0,
+        "log_sha256": "a294eaf579193a0e47113e9360dda3b308176ebf0ce625951028fc4ddd7c97ec",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "passed": 21,
+        "failed": 0,
+        "ignored": 0,
+        "genuine_firmware_workflows": 7,
+        "original_rom_controls": 14
+      },
+      "kernel_clippy": {
+        "command": "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+        "exit_code": 0,
+        "log_sha256": "fd56db6287b976235c7a425051d21f5c2c6c1f3d570250ef653812f12fa76392",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass."
+      },
+      "kernel_environment_gui": {
+        "command": "Existing real-pointer environment scenario; separate GUI process reopen",
+        "exit_code": 0,
+        "log_sha256": "84f9723251a754b758a14848ff1eb544dece219bd81bf0377f4159c9bff26db6",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "pointer_assertions": 7,
+        "separate_process_reopen_assertions": 4
+      },
+      "kernel_clipboard": {
+        "command": "verify_firmware_clipboard.py on current helper and copied legitimate profile",
+        "exit_code": 0,
+        "log_sha256": "2c37765fc16e80137451ea5051a75a3279109e3250eb599e4ea0507a1d1e5562",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "exact_cases": 5
+      },
+      "kernel_typing": {
+        "command": "verify_desktop_typing.py on current helper; both caret phases",
+        "exit_code": 0,
+        "log_sha256": "6ef9814d101ec0a0c02096c9dd2b7b1aa7599cb43b78a8cf1e6b9112e0814d20",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass.",
+        "expressions": 3,
+        "blink_phase_differences": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "kernel_virtual_cli": {
+        "command": "ppl device virtual --profile <copied profile> --firmware <installed> --os-rom <installed> --runner <current> info",
+        "exit_code": 0,
+        "log_sha256": "d5009681879cb3f8e28ff02a0703227c759990f7595bc4c9a6e5630c8d6b43f8",
+        "scope": "Accepted kernel/managed-job and virtual-device checkpoint before the newer observer-image additions; later work is not inferred to pass."
+      },
+      "workspace_giac": {
+        "command": "PPL_CONFIG=<isolated empty assets> PPL_CAS_HELPER=<matched genuine helper> cargo test --workspace --features giac-integration",
+        "exit_code": 0,
+        "log_sha256": "0182c5ddc2c853272bce80a19b9fcde18147500037b0af51e56457cbd7159597",
+        "scope": "Verified integrated calculator history/textbook and firmware-owned worker lifecycle checkpoint.",
+        "passed": 2440,
+        "failed": 0,
+        "ignored": 6
+      },
+      "observer_genuine": {
+        "command": "Configured original firmware/storage/ROM: firmware_environment, firmware_inspection, firmware_session, firmware_storage, os_rom_contract",
+        "exit_code": 0,
+        "log_sha256": "dbb9cc5e2f9d453bdef38427800cfbbaab416973c420fb11b03f6591a2564355",
+        "scope": "Accepted observer/kernel/managed-job checkpoint before the later worker-start exclusion regression/fix.",
+        "passed": 21,
+        "failed": 0,
+        "ignored": 0
+      },
+      "observer_build": {
+        "command": "cargo build --bin ppl --bin prime-emulator",
+        "exit_code": 0,
+        "log_sha256": "c536c5effd77fe1b587fa2d266850a6091c99d6573d64cd020cab41ffe978ee8",
+        "scope": "Accepted observer/kernel/managed-job checkpoint before the later worker-start exclusion regression/fix."
+      },
+      "firmware_clipboard_gui": {
+        "command": "Existing firmware clipboard real-GUI scenario and assert_firmware_clipboard.py",
+        "exit_code": 0,
+        "log_sha256": "2bf8f42203d3bb41c4e9df4c4150f1aafebefc7be8d35605029544c70fd24904",
+        "scope": "Accepted observer/kernel/managed-job checkpoint before the later worker-start exclusion regression/fix.",
+        "behavioral_assertions": 7
+      },
+      "genuine": {
+        "command": "Configured legitimate assets: firmware_environment, firmware_inspection, firmware_session, firmware_storage and os_rom_contract; test threads1",
+        "exit_code": 0,
+        "log_sha256": "b9f0c8b9316deb86a77b2ad7ebce7a71c9910256a3c3df2bb0e37ec039b2c489",
+        "scope": "Verified integrated calculator history/textbook and firmware-owned worker lifecycle checkpoint.",
+        "passed": 21,
+        "failed": 0,
+        "ignored": 0
+      },
+      "forced_restart": {
+        "command": "PPL_IDE_NO_DEVICE=1 python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py",
+        "exit_code": 0,
+        "log_sha256": "041d431c10565d4eeb6852829b5aa95e953c31823c14202506032b763cd346d6",
+        "scope": "Verified integrated calculator history/textbook and firmware-owned worker lifecycle checkpoint.",
+        "assertions": 16
+      },
+      "linkage": {
+        "command": "PPL_IDE_NO_DEVICE=1 bash tests/ide_xvfb_smoke/run_m17_native_linkage.sh",
+        "exit_code": 0,
+        "log_sha256": "8dbf27fcc1e47513e40d380dbf29e03ac4e0cc2ad3f34ae464c0daf018f0378e",
+        "scope": "Verified integrated calculator history/textbook and firmware-owned worker lifecycle checkpoint.",
+        "assertions": 15
+      },
+      "format": {
+        "command": "cargo fmt --all -- --check",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "live_machine_resume": {
+        "command": "PRIME_TEST_* cargo test -p prime-emulator --test firmware_live_resume -- --test-threads=1 --nocapture",
+        "exit_code": 0,
+        "log_sha256": "4b9220730dd02add6fcabd5008e09a666a41d4eae5f27e83eef83fa2710842f6",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "outcomes": [
+          "Genuine active PPL frame/local/counter after SIGKILL and fresh helper",
+          "Timed WAIT excludes host downtime after ordinary Shutdown",
+          "Nondefault battery/board/storage environment preserved",
+          "Corrupted current explicitly restores intact previous active image",
+          "Incompatible ROM refused without changing A/C files"
+        ],
+        "expected_returns": [
+          "{113,37,150}",
+          "{1114,73}"
+        ]
+      },
+      "live_machine_desktop": {
+        "command": "run_m12.sh firmware_live; assert_firmware_live.py",
+        "exit_code": 0,
+        "log_sha256": "1aca0064087ab5394124ef8b2790c6380c6b0d835e20a70c98c4af349dbd4717",
+        "outcomes": [
+          "Actual pointer Save/Restart/Resume/Enter in three helper sessions",
+          "Genuine runtime returns113/37/150",
+          "Actual program graphics byte-identical below status header"
+        ],
+        "run_log_sha256": "453183678a6fd31ce896da7fbd2a647264db208e1e283ac623c55ee83e0361ae"
+      },
+      "existing_genuine_after_restore": {
+        "command": "PRIME_TEST_* cargo test -p prime-emulator --test firmware_session --test firmware_storage --test firmware_environment --test firmware_inspection --test calculator_only --test os_rom_contract -- --test-threads=1 --nocapture",
+        "exit_code": 0,
+        "log_sha256": "09aa5318c4a99999b5a30792bfea5cfb844597884b630318368f4c54940e7e8b",
+        "passed": 22,
+        "failed": 0,
+        "ignored": 0,
+        "scope": "8 existing firmware workflows including calculator-only admission;14 original-ROM controls. Inspected readiness before its subsequent readiness-result update; that test reran separately."
+      },
+      "text_tools_workspace": {
+        "command": "cargo test --workspace (isolated config, helper unset)",
+        "exit_code": 0,
+        "log_sha256": "388483c13c719aa61164f900b4730931a8496b1695078c9ca4260df2528f0479",
+        "passed": 2435,
+        "failed": 0,
+        "ignored": 6
+      },
+      "text_tools_workspace_giac": {
+        "command": "cargo test --workspace --features giac-integration (matched genuine helper)",
+        "exit_code": 0,
+        "log_sha256": "1b65666c1fef032ec40c4afacef45097c5dfd3c9362f7587d994d596c6ffa4f7",
+        "passed": 2493,
+        "failed": 0,
+        "ignored": 6
+      },
+      "text_tools_clippy": {
+        "command": "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+        "exit_code": 0,
+        "log_sha256": "dadca8175b57ddf047278508176c71be4ae1846081fd46701251e7522d351ad1"
+      },
+      "text_tools_desktop": {
+        "command": "run_native_side.sh",
+        "exit_code": 0,
+        "log_sha256": "3448f9111afe1e868ae5e9a8f1aff215d1f02fca80a8fa39a479e1fe475f6872",
+        "sessions": 28,
+        "assertion_scripts": 12,
+        "scope": "Six tools, math/unit results, selected-scope deletion, process reopen and real pointer SIN; all prior Native scenarios retained."
+      },
+      "firmware_literal_editors": {
+        "command": "verify_firmware_literal_text.py",
+        "exit_code": 0,
+        "log_sha256": "d29bcf12b382a16cc44260a9244c496159cab053b3701b77f015b79699889eb1",
+        "cases": 6,
+        "report_sha256": "d29bcf12b382a16cc44260a9244c496159cab053b3701b77f015b79699889eb1"
+      },
+      "firmware_literal_gui": {
+        "command": "run_m12.sh firmware_text; assert_firmware_text.py",
+        "exit_code": 0,
+        "log_sha256": "0a9a7f2b6aef5b723e994a04cfb3b8e4fd146ac2d0d2beae0487a0335018a2c7",
+        "scope": "Actual GUI typing and multiline Unicode Paste beyond2048, save and exact PPL readback."
+      },
+      "firmware_paste_phases": {
+        "command": "verify_desktop_typing.py",
+        "exit_code": 0,
+        "log_sha256": "ce097176f705b5eaa53348a6b88062b87f86de4576439e8a88738c3fdaa92b94",
+        "report_sha256": "6d3d3461a3f95438ebd13e9b3003bd755b1aad143f0b72be15fd3bd91845f9dd",
+        "scope": "Three expressions, both complete caret phases match genuine physical Paste. Key-fraction caret difference51pixels is preserved, not masked."
+      },
+      "firmware_queued_text_resume": {
+        "command": "PRIME_TEST_* cargo test -p prime-emulator --test firmware_text -- --nocapture",
+        "exit_code": 0,
+        "log_sha256": "e10e1110c8accba7595f5684e361b0a347a21d4f8d05ecdc5ce32a8d5fe58cc2",
+        "passed": 1,
+        "failed": 0,
+        "scope": "Queued text is present in saved producer, survives own helper kill, fresh resume and genuine Copy exactly once."
+      },
+      "os_metadata_components": {
+        "command": "PRIME_TEST_OS_ROM=<legitimate ROM> cargo test -p prime-emulator --lib --test module_metadata --test thread_control --test os_rom_contract -- --test-threads=1 --nocapture",
+        "exit_code": 0,
+        "log_sha256": "f9e5f7e2e39bda3273ef6b64e7aa1224c27eb2d49f1c7ceb2cb785ee2c3e1540",
+        "passed": 256,
+        "failed": 0,
+        "scope": "Includes15 actual original-ROM OS/device controls and complete metadata record comparisons."
+      },
+      "strict_firmware_regression": {
+        "command": "Configured genuine firmware_environment/inspection/live_resume/session/storage/text, module_metadata, os_rom_contract",
+        "exit_code": 0,
+        "log_sha256": "6713ee10aef2c6af9ed0f4d1ce2f55db4d7e587dad6d70226cf42404bae8d355",
+        "scope": "9 genuine firmware workflows plus14 original-ROM controls in this run. calculator_only returned early without assets and is excluded; later components run adds absent-device ROM control15."
+      },
+      "text_tools_gui_regression": {
+        "command": "Native28; firmware clipboard/environment/live; crash; linkage; debugger",
+        "exit_code": 0,
+        "log_sha256": "1e890ca0216befef7b15bea3425cd7f344e35d8ff01da61babaf5a3145041a4c",
+        "scope": "Every stage exited0; live result113/37/150 and exact program graphics, crash16, linkage15, debugger40."
+      },
+      "native_font_ppl_workspace": {
+        "command": "cargo test --workspace",
+        "exit_code": 0,
+        "passed": 2463,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "df277b825dadf0ac18dc142f9dcc2bd7450c95b13180a595bece5d9d302c33dd",
+        "scope": "Current accepted CAS source/data/dynamic PPL arguments, raw UTF16, V7/V8 UI and bounded G1 text raster integration; isolated asset config. Optional genuine font controls additionally ran with actual resource paths."
+      },
+      "native_font_ppl_workspace_giac": {
+        "command": "cargo test --workspace --features giac-integration",
+        "exit_code": 0,
+        "passed": 2524,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "53cc293dfe013ad1685a0a583dd1837fe7969a2b5b54cecd1b4721e6bd2a876a",
+        "scope": "Current accepted CAS source/data/dynamic PPL arguments, raw UTF16, V7/V8 UI and bounded G1 text raster integration; isolated asset config. Optional genuine font controls additionally ran with actual resource paths."
+      },
+      "native_font_ppl_clippy": {
+        "command": "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+        "exit_code": 0,
+        "log_sha256": "c6fca8585b28ad715655fe7b70076cff118eb14b54f38e7cc3eae5921d42df81"
+      },
+      "native_font_ppl_build": {
+        "command": "cargo build -p ppl-cli -p prime-emulator --bins",
+        "exit_code": 0,
+        "log_sha256": "ba81bb313f73339b13ac0132e5ff3f3ac63b1ddb41ca1ea978d152ccf6056605"
+      },
+      "native_font_ppl_fmt": {
+        "command": "cargo fmt --all -- --check",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "native_font_ppl_desktop": {
+        "command": "run_native_side.sh with genuine matched helper4 and installed Prime resource, then crash/restart/M17/M18",
+        "exit_code": 0,
+        "desktop_sessions": 36,
+        "assertion_programs": 18,
+        "cas_genuine_control_cases": 33,
+        "forced_restart_assertions": 16,
+        "linked_assertions": 15,
+        "debugger_assertions": 40,
+        "log_sha256": "3b6eea97a2668b76e63c5222aef892eb18b5ec1daac6441b6fcaba3bca74f622",
+        "scope": "Actual production GUI event loop, keyboard/pointer actions, compiled PPL, actual app values/plots and separate-process persistence."
+      },
+      "native_fonts_complete_rasters": {
+        "command": "verify_native_fonts.py plus graphics/VM genuine installed-resource tests",
+        "exit_code": 0,
+        "cli_comparisons": 12,
+        "complete_reference_framebuffers": 3,
+        "masking": false,
+        "tolerance": 0,
+        "log_sha256": "ea00dac773620f3868bd1ddf7df5a60cebb1d2e7e87c5a80d7657e2e6e728ef1",
+        "component_log_sha256": "5046409756cb54073b8aaa4020f671af0fa6214133bc3be161b22e23262cfb56",
+        "scope": "Exact complete320x240RGB matches for self-authored PPL, both CLI interfaces and two selection paths. This does not assert complete UI/graphics parity or physical-device evidence."
+      },
+      "settings_statistics_expr_words_utf16_workspace": {
+        "command": "cargo test --workspace (isolated assets; helper override unset)",
+        "exit_code": 0,
+        "passed": 2533,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "e9b4aa64eda9026efb97d24d14d02cd0f1f5a52b36bb54cc709cd5f0d893dad9"
+      },
+      "settings_statistics_expr_words_utf16_workspace_giac": {
+        "command": "cargo test --workspace --features giac-integration (matched genuine protocol4 helper)",
+        "exit_code": 0,
+        "passed": 2594,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "21fcae0e34954e87803f61f2ce27860a17020930a5b89317d04d372957a74b58"
+      },
+      "settings_statistics_expr_words_utf16_clippy": {
+        "command": "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+        "exit_code": 0,
+        "log_sha256": "1b5f9503551ef001b200f811ce561a27014087b42f1b02ca89a8466f0fdd8c9b"
+      },
+      "settings_statistics_expr_words_utf16_build": {
+        "command": "cargo build -p ppl-cli -p prime-emulator --bins",
+        "exit_code": 0,
+        "log_sha256": "a87bdb0b33100f0151f46272b309b01fb42c4d5e317117703c6d180d3e4d1660"
+      },
+      "settings_statistics_expr_words_utf16_fmt": {
+        "command": "cargo fmt --all -- --check",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "genuine_firmware_word_returns": {
+        "command": "cargo test -p prime-emulator --test firmware_word_returns (explicit legitimate ELF/ROM/initial-data)",
+        "exit_code": 0,
+        "rust_tests": 1,
+        "actual_stored_programs": 8,
+        "scope": "Actual signed/system-base/full64-bit typed returns, exact sources/body/completion and coherent return decoding; no physical hardware.",
+        "log_sha256": "45cbfa890b9f534f112f76b150f4878227ba7436aa076143f29de8146641da8f"
+      },
+      "strict_factory_firmware_display": {
+        "command": "cargo test -p prime-emulator --test firmware_display (explicit legitimate ELF/ROM/factory-A; Stop policy)",
+        "exit_code": 0,
+        "passed": 4,
+        "failed": 0,
+        "scope": "Actual boot/frame pixels,2+2/2+3comparisons,firmware input-pump thread delivery/key table. Prior boot settlement timeout retained; its cause is not established.",
+        "log_sha256": "a40faef1d5937a262f01a231dfa6738e23058f1694d8c52f4c1e30f79926f72b"
+      },
+      "line_word_settings_workspace": {
+        "command": "cargo test --workspace (helper override unset)",
+        "exit_code": 0,
+        "passed": 2535,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "56b99d70c00040865295ec7056abffe7f9e4326ef1b25102f2d21a0453522ebd"
+      },
+      "line_word_settings_workspace_giac": {
+        "command": "cargo test --workspace --features giac-integration (genuine helper)",
+        "exit_code": 0,
+        "passed": 2596,
+        "failed": 0,
+        "ignored": 6,
+        "log_sha256": "98b74155ca3dcf09ad513a548d2a7a3fd4c14a37cafc31ada987d076a02aea0f"
+      },
+      "line_word_settings_clippy": {
+        "stage": "clippy",
+        "exit_code": 0,
+        "log_sha256": "969477030a417487b620c875c93f7a74a0e6b752b773abec1d359172fe585ab7"
+      },
+      "line_word_settings_build": {
+        "stage": "build",
+        "exit_code": 0,
+        "log_sha256": "e4b895c551e3ff3a2f34e97aec7cc54954e6c99ea936590a5822c2746f9bf35c"
+      },
+      "line_word_settings_fmt": {
+        "stage": "fmt",
+        "exit_code": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "line_word_settings_desktop": {
+        "workflow": "Complete actual Native desktop suite; isolated profiles and selected original fonts",
+        "exit_code": 0,
+        "gui_processes": 44,
+        "assertion_script_invocations": 22,
+        "scope": "Allprior workflows,13Statistics fits/5analyses/Make/fullscreenplot,SINatomicdeletion,settingsSigned64refusal/63Signedreopen,EXPR/catalog/CAS/UTF16,actualindependentfontrasters.",
+        "log_sha256": "9e9451f39a33c892448ea07f8abf67bf41d6ecdbb6b1e31332e60b4c9497b8a3"
+      },
+      "line_word_settings_crash": {
+        "workflow": "ActualSIGKILL and separate GUIprocess; all previous16assertions plus signed-word metadata and fresh PPL conversion/base-format proof",
+        "exit_code": 0,
+        "scope": "ExactportableF/Gsignedwidth/sign/systembase retained; B\u2192R(F)returns\u22125 and changingBaseformats255as#11111111:-8b. NoDebugstringparsing.",
+        "log_sha256": "7b2430b7c5a57a6502b2088166207666196cae1132efd68525558e31bac53c72"
+      },
+      "line_word_settings_linkage": {
+        "workflow": "Existing actual desktop linkage",
+        "exit_code": 0,
+        "assertions": 15,
+        "log_sha256": "1ea0335acbc8fb396506809b0a926d836a998cc765373368c207cad6a57f89d6"
+      },
+      "line_word_settings_debugger": {
+        "workflow": "Existing actual desktop debugger",
+        "exit_code": 0,
+        "assertions": 40,
+        "log_sha256": "b2d62fe2bff1120dbd39d9148e85ce8caf6e29ed406825b44cefd09e55a1f0a3"
+      },
+      "optimized_line_word_settings": {
+        "workflow": "Local optimized app/runner with matched genuine protocol4helper; real selected-font settings and process reopen",
+        "exit_code": 0,
+        "gui_processes": 2,
+        "scope": "Signed64refusal/63Signedrestoration and two independent original-font glyph regions. No user process/profile was killed or changed.",
+        "log_sha256": "9a8b88d845f32587287221826c67fb0c36e93bbef9ca1d91c21557bd8be93542"
+      },
+      "geometry_word_boot_full": {
+        "default_passed": 2555,
+        "giac_passed": 2616,
+        "failed": 0,
+        "existing_ignored": 6,
+        "clippy_build_fmt_exit": 0,
+        "logs_sha256": {
+          "default": "33abdd1629fd5b11889fe4a3aef69285be07b77dd39495d95988bd26a941b791",
+          "feature": "39a2c1ee0caa9a719f466b86c6593f6180b9c2ca222f49668e03d86f787f2965",
+          "clippy": "6b4787c417f9330039758a03933dc28816587f12e48da46491a8d3f5026e8079",
+          "build": "10f68478a5a383c7593b9f815519934f1adbafc9b012bdc44d235ad13025e32f",
+          "fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "geometry_word_desktop": {
+        "gui_processes": 48,
+        "assertion_invocations": 24,
+        "exit_code": 0,
+        "scope": "Real original desktop scenarios plus Geometry dependencies/drag/commands/color/rename/atomic edit/reopen; word exact metadata, history recall, fonts and process restoration. Isolated profiles; device disabled.",
+        "log_sha256": "73dda6f569f511619c5b5ce441de630cb91b4b54e933825445cea0d84f27d900"
+      },
+      "boot_adapter_genuine": {
+        "integration_tests_passed": 16,
+        "svc_tests_passed": 22,
+        "failed": 0,
+        "scope": "Actual installed firmware/ROM/initial-data/factory-A; strict factory rendering, USB/environment, inspection/list flags, active/timed process resume, storage, text/SIGKILL, UTF16 and signed words. First9tests passed before external143 termination; remaining7+22svc passed separately.",
+        "logs_sha256": {
+          "boot-adapter-v11-genuine-regression": "ca26d58afa6e68465c3993d63cf47dc0ad5810a05d912a6d2638fb329ba32bf9",
+          "boot-adapter-v11-genuine-remainder": "cec260de6497bf711c560fd7772230128b0bbe2463ebe553bbb48a2fbbcabd0e",
+          "script-boot-readiness-genuine-first": "14111bc82889ef2e18284475030c4840fdeefa2e7b541ca7d5927609011e838f"
+        }
+      },
+      "scalar_arc_blit_focused": {
+        "passed": 2,
+        "failed": 0,
+        "reference_frames": 66,
+        "log_sha256": "6a3181d045dfde8213cde8afcf904746f7158ebd20d66d487a9480edbed45225",
+        "scope": "Complete independent circle/partial arc bitmaps and BLIT color frames; bounds/extreme-coordinate check. Ellipse/fill overloads remain open."
+      },
+      "function_app_cas_container_full": {
+        "default_passed": 2592,
+        "giac_passed": 2658,
+        "failed": 0,
+        "existing_ignored": 6,
+        "clippy_build_fmt_exit": 0,
+        "helper_protocol": 5,
+        "helper_sha256": "2f57fb5ad91df4beb5cdf5b04e4d451809fda7011146b246e70b9cfd6024b1b9",
+        "scope": "Combined frontend17 Function Symbolic, runtime app function dispatch16, app formats15, nested CAS/APPROX14, legacy STRING13 and ellipse/LINE12. Function transport tests are explicitly component tests; production Function Home/PPL host still requires implementation.",
+        "logs_sha256": {
+          "full-default": "5294c83a54ec66e1e15fd8ca21aa832140adadcf4612d1aa1b05e3f0d3a86786",
+          "full-feature": "4e251529cd941127196a61804e42096f2baec26ee10e8dd9f70696dbb5fb0b65",
+          "final-clippy": "57bd0223972f474a318c9eafbbd1b5afd13ce6f7980315eece8c57815cb877c6",
+          "debug-build": "1a9680be9ec10cc525d7eaa9bd642ddb19a91195811833baed9d9b689b2c71f6",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "function_symbolic_desktop": {
+        "gui_processes": 4,
+        "assertion_invocations": 2,
+        "exit_code": 0,
+        "scope": "Actual inline SIN/delete/cancel, Show/Eval, unchecked function dependencies, true F0, numeric/plot computed values, colors and separate-process restoration, both system and installed Prime font. Isolated profiles and frozen binary.",
+        "log_sha256": "64915fb8c67c8552e222dc2e5d3da1189ae99acfe85058a48f7d3a1825f13491"
+      },
+      "gallery_qualified_ellipse_fraction_desktop": {
+        "gui_processes": 60,
+        "assertion_invocations": 29,
+        "exit_code": 0,
+        "scope": "Previous frontend16+STRING13 checkpoint: main54 Native desktop scenarios plus installed-font6, including production Spreadsheet qualified requests, INPUT/CHOOSE source/epoch fencing, app gallery keyboard order, Geometry, signed words, raster and persistence.",
+        "logs_sha256": {
+          "run-1-retry": "4b581c25af1e7583ad0d1e394c03ef5105f4ac10d24378f4ae4126f0b6f7e2da",
+          "run-2-retry": "c6d483e7951e1b5aeec67e70b1c42214f50580eb4c687a4a57f4e0028e1f947f",
+          "run-3-retry": "6413e8c21f6b748ca215b56d6e7b283734a0930db4692d2f99dbb7490732472a",
+          "assert-all": "e495fcdf491c087d6670fcaf0df7a3250a2e16d06d95ba843700ce634f0096f6"
+        }
+      },
+      "rectangle_complete_controls": {
+        "original_frames": 32,
+        "focused_tests_passed": 2,
+        "failed": 0,
+        "scope": "Original15751 complete5x5 frames: swapped/degenerate/clipped coordinates, full GROB/default forms, transparency1/128/254/255 and distinct edge/fill. Bounded fulli64 regression. Separate calculator raster leaves generic UI drawing unchanged.",
+        "logs_sha256": {
+          "rect-v17-before": "c679fcc6f93c03b9cc6ae32986d7c6f3204e12f91e0db05166f6cc3f534921cd",
+          "rect-v17-focus": "224e6f27f304565a3760bb80c7a47c3eb780829157e9ebc5bade3155cd29319e",
+          "rect-v17-clippy": "ead3900cb5a4b821d15e0ba10bc52ee63af15a9b7833232071fcd34fef919db0"
+        }
+      },
+      "rectangle_combined_full": {
+        "default_passed": 2594,
+        "giac_passed": 2660,
+        "failed": 0,
+        "existing_ignored": 6,
+        "clippy_build_fmt_exit": 0,
+        "logs_sha256": {
+          "full-default": "d2318f6f045ffe9dcbbcea11709ec5da9c6c48bda8f506e000663647e57494da",
+          "full-feature": "c7aa1bd872ddf5a4e57ff0538f1de7948e439169a9ce76ccd818ebc4699b9ecf",
+          "final-clippy": "3e21ceefada7d8686127e598d956f3110974b0018fc09f19401fada1a44441ad",
+          "debug-build": "fd6149b2fffe6b13d6e5fba50618942e2090b4da54f2146a444efbd11ad2666d",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "rectangle_actual_ide": {
+        "gui_processes": 1,
+        "exit_code": 0,
+        "scope": "Actual production IDE Run returns{8917273,528793}; all25corner/interior/background pixels on composed LCD equal original frame.",
+        "log_sha256": "b8d4c70f855e96700b9c5124a68b8cc771407418731450408724953d19dde46f"
+      },
+      "optimized_rectangle_cas_checkpoint": {
+        "build_exit_code": 0,
+        "build_log_sha256": "1ca4ac2aaabc3a27ca9faed6229a44b3d73cea38dcd3b04351d987f6a88c5ea3",
+        "binaries": {
+          "ppl": {
+            "sha256": "1b74458c9ade45915401bf8553888b9871d8d6498656efd07c222bd6776bb59d",
+            "size": 37270664
+          },
+          "prime-emulator": {
+            "sha256": "7f8f5c097809d1b1f3d383cb9ca6428154d26b472eb688a015bb455e8127bdd7",
+            "size": 10790768
+          },
+          "ppl-giac-helper": {
+            "sha256": "2f57fb5ad91df4beb5cdf5b04e4d451809fda7011146b246e70b9cfd6024b1b9",
+            "size": 71328
+          }
+        },
+        "actual_function_gui_processes": 4,
+        "actual_function_assertions": 2,
+        "actual_cas_original_sources": 10,
+        "scope": "Optimized frontend17+backend17: actual Symbolic/reopen sessions both fonts and10genuine original CAS/APPROX programs through IDE Run. Adjacent helper5 discovered with override unset. Genuine symbolic print-order difference remains explicit and is covered by algebraic VM test rather than an identical-text GUI claim.",
+        "logs_sha256": {
+          "run-symbolic": "5a4dbfd4de9a3d7aa25f8cc52630b330a015c72fa4087977467d7dd61f7f08f7",
+          "run-cas": "638a3dd274ed020bc8a926750a40cd69d724186362ba9c97bd284ba13c0b4ac5"
+        }
+      },
+      "function_runtime_crash_link_debug": {
+        "forced_restart_exit": 0,
+        "linked_ide_assertions": 15,
+        "debugger_ide_assertions": 40,
+        "scope": "Actual frozen backend16/frontend17 binary; SIGKILL after durable objects/typed metadata and separate GUI reopen; existing linked IDE and debugger interactions.",
+        "logs_sha256": {
+          "crash": "717f22d0dd64f9233c6faf3a7c44bb70ce10ae473dbb1a0cb36aef75017c7c98",
+          "link": "929d6880e889b72a9c2259ff73be099d6a2f8dd94fed9804e5607aac68478600",
+          "debug": "b2d62fe2bff1120dbd39d9148e85ce8caf6e29ed406825b44cefd09e55a1f0a3"
+        }
+      },
+      "optimized_function_rectangle_full_desktop": {
+        "gui_processes": 64,
+        "assertion_invocations": 30,
+        "exit_code": 0,
+        "scope": "Fresh isolated profiles; optimized backend17/frontend17. Complete main56 scenarios and8installed-font scenarios include corrected first-field interactions and independent font profile per restart pair. Full original calculations/plot/table/trace assertions retained.",
+        "logs_sha256": {
+          "run-1": "7a4956a81d139933a9c3ec43df7b4aeb1ab6e83febfdca37d8fd677f6abdbd3c",
+          "run-2": "28cdcfdcb8fe3b3dc8760365c422eabdc92270fc2a38aaef06735b5663d32485",
+          "run-3": "4d562a4d30c6eb33cab24969326c44f7d0fee2449b106e5d3bc93f46d7c5ab88",
+          "assert-all": "1a973d15a2ffe44388934b8c54998ea6b26a3057508e0563af83ec04f46ace82"
+        }
+      },
+      "function_setup_service_actual_primary": {
+        "gui_processes": 8,
+        "assertion_invocations": 4,
+        "exit_code": 0,
+        "scope": "Primary composite source after exact frontend18/19 and HComplex correction: measured setup seven formats/twelve digit choices, real session query, Function rows entered through GUI and used by Home/PPL/EXPR/CAS, complex/list/word values, foreign caller namespace and angle, Home X/Ans preservation, separate-process reopen. Both bundled and installed Prime fonts.",
+        "log_sha256": "e84985732def8574d8498884915009891104568f7d0c0dcd929ae6dc58b7c347"
+      },
+      "power_scheduler_wake_candidate": {
+        "real_arm_regression_passed": 1,
+        "original_firmware_recovery_tests_passed": 6,
+        "recovery_test_failures": 0,
+        "cargo_wrapper_exit_code": 143,
+        "scope": "All6existing genuine recovery tests report passing after OFF-gated scheduler request cancellation. Wrapper terminated after the test summary; no clean invocation-exit claim. Fresh independent firmware checkpoint wakes Ready, and a previously stalled complete live image resumes with retained A/L1/M1 returning10. Clean bounded individual recovery invocations remain required.",
+        "logs_sha256": {
+          "power-v18-focus": "4421859cb2a9844cbf87d46bf846f0de20bda54b0ba8f7f016e4085588a6236a",
+          "power-v18-genuine-recovery": "b5e4ebd60e1914e5bffa6e183a004b3dfccf65f77673a48aa5d4430b6895656f",
+          "wake-v18-fixed-reference": "208803af7ef9f73a353cacb8677575946e539bc6b57872a8ca7607ed6d964ecb",
+          "wake-old-image-v18-restored-second": "ea6a7614e7817063fd630cab7fd32a9df93a1c5850f515484129cd82713e609b"
+        }
+      },
+      "power_scheduler_genuine_remainder": {
+        "exit_code": 0,
+        "passed": 63,
+        "failed": 0,
+        "scope": "All8firmware_runtime tests; genuine firmware_session/storage/text/UTF16/word tests, actual svc/sync_lifecycle/thread_control including the new real ARM wake regression. Explicit legitimate ELF/ROM/init/factoryA. All source/result checks retained.",
+        "log_sha256": "b94066b7b7ef027ea020d19238933b5660ffc1b3423827c025e553d57bf1ca92"
+      },
+      "app_numeric_vm_checkpoint": {
+        "passed_default": 2615,
+        "passed_genuine_giac": 2682,
+        "failed": 0,
+        "existing_ignored": 6,
+        "exit_code": 0,
+        "checks": [
+          "workspace default",
+          "workspace giac-integration with genuine helper5",
+          "workspace all-target feature Clippy warnings denied",
+          "debug binaries",
+          "formatting"
+        ],
+        "default_log_sha256": "c8e19fe8b610a7511a92e3b8dc30fad5e78bc88db287c8c8ac24c7cb58b0659e",
+        "giac_log_sha256": "3a56c325ff2171ad5658011926fff835fb439ab74210568e9140c2b21ce73d3b",
+        "scope": "Backend23 includes frontend20/power18. Genuine original18 numeric control programs plus fresh-process decimal-range/custom-row persistence; actual graph/Function/spreadsheet read fences. Numeric UI21 remains in development, and the newer exact arithmetic model remains incomplete.",
+        "patch_sha256": "53889f4861ae756ae7befcdd833153ed9c03090c372c41604a575ad7d38587b3",
+        "default_followup_sha256": "3937f1e530e1d0469e9da13395a3b5d03290e12bfe059415b5e9825b51168ec6"
+      },
+      "native_mouse_actual_primary": {
+        "exit_code": 0,
+        "desktop_sessions": 2,
+        "scales": [
+          1,
+          1.5
+        ],
+        "scope": "Actual PPL reads real LCD press/drag/release/new tap; preserves original point, New/Drag, signed16 coordinates, unsigned16 kind, SYSTEM base affinity, two empty lists on release. No multi-touch/long-click gesture claim.",
+        "log_sha256": "a73eaebf83e844f6afe4cce822e3e53ceb1c7b8f0297398553cc44af490a77db"
+      },
+      "power_scheduler_clean_recovery_summary": {
+        "passed": 6,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 111.63,
+        "scope": "New full genuine recovery invocation completes all6tests; test summary retained. Process exit output was lost during context compaction, so this record claims the test results only. Prior wrapper143 result remains retained separately.",
+        "log_sha256": "8774f6fb7d19273246e7bed9194a4e8bb9683a7783c8adfd1e32a0c07ce580b0"
+      },
+      "exact_pi_firmware_returns": {
+        "exit_code": 0,
+        "genuine_programs": 4,
+        "genuine_test_invocations": 1,
+        "runtime_component_tests": 12,
+        "default_workspace_passed": 2617,
+        "genuine_giac_workspace_passed": 2684,
+        "failed": 0,
+        "existing_ignored": 6,
+        "checks": [
+          "all-target feature Clippy warnings denied",
+          "debug builds",
+          "formatting",
+          "actual CLI28original expressions fully decoded, zero caveats"
+        ],
+        "genuine_log_sha256": "3c6cb3aa375cbfebdbd367c4c4f5c1cbb893d4362a4453378a1a7c6afe92b23f",
+        "scope": "Static4-byte pi and24-byte exact signed rational pi coefficients, nested lists,19-digit exact values. Actual original compiler and runtime; coherent complete returns and faultNone. Native exact arithmetic remains incomplete.",
+        "patch_sha256": "9cbf94ee53cb02ed0efb1eea91850a8f596cdf5bd7564fa95bf18c22edcbf910"
+      },
+      "current_number_backend_25": {
+        "commands": [
+          "cargo clippy --workspace --all-targets --features giac-integration -- -D warnings",
+          "cargo test --workspace",
+          "cargo test --workspace --features giac-integration",
+          "cargo build -p ppl-cli -p prime-emulator --bins",
+          "cargo fmt --all -- --check",
+          "cargo test -p ppl-engine --test current_numbers"
+        ],
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2643,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2711,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "final-clippy": "833d8ee8b723010286c95434bc39397364d6d2481870712fa6e719af3f9f1b37",
+          "full-default": "1a5f0c70e5b2ee2146f333455ec0ec83c33a90c02c8bf4f33d68bedad46c6ca8",
+          "full-feature": "fc57832a7ab288f8d497d750f2d90d9a32524c2c19567e8dd725e19e50167baa",
+          "debug-build": "187a270371179b0480456894c2cdb3e4c59d03f82a528c044ca3d442a309af0e",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "both_models_controls_log_sha256": "c3f4e9913fcb8b7184a050f44b26dfe3289612dfd8905d2dc1fbf83c324568ae",
+        "scope": "Integrated exact frontend21 plus checked editor-overflow followup and backend25. Ten self-authored original15751 programs with237 returned fields; four independently checked15157 sources additionally execute under the legacy native model. Numeric JSON arguments, exact decimal/rational/pi arithmetic and provenance, schema5/fresh-process memory, actual Giac bridge, complex scalar types/functions, live active-app angle/complex computation and signed runtime saturation. Tests run without physical USB. Genuine firmware tests are recorded separately; environment-guard returns in workspace are not firmware execution evidence.",
+        "limitations": [
+          "New numeric model requires explicit numeric_version15751; GUI profile/history integration is pending.",
+          "Native command/grammar/algebra/graphics and complete app/display parity remain open; this checkpoint does not close1/24/25."
+        ]
+      },
+      "managed_list_header_26_function_definitions_22": {
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2653,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2721,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "full-default-second": "30cf944380180745698345a12528d857a0f408da45bde76d450facb5e3a98ca8",
+          "full-feature-third": "680ba6ff9f84660560d89563c1b089c95098a86f1f9d6ed1b1b2b2563d9afcc3",
+          "final-clippy-third": "1329710bdbef131f33cd83fd0e6fad2d96ebccf2fddb51d0a59e312768b8f505",
+          "debug-build-third": "44a5a41556e0633468eac791f0f748f35556a2db0c9c1149fe98883b7e8ce450",
+          "final-fmt-third": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline-third": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "scope": "Exact20-path Function definitions22 integrated after Numeric21/backend25. Bare/noargGET, typed scalar definitions, atomic SET, clear/checked state and caller namespace have production dispatcher regressions. Managed firmware list tag16 leaves header byte3 uninitialized; original ARM initializer executed with all256 prior byte values, then production bounded capture/replay retained exact values. Two actual firmware list/numeric workflows, initializer and15 component tests pass separately.",
+        "genuine_log_sha256": "1a0ca53db00073aa981c61c5f13f2637bfaf5566be59f5ec5c0ac7f4d79f4bc3",
+        "genuine_workflows": {
+          "firmware_list_returns": 1,
+          "firmware_numeric_returns": 1,
+          "original_initializer": 1,
+          "value_components": 15
+        },
+        "limitations": "Remaining app, compatibility and display acceptance stays incomplete. Original-initializer execution is an isolated firmware ABI control; the list/numeric workflows separately execute full original programs. No physical hardware was accessed."
+      },
+      "menu_v27": {
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2655,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2723,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "full-default": "476a34814642bdc27c1cca8eda1ac1d3af4db2a2ba4f555c800fc05376146865",
+          "full-feature": "05eb8b8034a4c66286c590f45b040e342286504a0d670555f83b748f176aaa05",
+          "final-clippy": "a3cdebb8838d8fdbfea66fecd103e9766e16aa70d8f1df6962ff92f5fb88c8ad",
+          "debug-build": "854670a9fc18ab225f465e55fff1305f59799f9888b16f7f04c456a6ad15c555",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "scope": "13 complete original frames exact; primary actual GUI13unchanged programs Run/Enter exact7seconds. Selected malformed resources preserve display."
+      },
+      "text_v28": {
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2657,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2725,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "full-default": "0ae0c4dcf9d82d407d401eee5f7836035553c15c60f0a3389ce7a5fc23d37ebf",
+          "full-feature": "701ab2c1f2b3e734dc430a66de372dd8fb06a8cfd9455f7fd342979befc41702",
+          "final-clippy": "c88f396df4d8d23ca8e73013d6946ec21766e613b45c75fae750862d87188652",
+          "debug-build": "906cf78317c6edadebaccf92e935a57dfa672d23e582d1b01455c7c9a3336ba5",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "scope": "Six complete original frames/returnvalues exact; primary actual GUI six unchanged programs Run/Enter exact4seconds. Prior13menu and3font frames retained. No masks or tolerance."
+      },
+      "help_v29": {
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2667,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2735,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "full-default": "2cdd9b83a49248e811cca4ed39c31f9cd269129007fa6c72b556c1784226b2aa",
+          "full-feature": "f09b9985f5f7f492c348dcb8c78aeaaab4bda26c223f36fae1d0fe62fc079912",
+          "final-clippy": "4c39176132fa7ad6414fd99de3c2d0c46e5a4066c6dc5124409856313f61fc10",
+          "debug-build": "c34b498548b82ecc9b43e14be43dc61141d14e7b2c9e7e5a0c56af044cbe73f5",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "scope": "Eight installed languagebooks18808indexes6962095UTF16units match independentdecoder;4new tests0 including malformedtruncations/mutations/rawsurrogate/vacancies/duplicates. DataAPI; Native browser/markup/images remain open. Original firmware HomeHelp/Tree inspected, no fault/unsupported events. Auxiliary records were initially retained opaquely but mislabeled images; original ARM reader evidence and Help30correct this to grouped interface strings."
+      },
+      "current23_primary_gui": {
+        "exit_code": 0,
+        "passed": 731,
+        "failed": 0,
+        "ignored": 2,
+        "log_sha256": "4f6b2c502d39a876e72b88219f711cd36f8a50cad0af9296c446f8ef8091f6f2",
+        "scope": "Exact23path UI handoff verified and integrated; freshCurrent/oldLegacy profile, typed history/copy/origin, actual Home settings and derivedNumeric saturation. Optimized full composite desktop94processes40assertions now passes."
+      },
+      "current23_text28_optimized_desktop": {
+        "exit_code": 0,
+        "gui_processes": 94,
+        "assertion_invocations": 40,
+        "logs_sha256": {
+          "first_segment": "a290ac3863b2ae6c220fd6af549e5f9f4c141346895776e12c972cfa07b1017c",
+          "resumed_segment": "ec79b30d7b40d5a2999e555459753a0d5e129d8c63fe02f2f110e7a8954db7d7"
+        },
+        "scope": "First46actualGUIprocesses0 before outerSIGTERM143; remaining48andall40assertions0 in same preservedprofiles. Bothfontmodes, freshCurrent/precisehistory/reopen,13originalmenusand6textfullframes, full existing Native workflows pass. Existing old schema4migration remains separate owner+unit evidence; no physical hardware."
+      },
+      "help_v30_stats_transport30_chrome24": {
+        "exit_code": 0,
+        "workspace": {
+          "passed": 2676,
+          "failed": 0,
+          "ignored": 6
+        },
+        "workspace_giac": {
+          "passed": 2744,
+          "failed": 0,
+          "ignored": 6
+        },
+        "logs_sha256": {
+          "full-default": "50bf6bf423a9affcd8d5112cee9a045ae376488a9b6eded27bdfe62a04bad4c9",
+          "full-feature": "cd0e045b345922b89a69c5b6c2d74a63282ab9fa909ba9dd19ef3d03517367b5",
+          "final-clippy": "2cbe6e2607b34154f91236c6edfb333560e4f6901e6bd44ef5b4ea8ab8fa04bd",
+          "debug-build": "7ec81d2d6b2ec8863576f1d46ef5267f2221e94d99ee275f0c935a61d4aa9da9",
+          "final-fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "pipeline": "b4df54525194d1a403f0c59b30fb787191140358d1b47eddc9e939922dff2aee"
+        },
+        "scope": "ExactStats30sevenpath transport integrates quotedAST/nativehostsnapshot dispatch; complete actual Stats calculation/UI remains underway. Help30corrects auxiliary record semantics and decodes all281UIstringgroups/29181strings/336829units. Core18808Helptopic hashes unchanged. Independent originalARMdecoder actual allstringsbyteexact1test0; explicitfirmware/resource run separately."
+      },
+      "help_v30_original_arm": {
+        "exit_code": 0,
+        "passed": 1,
+        "failed": 0,
+        "groups": 281,
+        "strings": 29181,
+        "elapsed_seconds": 1.04,
+        "log_sha256": "48d16c954581cd4fb92b839c594aa62020bae8ff03770b693a6012a95a047d96",
+        "scope": "OriginalinstalledARM926function30611218/ELFcodeSHAverified; every UTF16 byte/NUL compared. Only malloc/realloc boundary supplied with poisoned allocations; original decode,arrayconstruction,zeroing and strlen executeunchanged. No physical device."
+      },
+      "native_chrome24_primary": {
+        "exit_code": 0,
+        "gui_unit_passed": 732,
+        "ignored": 2,
+        "gui_processes": 18,
+        "assertion_invocations": 10,
+        "logs_sha256": {
+          "gui": "81212588119234a350808d7054e53203d9eef4caa003f9084e3014e82d8449c2",
+          "release": "bd23bd7fa11e43d5c1f02da995c3bcde6ab76091a956df3b61fd7ab23d30e11a",
+          "first_segment": "6335c1d023a81745a56bcd48abe7b66984c0ee9cddb9943d2a90ee32f84d2e93",
+          "resumed_segment": "00525738db72119d55a2b8e0c4039329ccb845ed945172bb8cbaa06d1bee29db"
+        },
+        "scope": "Exacttwoentire320x20originalnumericmenu strips; actual affected flows bothfonts/reopen0. First6GUI0before outer143, remaining12/all10assertions0 in preservedprofiles; signalwatcher receivednoSIGTERM so sourceunestablished, no productionfixclaim."
+      }
+    },
+    "acceptance": "Incomplete:30implemented,3partial(1/24/25),0unresolved. Scoped findings5/23/27/28/29/30/31/32 meet their recorded acceptance. Remaining Native application/PPL/display criteria require engineering.",
+    "notes": [
+      "Separate command counts overlap.",
+      "Workspace tests without configured firmware assets are not genuine firmware evidence. The strict asset run exercised9 actual firmware workflows; calculator_only was unconfigured and is excluded from that count.",
+      "No physical hardware accessed; no commit, push or publication authorized.",
+      "5/27/30 close their original recorded criteria; full Native app/PPL/display parity remains1/24/25.",
+      "656 unhandled OS slots remain explicit coverage gaps. Production live sessions fault instead of returning synthetic zero.",
+      "Historical results are retained below; latest checkpoint keys describe accepted code and actual outcomes."
+    ],
+    "publication_authorized": false,
+    "validation_interruptions": [
+      {
+        "stage": "observer default workspace parent",
+        "exit_code": 143,
+        "log_sha256": "4c8bbfbfbc13a126485e1f092dfb26595d7f451cb664a100985e95a3c8f2068c",
+        "outcome": "All134 suites logged2373 passed/0failed/6ignores, but the orchestration parent terminated before recording Cargo status. Not accepted as a completed command. A separately isolated Cargo invocation subsequently exited0; no source/test semantics changed. Cause of parent termination not established."
+      },
+      {
+        "stage": "integrated full genuine-Giac display regression",
+        "exit_code": 101,
+        "log_sha256": "1571b7cecf8ede4398f4f3757de55b1af1e5d6e7ecf03210dfc32cc361e9afea",
+        "outcome": "Display test device thread panicked on explicit Busy capture while its CPU loop continued indefinitely. Only that owned synthetic test was terminated with SIGTERM after a retained GDB trace. A stop guard exposed the same Busy failure at repeat877; bounded Busy retry fixes caller usage and retains pixel/input assertions. Completed rerun exited0; interrupted run is not counted as a pass.",
+        "reproduced_failure_log_sha256": "b93d05377aa4e0f8a1edcb2f84b70ac8cb08258e72a40b7c46181d09d2a3e953"
+      },
+      {
+        "stage": "Initial refreshed caret-phase comparison",
+        "exit_code": 1,
+        "log_sha256": "905e5d3b26f364374a6951151a1a3ddf25f78bb79f814bf0396c8ceed9c27aae",
+        "outcome": "Second expression physical Paste failed to expose both stable caret phases within5seconds. No pixel assertion relaxed. Independent same-code repeat collected both phases and all three exact comparisons passed; failed evidence retained."
+      },
+      {
+        "stage": "Expanded literal INPUT harness",
+        "exit_code": 1,
+        "log_sha256": "2ff120244c9a8c123e30eb8fb7d24632cdcfcf5316df3da78668294cbba00086",
+        "outcome": "Firmware returned25, but an inspection consumed the result before the harness waited for it. Screenshot retains25. Harness now awaits the result directly after Enter; all six genuine cases pass. No production behavior changed for this harness correction."
+      },
+      {
+        "stage": "V7 full workspace completion wait",
+        "exit_code": 101,
+        "log_sha256": "7fc8711571bba439c721b7df63c7b39fa0a23af190338b8c521d90aa17928204",
+        "outcome": "GUI tool test observed worker termination between reducer polling and its wait predicate, then read history before the next UI commit. Four tests now await actual history counts; all value/result assertions remain. Actual production logic unchanged; completed full reruns pass."
+      },
+      {
+        "stage": "Expanded44-session desktop with new word backend",
+        "exit_code": 1,
+        "outcome": "All44GUI processes exited0, but installed-font settings reopen refused the UI-created Signed64 state. Firmware independently rejects that combination. Production settings setters and dispatch now reject it; dedicated63Signed restore scenario passes at handoff. Full integrated rerun remains pending. Other actual desktop assertion scripts pass when invoked with their documented path argument.",
+        "log_sha256": "6b68ac31a5caa475fd79490def15f0be80993476617fe349276511910def489c"
+      },
+      {
+        "stage": "First combined LINE/WordSettings default workspace",
+        "exit_code": 101,
+        "outcome": "Production strictSigned64fix exposed an obsolete GUIunit expectation that acceptedSigned64. That test nowasserts64unsigned+rejection,63signedsuccess,and64bit-editrejectionwhilepreservingHomeinput/no-worker assertions. Full combined reruns pass.",
+        "log_sha256": "cd4f5a714eef5e86a3fb1eb9b111ffcf9b72834b1930cb3d78748e1fc1d5f615"
+      },
+      {
+        "stage": "Strict fresh factory before readiness fix",
+        "exit_code": 101,
+        "outcome": "Animated welcome repeatedly resets unchanged-pixel script gate. B/C reached real pump/timers but Boot failed60s. Fixed to production readiness observations, without raising timeout; deterministic animation/static/serialization tests and two actual four-test factory runs pass.",
+        "log_sha256": "eb977cf72a0dc1940c2d4f602ab410d77c89d3940ce316bc1f714b7e84ebae08"
+      },
+      {
+        "stage": "Combined genuine batch after first9 passing tests",
+        "exit_code": 143,
+        "outcome": "Process terminated without a failing test result before live-resume started; preserved log. Seven remaining genuine tests and22svc pass in separate remainder invocation.",
+        "log_sha256": "ca26d58afa6e68465c3993d63cf47dc0ad5810a05d912a6d2638fb329ba32bf9"
+      },
+      {
+        "stage": "Geometry desktop private harness fixture copy",
+        "exit_code": 1,
+        "outcome": "First isolated run could not find copied test font fixture; copied actual tests/fixtures then reran all48sessions/24assertions successfully. Production code unchanged.",
+        "log_sha256": "cfd622e1fc31674e804236a94b14f36972a078060e36cc8908acfc42561051a4"
+      },
+      {
+        "stage": "Parallel desktop private Xvfb allocation",
+        "exit_code": 1,
+        "outcome": "Existing launcher raced for Xvfb:300 in simultaneous private runners. Assigned disjoint display ranges in the private wrappers; all60 sessions and assertions then passed.",
+        "log_sha256": "ddc4375fb81d33e11fb1122b1f78d2f2cf0067f574cf786a15d9d4c0deb8943a"
+      },
+      {
+        "stage": "Function Symbolic private output directory",
+        "exit_code": 1,
+        "outcome": "Private output directory did not exist for screenshots, so assertion failed although GUI exited normally. Created directory and reran all four sessions against fresh profiles; all screenshots and assertions passed.",
+        "log_sha256": "f27e9491fffff99de97c1e83378bc053aba128e5cdd9b906544af47bfdc9723b"
+      },
+      {
+        "stage": "New app-format control in headless host",
+        "exit_code": 101,
+        "outcome": "Original source invokes STARTAPP, explicitly unsupported in headless production hosts. Fixture retains the complete original source and explains Native transport omits only STARTAPP because the machine already defaults to Function. Same assignments, return values and invalid-range cases then pass.",
+        "log_sha256": "7e1d5a495d9d6f6a555a20f7bf3e1da920893ff90591428c286a9a89003e1ee2"
+      },
+      {
+        "stage": "New extreme-coordinate RECT test expected color arithmetic",
+        "exit_code": 101,
+        "outcome": "Independently specified test expected green128 for255*128/256; correct integer result is127. Corrected that hand-computed expectation. All32original frame expectations unchanged and pass.",
+        "log_sha256": "19258e74f2b87be60f004c98783a8df3678afcce8b656437dd3339dc036db70b"
+      },
+      {
+        "stage": "First64-session Function17 desktop acceptance",
+        "exit_code": 1,
+        "outcome": "All GUI processes exited normally, but old graph pointer coordinates selected F2; optional font tests also inherited the settings draft. Full diagnostics retained both failures. Reviewed4-file UI handoff selects first field and isolates font profiles. Fresh optimized64-session rerun and unchanged assertions pass.",
+        "logs_sha256": {
+          "assert-all": "50a7398d2b69a97912157d152ac8d41ce6408363718b0209c85477042da48b85",
+          "assert-diagnose": "6e476db5f8cdab9195afe5546cebf8f8cc983dbc8c40947e7c7edf1054270cc9",
+          "retry-failed-scenarios": "4938c6ea70693f2e381e93e8b32e067cf952dbeeefc64fdc7b14b8bf84083b54"
+        }
+      },
+      {
+        "stage": "Whole configured-firmware suite: boot owner assertion",
+        "exit_code": 101,
+        "outcome": "Genuine event loop accepts3injected keys from observed caller306070B4 on actual registered CPU2, while the historical test hardcodedCPU1. USB worker reservesCPU1. Test now checks service/caller, actual registered owner, real delivery and pump reentries. Instruction counts are lower bounds and cannot establish absence of short-slice execution. Initial stronger count assertion and one missed formatted replacement are retained as failures.",
+        "logs_sha256": {
+          "all-genuine-v17": "d8dcd45acb7d0bede093ac92372e2595e08d357d17cbf321488847854a262079",
+          "all-genuine-v18-remainder": "9c68d87e5a785c590fae8ebd004ad7373b9e4f6d4f37eb20e2e0726a1cd79a98",
+          "all-genuine-v18-remainder-second": "bc176000a2d5419e44f5e14993889330eb8dfeed34ff1ed2f05c6ad00979c4d0"
+        }
+      },
+      {
+        "stage": "Whole configured-firmware recovery: save-and-wake",
+        "exit_code": 101,
+        "outcome": "Real existing tests explicit_checkpoint_restores_collections_after_cas_in_fresh_processes and live_off_checkpoint_recovers_after_wake_edit_and_kill fail waiting for Ready. Independent actual firmware reproduction and live kernel image show ON accepted (wake=true) but OFF-gated USB worker leaves a scheduler request eligible; exhausted main quantum cannot poll its pending SysPowerOff. Production fix cancels OFF-gated requests. Deterministic real ARM regression fails before and passes after; full genuine recovery rerun is pending, not yet an acceptance claim.",
+        "logs_sha256": {
+          "all-genuine-v18-remainder-third": "6e8169250403adf68a1035270e519ee5d8cab26bb731d9f0d449ab01e956c510",
+          "wake-v18-reference": "67e2e5d528576d84b0d64a42c6e73bc76a454d746db39e9120fbf9a13af6deca",
+          "wake-scheduler-v18-before": "044d80b10d8a81f8b15e066458d1537fd336275878536311f98f6d0b4f1374f4",
+          "power-v18-focus": "4421859cb2a9844cbf87d46bf846f0de20bda54b0ba8f7f016e4085588a6236a"
+        }
+      },
+      {
+        "stage": "Managed-list header ABI correction",
+        "exit_code": 101,
+        "outcome": "One older full-suite control treated managed-list byte3=3 as an unsupported subtype. Independently executing the original initializer across256 allocator contents proves this byte is unused. The test now rejects an unestablished tag26/header combination and retains its pointer/count/cycle assertions. Full default subsequently passed2653/0/6. The complete first failure log was overwritten by the second invocation; only its exact diagnostic remains, so no first-log hash is claimed."
+      },
+      {
+        "stage": "Combined26/22 first feature run: helper transport fixture",
+        "exit_code": 101,
+        "outcome": "A helper-launch timeout assertion returned InfrastructureError before TimedOut; its shared test lock then poisoned five other transport tests. The original assertion lacked the underlying report error, so the initial launch cause remains unestablished. Diagnostic text was improved without changing acceptance. Isolated42 engine tests and a complete subsequent2721/0/6 feature run passed; this is not reported as a proven production race fix.",
+        "log_sha256": "7048948857e19f5a00d8ed9986dd514faf9fa00cfbef2ecc3efa88e0d4657e0f"
+      },
+      {
+        "stage": "First Help resource build",
+        "exit_code": 101,
+        "outcome": "Independent multilingual fixture generation stopped at an original vacant Portuguese index before writing the fixture, causing compile-time missing include. The loader now preserves explicit vacant and localized unnamed entries; all eight books pass.",
+        "log_sha256": "e515d806e9ecdb39b43c74af9b47fe86b7207083b197b1d6d1301a203c10c7bf"
+      },
+      {
+        "stage": "Help malformed-data test",
+        "exit_code": 101,
+        "outcome": "A byte mutation produced different valid compressed text rather than an unterminated stream. The test now supplies an entirely unterminated topic and retains mutation/no-panic coverage; all original decoded hashes unchanged.",
+        "log_sha256": "68a85177d0d44921543ed2cf188d7894f670e47c5de66fd10c1269f050359820"
+      },
+      {
+        "stage": "Optimized expanded desktop first segment",
+        "exit_code": 143,
+        "outcome": "46actual GUI processes exited0; the outer invocation ended SIGTERM143 without a failing scenario/assertion diagnostic. Cause remains unestablished. Preserved profile/output files; remaining scenarios continue in the same profiles. This is not a completed full-suite result.",
+        "log_sha256": "a290ac3863b2ae6c220fd6af549e5f9f4c141346895776e12c972cfa07b1017c"
+      },
+      {
+        "stage": "Help30initial focused invocation filter",
+        "exit_code": 0,
+        "outcome": "The help filter selected the new CR/padding unit but excluded four integration tests. A separate explicit integration invocation subsequently ran all4including eight original resources and passed; no excluded-test run is counted as their validation.",
+        "log_sha256": "5809caaafff900821fab426a16a7d73c70c869c9b4f8fab4bfa29956963459ff"
+      },
+      {
+        "stage": "Native24affected desktop first segment",
+        "exit_code": 143,
+        "outcome": "Six actual GUI processes exited0 before outerSIGTERM143 with no assertion diagnostic. Preservedprofiles; isolatedinstrumentedresume ran remaining12andall10assertions0. No signal-sender record arrived, so cause remains unestablished.",
+        "log_sha256": "6335c1d023a81745a56bcd48abe7b66984c0ee9cddb9943d2a90ee32f84d2e93"
+      }
+    ],
+    "remaining_required_work": [
+      "Finding1: remaining Geometry tools and qualified PPL bridge; Spreadsheet tools/functions/formatting; additional Statistics1Var plots and other app-specific tools. Typed Geometry dependencies/drag/commands and restoration now pass.",
+      "Finding24: remaining command grammar/algebra/raster boundaries. Current numeric backend and newGUI exacthistory rollout, original menu/text/UTF16 controls now execute; full composite desktop94actualprocesses/40assertions passes.",
+      "Finding25: remaining application/tool/result layouts, rich-result/status rendering and Native Help browser/markup/math integration. Installed eight-language Help and interface-string books now execute through validated loader; two entire original Native numeric softkey strips and18actualaffectedGUI processes pass."
+    ]
+  }
+}

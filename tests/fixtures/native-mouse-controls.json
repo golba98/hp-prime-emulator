@@ -1,0 +1,95 @@
+{
+  "provenance": "Self-authored programs executed in fresh original virtual G1 build15751 profiles. Touch press/hold/move/release were sent only after the program painted its readiness marker. No vendor bytes or physical-hardware claim. VM packet tests exercise the Host boundary separately from actual GUI pointer delivery.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "controls": [
+    {
+      "name": "idle_shape",
+      "source": "EXPORT MOUSEIDLE() BEGIN LOCAL m:=MOUSE; RETURN {TYPE(m),DIM(m),SIZE(m),m,MOUSE(0),MOUSE(1),MOUSE(2),MOUSE(3),MOUSE(4),MOUSE(5)}; END;",
+      "source_sha256": "6407d59d52a4366d801568f4ec580393740ce1e3555b1a5410e426801476be85",
+      "firmware_result": "{6, {{}, {}}, 2, {{}, {}}, -1, -1, -1, -1, -1, -1}"
+    },
+    {
+      "name": "idle_index_strings",
+      "source": "EXPORT MOUSEINDEX() BEGIN LOCAL m:=MOUSE,r; IFERR r:=m[1,1]; THEN r:=\"caught\"; END; RETURN STRING({m,r}); END;",
+      "source_sha256": "cf22837321e969bd42f3234948599b65aa7762fd0e59ba81de7aba05fa8af311",
+      "firmware_result": "{{{},{}},\"caught\"}"
+    },
+    {
+      "name": "idle_range",
+      "source": "EXPORT MOUSERANGE() BEGIN LOCAL out:={},k,r; FOR k FROM -2 TO 12 DO IFERR r:=MOUSE(k); THEN r:=\"caught\"; END; out:=CONCAT(out,{{k,TYPE(r),STRING(r)}}); END; RETURN STRING(out); END;",
+      "source_sha256": "8fe61031c3facc1fdcc51b25d535c31d212688fe00a518f5a9e6e24e222d88a6",
+      "firmware_result": "{{−2,2,\"\\\"caught\\\"\"},{−1,2,\"\\\"caught\\\"\"},{0,0,\"−1\"},{1,0,\"−1\"},{2,0,\"−1\"},{3,0,\"−1\"},{4,0,\"−1\"},{5,0,\"−1\"},{6,0,\"−1\"},{7,0,\"−1\"},{8,0,\"−1\"},{9,0,\"−1\"},{10,2,\"\\\"caught\\\"\"},{11,2,\"\\\"caught\\\"\"},{12,2,\"\\\"caught\\\"\"}}"
+    },
+    {
+      "name": "admission",
+      "source": "EXPORT MOUSEADMIT() BEGIN LOCAL vals:={-0.5,0.5,1.9,9.9,10.1,#2h,\"2\",{2},(1,2)},k,r,out:={}; FOR k FROM 1 TO SIZE(vals) DO IFERR r:=MOUSE(vals(k)); THEN r:=\"caught\"; END; out:=CONCAT(out,{{k,TYPE(r),STRING(r)}}); END; RETURN STRING(out); END;",
+      "source_sha256": "9c1269ee4e977d6ae85fd10882500662f50f66559573a692f3d532cc854f0788",
+      "firmware_result": "{{1,2,\"\\\"caught\\\"\"},{2,2,\"\\\"caught\\\"\"},{3,2,\"\\\"caught\\\"\"},{4,2,\"\\\"caught\\\"\"},{5,2,\"\\\"caught\\\"\"},{6,0,\"−1\"},{7,2,\"\\\"caught\\\"\"},{8,2,\"\\\"caught\\\"\"},{9,2,\"\\\"caught\\\"\"}}"
+    },
+    {
+      "name": "hold_drag_release",
+      "source": "EXPORT MOUSETOUCH() BEGIN LOCAL out:={},m,last:=\"\",text,t:=TICKS; RECT_P(#123456h); WHILE TICKS-t<6000 DO m:=MOUSE; text:=STRING(m); IF text≠last THEN out:=CONCAT(out,{{m,MOUSE(0),MOUSE(1),MOUSE(2),MOUSE(3),MOUSE(4),MOUSE(5),MOUSE(6)}}); last:=text; END; END; RETURN out; END;",
+      "source_sha256": "95574d0318c15b1fecac03cd5c4451cceb6a8fe5bc23d5cc77fa9555a0878216",
+      "firmware_result": "{{{{}, {}}, -1, -1, -1, -1, -1, -1, -1}, {{{#100:-16d, #50:-16d, #100:-16d, #50:-16d, #0d}, {}}, #100:-16d, #50:-16d, #100:-16d, #50:-16d, #0d, -1, -1}, {{{#120:-16d, #70:-16d, #100:-16d, #50:-16d, #2d}, {}}, #120:-16d, #70:-16d, #100:-16d, #50:-16d, #2d, -1, -1}, {{{}, {}}, -1, -1, -1, -1, -1, -1, -1}}"
+    },
+    {
+      "name": "hold_drag_release",
+      "source": "EXPORT MOUSETOUCH() BEGIN LOCAL out:={},m,last:=\"\",text,t:=TICKS,row,k; RECT_P(#123456h); WHILE TICKS-t<7000 DO m:=MOUSE; text:=STRING(m); IF text≠last THEN row:={m}; IF SIZE(m(1))>0 THEN FOR k FROM 1 TO 5 DO row:=CONCAT(row,{{TYPE(m(1,k)),GETBITS(m(1,k)),GETBASE(m(1,k))}}); END; END; out:=CONCAT(out,{row}); last:=text; END; END; RETURN STRING(out); END;",
+      "source_sha256": "9ad107efda56a87798cd3c90c1630c3cedd3604e95e9af44c7a55064fc406237",
+      "firmware_result": "{{{{},{}}},{{{#64:-16h,#32:-16h,#64:-16h,#32:-16h,#0:16h},{}},{1,−16,#0h},{1,−16,#0h},{1,−16,#0h},{1,−16,#0h},{1,16,#0h}},{{{#78:-16h,#46:-16h,#64:-16h,#32:-16h,#2:16h},{}},{1,−16,#0h},{1,−16,#0h},{1,−16,#0h},{1,−16,#0h},{1,16,#0h}},{{{},{}}}}"
+    }
+  ],
+  "samples": [
+    {
+      "name": "idle",
+      "pointers": [
+        null,
+        null
+      ]
+    },
+    {
+      "name": "press",
+      "pointers": [
+        {
+          "x": 100,
+          "y": 50,
+          "origin_x": 100,
+          "origin_y": 50,
+          "kind": 0
+        },
+        null
+      ]
+    },
+    {
+      "name": "drag",
+      "pointers": [
+        {
+          "x": 120,
+          "y": 70,
+          "origin_x": 100,
+          "origin_y": 50,
+          "kind": 2
+        },
+        null
+      ]
+    },
+    {
+      "name": "released",
+      "pointers": [
+        null,
+        null
+      ]
+    }
+  ],
+  "coordinate_type": 1,
+  "coordinate_bits": -16,
+  "kind_type": 1,
+  "kind_bits": 16,
+  "base_code": 0,
+  "indices": {
+    "minimum": 0,
+    "maximum": 9,
+    "missing_pointer": -1
+  },
+  "limitations": "The controlled1.2second hold did not produce LongClick. Completed/Stretch/Rotate/LongClick input-generation behavior needs separate validation; enum codes follow the HP guide609."
+}

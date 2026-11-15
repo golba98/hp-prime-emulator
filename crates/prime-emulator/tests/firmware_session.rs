@@ -76,7 +76,20 @@ fn exercise_session(legacy_loader: &str) {
         eprintln!("skipping: PRIME_TEST_FIRMWARE / PRIME_TEST_INIT_DATA not set");
         return;
     };
-    let profile = tempfile::tempdir().unwrap();
+    let mut profile = match std::env::var_os("PRIME_TEST_EVIDENCE_DIR") {
+        Some(root) => {
+            std::fs::create_dir_all(&root).unwrap();
+            tempfile::Builder::new()
+                .prefix("firmware-session-")
+                .tempdir_in(root)
+                .unwrap()
+        }
+        None => tempfile::tempdir().unwrap(),
+    };
+    if std::env::var_os("PRIME_TEST_EVIDENCE_DIR").is_some() {
+        profile.disable_cleanup(true);
+        eprintln!("retained firmware profile: {}", profile.path().display());
+    }
     for drive in ["A", "C"] {
         copy_tree(
             &std::path::Path::new(&init).join(drive),
@@ -101,7 +114,7 @@ fn exercise_session(legacy_loader: &str) {
         .arg(profile.path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(std::fs::File::create(profile.path().join("session.stderr")).unwrap());
     if let Some(rom) = std::env::var_os("PRIME_TEST_OS_ROM") {
         command.arg("--os-rom").arg(rom);
     }
@@ -154,22 +167,44 @@ fn exercise_session(legacy_loader: &str) {
         )
     });
     eprintln!("unsupported services during boot: {unsupported:?}");
+    assert!(
+        unsupported.is_empty(),
+        "calculator sessions now stop at missing OS services: {unsupported:?}"
+    );
     assert_eq!(frames.recv_timeout(minute).unwrap(), session::FRAME_PIXELS);
 
     // Exact unchanged source reuses its verified context, while each call still
     // executes the genuine Home invocation and returns a fresh firmware result.
     for request in [4, 5] {
+        let source = "EXPORT PERFSESS()\nBEGIN\n RETURN 9;\nEND;\n";
         s.send(&Command::Run {
             request,
-            source: "EXPORT PERFSESS()\nBEGIN\n RETURN 9;\nEND;\n".into(),
+            source: source.into(),
             entry: None,
             arguments: String::new(),
         });
-        match s.wait(
-            4 * minute,
-            "run result",
-            |e| matches!(e, Event::Result { request: r, .. } if *r == request),
-        ) {
+        let mut started = false;
+        match s.wait(4 * minute, "run result", |e| {
+            if let Event::ExecutionStarted {
+                request: r,
+                entry,
+                source_sha256,
+            } = e
+                && *r == request
+            {
+                assert!(!started, "target entry reported twice");
+                assert_eq!(
+                    entry, "PERFSESS",
+                    "loader must not masquerade as user execution"
+                );
+                assert_eq!(
+                    source_sha256,
+                    &prime_emulator::sha256::hex(source.as_bytes())
+                );
+                started = true;
+            }
+            matches!(e, Event::Result { request:r, .. } if *r == request)
+        }) {
             Event::Result {
                 success,
                 message,
@@ -177,6 +212,7 @@ fn exercise_session(legacy_loader: &str) {
                 ..
             } => {
                 assert!(success, "{message}");
+                assert!(started, "genuine target entry must precede its result");
                 assert!(message.contains("returned 9"), "{message}");
                 assert!(check.unwrap().accepted);
             }
@@ -325,6 +361,41 @@ fn exercise_session(legacy_loader: &str) {
             assert!(check.unwrap().accepted);
         }
         _ => unreachable!(),
+    }
+
+    // Catalog growth must not prevent exact diagnostics or a subsequent Run.
+    for (request, source, valid) in [
+        (10, "EXPORT BAD()\nBEGIN\n RETURN 1+;\nEND;\n", false),
+        (11, "EXPORT AFTERBAD() BEGIN RETURN 42; END;", true),
+    ] {
+        s.send(&Command::Run {
+            request,
+            source: source.into(),
+            entry: None,
+            arguments: String::new(),
+        });
+        match s.wait(
+            4 * minute,
+            "post-import diagnostics",
+            |e| matches!(e,Event::Result {request:r,..} if *r==request),
+        ) {
+            Event::Result {
+                success,
+                message,
+                check,
+                ..
+            } => {
+                assert_eq!(success, valid, "{message}");
+                let check = check.unwrap();
+                assert_eq!(check.accepted, valid);
+                if valid {
+                    assert!(message.contains("returned 42"), "{message}");
+                } else {
+                    assert_eq!(check.diagnostics[0].line, Some(3));
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 
     // The firmware's own OFF saves its state, then the session ends.

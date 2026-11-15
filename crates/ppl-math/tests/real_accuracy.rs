@@ -355,13 +355,15 @@ fn display_formats_at_extremes() {
     let o = |f| FormatOptions {
         format: f,
         exp_char: 'E',
+        angle: ppl_math::AngleMode::Radians,
+        ..Default::default()
     };
     assert_eq!(r("9.99999999999E499").to_string(), "9.99999999999E499");
     assert_eq!(r("1E-499").to_string(), "1E-499");
     assert_eq!(r("-1.5E-499").to_string(), "-1.5E-499");
     assert_eq!(
         r("123456789012").format(o(NumFormat::Fixed(11))),
-        "123456789012.00000000000"
+        "123456789012"
     );
     assert_eq!(
         r("0.999999999999").format(o(NumFormat::Fixed(11))),
@@ -369,7 +371,7 @@ fn display_formats_at_extremes() {
     );
     assert_eq!(
         r("9.99999999999E499").format(o(NumFormat::Fixed(2))),
-        "9.99999999999E499"
+        "1.00E500"
     );
     // Rounding the displayed digits may carry past the largest exponent.
     assert_eq!(
@@ -378,19 +380,16 @@ fn display_formats_at_extremes() {
     );
     assert_eq!(
         r("9.99999999999E499").format(o(NumFormat::Engineering(2))),
-        "100.00E498"
+        "100E498"
     );
-    assert_eq!(r("1E-499").format(o(NumFormat::Fixed(4))), "0.0000");
-    // Wide Fixed widths (not reachable through HFormat, which clamps to
-    // 11) must not overflow or index past the power table.
+    assert_eq!(r("1E-499").format(o(NumFormat::Fixed(4))), "1.0000E-499");
+    // Display precision caps at twelve significant digits, including direct
+    // callers requesting more than the public eleven decimal places.
     assert_eq!(
         r("123456789012").format(o(NumFormat::Fixed(40))),
-        format!("123456789012.{}", "0".repeat(40))
+        "123456789012"
     );
-    assert_eq!(
-        r("1.5").format(o(NumFormat::Fixed(60))),
-        format!("1.5{}", "0".repeat(59))
-    );
+    assert_eq!(r("1.5").format(o(NumFormat::Fixed(60))), "1.50000000000");
 }
 
 #[test]

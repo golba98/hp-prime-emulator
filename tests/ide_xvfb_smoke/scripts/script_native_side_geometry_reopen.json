@@ -1,0 +1,60 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Geometry"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_plot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_restored_plot.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_definitions"
+    },
+    {
+      "step": "native_tool",
+      "name": "numeric"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_measurements"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

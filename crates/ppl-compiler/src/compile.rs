@@ -22,16 +22,73 @@ use crate::builtins::{self, Builtin, Status};
 use crate::bytecode::*;
 use crate::catalog::{self, CatalogKind};
 
+fn is_app_variable(name: &str) -> bool {
+    // App qualifiers are case sensitive. Additional app namespaces require
+    // their own verified variable contract; ordinary dotted functions and CAS
+    // continue through the existing resolution paths.
+    name.strip_prefix("Spreadsheet.")
+        .is_some_and(|field| !field.is_empty() && !field.contains('.'))
+        || name.strip_prefix("Function.").is_some_and(is_function_slot)
+        || name
+            .strip_prefix("Statistics_1Var.")
+            .is_some_and(is_statistics_slot)
+}
+
+fn app_access_name(name: &str) -> String {
+    name.strip_prefix("Statistics_1Var.").map_or_else(
+        || name.to_owned(),
+        |field| format!("Statistics 1Var.{field}"),
+    )
+}
+
+fn is_function_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'F' && bytes[1].is_ascii_digit()
+}
+
+fn is_statistics_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    (bytes.len() == 2 && bytes[0] == b'H' && (b'1'..=b'5').contains(&bytes[1]))
+        || matches!(
+            name,
+            "NbItem"
+                | "MinVal"
+                | "Q₁"
+                | "MedVal"
+                | "Q₃"
+                | "MaxVal"
+                | "ΣX"
+                | "ΣX2"
+                | "MeanX"
+                | "sX"
+                | "σX"
+                | "serrX"
+                | "ssX"
+        )
+}
+
 #[derive(Clone, Debug)]
 pub struct CompileOptions {
     /// Base used for `#123` literals without a suffix (Home setting).
     pub default_int_base: IntBase,
+    /// Signed width code for interactive Home/EXPR literals. Ordinary PPL
+    /// compilation retains its32-bit unsigned default independently of the
+    /// running program's later Bits/Signed assignments.
+    pub default_int_width: i64,
+    /// Exported functions installed in the caller-owned module catalog.
+    pub external_functions: std::collections::BTreeMap<String, usize>,
+    pub external_variables: std::collections::BTreeSet<String>,
+    pub ambiguous_externals: std::collections::BTreeSet<String>,
 }
 
 impl Default for CompileOptions {
     fn default() -> Self {
         CompileOptions {
             default_int_base: IntBase::Hex,
+            default_int_width: 32,
+            external_functions: Default::default(),
+            external_variables: Default::default(),
+            ambiguous_externals: Default::default(),
         }
     }
 }
@@ -64,6 +121,7 @@ pub fn compile(program: &Program, opts: &CompileOptions) -> (Option<CompiledProg
 enum VarRef {
     Local(u16),
     Global(u32),
+    App(u32),
 }
 
 struct FnInfo {
@@ -84,6 +142,7 @@ struct LocalInfo {
     used: bool,
     name: String,
     hidden: bool,
+    scope: std::ops::Range<u32>,
 }
 
 struct Compiler<'a> {
@@ -118,6 +177,7 @@ fn empty_chunk(name: &str, span: Span) -> Chunk {
         params: 0,
         locals: 0,
         local_names: Vec::new(),
+        local_scopes: Vec::new(),
         code: Vec::new(),
         spans: Vec::new(),
         exported: false,
@@ -126,7 +186,8 @@ fn empty_chunk(name: &str, span: Span) -> Chunk {
 }
 
 /// True for calculator variables that always exist (`A`–`Z`, `θ`, `L0`–`L9`,
-/// `M0`–`M9`, `Z0`–`Z9`, `G0`–`G9`, `Ans`, mode settings). Case-sensitive,
+/// `M0`–`M9`, `Z0`–`Z9`, `G0`–`G9`, statistics `C0`–`C9`/`D0`–`D9`,
+/// `Ans`, mode settings). Case-sensitive,
 /// exactly as name resolution in the compiler.
 pub fn is_system_variable(name: &str) -> bool {
     system_global(name).is_some()
@@ -134,6 +195,19 @@ pub fn is_system_variable(name: &str) -> bool {
 
 /// Calculator variables that always exist.
 fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
+    let plot_default = match name.to_ascii_lowercase().as_str() {
+        "xmin" | "ymin" => Some("-10"),
+        "xmax" | "ymax" => Some("10"),
+        "tmin" => Some("0"),
+        "nmin" => Some("1"),
+        "nmax" => Some("100"),
+        "tmax" => Some("6.28318530718"),
+        _ => None,
+    };
+    if let Some(value) = plot_default {
+        return Some((GlobalInit::Real(Real::parse(value).unwrap()), false));
+    }
+
     let b = name.as_bytes();
     if b.len() == 1 && b[0].is_ascii_uppercase() || name == "θ" {
         return Some((GlobalInit::Zero, false));
@@ -141,7 +215,7 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
     if b.len() == 2 && b[1].is_ascii_digit() {
         let n = b[1] - b'0';
         return match b[0] {
-            b'L' => Some((GlobalInit::EmptyList, false)),
+            b'L' | b'C' | b'D' => Some((GlobalInit::EmptyList, false)),
             b'M' => Some((GlobalInit::ZeroMatrix, false)),
             b'Z' => Some((GlobalInit::ComplexZero, false)),
             b'G' => Some((GlobalInit::Grob(n), true)),
@@ -151,8 +225,18 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
     let setting = match name.to_ascii_lowercase().as_str() {
         "hangle" => Setting::HAngle,
         "hformat" => Setting::HFormat,
+        "hseparator" => Setting::HSeparator,
         "hdigits" => Setting::HDigits,
         "hcomplex" => Setting::HComplex,
+        "aangle" => Setting::AAngle,
+        "aformat" => Setting::AFormat,
+        "adigits" => Setting::ADigits,
+        "acomplex" => Setting::AComplex,
+        "numstart" => Setting::NumStart,
+        "numstep" => Setting::NumStep,
+        "numzoom" => Setting::NumZoom,
+        "numtype" => Setting::NumType,
+        "numindep" => Setting::NumIndep,
         "base" => Setting::Base,
         "bits" => Setting::Bits,
         "signed" => Setting::Signed,
@@ -164,10 +248,29 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
 
 fn canonical_system_name(name: &str) -> String {
     match name.to_ascii_lowercase().as_str() {
+        "xmin" => "Xmin".into(),
+        "xmax" => "Xmax".into(),
+        "ymin" => "Ymin".into(),
+        "ymax" => "Ymax".into(),
+        "numstart" => "NumStart".into(),
+        "numstep" => "NumStep".into(),
+        "numzoom" => "NumZoom".into(),
+        "numtype" => "NumType".into(),
+        "numindep" => "NumIndep".into(),
+        "nmin" => "Nmin".into(),
+        "nmax" => "Nmax".into(),
+        "tmin" => "Tmin".into(),
+        "tmax" => "Tmax".into(),
+
         "hangle" => "HAngle".into(),
         "hformat" => "HFormat".into(),
+        "hseparator" => "HSeparator".into(),
         "hdigits" => "HDigits".into(),
         "hcomplex" => "HComplex".into(),
+        "aangle" => "AAngle".into(),
+        "aformat" => "AFormat".into(),
+        "adigits" => "ADigits".into(),
+        "acomplex" => "AComplex".into(),
         "base" => "Base".into(),
         "bits" => "Bits".into(),
         "signed" => "Signed".into(),
@@ -290,7 +393,7 @@ impl<'a> Compiler<'a> {
                         .entry(name.name.clone())
                         .or_insert(span.start);
                 }
-                Item::Globals { vars, .. } => {
+                Item::Globals { vars, exported, .. } => {
                     for v in vars {
                         if self.global_map.contains_key(&v.name.name) {
                             self.warn(
@@ -316,6 +419,8 @@ impl<'a> Compiler<'a> {
                             name: v.name.name.clone(),
                             init: GlobalInit::Zero,
                             program_var: true,
+                            exported: *exported,
+                            external: false,
                             read_only: false,
                         });
                         self.global_map.insert(v.name.name.clone(), id);
@@ -421,6 +526,11 @@ impl<'a> Compiler<'a> {
         let mut chunk = std::mem::replace(&mut self.cur, empty_chunk("", Span::default()));
         chunk.locals = self.locals.len() as u16;
         chunk.local_names = self.locals.iter().map(|l| l.name.clone()).collect();
+        chunk.local_scopes = self
+            .locals
+            .iter()
+            .map(|local| local.scope.start..local.scope.end.min(chunk.code.len() as u32))
+            .collect();
         chunk.exported = exported;
         let unused: Vec<(String, Span)> = self
             .locals
@@ -455,6 +565,7 @@ impl<'a> Compiler<'a> {
             used: hidden,
             name: name.to_string(),
             hidden,
+            scope: self.cur.here()..u32::MAX,
         });
         self.scopes
             .last_mut()
@@ -480,6 +591,24 @@ impl<'a> Compiler<'a> {
         if let Some(&g) = self.global_map.get(name) {
             return Some(VarRef::Global(g));
         }
+        if self.is_app_access(name) {
+            let index = self.names.len() as u32;
+            self.names.push(app_access_name(name));
+            return Some(VarRef::App(index));
+        }
+        if self.opts.external_variables.contains(name) {
+            let id = self.globals.len() as u32;
+            self.globals.push(GlobalSlot {
+                name: name.to_owned(),
+                init: GlobalInit::Zero,
+                program_var: true,
+                exported: false,
+                external: true,
+                read_only: false,
+            });
+            self.global_map.insert(name.to_owned(), id);
+            return Some(VarRef::Global(id));
+        }
         let (init, read_only) = system_global(name)?;
         let canon = canonical_system_name(name);
         if let Some(&g) = self.global_map.get(&canon) {
@@ -490,6 +619,8 @@ impl<'a> Compiler<'a> {
             name: canon.clone(),
             init,
             program_var: false,
+            exported: false,
+            external: false,
             read_only,
         });
         self.global_map.insert(canon, id);
@@ -500,6 +631,14 @@ impl<'a> Compiler<'a> {
         match v {
             VarRef::Local(s) => self.cur.emit(Op::LoadLocal(s), span),
             VarRef::Global(g) => self.cur.emit(Op::LoadGlobal(g), span),
+            VarRef::App(name) => self.cur.emit(
+                Op::AppVariable {
+                    name,
+                    argc: 0,
+                    store: false,
+                },
+                span,
+            ),
         };
     }
 
@@ -514,6 +653,17 @@ impl<'a> Compiler<'a> {
         match v {
             VarRef::Local(s) => self.cur.emit(Op::StoreLocal(s), span),
             VarRef::Global(g) => self.cur.emit(Op::StoreGlobal(g), span),
+            VarRef::App(name) => {
+                self.cur.emit(
+                    Op::AppVariable {
+                        name,
+                        argc: 0,
+                        store: true,
+                    },
+                    span,
+                );
+                self.cur.emit(Op::Pop, span)
+            }
         };
     }
 
@@ -574,7 +724,13 @@ impl<'a> Compiler<'a> {
                 terminated = Some(s.span);
             }
         }
-        self.scopes.pop();
+        self.end_scope();
+    }
+
+    fn end_scope(&mut self) {
+        for slot in self.scopes.pop().expect("lexical scope").into_values() {
+            self.locals[slot as usize].scope.end = self.cur.here();
+        }
     }
 
     fn stmt(&mut self, s: &Stmt) {
@@ -835,7 +991,7 @@ impl<'a> Compiler<'a> {
         let end = self.cur.here();
         self.cur.patch_jump(jf, end);
         self.finish_loop(cont, end);
-        self.scopes.pop();
+        self.end_scope();
     }
 
     // ---- assignment ------------------------------------------------------
@@ -843,6 +999,33 @@ impl<'a> Compiler<'a> {
     fn assign(&mut self, target: &Expr, value: &Expr, want_value: bool, span: Span) {
         match &target.kind {
             ExprKind::Ident(name) => {
+                if let Some(variable) = name
+                    .strip_prefix("CAS.")
+                    .filter(|name| !name.is_empty() && !name.contains('.'))
+                {
+                    let index = self.names.len() as u32;
+                    self.names.push(variable.to_owned());
+                    self.expr(value);
+                    if want_value {
+                        self.cur.emit(Op::Dup, span);
+                    }
+                    self.cur.emit(
+                        Op::CasVariable {
+                            name: index,
+                            store: true,
+                        },
+                        target.span,
+                    );
+                    return;
+                }
+                if self.is_app_access(name) {
+                    self.expr(value);
+                    self.app_variable(name, 0, true, target.span);
+                    if !want_value {
+                        self.cur.emit(Op::Pop, span);
+                    }
+                    return;
+                }
                 let Some(v) = self.resolve_var(name) else {
                     let msg = if self.fn_map.contains_key(name) || builtins::lookup(name).is_some()
                     {
@@ -878,11 +1061,26 @@ impl<'a> Compiler<'a> {
                 // the result-note writers of campaign runs). They resolve to
                 // built-ins here, not variables, so they get their own store
                 // operations.
+                if idx.len() == 2
+                    && builtins::lookup_case_insensitive(name)
+                        .is_some_and(|spec| spec.builtin == Builtin::Hvars)
+                {
+                    self.expr(&idx[0]);
+                    self.expr(&idx[1]);
+                    self.expr(value);
+                    self.cur.emit(Op::StoreHomeParameters, target.span);
+                    if !want_value {
+                        self.cur.emit(Op::Pop, span);
+                    }
+                    return;
+                }
                 if idx.len() == 1 {
                     let sys_store =
                         builtins::lookup_case_insensitive(name).and_then(|s| match s.builtin {
                             Builtin::Notes => Some(Op::StoreNote),
                             Builtin::Programs => Some(Op::StoreProgram),
+                            Builtin::Hvars => Some(Op::StoreHomeVariable),
+                            Builtin::Afiles => Some(Op::StoreAppFile),
                             _ => None,
                         });
                     if let Some(op) = sys_store {
@@ -894,6 +1092,25 @@ impl<'a> Compiler<'a> {
                         }
                         return;
                     }
+                }
+                if self.is_app_access(name) {
+                    if idx.len() > 255 {
+                        self.error(
+                            "wrong-arg-count",
+                            target.span,
+                            "Too many app variable indices",
+                        );
+                        return;
+                    }
+                    for index in idx {
+                        self.expr(index);
+                    }
+                    self.expr(value);
+                    self.app_variable(name, idx.len() as u8, true, target.span);
+                    if !want_value {
+                        self.cur.emit(Op::Pop, span);
+                    }
+                    return;
                 }
                 let Some(v) = self.resolve_var(name) else {
                     self.error(
@@ -931,6 +1148,14 @@ impl<'a> Compiler<'a> {
                         }
                         self.cur.emit(Op::StoreIndexGlobal { slot, n }, target.span)
                     }
+                    VarRef::App(name) => self.cur.emit(
+                        Op::AppVariable {
+                            name,
+                            argc: n,
+                            store: true,
+                        },
+                        target.span,
+                    ),
                 };
                 if !want_value {
                     self.cur.emit(Op::Pop, span);
@@ -958,7 +1183,13 @@ impl<'a> Compiler<'a> {
         let span = e.span;
         match &e.kind {
             ExprKind::Number(text) => match Real::parse(text) {
-                Some(r) => self.constant(Const::Real(r), span),
+                Some(r) => self.constant(
+                    Const::Number {
+                        source: text.clone(),
+                        legacy: r,
+                    },
+                    span,
+                ),
                 None => {
                     self.error(
                         "number-out-of-range",
@@ -968,8 +1199,11 @@ impl<'a> Compiler<'a> {
                     self.cur.emit(Op::Zero, span);
                 }
             },
-            ExprKind::HashInt(text) => match HpInt::parse_literal(text, self.opts.default_int_base)
-            {
+            ExprKind::HashInt(text) => match HpInt::parse_literal_with_defaults(
+                text,
+                self.opts.default_int_base,
+                self.opts.default_int_width,
+            ) {
                 Some(i) => self.constant(Const::Int(i), span),
                 None => {
                     self.error(
@@ -1002,6 +1236,7 @@ impl<'a> Compiler<'a> {
                         UnOp::Neg => Op::Neg,
                         UnOp::Not => Op::Not,
                         UnOp::Sqrt => Op::Sqrt,
+                        UnOp::Sexagesimal => Op::Sexagesimal,
                     },
                     span,
                 );
@@ -1018,6 +1253,20 @@ impl<'a> Compiler<'a> {
                 );
             }
             ExprKind::Binary(op, l, r) => {
+                if matches!(op, BinOp::And | BinOp::Or) {
+                    self.expr(l);
+                    let jump = self.cur.emit(
+                        Op::LogicJump {
+                            or: *op == BinOp::Or,
+                            target: 0,
+                        },
+                        span,
+                    );
+                    self.expr(r);
+                    self.cur.emit(Op::Bin(*op), span);
+                    self.cur.patch_jump(jump, self.cur.here());
+                    return;
+                }
                 // Hardware-verified (2026-10-23, G1 build 15157): the
                 // calculator's compiler rejects real literals as DIV
                 // operands with a "Syntax error" when the program is run
@@ -1055,67 +1304,11 @@ impl<'a> Compiler<'a> {
             ExprKind::Assign(t, v) => self.assign(t, v, true, span),
             ExprKind::Store(v, t) => self.assign(t, v, true, span),
             ExprKind::Quoted(inner) => {
-                let mut unknown = Vec::new();
-                self.collect_unknown(inner, &mut unknown);
-                if let Some(name) = unknown.first() {
-                    self.error(
-                        "undeclared-identifier",
-                        span,
-                        format!("undeclared name `{name}` in quoted expression"),
-                    )
-                    .hint = Some(
-                        "strings use double quotes; single quotes make a symbolic expression"
-                            .into(),
-                    );
-                } else {
-                    self.compat(
-                        "symbolic-unsupported",
-                        span,
-                        "quoted (symbolic) expressions are not emulated",
-                    )
-                    .hint =
-                        Some("evaluating this expression raises an \"unsupported\" error".into());
-                }
-                self.unsupported("'symbolic expression'", 0, span);
+                self.constant(Const::Symbolic(crate::symbolic::source(inner)), span);
             }
             ExprKind::Error => {
                 self.cur.emit(Op::Zero, span);
             }
-        }
-    }
-
-    fn collect_unknown(&mut self, e: &Expr, out: &mut Vec<String>) {
-        match &e.kind {
-            ExprKind::Ident(n) => {
-                if self.resolve_var(n).is_none()
-                    && !self.fn_map.contains_key(n)
-                    && builtins::lookup(n).is_none()
-                    && !matches!(n.as_str(), "π" | "ⅈ" | "ℯ" | "∞" | "\u{E003}")
-                {
-                    out.push(n.clone());
-                }
-            }
-            ExprKind::Binary(_, a, b)
-            | ExprKind::ComplexPair(a, b)
-            | ExprKind::Assign(a, b)
-            | ExprKind::Store(a, b) => {
-                self.collect_unknown(a, out);
-                self.collect_unknown(b, out);
-            }
-            ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
-                self.collect_unknown(a, out)
-            }
-            ExprKind::List(xs) | ExprKind::Bracket(xs) => {
-                for x in xs {
-                    self.collect_unknown(x, out);
-                }
-            }
-            ExprKind::Call(_, xs) | ExprKind::Index(_, xs) => {
-                for x in xs {
-                    self.collect_unknown(x, out);
-                }
-            }
-            _ => {}
         }
     }
 
@@ -1160,11 +1353,59 @@ impl<'a> Compiler<'a> {
         );
     }
 
+    /// Bare function/analysis slots and results follow declared PPL names.
+    /// Their app is selected at execution, including in a qualified outer call.
+    fn is_app_access(&self, name: &str) -> bool {
+        is_app_variable(name)
+            || ((is_function_slot(name) || is_statistics_slot(name))
+                && !self.scopes.iter().any(|scope| scope.contains_key(name))
+                && !self.global_map.contains_key(name)
+                && !self.fn_map.contains_key(name)
+                && !self.opts.external_variables.contains(name)
+                && !self.opts.external_functions.contains_key(name)
+                && !self.opts.ambiguous_externals.contains(name))
+    }
+
+    fn app_variable(&mut self, name: &str, argc: u8, store: bool, span: Span) {
+        let index = self.names.len() as u32;
+        self.names.push(app_access_name(name));
+        self.cur.emit(
+            Op::AppVariable {
+                name: index,
+                argc,
+                store,
+            },
+            span,
+        );
+    }
+
     fn ident(&mut self, name: &str, span: Span) {
+        if self.is_app_access(name) {
+            self.app_variable(name, 0, false, span);
+            return;
+        }
+        if let Some(variable) = name
+            .strip_prefix("CAS.")
+            .filter(|name| !name.is_empty() && !name.contains('.'))
+        {
+            let index = self.names.len() as u32;
+            self.names.push(variable.to_owned());
+            self.cur.emit(
+                Op::CasVariable {
+                    name: index,
+                    store: false,
+                },
+                span,
+            );
+            return;
+        }
         match name {
-            "π" => return self.constant(Const::Real(Real::parse("3.14159265359").unwrap()), span),
+            "π" => return self.constant(Const::Pi, span),
             "ℯ" => {
-                return self.constant(Const::Real(Real::parse("2.71828182846").unwrap()), span);
+                return self.constant(
+                    Const::Real(Real::parse("2.71828182846").unwrap().decimal()),
+                    span,
+                );
             }
             "ⅈ" | "\u{E003}" => {
                 return self.constant(Const::Complex(Complex::new(Real::ZERO, Real::ONE)), span);
@@ -1192,6 +1433,33 @@ impl<'a> Compiler<'a> {
             self.check_call_order(id, span);
             self.cur.emit(Op::Call { func: id, argc: 0 }, span);
             return;
+        }
+        if self.opts.ambiguous_externals.contains(name) {
+            self.error(
+                "ambiguous-external",
+                span,
+                format!("ambiguous external export {name}"),
+            );
+            self.cur.emit(Op::Zero, span);
+            return;
+        }
+        if let Some(&params) = self.opts.external_functions.get(name) {
+            if params != 0 {
+                self.error(
+                    "wrong-arg-count",
+                    span,
+                    format!("{name} expects {params} argument(s), got 0"),
+                );
+            }
+            let idx = self.names.len() as u32;
+            self.names.push(name.into());
+            self.cur.emit(Op::CallExternal { name: idx, argc: 0 }, span);
+            return;
+        }
+        // ASCII i is the firmware's imaginary constant only after ordinary
+        // local/file/function resolution. A declared local or function i wins.
+        if name == "i" {
+            return self.constant(Const::Complex(Complex::new(Real::ZERO, Real::ONE)), span);
         }
         if let Some(spec) = builtins::lookup(name) {
             if spec.accepts(0) && spec.ref_args == 0 {
@@ -1295,6 +1563,17 @@ impl<'a> Compiler<'a> {
             self.cur.emit(Op::Index(args.len().min(255) as u8), span);
             return;
         };
+        if self.is_app_access(name) {
+            if args.len() > 255 {
+                self.error("wrong-arg-count", span, "Too many app variable indices");
+                return;
+            }
+            for arg in args {
+                self.expr(arg);
+            }
+            self.app_variable(name, args.len() as u8, false, span);
+            return;
+        }
         if let Some(v) = self.resolve_var(name) {
             self.load(v, callee.span);
             if args.is_empty() {
@@ -1323,6 +1602,59 @@ impl<'a> Compiler<'a> {
                 Op::Call {
                     func: id,
                     argc: args.len().min(255) as u8,
+                },
+                span,
+            );
+            return;
+        }
+        if self.opts.ambiguous_externals.contains(name) {
+            self.error(
+                "ambiguous-external",
+                span,
+                format!("ambiguous external export {name}"),
+            );
+            self.cur.emit(Op::Zero, span);
+            return;
+        }
+        if let Some(&params) = self.opts.external_functions.get(name) {
+            if params != args.len() {
+                self.error(
+                    "wrong-arg-count",
+                    span,
+                    format!("{name} expects {params} argument(s), got {}", args.len()),
+                );
+            }
+            for a in args {
+                self.expr(a);
+            }
+            let idx = self.names.len() as u32;
+            self.names.push(name.into());
+            self.cur.emit(
+                Op::CallExternal {
+                    name: idx,
+                    argc: args.len().min(255) as u8,
+                },
+                span,
+            );
+            return;
+        }
+        if let Some(function) = name.strip_prefix("CAS.") {
+            let source = format!(
+                "{}({})",
+                function,
+                args.iter()
+                    .map(|a| match &a.kind {
+                        ExprKind::Str(s) => s.clone(),
+                        _ => crate::symbolic::source(a),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+            self.constant(Const::Symbolic(source), span);
+            self.cur.emit(
+                Op::Builtin {
+                    id: Builtin::CasCall,
+                    argc: 1,
                 },
                 span,
             );
@@ -1366,6 +1698,25 @@ impl<'a> Compiler<'a> {
         };
         let Some(spec) = spec else {
             if let Some(entry) = catalog::lookup_case_insensitive(name) {
+                if entry.kind == CatalogKind::Cas {
+                    let source = format!(
+                        "{}({})",
+                        entry.name,
+                        args.iter()
+                            .map(crate::symbolic::source)
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    );
+                    self.constant(Const::Symbolic(source), span);
+                    self.cur.emit(
+                        Op::Builtin {
+                            id: Builtin::CasCall,
+                            argc: 1,
+                        },
+                        span,
+                    );
+                    return;
+                }
                 let d = self.compat(
                     "unsupported-command",
                     callee.span,
@@ -1433,16 +1784,75 @@ impl<'a> Compiler<'a> {
             }.into());
         }
         match spec.builtin {
+            Builtin::Do1VStats | Builtin::SetSample | Builtin::SetFreq
+                if spec.accepts(args.len()) => {
+                // Firmware stores the argument syntax, including local names,
+                // without evaluating its list arithmetic or scalar frequency.
+                for argument in args {
+                    match crate::ppl_expression_source(argument) {
+                        Ok(source) => self.constant(Const::Symbolic(source), argument.span),
+                        Err(error) => {
+                            self.error("invalid-app-expression", argument.span, error.to_string());
+                            self.cur.emit(Op::Zero, argument.span);
+                        }
+                    }
+                }
+                self.cur.emit(Op::Builtin { id: spec.builtin, argc: args.len() as u8 }, span);
+            }
+            Builtin::CasCall if args.len() == 1 => {
+                let expression = &args[0];
+                // Lists and declared PPL functions are ordinary evaluated
+                // arguments. Algebra syntax is quoted: do not run assignments
+                // embedded in it before the CAS type check.
+                let variable = matches!(&expression.kind, ExprKind::Ident(name)
+                    if self.resolve_var(name).is_some() || name.starts_with("CAS.") || self.is_app_access(name));
+                let native_call = |e: &Expr| match &e.kind {
+                    ExprKind::Ident(name) => self.is_app_access(name),
+                    ExprKind::Call(callee, _) => matches!(&callee.kind, ExprKind::Ident(name)
+                        if self.is_app_access(name) || self.fn_map.contains_key(name)
+                            || self.opts.external_functions.contains_key(name)),
+                    _ => false,
+                };
+                let native = matches!(&expression.kind, ExprKind::Str(_) | ExprKind::List(_))
+                    || (matches!(&expression.kind, ExprKind::Bracket(_) | ExprKind::ComplexPair(_, _))
+                        && !crate::symbolic::contains_assignment(expression))
+                    || variable
+                    || native_call(expression);
+                let assignment = !native && crate::symbolic::contains_assignment(expression);
+                let source = matches!(&expression.kind, ExprKind::Str(_));
+                if native {
+                    self.expr(expression);
+                } else if assignment {
+                    self.constant(Const::Symbolic(crate::symbolic::source(expression)), span);
+                } else {
+                    let (template, marker, operands) = crate::symbolic::dynamic_source(expression, native_call);
+                    if operands.is_empty() {
+                        self.constant(Const::Symbolic(template), span);
+                    } else if operands.len() > u8::MAX as usize {
+                        self.error("too-many-cas-operands", span, "CAS expression has more than255 Native call operands");
+                        self.cur.emit(Op::Zero, span);
+                    } else {
+                        for operand in &operands { self.expr(operand); }
+                        self.constant(Const::Str(template), span);
+                        self.constant(Const::Str(marker), span);
+                        self.cur.emit(Op::CasCompose { argc: operands.len() as u8 }, span);
+                    }
+                }
+                self.cur.emit(Op::CasCall { assignment, source }, span);
+            }
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
             // Firmware EDITMAT writes back bare M0–M9 names, even when
             // locally declared. Other local names are value expressions.
-            Builtin::Editmat
+            Builtin::Editmat | Builtin::Editlist
                 if args.first().is_some_and(|arg| {
                     matches!(&arg.kind, ExprKind::Ident(name) if name.len() == 2
-                    && name.starts_with('M') && name.as_bytes()[1].is_ascii_digit())
+                    && name.starts_with(if spec.builtin == Builtin::Editmat { 'M' } else { 'L' }) && name.as_bytes()[1].is_ascii_digit())
                 }) =>
             {
                 self.ref_builtin(spec.builtin, args, span);
+            }
+            Builtin::LineP | Builtin::Line | Builtin::TriangleP | Builtin::Triangle => {
+                self.graphics_builtin(spec.builtin, args, span);
             }
             _ if spec.ref_args > 0 => self.ref_builtin(spec.builtin, args, span),
             _ => {
@@ -1481,6 +1891,59 @@ impl<'a> Compiler<'a> {
         );
     }
 
+    /// Graphics overloads choose an optional z-string at runtime. Preserve
+    /// candidate variable arguments without mistaking a coordinate/color for
+    /// a mandatory reference. Identity tokens keep aliases coherent on writeback.
+    fn graphics_builtin(&mut self, id: Builtin, args: &[Expr], span: Span) {
+        let mut positions = vec![args.len().saturating_sub(1)];
+        if matches!(id, Builtin::TriangleP | Builtin::Triangle) && args.len() >= 4 {
+            positions.push(args.len() - 4);
+        }
+        positions.sort_unstable();
+        positions.dedup();
+        let mut targets = Vec::new();
+        for position in positions {
+            if let Some(expr) = args.get(position)
+                && let ExprKind::Ident(name) = &expr.kind
+                && let Some(target) = self.resolve_var(name)
+                && !matches!(target, VarRef::Global(slot) if self.globals[slot as usize].read_only)
+            {
+                targets.push((position, target, expr.span));
+            }
+        }
+        if targets.is_empty() {
+            self.builtin(id, args, span);
+            return;
+        }
+        for argument in args {
+            self.expr(argument);
+        }
+        for &(position, target, at) in &targets {
+            self.constant(Const::Real(Real::from_i64(position as i64)), at);
+            self.constant(
+                Const::Str(match target {
+                    VarRef::Local(slot) => format!("L{slot}"),
+                    VarRef::Global(slot) => format!("G{slot}"),
+                    VarRef::App(slot) => format!("A:{}", self.names[slot as usize]),
+                }),
+                at,
+            );
+            self.cur.emit(Op::MakeList(2), at);
+        }
+        self.cur.emit(Op::MakeList(targets.len() as u32), span);
+        self.cur.emit(
+            Op::BuiltinRef {
+                id,
+                argc: (args.len() + 1).min(255) as u8,
+                refs: targets.len() as u8,
+            },
+            span,
+        );
+        for &(_, target, at) in targets.iter().rev() {
+            self.store(target, at);
+        }
+    }
+
     /// Commands whose first argument is a variable they write to.
     fn ref_builtin(&mut self, id: Builtin, args: &[Expr], span: Span) {
         let Some(first) = args.first() else {
@@ -1513,7 +1976,7 @@ impl<'a> Compiler<'a> {
         };
         let mut targets: Vec<(VarRef, Span)> = Vec::new();
         // INPUT only: each field's allowed-types expression (`[2]` in
-        // `{{A,[2]}}`), aligned with `targets`; `None` allows any type.
+        // `{{A,[2]}}`), aligned with `targets`; `None` is an omitted spec.
         let mut types: Vec<Option<&Expr>> = Vec::new();
         let mut positions: Vec<Option<&Expr>> = Vec::new();
         match &first.kind {
@@ -1563,12 +2026,17 @@ impl<'a> Compiler<'a> {
             .emit(Op::MakeList(targets.len() as u32), first.span);
         let mut argc = args.len();
         if id == Builtin::Input {
-            // INPUT receives the allowed types as a hidden second argument.
+            // INPUT receives optional descriptors as a hidden second argument.
+            // Preserve omission separately from explicit scalar controls: zero
+            // is a valid descriptor value, not an unrestricted edit field.
             for t in &types {
                 match t {
-                    Some(e) => self.expr(e),
+                    Some(e) => {
+                        self.expr(e);
+                        self.cur.emit(Op::MakeList(1), e.span);
+                    }
                     None => {
-                        self.cur.emit(Op::Zero, first.span);
+                        self.cur.emit(Op::MakeList(0), first.span);
                     }
                 }
             }
@@ -1617,15 +2085,33 @@ impl<'a> Compiler<'a> {
             },
             span,
         );
+        // An app assignment has observable effects (for example freezing a
+        // worksheet formula). Cancelling INPUT/CHOOSE must not write even an
+        // unchanged value back into that app. Keep the original result below
+        // the updates and discard all updates on cancellation.
+        let cancelled = targets
+            .iter()
+            .any(|(v, _)| matches!(v, VarRef::App(_)))
+            .then(|| {
+                self.cur.emit(Op::DupFrom(refs), span);
+                self.cur.emit(Op::JumpIfFalse(0), span)
+            });
         // Stack: result, new values…; store them back in reverse order.
         for (v, s) in targets.iter().rev() {
             self.store(*v, *s);
         }
+        if let Some(cancelled) = cancelled {
+            let end = self.cur.emit(Op::Jump(0), span);
+            self.cur.patch_jump(cancelled, self.cur.here());
+            for _ in 0..refs {
+                self.cur.emit(Op::Pop, span);
+            }
+            self.cur.patch_jump(end, self.cur.here());
+        }
     }
 
-    /// Warns about literal INPUT type codes outside the documented set
-    /// (-1 any, 0 real, 1 integer, 2 string, 3 complex, 4 matrix, 6 list,
-    /// 8 function, 9 unit: User Guide INPUT entry and TYPE codes).
+    /// The installed G1 accepts integral filters -1..9 (including 5 and 7),
+    /// and rejects fractional/14.x descriptors. Other builds need controls.
     fn check_input_types(&mut self, e: &Expr) {
         let ExprKind::Bracket(items) = &e.kind else {
             return;
@@ -1640,17 +2126,15 @@ impl<'a> Compiler<'a> {
                 _ => None,
             };
             let Some(code) = code else { continue };
-            if ![-1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 9.0].contains(&code) {
+            if !(-1.0..=9.0).contains(&code) || code.fract() != 0.0 {
                 let d = self.warn(
                     "input-unknown-type",
                     it.span,
-                    format!("{code} is not a documented INPUT type code"),
+                    format!(
+                        "{code} is not an INPUT type code accepted by the installed G1 profile"
+                    ),
                 );
-                d.hint = Some(
-                    "use -1 (any), 0 real, 1 integer, 2 string, 3 complex, 4 matrix, \
-                     6 list, 8 function or 9 unit"
-                        .into(),
-                );
+                d.hint = Some("use -1 (any) or an integral G1 TYPE filter from 0 through 9".into());
                 d.unverified = true;
             }
         }
@@ -1708,7 +2192,7 @@ impl<'a> Compiler<'a> {
         self.cur.emit(Op::LoadLocal(saved), span);
         self.store(v, args[1].span);
         self.cur.emit(Op::LoadLocal(acc), span);
-        self.scopes.pop();
+        self.end_scope();
     }
 }
 

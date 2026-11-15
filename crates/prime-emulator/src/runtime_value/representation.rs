@@ -66,6 +66,13 @@ pub(super) fn capture(mem: &GuestMemory, address: u32) -> RepresentationGraph {
     capture.graph
 }
 
+// The original managed-list constructor initializes bytes0..2 only. Byte3
+// retains the allocator's previous contents and is not a list subtype. Other
+// value kinds (notably matrices, words and exact reals) do use that byte.
+fn pointer_list(tag: u8, metadata: u8) -> bool {
+    tag == 0x16 || matches!(metadata, 0 | 1 | 2 | 0x20)
+}
+
 fn word(bytes: &[u8], offset: usize) -> Result<u32, String> {
     bytes
         .get(offset..offset + 4)
@@ -77,6 +84,16 @@ fn word(bytes: &[u8], offset: usize) -> Result<u32, String> {
 impl Capture<'_> {
     fn read_to(&mut self, index: usize, size: usize) -> Result<(), String> {
         let node = &self.graph.nodes[index];
+        // A mapped heap page is not an object boundary. When this is the
+        // exact base of a known host allocation, never consume its neighbor.
+        // Firmware constants/interior objects still use validated map ranges.
+        if self
+            .mem
+            .heap_size_of(node.address)
+            .is_some_and(|allocated| size > allocated)
+        {
+            return Err("value representation exceeds known allocation envelope".into());
+        }
         let additional = size.saturating_sub(node.bytes.len());
         if additional > MAX_VALUE_BYTES - self.graph.captured_bytes {
             return Err("value representation exceeds 1 MiB capture bound".into());
@@ -126,7 +143,21 @@ impl Capture<'_> {
         let (tag, sub) = ((header >> 16) as u8, (header >> 24) as u8);
         let size = match tag & 15 {
             0 => 16,
-            15 if matches!(sub, 0 | 1) => 24,
+            1 if matches!(tag, 0x11 | 0x31 | 0x51 | 0x71 | 0x91) => 16,
+            3 if tag == 0x13 => 32,
+            4 if matches!(tag, 0x14 | 0x94) => {
+                self.read_to(index, 16)?;
+                let (_, _, _, count, stride) = matrix_layout(&self.graph.nodes[index].bytes, tag)?;
+                if count > MAX_LIST_ITEMS - self.graph.logical_items {
+                    return Err("guest matrix exceeds logical item capture bound".into());
+                }
+                self.graph.logical_items += count;
+                16 + count * stride
+            }
+            // Original G1 build15751 returns static π as a four-byte object;
+            // calculated rational multiples use a 24-byte heap object.
+            15 if tag == 0x0f && sub == 2 => 4,
+            15 if matches!(sub, 0 | 1) || (tag == 0x1f && sub == 2) => 24,
             2 => {
                 self.read_to(index, 8)?;
                 let length = word(&self.graph.nodes[index].bytes, 4)? as usize;
@@ -136,9 +167,9 @@ impl Capture<'_> {
                 8 + (length + 1) * 2
             }
             5 => 8,
-            // Candidate layout from the separate runtime-parity branch.
-            // Capturing this shape does not establish that it is decoded.
-            6 if matches!(sub, 0 | 1 | 0x20) => {
+            // Bounded pointer tables, including managed lists whose unused
+            // byte3 is left unchanged by the original constructor.
+            6 if pointer_list(tag, sub) => {
                 self.read_to(index, 8)?;
                 if self.graph.nodes[index].path.len() >= MAX_LIST_DEPTH {
                     return Err("guest list nesting exceeds capture bound".into());
@@ -170,7 +201,15 @@ impl Capture<'_> {
                 }
                 return Ok(());
             }
-            _ => return Err(format!("unverified runtime value tag {tag:#x}/{sub:#x}")),
+            _ => {
+                // The evaluator supplies this root/element address. Capture only
+                // its known host-allocation envelope, never follow guessed
+                // pointer words or interpret an unknown representation.
+                if let Some(allocated) = self.mem.heap_size_of(address) {
+                    self.read_to(index, allocated.min(4096))?;
+                }
+                return Err(format!("unverified runtime value tag {tag:#x}/{sub:#x}"));
+            }
         };
         self.read_to(index, size)
     }
@@ -277,7 +316,110 @@ impl Decoder<'_> {
         let kind = tag & 15;
         let value = match kind {
             0 if bytes.len() == 16 => decimal_real(bytes)?,
+            1 if matches!(tag, 0x11 | 0x31 | 0x51 | 0x71 | 0x91) && bytes.len() == 16 => {
+                let width = sub as i8 as i64;
+                if !matches!(width, -63..=-1 | 1..=64) {
+                    return Err("unverified integer word width".into());
+                }
+                let signed_word = width < 0;
+                let bits = width.unsigned_abs() as u8;
+                let raw = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+                let mask = if bits == 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << bits) - 1
+                };
+                let outside = raw & !mask;
+                if outside != 0 && (!signed_word || outside != !mask) {
+                    return Err("integer value exceeds its declared width".into());
+                }
+                let negative = signed_word && (raw as i64) < 0;
+                let magnitude = if negative {
+                    (raw as i64).unsigned_abs()
+                } else {
+                    raw
+                };
+                let (digits, suffix) = match tag {
+                    0x11 | 0x71 => (magnitude.to_string(), 'd'),
+                    0x31 => (format!("{magnitude:b}"), 'b'),
+                    0x51 => (format!("{magnitude:o}"), 'o'),
+                    0x91 => (format!("{magnitude:X}"), 'h'),
+                    _ => unreachable!(),
+                };
+                let literal = format!(
+                    "#{}{digits}{}{suffix}",
+                    if negative { "-" } else { "" },
+                    if signed_word {
+                        format!(":{width}")
+                    } else {
+                        String::new()
+                    }
+                );
+                let signed = (((raw & mask) << (64 - bits)) as i64) >> (64 - bits);
+                FirmwareValue::Integer {
+                    literal,
+                    bits,
+                    unsigned: (raw & mask).to_string(),
+                    signed: signed.to_string(),
+                    signed_word,
+                    numeric: signed_word.then(|| {
+                        if negative {
+                            (raw as i64).to_string()
+                        } else {
+                            raw.to_string()
+                        }
+                    }),
+                    system_base: tag == 0x11,
+                }
+            }
+            3 if tag == 0x13 && bytes.len() == 32 => complex_real(bytes)?,
+            4 if matches!(tag, 0x14 | 0x94) => {
+                let (rows, columns, vector, count, stride) = matrix_layout(bytes, tag)?;
+                if bytes.len() != 16 + count * stride || count > self.remaining_items {
+                    return Err("invalid matrix representation or logical item bound".into());
+                }
+                self.remaining_items -= count;
+                let mut items = Vec::with_capacity(count);
+                for cell in bytes[16..].chunks_exact(stride) {
+                    let real = packed_decimal(&cell[..8])?;
+                    if stride == 16 {
+                        items.push(FirmwareValue::Complex {
+                            real,
+                            imaginary: packed_decimal(&cell[8..])?,
+                        });
+                    } else {
+                        items.push(FirmwareValue::Real { value: real });
+                    }
+                }
+                FirmwareValue::Matrix {
+                    rows,
+                    columns,
+                    vector,
+                    items,
+                }
+            }
             15 if sub == 0 && bytes.len() == 24 => decimal_real(&bytes[8..])?,
+            15 if tag == 0x0f && sub == 2 && bytes.len() == 4 => FirmwareValue::PiMultiple {
+                negative: false,
+                numerator: "1".into(),
+                denominator: "1".into(),
+            },
+            15 if tag == 0x1f && sub == 2 && bytes.len() == 24 => {
+                let sign = bytes[4];
+                if sign > 1 {
+                    return Err("unrecognized pi coefficient sign".into());
+                }
+                let numerator = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+                let denominator = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
+                if denominator == 0 {
+                    return Err("zero pi coefficient denominator".into());
+                }
+                FirmwareValue::PiMultiple {
+                    negative: sign != 0,
+                    numerator: numerator.to_string(),
+                    denominator: denominator.to_string(),
+                }
+            }
             15 if sub == 1 && bytes.len() == 24 => {
                 let sign = bytes[4];
                 if sign > 1 {
@@ -309,19 +451,24 @@ impl Decoder<'_> {
                     .chunks_exact(2)
                     .map(|b| u16::from_le_bytes([b[0], b[1]]))
                     .collect();
-                if units.last() != Some(&0) || units[..count].contains(&0) {
+                if units.last() != Some(&0) {
                     return Err("guest string terminator or length mismatch".into());
                 }
-                FirmwareValue::String {
-                    value: String::from_utf16(&units[..count])
-                        .map_err(|_| "invalid UTF-16 guest string")?,
+                match String::from_utf16(&units[..count]) {
+                    Ok(value) => FirmwareValue::String { value },
+                    Err(_) => FirmwareValue::Utf16 {
+                        value: units[..count].to_vec(),
+                    },
                 }
             }
             5 if bytes.len() == 8 => FirmwareValue::Error { raw_code: sub },
             // Independently observed in this checkout's capture-only controls:
             // Subtypes 0x00 and 0x20 are supported by retained captures;
-            // 0x01 is supported by the G1 2.4.2 runtime-parity controls.
-            6 if matches!(sub, 0 | 1 | 0x20) => {
+            // 0x01 is supported by the G1 2.4.2 runtime-parity controls;
+            // Historical projections validate nonmanaged layouts. The original
+            // managed constructor leaves byte3 unchanged, also exercised by
+            // return, stored return and STRING/index projections.
+            6 if pointer_list(tag, sub) => {
                 if path.len() >= MAX_LIST_DEPTH {
                     return Err("guest list nesting exceeds capture bound".into());
                 }
@@ -391,4 +538,61 @@ fn decimal_real(bytes: &[u8]) -> Result<FirmwareValue, String> {
     Ok(FirmwareValue::Real {
         value: canonical_decimal(&text)?,
     })
+}
+
+// Firmware15751 capture controls establish rank, row/column dimensions and
+// row-major inline decimal64 cells. The 0x80 tag bit selects complex cells.
+// The allocator reference count and reserved header bytes are not value data.
+fn matrix_layout(bytes: &[u8], tag: u8) -> Result<(usize, usize, bool, usize, usize), String> {
+    let rank = word(bytes, 4)?;
+    let rows = word(bytes, 8)? as usize;
+    let columns = word(bytes, 12)? as usize;
+    if !matches!(rank, 1 | 2) || rows == 0 || columns == 0 || (rank == 1 && rows != 1) {
+        return Err("unverified matrix rank or dimensions".into());
+    }
+    let count = rows
+        .checked_mul(columns)
+        .filter(|n| *n <= MAX_LIST_ITEMS)
+        .ok_or("matrix exceeds logical item bound")?;
+    Ok((
+        rows,
+        columns,
+        rank == 1,
+        count,
+        if tag == 0x94 { 16 } else { 8 },
+    ))
+}
+
+fn real_component(bytes: &[u8]) -> Result<String, String> {
+    match decimal_real(bytes)? {
+        FirmwareValue::Real { value } => Ok(value),
+        _ => unreachable!(),
+    }
+}
+
+fn complex_real(bytes: &[u8]) -> Result<FirmwareValue, String> {
+    // The first component shares its header with the complex object. The
+    // second is a complete inline decimal object, not a guest pointer.
+    let header = word(bytes, 16)?;
+    if ((header >> 16) as u8) & 15 != 0 {
+        return Err("unverified complex component representation".into());
+    }
+    Ok(FirmwareValue::Complex {
+        real: real_component(&bytes[..16])?,
+        imaginary: real_component(&bytes[16..32])?,
+    })
+}
+
+fn packed_decimal(bytes: &[u8]) -> Result<String, String> {
+    let packed = u64::from_le_bytes(bytes.try_into().map_err(|_| "incomplete decimal64")?);
+    let exp = ((packed as i32) << 20) >> 20;
+    let mantissa = packed & 0x0fff_ffff_ffff_f000;
+    let mut expanded = [0u8; 16];
+    expanded[3] = if packed >> 60 == 9 { 0xff } else { 1 };
+    if !matches!(packed >> 60, 0 | 9) {
+        return Err("unverified decimal64 special flags".into());
+    }
+    expanded[4..8].copy_from_slice(&exp.to_le_bytes());
+    expanded[8..].copy_from_slice(&mantissa.to_le_bytes());
+    real_component(&expanded)
 }

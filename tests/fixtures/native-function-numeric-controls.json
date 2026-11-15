@@ -1,0 +1,247 @@
+{
+  "provenance": "Original isolated virtual G1 firmware15751 UI controls plus self-authored PPL reads. No physical verification or vendor image/font bytes bundled.",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "geometry": {
+    "header_end": 19,
+    "x_column": [
+      0,
+      64
+    ],
+    "dependent_columns_3": [
+      [
+        65,
+        150
+      ],
+      [
+        151,
+        235
+      ],
+      [
+        236,
+        320
+      ]
+    ],
+    "fonts": [
+      {
+        "pixels": 10,
+        "header_bottom": 32,
+        "row_height": 13
+      },
+      {
+        "pixels": 14,
+        "header_bottom": 36,
+        "row_height": 17
+      },
+      {
+        "pixels": 18,
+        "header_bottom": 40,
+        "row_height": 21
+      }
+    ],
+    "footer": [
+      203,
+      219
+    ],
+    "softkeys": [
+      220,
+      239
+    ],
+    "paper": 15266294,
+    "selection": 11390207,
+    "grid": 14803425,
+    "goto_field": [
+      92,
+      49,
+      314,
+      71
+    ],
+    "setup_fields": [
+      [
+        92,
+        24,
+        314,
+        45
+      ],
+      [
+        92,
+        50,
+        314,
+        71
+      ],
+      [
+        92,
+        102,
+        314,
+        123
+      ],
+      [
+        92,
+        154,
+        314,
+        175
+      ]
+    ],
+    "minimum_dependent_width": 59,
+    "independent_fixed_width": 65,
+    "horizontal_scroll_to_fifth": 40
+  },
+  "controls": [
+    {
+      "case": "initial",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{0,0.1,2,0}"
+    },
+    {
+      "case": "goto",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{4.75,0.05,2,0}"
+    },
+    {
+      "case": "typed_x",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{6.5,1,2,0}"
+    },
+    {
+      "case": "custom",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{6.5,1,2,1}"
+    },
+    {
+      "case": "zoom_selected_row",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{0.1,0.05,2,0}"
+    },
+    {
+      "case": "decimal",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{0,0.1,2,0}"
+    },
+    {
+      "case": "goto_small",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{4.5,0.1,2,0}"
+    },
+    {
+      "case": "plot_copy_accepted",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{−15.9,0.1,2,0}"
+    },
+    {
+      "case": "new_plot_bounds",
+      "source": "EXPORT ZZT_NUM() BEGIN Xmin:=-5; Xmax:=5; RETURN STRING({Xmin,Xmax}); END;",
+      "source_sha256": "6f64449710fb2a80cecd7c86b7704c7c88d33d4786cc0dc26e72da6f5f2293a8",
+      "result": "{−5,5}"
+    },
+    {
+      "case": "custom_plot_accepted",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{−5,3.14465408805ᴇ−2,2,0}"
+    },
+    {
+      "case": "gradians",
+      "source": "EXPORT ZZT_NUM() BEGIN AAngle:=3; RETURN AAngle; END;",
+      "source_sha256": "2f3f828b14f11b2b7b8a9e031264d2d60db83e456a07cd776931aa4b389cbe56",
+      "result": "3"
+    },
+    {
+      "case": "trig_gradians",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "93fc2fe0011110fb235decd02c8c99c2e370833a73cf82dae2b9618f265be4f9",
+      "result": "{0,7.5,2,0}"
+    },
+    {
+      "case": "big_definition",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"X/1E400\"; NumStart:=1E400; NumStep:=1E399; RETURN STRING({STRING(F1),NumStart,NumStep}); END;",
+      "source_sha256": "e44c63e7c7beabf673089177c1ee90a0396eb63666b9bd64f58e7a06b36d2718",
+      "result": "{\"X/1ᴇ400\",1ᴇ400,1ᴇ399}"
+    },
+    {
+      "case": "tiny_definition",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"X/1E-400\"; NumStart:=1E-400; NumStep:=1E-401; RETURN STRING({STRING(F1),NumStart,NumStep}); END;",
+      "source_sha256": "abb9c34d59d7df2c3aca7c61ab2f9688ec6dc60d1a89f07a915a50be12c773fc",
+      "result": "{\"X/1ᴇ−400\",1ᴇ−400,1ᴇ−401}"
+    },
+    {
+      "case": "grouping_setup",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"X\"; NumStart:=10000; NumStep:=1000; RETURN 1; END;",
+      "source_sha256": "533c6933f1e7c2583d169e772c9c1d0522fddaac0970d40519bfe86a98486239",
+      "result": "1"
+    },
+    {
+      "case": "explicit_complex_body",
+      "source": "EXPORT ZZT_NUM() BEGIN LOCAL a,b,ok:=1; IFERR F1:=\"X+(0,1)\"; THEN ok:=0; END; IFERR a:=F1(2); THEN a:=\"error\"; END; IFERR b:=F1((2,0)); THEN b:=\"error\"; END; RETURN STRING({ok,STRING(F1),a,TYPE(a),b,TYPE(b)}); END;",
+      "source_sha256": "a686be7b65de7eac94dc63a4752caa7916a3a48c81c03304e85af440ac67acbf",
+      "result": "{1,\"X+(0+1*i)\",2+,3,2+,3}"
+    },
+    {
+      "case": "division_zero_setup",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"1/X\"; NumStart:=0; NumStep:=1; RETURN 1; END;",
+      "source_sha256": "9b81e8ac92c3ced0bef1a0f5bb3e182b5b0ca265f46fe3498eb081f30e0e94cb",
+      "result": "1"
+    },
+    {
+      "case": "explicit_complex_numeric_setup",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"X+(0,1)\"; NumStart:=0; NumStep:=0.1; HComplex:=1; AComplex:=1; RETURN STRING({HComplex,AComplex}); END;",
+      "source_sha256": "6805412d6081c3829eb3a8605f8ec8d076ac019fbf446b41ee080c1ac227ea6e",
+      "result": "{1,1}"
+    },
+    {
+      "case": "function_overflow",
+      "source": "EXPORT ZZT_NUM() BEGIN LOCAL a,b; F1:=\"X^2\"; IFERR a:=F1(1E400); THEN a:=\"error\"; END; F1:=\"-X^2\"; IFERR b:=F1(1E400); THEN b:=\"error\"; END; RETURN STRING({a,TYPE(a),b,TYPE(b)}); END;",
+      "source_sha256": "e521f3f281d0f53a6461f8d68424395bdd1c87080e2cb7a92d44bf4f267d0575",
+      "result": "{9.99999999999ᴇ499,0,−9.99999999999ᴇ499,0}"
+    },
+    {
+      "case": "trig_radians_clean_setup",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); AAngle:=1; NumStart:=0; NumStep:=0.1; RETURN AAngle; END;",
+      "source_sha256": "5ca3a3d176617e43c6e486db851c9cc971ac88840eea71f2e6bb9daa4337c4d0",
+      "result": "1"
+    },
+    {
+      "case": "trig_radians_clean_query",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({AAngle,NumStart,NumStep}); END;",
+      "source_sha256": "b7ce627c0d830064079e48079cce23016b62b44ca03ec3d6849fff3d9dae21c8",
+      "result": "{1,0,0.1308996939}"
+    },
+    {
+      "case": "trig_degrees_clean_setup",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); AAngle:=2; NumStart:=0; NumStep:=0.1; RETURN AAngle; END;",
+      "source_sha256": "ec7361ea36f1bb49b989014ac39d1afd632912f3e2d45a9e92797dfaaf54a87b",
+      "result": "2"
+    },
+    {
+      "case": "trig_degrees_clean_query",
+      "source": "EXPORT ZZT_NUM() BEGIN RETURN STRING({AAngle,NumStart,NumStep}); END;",
+      "source_sha256": "b7ce627c0d830064079e48079cce23016b62b44ca03ec3d6849fff3d9dae21c8",
+      "result": "{2,0,7.5}"
+    }
+  ],
+  "interpretation": [
+    "Zoom In retains the selected X: row2 atX0.2 changes start0/step0.1 to start0.1/step0.05.",
+    "Go To selects row5 even with Small Font: value5 with step0.1 gives start4.5. Direct entry at row1 instead retains row1.",
+    "Plot→ requires explicit confirmation before changing settings, then copies xmin and span/318.",
+    "Trig with app angle Gradians3 gives step7.5 on firmware15751; do not convert that to25/3.",
+    "The first probe mislabeled an Integer menu choice as Decimal after Un-Zoom enlarged the menu, and mis-clicked Font after closing the view. Those captures are excluded; the second probe established actual Decimal and fonts.",
+    "A fresh empty Numeric view retains an X column of65 pixels and a blue unused area. Five checked functions use minimum59-pixel columns; right navigation toF5 shifts dependent columns40 pixels while keeping X fixed.",
+    "Some reference6 Font clicks selected the wrong menu; only measured font heights and correctly identified capture pixels are used, not those misleading filenames.",
+    "Numeric preserves real inputs as large as 1E400 and as small as 1E-400. X/1E400 and X/1E-400 produce finite ratios rather than losing the independent values to binary floating point.",
+    "Numeric uses a capital E for exponents and grouping separators when enabled: the original grid displays 10,000 for start 10000 and step 1000.",
+    "An explicit complex function body X+(0,1) returns a complex value in PPL, while its Numeric cells display NaN. A division by zero displays NaN in that cell and continues calculating other rows.",
+    "Original Function evaluation saturates positive and negative overflowing results at signed 9.99999999999E499. Native still reports overflow for this case; saturation is a required remaining difference.",
+    "The separate root/complex-mode probes have unresolved context-sensitive results. They are excluded from a simple complex-mode contract and do not justify reversing the documented On/Off choices.",
+    "A separately captured Zoom menu and direct tap on Trig establish radians code1 as step0.1308996939. An earlier keyboard-navigation attempt selected In and gave0.05; that attempt is excluded from the Trig contract."
+  ]
+}

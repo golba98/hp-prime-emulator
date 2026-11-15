@@ -1,0 +1,313 @@
+{
+  "scope": "firmware_control_capture",
+  "physical_hardware_verified": false,
+  "helper_sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "duplicate_exports_reverse",
+      "requests": [
+        {
+          "command": {
+            "request": 1,
+            "name": "ZZT_M19TWO",
+            "command": "store_program",
+            "source": "EXPORT M19GLOBAL:=22;\nEXPORT M19TWO() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "status",
+              "message": "Storing named firmware program\u2026"
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 1,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19TWO",
+              "check": {
+                "accepted": true,
+                "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 2,
+            "name": "ZZT_M19TWO",
+            "command": "run_stored",
+            "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+            "entry": "M19TWO",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 2,
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "entry": "M19TWO"
+            },
+            {
+              "event": "execution",
+              "request": 2,
+              "program": "ZZT_M19TWO",
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19TWO",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "22"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": []
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 2,
+              "success": true,
+              "message": "G1 firmware returned 22"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 3,
+            "name": "ZZT_M19ONE",
+            "command": "store_program",
+            "source": "EXPORT M19GLOBAL:=11;\nEXPORT M19ONE() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 3,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19ONE",
+              "check": {
+                "accepted": true,
+                "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 4,
+            "name": "ZZT_M19ONE",
+            "command": "run_stored",
+            "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+            "entry": "M19ONE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 4,
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "entry": "M19ONE"
+            },
+            {
+              "event": "execution",
+              "request": 4,
+              "program": "ZZT_M19ONE",
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19ONE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "11"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": []
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 4,
+              "success": true,
+              "message": "G1 firmware returned 11"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 5,
+            "name": "ZZT_M19TWO",
+            "command": "run_stored",
+            "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+            "entry": "M19TWO",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 5,
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "entry": "M19TWO"
+            },
+            {
+              "event": "execution",
+              "request": 5,
+              "program": "ZZT_M19TWO",
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19TWO",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "22"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": []
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 5,
+              "success": true,
+              "message": "G1 firmware returned 22"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 6,
+            "name": "ZZT_M19USE",
+            "command": "store_program",
+            "source": "EXPORT M19USE() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 6,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19USE",
+              "check": {
+                "accepted": true,
+                "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 7,
+            "name": "ZZT_M19USE",
+            "command": "run_stored",
+            "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+            "entry": "M19USE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 7,
+              "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+              "entry": "M19USE"
+            },
+            {
+              "event": "execution",
+              "request": 7,
+              "program": "ZZT_M19USE",
+              "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19USE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "22"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": []
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 7,
+              "success": true,
+              "message": "G1 firmware returned 22"
+            }
+          ]
+        }
+      ],
+      "status": "captured"
+    }
+  ],
+  "classification": "genuine retained firmware import-order control; Native ambiguity remains unsupported"
+}

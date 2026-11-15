@@ -65,10 +65,10 @@ pub fn index_value(base: &Value, idx: &[Value], _m: &Machine) -> RtResult<Value>
             }
             index_value(m.get(i as usize - 1, j as usize - 1), &idx[2..], _m)
         }
-        // s(i) returns the character code (unverified on the G1).
-        Value::Str(s) => {
+        // s(i) returns the 16-bit unit as a number, not a one-character string.
+        value if value.is_string() => {
             let i = index_arg(&idx[0])?;
-            let chars: Vec<char> = s.chars().collect();
+            let chars = value.expect_string_units("index")?;
             if i < 1 || i as usize > chars.len() {
                 return Err(out_of_range(i, chars.len()));
             }
@@ -116,15 +116,7 @@ pub fn store_index(target: &mut Value, idx: &[Value], v: Value, max_len: usize) 
         Value::Matrix(m) => {
             let m = Rc::make_mut(m);
             let i = index_arg(&idx[0])?;
-            match &v {
-                Value::Real(_) | Value::Int(_) | Value::Complex(_) => {}
-                other => {
-                    return Err(RuntimeError::new(
-                        ErrorKind::BadArgType,
-                        format!("matrix elements must be numbers, got {}", other.type_name()),
-                    ));
-                }
-            }
+            let v = crate::machine::numeric_entry(v)?;
             if m.vector {
                 if i >= 1 && (i as usize) <= m.cols {
                     m.data[i as usize - 1] = v;

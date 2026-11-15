@@ -94,8 +94,9 @@ fn real_firmware_executes_and_reports_progress() {
         r.outcome, r.instructions, r.svc_calls_total, r.irq_delivered, r.heartbeat
     );
     // M3: the GetEvent pump round-trip is now asserted. Evidence: the
-    // pump call site (0x306070B4), the servicing thread (guest thread 1),
-    // delivered events, and re-entry count must all be present.
+    // pump call site, an actual executing guest owner, delivered events and
+    // re-entry count must all be present. Thread IDs depend on which guest
+    // background services were created before the UI thread, not its role.
     assert_eq!(
         summary.outcome,
         Outcome::Heartbeat,
@@ -103,7 +104,18 @@ fn real_firmware_executes_and_reports_progress() {
     );
     let hb = r.heartbeat.as_ref().expect("heartbeat evidence");
     assert_eq!(hb.caller_pc, 0x3060_70B4, "the pump's GetEvent call site");
-    assert_eq!(hb.thread_id, 1, "guest thread 1 services the pump");
+    assert_eq!(hb.service, "GetEvent");
+    assert_ne!(
+        hb.thread_id, 0,
+        "the UI pump runs in a guest-created thread"
+    );
+    assert!(
+        r.threads.iter().any(|thread| thread.tid == hb.thread_id),
+        "input owner must be an actual reported guest CPU"
+    );
+    // Worker instruction totals are lower bounds: a worker yielding at every
+    // SVC may finish no complete slice. The observed GetEvent calls and real
+    // delivered input below establish execution even with a zero lower bound.
     assert!(hb.events_delivered >= 3);
     assert!(hb.pump_reentries >= hb.events_delivered as u64);
 }

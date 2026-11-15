@@ -14,14 +14,24 @@
 //! value: it is recorded (id, caller, registers) and handled according to
 //! the configured [`UnsupportedPolicy`].
 
+pub mod backlight;
+pub mod battery;
+pub mod disk_room;
 pub mod fs;
 pub mod fsops;
 pub mod handlers;
+pub mod image;
+pub mod indicator;
+pub mod module_metadata;
 pub mod names;
 pub mod pe;
+pub mod pending;
+pub mod power;
+pub mod scheduler;
 pub mod sync;
 pub mod system2;
 pub mod threading;
+pub mod usb;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -38,7 +48,8 @@ pub use names::FIRST_SERVICE_ID;
 pub use names::LAST_SERVICE_ID;
 
 /// Guest-visible register arguments captured at SVC time.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GuestArgs {
     pub r0: u32,
     pub r1: u32,
@@ -58,7 +69,16 @@ impl GuestArgs {
     /// Caller-provided stack argument `i` (0-based): `[sp + 8 + 4*i]`.
     /// The +8 skips the stub's pushed return address and saved r0.
     pub fn stack_arg(&self, mem: &GuestMemory, i: usize) -> MemResult<u32> {
-        mem.read_u32(self.sp + 8 + (i as u32) * 4)
+        let address = u32::try_from(i)
+            .ok()
+            .and_then(|i| i.checked_mul(4))
+            .and_then(|offset| offset.checked_add(8))
+            .and_then(|offset| self.sp.checked_add(offset))
+            .ok_or(MemoryError {
+                va: self.sp,
+                msg: "SVC stack argument address overflow".into(),
+            })?;
+        mem.read_u32(address)
     }
 }
 
@@ -70,7 +90,7 @@ pub struct HandlerFault(pub MemoryError);
 /// A single service invocation context.
 pub struct SvcCtx<'a, 'e> {
     pub uc: &'a mut Unicorn<'e, ()>,
-    pub mem: &'a GuestMemory,
+    pub mem: &'a std::sync::Arc<GuestMemory>,
     pub args: GuestArgs,
     pub shared: &'a SharedState,
     pub trace: &'a TraceHub,
@@ -79,6 +99,8 @@ pub struct SvcCtx<'a, 'e> {
     /// The handler redirected the registers into a host guest call; the SVC
     /// return convention must not be applied.
     pub redirected: bool,
+    /// Explicit work completed by the CPU owner after this native callback returns.
+    pub deferred: Option<pending::PendingService>,
 }
 
 impl SvcCtx<'_, '_> {
@@ -104,13 +126,6 @@ impl SvcCtx<'_, '_> {
         let va = self.mem.heap_alloc(s.len() + 1).map_err(HandlerFault)?;
         self.mem.write_cstr(va, s).map_err(HandlerFault)?;
         Ok(va)
-    }
-
-    /// Block the calling guest thread like the real OS would, but bounded so
-    /// a headless run cannot hang forever without diagnostics.
-    pub fn bounded_sleep(&self, ms: u64) {
-        let _parked = self.mem.snapshot_gate.park();
-        std::thread::sleep(Duration::from_millis(ms));
     }
 }
 
@@ -185,6 +200,16 @@ impl Registry {
         Self::idx(id).map(|i| &self.entries[i])
     }
 
+    /// The dispatch implementation, including private host adapters outside
+    /// the vendor's742-slot table. Reporting must use this same lookup.
+    pub fn handler(&self, id: u32) -> Option<HandlerFn> {
+        if id == usb::RECEIVE_SVC {
+            Some(usb::receive_service)
+        } else {
+            self.entry(id).and_then(|entry| entry.handler)
+        }
+    }
+
     pub fn name(&self, id: u32) -> Option<&'static str> {
         self.entry(id).and_then(|e| e.name)
     }
@@ -250,6 +275,14 @@ pub const ON_KEY_CODE: u16 = 0x83;
 /// Power state behind `SysPowerOff`. The firmware's own OFF (Shift+ON)
 /// saves its state, flushes its files and calls `SysPowerOff`; the G1 then
 /// sleeps until ON is pressed and the call returns.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SleepSource {
+    #[default]
+    Firmware,
+    Automatic,
+    Indicator,
+}
 #[derive(Debug, Default)]
 pub struct Power {
     pub sleeping: bool,
@@ -259,11 +292,43 @@ pub struct Power {
     swallow_on_up: bool,
     /// Completed sleeps (evidence for the session).
     pub sleeps: u64,
+    pub auto: power::AutoPowerOff,
+    source: SleepSource,
+    clock_pause: Option<crate::clock::Freeze>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SystemEvent {
+    pub kind: u32,
+    pub subtype: u32,
+    pub value: i32,
 }
 
 pub struct SharedState {
+    /// Producer deadlines use guest elapsed time and are part of live state.
+    pub timers: Mutex<image::TimerImage>,
+    /// Heap allocations owned by running worker stacks. The main stack is
+    /// retained by the machine allocator rather than a worker RAII lease.
+    pub thread_stacks: Mutex<HashMap<u32, u32>>,
+    pub indicator: Mutex<indicator::Indicator>,
+    pub backlight: Mutex<backlight::Backlight>,
+    pub usb: usb::Usb,
+    pub clipboard: std::sync::Arc<crate::clipboard::Clipboard>,
+    pub(crate) text_calls: std::sync::Arc<crate::guest_call::text::Mailbox>,
+    pub clock: std::sync::Arc<crate::clock::Clock>,
+    pub rtc: std::sync::Arc<crate::clock::Rtc>,
+    pub scheduler: std::sync::Arc<scheduler::Scheduler>,
+    pub safe_points: std::sync::Arc<crate::safepoint::SafePoints>,
+    /// Owner-published explicit waits, refreshed before each pause boundary.
+    sleep_wakes: Mutex<HashMap<u32, std::sync::Weak<AtomicBool>>>,
+    pub pending_services: Mutex<std::collections::BTreeMap<u32, pending::ServiceImage>>,
+    pub owner_images: Mutex<std::collections::BTreeMap<u32, crate::engine::OwnerImage>>,
     /// Root directory serving the guest's drive letters (`A:\` etc.).
     pub data_dir: PathBuf,
+    /// Byte budget of virtual internal storage. It does not identify a
+    /// physical calculator's hidden partition geometry.
+    pub storage_capacity: std::sync::Arc<AtomicU64>,
+    pub environment: Mutex<ppl_engine::environment::EnvironmentConfig>,
     /// Host-requested guest calls on the UI thread (`guest_call`).
     pub guest_calls: crate::guest_call::GuestCalls,
     /// Host-side input event queue consumed by the GetEvent service.
@@ -301,8 +366,6 @@ pub struct SharedState {
     /// Virtual devices keyed by handle (ref: CreateFile registers names).
     pub devices: Mutex<HashMap<u32, String>>,
     next_device: AtomicU64,
-    /// Factory (FRP) blob, in-memory only (ref persists to a file).
-    pub frp_data: Mutex<Vec<u8>>,
     /// LCD object guest VA singleton.
     pub lcd_object: Mutex<Option<u32>>,
     /// Optional framebuffer write statistics (`--lcd-watch`, diagnostics).
@@ -317,11 +380,17 @@ pub struct SharedState {
     /// OSWaitForEvent: it has finished handling the messages the pump
     /// forwarded to it.
     main_waiting: AtomicBool,
+    /// Main-thread wait entries, allowing transactions to require a fresh
+    /// firmware event-loop boundary after their request was accepted.
+    main_wait_entries: AtomicU64,
+    /// Main-thread event wait. Host identity is runtime-only and
+    /// never serialized; the event owns the actual blocked-waiter membership.
+    main_ui_wait_owner: Mutex<Option<(u32, u32)>>,
     /// Pending non-input UI events (timer events), delivered by GetEvent
     /// before queued input — PrimU2's `special_event` slot, as a small
     /// bounded queue so a SYS_TIMER and a DEVICE_TIMER due together are
     /// both delivered.
-    system_events: Mutex<std::collections::VecDeque<u32>>,
+    system_events: Mutex<std::collections::VecDeque<SystemEvent>>,
     /// Timer/system events delivered by GetEvent.
     system_events_delivered: AtomicU64,
     /// DEVICE_TIMER events delivered by GetEvent (the ~1 s UI commit tick).
@@ -336,13 +405,18 @@ pub struct SharedState {
     pub threads_exiting: Mutex<std::collections::HashSet<std::thread::ThreadId>>,
     /// Live spawned-thread handles for the final report.
     pub thread_handles: Mutex<HashMap<u32, std::thread::JoinHandle<()>>>,
+    thread_failure: Mutex<Option<ThreadFailure>>,
     /// Per-thread instruction counters (liveness evidence).
     pub thread_instructions: Mutex<HashMap<u32, u64>>,
     /// Registered guest ISRs (irq -> guest entry), delivered by the
     /// runner's virtual IRQ dispatcher.
     pub isrs: Mutex<HashMap<u32, u32>>,
+    disabled_isrs: Mutex<std::collections::HashSet<u32>>,
     /// Count of delivered virtual IRQs per irq number.
     pub irq_delivered: Mutex<HashMap<u32, u64>>,
+    /// Accepted interrupt edges awaiting the main owner. Keep these across
+    /// its pre-ISR safe point instead of retaining a native dispatcher local.
+    pub(crate) pending_irqs: Mutex<std::collections::VecDeque<(u32, u32)>>,
     /// Loaded guest PE modules.
     pub pe_modules: Mutex<Vec<pe::PeModule>>,
     /// Import-stub block (base, next free offset): return-zero Thumb stubs
@@ -350,6 +424,8 @@ pub struct SharedState {
     pub stub_block: Mutex<Option<(u32, u32)>>,
     /// Guest thread records (tid -> entry point), for OSCreateThread & co.
     pub threads: Mutex<HashMap<u32, ThreadRecord>>,
+    thread_control: Mutex<HashMap<u32, ThreadControl>>,
+    thread_wake: std::sync::Condvar,
     /// Next guest thread id (matches reference: first thread is 0).
     next_thread_id: AtomicU64,
 }
@@ -420,9 +496,19 @@ impl LcdWatch {
     }
 }
 
+/// Failure of a background guest CPU. Never silently reported as a successful
+/// main-thread run when the runtime observer is disabled.
+#[derive(Debug)]
+pub struct ThreadFailure {
+    pub tid: u32,
+    pub reason: crate::engine::StopReason,
+    pub fault: Option<Box<crate::engine::FaultReport>>,
+    pub detail: String,
+}
+
 /// One touch sample (finger 0). `status` is UI_EVENT_TYPE_TOUCH_BEGIN /
 /// _MOVE / _END; the pump reads x at entry+6 and y at entry+8.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TouchSample {
     pub status: u32,
     pub x: u16,
@@ -431,18 +517,26 @@ pub struct TouchSample {
 
 /// One synthetic multipress event, matching PrimU2's `UIMultipressEvent`
 /// key-press semantics (CommandServer.cpp: "key <code> <down|up|press>").
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct InputEvent {
     /// UI_EVENT_TYPE_KEY (16) or UI_EVENT_TYPE_KEY_UP (0x100000).
     pub status: u32,
     pub key_code0: u16,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ThreadRecord {
     pub entry: u32,
     pub arg: u32,
     pub stack_size: usize,
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+struct ThreadControl {
+    started: bool,
+    suspended: bool,
+    terminated: bool,
+    completed: bool,
 }
 
 /// Runner hook that creates a real guest thread (engine + native thread).
@@ -470,7 +564,35 @@ pub const UI_EVENT_TYPE_TOUCH_END: u32 = 8;
 
 impl SharedState {
     pub fn new(data_dir: PathBuf, firmware_guest_path: String) -> SharedState {
+        Self::with_clock(
+            data_dir,
+            firmware_guest_path,
+            std::sync::Arc::new(crate::clock::Clock::default()),
+        )
+    }
+    pub fn with_clock(
+        data_dir: PathBuf,
+        firmware_guest_path: String,
+        clock: std::sync::Arc<crate::clock::Clock>,
+    ) -> SharedState {
+        let rtc = std::sync::Arc::new(crate::clock::Rtc::default());
+        Self::with_clocks(data_dir, firmware_guest_path, clock, rtc)
+    }
+    fn with_clocks(
+        data_dir: PathBuf,
+        firmware_guest_path: String,
+        clock: std::sync::Arc<crate::clock::Clock>,
+        rtc: std::sync::Arc<crate::clock::Rtc>,
+    ) -> SharedState {
+        let storage_capacity = std::sync::Arc::new(AtomicU64::new(system2::STORAGE_CAPACITY));
         SharedState {
+            timers: Mutex::new(image::TimerImage::at(clock.now())),
+            thread_stacks: Mutex::new(HashMap::new()),
+            indicator: Mutex::new(indicator::Indicator::default()),
+            usb: usb::Usb::default(),
+            backlight: Mutex::new(backlight::Backlight::default()),
+            clipboard: Default::default(),
+            text_calls: Default::default(),
             firmware_guest_path,
             input_delivered: AtomicU64::new(0),
             input_thread: std::sync::atomic::AtomicU32::new(u32::MAX),
@@ -478,16 +600,27 @@ impl SharedState {
             program_record: Mutex::new(None),
             guest_calls: Default::default(),
             event_type_filter: std::sync::atomic::AtomicU32::new(0),
-            vfs: fs::Vfs::new(data_dir.clone()),
-            sync_objects: Mutex::new(HashMap::new()),
+            vfs: fs::Vfs::with_capacity(data_dir.clone(), storage_capacity.clone()),
+            sync_objects: Mutex::new(sync::SyncMap::default()),
             devices: Mutex::new(HashMap::new()),
             next_device: AtomicU64::new(1),
-            frp_data: Mutex::new(Vec::new()),
             lcd_object: Mutex::new(None),
+            clock: clock.clone(),
+            scheduler: Default::default(),
+            safe_points: std::sync::Arc::new(crate::safepoint::SafePoints::with_clocks(vec![
+                clock.clone(),
+                rtc.clock.clone(),
+            ])),
+            rtc,
+            sleep_wakes: Mutex::new(HashMap::new()),
+            pending_services: Mutex::new(std::collections::BTreeMap::new()),
+            owner_images: Mutex::new(std::collections::BTreeMap::new()),
             lcd_watch: LcdWatch::default(),
             getevent_parked: AtomicBool::new(false),
             getevent_entries: AtomicU64::new(0),
             main_waiting: AtomicBool::new(false),
+            main_wait_entries: AtomicU64::new(0),
+            main_ui_wait_owner: Mutex::new(None),
             system_events: Mutex::new(std::collections::VecDeque::new()),
             system_events_delivered: AtomicU64::new(0),
             device_timer_delivered: AtomicU64::new(0),
@@ -496,17 +629,27 @@ impl SharedState {
             thread_spawner: Mutex::new(None),
             threads_exiting: Mutex::new(std::collections::HashSet::new()),
             thread_handles: Mutex::new(HashMap::new()),
+            thread_failure: Mutex::new(None),
             thread_instructions: Mutex::new(HashMap::new()),
             pe_modules: Mutex::new(Vec::new()),
             isrs: Mutex::new(HashMap::new()),
+            disabled_isrs: Mutex::new(std::collections::HashSet::new()),
             irq_delivered: Mutex::new(HashMap::new()),
+            pending_irqs: Mutex::new(std::collections::VecDeque::new()),
             stub_block: Mutex::new(None),
             data_dir,
+            storage_capacity,
+            environment: Mutex::new(Default::default()),
             input_events: Mutex::new(std::collections::VecDeque::new()),
             threads: Mutex::new(HashMap::new()),
+            thread_control: Mutex::new(HashMap::new()),
+            thread_wake: std::sync::Condvar::new(),
             next_thread_id: AtomicU64::new(1),
             stopping: std::sync::atomic::AtomicBool::new(false),
-            power: Mutex::new(Power::default()),
+            power: Mutex::new(Power {
+                auto: power::AutoPowerOff::with_clock(clock),
+                ..Default::default()
+            }),
         }
     }
 
@@ -514,7 +657,31 @@ impl SharedState {
     pub fn enter_sleep(&self) {
         let mut p = self.power.lock().unwrap();
         p.sleeping = true;
+        p.clock_pause = Some(self.clock.freeze(None));
+        p.source = SleepSource::Firmware;
         p.wake = false;
+    }
+    pub fn enter_indicator_sleep(&self) {
+        let mut p = self.power.lock().unwrap();
+        p.sleeping = true;
+        p.source = SleepSource::Indicator;
+        p.wake = false;
+        p.clock_pause = Some(self.clock.freeze(None));
+    }
+    pub fn finish_indicator_sleep(&self) {
+        let mut p = self.power.lock().unwrap();
+        if p.sleeping && p.source == SleepSource::Indicator {
+            p.sleeping = false;
+            p.wake = false;
+            p.clock_pause = None;
+            p.sleeps += 1;
+            p.auto.woke();
+        }
+    }
+    /// Only the firmware's own OFF call proves its save sequence completed.
+    pub fn firmware_sleeping(&self) -> bool {
+        let p = self.power.lock().unwrap();
+        p.sleeping && p.source == SleepSource::Firmware
     }
     /// ON was pressed since the sleep began; ends the sleep.
     pub fn take_wake(&self) -> bool {
@@ -522,15 +689,38 @@ impl SharedState {
         if p.wake {
             p.wake = false;
             p.sleeping = false;
+            p.clock_pause = None;
             p.sleeps += 1;
+            p.auto.woke();
             true
         } else {
             false
         }
     }
+    /// Poll only between execution slices. Automatic sleep retains every
+    /// execution owner at its current instruction; ON resumes that same state.
+    pub fn power_execution_allowed(&self, power_service_owner: bool) -> bool {
+        let mut power = self.power.lock().unwrap();
+        if !power.sleeping && power.auto.poll() {
+            power.sleeping = true;
+            power.clock_pause = Some(self.clock.freeze(None));
+            power.source = SleepSource::Automatic;
+            power.wake = false;
+        }
+        if power.sleeping && power.source != SleepSource::Firmware && power.wake {
+            power.wake = false;
+            power.sleeping = false;
+            power.clock_pause = None;
+            power.sleeps += 1;
+            power.auto.woke();
+        }
+        !power.sleeping || (power_service_owner && power.source != SleepSource::Automatic)
+    }
     /// Ends a sleep without ON (the run is stopping).
     pub fn leave_sleep(&self) {
-        self.power.lock().unwrap().sleeping = false;
+        let mut power = self.power.lock().unwrap();
+        power.sleeping = false;
+        power.clock_pause = None;
     }
     pub fn sleeping(&self) -> bool {
         self.power.lock().unwrap().sleeping
@@ -548,6 +738,9 @@ impl SharedState {
             return true;
         }
         if !p.sleeping {
+            if down {
+                p.auto.reset_activity();
+            }
             return false;
         }
         if key_code == ON_KEY_CODE && down {
@@ -601,7 +794,36 @@ impl SharedState {
     }
 
     pub fn set_main_waiting(&self, waiting: bool) {
+        if waiting {
+            self.main_wait_entries.fetch_add(1, Ordering::Release);
+        }
         self.main_waiting.store(waiting, Ordering::Release);
+    }
+
+    pub fn main_wait_entries(&self) -> u64 {
+        self.main_wait_entries.load(Ordering::Acquire)
+    }
+
+    pub fn main_ui_waiting(&self) -> bool {
+        if !self.main_waiting() {
+            return false;
+        }
+        let Some((handle, owner)) = self.main_ui_wait_owner.try_lock().ok().and_then(|g| *g) else {
+            return false;
+        };
+        let Some(entry) = self
+            .sync_objects
+            .try_lock()
+            .ok()
+            .and_then(|m| m.get(&handle).cloned())
+        else {
+            return false;
+        };
+        !entry.closed()
+            && match &entry.object {
+                sync::SyncObj::Event(event) => event.guest_waiter_blocked(owner),
+                _ => false,
+            }
     }
 
     pub fn getevent_entries(&self) -> u64 {
@@ -612,22 +834,152 @@ impl SharedState {
     /// `UI_EVENT_TYPE_DEVICE_TIMER`, ...). A type already pending is not
     /// queued twice (the guest sees one tick per pump round, as with the
     /// reference's single slot).
-    pub fn push_system_event(&self, event_type: u32) {
-        let mut q = self.system_events.lock().unwrap();
-        if !q.contains(&event_type) && q.len() < 8 {
-            q.push_back(event_type);
+    pub fn push_system_event(&self, kind: u32) {
+        let mut queue = self.system_events.lock().unwrap();
+        let event = SystemEvent {
+            kind,
+            subtype: 0,
+            value: 0,
+        };
+        if !queue.contains(&event) && queue.len() < 8 {
+            queue.push_back(event);
         }
     }
-
     pub fn pop_system_event(&self) -> Option<u32> {
-        let ev = self.system_events.lock().unwrap().pop_front();
-        if let Some(k) = ev {
+        self.pop_system_payload().map(|event| event.kind)
+    }
+    pub fn pop_system_payload(&self) -> Option<SystemEvent> {
+        let event = self.system_events.lock().unwrap().pop_front();
+        if let Some(event) = event {
             self.system_events_delivered.fetch_add(1, Ordering::Relaxed);
-            if k == UI_EVENT_TYPE_DEVICE_TIMER {
+            if event.kind == UI_EVENT_TYPE_DEVICE_TIMER {
                 self.device_timer_delivered.fetch_add(1, Ordering::Relaxed);
             }
         }
-        ev
+        event
+    }
+    pub fn peripheral_output(&self) -> ppl_engine::environment::PeripheralState {
+        let backlight = self.backlight_output();
+        ppl_engine::environment::PeripheralState {
+            indicator: self.indicator.lock().unwrap().raw,
+            backlight_duty: backlight.pwm,
+            backlight_on: backlight.mode != 4,
+        }
+    }
+    pub fn backlight_output(&self) -> backlight::Backlight {
+        let inhibited = self.power.lock().unwrap().auto.brightness_inhibit != 0;
+        let mut backlight = self.backlight.lock().unwrap();
+        backlight.poll(self.clock.now(), inhibited);
+        backlight.clone()
+    }
+    pub fn usb_operation(
+        &self,
+        operation: ppl_engine::usb::Operation,
+    ) -> Result<Option<Vec<u8>>, String> {
+        use ppl_engine::usb::{Link, Operation};
+        if let Operation::Connect { link } = operation {
+            self.usb.validate_link(link)?;
+            let previous = self.usb.status().link;
+            if previous == link {
+                return Ok(None);
+            }
+            // ROM 0x30013220/0x300131E0/0x30013210 and 0x30014C04
+            // produce ordinary UI_EVENT_TYPE_KEYBOARD system notifications.
+            let mut events = Vec::new();
+            if previous != Link::Disconnected {
+                events.push(SystemEvent {
+                    kind: 0x100,
+                    subtype: if previous == Link::Computer {
+                        0x24
+                    } else {
+                        0x2c
+                    },
+                    value: 0,
+                });
+            }
+            if link != Link::Disconnected {
+                events.push(SystemEvent {
+                    kind: 0x100,
+                    subtype: if link == Link::Computer { 0x2d } else { 0x2b },
+                    value: 0,
+                });
+            }
+            let mut queue = self.system_events.lock().unwrap();
+            if queue.len() + events.len() > 8 {
+                return Err(
+                    "Virtual USB notifications are busy; retry after event consumption".into(),
+                );
+            }
+            self.usb.connect(link);
+            queue.extend(events);
+            Ok(None)
+        } else {
+            self.usb.operation(operation)
+        }
+    }
+    /// Apply a validated virtual-device change and its OS notifications as one
+    /// operation. Queue exhaustion refuses the change before mutating state.
+    pub fn configure_environment(
+        &self,
+        config: ppl_engine::environment::EnvironmentConfig,
+    ) -> Result<(), String> {
+        config.validate()?;
+        let mut current = self.environment.lock().unwrap();
+        let mut events = Vec::new();
+        if current.battery.power != config.battery.power {
+            events.push(SystemEvent {
+                kind: 0x4000,
+                subtype: 2,
+                value: i32::from(
+                    config.battery.power != ppl_engine::environment::BatteryPower::Battery,
+                ),
+            });
+        }
+        let old_level = battery::level(current.battery);
+        let new_level = battery::level(config.battery);
+        if old_level != new_level {
+            events.push(SystemEvent {
+                kind: 0x4000,
+                subtype: 0,
+                value: i32::from(new_level),
+            });
+        }
+        if battery::low_check(config.battery) < 0
+            && battery::low_check(current.battery) != battery::low_check(config.battery)
+        {
+            events.push(SystemEvent {
+                kind: 0x4000,
+                subtype: 1,
+                value: 0,
+            });
+        }
+        let mut queue = self.system_events.lock().unwrap();
+        let extra = events
+            .iter()
+            .filter(|event| {
+                !queue
+                    .iter()
+                    .any(|old| old.kind == event.kind && old.subtype == event.subtype)
+            })
+            .count();
+        if queue.len() + extra > 8 {
+            return Err("Virtual device notifications are busy; retry after the calculator consumes its events".into());
+        }
+        self.vfs.set_capacity(config.storage_capacity_bytes)?;
+        for event in events {
+            if let Some(old) = queue
+                .iter_mut()
+                .find(|old| old.kind == event.kind && old.subtype == event.subtype)
+            {
+                *old = event;
+            } else {
+                queue.push_back(event);
+            }
+        }
+        self.storage_capacity
+            .store(config.storage_capacity_bytes, Ordering::Release);
+        *current = config;
+        Ok(())
     }
 
     pub fn system_events_delivered(&self) -> u64 {
@@ -643,6 +995,12 @@ impl SharedState {
     }
 
     pub fn push_touch(&self, sample: TouchSample) {
+        let mut power = self.power.lock().unwrap();
+        if power.sleeping {
+            return;
+        }
+        power.auto.reset_activity();
+        drop(power);
         self.touch_events.lock().unwrap().push_back(sample);
     }
 
@@ -675,6 +1033,138 @@ impl SharedState {
         }
     }
 
+    /// Register all launch arguments even for a deferred guest thread. A
+    /// later Resume must start this exact invocation, once only.
+    pub fn create_guest_thread(
+        &self,
+        tid: u32,
+        record: ThreadRecord,
+        deferred: bool,
+    ) -> Option<u16> {
+        let priority = self.scheduler.register(tid)?;
+        self.threads.lock().unwrap().insert(tid, record);
+        self.thread_control.lock().unwrap().insert(
+            tid,
+            ThreadControl {
+                started: !deferred,
+                suspended: deferred,
+                terminated: false,
+                completed: false,
+            },
+        );
+        if !deferred {
+            self.spawn_thread(tid, record.entry, record.arg, record.stack_size);
+        }
+        Some(priority)
+    }
+    pub(super) fn bind_sleep(&self, tid: u32, wake: &std::sync::Arc<AtomicBool>) {
+        let mut wakes = self.sleep_wakes.lock().unwrap();
+        wakes.retain(|_, previous| previous.strong_count() != 0);
+        wakes.insert(tid, std::sync::Arc::downgrade(wake));
+    }
+    /// The ROM clears only the timed-sleep field, independently of suspend.
+    pub fn wake_guest_thread(&self, tid: u32) -> bool {
+        let wakes = self.sleep_wakes.lock().unwrap();
+        wakes
+            .get(&tid)
+            .and_then(std::sync::Weak::upgrade)
+            .is_some_and(|wake| !wake.swap(true, Ordering::AcqRel))
+    }
+    pub fn suspend_guest_thread(&self, tid: u32) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        let Some(control) = controls.get_mut(&tid) else {
+            return false;
+        };
+        if control.terminated || control.completed {
+            return false;
+        }
+        control.suspended = true;
+        self.scheduler.cancel_request(tid);
+        true
+    }
+    pub fn resume_guest_thread(&self, tid: u32) -> bool {
+        let start = {
+            let mut controls = self.thread_control.lock().unwrap();
+            let Some(control) = controls.get_mut(&tid) else {
+                return false;
+            };
+            if control.terminated || control.completed || !control.suspended {
+                return false;
+            }
+            control.suspended = false;
+            let start = !control.started;
+            if start {
+                control.started = true;
+            }
+            start
+        };
+        if start {
+            let record = self.threads.lock().unwrap().get(&tid).copied();
+            if let Some(record) = record {
+                self.spawn_thread(tid, record.entry, record.arg, record.stack_size);
+            }
+        }
+        self.thread_wake.notify_all();
+        true
+    }
+    pub fn terminate_guest_thread(&self, tid: u32) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        let Some(control) = controls.get_mut(&tid) else {
+            return false;
+        };
+        control.terminated = true;
+        control.suspended = false;
+        self.scheduler.retire(tid);
+        self.thread_wake.notify_all();
+        true
+    }
+    pub fn guest_thread_terminated(&self, tid: u32) -> bool {
+        self.thread_control
+            .lock()
+            .unwrap()
+            .get(&tid)
+            .is_some_and(|control| control.terminated || control.completed)
+    }
+    pub(crate) fn finish_guest_thread(&self, tid: u32) {
+        if let Some(control) = self.thread_control.lock().unwrap().get_mut(&tid) {
+            control.completed = true;
+            control.suspended = false;
+        }
+        self.scheduler.retire(tid);
+        self.thread_wake.notify_all();
+    }
+    /// Execution owners stop at a slice boundary while suspended. This wait
+    /// occurs before acquiring the memory gate and stays interruptible during
+    /// shutdown/termination; it does not park a live Unicorn callback.
+    pub fn guest_thread_checkpoint(&self, tid: u32) -> bool {
+        self.guest_thread_checkpoint_with(tid, |_| {})
+    }
+    pub fn guest_thread_checkpoint_with(&self, tid: u32, mut capture: impl FnMut(u64)) -> bool {
+        let mut controls = self.thread_control.lock().unwrap();
+        loop {
+            if self.stopping() {
+                return false;
+            }
+            match controls.get(&tid) {
+                Some(control) if control.terminated => return false,
+                Some(control) if control.suspended => {
+                    controls = self
+                        .thread_wake
+                        .wait_timeout(controls, Duration::from_millis(1))
+                        .unwrap()
+                        .0;
+                    // A suspended owner has no native callback to resume. It
+                    // must still acknowledge new pause epochs, without holding
+                    // the control table lock needed by an eventual snapshot.
+                    drop(controls);
+                    self.safe_points.boundary_with(tid, &mut capture);
+                    controls = self.thread_control.lock().unwrap();
+                }
+                _ => return true,
+            }
+        }
+    }
+
     pub fn mark_thread_exiting(&self) {
         self.threads_exiting
             .lock()
@@ -689,6 +1179,18 @@ impl SharedState {
             .contains(&std::thread::current().id())
     }
 
+    pub fn note_thread_failure(&self, failure: ThreadFailure) {
+        let mut first = self.thread_failure.lock().unwrap();
+        if first.is_none() {
+            *first = Some(failure);
+        }
+        self.set_stopping();
+    }
+
+    pub fn take_thread_failure(&self) -> Option<ThreadFailure> {
+        self.thread_failure.lock().unwrap().take()
+    }
+
     pub fn register_thread_handle(&self, tid: u32, h: std::thread::JoinHandle<()>) {
         self.thread_handles.lock().unwrap().insert(tid, h);
     }
@@ -697,13 +1199,25 @@ impl SharedState {
         self.thread_instructions.lock().unwrap().insert(tid, n);
     }
 
-    /// Allocate a return-zero Thumb stub (MOVS r0,#0; BX LR) from the heap
-    /// arena and return its address with the Thumb bit set (reference
-    /// behavior for unresolved imports).
+    /// An unresolved import traps when called; it never fabricates success.
+    /// Its owning module records the exact symbol/IAT for lazy resolution and
+    /// diagnostics, including live save/resume.
     pub fn alloc_import_stub(&self, mem: &crate::memory::GuestMemory) -> Option<u32> {
         let va = mem.heap_alloc(4).ok()?;
-        mem.write_bytes(va, &[0x00, 0x20, 0x70, 0x47]).ok()?;
-        Some(va | 1)
+        if mem.write_u32(va, pe::IMPORT_TRAP).is_err() {
+            mem.heap_free(va);
+            return None;
+        }
+        Some(va)
+    }
+
+    pub fn unresolved_import(&self, address: u32) -> Option<(String, pe::UnresolvedImport)> {
+        self.pe_modules.lock().unwrap().iter().find_map(|module| {
+            module
+                .unresolved_imports
+                .get(&address)
+                .map(|import| (module.name.clone(), import.clone()))
+        })
     }
 
     /// Look up a loaded module by its base address (LoadLibrary's handle).
@@ -721,6 +1235,7 @@ impl SharedState {
                 entry_rva: m.entry_rva,
                 exports_by_name: m.exports_by_name.clone(),
                 exports_by_ordinal: m.exports_by_ordinal.clone(),
+                unresolved_imports: m.unresolved_imports.clone(),
             })
     }
 
@@ -764,21 +1279,54 @@ impl SharedState {
     /// Register / replace a guest ISR (ref: InterruptInitialize).
     pub fn register_isr(&self, irq: u32, isr_va: u32) {
         self.isrs.lock().unwrap().insert(irq, isr_va);
+        self.disabled_isrs.lock().unwrap().remove(&irq);
     }
 
     pub fn unregister_isr(&self, irq: u32) {
         self.isrs.lock().unwrap().remove(&irq);
+        self.disabled_isrs.lock().unwrap().remove(&irq);
+    }
+    pub fn enable_isr(&self, irq: u32) -> bool {
+        if !self.isrs.lock().unwrap().contains_key(&irq) {
+            return false;
+        }
+        self.disabled_isrs.lock().unwrap().remove(&irq);
+        true
+    }
+    pub fn disable_isr(&self, irq: u32) -> bool {
+        if !self.isrs.lock().unwrap().contains_key(&irq) {
+            return false;
+        }
+        self.disabled_isrs.lock().unwrap().insert(irq);
+        true
     }
 
     /// Snapshot of ISRs due for delivery (the dispatcher calls this each
     /// tick; delivered IRQs are counted).
     pub fn take_due_isrs(&self) -> Vec<(u32, u32)> {
-        self.isrs
-            .lock()
-            .unwrap()
+        let handlers = self.isrs.lock().unwrap();
+        let disabled = self.disabled_isrs.lock().unwrap();
+        let mut due: Vec<_> = handlers
             .iter()
+            .filter(|(irq, _)| !disabled.contains(*irq))
             .map(|(&k, &v)| (k, v))
-            .collect()
+            .collect();
+        due.sort_unstable_by_key(|(irq, _)| *irq);
+        due
+    }
+
+    /// A periodic edge is accepted once. An older edge is drained before a
+    /// later tick; there is no unbounded accumulation while the CPU is paused.
+    pub fn queue_due_isrs(&self) {
+        let due = self.take_due_isrs();
+        let mut pending = self.pending_irqs.lock().unwrap();
+        if pending.is_empty() {
+            pending.extend(due);
+        }
+    }
+
+    pub fn pending_isrs(&self) -> Vec<(u32, u32)> {
+        self.pending_irqs.lock().unwrap().iter().copied().collect()
     }
 
     pub fn note_irq_delivered(&self, irq: u32) {
@@ -816,6 +1364,7 @@ impl SharedState {
     }
 
     pub fn set_stopping(&self) {
+        self.safe_points.cancel();
         self.stopping.store(true, Ordering::Relaxed);
     }
 
@@ -873,16 +1422,20 @@ impl SharedState {
 /// Result of dispatching one SVC.
 #[derive(Debug)]
 pub enum DispatchOutcome {
+    Deferred(pending::PendingService),
     /// Handler ran; result written to r0.
     Handled,
     /// No handler; policy applied (ZeroReturn wrote 0, Stop set the flag).
-    Unsupported { id: u32, caller_pc: u32 },
+    Unsupported {
+        id: u32,
+        caller_pc: u32,
+    },
 }
 
 /// Dispatch one intercepted SVC. Applies the verified return convention.
 pub fn dispatch(
     uc: &mut Unicorn<'_, ()>,
-    mem: &GuestMemory,
+    mem: &std::sync::Arc<GuestMemory>,
     registry: &Registry,
     shared: &SharedState,
     trace: &TraceHub,
@@ -910,6 +1463,11 @@ pub fn dispatch(
             Err(e) => Err(MemoryError { va: pc, msg: e }),
         };
     }
+    let caller_sp = sp.checked_add(8).ok_or(MemoryError {
+        va: sp,
+        msg: "SVC return stack address overflow".into(),
+    })?;
+    mem.validate_range(sp, 8)?;
     let caller_pc = mem.read_u32(sp)?;
     let stack_slots = [
         mem.read_u32(sp.wrapping_add(8)).unwrap_or(0),
@@ -924,8 +1482,10 @@ pub fn dispatch(
         caller_pc,
         stack_slots,
     };
+    let _service = shared.safe_points.enter_svc(thread_id, svc_id, caller_pc);
     let entry = registry.entry(svc_id);
-    let supported = entry.is_some_and(|e| e.handler.is_some());
+    let handler = registry.handler(svc_id);
+    let supported = handler.is_some();
     if let Some(e) = entry {
         e.dispatches.fetch_add(1, Ordering::Relaxed);
     }
@@ -938,8 +1498,8 @@ pub fn dispatch(
         thread_id,
     );
 
-    let handler = entry.and_then(|e| e.handler);
     let mut redirected = false;
+    let mut deferred = None;
     let result = match handler {
         Some(handler) => {
             let mut ctx = SvcCtx {
@@ -950,9 +1510,11 @@ pub fn dispatch(
                 trace,
                 thread_id,
                 redirected: false,
+                deferred: None,
             };
             let r = handler(&mut ctx);
             redirected = ctx.redirected;
+            deferred = ctx.deferred;
             match r {
                 Ok(v) => v,
                 Err(HandlerFault(e)) => {
@@ -965,7 +1527,7 @@ pub fn dispatch(
                         ),
                         caller_pc,
                     );
-                    0
+                    return Err(e);
                 }
             }
         }
@@ -974,6 +1536,10 @@ pub fn dispatch(
         None => 0,
     };
 
+    if let Some(mut wait) = deferred {
+        wait.attach_owner_state(shared);
+        return Ok(DispatchOutcome::Deferred(wait));
+    }
     // The handler entered a host guest call; its return trap restores this
     // SVC's context and re-executes it (see `guest_call`).
     if redirected {
@@ -985,7 +1551,7 @@ pub fn dispatch(
             va: sp,
             msg: format!("write r0: {e}"),
         })?;
-    uc.reg_write(RegisterARM::SP, (sp + 8) as u64)
+    uc.reg_write(RegisterARM::SP, caller_sp as u64)
         .map_err(|e| MemoryError {
             va: sp,
             msg: format!("write sp: {e}"),
@@ -1011,6 +1577,18 @@ fn reg(uc: &Unicorn<'_, ()>, r: RegisterARM) -> u32 {
 #[cfg(test)]
 mod power_tests {
     use super::*;
+    #[test]
+    fn main_wait_generation_distinguishes_a_fresh_boundary_from_an_old_idle_sample() {
+        let s = SharedState::new(std::env::temp_dir(), String::new());
+        s.set_main_waiting(true);
+        let old = s.main_wait_entries();
+        assert!(s.main_waiting());
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(false);
+        assert_eq!(s.main_wait_entries(), old);
+        s.set_main_waiting(true);
+        assert_eq!(s.main_wait_entries(), old + 1);
+    }
     fn queued(s: &SharedState) -> Vec<(u32, u16)> {
         s.pop_input_events(64)
             .into_iter()

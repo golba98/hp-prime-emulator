@@ -1,0 +1,301 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_expr_catalog.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "DYNA_MODULE",
+      "content": "LOCAL count:=100; EXPORT DYNA(x) BEGIN count:=count+x; PRINT(count); RETURN count; END;"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "DYNB_MODULE",
+      "content": "LOCAL count:=10; EXPORT DYNB(x) BEGIN RETURN {EXPR(\"count:=count+x\"),EXPR(\"DYNA(x)\"),count}; END;"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "DYNG_MODULE",
+      "content": "EXPORT DYNCOUNT:=7; EXPORT DYNG() BEGIN RETURN DYNCOUNT; END;"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "new_program",
+      "name": "DYNCONTROL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNONE() BEGIN LOCAL n:=3; RETURN {EXPR(\"DYNA(n)\"),EXPR(\"DYNA(n)\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "first"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNNEST() BEGIN LOCAL n:=4; RETURN {EXPR(\"EXPR(\\\"DYNB(n)\\\")\"),EXPR(\"DYNA(n)\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "nested"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNBAD() BEGIN LOCAL v; IFERR EXPR(\"DYNA(1)+(\"); THEN v:=\"syntax\"; END; RETURN {v,EXPR(\"DYNA(0)\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "bad_syntax"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNFAIL() BEGIN LOCAL v; IFERR EXPR(\"DYNA(2)+1/0\"); THEN v:=\"runtime\"; END; RETURN {v,EXPR(\"DYNA(0)\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "failed_run"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNVAR() BEGIN RETURN {EXPR(\"DYNCOUNT\"),EXPR(\"DYNCOUNT:=DYNCOUNT+3\"),EXPR(\"DYNG()\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "export_global"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT GRAM0() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"A:=1;A+2\"); THEN r:=\"error\"; END; RETURN {r,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "grammar0"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT GRAM1() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"LOCAL n:=3; n+1\"); THEN r:=\"error\"; END; RETURN {r,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "grammar1"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT GRAM2() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"BEGIN A:=4;A+1 END\"); THEN r:=\"error\"; END; RETURN {r,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "grammar2"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT GRAM3() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"IF 1 THEN A:=4; END; A\"); THEN r:=\"error\"; END; RETURN {r,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "grammar3"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT GRAM4() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"1; END; EXPORT EVIL() BEGIN RETURN 99; END; //\"); THEN r:=\"error\"; END; RETURN {r,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "grammar4"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DYNINPUT() BEGIN LOCAL n:=3,answer:=0; INPUT(answer,\"Dynamic program\",\"Expression\"); RETURN {n,answer}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "DYNA(n)"
+    },
+    {
+      "step": "snapshot",
+      "label": "input-typed"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "input-result"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/expr_catalog_input-result.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "EXPR(\"DYNA(1)\")"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "home-call"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/expr_catalog_home-call.png"
+    },
+    {
+      "step": "new_program",
+      "name": "UNSAVEDLIB"
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL counter:=500; EXPORT IDELEAF(x) BEGIN counter:=counter+x; RETURN counter; END;"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "EXPR(\"IDELEAF(4)\")"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "unsaved-call"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/expr_catalog_unsaved-call.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

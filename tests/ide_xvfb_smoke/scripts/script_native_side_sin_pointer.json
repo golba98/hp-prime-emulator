@@ -1,0 +1,263 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_sin_pointer.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 21
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_clicked"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_clicked.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 19
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_deleted"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_deleted.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 21
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "0"
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_typed_directly"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_typed_directly.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_result"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_result.png"
+    },
+    {
+      "step": "type",
+      "text": "sin("
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_typed_open"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_typed_open.png"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_typed_deleted"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_typed_deleted.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 21
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_clicked"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_clicked.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 19
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_deleted"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_deleted.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 21
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "0"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_typed_directly"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_typed_directly.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_result"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_result.png"
+    },
+    {
+      "step": "type",
+      "text": "sin("
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_typed_open"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_typed_open.png"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_typed_deleted"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/algebraic_typed_deleted.png"
+    },
+    {
+      "step": "quit"
+    }
+  ]
+}

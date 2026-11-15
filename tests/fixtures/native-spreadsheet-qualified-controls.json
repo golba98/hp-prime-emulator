@@ -1,0 +1,152 @@
+{
+  "provenance": "Self-authored programs executed in isolated original virtual G1; actual CHOOSE keyboard cancellation/selection and returned lists, no physical device or vendor bytes.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "choose_cases": [
+    {
+      "name": "local_cancel",
+      "source": "EXPORT ZZT_CHOOSE() BEGIN LOCAL n:=2; LOCAL r:=CHOOSE(n,\"Pick\",{\"a\",\"b\",\"c\"}); RETURN {r,n}; END;",
+      "source_sha256": "aa8de09cb22a61e094e2be27888406a22cb7b7715458e7dd2f08caea59f71160",
+      "expected": [
+        0,
+        2
+      ],
+      "screenshots": {
+        "local_cancel-dialog.png": "ef5072b227ab9b733c9bf6be9bcbde8a54b229acd2b5dcd6aaab083e4adacd10"
+      }
+    },
+    {
+      "name": "local_confirm",
+      "source": "EXPORT ZZT_CHOOSE() BEGIN LOCAL n:=2; LOCAL r:=CHOOSE(n,\"Pick\",{\"a\",\"b\",\"c\"}); RETURN {r,n}; END;",
+      "source_sha256": "aa8de09cb22a61e094e2be27888406a22cb7b7715458e7dd2f08caea59f71160",
+      "expected": [
+        3,
+        3
+      ],
+      "screenshots": {
+        "local_confirm-dialog.png": "1913a7399485faefe6d97a83c4d9ac2d3632046eee3b2377320ff713663ec0b6",
+        "local_confirm-selected.png": "926902085f687294694b93a1acccca985f8aa97cc3654bb3a823e63cb4ddb7ab"
+      }
+    },
+    {
+      "name": "app_cancel",
+      "source": "EXPORT ZZT_CHOOSE() BEGIN Spreadsheet.A1:=2; LOCAL r:=CHOOSE(Spreadsheet.A1,\"Pick\",{\"a\",\"b\",\"c\"}); RETURN {r,Spreadsheet.A1}; END;",
+      "source_sha256": "4a6fe2e5412bef1da9e0a2f3cc98744989e1756e5ee8f03386c159afd7d72dfd",
+      "expected": [
+        0,
+        2
+      ],
+      "screenshots": {
+        "app_cancel-dialog.png": "2e53d508a1e0fa73b71284078bc06f0ad6fdff46e1aa603157aeed3b5317cc98"
+      }
+    },
+    {
+      "name": "app_confirm",
+      "source": "EXPORT ZZT_CHOOSE() BEGIN Spreadsheet.A1:=2; LOCAL r:=CHOOSE(Spreadsheet.A1,\"Pick\",{\"a\",\"b\",\"c\"}); RETURN {r,Spreadsheet.A1}; END;",
+      "source_sha256": "4a6fe2e5412bef1da9e0a2f3cc98744989e1756e5ee8f03386c159afd7d72dfd",
+      "expected": [
+        3,
+        3
+      ],
+      "screenshots": {
+        "app_confirm-dialog.png": "fa02402e781daadd31a85dfe24ecdaf3a41d74889a15e72560c7917c7258b291",
+        "app_confirm-selected.png": "01fae4688b07e1648b696a0f113c55fac167af04e2de8e8cd63e7c0eac35a49b"
+      }
+    }
+  ],
+  "guide_difference": "The2016 guidep606 says cancellation sets the referenced variable0. Original15751 keeps its previous2 and returns0; confirmation returns selectedindex3 and stores3. Native follows the actual controls.",
+  "tests": [
+    "tests/ide_xvfb_smoke/scripts/script_native_side_qualified.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_qualified_reopen.json"
+  ],
+  "home_controls": [
+    {
+      "cells": {
+        "A1": 2,
+        "A2": 4,
+        "C1": "=SUM(A1:A2)"
+      },
+      "C1_display": "6",
+      "capture": "01-formula-grid",
+      "png_sha256": "75ed48816a8e515302b9c61647015681c55f8bd606f4e5cb026bb04b625c3366"
+    },
+    {
+      "expression": "Spreadsheet.C1(1)",
+      "display": "SUM(A1:A2)",
+      "capture": "02-formula-attribute",
+      "png_sha256": "7ed1e64d6bfe13eba344c7177e828d4c7bf369fa4cfdc720a4cf0c39270cef2f"
+    },
+    {
+      "expression": "TYPE(Spreadsheet.C1(1))",
+      "result": 8,
+      "capture": "03-formula-attribute-type",
+      "png_sha256": "3e71fa855ae18be8da820dee11772d86c6d497dc207b711a423f08a5b649d60c"
+    },
+    {
+      "expression": "Spreadsheet.C1",
+      "result": 6,
+      "capture": "04-formula-value",
+      "png_sha256": "b8991b78f578898483d94ad0c498b0945e85924ab80f58759a532a17938031de"
+    },
+    {
+      "expression": "Spreadsheet.A100",
+      "result": 0,
+      "capture": "05-empty-a100",
+      "png_sha256": "8d89602c115f799eb9ec3f9e7dc5874e9f8f8b8d80cb2d9becc16dc168de813e"
+    },
+    {
+      "expression": "Spreadsheet.A101",
+      "result": 0,
+      "capture": "06-empty-a101",
+      "png_sha256": "5e5fdd18f087e30648ca910844d742a9874464c6a4da86725ac87c7a5fb076ab"
+    },
+    {
+      "expression": "Spreadsheet.Z1",
+      "error": "Syntax Error",
+      "capture": "07-empty-z1",
+      "png_sha256": "37d1a514c603015b42e7c276c53136e5b6d3a37d4f6b6fb82aa7fef9a39387a8"
+    },
+    {
+      "expression": "Spreadsheet.AA1",
+      "result": 0,
+      "capture": "08-empty-aa1",
+      "png_sha256": "6cd28b2132929cb6153ac8961992c2be6ae36fc5323e4647acff630f9bac79b3"
+    },
+    {
+      "expression": "Spreadsheet.z1",
+      "result": 0,
+      "capture": "10-lower-z1",
+      "png_sha256": "33ab1ee8549232ba4112c4ee65bdb14cb52553886598b0eadac36dc35e13c299"
+    }
+  ],
+  "limitations": [
+    "No global row/column bound or PPL lexer inference from Home-only Z1/Z101 errors. Native currently accepts these documented cell addresses.",
+    "Absolute-Z1 attempt09 had no independent history row and is rejected.",
+    "Qualified CAS assignment and other attribute slots beyond0/1/3 remain unavailable."
+  ],
+  "cached_read_control": {
+    "initial_home_A": 30,
+    "cell": "A1",
+    "formula": "=SIN(A)",
+    "initial_value": "-0.988031624093",
+    "source": "EXPORT ZZT_ANGLE() BEGIN HAngle:=1; STARTAPP(\"Spreadsheet\"); AAngle:=1; A:=90; LOCAL n:=Spreadsheet.A1; STARTAPP(\"Function\"); AAngle:=3; RETURN {HAngle,AAngle,Spreadsheet.A1,n}; END;",
+    "source_sha256": "c7b31d82e31a3a3d0c11df46e4ed16bd40c056c1b2949d6f28bdbc376fa4a1e8",
+    "genuine_returned": [
+      1,
+      3,
+      "-0.988031624093",
+      "-0.988031624093"
+    ],
+    "native_live_returned": [
+      1,
+      3,
+      "0.893996663601",
+      "0.893996663601"
+    ],
+    "screenshots": {
+      "formula-created.png": "fb8277f5984c61d74e44bdf66eeb16e7934296738b99f48b63dd00723248d04b",
+      "after-read.png": "e018c194219263d24b05a9f3bb93cd026b7c679ba028ea318c9093775f357119"
+    },
+    "scope": "Actual firmware retained the cached cell value during this PPL sequence; Native recalculates each qualified read against the supplied live snapshot. This is a recorded difference, not a claim of matching firmware cache policy."
+  }
+}

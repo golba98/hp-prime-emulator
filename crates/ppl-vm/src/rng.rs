@@ -9,6 +9,12 @@ pub struct Rng {
 }
 
 impl Rng {
+    pub(crate) fn state(&self) -> [u64; 4] {
+        self.s
+    }
+    pub(crate) fn restore(s: [u64; 4]) -> Option<Self> {
+        (s != [0; 4]).then_some(Self { s })
+    }
     pub fn new(seed: u64) -> Rng {
         let mut z = seed;
         let mut next = || {

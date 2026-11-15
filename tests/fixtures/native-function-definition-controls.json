@@ -1,0 +1,215 @@
+{
+  "provenance": "Original isolated virtual G1 firmware and self-authored PPL. Sources/results are reproducible controls; no physical verification or vendor image/font bytes bundled.",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "case": "quoted",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:='X^2+1'; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "60f187fa6976bd292b0266c94c63059cce71250e35abdd47ab4e5a9c4f855ee8",
+      "success": true,
+      "result": "{8,\"X^2+1\",5}"
+    },
+    {
+      "case": "quoted_constant",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:='42'; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "de91236407c2cabe1881f6fd015098c9a8eb12f74123ae7b565ad6e85308438b",
+      "success": true,
+      "result": "{0,\"42\",42}"
+    },
+    {
+      "case": "string_constant",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:=\"42\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "89d12d0f8051a5ffa95f89d4f738ab298d9684e3cc374d7462d2acf617f2f669",
+      "success": true,
+      "result": "{0,\"42\",42}"
+    },
+    {
+      "case": "complex",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:=(1,2); RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "7469b41c5bc68918a7fc05bb70acc6cd6a61c65a0a78230eeeb64f7b8fcb3e3d",
+      "success": false,
+      "result": "Firmware runtime error: Error: Bad argument type; Error: Bad argument type\nF1:=1+2*i\nZZT_IDE"
+    },
+    {
+      "case": "simplified",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:=\"X+0\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "37a742fcb59632d613e3a42ce6e42c02aa777a6d9f66bcdf13a7e1dd35555175",
+      "success": true,
+      "result": "{8,\"X+0\",2}"
+    },
+    {
+      "case": "dependency",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:=\"X^2+1\"; F2:=\"F1(X)+2\"; RETURN STRING({TYPE(F2),STRING(F2),F2(2)}); END;",
+      "source_sha256": "9bf4565283a8f3d256ac6f193ed2b0a5a90fe16e3601e209e9e3ea74eccf328a",
+      "success": true,
+      "result": "{8,\"F1(X)+2\",7}"
+    },
+    {
+      "case": "home_names",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); A:=7; X:=99; F1:=\"2*X+A\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2),A,X}); END;",
+      "source_sha256": "f946a264ccac3f8bfa23ca4c024d68dda429b670b8f0e13b1589bf69bb3cc4b3",
+      "success": true,
+      "result": "{8,\"2*X+A\",11,7,99}"
+    },
+    {
+      "case": "invalid_atomic",
+      "source": "EXPORT FNDEF() BEGIN STARTAPP(\"Function\"); F1:=\"X^2+1\"; IFERR F1:=\"X+(\"; THEN RETURN STRING({STRING(F1),F1(2)}); END; RETURN \"accepted invalid\"; END;",
+      "source_sha256": "aa36d851423bec875ad1fa252042699522770a0a876db301016eee4eabc9597c",
+      "success": true,
+      "result": "{\"X^2+1\",5}"
+    },
+    {
+      "case": "constant_expression",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=\"2+3\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "3b751059829b4be0566e1f670a13e9470aa64443257faec1a19e46fcab845b52",
+      "success": true,
+      "result": "{8,\"2+3\",5}"
+    },
+    {
+      "case": "live_constant_name",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); A:=7; F1:=\"A+1\"; A:=8; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "76564fe11e1488616b9405dc777006132c63e0cf10c0b08cf02645a77c1dc954",
+      "success": true,
+      "result": "{8,\"A+1\",9}"
+    },
+    {
+      "case": "argumentless",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL a; F1:=\"X^2+1\"; X:=7; IFERR a:=F1(); THEN a:=\"error\"; END; RETURN STRING({a,TYPE(a),TYPE(F1),STRING(F1)}); END;",
+      "source_sha256": "e833a1bfdb22049c56a20d0e4aaed701b637917fff1184272d671e63f12cb26e",
+      "success": true,
+      "result": "{X^2+1,8,8,\"X^2+1\"}"
+    },
+    {
+      "case": "spaces",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=\" X ^ 2 + 1 \"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "fea0677c1db8000c3bdd2a9db5473482412412dd618e2413429b553c058ef0ab",
+      "success": true,
+      "result": "{8,\"X^2+1\",5}"
+    },
+    {
+      "case": "empty_get",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL a,b; F1:=\"\"; IFERR a:=F1; THEN a:=\"error\"; END; IFERR b:=F1(2); THEN b:=\"error\"; END; RETURN STRING({a,TYPE(a),b,TYPE(b)}); END;",
+      "source_sha256": "5fcf13d06eeef134457ea655c9ad4667a4129f197c3497397e96451dc1247371",
+      "success": true,
+      "result": "{\"error\",2,\"error\",2}"
+    },
+    {
+      "case": "set_result",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL a; a:=(F1:=\"X+2\"); RETURN STRING({a,TYPE(a),TYPE(F1),STRING(F1)}); END;",
+      "source_sha256": "18d2226b196dd2d2ac8b03e4b4a48e3bacf9e65fe4b3ad0f583dac7d60cbbff2",
+      "success": true,
+      "result": "{X+2,8,8,\"X+2\"}"
+    },
+    {
+      "case": "empty_assignment",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL a,b; F1:=\"X+2\"; IFERR a:=(F1:=\"\"); THEN a:=\"error\"; END; IFERR b:=F1; THEN b:=\"error\"; END; RETURN STRING({a,TYPE(a),b,TYPE(b)}); END;",
+      "source_sha256": "9cfe44a4e962e9175745ff3b923d0fcc73e58b14340992da869db743422acd3f",
+      "success": true,
+      "result": "{\"\",2,\"error\",2}"
+    },
+    {
+      "case": "negative_literal",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=-42; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "3302082ef81296c4100000ecde6657ee352df6bc9c7fdc899be7cebf74ed274e",
+      "success": true,
+      "result": "{0,\"−42\",−42}"
+    },
+    {
+      "case": "word_assignment",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL ok:=1; F1:=\"X+2\"; IFERR F1:=#FFh; THEN ok:=0; END; RETURN STRING({ok,TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "65d79359704785c966e77128e1adbc8a5953b7c052e3b6a3acf7ea0ced357f98",
+      "success": true,
+      "result": "{1,1,\"#FFh\",#FFh}"
+    },
+    {
+      "case": "pi_body",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=\"π\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "2a051905b9c8c032c4926802df6a2d5876a17f2013ac009f67580f2f748041a2",
+      "success": true,
+      "result": "{8,\"π\",3.14159265359}"
+    },
+    {
+      "case": "root_constant",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=\"√(4)\"; RETURN STRING({TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "3dde20fab7b3f057128c8dc949d6b58c7ec7f79427ac8f259ecef30a3c239cd3",
+      "success": true,
+      "result": "{8,\"√(4)\",2}"
+    },
+    {
+      "case": "text_body",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); LOCAL ok:=1,a,b; IFERR F1:=\"\\\"hello\\\"\"; THEN ok:=0; END; IFERR a:=F1; THEN a:=\"error\"; END; IFERR b:=F1(2); THEN b:=\"error\"; END; RETURN STRING({ok,a,TYPE(a),b,TYPE(b)}); END;",
+      "source_sha256": "12dbdc33fb9990ade38b7bdd78d1668ac56adb215b1ceb521bcf4b4ff4cf636f",
+      "success": true,
+      "result": "{0,√(4),8,2,0}"
+    },
+    {
+      "case": "complex_literal_text",
+      "source": "EXPORT ZZT_NUM() BEGIN LOCAL ok:=1; STARTAPP(\"Function\"); F1:=\"X+2\"; IFERR F1:=\"(1,2)\"; THEN ok:=0; END; RETURN STRING({ok,TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "a941539d23d877526d010aa107560a70b6d8b55a2727eb9eaf740a9458a52a0b",
+      "success": true,
+      "result": "{1,8,\"1+2*i\",1+2*}"
+    },
+    {
+      "case": "list_literal_text",
+      "source": "EXPORT ZZT_NUM() BEGIN LOCAL ok:=1; STARTAPP(\"Function\"); F1:=\"X+2\"; IFERR F1:=\"{1,2}\"; THEN ok:=0; END; RETURN STRING({ok,TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "8919255be75e9f981d9da201ebf675d359f7fbe7db2e65f205076c5ab43d1a51",
+      "success": true,
+      "result": "{1,8,\"{1,2}\",{1,2}}"
+    },
+    {
+      "case": "vector_literal_text",
+      "source": "EXPORT ZZT_NUM() BEGIN LOCAL ok:=1; STARTAPP(\"Function\"); F1:=\"X+2\"; IFERR F1:=\"[1,2]\"; THEN ok:=0; END; RETURN STRING({ok,TYPE(F1),STRING(F1),F1(2)}); END;",
+      "source_sha256": "e853857dbf23dd122760fc3ceda2618a45f96f622acc83fd1c1a5db28b9193d3",
+      "success": true,
+      "result": "{0,8,\"X+2\",4}"
+    },
+    {
+      "case": "checkbox_clean",
+      "source": "EXPORT ZZT_NUM() BEGIN STARTAPP(\"Function\"); F1:=\"\"; RETURN 1; END;",
+      "source_sha256": "6c6b83755aafe306615a27f3721d34b8ae7aa971ae297460b20c7c9af67ae5e0",
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "checkbox_clear",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"\"; RETURN 1; END;",
+      "source_sha256": "c1c1619d99dc9dc27a7082fb38ad98595f339e1164fe16839ac2a2a0ca5b4ebe",
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "checkbox_reset",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"X+2\"; RETURN 1; END;",
+      "source_sha256": "14efff890dcfa7b1e95f5de13337e044708cf256c7c14581dd8ad86e69ee0f3b",
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "numeric_word",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=#FFh; NumStart:=0; NumStep:=0.1; RETURN TYPE(F1); END;",
+      "source_sha256": "6250bc66bcbcd0ce14af543ba3122bad569189f0e650bfac02b2327670e174ca",
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "numeric_list",
+      "source": "EXPORT ZZT_NUM() BEGIN F1:=\"{1,2}\"; RETURN TYPE(F1); END;",
+      "source_sha256": "844b65ddec0eee2c3c0ab13a7fe8f284300f69d41932a03e0e269b233034acb2",
+      "success": true,
+      "result": "8"
+    }
+  ],
+  "interpretation": [
+    "Bare F1 and F1() return the definition without evaluating Home X. A numeric literal has type0, a word has type1, and an expression including2+3 or√(4) retains type8 until called.",
+    "String and quoted expression assignments preserve the expression rather than resolving live variables. Numeric calls use current caller memory and leave Home X unchanged.",
+    "Invalid syntax, direct complex values, quoted text bodies and vector literal text are rejected atomically. Complex-pair and list literal TEXT bodies are accepted as symbolic definitions.",
+    "Clearing a definition returns an empty text value; subsequent reads and calls fail. A separately captured UI-entered checked function became unchecked after clear and remained unchecked after PPL reassignment.",
+    "PPL assignment preserves an existing nonempty definition checkbox and leaves fresh rows unchecked. UI entry selects the row for plotting and Numeric.",
+    "A checked word constant #FFh appears as255 in Numeric. A checked list body{1,2} displays NaN cells while calls in PPL return the actual list.",
+    "Native currently keeps complex-pair definition text in unambiguous PPL tuple syntax. Original STRING normalizes(1,2) to1+2*i; matching that presentation while retaining literal identity remains unfinished."
+  ]
+}

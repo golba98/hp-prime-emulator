@@ -1,46 +1,17 @@
 # Checkout ownership
 
-Canonical project: `3-HP Prime Emulator`, owned by Codex for consolidation on
-`feat/g1-compat-integration`. User confirmed Claude released this checkout.
+Work only in the assigned checkout and branch. Before writes, inspect shared
+`agent-claims/` under `git rev-parse --git-common-dir`. Register owner, task,
+branch, checkout, checkpoint and state using atomic claim-directory creation.
+Never overwrite or steal an existing claim based on inactivity or missing
+processes. Require explicit release or user coordination before another writer.
+An ownership record coordinates agents; it cannot enforce exclusive access.
 
-Claude retains exclusive ownership of `hp-prime-runtime-parity` on
-`feat/g1-runtime-parity`; its dirty implementation is excluded. No runtime
-handoff has been received. Do not change or remove that checkout.
-
-The user confirmed release of `hp-prime-integration` and
-`hp-prime-location-parity`. Codex completed and released file compatibility.
-These three checkouts may be removed only after validation and evidence
-preservation. Keep their branches.
-
-Shared coordination lives under `git rev-parse --git-common-dir` in
-`agent-claims/<checkout>/claim.json`. Create claim directories atomically;
-record owner, task, branch, checkpoint and active/released state. A claim is
-released only by its owner or explicit user coordination, never by timeout.
-Before runtime integration, Claude must supply a committed SHA, clean/dirty
-status, validation results and explicit handoff. Recheck all claims before
-writes. A written policy cannot itself prevent concurrent writes.
-
-Consolidation completed: the released file, location and integration worktrees
-were removed after hash-verified evidence preservation. Their branches remain.
-Canonical ownership stays with Codex; Claude's runtime checkout remains protected.
-
-M12 (G1 Firmware full calculator mode): at the user's explicit instruction
-(2026-10-29), Claude works in the canonical checkout on branch
-`feat/m12-full-calculator` (from `main` 8029e30), recorded in
-`agent-claims/m12/claim.json`. A briefly created `../hp-prime-m12` worktree
-was removed after its uncommitted diff was moved here. No commit, push or
-merge without explicit user authorization.
-
-Overhaul (2026-11-02): user explicitly confirmed Claude has released canonical
-ownership and selected a new branch from current main. Codex is implementing
-in the canonical checkout on `feat/g1-usability-overhaul` from `7014e75`.
-The atomic claim is `agent-claims/usability-overhaul/claim.json`. Earlier
-M12 canonical ownership entries above are historical. No commit, push or merge
-is authorized.
-
-2026-11-02 continuation: the user subsequently authorized local checkpoint
-commits on the dedicated feature branch and local integration. No push or
-publication is authorized. Registered isolated worktrees under
-`/tmp/prime-overhaul-{performance,recovery,native}` have distinct branch/task
-claims under shared `agent-claims/overhaul-*`. Coordinator integrates only
-explicit tested handoffs.
+Keep machine-specific ownership history and ongoing task context in ignored
+`.private/`, when available. Public clones do not require those notes. Integrate
+another agent's work only after a committed checkpoint, validation and explicit
+handoff. Temporary worktrees require a concrete isolation need and registration.
+Cleanup requires clean status, preserved branch history, explicit release, and
+verified preservation of unique ignored/untracked evidence. Recheck ownership
+and open files immediately before removal; uncertainty blocks removal.
+Commit, push, merge and PR creation still require explicit user authorization.

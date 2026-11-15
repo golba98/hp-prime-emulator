@@ -1338,6 +1338,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "freetype-rs"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d228d6de56c90dd7585341f341849441b3490180c62d27133e525eb726809b4"
+dependencies = [
+ "bitflags 2.13.2",
+ "freetype-sys",
+ "libc",
+]
+
+[[package]]
+name = "freetype-sys"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab537ce43cab850c64b4cdc390ce7e4f47f877485ddc323208e268280c308ae"
+dependencies = [
+ "cc",
+ "libz-sys",
+ "pkg-config",
+]
+
+[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1915,6 +1937,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "libz-sys"
+version = "1.1.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fee3f59f4321dab0c78d828942e7aa09d0bd8ad6e78a501977e6bf3d02938045"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2099,6 +2133,25 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c89e69e7e0f03bea5ef08013795c25018e101932225a656383bd384495ecc367"
+dependencies = [
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce2d95d4b3734dc35aa2f45e1aa22cd416814592a4f9d9205e11affd5b8e10b"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -2610,6 +2663,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ppl-cas"
+version = "0.2.0"
+dependencies = [
+ "nix",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "ppl-cli"
 version = "0.2.0"
 dependencies = [
@@ -2639,10 +2702,13 @@ name = "ppl-compat"
 version = "0.2.0"
 dependencies = [
  "ppl-compiler",
+ "ppl-engine",
+ "ppl-graphics",
  "ppl-syntax",
  "ppl-vm",
  "serde",
  "serde_json",
+ "tempfile",
  "toml",
  "zip",
 ]
@@ -2663,6 +2729,7 @@ dependencies = [
  "getrandom 0.3.4",
  "hidapi",
  "libc",
+ "ppl-engine",
  "serde",
  "serde_json",
  "sha2",
@@ -2689,8 +2756,12 @@ dependencies = [
 name = "ppl-graphics"
 version = "0.2.0"
 dependencies = [
+ "cc",
  "fontdue",
+ "freetype-rs",
  "png",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -2701,6 +2772,7 @@ dependencies = [
  "egui",
  "fs2",
  "png",
+ "ppl-cas",
  "ppl-compiler",
  "ppl-device",
  "ppl-engine",
@@ -2719,6 +2791,11 @@ dependencies = [
 [[package]]
 name = "ppl-math"
 version = "0.2.0"
+dependencies = [
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
 
 [[package]]
 name = "ppl-programs"
@@ -2741,10 +2818,14 @@ version = "0.2.0"
 name = "ppl-vm"
 version = "0.2.0"
 dependencies = [
+ "ppl-cas",
  "ppl-compiler",
  "ppl-graphics",
  "ppl-math",
  "ppl-syntax",
+ "serde_json",
+ "sha2",
+ "tempfile",
 ]
 
 [[package]]
@@ -2772,13 +2853,19 @@ version = "0.2.0"
 dependencies = [
  "clap",
  "ctrlc",
+ "flate2",
  "fs2",
  "goblin",
+ "libc",
  "memmap2",
  "png",
+ "ppl-device",
  "ppl-engine",
+ "ppl-syntax",
+ "same-file",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "toml",
  "unicorn-engine",
@@ -3780,6 +3867,12 @@ dependencies = [
  "serde_core",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "vcpkg"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "version_check"

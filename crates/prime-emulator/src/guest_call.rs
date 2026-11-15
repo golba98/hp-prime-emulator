@@ -10,14 +10,17 @@
 //! again. Guest code does all the work; the host only supplies arguments and
 //! reads results.
 //!
-//! A [`CallPlan`] chains calls: each call's arguments can depend on earlier
+//! The typed [`crate::direct::Plan`] chains calls: each call's arguments can depend on earlier
 //! results, and the next call starts as soon as the previous one returns.
 use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
 use unicorn_engine::{RegisterARM, Unicorn};
 
-use crate::memory::GuestMemory;
+use crate::{cpu_state::ArmCpuImage, direct::Plan as CompilerPlan, memory::GuestMemory};
+
+pub mod image;
+pub(crate) mod text;
 
 /// The guest thread that runs the firmware UI (observed for every Check).
 pub const UI_THREAD: u32 = 0;
@@ -29,26 +32,6 @@ pub const MAIN_WAIT_CALLER: u32 = 0x3069_341C;
 pub const RETURN_SVC: u32 = 0xF_FFF0;
 /// Stack bytes reserved below the waiting frame for call data.
 const FRAME_BYTES: u32 = 256;
-
-const SAVED: [RegisterARM; 17] = [
-    RegisterARM::R0,
-    RegisterARM::R1,
-    RegisterARM::R2,
-    RegisterARM::R3,
-    RegisterARM::R4,
-    RegisterARM::R5,
-    RegisterARM::R6,
-    RegisterARM::R7,
-    RegisterARM::R8,
-    RegisterARM::R9,
-    RegisterARM::R10,
-    RegisterARM::R11,
-    RegisterARM::R12,
-    RegisterARM::SP,
-    RegisterARM::LR,
-    RegisterARM::PC,
-    RegisterARM::CPSR,
-];
 
 /// One argument register.
 #[derive(Clone, Copy, Debug)]
@@ -82,7 +65,8 @@ impl Call {
 }
 
 /// What a call returned.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Returned {
     pub r0: u32,
     /// The frame words as the callee left them.
@@ -97,23 +81,29 @@ pub enum Step {
     Done,
 }
 
-/// A sequence of calls run back to back on the UI thread.
-pub trait CallPlan: Send {
-    /// The next call, given the previous call's result (`None` first).
-    /// Return `Done` to finish; record outcomes in the plan itself.
-    fn next(&mut self, mem: &GuestMemory, last: Option<Returned>) -> Step;
-}
-
 struct Active {
-    saved: Vec<u64>,
+    saved: ArmCpuImage,
     frame_va: u32,
     frame_words: usize,
     started: Instant,
+    elapsed_ms: f64,
 }
 
+enum Plan {
+    Compiler(CompilerPlan),
+    Text(text::Plan),
+}
+impl Plan {
+    fn next(&mut self, mem: &GuestMemory, last: Option<Returned>) -> Step {
+        match self {
+            Self::Compiler(plan) => plan.next(mem, last),
+            Self::Text(plan) => plan.next(last),
+        }
+    }
+}
 #[derive(Default)]
 struct State {
-    plan: Option<Box<dyn CallPlan>>,
+    plan: Option<Plan>,
     active: Option<Active>,
     last: Option<Returned>,
     /// Address of the return trap (`svc #RETURN_SVC`) in guest heap memory.
@@ -128,17 +118,33 @@ pub struct GuestCalls {
 
 impl GuestCalls {
     /// Queues a plan; refused while another plan is pending or running.
-    pub fn submit(&self, plan: Box<dyn CallPlan>) -> Result<(), String> {
+    pub fn submit(&self, plan: CompilerPlan) -> Result<(), String> {
         let mut s = self.state.lock().unwrap();
         if s.plan.is_some() || s.active.is_some() {
             return Err("a guest call plan is already running".into());
         }
-        s.plan = Some(plan);
+        s.plan = Some(Plan::Compiler(plan));
         s.last = None;
         Ok(())
     }
 
+    pub(crate) fn submit_text(&self, plan: text::Plan) -> Result<(), String> {
+        let mut state = self.state.lock().unwrap();
+        if state.plan.is_some() || state.active.is_some() {
+            return Err("A guest call is already active".into());
+        }
+        state.plan = Some(Plan::Text(plan));
+        state.last = None;
+        Ok(())
+    }
+
     /// A plan is queued or a call is in progress.
+    pub fn inspected_busy(&self) -> Option<bool> {
+        self.state
+            .try_lock()
+            .ok()
+            .map(|s| s.plan.is_some() || s.active.is_some())
+    }
     pub fn busy(&self) -> bool {
         let s = self.state.lock().unwrap();
         s.plan.is_some() || s.active.is_some()
@@ -185,7 +191,13 @@ impl GuestCalls {
                 return Ok(false);
             }
         };
-        if call.frame.len() * 4 + 16 > FRAME_BYTES as usize || call.target & 1 != 0 {
+        if call.frame.len() * 4 + 16 > FRAME_BYTES as usize
+            || call.target & 3 != 0
+            || call.args.iter().any(|arg| {
+                matches!(arg, Arg::Frame(offset)
+                if *offset % 4 != 0 || (*offset as usize) >= call.frame.len() * 4)
+            })
+        {
             s.plan = None;
             return Err("unsupported guest call shape".into());
         }
@@ -193,20 +205,25 @@ impl GuestCalls {
             s.plan = None;
             return Err("guest calls were not prepared".into());
         }
-        let read = |r| uc.reg_read(r).map_err(|e| e.to_string());
-        let mut saved = Vec::with_capacity(SAVED.len());
-        for r in SAVED {
-            saved.push(read(r)?);
-        }
+        mem.validate_range(call.target, 4)
+            .map_err(|e| e.to_string())?;
+        let mut saved = ArmCpuImage::capture(uc)?;
         // Resume on the SVC itself, so the wait is entered again unchanged.
-        saved[15] = saved[15].wrapping_sub(4);
-        let cpsr = read(RegisterARM::CPSR)? as u32;
+        saved.gprs[15] = saved.gprs[15]
+            .checked_sub(4)
+            .ok_or("Guest wait PC underflow")?;
+        let cpsr = saved.cpsr;
         if cpsr & 0x20 != 0 {
             s.plan = None;
             return Err("the wait trapped in Thumb state".into());
         }
-        let sp = read(RegisterARM::SP)? as u32;
-        let frame_va = (sp - FRAME_BYTES) & !7;
+        let sp = saved.gprs[13];
+        let frame_va = sp
+            .checked_sub(FRAME_BYTES)
+            .ok_or("Guest call stack underflow")?
+            & !7;
+        mem.validate_range(frame_va, FRAME_BYTES as usize)
+            .map_err(|e| e.to_string())?;
         for (i, w) in call.frame.iter().enumerate() {
             mem.write_u32(frame_va + 4 * i as u32, *w)
                 .map_err(|e| e.to_string())?;
@@ -237,6 +254,7 @@ impl GuestCalls {
             frame_va,
             frame_words: call.frame.len(),
             started: Instant::now(),
+            elapsed_ms: 0.0,
         });
         Ok(true)
     }
@@ -245,7 +263,7 @@ impl GuestCalls {
     /// saved context. Returns false when no call is active (a stray trap).
     pub fn complete(&self, uc: &mut Unicorn<'_, ()>, mem: &GuestMemory) -> Result<bool, String> {
         let mut s = self.state.lock().unwrap();
-        let Some(active) = s.active.take() else {
+        let Some(active) = &s.active else {
             return Ok(false);
         };
         let r0 = uc.reg_read(RegisterARM::R0).map_err(|e| e.to_string())? as u32;
@@ -256,15 +274,15 @@ impl GuestCalls {
                     .map_err(|e| e.to_string())?,
             );
         }
-        for (r, v) in SAVED.iter().zip(&active.saved) {
-            uc.reg_write(*r, *v).map_err(|e| e.to_string())?;
-        }
-        s.last = Some(Returned {
+        active.saved.restore(uc)?;
+        let returned = Returned {
             r0,
             frame,
             frame_va: active.frame_va,
-            elapsed_ms: active.started.elapsed().as_secs_f64() * 1000.0,
-        });
+            elapsed_ms: active.elapsed_ms + active.started.elapsed().as_secs_f64() * 1000.0,
+        };
+        s.active = None;
+        s.last = Some(returned);
         Ok(true)
     }
 

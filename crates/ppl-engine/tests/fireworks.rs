@@ -38,6 +38,9 @@ impl Host for Recording {
         ));
         self.inner.sleep(s)
     }
+    fn mouse_state(&mut self) -> Result<ppl_vm::host::MouseState, RuntimeError> {
+        self.inner.mouse_state()
+    }
     fn touch(&mut self) -> Result<Option<Touch>, RuntimeError> {
         self.inner.touch()
     }

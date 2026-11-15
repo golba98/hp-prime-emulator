@@ -1,0 +1,1559 @@
+{
+  "version": 1,
+  "baseline_commit": "8d7535e",
+  "findings": [
+    {
+      "id": 1,
+      "finding": "[Native, CODE] Apps and app views are absent.",
+      "baseline": "[Native, CODE] Apps and app views are absent.\n   NativeView contains only Home, Catalog, ProgramOutput and Error. Apps, Symb,\n   Plot, Num and View are disabled while idle. There is no native app library,\n   app symbolic/numeric/plot view or associated app setup UI.\n   Source: crates/ppl-gui/src/ide/native.rs:34,211.",
+      "root_cause": "The native view reducer had no app model or evaluation path.",
+      "expected_behavior": "Apps open their supported Symbolic/Plot/Numeric/setup views and perform computations using shared expressions and app memory.",
+      "implementation": [
+        "17 app entries with editable models; worker-based Function/Parametric/Polar/Sequence/implicit sampling, tables, window controls, solver/statistics/finance/inference/spreadsheet/geometry computations.",
+        "App view availability/entry pages follow documented app distinctions; asynchronous Solve uses shared Home/CAS context; finance amortization and inference distributions use common plot controls.",
+        "Ten VM-authoritative C/D columns; five weighted analysis definitions; thirteen fits including logistic/trigonometric/median-median/user PPL; actual Numeric/Symbolic/Show/Make and full-screen Plot controls with independent profile restoration.",
+        "Typed Geometry objects/dependencies, bounded intersections, point transformations and measurements; real Cmds/pointer drag/colors/rename/insert/atomic edits and independent restoration.",
+        "Production Spreadsheet qualified reads/writes use typed live VM snapshots with cancellation, epoch and source fencing. Actual attribute0/1/3, Home/app settings and INPUT/CHOOSE controls execute without phantom globals. Original stale worksheet-cache behavior remains a recorded difference.",
+        "Measured supported17-app gallery with chronological keyboard/touch navigation, sorting/MRU and persistence; original four-column layout and genuine names do not imply omitted/custom apps exist.",
+        "Function Symbolic rows, inline editor, real Show/Eval, true F0/X0/Y0/R0 labels, graph colors and bounded parsed dependencies in graph/table calculations. Per-app formats0..6 and digits0..11 follow original15751 controls; profiles roundtrip and reject malformed values transactionally.",
+        "Numeric Setup is VM-owned per application: NumStart/NumStep/NumZoom/NumType and NumIndep share live PPL/catalog state and schema5 exact-value persistence. Integrated Function Numeric/Setup uses typed asynchronous tables, fonts, custom rows, scrolling, Zoom/Go To and Plot confirmation. Entire app parity remains open."
+      ],
+      "tests": [
+        "native_apps, native_graph_context, native_equations, native_app_models, native_inference and native_plot_view_tests; real desktop graph, graph_context, solve and models workflows",
+        "native_regression::tests (four numerical/domain/profile tests)",
+        "catalog_tests::statistics_fit_picker_calculates_and_plots_the_selected_nonlinear_model",
+        "Actual Statistics desktop: ten columns,5weighted analyses,all13fits,realSIN cell editing/evaluation,full-screen plot controls and separate-process reopen.",
+        "Original Spreadsheet qualified controls and actual process/reopen GUI; Function Symbolic four actual GUI sessions with both fonts and two value/pixel assertions; app_settings six tests plus genuine six source controls."
+      ],
+      "verification": "Partial: recorded applications, Function Home/PPL/EXPR/CAS transport, Symbolic/Setup and typed Numeric computations pass their scoped regressions. Remaining Geometry bridge/tools, Spreadsheet attributes/functions/formatting,1Var plots and other app tools remain open.",
+      "affected_components": [
+        "native_tools.rs",
+        "native_apps.rs",
+        "native_app_models.rs",
+        "native_app_ui.rs",
+        "native_inference.rs",
+        "native_graph_context.rs",
+        "native_equations.rs",
+        "native_model_plots.rs",
+        "native_plot_controls.rs",
+        "native_plot_view.rs"
+      ],
+      "status": "partial",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_regression.rs",
+        "crates/ppl-gui/src/ide/native_app_ui.rs",
+        "crates/ppl-gui/src/ide/native_model_plots.rs",
+        "crates/ppl-vm/src/statistics_columns.rs",
+        "tests/ide_xvfb_smoke/assert_native_statistics.py",
+        "crates/ppl-gui/src/ide/native_geometry.rs",
+        "tests/ide_xvfb_smoke/assert_native_geometry.py",
+        "crates/ppl-gui/src/ide/native_readonly.rs",
+        "crates/ppl-vm/src/settings.rs",
+        "crates/ppl-vm/tests/app_settings.rs",
+        "tests/fixtures/native-app-format-controls.json",
+        "tests/ide_xvfb_smoke/assert_native_function_symbolic.py",
+        "crates/ppl-vm/src/app_numeric.rs",
+        "crates/ppl-vm/tests/app_numeric.rs",
+        "tests/fixtures/native-app-numeric-controls.json"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. This finding remains open for its recorded missing acceptance criteria.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 2,
+      "finding": "[Native, CODE] CAS and its settings UI are absent.",
+      "baseline": "[Native, CODE] CAS and its settings UI are absent.\n   CAS key is disabled. CAS/EVAL/EXACT do not supply a symbolic engine.\n   Firmware mode is the existing route to firmware CAS.\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-vm/src/builtins/mod.rs:205.",
+      "root_cause": "CAS keys were disconnected and runtime had no symbolic value or algebra engine.",
+      "expected_behavior": "CAS evaluates symbolic/numeric expressions, preserves separate answer/history/settings, and exchanges supported named values with Home.",
+      "implementation": [
+        "Supervised genuine Giac service, typed exact values, independent CAS history/Ans/settings, Home/CAS variable bridge, cancellation, persisted bindings, CAS evaluation dialogs."
+      ],
+      "tests": [
+        "CAS genuine/supervision/validation/Home/units tests; VM cas tests; desktop create/reopen",
+        "app_cas_catalog_tests: five actual egui/async Giac and process-restart tests"
+      ],
+      "verification": "implemented for supported Giac operations; external helper installation required, no claim of every HP CAS command matching Giac.",
+      "affected_components": [
+        "ppl-cas",
+        "ppl-vm/cas.rs",
+        "compiler/symbolic.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-cas/src/lib.rs",
+        "crates/ppl-vm/src/cas.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 3,
+      "finding": "[Native, CODE] Calculator settings have no idle keypad route.",
+      "baseline": "[Native, CODE] Calculator settings have no idle keypad route.\n   Shift+Home returns Home; there is no native Home Settings view. Other shifted\n   setup legends do not have corresponding native views. PPL settings variables\n   exist separately; their existence does not supply these screens.\n   Source: crates/ppl-gui/src/app_native.rs:307;\n   crates/ppl-gui/src/ide/native.rs:34.",
+      "root_cause": "Shift setup actions reused primary navigation and had no settings controls.",
+      "expected_behavior": "Shift setup keys open editable Home/CAS/app settings used by evaluation and graph workers.",
+      "implementation": [
+        "Home/CAS settings edit the runtime; per-app AAngle/AComplex/AFormat/ADigits overrides are validated, persisted and used in evaluation/plots."
+      ],
+      "tests": [
+        "settings/session tests; keypad table tests"
+      ],
+      "verification": "implemented and covered by settings/session/keypad and integrated GUI tests",
+      "affected_components": [
+        "native/keys.rs",
+        "native_tools.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_tools/views.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 4,
+      "finding": "[Native, CODE] Help/Info and User-key mode have no idle UI.",
+      "baseline": "[Native, CODE] Help/Info and User-key mode have no idle UI.\n   Help is outside supports_key; NativeView has no help or user-key screen.\n   Source: crates/ppl-gui/src/ide/native.rs:211.",
+      "root_cause": "No help route, KEY discovery or background invocation existed.",
+      "expected_behavior": "Help offers supported command information; temporary and locked User key modes execute discovered KEY handlers.",
+      "implementation": [
+        "Help text, exact temporary/persistent User mode chords, declarative 198 assignable forms, KEY AST discovery, strict ambiguity, cancellable shared VM execution, typed insertion without changing Ans/history.",
+        "Shift+Apps and STARTVIEW(6) open a persistent per-app Info note, separate from Help and standalone Notes; STARTAPP opens the documented entry view."
+      ],
+      "tests": [
+        "26 User reducer/worker tests; native_side_user desktop",
+        "app_info_tests; native_side_state_create/reopen Info note assertions"
+      ],
+      "verification": "implemented; User worker/reducer tests and actual desktop temporary/locked workflows passed",
+      "affected_components": [
+        "native_user_keys.rs",
+        "app_user_keys.rs",
+        "execution/worker.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/app_user_keys.rs",
+        "crates/ppl-gui/src/ide/native_user_keys.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 5,
+      "finding": "[Native, CODE] Vars, Toolbox and Templates are absent.",
+      "baseline": "[Native, CODE] Vars, Toolbox and Templates are absent.\n   No idle variable browser, command browser, structured math template picker,\n   character palette, units picker or memory manager is routed from their keys.\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-gui/src/app_native.rs:300-378.",
+      "root_cause": "No object/tool request dispatcher or editable native tool pages existed.",
+      "expected_behavior": "Vars, Toolbox, Templates, Characters, Units and Memory provide real insertion, inspection or management actions.",
+      "implementation": [
+        "Searchable command/category picker derives real signatures and implementation status from compiler metadata; selected-command Help and zero-match keyboard handling execute without hidden draft evaluation.",
+        "Eight structured templates, the46-page Characters picker, validated units/prefix insertion and genuine Giac conversions execute through the shared calculator editor.",
+        "Vars and Memory inspect actual Home/CAS bindings and program/list/matrix/note catalogs; actual Store/Insert/Delete controls preserve other names, Ans and the other environment."
+      ],
+      "tests": [
+        "Real egui catalog regressions; unit-name editing regression preserves1_ft without implicit multiplication.",
+        "run_native_side.sh:28 actual GUI sessions and12 assertion scripts, including six-tool creation/insertion/evaluation/deletion and separate-process reopen.",
+        "Actual pointer SIN/Delete/Enter and direct keyboard entry pass in both Textbook and Algebraic modes."
+      ],
+      "verification": "Implemented: all six tools execute real insertion, inspection and management; actual desktop math, unit conversions, scope-specific deletion and separate-process restoration pass.",
+      "affected_components": [
+        "native_tools.rs",
+        "app_tools.rs",
+        "native_integer.rs",
+        "ppl-cas/units.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_tools/pickers.rs",
+        "crates/ppl-gui/src/ide/native_tools/characters.rs",
+        "crates/ppl-gui/src/ide/native_tools/views.rs",
+        "crates/ppl-gui/src/app_tools.rs",
+        "crates/ppl-gui/src/app_native.rs",
+        "crates/ppl-gui/src/ide/native/expression.rs",
+        "tests/ide_xvfb_smoke/assert_native_tools.py",
+        "tests/ide_xvfb_smoke/assert_native_sin_pointer.py"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Implemented: all six tools execute real insertion, inspection and management; actual desktop math, unit conversions, scope-specific deletion and separate-process restoration pass.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "remaining_limitations": [
+        "The Native supported command/unit catalog is explicit; the complete proprietary HP Help database, every unit conversion and exact menu/font layout are not claimed. Broader command and display parity remain23/24/25."
+      ]
+    },
+    {
+      "id": 6,
+      "finding": "[Native, REPRODUCED/CODE] Alpha does not enable letter entry on the keypad.",
+      "baseline": "[Native, REPRODUCED/CODE] Alpha does not enable letter entry on the keypad.\n   Alpha and Vars/A clicks leave Home input empty. Alpha is disabled by\n   supports_key; NativeUiState has shifted but no alpha mode/case state.\n   Desktop text entry does work and is a separate path.\n   Source: crates/ppl-gui/src/ide/native.rs:116,211.",
+      "root_cause": "No Alpha state machine or central modifier dispatch.",
+      "expected_behavior": "Alpha enters every printed letter and implements documented one-shot, opposite-case and locking modes.",
+      "implementation": [
+        "One-shot/locked upper/lower Alpha and Shift+Alpha combinations through central dispatcher."
+      ],
+      "tests": [
+        "all printed Alpha labels and locking tests; desktop native_side_input"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/keys.rs",
+        "app_native.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/keys.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 7,
+      "finding": "[Native, CODE] Sixteen primary keys are disabled at idle Home.",
+      "baseline": "[Native, CODE] Sixteen primary keys are disabled at idle Home.\n   Apps, Symb, Help, Plot, Left, Right, View, CAS, Num, Vars, Toolbox,\n   Templates, x/t/theta/n, fraction, Alpha, On.\n   These are still painted like normal keys; only the hover text explains the\n   disabled state. Down is accepted but has no Home handler (see item 13).\n   Source: crates/ppl-gui/src/ide/native.rs:211;\n   crates/ppl-gui/src/ide/keypad.rs:99,303.",
+      "root_cause": "supports_key excluded sixteen primary actions and routing fell through.",
+      "expected_behavior": "All 51 primary keys dispatch their context-sensitive calculator action through one input mechanism.",
+      "implementation": [
+        "All51 physical entries resolve declarative supported actions and context-sensitive dispatch."
+      ],
+      "tests": [
+        "51-key table and app reducer tests; native_side_input/graph/user"
+      ],
+      "verification": "implemented; full declarative primary/Shift/Alpha coverage and desktop input/navigation exercised",
+      "affected_components": [
+        "native/keys.rs",
+        "app_native.rs",
+        "app_tools.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/keys.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 8,
+      "finding": "[Native, REPRODUCED/CODE] Shifted scientific functions are disconnected.",
+      "baseline": "[Native, REPRODUCED/CODE] Shifted scientific functions are disconnected.\n   Shift+SIN inserts SIN(, not ASIN(. The handler clears shifted before token\n   selection. The same route ignores ASIN/ACOS/ATAN, exp, 10^x and sqrt legends.\n   Source: crates/ppl-gui/src/app_native.rs:316-353.",
+      "root_cause": "Handler consumed Shift before resolving function action.",
+      "expected_behavior": "Shift scientific keys insert the printed inverse/exponential/root functions before consuming Shift.",
+      "implementation": [
+        "Resolve before consuming modifier; inverse trig, exponential, powers and roots insert editable function templates."
+      ],
+      "tests": [
+        "shifted function tests; inverse_sin desktop snapshot"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/keys.rs",
+        "native/expression.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/keys.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 9,
+      "finding": "[Native, CODE] Most other secondary legends have no implementation.",
+      "baseline": "[Native, CODE] Most other secondary legends have no implementation.\n   Shift+1 opens Programs, but list/matrix/notes catalogs, store, pi, i,\n   comparisons, reciprocal, factorial, nth root, absolute value, Base, Copy,\n   Paste, Clear and approximate evaluation are not routed as those functions.\n   Some are expressible by desktop typing or PPL; the missing part is keypad UI.\n   Source: crates/ppl-gui/src/app_native.rs:300-378;\n   crates/ppl-gui/src/ide/keypad/definitions.rs.",
+      "root_cause": "Secondary legends lacked actions; numeric values also lost hexagesimal/polar presentation and the HMS conversion names/semantics were incorrect.",
+      "expected_behavior": "Every printed secondary legend dispatches its supported function, catalog, editing or presentation action.",
+      "implementation": [
+        "Catalogs, store, constants, relational symbols, factorial/roots/reciprocal, clipboard, approximate evaluation, Base dialog, polar input and HMS work.",
+        "Typed real hexagesimal and complex rectangular/hexagesimal/polar presentation, with observed operator propagation, explicit-degree trigonometry, five-place second rounding/carry and scalar/list HMS conversions without changing numeric values.",
+        "Leading/trailing-arrow conversion names tokenize and execute. Explicit desktop opening parentheses now nest inside calls and collection indices; atomic deletion recognizes arrow conversion names.",
+        "Presentation survives variables, collections, typed arguments, PPL returns, Ans and memory version2. Version1 profiles migrate. History has explicit presentation modes and legacy fraction/DMS/polar migration; unknown future formats refuse restoration."
+      ],
+      "tests": [
+        "all-key mappings; native input tests; polar tests; integer tests",
+        "ppl-vm/tests/formatted_values.rs:79 reference results, conversion overloads/refusals, actual PPL return and fresh-process memory restoration; engine tagged argument roundtrip and real program execution.",
+        "Native desktop formatted/reopen32 assertions; existing input21/workflows77/editing19 and special views preserved across16 sessions.",
+        "SIGKILL restart: existing8 assertions plus5 checks for real/complex/collection metadata. GUI key toggles, legacy history and unknown-format refusal regressions."
+      ],
+      "verification": "Implemented: all printed secondary actions retain working dispatch; the remaining DMS/polar value-format requirements now execute and persist.79 genuine local-firmware reference results match after explicit minus/imaginary-glyph mapping, without numeric tolerance. Actual GUI controls and process/crash restoration pass. Exact font/raw-string and textbook layout requirements remain separately open under24/25.",
+      "affected_components": [
+        "native/keys.rs",
+        "app_tools.rs",
+        "native_integer.rs",
+        "syntax lexer/parser"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/polar_display.rs",
+        "crates/ppl-gui/src/ide/native/sexagesimal.rs",
+        "crates/ppl-math/src/real.rs",
+        "crates/ppl-math/src/complex.rs",
+        "crates/ppl-math/src/sexagesimal.rs",
+        "crates/ppl-math/src/angle.rs",
+        "crates/ppl-syntax/src/lexer.rs",
+        "crates/ppl-syntax/src/parser.rs",
+        "crates/ppl-compiler/src/bytecode.rs",
+        "crates/ppl-vm/src/ops.rs",
+        "crates/ppl-vm/src/builtins/math.rs",
+        "crates/ppl-vm/src/builtins/strings/formatting.rs",
+        "crates/ppl-vm/src/session/memory.rs",
+        "crates/ppl-engine/src/arguments.rs",
+        "crates/ppl-gui/src/ide/native.rs",
+        "crates/ppl-gui/src/app_native.rs",
+        "crates/ppl-gui/src/app_tools.rs",
+        "crates/ppl-gui/src/ide/native/expression.rs",
+        "crates/ppl-gui/src/ide/native_profile.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "No physical calculator was accessed. The installed legitimate G1 is the firmware reference.",
+        "Exact font/glyph/raw-UTF16 and remaining numerical compatibility are tracked separately in24; full textbook results and exact softkey parity remain25.",
+        "The alternate input glyph \u2220 remains a Native alias; genuine G1 PPL accepts \u2221."
+      ]
+    },
+    {
+      "id": 10,
+      "finding": "[Native, REPRODUCED] Space and Ans are mapped inconsistently with the skin.",
+      "baseline": "[Native, REPRODUCED] Space and Ans are mapped inconsistently with the skin.\n    Clicking the space key inserts Ans; clicking Shift+Plus inserts + even\n    though the skin labels that secondary action Ans. Desktop Space enters a\n    literal space through the text path, so keyboard and virtual keypad differ.\n    Source: crates/ppl-gui/src/app_native.rs:336;\n    crates/ppl-gui/src/keymap.rs:59;\n    crates/ppl-gui/src/ide/keypad/definitions.rs:bottom row.",
+      "root_cause": "Space was aliased to Ans and Shift+Plus reused primary plus.",
+      "expected_behavior": "Physical Space enters space; Shift+Plus inserts Ans through all input methods.",
+      "implementation": [
+        "Physical49 inserts space, Shift+Plus inserts Ans, desktop/keypad use same actions."
+      ],
+      "tests": [
+        "keymap/table tests; native_side_input space_ans"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "keymap.rs",
+        "native/keys.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/keymap.rs",
+        "crates/ppl-gui/src/ide/native/keys.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 11,
+      "finding": "[Native, REPRODUCED/CODE] Parentheses and sign entry are incomplete.",
+      "baseline": "[Native, REPRODUCED/CODE] Parentheses and sign entry are incomplete.\n    Clicking ( ), 2, ( ) produces (2(. There is no paired-delimiter editor or\n    keypad closing-parenthesis path. +/- appends '-' rather than changing the\n    sign of an editable operand. Fraction key has no native template action.\n    Source: crates/ppl-gui/src/dialog.rs:118;\n    crates/ppl-gui/src/app_native.rs:340.",
+      "root_cause": "Append-only string handler could not pair delimiters or edit operands.",
+      "expected_behavior": "Paired parentheses, operand sign changes and editable fraction templates support nested input.",
+      "implementation": [
+        "Paired/nested delimiter fields, operand sign editing, editable fraction/root/power templates.",
+        "Empty math functions delete atomically, including typed lowercase and recalled incomplete headers. Nested wrapper deletion preserves operands; undo/redo restore document/caret. Native one-action empty-template deletion follows the user request; the installed G1 line-mode reference deletes the opening parenthesis separately.",
+        "Explicit desktop opening parentheses no longer exit an existing call; nested function/collection entry and batched undo/redo are verified through the actual desktop."
+      ],
+      "tests": [
+        "structured editor tests; real fraction/pointer/evaluation workflow",
+        "Regression cases for nested roots/functions, empty fractions/powers, implied products, explicit selection, quoted/escaped strings, digits, undo and redo; actual desktop keypad and typed sin Backspace plus undo/redo."
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/expression.rs",
+        "native/math_layout.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/expression.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 12,
+      "finding": "[Native, REPRODUCED/CODE] Home has no cursor, selection or edit history.",
+      "baseline": "[Native, REPRODUCED/CODE] Home has no cursor, selection or edit history.\n    Type 12, Left, 3 -> 123. Input is a String; insertion only pushes at its end,\n    and Backspace only pops the final character. No cursor movement, in-place\n    editing, select/cut/copy, undo/redo or long-line horizontal scroll state.\n    The framebuffer renderer clips the input to 308 pixels.\n    Source: crates/ppl-gui/src/app_native.rs:294,329;\n    crates/ppl-gui/src/ide/native.rs:113,288.",
+      "root_cause": "Input was a String with pop/push editing and no geometry.",
+      "expected_behavior": "Cursor, selection, arbitrary insertion/deletion, undo/redo and pointer placement share one editor state.",
+      "implementation": [
+        "Shared cursor/selection editor, insertion/backspace/delete, undo/redo, clipboard, template field navigation, horizontal viewport and pointer caret geometry.",
+        "Empty math functions delete atomically, including typed lowercase and recalled incomplete headers. Nested wrapper deletion preserves operands; undo/redo restore document/caret. Native one-action empty-template deletion follows the user request; the installed G1 line-mode reference deletes the opening parenthesis separately.",
+        "History/textbook continuation: independent expression/result selection, insert-at-cursor recall, deletion of one selected half with durable flags, structural collection results and scrollable Show. Original calculator body preserved. Broader rich-result/template/font requirements remain open under25."
+      ],
+      "tests": [
+        "expression/layout tests; native_side_input; shared app field graph workflow",
+        "Regression cases for nested roots/functions, empty fractions/powers, implied products, explicit selection, quoted/escaped strings, digits, undo and redo; actual desktop keypad and typed sin Backspace plus undo/redo.",
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "native/expression.rs",
+        "native/math_layout.rs",
+        "app_math_entry.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native/expression.rs",
+        "crates/ppl-gui/src/ide/native/math_layout.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 13,
+      "finding": "[Native, REPRODUCED/CODE] History navigation is incomplete.",
+      "baseline": "[Native, REPRODUCED/CODE] History navigation is incomplete.\n    After 1+1 and 2+2, Up, Up, Down all leave input at 2+2. Up always clones\n    history.back(); Down has no Home action. Only the newest four history\n    entries are drawn; up to 200 are retained but older ones are inaccessible\n    through the Home view. There is no history result selection/copy/reuse UI.\n    Source: crates/ppl-gui/src/app_native.rs:331;\n    crates/ppl-gui/src/ide/native.rs:180,258.",
+      "root_cause": "Up always cloned the newest entry; no position/draft state.",
+      "expected_behavior": "Older/newer expression recall preserves ordering, boundaries, original history and the unsent draft.",
+      "implementation": [
+        "Ordered unbounded-with-profile-limit typed history, boundary-safe older/newer recall, draft restoration, editing/resubmission and restart persistence.",
+        "History/textbook continuation: independent expression/result selection, insert-at-cursor recall, deletion of one selected half with durable flags, structural collection results and scrollable Show. Original calculator body preserved. Broader rich-result/template/font requirements remain open under25."
+      ],
+      "tests": [
+        "history tests; native_side_input older_history/history_draft; restart workflow",
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "ide/native.rs",
+        "app_native.rs",
+        "native_profile.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 14,
+      "finding": "[Native, REPRODUCED/CODE] Clipboard paste is ignored.",
+      "baseline": "[Native, REPRODUCED/CODE] Clipboard paste is ignored.\n    Pasting 45 into input 123 leaves 123. route_native_keyboard handles Text,\n    not Paste. The same router owns INPUT/EDITMAT/CHOOSE interaction while active,\n    so it has no clipboard paste delivery path for calculator dialogs either.\n    Source: crates/ppl-gui/src/app_native.rs:382-521.",
+      "root_cause": "Paste events were omitted from the native event router.",
+      "expected_behavior": "OS paste, copy and cut reach the active calculator editor or interactive dialog.",
+      "implementation": [
+        "Paste/copy/cut routed to shared editor or active dialog; actual OS clipboard events integrated."
+      ],
+      "tests": [
+        "clipboard/selection tests; native_side_input cursor_paste"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "host.rs",
+        "dialog.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/app_native.rs",
+        "crates/ppl-gui/src/host.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 15,
+      "finding": "[Native, REPRODUCED/CODE] LCD touch does not operate idle native views.",
+      "baseline": "[Native, REPRODUCED/CODE] LCD touch does not operate idle native views.\n    With SECOND selected, tapping FIRST leaves SECOND selected. There is no\n    native catalog/history/input hit-testing. Touch is only forwarded into the\n    shared VM touch state; it does not navigate NativeUiState.\n    Source: crates/ppl-gui/src/app_firmware.rs:573;\n    crates/ppl-gui/src/ide/native.rs:243.",
+      "root_cause": "LCD pointer events only updated program touch state.",
+      "expected_behavior": "LCD taps select catalog/history entries and place the structured-input caret.",
+      "implementation": [
+        "Idle history/catalog/editor hit testing and real tool buttons/fields inside clipped LCD."
+      ],
+      "tests": [
+        "catalog tap and fraction pointer desktop assertions; graph entry via click",
+        "native_plot_view_tests: incremental/release-frame pan, pointer projection and visually nearest computed sample"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "native/math_layout.rs",
+        "native_tools.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_tools.rs",
+        "crates/ppl-gui/src/app_native.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 16,
+      "finding": "[Native, CODE] Calculator dialogs are keyboard-only.",
+      "baseline": "[Native, CODE] Calculator dialogs are keyboard-only.\n    MSGBOX/CHOOSE/INPUT/EDITMAT expose handle(KeyPress) and render(), without a\n    touch handler. Clicking fields, list choices, cells or painted buttons is\n    not wired to the modal state machines. Program MOUSE input is separate.\n    Source: crates/ppl-gui/src/dialog.rs:57;\n    crates/ppl-gui/src/host.rs:modal dialog loop.",
+      "root_cause": "Modal trait exposed only handle/render.",
+      "expected_behavior": "All rendered Native modal controls support pointer and equivalent keyboard interaction with validation and cancel.",
+      "implementation": [
+        "Modal pointer/focus controls, confirmation/cancel, fields/cells/list choices, structured editor events and clipboard bridge."
+      ],
+      "tests": [
+        "modal functional tests; native_side_dialogs desktop"
+      ],
+      "verification": "implemented for native dialog controls",
+      "affected_components": [
+        "dialog.rs",
+        "dialog/matrix.rs",
+        "dialog/list.rs",
+        "host.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/dialog.rs",
+        "crates/ppl-gui/src/dialog/matrix.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 17,
+      "finding": "[Native, REPRODUCED/CODE] ON does not break a running program.",
+      "baseline": "[Native, REPRODUCED/CODE] ON does not break a running program.\n    A running WAIT loop remains Running after the actual ON key is clicked.\n    Native routing forwards ON to the key queue; it does not call Stop/interrupt.\n    Firmware ON has a separate break path. Native Stop/Shift+F5 does work.\n    Source: crates/ppl-gui/src/app_native.rs:283;\n    crates/ppl-gui/src/app_firmware.rs:423;\n    crates/ppl-gui/src/host.rs:101.",
+      "root_cause": "ON was queued as GETKEY rather than signalling VM cancellation.",
+      "expected_behavior": "ON interrupts actual VM loops, nested calls, waits and interactive operations and permits a subsequent run.",
+      "implementation": [
+        "ON precedes program/modal forwarding, interrupts actual VM, wakes dialogs/waits/debugger; admission stays held until worker retires."
+      ],
+      "tests": [
+        "native_side_input ON/next run; User nested-loop/INPUT cancellation tests"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "app_native.rs",
+        "execution/controller.rs",
+        "host.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/app_native.rs",
+        "crates/ppl-gui/src/host.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 18,
+      "finding": "[Native, CODE] There is no native ON/OFF lifecycle or saved calculator image.",
+      "baseline": "[Native, CODE] There is no native ON/OFF lifecycle or saved calculator image.\n    ON is disabled at idle, and Shift+ON has no sleep/save action. IDE persistent\n    state saves panel/configuration fields, not NativeUiState history or VM\n    globals. Native execution state persists within the session, not as a\n    calculator memory image across IDE restarts.\n    Source: crates/ppl-gui/src/ide/mod.rs:48;\n    crates/ppl-gui/src/app.rs:1652;\n    crates/ppl-gui/src/ide/native.rs:211.",
+      "root_cause": "Calculator memory and UI state only lived in operation/desktop structs.",
+      "expected_behavior": "Native Off/On preserves calculator memory, with durable versioned state across process restarts.",
+      "implementation": [
+        "ON/OFF sleep/wake; durable version1 exact memory and UI history/app state; atomic writer, exclusive profile lock, recovery and future-version refusal."
+      ],
+      "tests": [
+        "memory/profile tests; two-process create/reopen desktop",
+        "SIGKILL/reopen desktop: eight assertions, including independent app Info memory"
+      ],
+      "verification": "implemented for calculator memory; no suspended Native VM stack persistence promised",
+      "affected_components": [
+        "native_profile.rs",
+        "execution/worker.rs",
+        "session/memory.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_profile.rs",
+        "crates/ppl-vm/src/session/memory.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 19,
+      "finding": "[Native, CODE] Programs is an open-tab export list, not a calculator catalog.",
+      "baseline": "[Native, CODE] Programs is an open-tab export list, not a calculator catalog.\n    refresh_native_catalog scans exported functions in open IDE tabs. Closed\n    files and independently stored program objects do not populate it. Catalog\n    actions are Up/Down/Enter; create/edit/rename/delete/search and independent\n    program storage are not available within the calculator catalog itself.\n    IDE program editing and physical-device program management exist separately.\n    Source: crates/ppl-gui/src/app_native.rs:41,363,700.",
+      "root_cause": "Program discovery scanned only open IDE exports.",
+      "expected_behavior": "Calculator programs are independently stored, discoverable after IDE tabs close, and runnable with stable local state and parameters.",
+      "implementation": [
+        "Persistent installed source catalog, rename/search/delete, stable module worker with explicit entry/arguments or real INPUT parameter prompt; no IDE tabs opened."
+      ],
+      "tests": [
+        "session installed/nested/restart tests; native_side_state closed_tab_catalog/restored_program",
+        "30 consecutive catalog parameter-cancel stress runs; explicit entry/args and persistent counter tests"
+      ],
+      "verification": "implemented; 17 real egui/controller/VM management tests plus restart and linked-program desktop workflows",
+      "affected_components": [
+        "app_native.rs",
+        "native_tools.rs",
+        "session.rs",
+        "linker.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/app_catalog.rs",
+        "crates/ppl-vm/src/session.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 20,
+      "finding": "[Native, CODE] Lists, matrices and notes lack standalone calculator editors.",
+      "baseline": "[Native, CODE] Lists, matrices and notes lack standalone calculator editors.\n    There are no List/Matrix/Notes native views. EDITLIST is unsupported.\n    EDITMAT exists as a program-requested fixed-size modal, so matrix editing\n    must not be described as entirely absent.\n    Source: crates/ppl-gui/src/ide/native.rs:34;\n    crates/ppl-vm/src/builtins/mod.rs:217.",
+      "root_cause": "No catalog object forms and EDITLIST unsupported.",
+      "expected_behavior": "Lists, matrices and notes have shared persistent CRUD and standalone editors.",
+      "implementation": [
+        "Persistent list/matrix/note CRUD; shared PPL object stores; standalone collection editors reuse actual EDITLIST/EDITMAT host paths."
+      ],
+      "tests": [
+        "session CRUD/restart; native_side_state; EDITLIST tests"
+      ],
+      "verification": "implemented; real egui list/matrix/note CRUD, transactional editors, profile reopen and desktop object restart verified",
+      "affected_components": [
+        "native_tools.rs",
+        "dialog/list.rs",
+        "dialog/matrix.rs",
+        "session.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native_tools.rs",
+        "crates/ppl-gui/src/dialog/list.rs",
+        "crates/ppl-gui/src/dialog/matrix.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 21,
+      "finding": "[Native, CODE] EDITMAT cannot change matrix shape.",
+      "baseline": "[Native, CODE] EDITMAT cannot change matrix shape.\n    Existing cells and paging work, but no insert/delete row or column,\n    dimension editing, or touch editing is implemented.\n    Source: crates/ppl-gui/src/dialog/matrix.rs:10,32,50.",
+      "root_cause": "Matrix modal assumed original fixed dimensions.",
+      "expected_behavior": "EDITMAT can edit dimensions and insert/delete rows and columns with transactional confirm/cancel.",
+      "implementation": [
+        "Dimension editing, insert/delete row/column, vector constraints, cell editing and transactional shape commit/cancel."
+      ],
+      "tests": [
+        "editmat tests; desktop native_side_dialogs inserted row and cell9"
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "dialog/matrix.rs",
+        "host.rs",
+        "builtins/io.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/dialog/matrix.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 22,
+      "finding": "[Native, CODE] INPUT supports only part of the calculator's control model.",
+      "baseline": "[Native, CODE] INPUT supports only part of the calculator's control model.\n    Checkbox, radio and choice descriptors are explicitly rejected. TYPE codes\n    outside -1,0,1,2,3,4,6,8,9 are rejected. Only one reset/initial value per field\n    is supported; other default-list forms require firmware.\n    Source: crates/ppl-vm/src/builtins/io.rs:185,217,374.",
+      "root_cause": "Native rejected valid G1 filters/default forms, evaluated field text in a detached VM, and lacked edited-field identity across confirmation/retry.",
+      "expected_behavior": "INPUT implements documented supported typed/control descriptors, defaults, reset, variable updates and confirmation/cancellation.",
+      "implementation": [
+        "Suspended INPUT implements edit/checkbox/radio/choice controls, positions/pages, initial/reset/default values, transactional descriptor writeback and cancellation. Integral G1 filters -1..9 include5/7; fractional/14.x filters fail as in the installed G1.",
+        "Short/empty defaults retain omitted original fields; a scalar multifield default applies to the first field. Oversized lists fail before presentation. Untouched objects retain their values; edited equal text is still validated. Rejected early fields retain all later edits, and accepted expressions are not repeated on unchanged retries.",
+        "Field expressions execute in the same Machine with live lexical locals/file/Home values, calls, assignments, settings, RNG, graphics, limits and host. Nested EXPR keeps scope; expired block locals are excluded. Fatal limits/interruption propagate through INPUT/EDITLIST/EDITMAT.",
+        "CAS/unit type filters use genuine structural Unit/Vector/List metadata and the observed numeric/complex/list/matrix/CAS Home conversion. The matched helper negotiates protocol3, preserving legacy1/2 reply formats for older clients."
+      ],
+      "tests": [
+        "input.rs30 tests incl actual edited/untouched/retry/default semantics; live_expression.rs17 tests incl genuine G1 type/scope controls; production modal editor regression",
+        "Actual16-session desktop scenario: live A+n+items(2)=21, local EXPR assignment, untouched filter5, edited rejection/cancel, short defaults, units9 and CAS objects8; all90 workflow assertions passed",
+        "Genuine local firmware descriptor/default and edited/untouched controls; real Giac structural types and six legacy/new helper protocol round trips",
+        "Actual SIGKILL/fresh GUI process preserved typed unit and numeric CAS vector, alongside existing13 crash assertions"
+      ],
+      "verification": "Implemented and verified for the installed G1 profile: documented control/default/writeback workflows and genuine valid/rejected type-filter behavior now execute; no unsupported descriptor fallback.",
+      "affected_components": [
+        "builtins/io.rs",
+        "dialog.rs",
+        "host.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-compiler/src/bytecode.rs",
+        "crates/ppl-compiler/src/compile.rs",
+        "crates/ppl-compiler/src/symbolic.rs",
+        "crates/ppl-vm/src/machine.rs",
+        "crates/ppl-vm/src/machine/expression.rs",
+        "crates/ppl-vm/src/builtins/io.rs",
+        "crates/ppl-vm/src/cas.rs",
+        "crates/ppl-vm/src/host.rs",
+        "crates/ppl-vm/src/value.rs",
+        "crates/ppl-cas/src/lib.rs",
+        "crates/ppl-gui/src/dialog.rs",
+        "crates/ppl-gui/src/ide/native/expression.rs",
+        "tools/giac-helper/main.cc"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "Other firmware builds require their own type-code controls: the installed G1 rejects14/14.1 despite later documentation listing14.x. Exact fonts/layout remain24/25. Broader EXPR/catalog and CAS grammar/error-value compatibility remain24/23; they are not represented as complete by this row. A matching protocol3 helper is required; stale helpers fail explicitly with rebuild instructions."
+      ]
+    },
+    {
+      "id": 23,
+      "finding": "[Native, CODE] Nine declared commands are entirely unsupported.",
+      "baseline": "[Native, CODE] Nine declared commands are entirely unsupported.\n    EXACT, EDITLIST, EVAL, STARTAPP, STARTVIEW, RECALL, AFILES, HVARS, CAS.\n    These raise errors; the parser recognizing their names is not implementation.\n    Source: crates/ppl-compiler/src/builtins.rs;\n    crates/ppl-vm/src/builtins/mod.rs:205-222.",
+      "root_cause": "Missing builtin execution/host interfaces; CAS additionally confused source strings with runtime data and discarded nested Native calls. App view dispatch previously shared Function ordering across distinct applications.",
+      "expected_behavior": "Previously unsupported entries execute documented semantics or retain explicit precise unsupported outcomes.",
+      "implementation": [
+        "EXACT, EVAL and CAS use a genuine supervised Giac helper. Protocol4 distinguishes undefined/signed/unsigned infinity values from parser/runtime failures, preserving legacy1/2/3 reply shapes. TYPE/STRING and saved CAS environments retain those values.",
+        "CAS literal source strings parse as source. Runtime strings are quoted data; lists/vectors and declared Native calls evaluate as values. Quoted expressions retain exact arithmetic and execute embedded declared PPL calls once through typed operands. Collision-excluded template markers never rescan inserted data. Assignments inside quoted algebra return the actual G1 error string without executing Native side effects.",
+        "EXACT scalar strings parse as exact-conversion source; strings inside collections remain data. EVAL preserves strings and evaluates actual algebra objects. Failed source parsing cannot commit proposed environments.",
+        "EDITLIST, persistent AFiles and HVars discovery/read/write/function metadata execute through the real VM/interactive host. STARTAPP acknowledges supported app models; STARTVIEW uses each app menu ordering, actual split plots/tables/presets and immutable live VM presentation snapshots. Headless presentation is an explicit unsupported service.",
+        "RECALL inventory correction is established by original firmware compilation rejecting RECALL(\"A\"); no fabricated recall implementation is presented."
+      ],
+      "tests": [
+        "Full workspace2463default/2524genuine-Giac,0failed/6existing ignores; warnings-denied workspace Clippy, format/build/diff checks.",
+        "33 independently captured installed-G1 typed controls: assignment/function arguments, runtime string data, exact scalar/list conversion, undefined/infinities, TYPE/STRING, Native side effects and collection values.",
+        "Real IDE compilation/Run/production worker executes all33 controls; actual calculator keyboard CAS entry, failed assignment rollback and separate-process restoration pass.",
+        "26 app-specific view actions, original Function8\u201313 controls, refused out-of-range menu entries, live bounds, actual computed traces/tables and visible immutable split plots pass.",
+        "Actual36-session Native desktop run plus16 forced-termination checks,15 linked IDE and40 linked debugger assertions pass."
+      ],
+      "verification": "Implemented for all nine audited entries: actual standard/app-specific views and live PPL state, EDITLIST/AFiles/HVars, typed Giac CAS/EXACT/EVAL, source/data distinctions and assignment error values. Genuine G1 rejects RECALL; that original inventory error remains explicit.",
+      "affected_components": [
+        "compiler/builtins.rs",
+        "compiler/compile.rs",
+        "vm builtins/cas/session",
+        "host.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-compiler/src/compile.rs",
+        "crates/ppl-compiler/src/bytecode.rs",
+        "crates/ppl-compiler/src/symbolic.rs",
+        "crates/ppl-vm/src/machine.rs",
+        "crates/ppl-vm/src/cas.rs",
+        "crates/ppl-vm/src/builtins/mod.rs",
+        "crates/ppl-cas/src/lib.rs",
+        "tools/giac-helper/main.cc",
+        "crates/ppl-gui/src/ide/native_tools/special_views.rs",
+        "crates/ppl-gui/src/app_tools.rs",
+        "crates/ppl-gui/src/host.rs",
+        "tests/fixtures/native-cas-special-controls.json",
+        "tests/ide_xvfb_smoke/assert_native_cas_arguments.py",
+        "tests/ide_xvfb_smoke/assert_native_cas_special.py",
+        "tests/ide_xvfb_smoke/assert_native_app_views.py"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "All recorded missing criteria for these nine entries now have production implementations and genuine/reference-backed behavior tests; scoped acceptance closed.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "Giac is separately installed and does not establish identical behavior for every proprietary HP algebra command. Those broader command/presentation differences remain explicit under24; the complete Native app feature sets remain1.",
+        "Giac canonical symbolic function spelling can differ from G1 STRING presentation (for example sin(3) versus SIN(3)); this is retained as a presentation limitation under24, not silently normalized reference evidence."
+      ]
+    },
+    {
+      "id": 24,
+      "finding": "[Native, COVERAGE/CODE] Twenty-seven commands are marked Approximate.",
+      "baseline": "[Native, COVERAGE/CODE] Twenty-seven commands are marked Approximate.\n    APPROX, STDDEV, STRING, EXPR, APPEND, EDITMAT, RECT, LINE, PIXON, PIXOFF,\n    GETPIX, CIRCLE, FILLCIRCLE_P, ARC, TEXTOUT_P, TEXTOUT, BLIT, DIMGROB,\n    SUBGROB, TRIANGLE_P, MSGBOX, INPUT, CHOOSE, MOUSE, DISP, FREEZE, DRAWMENU.\n    Specific missing forms include LINE's 3D points/lines, DIMGROB(G,list)\n    pixel-data input, and TRIANGLE_P forms outside scalar x/y/color arguments.\n    Approximate is the table's status, not a claim every form fails.\n    Source: crates/ppl-compiler/src/builtins.rs;\n    crates/ppl-vm/src/builtins/graphics.rs:142,258,331.",
+      "root_cause": "Approximate statuses reflected missing overloads, coordinate models and control semantics.",
+      "expected_behavior": "Previously approximate entries implement supported overloads accurately; remaining HP-specific mismatches stay explicit.",
+      "implementation": [
+        "Weighted BCD STDDEV, vector APPEND, STRING options, interactive controls, Cartesian pixel/GROB forms, packed DIMGROB data, 3D mesh transforms/clipping/cache/depth writeback, FREEZE/DRAWMENU/MOUSE fixes.",
+        "EXPR incrementally links referenced installed/open-editor exports in the actual running Machine, preserving lexical visibility, active frame indices, host, limits, debugger and independent module initializer/private state. Home and module state survive process restoration; unrelated broken catalog files stay unexecuted.",
+        "Raw UTF16 values and Native memory schema3 now preserve isolated units through ASC/CHAR/DIM/indexing/edits/copies/calls and exact packed depth writeback. The legacy tagged depth reader remains for migration; new output is actual packed units.",
+        "Optional legitimately installed Prime Sans uses the current FreeType parser with a bounded, reentrant standalone FreeType2.8 scan converter. Regular baselines, seven-bit coverage and RGB composition match all pixels of three independent complete G1 framebuffers; actual PPL and both CLI paths pass. TEXTOUT ignores LF as the G1 does. Missing selected resources fail explicitly; raw isolated UTF16 font units now render their original font indices.",
+        "Signed-width/system-base word values, correct mixed-real promotion, saturating rounded R\u2192B, wrapping SETBITS, exact64-bit word comparisons, word-aware lazy logic, strict settings, numeric matrix normalization and lossless arguments/memory/firmware returns match independently captured controls.",
+        "STRING now composes UTF16 numeric/complex/collection results and measures each installed16-bit font index. Symbol selection, NUL boundaries, grouping admission and16fitting thresholds match original firmware without replacement units.",
+        "Colored LINE interpolation, major-axis ordering, inclusive pixel/color sampling, offscreen clipping and coincident endpoints match six independent original-firmware source controls, including complete small frames. Numeric row/complex-point admission follows the observed forms rather than an invented colored-complex-row overload.",
+        "Scalar ARC and elliptical-radius/filled-sector/transparency overloads, plus calculator LINE clipping, match independent complete original frames. Thin-ellipse uninitialized end-cap variation is recorded rather than imitated with arbitrary pixels.",
+        "Legacy15157 fraction modes match832 original results, including holdouts; STRING format-version choice persists and both Native CLI paths honor it. Build15751 exact decimal/rational/pi origins now execute through the compiler, VM, EXPR, CAS bridge, arguments and schema5 memory under explicit numeric-version selection.",
+        "APPROX recurses through collections. Isolated helper protocol5 projects only numeric cells of evaluated CAS containers while preserving strings/unknown symbols, caller state and original exact CAS answer. Mixed list/matrix/vector shapes, DIM and exactly-once source side effects follow11 genuine controls. Symbolic product print order still differs.",
+        "Calculator RECT uses disjoint border/interior rasterization with one256-weight transparency blend per pixel, including corners and degenerate shapes, and bounded visible work. Generic UI drawing is preserved.",
+        "Numeric Setup is VM-owned per application: NumStart/NumStep/NumZoom/NumType and NumIndep share live PPL/catalog state, exact decimal range and schema4 persistence. Original defaults/admission/independence/word normalization controls validate actual behavior; read-only app workers reject stored-program writes. Numeric UI integration remains pending.",
+        "MOUSE now transports two optional typed pointer packets, zero-based indexing, origins and New/Drag lifecycle from real desktop LCD input. Idle is two empty lists; missing indexed coordinates are real -1. Real GUI interaction passes at1 and1.5scale. Other touch gesture types remain outside established desktop input coverage.",
+        "Real arithmetic now preserves bounded exact rational and pi coefficients, source digits, exact comparisons and decimal fallback provenance. Active-app angle/complex computation, explicit complex-zero types, scaled complex functions and signed finite overflow saturation match independent original controls for both builds. Default GUI model/history rollout remains open.",
+        "DRAWMENU uses actual installed resource textures and selected fonts;13 complete original frames and actual IDE Run/Enter interactions match without tolerance. Empty lists and extra-item admission follow original controls.",
+        "TEXTOUT raw16-bit glyphs, grouped typed labels, bitmap-column clipping, zero-width behavior and measured backgrounds match six additional complete original frames and all returned endpoints."
+      ],
+      "tests": [
+        "overloads.rs; io_contracts.rs; parity.rs; input.rs; editmat.rs",
+        "Raw UTF16 actual keyboard/reopen controls and independent installed-G1 fixture; genuine packed depth220\u219256540 unit writeback.",
+        "Three unmasked320x240 original-G1 framebuffer hashes (joined seven fonts,63 isolated glyphs, colored text and LF). Actual PPL programs and12 legacy/unified CLI comparisons match exactly, including configured/explicit selection and invalid-selection output preservation.",
+        "31independent original-firmware STRING word cases,4VM word/context/persistence tests,strict argument and carrier admission;8actual stored firmware typed returns.",
+        "Original UTF16 STRING ASC/DIM/grouping controls and16exact installed-font fitting thresholds.",
+        "arc_blit:66 complete independent original-firmware frames and extreme visible-work bound; focused2pass.",
+        "ellipse_lines:189 complete additional original frames plus extreme-coordinate bounds; legacy_fractions:832original15157 cases and persistence/CLI; approx_collections:11original15751 cases plus exact CAS answer, isolated projection/cancel and data-boundary tests.",
+        "rectangles:32 complete original15751 frames, fulli64 bounded clipping and actual IDE Run/LCD25-pixel comparison.",
+        "Current-number original programs:237 returned fields plus independent legacy controls; exact JSON/CLI arguments, CAS sharing and independent-process schema5 restore; full default2643/Giac2711 regressions.",
+        "13 original menu and6 original UTF16/width/background full-frame comparisons plus actual IDE Run/calculator Enter GUI programs; full default2667/Giac2735 tests pass."
+      ],
+      "verification": "Partial:237 original15751 returned fields, four additional15157 control sources and both native execution routes pass the new numeric-model checks. GUI profile/history rollout and remaining overload/raster/grammar/algebra boundaries remain required.",
+      "affected_components": [
+        "builtins/{graphics,io,lists,math,strings}.rs",
+        "dialog modules"
+      ],
+      "status": "partial",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-vm/src/value.rs",
+        "crates/ppl-vm/src/builtins/strings.rs",
+        "crates/ppl-vm/src/builtins/graphics.rs",
+        "crates/ppl-vm/src/machine/expression.rs",
+        "crates/ppl-cas/src/lib.rs",
+        "tools/giac-helper/main.cc",
+        "crates/ppl-graphics/src/text/prime.rs",
+        "crates/ppl-graphics/src/text/raster.rs",
+        "crates/ppl-graphics/src/text/legacy_gray/adapter.c",
+        "crates/ppl-engine/src/fonts.rs",
+        "crates/ppl-vm/tests/prime_fonts.rs",
+        "tests/fixtures/native-font-controls.json",
+        "scripts/emulator/verify_native_fonts.py",
+        "crates/ppl-math/src/int.rs",
+        "crates/ppl-vm/src/settings.rs",
+        "crates/ppl-vm/src/builtins/strings/formatting.rs",
+        "crates/ppl-vm/src/machine/expression/catalog.rs",
+        "crates/ppl-vm/tests/words.rs",
+        "crates/ppl-vm/tests/string_units.rs",
+        "crates/prime-emulator/tests/firmware_word_returns.rs",
+        "crates/ppl-vm/tests/line_gradients.rs",
+        "tests/fixtures/native-line-gradient-controls.json",
+        "crates/ppl-graphics/src/arc.rs",
+        "crates/ppl-vm/tests/arc_blit.rs",
+        "tests/fixtures/native-arc-blit-controls.json",
+        "crates/ppl-graphics/src/raster.rs",
+        "crates/ppl-graphics/src/ellipse.rs",
+        "tests/fixtures/native-ellipse-line-controls.json",
+        "crates/ppl-vm/tests/legacy_fractions.rs",
+        "tests/fixtures/native-legacy-fraction-controls.json",
+        "crates/ppl-vm/tests/approx_collections.rs",
+        "tests/fixtures/native-approx-controls.json",
+        "crates/ppl-vm/tests/ellipse_raster.rs",
+        "crates/ppl-vm/tests/rectangles.rs",
+        "tests/fixtures/native-rect-controls.json",
+        "crates/ppl-vm/src/app_numeric.rs",
+        "crates/ppl-vm/tests/app_numeric.rs",
+        "tests/fixtures/native-app-numeric-controls.json",
+        "crates/ppl-math/src/real/origin.rs",
+        "crates/ppl-math/src/policy.rs",
+        "crates/ppl-math/src/complex/functions.rs",
+        "crates/ppl-engine/tests/current_numbers.rs",
+        "tests/fixtures/native-current-number-controls.json",
+        "crates/ppl-graphics/src/softkeys.rs",
+        "crates/ppl-vm/tests/menus.rs",
+        "crates/ppl-vm/tests/text_units.rs",
+        "tests/fixtures/native-menu-controls.json",
+        "tests/fixtures/native-text-unit-controls.json"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. This finding remains open for its recorded missing acceptance criteria.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 25,
+      "finding": "[Native, CODE] The Home display lacks calculator status and softkey state.",
+      "baseline": "[Native, CODE] The Home display lacks calculator status and softkey state.\n    The screen draws a title, history and a plain input line. No native\n    Shift/Alpha annunciator, angle/number-format status or context-sensitive\n    calculator softkey menu exists in this renderer. Structured textbook\n    expression/result layout is also absent: text is rendered as strings.\n    Source: crates/ppl-gui/src/ide/native.rs:243-386.",
+      "root_cause": "Renderer had no modifier/status/editor geometry model.",
+      "expected_behavior": "Home renders real modifiers, environment/settings and structured input with working contextual controls.",
+      "implementation": [
+        "Shift/Alpha/User and environment/angle/format indicators, structured input layout and context controls; composed LCD capture includes actual egui tools.",
+        "History/textbook continuation: independent expression/result selection, insert-at-cursor recall, deletion of one selected half with durable flags, structural collection results and scrollable Show. Original calculator body preserved. Broader rich-result/template/font requirements remain open under25.",
+        "The actual G1 eighteen-form palette, field navigation/history recovery and working Home/CAS calculations replace the former eight-template subset. Installed Prime faces can be selected for the calculator only; IDE families remain independent. Generic egui atlas glyphs and remaining screen/tool layouts are not declared pixel-identical to firmware.",
+        "Measured Home header/18px entry/history font roles, working eighteen-form palette and root-field navigation; small/medium/large system fonts and typed historical formatting/recall are integrated. Statistics tables/forms/full-screen plots use computed app data. Whole calculator/tool raster parity remains unclaimed.",
+        "Exact number origin and canonical typed history recall survive GUI copy/evaluation and independent restart; fresh profiles select Current15751 while older schema4 restores Legacy.",
+        "Validated installed Help data API decodes eight language books/18808indexes/6962095UTF16units plus281interface-string groups/29181strings; Native browser and markup/math rendering remain open. PPL menu texture/font parity is separately verified.",
+        "Shared installed menu texture/native label ink/popup corners match two entire original320x20Function/Statistics strips. Primary732GUItests and18actual affected GUI processes/10assertions across both fonts and reopen pass.",
+        "Original ARM grouped-string decoder executes against all281groups/29181strings and matches every Native UTF16 byte and NUL. Earlier auxiliary-image naming was corrected from executable firmware evidence."
+      ],
+      "tests": [
+        "layout tests; native_lcd_capture10; actual graph LCD screenshot",
+        "Integrated19-session real GUI suite: preserved draft4*, copied result3\u21924*3\u219212; independent history deletion and reopen;12x12Show scrolling leaves Ans/run ID unchanged; typed nested collection and real Giac rational Show; requested Backspace/Characters regressions retained."
+      ],
+      "verification": "partial: full textbook layout for all result types and exact HP softkey parity remain incomplete",
+      "affected_components": [
+        "ide/native.rs",
+        "native/math_layout.rs",
+        "native_tools.rs"
+      ],
+      "status": "partial",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/ppl-gui/src/ide/native.rs",
+        "crates/ppl-gui/src/ide/native/math_layout.rs",
+        "crates/ppl-engine/src/help.rs",
+        "crates/ppl-engine/src/help/huffman.rs",
+        "crates/ppl-engine/tests/help_resources.rs",
+        "tests/fixtures/native-help-resource-controls.json",
+        "crates/prime-emulator/tests/firmware_language_strings.rs",
+        "crates/ppl-gui/src/ide/native/chrome.rs",
+        "crates/ppl-gui/src/ide/native_fonts.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. This finding remains open for its recorded missing acceptance criteria.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 26,
+      "finding": "[Both, CODE] A held virtual key does not generate host repeat events.",
+      "baseline": "[Both, CODE] A held virtual key does not generate host repeat events.\n    VirtualKeypad captures one press and one release. Native Home editing and\n    catalog navigation process queued presses, with no held-key repeat loop.\n    Firmware may repeat keys internally; this is a Native UI limitation, not\n    evidence that firmware key holding fails.\n    Source: crates/ppl-gui/src/ide/keypad.rs:84-145.",
+      "root_cause": "Virtual keypad emitted only initial press/release.",
+      "expected_behavior": "Holding repeatable virtual Native keys generates bounded repeat events until release or ownership loss.",
+      "implementation": [
+        "Bounded repeat schedule for repeatable native editing/navigation keys; releases/ownership transitions stop repetition."
+      ],
+      "tests": [
+        "held/release/repeat tests; native input regressions"
+      ],
+      "verification": "implemented; firmware continues receiving actual held transitions",
+      "affected_components": [
+        "ide/keypad.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/keypad.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 27,
+      "finding": "[Firmware, CODE] Desktop paste/typing has deliberate restrictions.",
+      "baseline": "[Firmware, CODE] Desktop paste/typing has deliberate restrictions.\n    Paste rejects ^, newlines and unsupported characters before delivery.\n    Desktop text recognizes a limited character set, paired delimiters it\n    created itself, and exact firmware Alpha/Shift indicator glyphs. Unknown\n    status bars stop typing. Existing templates require physical navigation.\n    Source: crates/prime-emulator/src/session/typing.rs:110-245;\n    crates/ppl-gui/src/app_firmware.rs:494.",
+      "root_cause": "Reconstructing typed text as physical keys required guessed Shift/Alpha/glyph/template state and could not express literal editor text.",
+      "expected_behavior": "Firmware desktop typing translates supported expressions to genuine key sequences and rejects unsupported batches before delivery.",
+      "implementation": [
+        "Digest-admitted original firmware Clipboard/FindView/text-event methods run through typed serializable guest calls on the actual UI owner; no widget-memory edit or host evaluation.",
+        "Text and Paste retain their own event flags, source identity and guest-buffer ownership. Firmware queries provide actual math-editor text/caret before established Unicode math aliases are translated; literal editors and quoted strings retain original scalars.",
+        "The queue/mailbox/call phases survive complete machine save/resume with exactly-once completion; source/event/argument buffers have explicit ownership and validation.",
+        "GUI and backend admit the same bounded UTF16 packet atomically; embedded NUL/oversize input is refused before queuing. No newline-to-Enter rewrite or2048-character GUI restriction."
+      ],
+      "tests": [
+        "verify_firmware_literal_text.py: genuine editor replacement/save/execute returns17 with exact Unicode source; Unicode multiline Notes readback; SIN template digits; actual quoted caret preserves\u2148\u00d7\ud83d\ude00; running INPUT12.5 returns25.",
+        "verify_desktop_typing.py: three expressions match genuine physical Copy/Paste in both complete caret phases; powers also match physical keys. Fraction key-entry caret differs by51 pixels and is retained in evidence.",
+        "firmware_text.rs: actual saved producer contains undelivered text; own helper killed, fresh process resumes, genuine Copy returns314159265 exactly once.",
+        "Actual GUI Text/Paste creates a note with Unicode/newlines/unmatched delimiter and more than2048 characters; genuine PPL Notes readback matches every character.",
+        "Component images reconstruct fresh RAM at all ordinary and math-query phases, validate derived-source provenance, cancellation and borrowed/owned buffers."
+      ],
+      "verification": "Installed G1: actual firmware text/Paste ABI replaces glyph/key reconstruction. Program/Note Unicode, multiline/selection replacement, mathematical templates/quoted caret, running PPL INPUT, actual GUI paste beyond2048 and queued-text live resume all pass.",
+      "affected_components": [
+        "prime-emulator/session/typing.rs",
+        "session.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/prime-emulator/src/guest_call/text.rs",
+        "crates/prime-emulator/src/guest_call.rs",
+        "crates/prime-emulator/src/session/typing.rs",
+        "crates/prime-emulator/src/session/image.rs",
+        "crates/prime-emulator/src/services/image.rs",
+        "crates/ppl-engine/src/session.rs",
+        "crates/ppl-gui/src/app_firmware.rs",
+        "crates/prime-emulator/tests/firmware_text.rs",
+        "scripts/emulator/verify_firmware_literal_text.py",
+        "scripts/emulator/verify_desktop_typing.py",
+        "tests/ide_xvfb_smoke/scripts/script_firmware_text.json",
+        "tests/ide_xvfb_smoke/assert_firmware_text.py"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Installed G1: actual firmware text/Paste ABI replaces glyph/key reconstruction. Program/Note Unicode, multiline/selection replacement, mathematical templates/quoted caret, running PPL INPUT, actual GUI paste beyond2048 and queued-text live resume all pass.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "remaining_limitations": [
+        "The installed G1 digest is verified. Other firmware builds retain the explicit restricted legacy translator; their ABI is not guessed.",
+        "The actual firmware decides whether its active control accepts text. NUL/oversized batches and controls refusing text report an error, never an invented success."
+      ]
+    },
+    {
+      "id": 28,
+      "finding": "[Firmware, CODE/COVERAGE] Firmware selection cannot be copied out as text.",
+      "baseline": "[Firmware, CODE/COVERAGE] Firmware selection cannot be copied out as text.\n    The IDE forwards Text/Paste and key transitions, not firmware-selected text\n    to the system clipboard. Screen PNG saving exists. Complete dialog/catalog\n    desktop behavior and additional firmware-build typing coverage remain\n    unverified; no new firmware interaction test was performed in this audit.\n    Source: crates/ppl-gui/src/app_firmware.rs:489-570;\n    docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md:300-315.",
+      "root_cause": "Normal firmware Copy uses an internal clipboard setter, not the named OS clipboard service stubs. The GUI also omitted stationary touch samples required to commit taps.",
+      "expected_behavior": "Firmware-selected text can be retrieved through a verified guest selection interface and copied to the system clipboard.",
+      "implementation": [
+        "Read-only code-digest-pinned observer of the committed G1 clipboard record; validated bounded UTF-16 payload, no OCR or desktop-input cache.",
+        "Session protocol8 Clipboard events route through egui to the actual operating-system clipboard.",
+        "Stationary LCD presses and minimum-duration taps now emit MOVE samples through the normal pointer path."
+      ],
+      "tests": [
+        "Clipboard decoding/malformed record/generation unit tests",
+        "Production GUI event relay and stationary touch regressions",
+        "verify_firmware_clipboard.py: actual full, repeated, partial Home Copy and multiline Unicode program Copy/Cut",
+        "script_firmware_clipboard.json and assert_firmware_clipboard.py: 7 genuine firmware/desktop clipboard assertions"
+      ],
+      "verification": "Implemented and verified for the installed G1 firmware profile. Genuine guest selections reach the OS clipboard exactly; new firmware code is explicitly reported unavailable until its setter contract is established.",
+      "affected_components": [
+        "ppl-gui/app_firmware.rs",
+        "prime-emulator/session/typing.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "unresolved",
+      "source_files": [
+        "crates/prime-emulator/src/clipboard.rs",
+        "crates/prime-emulator/src/engine.rs",
+        "crates/prime-emulator/src/session.rs",
+        "crates/ppl-engine/src/session.rs",
+        "crates/ppl-gui/src/app_firmware.rs",
+        "crates/ppl-gui/src/host.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace (final production continuation source)",
+          "verify_firmware_clipboard.py --runner <built helper> --firmware <local ELF> --init-data <copied initialized data> --os-rom <local ROM> --out <new disposable output>",
+          "run_ide_auto.sh <isolated script_firmware_clipboard.json> 240; assert_firmware_clipboard.py <dump>"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "Observer requires the verified setter code digest. Other firmware builds are not claimed supported.",
+        "Plain text only. Binary calculator objects and private HP font glyph normalization are outside this text-copy contract; malformed UTF-16 is reported without replacing the desktop clipboard.",
+        "Notes body and every app field have not individually been exercised; the verified common setter handles commits from every CPU owner."
+      ]
+    },
+    {
+      "id": 29,
+      "finding": "[Firmware, CODE] Live whole-calculator save/resume is absent.",
+      "baseline": "[Firmware, CODE] Live whole-calculator save/resume is absent.\n    Recovery stores durable OFF checkpoints and restarts the firmware; it does\n    not serialize live CPU/thread/host state. Synthetic snapshot facilities are\n    separate and do not provide a live calculator save-state button.\n    Source: crates/prime-emulator/src/recovery.rs:1.",
+      "root_cause": "Live waits retained native callback continuations and startup/storage/session ownership had no reconstructible coordinated machine. Explicit service data, complete images, an atomic archive and a stopped-world restore barrier now replace that architecture.",
+      "expected_behavior": "A live firmware snapshot captures and restores CPU, RAM, peripherals, scheduler, host resources and in-flight execution.",
+      "implementation": [
+        "Production Sleep/GetEvent/power/event/semaphore/critical-section/USB waits retain explicit operation, resource-generation and return-frame data after native callbacks return. Versioned banked ARM926/FPU/CP15 state is admitted against the actual backend.",
+        "One session-producer transaction pauses every CPU owner and excludes all mapped-memory writers. It captures RAM/allocator, scheduler/clocks/RTC, peripherals and queues, thread stacks/queued launches, complete drive trees and open VFS/synchronization resources, managed jobs/calls, compiler/runtime observations and input/frame/typing state.",
+        "Immutable RAM is compressed and published after CPUs resume. Bounded checksummed parts and atomic current/previous pointers preserve the earlier image on capture/publication failure. Corrupt current data can explicitly select an intact compatible previous generation.",
+        "Restore validates resource identity and all parts in staging, reconstructs every CPU on its owning host thread behind a startup barrier, rebinds resource leases and compiler output channels, and relocates VFS descriptors. Journaled drive promotion preserves old trees and rolls back interrupted installation before retrying.",
+        "Explicit session --resume-live refuses absence or incompatible firmware/ROM/resources. ResumeAttachment restores pending source/request/entry identities and request counters; guest clocks and producer deadlines exclude archive loading and host downtime.",
+        "Existing desktop session controls now expose Save live state and Resume live state. Save results cannot terminate a waiting program. Resume replaces the owned helper on its exact resolved profile, preserves the saved environment before Ready initialization, and does not substitute a cold boot.",
+        "Pending IRQ edges survive the pre-ISR safe point. Worker registration precedes stack allocation; queued launches resume once and completed workers are not relaunched. Existing firmware OFF recovery remains a separate working workflow."
+      ],
+      "tests": [
+        "firmware_live_resume: genuine stored PPL saves during WAIT(0), kills the original owned helper and resumes in a fresh process. Physical input returns {113,37,150}, proving local37 and an entry side effect exactly once.",
+        "The same genuine scenario publishes a second timed WAIT(5) frame, closes through ordinary Shutdown, resumes its remaining guest delay and returns {1114,73}. Configured battery838/Charging, board pins3 and128MiB capacity survive.",
+        "Corrupted current RAM selects the intact previous complete image and resumes its older active WAIT/source/request binding. A different ROM is refused; strict A/C file snapshots remain unchanged.",
+        "Actual desktop pointer Save, normal Restart, pointer Resume and calculator Enter use three distinct helper sessions. Runtime decoding returns {113,37,150}; the real320x220 program graphics are byte-identical across restoration.",
+        "Kernel/RAM/storage/sync/VFS/call/job/observer/producer component tests cover banked registers, timers, ordinary/sparse/append cursors, directory iterators, closed resource leases, queued input and typing position, active compiler phases, IRQ exactly once, interrupted publication/promotion and corruption.",
+        "Integrated full workspace2396/0/6 and genuine-Giac2454/0/6; warnings-denied workspace Clippy/fmt pass. Existing genuine firmware workflows8 plus original-ROM controls14 pass; strengthened genuine inspection admits idle and active WAIT boundaries.",
+        "Native desktop21 sessions, actual Native SIGKILL/reopen16 assertions, linkage15 and debugger40 pass. An old display-test Busy-capture race was reproduced and corrected with bounded explicit Busy retry plus a panic stop guard; pixel/key assertions remain unchanged."
+      ],
+      "verification": "Implemented and verified: genuine fresh-process active and timed PPL execution, ordinary and unexpected shutdown, complete graphics/state restoration, explicit previous-generation recovery, incompatible-ROM refusal and production GUI Save/Resume all pass.",
+      "affected_components": [
+        "prime-emulator/session.rs",
+        "safepoint.rs",
+        "memory/component.rs",
+        "services/fs/component.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "unresolved",
+      "source_files": [
+        "crates/prime-emulator/src/session.rs",
+        "crates/prime-emulator/src/safepoint.rs",
+        "crates/prime-emulator/src/engine.rs",
+        "crates/prime-emulator/src/services/pending.rs",
+        "crates/prime-emulator/src/services/handlers.rs",
+        "crates/prime-emulator/src/services/sync.rs",
+        "crates/prime-emulator/src/services/threading.rs",
+        "crates/prime-emulator/src/cpu_state.rs",
+        "crates/prime-emulator/src/memory.rs",
+        "crates/prime-emulator/src/memory/image.rs",
+        "crates/prime-emulator/src/services/sync/image.rs",
+        "crates/prime-emulator/src/services/fs/image.rs",
+        "crates/prime-emulator/src/services/fs.rs",
+        "crates/prime-emulator/tests/cpu_state.rs",
+        "crates/prime-emulator/tests/sync_restore.rs",
+        "crates/prime-emulator/tests/vfs_restore.rs",
+        "crates/prime-emulator/src/runtime.rs",
+        "crates/prime-emulator/src/memory/snapshot.rs",
+        "crates/prime-emulator/src/storage/image.rs",
+        "crates/prime-emulator/src/direct.rs",
+        "crates/prime-emulator/src/direct/image.rs",
+        "crates/prime-emulator/src/guest_call.rs",
+        "crates/prime-emulator/src/guest_call/image.rs",
+        "crates/prime-emulator/src/session/job.rs",
+        "crates/prime-emulator/tests/storage_image.rs",
+        "crates/prime-emulator/tests/firmware_storage.rs",
+        "crates/prime-emulator/src/services/image.rs",
+        "crates/prime-emulator/src/services/scheduler.rs",
+        "crates/prime-emulator/src/image_time.rs",
+        "crates/prime-emulator/src/session/job/image.rs",
+        "crates/prime-emulator/tests/kernel_restore.rs",
+        "crates/prime-emulator/src/compiler/image.rs",
+        "crates/prime-emulator/src/runtime/image.rs",
+        "crates/prime-emulator/src/trace/image.rs",
+        "crates/prime-emulator/src/session/image.rs",
+        "crates/prime-emulator/src/session/archive.rs",
+        "crates/prime-emulator/src/session/live_image.rs",
+        "crates/prime-emulator/src/session/promotion.rs",
+        "crates/prime-emulator/src/runner/restore.rs",
+        "crates/prime-emulator/src/recovery.rs",
+        "crates/prime-emulator/src/clock.rs",
+        "crates/prime-emulator/src/runner.rs",
+        "crates/ppl-engine/src/session.rs",
+        "crates/ppl-engine/src/live.rs",
+        "crates/ppl-gui/src/app_firmware.rs",
+        "crates/ppl-gui/src/ide/firmware.rs",
+        "crates/ppl-gui/src/ide/calculator.rs",
+        "crates/prime-emulator/tests/firmware_live_resume.rs",
+        "tests/ide_xvfb_smoke/scripts/script_firmware_live.json",
+        "tests/ide_xvfb_smoke/assert_firmware_live.py"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Implemented and verified: genuine fresh-process active and timed PPL execution, ordinary and unexpected shutdown, complete graphics/state restoration, explicit previous-generation recovery, incompatible-ROM refusal and production GUI Save/Resume all pass.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "Save and Resume are explicit actions; ordinary close does not automatically create a live save. Firmware OFF recovery still performs its original durable storage workflow.",
+        "Archives are local, bounded and tied to admitted firmware/resource and CPU/backend schemas. Incompatible or failed saves/restores are explicit errors; no hardware session or external physical USB peer is reconstructed.",
+        "Current and previous generations are selectable by the existing workflow; archived generations and pre-restore drive trees are retained rather than automatically pruned. Broader OS and Native parity remain separate open findings."
+      ]
+    },
+    {
+      "id": 30,
+      "finding": "[Firmware, COVERAGE] The OS interface is far from fully implemented.",
+      "baseline": "[Firmware, COVERAGE] The OS interface is far from fully implemented.\n    Static registry: 742 service slots; 48 Implemented, 31 PartiallyImplemented,\n    663 NotInvestigated/no handler. Full slot-by-slot inventory is attached as\n    implementation-inventory.json. No-handler slots are coverage gaps; many\n    are not used by common calculator flows. Do not turn 663 into a count of\n    demonstrated broken features. The GUI uses ZeroReturn and reports observed\n    unsupported call sites, so some unimplemented paths continue with 0.\n    Source: crates/prime-emulator/src/services/{names,mod,handlers}.rs;\n    crates/prime-emulator/src/session.rs:1373;\n    crates/ppl-gui/src/ide/calculator.rs:88.",
+      "root_cause": "Registry contains many uninvestigated OS ABI slots; fallback zero is not implementation.",
+      "expected_behavior": "Used firmware OS services implement their real ABI; unhandled slots remain accurately inventoried.",
+      "implementation": [
+        "GetApplicationHeadInfoA/W implement complete132-byte original-ROM metadata semantics for PE, ELF, FM/FI, absent/unknown/malformed files, named BIN/ROMSPC resources, checksum and raw sizes.",
+        "Five legacy resource exports return the exact absence behavior established by executing original ROM; the actual internal module-resource parser is implemented separately.",
+        "Unresolved PE imports have named undefined-instruction traps, not zero-return Thumb stubs; late-loaded dependencies rebind real exports and preserve ARM/Thumb call context.",
+        "Live GUI sessions use UnsupportedPolicy::Stop. Unknown OPEN_EXISTING device names return original-ROM failure; initialized original registry contains neither FACTORY nor FTL, so no fabricated factory data is supplied.",
+        "Read-only service-inventory emits every actual registration. Current ledger:55 implemented,31 partial,656 unhandled; baseline inventory remains historical."
+      ],
+      "tests": [
+        "Original ROM executes metadata/resource callbacks for ANSI and Unicode paths and compares every132 output bytes plus canaries against HLE; self-authored PE/ELF/FM/FI fixtures, malformed bounds and file-descriptor cleanup.",
+        "Real ARM SVC tests; unresolved import preservesR0 and namesDLL!symbol; late real export computes35+7=42 and patchesIAT.",
+        "15 executable original-ROM OS/device controls include actual registry lookup and absent FACTORY/FTL OPEN_EXISTING.",
+        "Strict genuine boot/program/import/storage/inspection/environment/virtualUSB/active WAIT/live-resume and queued-text workflows pass; boot unsupported-service reports are empty.",
+        "Actual GUI clipboard/environment/save/restart/resume and Native regression/linkage/debugger workflows pass.",
+        "prime-emulator service-inventory output checks742 contiguous IDs,86 registered handlers and656 explicitly unhandled entries."
+      ],
+      "verification": "Scoped used-ABI requirement: strict production dispatch, real module/resource ABI, named unresolved-import faults/lazy rebinding and complete accurate742-slot inventory; genuine supported firmware/GUI/device/resume flows pass without unhandled boot calls.",
+      "affected_components": [
+        "prime-emulator/services/{names,mod,handlers}.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/prime-emulator/src/services/module_metadata.rs",
+        "crates/prime-emulator/src/services/handlers.rs",
+        "crates/prime-emulator/src/services/pe.rs",
+        "crates/prime-emulator/src/services/system2.rs",
+        "crates/prime-emulator/src/services/image.rs",
+        "crates/prime-emulator/src/engine.rs",
+        "crates/prime-emulator/src/session.rs",
+        "crates/prime-emulator/src/main.rs",
+        "crates/prime-emulator/tests/module_metadata.rs",
+        "crates/prime-emulator/tests/os_rom_contract.rs",
+        "docs/emulator/side-remediation/current-service-inventory.json"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Scoped used-ABI requirement: strict production dispatch, real module/resource ABI, named unresolved-import faults/lazy rebinding and complete accurate742-slot inventory; genuine supported firmware/GUI/device/resume flows pass without unhandled boot calls.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "remaining_limitations": [
+        "This closes the recorded requirement for used service ABIs and accurate inventory;656 unused/unhandled slots are still coverage gaps and fault if invoked. It does not claim all742 OS APIs work.",
+        "Broader stream dispositions, optional drivers, cycle-accurate electrical behavior and physical USB verification are not established. No physical hardware is necessary for the verified paths."
+      ]
+    },
+    {
+      "id": 31,
+      "finding": "[Firmware, CODE] Several registered OS services are still stubs/partial.",
+      "baseline": "[Firmware, CODE] Several registered OS services are still stubs/partial.\n    Suspend/Resume/WakeUp thread calls return 1 without the corresponding thread\n    behavior. Interrupt enable/done return 1; registered ISR dispatch is not\n    provided by this HLE route. SetAutoPowerOff returns 0. Debug printf logs\n    the format string without formatting arguments. These are distinct from\n    synthetic full-system hardware tests.\n    Source: crates/prime-emulator/src/services/threading.rs:73;\n    crates/prime-emulator/src/services/handlers.rs:75,643;\n    crates/prime-emulator/src/services/system2.rs:120,162.",
+      "root_cause": "Wake was incorrectly aliased to Resume, suspend used a counter, priorities had no scheduler, auto-power-off was constant, and debug formatting omitted ARM variadic formats. The installed OS ROM supplies executable ABI controls.",
+      "expected_behavior": "Thread suspension/resumption/termination, IRQ enable/done/dispatch and formatted debug output alter real execution state.",
+      "implementation": [
+        "Unique priority slots0..63 and ROM automatic allocation16..54 drive serialized, bounded CPU slices with priority selection and per-slot time quanta. Thread descriptors use the observed0x74 size, minimum stack0x1000 and bit0 deferred flag.",
+        "Suspend is idempotent; Resume clears the suspend flag and fails if already running. Wake cancels only timed sleep, including the65535 indefinite sentinel, and does not resume a suspended owner. Accepted wakes survive continuation serialization.",
+        "Auto-power-off implements modes0\u20133, previous-state returns, u16 minutes-to-seconds storage, system-mode inhibition, activity reset and wake interval bounds. Actual ARM owners pause and continue from the same instruction on ON.",
+        "A common monotonic guest clock stops service deadlines and UI/IRQ timers during power/inspection pauses. Clock images exclude host downtime; fresh-process CPU/RAM/wait reconstruction preserves a timed sleep.",
+        "WriteComDebugMsg validates bounded formats, decodes AAPCS32 aligned64-bit and floating arguments, flags, width/precision and narrow/wide text; percent-n writes use validated guest memory. Registered ISR masking/delivery/errors retain executable behavior."
+      ],
+      "tests": [
+        "prime-emulator library190; thread_control11 actual ARM and owner interactions; svc22 including aligned debug printf/count; sync_restore4 including a fresh-process timed sleep after600ms host downtime.",
+        "PRIME_TEST_OS_ROM: os_rom_contract3 execute the original Wake/Suspend/Resume, priority and auto-power mode code. Only the isolated scheduler context-switch boundary is intercepted; no ROM instructions are replaced.",
+        "Current isolated default workspace2333/0/6; genuine-Giac workspace2391/0/6; featureClippy; genuine local firmware lifecycle2/inspection1/storage1; Native desktop16 and SIGKILL/reopen16."
+      ],
+      "verification": "Implemented for the original functional HLE service criterion. Actual ARM execution, installed ROM software contracts and genuine firmware/GUI regressions pass. Scheduling and IRQ delivery occur at bounded slices; no cycle-accurate hardware preemption or physical-device verification is claimed.",
+      "affected_components": [
+        "prime-emulator/services/threading.rs",
+        "services/mod.rs",
+        "services/system2.rs",
+        "runner.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "partial",
+      "source_files": [
+        "crates/prime-emulator/src/services/threading.rs",
+        "crates/prime-emulator/src/services/system2.rs",
+        "crates/prime-emulator/src/services/system2/debug_format.rs",
+        "crates/prime-emulator/src/services/pending.rs",
+        "crates/prime-emulator/src/services/power.rs",
+        "crates/prime-emulator/src/services/scheduler.rs",
+        "crates/prime-emulator/src/services/mod.rs",
+        "crates/prime-emulator/src/clock.rs",
+        "crates/prime-emulator/src/safepoint.rs",
+        "crates/prime-emulator/src/engine.rs",
+        "crates/prime-emulator/src/runner.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace (isolated asset configuration)",
+          "cargo test --workspace --features giac-integration (isolated asset configuration, matched genuine helper)",
+          "cargo test -p prime-emulator --test os_rom_contract --test firmware_session --test firmware_inspection --test firmware_storage (genuine asset variables)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh; actual SIGKILL/reopen"
+        ],
+        "outcome": "Implemented for the original functional HLE service criterion. Actual ARM execution, installed ROM software contracts and genuine firmware/GUI regressions pass. Scheduling and IRQ delivery occur at bounded slices; no cycle-accurate hardware preemption or physical-device verification is claimed.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    },
+    {
+      "id": 32,
+      "finding": "[Firmware, CODE] Device/environment behavior is simulated in several paths.",
+      "baseline": "[Firmware, CODE] Device/environment behavior is simulated in several paths.\n    Battery status is fixed (full/not charging); USB/USBHOST/INDICATOR IOCTL\n    paths simply succeed. Unknown devices return synthetic FF-filled output.\n    Storage-capacity reporting fills only an observed field of the OS struct.\n    These do not supply a faithful physical battery/link/device environment.\n    Source: crates/prime-emulator/src/services/system2.rs:138,287-402.",
+      "root_cause": "Fixed battery values, unconditional USB/indicator success, synthetic unknown-device output and an incomplete disk structure. These paths now use stateful virtual models checked against the installed original OS ROM.",
+      "expected_behavior": "Firmware device replies reflect an implemented virtual battery/USB/storage/environment model.",
+      "implementation": [
+        "Typed virtual environment configuration, validated atomic changes and real queued OS battery events. Battery ADC/power status drives the actual 16-byte driver record, voltage/level/type and asynchronous critical-power action with inhibition variables.",
+        "Complete observed 60-byte disk-room structure reports live logical capacity/usage. VFS growth/append/sparse writes obey that budget; over-budget metadata replacement or capacity changes preserve prior data.",
+        "Virtual USB/USBHOST state, explicit peer descriptors, bounded bidirectional queues, real guest callback invocation on a persistent guest worker and a serializable blocking receive continuation. Cable presence, enable state, address/init and peer extension have distinct contracts.",
+        "Production ppl-device::VirtualTransport uses the original firmware protocol, including 64-byte HID framing and a read-only readiness handshake. Prime::open_virtual and device virtual cannot enumerate physical USB.",
+        "Original BACK controls and brightness inhibition drive real guest-clock PWM ramps. INDICATOR controls retain pin bits and implement RTC-driven patterns, progress, finite/indefinite waits, original return values and ON cancellation.",
+        "Calculator RTC starts from host UTC once, uses the original 1980 epoch, advances during power sleep and freezes during coordinated inspection. Automatic/indicator sleep cannot be mistaken for completed firmware OFF persistence.",
+        "Unknown/unimplemented devices return absence/failure and preserve output; no FF-filled success. The inherited fabricated FACTORY data/success path is removed. ARCH revision queries use configurable two-bit GPIO input.",
+        "Existing GUI environment controls send correlated updates without completing an active PPL job, persist selections and show actual peripheral outputs. Calculator UI redesign is outside this firmware work."
+      ],
+      "tests": [
+        "14 executable original-ROM controls, including battery ADC/power record cases, disk field layout, device registry/IOCTL return contracts, USB/HOST descriptor/callback/send behavior, BACK levels, RTC epoch/leap dates, indicator configuration/patterns and ARCH revision bits.",
+        "20 production ARM thread/device tests cover changing queries/events, critical battery sleep/ON/inhibition, disk writes, absent devices including FACTORY, USB host descriptors/data, blocking receive callbacks, backlight ramps and finite/infinite indicator sleep/cancellation.",
+        "Genuine firmware environment tests: real battery LCD change while PPL WAIT resumes73; original raw USB readiness reply; firmware info/build15751, nonconstant320x240 PNG, guarded upload/CRC/readback, duplicate refusal and fresh boot execution returning1234576.",
+        "Actual GUI pointer menu/slider/charging/Apply interactions passed7 assertions; separate GUI process retained/reapplied ADC838/Charging with4 assertions.",
+        "Actual device virtual CLI information request passed; no physical calculator opened.",
+        "All seven genuine firmware workflows and all14 ROM controls passed at the kernel checkpoint. Full workspace2370 default/2428 genuine-Giac,0 failures/6 existing ignores; all-target feature Clippy passed after a type-alias cleanup."
+      ],
+      "verification": "Implemented for the original virtual battery/USB/indicator/unknown-device/disk acceptance criteria on the installed G1 profile. Genuine original-ROM, firmware protocol, PPL and GUI/reopen evidence passed; no electrical or physical-device claim.",
+      "affected_components": [
+        "prime-emulator/services/system2.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "unresolved",
+      "source_files": [
+        "crates/ppl-engine/src/environment.rs",
+        "crates/ppl-engine/src/usb.rs",
+        "crates/ppl-engine/src/session.rs",
+        "crates/ppl-device/src/virtual_device.rs",
+        "crates/ppl-cli/src/cmd/device_virtual.rs",
+        "crates/prime-emulator/src/services/battery.rs",
+        "crates/prime-emulator/src/services/disk_room.rs",
+        "crates/prime-emulator/src/services/usb.rs",
+        "crates/prime-emulator/src/services/backlight.rs",
+        "crates/prime-emulator/src/services/indicator.rs",
+        "crates/prime-emulator/src/services/power.rs",
+        "crates/prime-emulator/src/services/system2.rs",
+        "crates/prime-emulator/src/services/fs.rs",
+        "crates/prime-emulator/src/clock.rs",
+        "crates/prime-emulator/tests/os_rom_contract.rs",
+        "crates/prime-emulator/tests/thread_control.rs",
+        "crates/prime-emulator/tests/firmware_environment.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test -p prime-emulator --test os_rom_contract (configured original OS ROM)",
+          "cargo test -p prime-emulator --test firmware_environment (configured original firmware/storage/ROM)",
+          "cargo test -p prime-emulator --test thread_control",
+          "Existing firmware environment GUI scenario and separate process reopen",
+          "ppl device virtual --profile <copied initialized profile> --firmware <installed> --os-rom <installed> --runner <current> info"
+        ],
+        "outcome": "Implemented for the original virtual battery/USB/indicator/unknown-device/disk acceptance criteria on the installed G1 profile. Genuine original-ROM, firmware protocol, PPL and GUI/reopen evidence passed; no electrical or physical-device claim.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      },
+      "limitations": [
+        "This is a configurable virtual environment, not electrical battery calibration, cycle-accurate USB hardware or verification against a connected calculator.",
+        "USB host tests use an explicitly configured virtual peer and original-ROM contracts; they do not claim a physical calculator-to-calculator link.",
+        "Unestablished device/OS APIs, including factory-partition behavior, remain explicitly unavailable under finding30. No physical-hardware necessity or external impossibility has been established for those gaps.",
+        "Whole-machine persistence of these models still requires finding29 orchestration. Working individual resource reconstruction is not a whole-calculator resume claim."
+      ]
+    },
+    {
+      "id": 33,
+      "finding": "[Test tooling, CODE] calc_key is misleading for Native input tests.",
+      "baseline": "[Test tooling, CODE] calc_key is misleading for Native input tests.\n    The automation comment says it follows keypad behavior in either backend,\n    but AutoStep::CalcKey invokes send_calc_transition, whose Native branch\n    only updates held keys and never routes a press to Native Home. This audit\n    used real click_calculator_key pointer events, separated by 80ms, for the\n    final keypad evidence. Tests based on calc_key alone can miss UI behavior.\n    Source: crates/ppl-gui/src/ide/automation.rs:114,666;\n    crates/ppl-gui/src/app_firmware.rs:423-443.",
+      "root_cause": "Native calc_key automation bypassed the Native reducer.",
+      "expected_behavior": "Automation calc_key dispatches through the same production reducer as actual on-screen Native clicks.",
+      "implementation": [
+        "calc_key invokes central production native dispatcher; held transitions remain distinct; waits include actual CAS/app/VM tasks. Added WaitDialog for real interaction synchronization.",
+        "WaitIdle now waits for plot, split-reference, numeric-table and pending model workers; completion cannot race a snapshot of unfinished graph data.",
+        "A terminal asynchronous window screenshot is now consumed and saved before implicit script completion, including focus loss; regression checks actual decoded PNG pixels and capture evidence."
+      ],
+      "tests": [
+        "native_side_input21 behavior assertions; graph/state/dialog/User workflows",
+        "Desktop special-view scenario checks live-bound graph data immediately after wait_idle, without a settling delay."
+      ],
+      "verification": "implemented",
+      "affected_components": [
+        "ide/automation.rs"
+      ],
+      "status": "implemented",
+      "previous_status": "implemented",
+      "source_files": [
+        "crates/ppl-gui/src/ide/automation.rs",
+        "crates/ppl-gui/src/ide/native_tools.rs"
+      ],
+      "continuation_validation": {
+        "commands": [
+          "cargo test --workspace",
+          "cargo test -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration (genuine helper)",
+          "bash tests/ide_xvfb_smoke/run_native_side.sh (real desktop)"
+        ],
+        "outcome": "Recorded functionality retains current regression coverage. Its scoped original acceptance remains implemented; distinct broader compatibility limitations remain in the open rows.",
+        "regression_result": "Accepted combined Current23/chrome24/text28/Help30/StatsTransport30 checkpoint:2676default/2744genuine-Giac,0failed6existing ignores; warnings-denied all-target Clippy/debugbuild/fmt0. Exact original PPL menu/text complete frames and actual IDE Run/Enter controls pass separately. Optimized desktop composite94actualGUIprocesses/40assertioninvocations passes, resuming sameprofiles after preserved outerSIGTERM143. Genuine earlier firmware live/OS/device regressions remain separately recorded. Findings1,24and25 stay incomplete."
+      }
+    }
+  ],
+  "verification_notes": [
+    "No physical hardware accessed; no new physical VERIFIED claim.",
+    "Exact final integrated command results are recorded in REMEDIATION.md; earlier agent checks are not substituted for final integration.",
+    "Unresolved/partial rows remain required work and are not called complete."
+  ],
+  "verification_commands": {
+    "workspace": "CARGO_TARGET_DIR=/home/k9-vortex/Development/4-Rust/.cache/prime-side-remediation-target cargo test --workspace",
+    "gui_giac": "cargo test -p ppl-gui --lib --features giac-integration",
+    "vm_cas_giac": "cargo test -p ppl-cas -p ppl-vm --features giac-integration",
+    "lint": "cargo clippy --workspace --all-targets -- -D warnings",
+    "lint_giac": "cargo clippy -p ppl-cas -p ppl-vm -p ppl-gui --all-targets --features giac-integration -- -D warnings",
+    "gui_desktop": "PPL_BIN=<debug/ppl> PPL_CAS_HELPER=<installed real helper> bash tests/ide_xvfb_smoke/run_native_side.sh",
+    "forced_restart": "PPL_BIN=<debug/ppl> python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py"
+  },
+  "verified_counts": {
+    "workspace": {
+      "passed": 2219,
+      "failed": 0,
+      "ignored": 6
+    },
+    "gui_default": {
+      "passed": 532,
+      "failed": 0,
+      "ignored": 2
+    },
+    "gui_giac": {
+      "passed": 552,
+      "failed": 0,
+      "ignored": 2
+    },
+    "vm_cas_giac": {
+      "passed": 256,
+      "failed": 0,
+      "ignored": 0
+    },
+    "desktop": {
+      "sessions": 11,
+      "input_assertions": 21,
+      "workflow_assertions": 77,
+      "failed": 0,
+      "evidence": "/tmp/prime-native-side-K05Ieh"
+    },
+    "forced_restart": {
+      "assertions": 8,
+      "failed": 0,
+      "evidence": "/tmp/prime-native-crash-6m3x3qya"
+    }
+  },
+  "continuation_baseline": "2c80c4c7a8e8ca45f6ceedae0d19e4dac62b1cd4",
+  "continuation_acceptance": "Incomplete:30 implemented,3 partial,0 unresolved. Findings1(app completeness),24(overloads/graphics/formatting) and25(display parity) remain required engineering. The all33 objective is not complete.",
+  "verified_counts_scope": "Historical original audit counts. Current continuation results and hashes are in verification.json.continuation.results."
+}

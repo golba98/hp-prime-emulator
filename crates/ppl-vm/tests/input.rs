@@ -395,3 +395,281 @@ fn positioned_cancel_retains_original_variables() {
     );
     assert_eq!(text(&r.call("TEST_PROG", &["<ESC>"]).unwrap()), "{0,5,8}");
 }
+
+#[test]
+fn explicit_unsupported_or_malformed_descriptors_never_open_or_write_back() {
+    for (spec, kind) in [
+        ("\"checkbox\"", ErrorKind::Unsupported),
+        ("[0,1.5]", ErrorKind::BadArgValue),
+        ("[0,1E-499]", ErrorKind::BadArgValue),
+        ("[1E100]", ErrorKind::BadArgValue),
+        ("[14]", ErrorKind::Unsupported),
+        ("[-1,14]", ErrorKind::Unsupported),
+        ("[[0,2]]", ErrorKind::BadArgValue),
+    ] {
+        let mut r = Run::new(
+            "<descriptors>",
+            &prog(&format!("A:=17; B:=23; INPUT({{{{A,[0]}},{{B,{spec}}}}});")),
+        );
+        let err = r.call("TEST_PROG", &["100", "200"]).unwrap_err();
+        assert_eq!(err.kind, kind, "{spec}: {err:?}");
+        assert!(err.detail.contains("INPUT"), "{spec}: {err:?}");
+        assert!(r.dialogs().is_empty(), "{spec}: dialog must not open");
+        assert_eq!(r.unused_inputs(), 2, "{spec}: host input consumed");
+        for (name, expected) in [("A", "17"), ("B", "23")] {
+            let value = r
+                .machine
+                .globals()
+                .into_iter()
+                .find(|(n, _)| n == name)
+                .unwrap()
+                .1;
+            assert_eq!(text(&value), expected, "{spec}: {name} changed");
+        }
+    }
+}
+
+#[test]
+fn short_empty_and_scalar_multifield_defaults_match_g1_controls() {
+    for (defaults, want) in [
+        ("{1,2},{3,4}", "{3,4}"),
+        ("{1},{3}", "{3,8}"),
+        ("1,3", "{3,8}"),
+        ("{},{}", "{5,8}"),
+    ] {
+        assert_eq!(
+            enter_defaults(&format!(
+                "LOCAL a:=5,b:=8; INPUT({{a,b}},\"Defaults\",{{\"A\",\"B\"}},{{}},{defaults}); RETURN {{a,b}};"
+            )),
+            want
+        );
+    }
+}
+
+/// A host that reports actual field-edit metadata, like the desktop dialog.
+struct FieldHost {
+    base: ppl_vm::HeadlessHost,
+    responses: std::collections::VecDeque<ppl_vm::DialogResult>,
+    seen: std::rc::Rc<std::cell::RefCell<Vec<ppl_vm::Dialog>>>,
+}
+impl ppl_vm::Host for FieldHost {
+    fn print(&mut self, text: &str) {
+        self.base.print(text)
+    }
+    fn poll_key(&mut self) -> ppl_vm::RtResult<Option<i64>> {
+        self.base.poll_key()
+    }
+    fn is_key_down(&mut self, key: i64) -> ppl_vm::RtResult<bool> {
+        self.base.is_key_down(key)
+    }
+    fn wait_key(&mut self, timeout: Option<f64>) -> ppl_vm::RtResult<Option<i64>> {
+        self.base.wait_key(timeout)
+    }
+    fn sleep(&mut self, seconds: f64) -> ppl_vm::RtResult<()> {
+        self.base.sleep(seconds)
+    }
+    fn touch(&mut self) -> ppl_vm::RtResult<Option<ppl_vm::host::Touch>> {
+        self.base.touch()
+    }
+    fn now_ms(&mut self) -> f64 {
+        self.base.now_ms()
+    }
+    fn local_time(&mut self) -> (i64, i64, i64, i64, i64, f64) {
+        self.base.local_time()
+    }
+    fn dialog(
+        &mut self,
+        dialog: &ppl_vm::Dialog,
+        _: &ppl_graphics::Grob,
+    ) -> ppl_vm::RtResult<ppl_vm::DialogResult> {
+        self.seen.borrow_mut().push(dialog.clone());
+        Ok(self.responses.pop_front().expect("unexpected dialog"))
+    }
+}
+fn field_responses(
+    body: &str,
+    responses: Vec<ppl_vm::DialogResult>,
+) -> (ppl_vm::RtResult<ppl_vm::Value>, Vec<ppl_vm::Dialog>) {
+    let runner = Run::new("field metadata", &prog(body));
+    let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut machine = ppl_vm::Machine::new(
+        std::rc::Rc::new(runner.machine.program().clone()),
+        Box::new(FieldHost {
+            base: ppl_vm::HeadlessHost::new(),
+            responses: responses.into(),
+            seen: seen.clone(),
+        }),
+        ppl_vm::Settings::default(),
+        ppl_vm::Limits::default(),
+    );
+    let result = machine.call_function("TEST_PROG", vec![]);
+    (result, seen.borrow().clone())
+}
+
+#[test]
+fn untouched_initial_objects_are_not_revalidated_as_edited_text() {
+    use ppl_vm::DialogResult::InputEntered;
+    for code in [0, 5, 7, 8, 9] {
+        let body = format!(
+            "LOCAL x:=0; LOCAL ok:=INPUT({{{{x,[{code}]}}}}); RETURN {{ok,TYPE(x),STRING(x)}};"
+        );
+        assert_eq!(
+            text(
+                &field_responses(&body, vec![InputEntered(vec![None])])
+                    .0
+                    .unwrap()
+            ),
+            "{1,0,\"0\"}"
+        );
+    }
+}
+
+#[test]
+fn invalid_edited_text_cannot_be_accepted_as_untouched_on_retry() {
+    use ppl_vm::DialogResult::{Cancelled, InputEntered};
+    let (value, dialogs) = field_responses(
+        "LOCAL a:=0; LOCAL ok:=INPUT({{a,[5]}}); RETURN {ok,a};",
+        vec![
+            InputEntered(vec![Some("0".into())]),
+            InputEntered(vec![None]),
+            Cancelled,
+        ],
+    );
+    assert_eq!(text(&value.unwrap()), "{0,0}");
+    assert_eq!(dialogs.len(), 3);
+    assert!(matches!(
+        &dialogs[2],
+        ppl_vm::Dialog::Input { error: Some(_), .. }
+    ));
+}
+
+#[test]
+fn rejected_first_field_retains_later_edits_and_validated_expressions_run_once() {
+    use ppl_vm::DialogResult::InputEntered;
+    let body = "A:=0; LOCAL a:=0,b:=0; INPUT({{a,[0]},{b,[0]}}); RETURN {a,b,A};";
+    let (value, dialogs) = field_responses(
+        body,
+        vec![
+            InputEntered(vec![Some("\"bad\"".into()), Some("A:=A+1".into())]),
+            InputEntered(vec![Some("2".into()), None]),
+        ],
+    );
+    assert_eq!(text(&value.unwrap()), "{2,1,1}");
+    let ppl_vm::Dialog::Input { fields, .. } = &dialogs[1] else {
+        panic!("input")
+    };
+    assert_eq!(fields[1].current, "A:=A+1");
+    let (value, _) = field_responses(
+        body,
+        vec![
+            InputEntered(vec![Some("A:=A+1".into()), Some("\"bad\"".into())]),
+            InputEntered(vec![None, Some("2".into())]),
+        ],
+    );
+    assert_eq!(text(&value.unwrap()), "{1,2,1}");
+}
+
+#[test]
+fn error_and_function_type_filters_open_and_validate_instead_of_being_stubs() {
+    for code in [5, 7] {
+        let mut runner = Run::new(
+            "type filter",
+            &prog(&format!(
+                "LOCAL a:=0; LOCAL ok:=INPUT({{{{a,[{code}]}}}}); RETURN {{ok,a}};"
+            )),
+        );
+        assert_eq!(
+            text(&runner.call("TEST_PROG", &["0", "<ESC>"]).unwrap()),
+            "{0,0}"
+        );
+        assert_eq!(
+            runner
+                .dialogs()
+                .iter()
+                .filter(|line| line.starts_with("INPUT:"))
+                .count(),
+            2,
+            "numeric value must be rejected by the filter"
+        );
+    }
+    let mut runner = Run::new(
+        "wildcard filter",
+        &prog("LOCAL a:=0; INPUT({{a,[-1,7]}}); RETURN a;"),
+    );
+    assert_eq!(text(&runner.call("TEST_PROG", &["7"]).unwrap()), "7");
+}
+
+#[test]
+fn dynamic_choice_descriptors_are_delivered_as_choices() {
+    let mut r = Run::new(
+        "<dynamic descriptor>",
+        &prog("LOCAL a:=17,spec:={0,\"bad\"}; INPUT({{a,spec}}); RETURN a;"),
+    );
+    let result = r.call("TEST_PROG", &["2"]).unwrap();
+    assert_eq!(text(&result), "2");
+    assert_eq!(r.unused_inputs(), 0);
+}
+
+#[test]
+fn duplicate_type_codes_preserve_string_only_semantics() {
+    for spec in ["[2,2]", "[2,2,2]"] {
+        let mut r = Run::new(
+            "<duplicate types>",
+            &prog(&format!(
+                "LOCAL a:=\"old\"; INPUT({{{{a,{spec}}}}}); RETURN a;"
+            )),
+        );
+        let result = r.call("TEST_PROG", &["1+1"]).unwrap();
+        assert!(matches!(result, ppl_vm::Value::Str(_)));
+        assert_eq!(text(&result), "1+1");
+    }
+}
+
+#[test]
+fn omitted_descriptor_and_wildcard_keep_unrestricted_edit_fields() {
+    for field in ["a".to_string(), "{a}".into(), "{a,[-1,2]}".into()] {
+        let mut r = Run::new(
+            "<unrestricted fields>",
+            &prog(&format!("LOCAL a:=17; INPUT({{{field}}}); RETURN a;")),
+        );
+        assert_eq!(text(&r.call("TEST_PROG", &["1+1"]).unwrap()), "2");
+    }
+}
+
+#[test]
+fn checkbox_radio_and_choice_descriptors_write_back_typed_values() {
+    let mut r = Run::new(
+        "<controls>",
+        &prog(
+            "LOCAL a:=0,b:=1,c:=0,d:=1; INPUT({{a,1},{b,2},{c,0},{d,{\"First\",\"Second\"}}}); RETURN {a,b,c,d};",
+        ),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["1", "0", "1", "2"]).unwrap()),
+        "{1,0,1,2}"
+    );
+}
+#[test]
+fn checkbox_and_choice_invalid_entries_reopen_without_partial_writeback() {
+    let mut r = Run::new(
+        "<controls>",
+        &prog("LOCAL a:=0,b:=1; INPUT({{a,1},{b,{\"First\",\"Second\"}}}); RETURN {a,b};"),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["2", "1", "1", "2"]).unwrap()),
+        "{1,2}"
+    );
+    assert!(r.dialogs().iter().any(|s| s.contains("Checkbox requires")));
+}
+#[test]
+fn radio_group_rejects_multiple_checked_values_and_cancel_preserves_originals() {
+    let mut r = Run::new(
+        "<radio>",
+        &prog("LOCAL a:=0,b:=1; LOCAL ok:=INPUT({{a,2},{b,0}}); RETURN {ok,a,b};"),
+    );
+    assert_eq!(
+        text(&r.call("TEST_PROG", &["1", "1", "<ESC>"]).unwrap()),
+        "{0,0,1}"
+    );
+    assert!(r.dialogs().iter().any(|s| s.contains("Only one radio")));
+}

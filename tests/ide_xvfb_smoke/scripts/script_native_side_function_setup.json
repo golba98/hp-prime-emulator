@@ -1,0 +1,1011 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_setup.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "12+"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "system"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_system.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "angle_menu"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_angle_menu.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 74
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format_menu"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format_menu.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 164
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "floating"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_floating.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "digits_menu"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_digits_menu.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "digits11"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_digits11.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 87
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 105
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "overrides"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_overrides.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 58
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format0"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format0.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 79
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format1"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format1.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format2"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format2.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 121
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format3"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format3.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 142
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format4"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format4.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 163
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format5"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format5.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 184
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "format6"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_format6.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "digits0"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_digits0.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "type",
+      "text": "{AAngle,AFormat,ADigits,AComplex,HAngle,HFormat,HDigits}"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "query"
+    },
+    {
+      "step": "type",
+      "text": "12+"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "before_restore"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_before_restore.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 19
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "one_default"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_one_default.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "defaults"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_defaults.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 74
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 164
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "final"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_setup_final.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    }
+  ]
+}

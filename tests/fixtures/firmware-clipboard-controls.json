@@ -1,0 +1,43 @@
+{
+  "origin": "local_firmware",
+  "physical_verification": false,
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "setter_sha256": "3b9acc8de3b4e59374c41ff4499d85d8725c8820c86d2d44bfa74f4e45e77c76",
+  "cases": [
+    {
+      "case": "calculator_keys",
+      "event": "clipboard",
+      "generation": 1,
+      "text": "246813579"
+    },
+    {
+      "case": "repeat_copy",
+      "event": "clipboard",
+      "generation": 2,
+      "text": "246813579"
+    },
+    {
+      "case": "partial_selection",
+      "event": "clipboard",
+      "generation": 3,
+      "text": "642"
+    },
+    {
+      "case": "program_unicode_multiline",
+      "event": "clipboard",
+      "generation": 4,
+      "text": "EXPORT CLIPTEXT()\nBEGIN\n RETURN \"π×ⅈ\";\nEND;"
+    },
+    {
+      "case": "program_cut",
+      "event": "clipboard",
+      "generation": 5,
+      "text": "EXPORT CLIPTEXT()\nBEGIN\n RETURN \"π×ⅈ\";\nEND;"
+    }
+  ],
+  "desktop": {
+    "workflow": "script_firmware_clipboard.json; assert_firmware_clipboard.py",
+    "result": "7 assertions passed; real LCD pointer Copy and operating-system Ctrl+V",
+    "text": "246813579"
+  }
+}

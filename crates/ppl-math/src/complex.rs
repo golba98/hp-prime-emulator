@@ -1,30 +1,67 @@
 //! Complex numbers built from two 12-digit reals.
 
-use crate::{FormatOptions, MathError, Real};
+use crate::{AngleMode, FormatOptions, MathError, Real, RealPresentation};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+mod functions;
+
+#[derive(Clone, Copy, Debug)]
 pub struct Complex {
     pub re: Real,
     pub im: Real,
+    presentation: ComplexPresentation,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ComplexPresentation {
+    #[default]
+    Rectangular,
+    Sexagesimal,
+    Polar,
+}
+impl PartialEq for Complex {
+    fn eq(&self, other: &Self) -> bool {
+        self.re == other.re && self.im == other.im
+    }
 }
 
 impl Complex {
     pub fn new(re: Real, im: Real) -> Complex {
-        Complex { re, im }
+        let presentation = if re.presentation() == RealPresentation::Sexagesimal
+            || im.presentation() == RealPresentation::Sexagesimal
+        {
+            ComplexPresentation::Sexagesimal
+        } else {
+            ComplexPresentation::Rectangular
+        };
+        Complex {
+            re: re.with_presentation(RealPresentation::Decimal),
+            im: im.with_presentation(RealPresentation::Decimal),
+            presentation,
+        }
+    }
+
+    pub fn presentation(self) -> ComplexPresentation {
+        self.presentation
+    }
+    pub fn with_presentation(mut self, presentation: ComplexPresentation) -> Self {
+        self.presentation = presentation;
+        self
     }
 
     pub fn add(self, o: Complex) -> Result<Complex, MathError> {
-        Ok(Complex::new(self.re.add(o.re)?, self.im.add(o.im)?))
+        Ok(Complex::new(self.re.add(o.re)?, self.im.add(o.im)?)
+            .with_presentation(self.presentation))
     }
 
     pub fn sub(self, o: Complex) -> Result<Complex, MathError> {
-        Ok(Complex::new(self.re.sub(o.re)?, self.im.sub(o.im)?))
+        Ok(Complex::new(self.re.sub(o.re)?, self.im.sub(o.im)?)
+            .with_presentation(self.presentation))
     }
 
     pub fn mul(self, o: Complex) -> Result<Complex, MathError> {
         let re = self.re.mul(o.re)?.sub(self.im.mul(o.im)?)?;
         let im = self.re.mul(o.im)?.add(self.im.mul(o.re)?)?;
-        Ok(Complex::new(re, im))
+        Ok(Complex::new(re, im).with_presentation(self.presentation))
     }
 
     pub fn div(self, o: Complex) -> Result<Complex, MathError> {
@@ -43,7 +80,8 @@ impl Complex {
         let den = c.mul(c)?.add(d.mul(d)?)?;
         let re = a.mul(c)?.add(b.mul(d)?)?.div(den)?;
         let im = b.mul(c)?.sub(a.mul(d)?)?.div(den)?;
-        Ok(Complex::new(re.scale10(j - k)?, im.scale10(j - k)?))
+        Ok(Complex::new(re.scale10(j - k)?, im.scale10(j - k)?)
+            .with_presentation(self.presentation))
     }
 
     /// Decimal exponent of the larger part (0 for zero).
@@ -57,7 +95,7 @@ impl Complex {
     }
 
     pub fn neg(self) -> Complex {
-        Complex::new(self.re.neg(), self.im.neg())
+        Complex::new(self.re.neg(), self.im.neg()).with_presentation(self.presentation)
     }
 
     pub fn conj(self) -> Complex {
@@ -65,17 +103,32 @@ impl Complex {
     }
 
     pub fn abs(self) -> Result<Real, MathError> {
-        // Scaled by an exact power of ten (same digits as the unscaled
-        // formula when that stays in range) so `re² + im²` cannot overflow
-        // or flush to zero: |3E300+4E300i| = 5E300.
+        // Decimal scaling keeps the binary norm in range across the entire
+        // calculator exponent range: |3E300+4E300i| = 5E300. Round the norm
+        // once, rather than rounding each squared component before adding.
+        // G1 ABS(2∡1) retains the final digit lost by those intermediate rounds.
         let k = self.scale_exp();
         let (a, b) = (self.re.scale10(-k)?, self.im.scale10(-k)?);
-        a.mul(a)?.add(b.mul(b)?)?.sqrt()?.scale10(k)
+        Real::from_f64(a.to_f64().hypot(b.to_f64()))?
+            .scale10(k)
+            .map(|value| {
+                value.with_presentation(if self.presentation == ComplexPresentation::Sexagesimal {
+                    RealPresentation::Sexagesimal
+                } else {
+                    RealPresentation::Decimal
+                })
+            })
     }
 
     /// Argument in radians.
     pub fn arg_radians(self) -> Result<Real, MathError> {
-        Real::from_f64(self.im.to_f64().atan2(self.re.to_f64()))
+        // atan2 is scale invariant. Normalize by an exact decimal exponent
+        // before f64 conversion so both components do not overflow or flush
+        // to zero outside the binary float exponent range.
+        let scale = self.scale_exp();
+        let imaginary = self.im.scale10(-scale)?.to_f64();
+        let real = self.re.scale10(-scale)?.to_f64();
+        Real::from_f64(imaginary.atan2(real))
     }
 
     pub fn sqrt(self) -> Result<Complex, MathError> {
@@ -86,7 +139,8 @@ impl Complex {
             let h = e.div_euclid(2);
             let z = Complex::new(self.re.scale10(-2 * h)?, self.im.scale10(-2 * h)?);
             let r = z.sqrt()?;
-            return Ok(Complex::new(r.re.scale10(h)?, r.im.scale10(h)?));
+            return Ok(Complex::new(r.re.scale10(h)?, r.im.scale10(h)?)
+                .with_presentation(self.presentation));
         }
         let (re, im) = (self.re.to_f64(), self.im.to_f64());
         let r = re.hypot(im);
@@ -94,7 +148,8 @@ impl Complex {
         let b = ((r - re) / 2.0)
             .sqrt()
             .copysign(if im == 0.0 { 1.0 } else { im });
-        Ok(Complex::new(Real::from_f64(a)?, Real::from_f64(b)?))
+        Ok(Complex::new(Real::from_f64(a)?, Real::from_f64(b)?)
+            .with_presentation(self.presentation))
     }
 
     pub fn is_real(self) -> bool {
@@ -103,10 +158,25 @@ impl Complex {
 
     /// `a+b*i` as displayed on the Prime (unverified spacing and sign rules).
     pub fn format(self, opts: FormatOptions) -> String {
-        if self.im.is_zero() {
-            return self.re.format(opts);
+        if self.presentation == ComplexPresentation::Polar && !self.im.is_zero() {
+            return self
+                .format_polar(opts)
+                .unwrap_or_else(|error| error.to_string());
         }
-        let im_abs = self.im.abs();
+        let real_presentation = if self.presentation == ComplexPresentation::Sexagesimal {
+            RealPresentation::Sexagesimal
+        } else {
+            RealPresentation::Decimal
+        };
+        let re = self.re.with_presentation(real_presentation);
+        let im = self.im.with_presentation(real_presentation);
+        if self.im.is_zero() {
+            return re.format(opts);
+        }
+        if opts.complex_format == crate::ComplexFormat::Pair {
+            return format!("({},{})", re.format(opts), im.format(opts));
+        }
+        let im_abs = im.abs();
         let im_part = if im_abs == Real::ONE {
             "i".to_string()
         } else {
@@ -120,7 +190,55 @@ impl Complex {
             }
         } else {
             let sign = if self.im.is_negative() { '-' } else { '+' };
-            format!("{}{sign}{im_part}", self.re.format(opts))
+            format!("{}{sign}{im_part}", re.format(opts))
+        }
+    }
+
+    pub fn format_polar(self, opts: FormatOptions) -> Result<String, MathError> {
+        let magnitude = self.abs()?;
+        let angle = if self.im.is_zero() && !self.re.is_negative() {
+            Real::ZERO
+        } else if opts.angle != AngleMode::Radians && (self.re.is_zero() || self.im.is_zero()) {
+            let quarter = opts.angle.full_turn() / 4.;
+            Real::from_f64(if self.im.is_zero() {
+                2. * quarter
+            } else if self.im.is_negative() {
+                -quarter
+            } else {
+                quarter
+            })?
+        } else {
+            let radians = self.arg_radians()?.to_f64();
+            Real::from_f64(match opts.angle {
+                AngleMode::Radians => radians,
+                AngleMode::Degrees => radians.to_degrees(),
+                AngleMode::Gradians => radians * 200. / std::f64::consts::PI,
+            })?
+        };
+        Ok(format!("{}∡{}", magnitude.format(opts), angle.format(opts)))
+    }
+}
+
+#[cfg(test)]
+mod argument_tests {
+    use super::*;
+    #[test]
+    fn argument_is_scale_invariant_across_full_decimal_range() {
+        for scale in ["1E400", "1E-400", "1"] {
+            let part = Real::parse(scale).unwrap();
+            let angle = Complex::new(part, part).arg_radians().unwrap().to_f64();
+            assert!(
+                (angle - std::f64::consts::FRAC_PI_4).abs() < 1e-12,
+                "{scale}: {angle}"
+            );
+            let angle = Complex::new(Real::ZERO, part.neg())
+                .arg_radians()
+                .unwrap()
+                .to_f64();
+            assert!(
+                (angle + std::f64::consts::FRAC_PI_2).abs() < 1e-11,
+                "{scale}: {angle}"
+            );
         }
     }
 }

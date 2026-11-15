@@ -1,0 +1,93 @@
+{
+  "provenance": "Original isolated virtual HP Prime G1 firmware. No physical verification or vendor code, font or screenshot bytes bundled.",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "definitions": {
+    "F1": "X^2+1",
+    "F2": "F1(X)+2",
+    "F3": "SIN(X)"
+  },
+  "controls": [
+    {
+      "case": "sheet_default",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Spreadsheet\"); Spreadsheet.F1:=42; RETURN STRING({F1(2),Spreadsheet.F1(2),TYPE(F1(2)),F1(0),Spreadsheet.F1}); END;",
+      "source_sha256": "0e9c635fbf18321b16759a1a00befd70862d67a56dc01d6768ed2a57e51c683b",
+      "result": "{\"\",\"\",2,42,42}"
+    },
+    {
+      "case": "sheet_named",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Spreadsheet\"); Spreadsheet.F1(2):=\"FN_CELL\"; RETURN STRING({F1(2),Spreadsheet.F1(2),TYPE(F1(2)),Spreadsheet.F1}); END;",
+      "source_sha256": "0df2a9ec76c9103e0af810936bb57490eec464af17fd1ccfa23f33c9ab2b8423",
+      "result": "{\"FN_CELL\",\"FN_CELL\",2,42}"
+    },
+    {
+      "case": "qualified_nested",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Spreadsheet\"); RETURN STRING({Function.F1(2),Function.F2(2),F1(2),Spreadsheet.F1(2)}); END;",
+      "source_sha256": "ef8bd0e948cdbb1fa0f79417dbe2ce04940d20c37dddd474d0f363b68050a674",
+      "result": "{5,\"FN_CELL2\",\"FN_CELL\",\"FN_CELL\"}"
+    },
+    {
+      "case": "function_types",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); RETURN STRING({F1(2),TYPE(F1(2)),F1(#FF:8h),TYPE(F1(#FF:8h)),F1({1,2}),TYPE(F1({1,2}))}); END;",
+      "source_sha256": "f37ab67ed081dca827bdd104ce3a688a6763a4997363211425510f530852973e",
+      "result": "{5,0,65026,0,{2,5},6}"
+    },
+    {
+      "case": "list",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); RETURN F1({1,2}); END;",
+      "source_sha256": "8c3908382d50df9ff9779b093e945570a729e51c34989476af5c43d6e8e39750",
+      "result": "{2, 5}"
+    },
+    {
+      "case": "complex",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); HComplex:=1; AComplex:=1; RETURN F1((1,2)); END;",
+      "source_sha256": "15822747da0e13d21535cf7dc3f8e5ce7d4d0e31caebf17a4e0456619a086164",
+      "result": "(-2,4)"
+    },
+    {
+      "case": "word",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); RETURN F1(#FF:8h); END;",
+      "source_sha256": "d598d71091c95b13531a5203fd8af051da17078ac25c3b6c9fc88f8b9d989bcf",
+      "result": "65026"
+    },
+    {
+      "case": "qualified",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Spreadsheet\"); X:=99; RETURN {Function.F1(2),Function.F2(2),X}; END;",
+      "source_sha256": "a14127dc95d899e87fdbe397831518df14c75b813bf88c58013ca6b3db97a80e",
+      "result": "{5, 1, 99}"
+    },
+    {
+      "case": "function_angle",
+      "source": "EXPORT ZZT_FCALL() BEGIN HAngle:=1; STARTAPP(\"Function\"); AAngle:=1; RETURN {F3(90),HAngle,AAngle}; END;",
+      "source_sha256": "a656ffff51071af1f87b8270aa0894a4b2f622a9f099a85f88ff5daf77faf630",
+      "result": "{0.893996663601, 1, 1}"
+    },
+    {
+      "case": "qualified_angle",
+      "source": "EXPORT ZZT_FCALL() BEGIN HAngle:=1; STARTAPP(\"Function\"); AAngle:=1; STARTAPP(\"Spreadsheet\"); AAngle:=3; RETURN {Function.F3(90),HAngle,AAngle}; END;",
+      "source_sha256": "e53e2be1224424a8e7d24c87cd4baa6fbfcd1d907657d25769a9c9579fbd34f1",
+      "result": "{0.987688340595, 1, 3}"
+    },
+    {
+      "case": "direct",
+      "source": "EXPORT ZZT_FCALL() BEGIN RETURN {F1(0),F1(2),F2(2)}; END;",
+      "source_sha256": "8835affaf8b52e1bb65a75c3d39d5e0e89b11e7088a4da79e3597d40bf859488",
+      "result": "{1, 5, 7}"
+    },
+    {
+      "case": "cross_app",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Spreadsheet\"); X:=99; RETURN {F1(2),F2(2),X}; END;",
+      "source_sha256": "6b436a95224c977a081edb15646b16d6436f6d2a2ea8f84aca464fa938bb1155",
+      "result": "{-1, -1, 99}"
+    }
+  ],
+  "limitations": [
+    "Function definition reads and writes, other app function families, and Function calls from worksheet cell formulas are not implemented by this service.",
+    "Foreign-caller Function bodies retain caller app name resolution and app calculation settings. Worksheet content itself uses Spreadsheet settings.",
+    "Unallocated versus allocated cell names are controlled; names on format-only or previously cleared cells need further original firmware controls."
+  ]
+}

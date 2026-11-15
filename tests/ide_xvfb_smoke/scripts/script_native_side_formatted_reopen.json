@@ -1,0 +1,122 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_formatted_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 40
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_polar_toggle"
+    },
+    {
+      "step": "type",
+      "text": "STRING(A*2)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "dms_after_restart"
+    },
+    {
+      "step": "type",
+      "text": "STRING(L1(2))"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "collection_after_restart"
+    },
+    {
+      "step": "type",
+      "text": "B*2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_after_restart"
+    },
+    {
+      "step": "type",
+      "text": "→HMS(54.8763)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "hms_command"
+    },
+    {
+      "step": "type",
+      "text": "HMS→(Ans)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "hms_from_command"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_formatted_reopen.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "provenance": "Original isolated virtual G1 firmware screens; no physical verification or vendor screenshot/font bytes bundled.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "guide_pages": [
+    77,
+    637,
+    638
+  ],
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "operation": "Function Symbolic Setup",
+      "capture": "03-symbolic-setup.png",
+      "png_sha256": "990cc9d49fd77c34ed50033e8455f8ac0e3d906e16b59b489f476ca4f640d3de",
+      "fields": {
+        "angle": [
+          153,
+          24,
+          314,
+          45
+        ],
+        "format": [
+          153,
+          50,
+          266,
+          70
+        ],
+        "complex": [
+          153,
+          76,
+          314,
+          96
+        ]
+      },
+      "paper": 15266294,
+      "softkeys": [
+        "",
+        "Choose",
+        "",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "operation": "format dropdown",
+      "capture": "06-symbolic-format.png",
+      "png_sha256": "570e4180f44d0b50f8b64bdfe8b10c2dfe7487e7e192219481f88cde9e03d398",
+      "choices": [
+        "System",
+        "Standard",
+        "Fixed",
+        "Scientific",
+        "Engineering",
+        "Floating",
+        "Rounded"
+      ]
+    },
+    {
+      "operation": "Floating and Rounded digit fields",
+      "capture": "01-floating.png",
+      "png_sha256": "cde78008e071c0d3abf5f59d4cad86e438203ec3385a6bcb3e1c6c312921a759",
+      "second_capture": "02-rounded.png",
+      "second_png_sha256": "9f05a56d61aaee2cb41334f88d9771b5f9ccc6414fd0da992d3ea9d4224daa95",
+      "digits_field": [
+        268,
+        50,
+        314,
+        70
+      ]
+    },
+    {
+      "operation": "decimal digit dropdown",
+      "capture": "01-digits-menu.png",
+      "png_sha256": "f5f54d5cad0026109d2195e5c77668c4f4acb72a22ebc35bbf15274392899ddf",
+      "visible_rows": 9,
+      "menu": [
+        266,
+        23,
+        315,
+        212
+      ],
+      "selected": 4,
+      "choices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    }
+  ],
+  "backend_controls": "native-app-format-controls.json",
+  "version_note": "The original15751 UI and six PPL controls accept AFormat0..6/ADigits0..11. This supersedes the narrower ranges printed in the2016 guide for this tested revision.",
+  "tests": [
+    "tests/ide_xvfb_smoke/scripts/script_native_side_function_setup.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_function_setup_reopen.json",
+    "tests/ide_xvfb_smoke/assert_native_function_setup.py"
+  ],
+  "limits": [
+    "Only Function Symbolic Setup receives this measured layout; other app setup screens remain simpler layouts.",
+    "Full Function Numeric/Plot/setup controls and app functions remain required work.",
+    "This fixture establishes choices and geometry, not byte-for-byte full-screen pixel parity."
+  ]
+}

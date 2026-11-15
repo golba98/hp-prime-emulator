@@ -227,7 +227,7 @@ fn test_dimgrob_and_sizes() {
     END;
     "#;
     let (lines, _, _) = run_ppl(code);
-    assert_eq!(lines, vec!["40", "25", "65280"]); // 65280 is 0x00FF00
+    assert_eq!(lines, vec!["40", "25", "#FF00h"]); // 65280 is 0x00FF00
 }
 
 // ============================================================================
@@ -677,8 +677,8 @@ fn test_graphics_primitives() {
     END;
     "#;
     let (lines, _, _) = run_ppl(code);
-    assert_eq!(lines[0], "16711680");
-    assert_eq!(lines[1], "16777215");
+    assert_eq!(lines[0], "#FF0000h");
+    assert_eq!(lines[1], "#FFFFFFh");
 }
 
 // ============================================================================
@@ -981,8 +981,8 @@ fn test_graphics_draw_primitives() {
     END;
     "#;
     let (lines, _, _) = run_ppl(code);
-    assert_eq!(lines[0], "0"); // Black line pixel
-    assert_eq!(lines[1], "16777215"); // White off-line pixel
-    assert_eq!(lines[2], "255"); // Blue pixel (0x0000FF)
-    assert_eq!(lines[3], "16776960"); // Inverted blue pixel (0xFFFF00)
+    assert_eq!(lines[0], "#0h"); // Black line pixel
+    assert_eq!(lines[1], "#FFFFFFh"); // White off-line pixel
+    assert_eq!(lines[2], "#FFh"); // Blue pixel (0x0000FF)
+    assert_eq!(lines[3], "#FFFF00h"); // Inverted blue pixel (0xFFFF00)
 }

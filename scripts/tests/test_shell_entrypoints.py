@@ -26,6 +26,7 @@ class ShellEntrypointTests(unittest.TestCase):
             environment = dict(
                 os.environ, PATH=f"{directory}:{os.environ['PATH']}"
             )
+            environment.pop("CARGO_TARGET_DIR", None)
             for arguments in (
                 ["check", "--workspace", "--all-targets"],
                 ["test", "--workspace", "--all-targets"],
@@ -46,7 +47,9 @@ class ShellEntrypointTests(unittest.TestCase):
                 self.assertEqual(Path(value["cwd"]), ROOT)
                 self.assertEqual(
                     Path(value["target"]).resolve(),
-                    (ROOT.parent / ".cache/prime-emulator-target").resolve(),
+                    (
+                        ROOT.parent / ".cache/prime-emulator-target-compact"
+                    ).resolve(),
                 )
             environment["FAKE_CARGO_EXIT"] = "37"
             result = subprocess.run(

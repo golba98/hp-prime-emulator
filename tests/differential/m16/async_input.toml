@@ -1,0 +1,65 @@
+schema_version = 2
+id = "m16_async_input"
+[programs.ZZT_M16INPUT]
+source = '''
+EXPORT M16IKEY() BEGIN WAIT(0); RETURN 7; END;
+EXPORT M16ITOUCH() BEGIN LOCAL e; e:=WAIT(-1); RETURN {B→R(e(1)),B→R(e(2)),B→R(e(3))}; END;
+'''
+[[steps]]
+action = "import"
+id = "load"
+program = "ZZT_M16INPUT"
+[[steps]]
+action = "start"
+id = "key_run"
+program = "ZZT_M16INPUT"
+entry = "M16IKEY"
+[[steps]]
+action = "key"
+id = "enter_down"
+code = 30
+down = true
+[[steps]]
+action = "key"
+id = "enter_up"
+code = 30
+down = false
+[[steps]]
+action = "await"
+id = "key_result"
+run = "key_run"
+timeout_ms = 30000
+[[steps]]
+action = "start"
+id = "touch_run"
+program = "ZZT_M16INPUT"
+entry = "M16ITOUCH"
+[[steps]]
+action = "touch"
+id = "touch_down"
+status = 1
+x = 100
+y = 50
+[[steps]]
+action = "touch"
+id = "touch_up"
+status = 8
+x = 100
+y = 50
+[[steps]]
+action = "await"
+id = "touch_result"
+run = "touch_run"
+timeout_ms = 30000
+[[expect]]
+step = "enter_down"
+path = "/delivery_level"
+value = "queued"
+[[expect]]
+step = "key_result"
+path = "/return_value"
+value = {type="real",value="7"}
+[[expect]]
+step = "touch_result"
+path = "/return_value"
+value = {type="list",value=[{type="real",value="0"},{type="real",value="100"},{type="real",value="50"}]}

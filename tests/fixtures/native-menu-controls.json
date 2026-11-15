@@ -1,0 +1,267 @@
+{
+  "provenance": "Self-authored PPL programs executed by the original installed G1 firmware in disposable profiles. Hashes cover every pixel of complete320x240 RGB frames during actual WAIT(0). No vendor pixels or resources bundled.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "resource_sha256": "cf50aa599e236a10d24761f15217c5c97473603f208fb4ba14b4cd84c36b8edf",
+  "cases": [
+    {
+      "name": "three",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"ABC\",\"\",\"DEF\"); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "0f9a474455b94967d48666a03d3541b017da15f129ed1ef0edd78ea9d1b4eb22",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "678c804e10249d31e2a0501e4f5df962999591e799d087abdc72d2e9eed49dbb"
+    },
+    {
+      "name": "list",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"ABC\",\"\",\"DEF\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "64532bdaa4adf0efa376a1c8073961bd0184ca5fa13a51b767365a2679512e24",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "678c804e10249d31e2a0501e4f5df962999591e799d087abdc72d2e9eed49dbb"
+    },
+    {
+      "name": "six",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"One\",\"Two\",\"Three\",\"Four\",\"Five\",\"Six\"); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "65df0cd8bf4491c985e743b2168605beb179a5bb16e5ca9a58ffd63fc3b7b079",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "17a1b2f33d6d1f8a435ae54c118352e5be9bd18e0c4807c3d4f9a0941ebd571a"
+    },
+    {
+      "name": "unicode",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"π√∑\",\"A very long label\",\"G1\",\"x²\",\"2/3\",\"ⅈ\"); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "7c3ac13aa57f82e37433233c63b55a66797f14a177ac5f775d7620941d73504e",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "137de1168b933e2d950f76f0aeb11e186f50e949b0ff25ccb51661d4887c8f0e"
+    },
+    {
+      "name": "empty_list",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "8c93539cc95a7d25093e32699184068ee16d141591971653aaa7ed250796a0c2",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "aef521b9484dfde5f382fb1998bfef291c461bd194b7343e1ff80aecb28896c1"
+    },
+    {
+      "name": "seven_list",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\",\"B\",\"C\",\"D\",\"E\",\"F\",\"G\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "2804157087d98d9fa1406508d261133db20a654f1c5ff52dfe33098befe3e6f5",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "9a79309b1b1e11cf57872535898fd354693f18528092b66193688fd28267bccb"
+    },
+    {
+      "name": "nested",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A\",\"B\"},2,1/3,(-1,2),#FFh}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "3e60113f4b2cc34dfff120f0836dac04dcc91676900e80d19d8194643ec1ad8c",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "cbc657a14f8b53d16fe9cc965555bfa27350fa7bf34ca25de73e86ef26a324d5"
+    },
+    {
+      "name": "num",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(12345); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "a5fba755b69bac9eca4da44075c3bc0c0f9d99c88d95bc8f023b9b7226360efa",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "01cb054dabef5f3baa662caaef51e3d12bb61344a17c88023f3f732fa388b41f"
+    },
+    {
+      "name": "long",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A very long label\",\"abcdefghijkl\",\"12345678901234567890\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "5769b599d55270590afa349104cbb87197935bd141e0fe96daae6db607eb4539",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "1422f0313af23d87574165b9c25bc7b2adb46742dda1025897c8ea2ad89d815a"
+    },
+    {
+      "name": "newline",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\"+CHAR(10)+\"B\",\"AB\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "bdb52ea00725c0f893cb44870a5ad214dce67ee34f33e643b2606ef35bf6fd75",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "7b6ed3d01afa6fea85d6b18d1e3efe0a51fc0ff4fabead00268f676c6c8e0bbd"
+    },
+    {
+      "name": "collections",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A\",\"B\"},{1,2},{{1,2},{3,4}},[1,2],[[1,2],[3,4]],\"A,B\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "f85416df5bbd541140e1190bac7e29fdae455ed64139fe1b85bfc8c923a3e9b0",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "32cb53e51af4f682f68289aca5dcf3b91777d248d09aa56b9d03c7a677ddbe30"
+    },
+    {
+      "name": "controls",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"AB\"+CHAR(0)+\"CD\",\"A\"+CHAR(13)+\"B\",\"A\"+CHAR(9)+\"B\",\"A\"+CHAR(10)+\"B\",\"AB\",\"A,B\"}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "955d7ea5ade73a7609ec843fd04360bdcff6221700296a1cff963904fcff88a2",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "0e659a084210e8469e02607125e943a4b2eed81de09fb3a4f5d9bc2573ed892d"
+    },
+    {
+      "name": "strings",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A,B\",\"C\"},{\"A\"+CHAR(34)+\"B\",\"C\"},{(1,2),(3,4)},{{\"A\"},\"B\"}}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "0a5d4c41c81dc6a762e9453cbe83e90a305de263d6861572ca3b258253b0c2bd",
+      "entry": "MENUREF",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      },
+      "rgb_sha256": "99cd42ed6411843561d6f6765649b6aa8c596a6f4f63a9c0f912290077d34a47"
+    }
+  ]
+}

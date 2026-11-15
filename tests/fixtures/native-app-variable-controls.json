@@ -1,0 +1,35 @@
+{
+  "provenance": "Self-authored PPL executed by original installed15751 firmware in a new disposable virtual profile. Actual INPUT keyboard interaction and returned numeric list. No physical device or vendor bytes bundled.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "cancel",
+      "source": "EXPORT APPINPUT() BEGIN Spreadsheet.A1:=7; LOCAL r:=INPUT(Spreadsheet.A1); RETURN {r,Spreadsheet.A1}; END;",
+      "source_sha256": "cf1379447a4871e928b4e82a5e2c901581573b91116b58f19c24b6182618275c",
+      "entry": "APPINPUT",
+      "interaction": "Escape cancels",
+      "expected": [
+        0,
+        7
+      ],
+      "screenshot_sha256": {
+        "cancel-dialog.png": "a5a64b818a38df5843a65d3066346097849128055c82c877ca6cf36e1d7f90f1"
+      }
+    },
+    {
+      "name": "confirm",
+      "source": "EXPORT APPINPUT() BEGIN Spreadsheet.A1:=7; LOCAL r:=INPUT(Spreadsheet.A1); RETURN {r,Spreadsheet.A1}; END;",
+      "source_sha256": "cf1379447a4871e928b4e82a5e2c901581573b91116b58f19c24b6182618275c",
+      "entry": "APPINPUT",
+      "interaction": "Backspace clears initial7; actual text42; Enter confirms",
+      "expected": [
+        1,
+        42
+      ],
+      "screenshot_sha256": {
+        "confirm-dialog.png": "a5a64b818a38df5843a65d3066346097849128055c82c877ca6cf36e1d7f90f1",
+        "confirm-edited.png": "6ef6acf02e58c78cf6ed706a86c99185ac24f99842946c6b6efba4618e7fe66b"
+      }
+    }
+  ]
+}

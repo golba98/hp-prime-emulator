@@ -10,10 +10,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use ppl_graphics::Grob;
 use ppl_graphics::text::render_terminal;
 use ppl_vm::error::{ErrorKind, RuntimeError};
-use ppl_vm::host::{Dialog, DialogResult, Host, Touch};
+use ppl_vm::host::{Dialog, DialogResult, Host, MouseContact, MouseKind, MouseState, Touch};
 
 pub use crate::dialog::KeyPress;
-use crate::dialog::make_dialog;
+use crate::dialog::{DialogEvent, make_dialog};
 
 pub type RedrawCallback = Box<dyn Fn() + Send + Sync + 'static>;
 
@@ -27,14 +27,48 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+pub struct CalculatorViewRequest {
+    pub request: ppl_vm::host::CalculatorView,
+    pub reply: std::sync::mpsc::Sender<Result<ppl_vm::host::CalculatorViewOutcome, String>>,
+    pub context: Option<ppl_vm::SessionSnapshot>,
+    pub await_plot: bool,
+    /// The creating execution, not the keyboard/dialog input generation.
+    pub epoch: u64,
+}
+pub struct AppVariableRequest {
+    pub request: ppl_vm::host::AppVariableRequest,
+    pub context: ppl_vm::SessionSnapshot,
+    pub reply: std::sync::mpsc::Sender<Result<ppl_vm::PortableValue, RuntimeError>>,
+    pub epoch: u64,
+    pub cancelled: Arc<AtomicBool>,
+}
+struct AppRequestGuard(Arc<AtomicBool>);
+impl Drop for AppRequestGuard {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Release);
+    }
+}
+
 /// Shared state between the VM worker thread and the GUI window thread.
 pub struct GuiSharedState {
+    pub app_variable_service: AtomicBool,
+    pub app_variables: Mutex<VecDeque<AppVariableRequest>>,
+    pub calculator_views: Mutex<VecDeque<CalculatorViewRequest>>,
+    /// Installed, validated fonts selected for subsequent Native operations.
+    /// Each worker snapshots the selection before executing its first command.
+    pub prime_fonts: Mutex<Option<Arc<ppl_graphics::text::prime::PrimeFonts>>>,
     /// Currently presented framebuffer (G0 or terminal).
     pub screen: Mutex<Grob>,
     /// Monotonically increasing counter bumped on each present.
     pub screen_generation: AtomicU64,
+    /// Actual program output requested during the current operation.
+    pub output_requested: AtomicBool,
     pub input_epoch: AtomicU64,
+    /// Execution ownership is independent of keyboard/dialog focus changes.
+    pub operation_epoch: AtomicU64,
     pub active_dialog: Mutex<Option<Dialog>>,
+    dialog_events: Mutex<VecDeque<DialogEvent>>,
+    dialog_clipboard: Mutex<Option<String>>,
     /// FIFO queue for `GETKEY`, `WAIT` and dialogs. Entries without an HP
     /// key code (a typed character only) are skipped by `GETKEY`/`WAIT`.
     pub key_queue: Mutex<VecDeque<KeyPress>>,
@@ -45,6 +79,8 @@ pub struct GuiSharedState {
     pub key_condvar: Condvar,
     /// Current mouse/touch state.
     pub touch_pos: Mutex<Option<Touch>>,
+    /// Both pointer packets are read atomically; GUI mouse input owns pointer0.
+    mouse: Mutex<Result<MouseState, ()>>,
     /// Terminal output history.
     pub terminal_lines: Mutex<Vec<String>>,
     /// Interruption flag for clean worker cancellation.
@@ -67,14 +103,23 @@ impl Default for GuiSharedState {
 impl GuiSharedState {
     pub fn new() -> Self {
         Self {
+            app_variable_service: AtomicBool::new(false),
+            app_variables: Mutex::new(VecDeque::new()),
+            calculator_views: Mutex::new(VecDeque::new()),
+            prime_fonts: Mutex::new(None),
             screen: Mutex::new(Grob::screen()),
             screen_generation: AtomicU64::new(0),
+            output_requested: AtomicBool::new(false),
             input_epoch: AtomicU64::new(0),
+            operation_epoch: AtomicU64::new(0),
             active_dialog: Mutex::new(None),
+            dialog_events: Mutex::new(VecDeque::new()),
+            dialog_clipboard: Mutex::new(None),
             key_queue: Mutex::new(VecDeque::new()),
             held_keys: Mutex::new(HashSet::new()),
             key_condvar: Condvar::new(),
             touch_pos: Mutex::new(None),
+            mouse: Mutex::new(Ok(MouseState::default())),
             terminal_lines: Mutex::new(Vec::new()),
             interrupt: Arc::new(AtomicBool::new(false)),
             redraw_callback: Mutex::new(None),
@@ -104,8 +149,45 @@ impl GuiSharedState {
 
     /// Feeds a key event (HP code and/or typed character) into the queue.
     pub fn push_key_press(&self, press: KeyPress) {
-        lock(&self.key_queue).push_back(press);
+        if lock(&self.active_dialog).is_some() {
+            self.push_dialog_event(DialogEvent::Key(press));
+        } else {
+            lock(&self.key_queue).push_back(press);
+            self.key_condvar.notify_all();
+        }
+    }
+
+    /// Queue a modal edit/tap without touching the UI-owned state machine.
+    pub fn push_dialog_event(&self, event: DialogEvent) {
+        let _queue = lock(&self.key_queue);
+        lock(&self.dialog_events).push_back(event);
         self.key_condvar.notify_all();
+    }
+    pub fn publish_clipboard(&self, text: String) {
+        *lock(&self.dialog_clipboard) = Some(text);
+        self.notify_redraw();
+    }
+    pub fn take_dialog_clipboard(&self) -> Option<String> {
+        lock(&self.dialog_clipboard).take()
+    }
+    fn wait_dialog_event(&self) -> Result<DialogEvent, RuntimeError> {
+        let mut keys = lock(&self.key_queue);
+        loop {
+            if self.is_interrupted() {
+                return Err(RuntimeError::kind(ErrorKind::Interrupted));
+            }
+            if let Some(key) = keys.pop_front() {
+                return Ok(DialogEvent::Key(key));
+            }
+            if let Some(event) = lock(&self.dialog_events).pop_front() {
+                return Ok(event);
+            }
+            keys = self
+                .key_condvar
+                .wait_timeout(keys, WAIT_SLICE)
+                .unwrap_or_else(|e| e.into_inner())
+                .0;
+        }
     }
 
     /// Updates the pressed/released state of a key.
@@ -137,6 +219,38 @@ impl GuiSharedState {
 
     /// Updates the touch/mouse position.
     pub fn set_touch(&self, touch: Option<Touch>) {
+        let mut packet = lock(&self.mouse);
+        *packet = match touch {
+            None => Ok(MouseState::default()),
+            Some(touch) => match (i16::try_from(touch.x), i16::try_from(touch.y)) {
+                (Ok(x), Ok(y)) => {
+                    let previous = packet.as_ref().ok().and_then(|state| state.pointers[0]);
+                    let contact = match previous {
+                        Some(previous) => MouseContact {
+                            x,
+                            y,
+                            kind: if previous.x == x && previous.y == y {
+                                previous.kind
+                            } else {
+                                MouseKind::Drag
+                            },
+                            ..previous
+                        },
+                        None => MouseContact {
+                            x,
+                            y,
+                            origin_x: x,
+                            origin_y: y,
+                            kind: MouseKind::New,
+                        },
+                    };
+                    Ok(MouseState {
+                        pointers: [Some(contact), None],
+                    })
+                }
+                _ => Err(()),
+            },
+        };
         *lock(&self.touch_pos) = touch;
     }
 
@@ -148,6 +262,8 @@ impl GuiSharedState {
     /// notification). Without the lock the store and notify could both land
     /// between a waiter's check and its `wait`, losing the wakeup.
     pub fn interrupt(&self) {
+        self.operation_epoch.fetch_add(1, Ordering::AcqRel);
+        lock(&self.app_variables).clear();
         {
             let _guard = lock(&self.key_queue);
             self.interrupt.store(true, Ordering::SeqCst);
@@ -168,10 +284,14 @@ impl GuiSharedState {
     /// Resets all ephemeral execution state (interrupt flag, terminal lines, key queue,
     /// held keys, touch state) before starting a new run or restarting.
     pub fn reset_for_run(&self) {
+        self.operation_epoch.fetch_add(1, Ordering::AcqRel);
+        lock(&self.app_variables).clear();
         self.input_epoch.fetch_add(1, Ordering::SeqCst);
         self.reset_interrupt();
+        self.output_requested.store(false, Ordering::Release);
         lock(&self.terminal_lines).clear();
         lock(&self.key_queue).clear();
+        lock(&self.dialog_events).clear();
         self.clear_held_keys();
         self.set_touch(None);
     }
@@ -221,13 +341,19 @@ impl GuiSharedState {
 /// The GUI Host given to `ppl_vm::Machine`.
 pub struct GuiHost {
     state: Arc<GuiSharedState>,
+    operation_epoch: u64,
     /// Also write `PRINT` output to stdout (like `ppl run`).
     echo: bool,
 }
 
 impl GuiHost {
     pub fn new(state: Arc<GuiSharedState>) -> Self {
-        Self { state, echo: false }
+        let operation_epoch = state.operation_epoch.load(Ordering::Acquire);
+        Self {
+            state,
+            operation_epoch,
+            echo: false,
+        }
     }
 
     /// Echo `PRINT` output to stdout as well as the emulated terminal.
@@ -250,6 +376,63 @@ impl GuiHost {
 }
 
 impl Host for GuiHost {
+    fn app_variable_with_context(
+        &mut self,
+        request: ppl_vm::host::AppVariableRequest,
+        context: ppl_vm::SessionSnapshot,
+    ) -> Result<ppl_vm::PortableValue, RuntimeError> {
+        if !self.state.app_variable_service.load(Ordering::Acquire) {
+            return Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                "This calculator window does not provide worksheet application services",
+            ));
+        }
+        self.check_interrupt()?;
+        if self.operation_epoch != self.state.operation_epoch.load(Ordering::Acquire) {
+            return Err(RuntimeError::kind(ErrorKind::Interrupted));
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let _guard = AppRequestGuard(cancelled.clone());
+        lock(&self.state.app_variables).push_back(AppVariableRequest {
+            request,
+            context,
+            reply: tx,
+            epoch: self.operation_epoch,
+            cancelled,
+        });
+        self.state.notify_redraw();
+        loop {
+            self.check_interrupt()?;
+            if self.operation_epoch != self.state.operation_epoch.load(Ordering::Acquire) {
+                return Err(RuntimeError::kind(ErrorKind::Interrupted));
+            }
+            match rx.recv_timeout(WAIT_SLICE) {
+                Ok(result) => return result,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(_) => {
+                    return Err(RuntimeError::new(
+                        ErrorKind::Interrupted,
+                        "Application request cancelled",
+                    ));
+                }
+            }
+        }
+    }
+    fn calculator_view(
+        &mut self,
+        request: ppl_vm::host::CalculatorView,
+    ) -> Result<bool, RuntimeError> {
+        self.request_calculator_view(request, None)
+            .map(|outcome| outcome.changed)
+    }
+    fn calculator_view_with_context(
+        &mut self,
+        request: ppl_vm::host::CalculatorView,
+        context: ppl_vm::SessionSnapshot,
+    ) -> Result<ppl_vm::host::CalculatorViewOutcome, RuntimeError> {
+        self.request_calculator_view(request, Some(context))
+    }
     fn print(&mut self, text: &str) {
         if self.echo {
             use std::io::Write;
@@ -265,6 +448,9 @@ impl Host for GuiHost {
         lock(&self.state.terminal_lines).clear();
     }
 
+    fn output_requested(&mut self) {
+        self.state.output_requested.store(true, Ordering::Release);
+    }
     fn present(&mut self, screen: &Grob, terminal: Option<&[String]>) {
         let frame = if let Some(lines) = terminal {
             render_terminal(lines)
@@ -327,6 +513,16 @@ impl Host for GuiHost {
         }
     }
 
+    fn mouse_state(&mut self) -> Result<MouseState, RuntimeError> {
+        self.check_interrupt()?;
+        lock(&self.state.mouse).as_ref().copied().map_err(|()| {
+            RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Pointer coordinates exceed signed16-bit range",
+            )
+        })
+    }
+
     fn touch(&mut self) -> Result<Option<Touch>, RuntimeError> {
         self.check_interrupt()?;
         Ok(*lock(&self.state.touch_pos))
@@ -338,6 +534,7 @@ impl Host for GuiHost {
         impl Drop for ActiveDialog {
             fn drop(&mut self) {
                 *lock(&self.0.active_dialog) = None;
+                lock(&self.0.dialog_events).retain(|event| matches!(event, DialogEvent::Key(_)));
                 self.0.input_epoch.fetch_add(1, Ordering::AcqRel);
             }
         }
@@ -347,15 +544,21 @@ impl Host for GuiHost {
         let mut modal = make_dialog(dialog);
         let result = loop {
             self.present(&modal.render(screen), None);
-            let press = match self.state.wait_press(None, |_| true) {
-                Ok(Some(p)) => p,
-                Ok(None) => continue,
-                Err(e) => {
+            let event = match self.state.wait_dialog_event() {
+                Ok(event) => event,
+                Err(error) => {
                     self.present(screen, None);
-                    return Err(e);
+                    return Err(error);
                 }
             };
-            if let Some(r) = modal.handle(press) {
+            if matches!(event, DialogEvent::Copy | DialogEvent::Cut) {
+                if let Some(text) = modal.clipboard(matches!(event, DialogEvent::Cut)) {
+                    *lock(&self.state.dialog_clipboard) = Some(text);
+                    self.state.notify_redraw();
+                }
+                continue;
+            }
+            if let Some(r) = modal.event(event) {
                 break r;
             }
         };
@@ -447,6 +650,65 @@ mod tests {
         assert_eq!(host.touch().unwrap(), Some(Touch { x: 100, y: 150 }));
     }
 
+    #[test]
+    fn gui_pointer_packets_keep_origins_through_moves_and_clear_on_release_or_reset() {
+        let state = Arc::new(GuiSharedState::new());
+        let mut host = GuiHost::new(state.clone());
+        assert_eq!(host.mouse_state().unwrap(), MouseState::default());
+        state.set_touch(Some(Touch { x: 100, y: 50 }));
+        let down = MouseContact {
+            x: 100,
+            y: 50,
+            origin_x: 100,
+            origin_y: 50,
+            kind: MouseKind::New,
+        };
+        assert_eq!(host.mouse_state().unwrap().pointers, [Some(down), None]);
+        state.set_touch(Some(Touch { x: 100, y: 50 }));
+        assert_eq!(host.mouse_state().unwrap().pointers[0], Some(down));
+        state.set_touch(Some(Touch { x: 120, y: 70 }));
+        let drag = MouseContact {
+            x: 120,
+            y: 70,
+            kind: MouseKind::Drag,
+            ..down
+        };
+        assert_eq!(host.mouse_state().unwrap().pointers[0], Some(drag));
+        state.set_touch(Some(Touch { x: 120, y: 70 }));
+        assert_eq!(host.mouse_state().unwrap().pointers[0], Some(drag));
+        state.set_touch(Some(Touch { x: 100, y: 50 }));
+        assert_eq!(
+            host.mouse_state().unwrap().pointers[0],
+            Some(MouseContact {
+                kind: MouseKind::Drag,
+                ..down
+            })
+        );
+        state.set_touch(None);
+        assert_eq!(host.mouse_state().unwrap(), MouseState::default());
+        state.set_touch(Some(Touch { x: 30, y: 40 }));
+        assert_eq!(
+            host.mouse_state().unwrap().pointers[0],
+            Some(MouseContact {
+                x: 30,
+                y: 40,
+                origin_x: 30,
+                origin_y: 40,
+                kind: MouseKind::New
+            })
+        );
+        state.reset_for_run();
+        assert_eq!(host.mouse_state().unwrap(), MouseState::default());
+        state.set_touch(Some(Touch { x: i64::MAX, y: 40 }));
+        assert_eq!(
+            host.mouse_state().unwrap_err().kind,
+            ErrorKind::InvalidInput
+        );
+        state.set_touch(None);
+        assert_eq!(host.mouse_state().unwrap(), MouseState::default());
+        state.interrupt();
+        assert_eq!(host.mouse_state().unwrap_err().kind, ErrorKind::Interrupted);
+    }
     #[test]
     fn test_gui_shared_state_interrupt() {
         let state = Arc::new(GuiSharedState::new());
@@ -578,12 +840,14 @@ mod tests {
 
     fn input_dialog(current: &str, string_only: bool) -> Dialog {
         Dialog::Input {
+            report_edits: false,
             title: "T".into(),
             fields: vec![ppl_vm::host::InputField {
                 label: "A".into(),
                 help: String::new(),
                 current: current.into(),
                 string_only,
+                control: ppl_vm::host::InputControl::Edit,
                 reset_text: None,
                 position: None,
                 page_title: None,
@@ -618,6 +882,7 @@ mod tests {
             column_headers: vec![],
             rows: 1,
             cols: 2,
+            vector: false,
             cells: vec!["1".into(), "2".into()],
             read_only: false,
             error: None,
@@ -735,5 +1000,185 @@ mod tests {
         assert!(lock(&state.key_queue).is_empty());
         assert!(!state.is_key_down(42));
         assert!(lock(&state.touch_pos).is_none());
+    }
+}
+
+#[cfg(test)]
+mod modal_integration_tests {
+    use super::*;
+    use crate::dialog::DialogEvent;
+    use crate::ide::native::expression::EditCommand;
+    use std::rc::Rc;
+
+    fn execute(source: &str, events: Vec<DialogEvent>) -> String {
+        let shared = Arc::new(GuiSharedState::new());
+        let worker_shared = shared.clone();
+        let source = source.to_owned();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let file = ppl_syntax::SourceFile::new("<modal integration>", source);
+            let (program, diagnostics) = ppl_compiler::compile_source(&file, &Default::default());
+            assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+            let mut machine = ppl_vm::Machine::new(
+                Rc::new(program.unwrap()),
+                Box::new(GuiHost::new(worker_shared)),
+                Default::default(),
+                ppl_vm::Limits {
+                    max_steps: Some(100_000),
+                    ..Default::default()
+                },
+            );
+            let result = machine
+                .call_function("TEST", vec![])
+                .map(|v| v.display(machine.settings.format()));
+            tx.send(result).unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while lock(&shared.active_dialog).is_none() {
+            assert!(Instant::now() < deadline, "modal did not open");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        for event in events {
+            shared.push_dialog_event(event);
+        }
+        let result = match rx.recv_timeout(Duration::from_secs(3)) {
+            Ok(result) => result.unwrap(),
+            Err(error) => {
+                shared.interrupt();
+                worker.join().unwrap();
+                panic!("modal did not finish: {error}")
+            }
+        };
+        worker.join().unwrap();
+        assert!(lock(&shared.active_dialog).is_none());
+        assert!(lock(&shared.dialog_events).is_empty());
+        result
+    }
+    #[test]
+    fn native_ppl_input_pointer_selection_paste_and_confirm_updates_variable() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN LOCAL n:=12; LOCAL ok:=INPUT(n); RETURN {ok,n}; END;",
+                vec![
+                    DialogEvent::Pointer { x: 112, y: 45 },
+                    DialogEvent::Edit(EditCommand::SelectAll),
+                    DialogEvent::Text("34".into()),
+                    DialogEvent::Pointer { x: 30, y: 227 }
+                ]
+            ),
+            "{1,34}"
+        );
+    }
+    #[test]
+    fn native_ppl_matrix_pointer_resize_edit_and_confirm_updates_m1() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN M1:=[[1,2]]; LOCAL result:=EDITMAT(M1); RETURN {M1,result}; END;",
+                vec![
+                    DialogEvent::Pointer { x: 20, y: 199 },
+                    DialogEvent::Pointer { x: 50, y: 55 },
+                    DialogEvent::Text("9".into()),
+                    DialogEvent::Pointer { x: 30, y: 225 }
+                ]
+            ),
+            "{[[9,0],[1,2]],[[9,0],[1,2]]}"
+        );
+    }
+    #[test]
+    fn native_ppl_list_pointer_append_edit_and_confirm_updates_l1() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN L1:={1,2}; LOCAL result:=EDITLIST(L1); RETURN {L1,result}; END;",
+                vec![
+                    DialogEvent::Pointer { x: 20, y: 202 },
+                    DialogEvent::Text("9".into()),
+                    DialogEvent::Pointer { x: 30, y: 227 }
+                ]
+            ),
+            "{{1,2,9},{1,2,9}}"
+        );
+    }
+    #[test]
+    fn native_ppl_checkbox_and_choice_widgets_write_back_on_confirmation() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN LOCAL a:=0,b:=1; LOCAL ok:=INPUT({{a,1},{b,{\"First\",\"Second\"}}}); RETURN {ok,a,b}; END;",
+                vec![
+                    DialogEvent::Pointer { x: 120, y: 45 },
+                    DialogEvent::Pointer { x: 120, y: 66 },
+                    DialogEvent::Pointer { x: 40, y: 75 },
+                    DialogEvent::Pointer { x: 80, y: 198 },
+                    DialogEvent::Pointer { x: 30, y: 227 }
+                ]
+            ),
+            "{1,1,2}"
+        );
+    }
+    #[test]
+    fn input_pointer_cancel_preserves_program_variable() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN LOCAL n:=12; LOCAL ok:=INPUT(n); RETURN {ok,n}; END;",
+                vec![
+                    DialogEvent::Text("34".into()),
+                    DialogEvent::Pointer { x: 140, y: 227 }
+                ]
+            ),
+            "{0,12}"
+        );
+    }
+    #[test]
+    fn native_ppl_template_events_evaluate_inside_the_suspended_input_call() {
+        assert_eq!(
+            execute(
+                "EXPORT TEST() BEGIN LOCAL n; INPUT(n); RETURN n; END;",
+                vec![
+                    DialogEvent::Template(crate::ide::native::expression::TemplateKind::Root),
+                    DialogEvent::Text("9".into()),
+                    DialogEvent::Edit(EditCommand::Right(false)),
+                    DialogEvent::Pointer { x: 30, y: 227 }
+                ]
+            ),
+            "3"
+        );
+    }
+}
+
+impl GuiHost {
+    fn request_calculator_view(
+        &mut self,
+        request: ppl_vm::host::CalculatorView,
+        context: Option<ppl_vm::SessionSnapshot>,
+    ) -> Result<ppl_vm::host::CalculatorViewOutcome, RuntimeError> {
+        self.check_interrupt()?;
+        if self.operation_epoch != self.state.operation_epoch.load(Ordering::Acquire) {
+            return Err(RuntimeError::kind(ErrorKind::Interrupted));
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        lock(&self.state.calculator_views).push_back(CalculatorViewRequest {
+            request,
+            context,
+            await_plot: false,
+            reply: tx,
+            epoch: self.operation_epoch,
+        });
+        self.state.notify_redraw();
+        loop {
+            self.check_interrupt()?;
+            if self.operation_epoch != self.state.operation_epoch.load(Ordering::Acquire) {
+                return Err(RuntimeError::kind(ErrorKind::Interrupted));
+            }
+            match rx.recv_timeout(WAIT_SLICE) {
+                Ok(Ok(changed)) => return Ok(changed),
+                Ok(Err(error)) => return Err(RuntimeError::new(ErrorKind::Unsupported, error)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(_) => {
+                    return Err(RuntimeError::new(
+                        ErrorKind::Interrupted,
+                        "Calculator view request cancelled",
+                    ));
+                }
+            }
+        }
     }
 }

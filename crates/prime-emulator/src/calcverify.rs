@@ -143,6 +143,7 @@ fn run_once(cfg: &CalcVerifyConfig, label: &str, expression: &str) -> Result<Run
     let keys_script = format!("{},{}", cfg.setup_keys, expression);
     let keys = parse_keys(&keys_script).map_err(|e| format!("{label}: bad key script: {e}"))?;
     let run_cfg = RunConfig {
+        resume_live: false,
         heap_budget_bytes: None,
         firmware_path: cfg.firmware_path.clone(),
         os_rom_path: cfg.os_rom_path.clone(),
@@ -151,7 +152,7 @@ fn run_once(cfg: &CalcVerifyConfig, label: &str, expression: &str) -> Result<Run
         slice_instructions: 200_000,
         max_instructions: cfg.max_instructions,
         max_seconds: cfg.max_seconds,
-        on_unsupported: UnsupportedPolicy::ZeroReturn,
+        on_unsupported: UnsupportedPolicy::Stop,
         heartbeat_min_events: 3,
         inject_key: None,
         irq_tick_ms: 10,

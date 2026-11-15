@@ -1,0 +1,560 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_blit_boundaries.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "BOUND0"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND0() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,3,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "dest3"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND1() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,4,4,5,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "dest5"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND2() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,-1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_negative"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND3() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,256); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_large"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND4() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,127.5); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_fraction"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND5() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,#80h); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_word"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND6() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,-0.5,-0.5,4.5,4.5,G1,0,0,3,3); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "fractional_dest"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND7() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,1E20,1E20,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "overflow_dest"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND8() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,G1,-1E20,-1E20,1E20,1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "overflow_source"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND9() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,1E20,1E20,G1,-1E20,-1E20,1E20,1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "overflow_mixed"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND10() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,0,5,G1,0,0,3,3); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "zero_dest"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND12() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0.5); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_transparent"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND13() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,-2,-2,5,5); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "source_oversize"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND14() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,3,3,0,0); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "source_reversed"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BOUND15() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,#1h,#1h,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "word_dest"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT0() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,2147483647,2147483647,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_2147483647"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT1() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,2147483648,2147483648,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_2147483648"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT2() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,-2147483648,-2147483648,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_-2147483648"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT3() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,-2147483649,-2147483649,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_-2147483649"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT4() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,1E9,1E9,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_1E9"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT5() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,1E10,1E10,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_1E10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT6() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,65535,65535,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_65535"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LIMIT7() BEGIN DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT_P(G2,65536,65536,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_65536"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CARTLIMIT0() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT(G2,2147483647,2147483647,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_2147483647"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CARTLIMIT1() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT(G2,2147483648,2147483648,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_2147483648"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CARTLIMIT2() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT(G2,1E20,1E20,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_1E20"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CARTLIMIT3() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0; IFERR r:=BLIT(G2,1E9,1E9,G1); THEN ok:=0; END; RETURN {ok,r}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_1E9"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE0() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,2147483647.9,0,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_upper_fraction"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE1() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,-2147483648.1,0,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "pixel_lower_fraction"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE2() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,2147483648); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_upper_i32"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE3() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,-2147483649); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_lower_i32"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE4() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT_P(G2,0,0,5,5,G1,0,0,3,3,0,1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "alpha_huge"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE5() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT(G2,-1E20,1E20,1E20,-1E20,G1); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_huge_dest"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE6() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT(G2,-10,10,10,-10,G1,-1E20,1E20,1E20,-1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_huge_source"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE7() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT(G2,-1E20,1E20,1E20,-1E20,G1,-1E20,1E20,1E20,-1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_huge_both"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EDGE8() BEGIN Xmin:=-10; Xmax:=10; Ymin:=-10; Ymax:=10; DIMGROB_P(G1,3,3,#A1B2C3h); PIXON_P(G1,1,1,#123456h); DIMGROB_P(G2,5,5,#112233h); LOCAL ok:=1,r:=0,x,y,p:={}; IFERR r:=BLIT(G2,0,0,G1,-1E20,1E20,1E20,-1E20); THEN ok:=0; END; FOR y FROM 0 TO 4 DO FOR x FROM 0 TO 4 DO p:=CONCAT(p,{B\u2192R(GETPIX_P(G2,x,y))}); END; END; RETURN {ok,r,p}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cart_huge_implicit"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

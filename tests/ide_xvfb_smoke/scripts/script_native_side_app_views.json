@@ -1,0 +1,950 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_app_views.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "stats1_inputs"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats1_inputs.png"
+    },
+    {
+      "step": "new_program",
+      "name": "APPVIEWS"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Statistics 1Var\");  RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "stats1_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats1_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Statistics 1Var\");  RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "stats1_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats1_9.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 140,
+      "y": 44
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "5"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "7"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "stats2_inputs"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats2_inputs.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Statistics 2Var\");  RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "stats2_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats2_8.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "stats2_zoom"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats2_zoom.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Statistics 2Var\");  RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "stats2_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats2_9.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Parametric"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "T"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 76
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "T^2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_definition"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_parametric_definition.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_parametric_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_parametric_9.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 245,
+      "y": 137
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_table_trace"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_parametric_table_trace.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(10,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(11,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_11"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(12,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_12"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(13,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_13"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Parametric\"); AAngle:=3; HAngle:=0; Tmin:=0; Tmax:=3; NumStart:=0; NumStep:=1; RETURN STARTVIEW(13,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_app_angle"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 9
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "parametric_menu"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_parametric_menu.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Polar"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_definition"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Polar\"); HAngle:=1; Tmin:=0; Tmax:=360; NumStart:=0; NumStep:=90; RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_polar_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Polar\"); HAngle:=1; Tmin:=0; Tmax:=360; NumStart:=0; NumStep:=90; RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_polar_9.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 245,
+      "y": 111
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_table_trace"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_polar_table_trace.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Polar\"); HAngle:=1; Tmin:=0; Tmax:=360; NumStart:=0; NumStep:=90; RETURN STARTVIEW(10,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Polar\"); HAngle:=1; Tmin:=0; Tmax:=360; NumStart:=0; NumStep:=90; RETURN STARTVIEW(11,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_11"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 9
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_menu"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_polar_menu.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Sequence"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "N^2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "sequence_definition"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Sequence\"); Xmin:=1; Xmax:=6; Ymin:=0; Ymax:=40; NumStart:=1; NumStep:=1; RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "sequence_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_sequence_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Sequence\"); Xmin:=1; Xmax:=6; Ymin:=0; Ymax:=40; NumStart:=1; NumStep:=1; RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "sequence_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_sequence_9.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Sequence\"); Xmin:=1; Xmax:=6; Ymin:=0; Ymax:=40; NumStart:=1; NumStep:=1; RETURN STARTVIEW(10,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "sequence_10"
+    },
+    {
+      "step": "native_app",
+      "name": "Advanced Graphing"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "X^2+Y^2=4"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "advanced_definition"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Advanced Graphing\"); HAngle:=0; Xmin:=-3; Xmax:=3; Ymin:=-3; Ymax:=3; RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "advanced_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_advanced_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Advanced Graphing\"); HAngle:=0; Xmin:=-3; Xmax:=3; Ymin:=-3; Ymax:=3; RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "advanced_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_advanced_9.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Advanced Graphing\"); HAngle:=0; Xmin:=-3; Xmax:=3; Ymin:=-3; Ymax:=3; RETURN STARTVIEW(10,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "advanced_10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Advanced Graphing\"); HAngle:=0; Xmin:=-3; Xmax:=3; Ymin:=-3; Ymax:=3; RETURN STARTVIEW(11,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "advanced_11"
+    },
+    {
+      "step": "native_app",
+      "name": "Solve"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 90,
+      "y": 75
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "x^2=A"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_definition"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_solve_definition.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Solve\"); A:=4; HAngle:=0; Xmin:=1; Xmax:=3; Ymin:=-1; Ymax:=10; RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_solve_8.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Solve\"); A:=4; HAngle:=0; Xmin:=1; Xmax:=3; Ymin:=-1; Ymax:=10; RETURN STARTVIEW(9,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_solve_9.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Solve\"); A:=4; HAngle:=0; Xmin:=1; Xmax:=3; Ymin:=-1; Ymax:=10; RETURN STARTVIEW(10,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Solve\"); A:=4; HAngle:=0; Xmin:=1; Xmax:=3; Ymin:=-1; Ymax:=10; RETURN STARTVIEW(11,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_11"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Solve\"); A:=4; HAngle:=0; Xmin:=1; Xmax:=3; Ymin:=-1; Ymax:=10; RETURN STARTVIEW(12,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "solve_12"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Polar\");  RETURN STARTVIEW(12,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_unsupported"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Sequence\");  RETURN STARTVIEW(11,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "sequence_unsupported"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

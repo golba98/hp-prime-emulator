@@ -1,0 +1,86 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_integer.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "8"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "base_open"
+    },
+    {
+      "step": "calc_key",
+      "code": 7
+    },
+    {
+      "step": "snapshot",
+      "label": "base_shift"
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "base_saved"
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        42
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "program_management"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

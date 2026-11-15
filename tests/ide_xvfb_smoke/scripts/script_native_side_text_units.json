@@ -1,0 +1,193 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_text_units.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "TEXTCHECK"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TEXTSETUP() BEGIN HDigits:=8; RETURN HDigits; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT UNITREF() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(\"AB\",10,10,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(55296)+\"B\",10,30,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(56320)+\"B\",10,50,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(55357)+CHAR(56832)+\"B\",10,70,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(128512)+\"B\",10,90,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(0)+\"B\",10,110,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(9)+\"B\",10,130,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(13)+\"B\",10,150,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(10)+\"B\",10,170,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(65279)+\"B\",10,190,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN r; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "unitref"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_unitref.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TEXTVAL() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(12345,10,10,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P({\"A\",\"B\"},10,35,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P([[1,2],[3,4]],10,60,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P((-1,2),10,85,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(1E20,10,110,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A,B\",10,135,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(55296),10,160,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(55357)+CHAR(56832),10,185,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN {r,HSeparator,HFormat,HDigits}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "textval"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_textval.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\"+CHAR(55296)+\"B\",\"A\"+CHAR(56320)+\"B\",\"A\"+CHAR(55357)+CHAR(56832)+\"B\",CHAR(55296),CHAR(65279),CHAR(0)}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "menu_units"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_menu_units.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TEXTMORE() BEGIN RECT_P(#112233h); LOCAL k,w:={-1,0,1,5,8,9,10,13,14,15,17,18,19,22,23,24,25,26,30},x,r:={}; FOR k FROM 1 TO 19 DO IFERR x:=TEXTOUT_P(\"A\"+CHAR(55296)+\"B\",10,5+12*(k-1),3,#FFFFFFh,w(k),#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); END; WAIT(0); RETURN r; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "widths"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_widths.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TEXTCLEAR() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(\"AB\",10,5,3,#FFFFFFh,0,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,24,3,#FFFFFFh,32,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,43,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,62,3,#FFFFFFh,100,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"\",10,81,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"\",10,100,3,#FFFFFFh,0,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(0),10,119,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,138,3,#FFFFFFh,0.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,157,3,#FFFFFFh,1.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,176,3,#FFFFFFh,2.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,195,3,#FFFFFFh,-0.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,214,3,#FFFFFFh,-1.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN r; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "clear"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_clear.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TEXTBACK() BEGIN RECT_P(#112233h); LOCAL f,x,r:={}; FOR f FROM 1 TO 7 DO x:=TEXTOUT_P(\"A\",10,5+30*(f-1),f,#FFFFFFh,100,#224466h); r:=CONCAT(r,{x}); END; WAIT(0); RETURN r; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "background"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_text_background.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

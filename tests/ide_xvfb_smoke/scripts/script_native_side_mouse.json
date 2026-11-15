@@ -1,0 +1,207 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_mouse.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "MOUSECHECK",
+      "content": "EXPORT MOUSECHECK() BEGIN\n LOCAL idle:=MOUSE(),down,drag,up,p;\n REPEAT p:=MOUSE(); WAIT(0.001); UNTIL SIZE(p(1))>0;\n down:=p;\n REPEAT WAIT(0.001); UNTIL MOUSE(0)>=120;\n drag:=MOUSE();\n REPEAT p:=MOUSE(); WAIT(0.001); UNTIL SIZE(p(1))==0;\n up:=p;\n RETURN {idle,down,drag,up};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "MOUSESTILL",
+      "content": "EXPORT MOUSESTILL() BEGIN\n LOCAL p,down;\n REPEAT p:=MOUSE(); WAIT(0.001); UNTIL SIZE(p(1))>0;\n down:=p;\n REPEAT p:=MOUSE(); WAIT(0.001); UNTIL SIZE(p(1))==0;\n RETURN {down,p};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "MOUSECHECK()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 100,
+      "from_y": 50,
+      "to_x": 120,
+      "to_y": 70
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "drag"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/mouse_drag.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "MOUSE()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "idle"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/mouse_idle.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "MOUSESTILL()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 30,
+      "y": 40
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "new_contact"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/mouse_new_contact.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

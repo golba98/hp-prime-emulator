@@ -1,0 +1,98 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_clipboard.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "12345"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        9
+      ],
+      "gap_ms": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "deleted"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        13
+      ],
+      "gap_ms": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "system_paste"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "key",
+      "key": "X",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "system_cut"
+    },
+    {
+      "step": "key",
+      "key": "V",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "system_cut_paste"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

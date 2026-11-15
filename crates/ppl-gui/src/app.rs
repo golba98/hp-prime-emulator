@@ -4,14 +4,30 @@
 //! execution controller, and debugger panels into one eframe application.
 //! The plain winit calculator window lives in [`crate::window`].
 
+#[path = "app_variables.rs"]
+mod app_variable_integration;
+#[path = "app_catalog.rs"]
+mod catalog_integration;
 #[path = "app_check.rs"]
 mod checking_integration;
 #[path = "app_device.rs"]
 mod device_integration;
 #[path = "app_firmware.rs"]
 mod firmware_integration;
+#[path = "app_lcd_capture.rs"]
+mod lcd_capture_integration;
+#[path = "app_math_entry.rs"]
+mod math_entry_integration;
+#[path = "app_native_fonts.rs"]
+mod native_font_integration;
 #[path = "app_native.rs"]
 mod native_integration;
+#[path = "app_tools.rs"]
+mod native_tools_integration;
+#[path = "app_statistics.rs"]
+mod statistics_integration;
+#[path = "app_user_keys.rs"]
+mod user_keys_integration;
 #[path = "app_workspace.rs"]
 mod workspace;
 
@@ -40,6 +56,22 @@ use crate::theme;
 
 /// Native Desktop IDE Application implementing `eframe::App`.
 pub struct IdeDesktopApp {
+    catalog_task: Option<catalog_integration::CatalogTask>,
+    catalog_program_return: Option<catalog_integration::CatalogProgramReturn>,
+    native_lcd_capture: crate::ide::native_lcd_capture::NativeLcdCapture,
+    tool_capture_stamp: Option<crate::ide::native_lcd_capture::CaptureStamp>,
+    lcd_capture_actions: Vec<crate::ide::native_lcd_capture::CaptureAction>,
+    pub native_tools: crate::ide::native_tools::NativeTools,
+    pub(crate) native_fonts: crate::ide::native_fonts::NativeFonts,
+    cas_task: Option<native_tools_integration::CasTask>,
+    math_entry: Option<math_entry_integration::MathEntry>,
+    model_task: Option<native_tools_integration::ModelTask>,
+    app_variable_task: Option<app_variable_integration::AppVariableTask>,
+    user_key_task: Option<user_keys_integration::UserKeyTask>,
+    profile_ui_last: serde_json::Value,
+    pub profile_problem: Option<String>,
+    installed_catalog_sources: std::collections::BTreeMap<String, String>,
+    installed_catalog_entries: Vec<crate::ide::native::CatalogEntry>,
     pub state: IdeAppState,
     pub firmware: Option<crate::ide::firmware::FirmwareClient>,
     /// A switched-off session whose helper may still be exiting; the next
@@ -80,6 +112,10 @@ pub struct IdeDesktopApp {
     firmware_state: crate::ide::VmExecutionState,
     native_vm_state: crate::ide::VmExecutionState,
     firmware_request: u64,
+    pub(crate) firmware_live_save: Option<u64>,
+    pub(crate) firmware_live_save_result: Option<Result<(), String>>,
+    pub(crate) firmware_resumed: bool,
+    pub(crate) firmware_environment: crate::ide::firmware::EnvironmentRequests,
     /// Session requests awaiting a result: request → (tab, revision, title)
     /// of the exact source sent, so a verdict lands only on that revision.
     firmware_pending: std::collections::BTreeMap<u64, (TabId, u64, String)>,
@@ -87,6 +123,7 @@ pub struct IdeDesktopApp {
     firmware_runs: std::collections::BTreeSet<u64>,
     last_touch: Option<ppl_vm::host::Touch>,
     touch_start_time: Option<std::time::Instant>,
+    touch_sample_time: Option<std::time::Instant>,
     deferred_touch_end: Option<(ppl_vm::host::Touch, std::time::Instant)>,
     prev_shift_held: bool,
     prev_alpha_held: bool,
@@ -108,6 +145,8 @@ pub struct IdeDesktopApp {
     diagnostics: DiagnosticsWorker,
     /// Live-diagnostic bookkeeping per tab.
     diag_requests: HashMap<TabId, DiagRequest>,
+    native_catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
+    native_catalog_key: Vec<(TabId, u64, String, String)>,
     /// Runtime problems from the last run, with the source revision that
     /// ran; shown only while the tab still has that revision.
     runtime_problems: Vec<(DiagnosticItem, u64)>,
@@ -127,6 +166,7 @@ pub struct IdeDesktopApp {
 
 struct NativeCompileJob {
     namespace: String,
+    catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
     tab: TabId,
     revision: u64,
     file: ppl_syntax::SourceFile,
@@ -146,6 +186,7 @@ const DIAGNOSTICS_DEBOUNCE: Duration = Duration::from_millis(250);
 #[derive(Debug, Clone)]
 struct RunningProgram {
     namespace: String,
+    catalog: std::sync::Arc<diagnostics::CatalogSnapshot>,
     tab: TabId,
     revision: u64,
     file: ppl_syntax::SourceFile,
@@ -163,6 +204,22 @@ struct DiagRequest {
 impl Default for IdeDesktopApp {
     fn default() -> Self {
         Self {
+            catalog_task: None,
+            catalog_program_return: None,
+            native_lcd_capture: Default::default(),
+            tool_capture_stamp: None,
+            lcd_capture_actions: Vec::new(),
+            native_tools: Default::default(),
+            native_fonts: Default::default(),
+            cas_task: None,
+            math_entry: None,
+            model_task: None,
+            app_variable_task: None,
+            user_key_task: None,
+            profile_ui_last: serde_json::Value::Null,
+            profile_problem: None,
+            installed_catalog_sources: Default::default(),
+            installed_catalog_entries: Vec::new(),
             state: IdeAppState::default(),
             firmware: None,
             firmware_retired: None,
@@ -192,10 +249,15 @@ impl Default for IdeDesktopApp {
             firmware_state: crate::ide::VmExecutionState::Idle,
             native_vm_state: crate::ide::VmExecutionState::Idle,
             firmware_request: 0,
+            firmware_live_save: None,
+            firmware_live_save_result: None,
+            firmware_resumed: false,
+            firmware_environment: Default::default(),
             firmware_pending: Default::default(),
             firmware_runs: Default::default(),
             last_touch: None,
             touch_start_time: None,
+            touch_sample_time: None,
             deferred_touch_end: None,
             prev_shift_held: false,
             prev_alpha_held: false,
@@ -210,10 +272,19 @@ impl Default for IdeDesktopApp {
             debugger: DebuggerPanel::new(),
             status_bar: StatusBar::new(),
             dialogs: DialogHost::new(),
-            controller: ExecutionController::new(),
+            controller: {
+                let controller = ExecutionController::new();
+                controller
+                    .shared
+                    .app_variable_service
+                    .store(true, std::sync::atomic::Ordering::Release);
+                controller
+            },
             automation: None,
             diagnostics: DiagnosticsWorker::new(None),
             diag_requests: HashMap::new(),
+            native_catalog: Default::default(),
+            native_catalog_key: Vec::new(),
             runtime_problems: Vec::new(),
             running: None,
             problems_key: Vec::new(),
@@ -280,10 +351,19 @@ impl IdeDesktopApp {
     /// The IDE as the window opens it: no program is open until the user
     /// creates or opens one (or one is given on the command line).
     pub(crate) fn for_window() -> Self {
-        Self {
+        let app = Self {
             editor: EditorArea::empty(),
             ..Self::default()
-        }
+        };
+        // A fresh desktop uses the installed current reference model. Loading
+        // a saved profile below restores its explicit model, including legacy.
+        app.controller
+            .mutate_memory(|memory| {
+                memory.settings.numeric_version = ppl_math::NumericVersion::Current15751;
+                Ok(())
+            })
+            .expect("fresh idle calculator session");
+        app
     }
 
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -293,6 +373,7 @@ impl IdeDesktopApp {
         if let Some(p) = load_panel_preferences(cc.storage, path.as_deref()) {
             app.state.apply_persistent(&p);
         }
+        app.initialize_native_memory();
         let root = app.state.workspace_root.clone();
         app.explorer.refresh_workspace(root.as_deref());
         app.device.start_polling(&cc.egui_ctx);
@@ -308,10 +389,14 @@ impl IdeDesktopApp {
         // Diagnostics results arrive from a worker thread; repaint to show them.
         let ctx = cc.egui_ctx.clone();
         app.diagnostics = DiagnosticsWorker::new(Some(Box::new(move || ctx.request_repaint())));
+        app.refresh_native_fonts(&cc.egui_ctx);
         app
     }
 
     pub fn execution_busy(&self) -> bool {
+        if self.cas_task.is_some() || self.model_task.is_some() {
+            return true;
+        }
         if self.state.firmware_backend {
             matches!(self.firmware_state, crate::ide::VmExecutionState::Running)
         } else {
@@ -402,6 +487,81 @@ impl IdeDesktopApp {
         self.begin_native_compile(true, debug, stop_at_entry, ctx);
     }
 
+    fn refresh_native_sources(&mut self) {
+        let key: Vec<_> = self
+            .editor
+            .tabs
+            .iter_mut()
+            .filter(|tab| tab.debug_source.is_none())
+            .map(|tab| {
+                (
+                    tab.id,
+                    tab.revision(),
+                    tab.path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default(),
+                    tab.title.clone(),
+                )
+            })
+            .collect();
+        if self.native_catalog_key == key {
+            return;
+        }
+        let mut catalog = diagnostics::CatalogSnapshot {
+            generation: self.native_catalog.generation + 1,
+            ..Default::default()
+        };
+        for tab in self
+            .editor
+            .tabs
+            .iter()
+            .filter(|tab| tab.debug_source.is_none())
+        {
+            let name = Self::native_namespace(tab);
+            let revision = key.iter().find(|(id, _, _, _)| *id == tab.id).unwrap().1;
+            catalog.sources.insert(
+                name.clone(),
+                ppl_vm::ModuleSource {
+                    identity: ppl_vm::SourceIdentity::new(&name, tab.content.clone()),
+                    source: tab.content.clone(),
+                },
+            );
+            catalog
+                .tabs
+                .insert(name, (tab.id, revision, tab.title.clone()));
+        }
+        for (name, (tab, revision, _)) in &catalog.tabs {
+            if self
+                .native_catalog
+                .tabs
+                .get(name)
+                .is_some_and(|(_, old, _)| old == revision)
+                && let Some(request) = self.diag_requests.get_mut(tab)
+            {
+                request.requested = 0;
+            }
+        }
+        self.native_catalog = std::sync::Arc::new(catalog);
+        self.native_catalog_key = key;
+        // A dependency edit invalidates callers too. Coalesced background
+        // checks are rebuilt from the new immutable snapshot.
+        for tab in &mut self.editor.tabs {
+            tab.analysis = None;
+        }
+    }
+    fn native_namespace(tab: &EditorTab) -> String {
+        tab.path
+            .as_ref()
+            .map(|path| {
+                path.canonicalize()
+                    .unwrap_or_else(|_| path.clone())
+                    .display()
+                    .to_string()
+            })
+            .unwrap_or_else(|| format!("<untitled:{:?}>/{}", tab.id, tab.title))
+    }
+
     fn begin_native_compile(
         &mut self,
         run: bool,
@@ -409,10 +569,12 @@ impl IdeDesktopApp {
         stop_at_entry: bool,
         ctx: &egui::Context,
     ) {
-        if self.native_compile.is_some() || (run && self.controller.worker_alive()) {
+        if self.native_compile.is_some() || (run && self.controller.running()) {
             self.state.status_message = "A program is already running (use Stop first)".into();
             return;
         }
+        self.refresh_native_sources();
+        let catalog = self.native_catalog.clone();
         let caller = self.state.native.idle_caller();
         let home_expression = if run {
             self.native_home_expression.take()
@@ -424,30 +586,44 @@ impl IdeDesktopApp {
         };
         let revision = tab.revision();
         let tab_id = tab.id;
-        let source_identity = tab
-            .path
-            .as_ref()
-            .map(|path| {
-                path.canonicalize()
-                    .unwrap_or_else(|_| path.clone())
-                    .display()
-                    .to_string()
-            })
-            .unwrap_or_else(|| format!("<untitled:{:?}>/{}", tab.id, tab.title));
+        let source_identity = Self::native_namespace(tab);
         let file = ppl_syntax::SourceFile::new(&tab.title, &tab.content);
         let run_entry = tab.run_entry.clone();
         let run_args = Some(tab.run_args.trim().to_owned()).filter(|a| !a.is_empty());
+        if tab.debug_source.is_some() {
+            self.state.status_message =
+                "Debug source snapshots cannot be executed; select the original source tab".into();
+            return;
+        }
         self.controller.bridge.set_breakpoints(&tab.breakpoints);
+        self.controller.bridge.set_source_breakpoints(
+            self.editor
+                .tabs
+                .iter()
+                .filter(|tab| tab.debug_source.is_none())
+                .map(|tab| {
+                    (
+                        ppl_vm::SourceIdentity::new(
+                            Self::native_namespace(tab),
+                            tab.content.clone(),
+                        ),
+                        tab.breakpoints.clone(),
+                    )
+                })
+                .collect(),
+        );
         let (tx, result) = std::sync::mpsc::channel();
-        let source = file.clone();
+        let compile_catalog = catalog.clone();
+        let compile_root = source_identity.clone();
         let wake = ctx.clone();
         std::thread::spawn(move || {
-            let analysis = diagnostics::analyze(&source.name, &source.text, revision);
+            let analysis = diagnostics::analyze_catalog(&compile_root, &compile_catalog, revision);
             let _ = tx.send(analysis);
             wake.request_repaint();
         });
         self.native_compile = Some(NativeCompileJob {
             namespace: source_identity,
+            catalog,
             tab: tab_id,
             revision,
             file,
@@ -493,9 +669,11 @@ impl IdeDesktopApp {
         else {
             return;
         };
+        self.refresh_native_sources();
         let job = self.native_compile.take().unwrap();
         let NativeCompileJob {
             namespace,
+            catalog,
             tab: tab_id,
             revision,
             file,
@@ -507,6 +685,14 @@ impl IdeDesktopApp {
             run,
             ..
         } = job;
+        if catalog.generation != self.native_catalog.generation {
+            if run {
+                self.retire_native_compile(
+                    "Open sources changed while compiling; run the current revisions again",
+                );
+            }
+            return;
+        }
         let Some(i) = self.editor.index_of(tab_id) else {
             if run {
                 self.retire_native_compile("Program tab closed while compiling");
@@ -586,7 +772,7 @@ impl IdeDesktopApp {
                 ..
             })
         );
-        let result = self.controller.start_compiled_in_namespace(
+        let result = self.controller.start_compiled_with_catalog(
             &namespace,
             program,
             &file,
@@ -596,11 +782,13 @@ impl IdeDesktopApp {
             stop_at_entry,
             max_steps,
             home_origin,
+            (catalog.sources.len() > 1).then(|| std::sync::Arc::new(catalog.sources.clone())),
         );
         match result {
             crate::ide::execution::RunStart::Started => {
                 self.running = Some(RunningProgram {
                     namespace,
+                    catalog,
                     tab: tab_id,
                     revision,
                     file,
@@ -780,6 +968,10 @@ impl IdeDesktopApp {
         let Some(tab) = self.editor.active_tab() else {
             return;
         };
+        if tab.debug_source.is_some() && !matches!(cmd, E::Copy | E::SelectAll) {
+            self.state.status_message = "Debug source snapshots are read-only".into();
+            return;
+        }
         ctx.memory_mut(|m| m.request_focus(crate::ide::editor::view::edit_id(tab.id)));
         let key = |key: Key, modifiers: Modifiers| Event::Key {
             key,
@@ -810,8 +1002,15 @@ impl IdeDesktopApp {
     /// Live diagnostics: applies finished checks and queues a check of the
     /// active buffer once it has been unchanged for a short quiet period.
     fn schedule_diagnostics(&mut self, ctx: &egui::Context) {
+        self.refresh_native_sources();
         let mut changed = false;
         for result in self.diagnostics.poll() {
+            if result
+                .catalog_generation
+                .is_some_and(|generation| generation != self.native_catalog.generation)
+            {
+                continue;
+            }
             // Results for closed tabs or older revisions are superseded.
             if let Some(i) = self.editor.index_of(result.tab) {
                 changed |= Self::set_analysis(
@@ -844,8 +1043,12 @@ impl IdeDesktopApp {
             }
             let waited = now.duration_since(req.seen_at);
             if i != active || req.requested == 0 || waited >= DIAGNOSTICS_DEBOUNCE {
-                self.diagnostics
-                    .request(tab.id, revision, &tab.title, &tab.content);
+                self.diagnostics.request_catalog(
+                    tab.id,
+                    revision,
+                    Self::native_namespace(tab),
+                    self.native_catalog.clone(),
+                );
                 req.requested = revision;
             } else {
                 ctx.request_repaint_after(DIAGNOSTICS_DEBOUNCE - waited);
@@ -871,6 +1074,12 @@ impl IdeDesktopApp {
 
     /// Drains worker terminal output, outcomes, and debugger pauses into the UI.
     fn poll_execution(&mut self) {
+        if self.poll_native_catalog_task() {
+            return;
+        }
+        if self.poll_native_user_key() {
+            return;
+        }
         if self.native_stopping {
             if self.controller.worker_alive() {
                 return;
@@ -930,12 +1139,33 @@ impl IdeDesktopApp {
                     WorkerOutcome::Error(e) => {
                         let msg = e.to_string();
                         if let Some(run) = &self.running {
-                            let mut item = DiagnosticItem::runtime(&e, &run.file);
-                            item.tab = Some(run.tab);
-                            if let Some(i) = self.editor.index_of(run.tab) {
+                            let source = e
+                                .trace
+                                .first()
+                                .and_then(|frame| frame.module.as_ref())
+                                .and_then(|identity| {
+                                    run.catalog
+                                        .sources
+                                        .get(&identity.name)
+                                        .filter(|m| m.identity.revision == identity.revision)
+                                        .map(|m| (identity, m))
+                                });
+                            let (file, tab, revision) = if let Some((identity, module)) = source {
+                                let (tab, revision, title) = &run.catalog.tabs[&identity.name];
+                                (
+                                    ppl_syntax::SourceFile::new(title, &module.source),
+                                    *tab,
+                                    *revision,
+                                )
+                            } else {
+                                (run.file.clone(), run.tab, run.revision)
+                            };
+                            let mut item = DiagnosticItem::runtime(&e, &file);
+                            item.tab = Some(tab);
+                            if let Some(i) = self.editor.index_of(tab) {
                                 item.file = self.editor.tabs[i].title.clone();
                             }
-                            self.runtime_problems = vec![(item, run.revision)];
+                            self.runtime_problems = vec![(item, revision)];
                             self.rebuild_problems();
                         }
                         self.state.vm_state = crate::ide::VmExecutionState::Error(msg.clone());
@@ -962,12 +1192,18 @@ impl IdeDesktopApp {
             .pause_generation
             .load(std::sync::atomic::Ordering::SeqCst);
         let paused_line = self.controller.paused_line();
+        if !self.controller.worker_alive() {
+            self.debugger.set_snapshot(None);
+            self.state.paused_line = 0;
+            self.state.paused_tab = None;
+        }
         if pause_gen != self.last_pause_gen {
             self.last_pause_gen = pause_gen;
             if paused_line != 0 {
                 self.debugger
                     .set_snapshot(self.controller.bridge.take_pause_snapshot());
                 self.state.paused_line = paused_line;
+                self.select_debug_frame(0, true);
                 self.state.vm_state = crate::ide::VmExecutionState::Paused;
                 self.state.status_message = format!("Paused at line {paused_line}");
                 self.state.active_dock_tab = DockTab::Variables;
@@ -982,6 +1218,89 @@ impl IdeDesktopApp {
             self.debugger.set_snapshot(None);
             self.state.status_message = "Continuing...".to_string();
         }
+        // Editing or closing the executing source must not leave an execution
+        // arrow on a different revision, even before the next VM pause.
+        if paused_line != 0
+            && let Some(snapshot) = &self.debugger.snapshot
+        {
+            let changed = self
+                .state
+                .paused_tab
+                .and_then(|id| self.editor.index_of(id))
+                .is_none_or(|index| {
+                    let tab = &self.editor.tabs[index];
+                    let identity = snapshot.source.as_ref();
+                    identity.is_some_and(|id| {
+                        self.running
+                            .as_ref()
+                            .and_then(|run| run.catalog.sources.get(&id.name))
+                            .is_none_or(|module| module.source != tab.content)
+                    }) && tab.debug_source.as_ref() != identity
+                });
+            if changed {
+                self.select_debug_frame(0, true);
+            }
+        }
+    }
+
+    /// Navigate only to the captured revision. Edited/closed tabs get an immutable snapshot.
+    fn select_debug_frame(&mut self, index: usize, mark_pause: bool) {
+        let Some(frame) = self
+            .debugger
+            .snapshot
+            .as_ref()
+            .and_then(|s| s.frames.get(index))
+            .cloned()
+        else {
+            return;
+        };
+        let Some(run) = &self.running else {
+            return;
+        };
+        let identity = frame
+            .source
+            .clone()
+            .unwrap_or_else(|| ppl_vm::SourceIdentity::new(&run.namespace, run.file.text.clone()));
+        let Some(module) = run
+            .catalog
+            .sources
+            .get(&identity.name)
+            .filter(|module| module.identity == identity)
+        else {
+            return;
+        };
+        let original = run
+            .catalog
+            .tabs
+            .get(&identity.name)
+            .and_then(|(tab, _, _)| self.editor.index_of(*tab))
+            .filter(|&i| self.editor.tabs[i].content == module.source);
+        let index = original
+            .or_else(|| {
+                self.editor
+                    .tabs
+                    .iter()
+                    .position(|tab| tab.debug_source.as_ref() == Some(&identity))
+            })
+            .unwrap_or_else(|| {
+                let title = run
+                    .catalog
+                    .tabs
+                    .get(&identity.name)
+                    .map_or(identity.name.as_str(), |(_, _, title)| title.as_str());
+                let mut tab = EditorTab::new(format!("{title} [debug snapshot]"), &module.source);
+                tab.debug_source = Some(identity);
+                self.editor.open_tab(tab);
+                self.editor.active_tab_index
+            });
+        self.editor.active_tab_index = index;
+        let tab = &mut self.editor.tabs[index];
+        tab.goto_line(frame.line, frame.col);
+        self.state.cursor_line = frame.line;
+        self.state.cursor_col = frame.col;
+        if mark_pause {
+            self.state.paused_tab = Some(tab.id);
+        }
     }
 
     /// Identifies the Native view, including GUI-only output dismissal.
@@ -994,6 +1313,11 @@ impl IdeDesktopApp {
     }
 
     pub(super) fn native_display_frame(&self) -> (ppl_graphics::Grob, u64) {
+        if !self.state.native.sleeping
+            && let Some(problem) = self.native_fonts.problem_screen()
+        {
+            return (problem, self.native_display_generation());
+        }
         let screen = self
             .controller
             .shared
@@ -1125,6 +1449,9 @@ impl IdeDesktopApp {
             IdeAction::RestartProgram if self.state.firmware_backend => {
                 self.request_firmware(true, _ctx)
             }
+            IdeAction::RunProgram if self.cas_task.is_some() || self.model_task.is_some() => {
+                self.state.status_message = "Calculator is busy".into();
+            }
             IdeAction::RunProgram => {
                 if self.state.vm_state == crate::ide::VmExecutionState::Paused {
                     self.handle_action(IdeAction::ContinueExecution, _ctx);
@@ -1169,9 +1496,13 @@ impl IdeDesktopApp {
             }
             IdeAction::NativeHome | IdeAction::NativeCatalog => {
                 if !self.state.firmware_backend
-                    && !self.controller.worker_alive()
+                    && !self.controller.running()
                     && self.native_compile.is_none()
                 {
+                    if matches!(action, IdeAction::NativeHome) {
+                        self.switch_native_environment(false, _ctx);
+                        return;
+                    }
                     self.refresh_native_catalog();
                     self.state.native.outcome_handled = true;
                     self.set_native_view(
@@ -1186,6 +1517,11 @@ impl IdeDesktopApp {
             }
             IdeAction::NativeSubmit => self.submit_native_home(_ctx),
             IdeAction::NativeRunSelected => self.run_native_selected(_ctx),
+            IdeAction::StartDebugging | IdeAction::RestartProgram
+                if self.cas_task.is_some() || self.model_task.is_some() =>
+            {
+                self.state.status_message = "Calculator is busy".into();
+            }
             IdeAction::RestartProgram => {
                 self.cancel_native_compile();
                 self.native_restart = Some(_ctx.clone());
@@ -1223,6 +1559,10 @@ impl IdeDesktopApp {
                     .bridge
                     .post_command(crate::ide::execution::DebugCommand::StepOut);
             }
+            IdeAction::SelectDebugFrame(index) => {
+                self.debugger.selected_frame_index = index;
+                self.select_debug_frame(index, false);
+            }
             IdeAction::ToggleBreakpoint(line) => {
                 if let Some(tab) = self.editor.active_tab_mut() {
                     if !tab.breakpoints.remove(&line) {
@@ -1231,6 +1571,18 @@ impl IdeDesktopApp {
                     } else {
                         self.state.status_message = format!("Breakpoint removed at line {line}");
                     }
+                    let identity = tab.debug_source.clone().unwrap_or_else(|| {
+                        ppl_vm::SourceIdentity::new(
+                            Self::native_namespace(tab),
+                            tab.content.clone(),
+                        )
+                    });
+                    self.controller
+                        .bridge
+                        .source_breakpoints
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .insert(identity, tab.breakpoints.clone());
                     self.controller.bridge.set_breakpoints(&tab.breakpoints);
                 }
             }
@@ -1277,6 +1629,10 @@ impl IdeDesktopApp {
                 self.state.calculator_mode = mode;
                 self.state.show_calculator = true;
             }
+            IdeAction::SelectBackend(_) if self.cas_task.is_some() || self.model_task.is_some() => {
+                self.state.status_message =
+                    "Stop the current calculation before changing the engine".into();
+            }
             IdeAction::SelectBackend(firmware) => {
                 if !self.state.firmware_backend {
                     self.native_vm_state = self.state.vm_state.clone();
@@ -1303,6 +1659,9 @@ impl IdeDesktopApp {
             IdeAction::FirmwarePowerOff => self.sleep_firmware(),
             IdeAction::FirmwareShutDown => self.shut_down_firmware(),
             IdeAction::FirmwareRestart => self.restart_firmware(_ctx),
+            IdeAction::FirmwareSaveLive => self.save_firmware_live(),
+            IdeAction::FirmwareResumeLive => self.resume_firmware_live(_ctx),
+            IdeAction::FirmwareEnvironmentApply => self.apply_firmware_environment(),
             IdeAction::ImportToCalculator => self.import_to_calculator(_ctx),
             IdeAction::FirmwareReset => self.dialogs.show_confirm_reset = true,
             IdeAction::FirmwareResetConfirmed => self.reset_firmware_memory(_ctx),
@@ -1311,6 +1670,9 @@ impl IdeDesktopApp {
             }
             IdeAction::ResetLayout => {
                 self.state.reset_layout();
+            }
+            IdeAction::ShowResearchDiagnostics => {
+                self.dialogs.research.open = true;
             }
             IdeAction::ShowAboutDialog => {
                 self.dialogs.show_about = true;
@@ -1344,6 +1706,13 @@ impl IdeDesktopApp {
                     .set_file_name("screenshot.png")
                     .save_file()
                 {
+                    if !self.state.firmware_backend && self.native_tools.page.is_some() {
+                        self.request_composed_lcd(
+                            crate::ide::native_lcd_capture::CaptureAction::Save(file),
+                            _ctx,
+                        );
+                        return;
+                    }
                     let Some((grob, _)) = self.capture_compare_frame() else {
                         self.state.status_message =
                             "No current frame from the selected engine".into();
@@ -1417,6 +1786,48 @@ impl eframe::App for IdeDesktopApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.refresh_native_fonts(ctx);
+        self.native_fonts
+            .retry_after_edit(self.state.native.view_generation);
+        if let Some(fonts) = self.native_fonts.selected.clone() {
+            if let Err(error) =
+                ppl_graphics::text::with_prime_fonts(fonts, || self.update_frame(ctx))
+            {
+                self.state.native.touch_view();
+                self.native_fonts
+                    .render_failed(error.to_string(), self.state.native.view_generation);
+                self.display.texture = None;
+                ctx.request_repaint();
+            }
+        } else {
+            self.update_frame(ctx);
+        }
+        self.show_native_font_problem(ctx);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // Stop the worker on the way out (the handle's Drop also interrupts).
+        self.stop_calculator_tasks();
+        self.controller.join_current();
+        self.persist_native_ui();
+        if let Some(profile) = self.controller.native_profile() {
+            if let Err(error) = profile.flush() {
+                eprintln!("Native profile save: {error}");
+            }
+        }
+        self.controller.reap_async();
+        // Wait (bounded) for the firmware helpers, so none outlives the IDE.
+        for client in [self.firmware.take(), self.firmware_retired.take()]
+            .into_iter()
+            .flatten()
+        {
+            client.shutdown(crate::ide::firmware::SHUTDOWN_LIMIT);
+        }
+    }
+}
+
+impl IdeDesktopApp {
+    fn update_frame(&mut self, ctx: &egui::Context) {
         let prev_calc_focus = self.state.calc_input_focus;
 
         // Scripted automation input (Xvfb tests) enters before any widget.
@@ -1437,6 +1848,7 @@ impl eframe::App for IdeDesktopApp {
         if !self.state.firmware_backend {
             self.route_native_keyboard(ctx);
         }
+        self.poll_native_tools(ctx);
 
         // Handle keyboard shortcuts
         self.menu_bar.handle_shortcuts(ctx, &mut self.state);
@@ -1490,7 +1902,38 @@ impl eframe::App for IdeDesktopApp {
         }
 
         self.render_workspace(ctx);
+        self.consume_native_tool(ctx);
+        if self.native_tools.page.is_none() {
+            self.route_native_pointer(ctx);
+        }
+        self.render_native_tools(ctx);
+        self.poll_composed_lcd(ctx);
+        if self
+            .controller
+            .shared
+            .active_dialog
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+            && ctx.input(|i| i.pointer.primary_pressed())
+        {
+            if let Some(touch) = ctx
+                .input(|i| i.pointer.interact_pos())
+                .and_then(|pos| self.display.project_pointer_pos(pos))
+            {
+                self.controller
+                    .shared
+                    .push_dialog_event(crate::dialog::DialogEvent::Pointer {
+                        x: touch.x,
+                        y: touch.y,
+                    });
+            }
+        }
+        if let Some(text) = self.controller.shared.take_dialog_clipboard() {
+            ctx.copy_text(text);
+        }
         self.forward_touch(ctx);
+        self.persist_native_ui();
 
         // Focus transition: clear held keys when focus is lost.
         if (self.last_calc_input_focus || prev_calc_focus) && !self.state.calc_input_focus {
@@ -1511,6 +1954,7 @@ impl eframe::App for IdeDesktopApp {
             self.last_touch = None;
             self.deferred_touch_end = None;
             self.touch_start_time = None;
+            self.touch_sample_time = None;
             self.prev_shift_held = false;
             self.prev_alpha_held = false;
         }
@@ -1561,19 +2005,6 @@ impl eframe::App for IdeDesktopApp {
         }
         // Scripted automation (Xvfb smoke tests).
         crate::ide::automation::maybe_pump(self, ctx);
-    }
-
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        // Stop the worker on the way out (the handle's Drop also interrupts).
-        self.controller.stop();
-        self.controller.reap_async();
-        // Wait (bounded) for the firmware helpers, so none outlives the IDE.
-        for client in [self.firmware.take(), self.firmware_retired.take()]
-            .into_iter()
-            .flatten()
-        {
-            client.shutdown(crate::ide::firmware::SHUTDOWN_LIMIT);
-        }
     }
 }
 
@@ -1694,6 +2125,75 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    #[test]
+    fn fresh_window_uses_current_numbers_and_saved_legacy_profile_restores_its_model() {
+        let root = std::env::temp_dir().join(format!(
+            "ppl-gui-model-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let legacy_path = root.join("legacy");
+        let (profile, _) = crate::ide::native_profile::NativeProfile::open(&legacy_path).unwrap();
+        let mut old = ppl_vm::SessionContext::default().memory_json();
+        old["version"] = 4.into();
+        old["settings"]
+            .as_object_mut()
+            .unwrap()
+            .remove("numeric_version");
+        profile.update("memory", old);
+        profile.flush().unwrap();
+        drop(profile);
+        let legacy = IdeDesktopApp::for_window();
+        assert_eq!(
+            legacy
+                .controller
+                .session_snapshot()
+                .settings
+                .numeric_version,
+            ppl_math::NumericVersion::Current15751
+        );
+        // The previous owner's writer releases its file lock asynchronously.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        loop {
+            match legacy.controller.open_native_profile(&legacy_path) {
+                Ok(_) => break,
+                Err(error)
+                    if error == "Native profile is already open in another instance"
+                        && std::time::Instant::now() < deadline =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(2))
+                }
+                Err(error) => panic!("{error}"),
+            }
+        }
+        assert_eq!(
+            legacy
+                .controller
+                .session_snapshot()
+                .settings
+                .numeric_version,
+            ppl_math::NumericVersion::Legacy15157
+        );
+        let current = IdeDesktopApp::for_window();
+        current
+            .controller
+            .open_native_profile(&root.join("new"))
+            .unwrap();
+        assert_eq!(
+            current
+                .controller
+                .session_snapshot()
+                .settings
+                .numeric_version,
+            ppl_math::NumericVersion::Current15751
+        );
+        drop(current);
+        drop(legacy);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn test_ide_desktop_app_defaults() {
         let app = IdeDesktopApp::default();
@@ -1934,7 +2434,7 @@ mod tests {
         let mut app = IdeDesktopApp::default();
         let ctx = egui::Context::default();
         app.editor.active_tab_mut().unwrap().content =
-            "EXPORT EV()\nBEGIN\n  PRINT(1);\n  RETURN EVAL(\"1+1\");\nEND;\n".to_string();
+            "EXPORT EV()\nBEGIN\n  PRINT(1);\n  RETURN AFilesB(\"x\");\nEND;\n".to_string();
         app.handle_action(IdeAction::RunProgram, &ctx);
         for _ in 0..300 {
             app.poll_execution();
@@ -1952,11 +2452,11 @@ mod tests {
         assert_eq!(runtime.len(), 1, "{:#?}", app.problems.items);
         assert_eq!(runtime[0].line, 4);
         assert!(
-            runtime[0].message.contains("EVAL"),
+            runtime[0].message.contains("AFilesB"),
             "{}",
             runtime[0].message
         );
-        // The compatibility warning about EVAL is a separate entry.
+        // The compatibility warning about AFilesB is a separate entry.
         assert!(
             app.problems
                 .items
@@ -2447,3 +2947,15 @@ mod versioned_preferences_tests {
         assert_eq!(load_panel_preferences(Some(&storage), None), Some(current));
     }
 }
+
+#[cfg(test)]
+#[path = "app_catalog_tests.rs"]
+mod catalog_tests;
+
+#[cfg(test)]
+#[path = "app_plot_tests.rs"]
+mod plot_view_tests;
+
+#[cfg(all(test, feature = "giac-integration"))]
+#[path = "app_cas_catalog_tests.rs"]
+mod cas_catalog_tests;

@@ -10,13 +10,22 @@ impl IdeDesktopApp {
     fn calculator_content(&mut self, ui: &mut egui::Ui) {
         self.update_display_texture(ui.ctx());
         let status = if self.state.firmware_backend {
-            self.firmware_status.as_str()
+            self.firmware_status.clone()
+        } else if let Some(problem) = self.profile_problem.as_deref() {
+            problem.to_owned()
         } else {
-            if self.state.can_dismiss_output() {
-                "Native PPL · Esc returns to the caller"
+            let model = self
+                .controller
+                .session_snapshot()
+                .settings
+                .numeric_version
+                .code();
+            let detail = if self.state.can_dismiss_output() {
+                "Esc returns to the caller"
             } else {
-                "Native PPL · Home and open IDE programs"
-            }
+                "Home and open IDE programs"
+            };
+            format!("Native PPL · model {model} · {detail}")
         };
         ui.label(
             egui::RichText::new(status)

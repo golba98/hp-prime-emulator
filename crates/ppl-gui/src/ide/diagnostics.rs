@@ -146,6 +146,7 @@ fn span_at(text: &str, line: usize, col: usize) -> Span {
 #[derive(Debug)]
 pub struct Analysis {
     pub revision: u64,
+    pub module_count: usize,
     pub items: Vec<DiagnosticItem>,
     /// The compiled program; `None` when there are errors or the analysis
     /// failed.
@@ -177,6 +178,7 @@ pub fn analyze(title: &str, text: &str, revision: u64) -> Analysis {
     match compiled {
         Ok((program, diags)) => Analysis {
             revision,
+            module_count: 1,
             items: diags
                 .items
                 .iter()
@@ -193,11 +195,62 @@ pub fn analyze(title: &str, text: &str, revision: u64) -> Analysis {
                 .unwrap_or_else(|| "unknown panic".into());
             Analysis {
                 revision,
+                module_count: 1,
                 items: Vec::new(),
                 program: None,
                 failure: Some(format!("internal compiler failure: {msg}")),
             }
         }
+    }
+}
+
+/// Immutable open-tab sources. Revisions bind background results and execution
+/// to the same dependency snapshot; compiled Rc images stay on the worker.
+#[derive(Clone, Debug, Default)]
+pub struct CatalogSnapshot {
+    pub generation: u64,
+    pub sources: std::collections::BTreeMap<String, ppl_vm::ModuleSource>,
+    pub tabs: std::collections::BTreeMap<String, (TabId, u64, String)>,
+}
+pub fn analyze_catalog(root: &str, catalog: &CatalogSnapshot, revision: u64) -> Analysis {
+    let Some(module) = catalog.sources.get(root) else {
+        return Analysis {
+            revision,
+            module_count: 0,
+            items: vec![],
+            program: None,
+            failure: Some("selected source is missing from the open-tab catalog snapshot".into()),
+        };
+    };
+    if !catalog.tabs.contains_key(root) {
+        return Analysis {
+            revision,
+            module_count: 0,
+            items: vec![],
+            program: None,
+            failure: Some("selected source has no catalog revision identity".into()),
+        };
+    }
+    if catalog.sources.len() == 1 || ppl_syntax::parse(&module.source).1.has_errors() {
+        return analyze(&catalog.tabs[root].2, &module.source, revision);
+    }
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ppl_vm::link_sources(&catalog.sources, root))) {
+        Ok(Ok(image)) => {
+            let items = image.diagnostics().iter().filter(|(id,_)| id.name == root)
+                .flat_map(|(_,diags)| {
+                    let file = SourceFile::new(&catalog.tabs[root].2, &module.source);
+                    diags.items.iter().map(move |d| DiagnosticItem::from_diagnostic(d,&file))
+                }).collect();
+            Analysis { revision, module_count: image.module_identities().len(), items,
+                program: Some(image.program().clone()), failure: None }
+        },
+        Ok(Err(error)) => Analysis { revision, module_count: 0, program: None, failure: None,
+            items: vec![DiagnosticItem { severity: Severity::Error, provenance: "native-linker".into(),
+                class: DiagnosticClass::Semantic, code: "link-error".into(), message: error.to_string(),
+                hint: Some("Check the named dependency tab; source positions are unavailable for this linkage failure".into()),
+                unverified: false, line: 0, col: 0, span: Span::default(), file: catalog.tabs[root].2.clone(), tab: None }] },
+        Err(_) => Analysis { revision, module_count: 0, items: vec![], program: None,
+            failure: Some("internal catalog compiler failure".into()) },
     }
 }
 
@@ -215,6 +268,7 @@ struct Request {
     revision: u64,
     title: String,
     text: String,
+    catalog: Option<(String, Arc<CatalogSnapshot>)>,
 }
 
 /// Diagnostics computed for one tab revision.
@@ -225,6 +279,7 @@ pub struct CheckResult {
     pub items: Vec<DiagnosticItem>,
     pub failure: Option<String>,
     pub elapsed: Duration,
+    pub catalog_generation: Option<u64>,
 }
 
 /// Counters for tests and measurements.
@@ -277,13 +332,18 @@ impl DiagnosticsWorker {
                     for r in latest {
                         let start = Instant::now();
                         worker_stats.compiled.fetch_add(1, Ordering::Relaxed);
-                        let analysis = analyze(&r.title, &r.text, r.revision);
+                        let analysis = if let Some((root, catalog)) = &r.catalog {
+                            analyze_catalog(root, catalog, r.revision)
+                        } else {
+                            analyze(&r.title, &r.text, r.revision)
+                        };
                         let result = CheckResult {
                             tab: r.tab,
                             revision: r.revision,
                             items: analysis.items,
                             failure: analysis.failure,
                             elapsed: start.elapsed(),
+                            catalog_generation: r.catalog.as_ref().map(|(_, c)| c.generation),
                         };
                         if res_tx.send(result).is_err() {
                             return;
@@ -312,6 +372,26 @@ impl DiagnosticsWorker {
                 revision,
                 title: title.to_string(),
                 text: text.to_string(),
+                catalog: None,
+            });
+        }
+    }
+
+    pub fn request_catalog(
+        &self,
+        tab: TabId,
+        revision: u64,
+        root: String,
+        catalog: Arc<CatalogSnapshot>,
+    ) {
+        self.stats.requested.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(Request {
+                tab,
+                revision,
+                title: String::new(),
+                text: String::new(),
+                catalog: Some((root, catalog)),
             });
         }
     }

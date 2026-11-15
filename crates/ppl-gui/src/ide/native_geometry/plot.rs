@@ -1,0 +1,114 @@
+//! Scene sampling for existing asynchronous model plot jobs.
+use super::*;
+use crate::ide::{
+    native_apps::PlotWindow,
+    native_model_plots::{PlotData, PlotStyle},
+};
+use std::sync::atomic::Ordering;
+pub fn build(
+    book: &Book,
+    snapshot: &SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<PlotData, String> {
+    let scene = book.calculate(snapshot, cancel.clone())?;
+    let mut window = PlotWindow::default();
+    for (name, target) in [
+        ("Xmin", &mut window.xmin),
+        ("Xmax", &mut window.xmax),
+        ("Ymin", &mut window.ymin),
+        ("Ymax", &mut window.ymax),
+    ] {
+        if let Some(value) = snapshot
+            .globals
+            .get(name)
+            .and_then(|v| v.to_value().as_real())
+        {
+            *target = value.to_f64();
+        }
+    }
+    window.validate()?;
+    if !(window.xmax - window.xmin).is_finite() || !(window.ymax - window.ymin).is_finite() {
+        return Err("Geometry plot span exceeds numerical range".into());
+    }
+    let mut data = PlotData::new("X", "Y");
+    for object in &scene.objects {
+        if cancel.load(Ordering::Acquire) {
+            return Err("Geometry plot interrupted".into());
+        }
+        if !book
+            .objects
+            .iter()
+            .any(|o| o.name == object.name && o.visible)
+        {
+            continue;
+        }
+        let Ok(shape) = &object.value else { continue };
+        let (style, points) = match shape {
+            Shape::Point(p) => (PlotStyle::Scatter, vec![[p.x, p.y]]),
+            Shape::Points(points) => (
+                PlotStyle::Scatter,
+                points.iter().map(|p| [p.x, p.y]).collect(),
+            ),
+            Shape::Line { a, b, extent } => {
+                let Some([a, b]) = clip(*a, *b, *extent, &window) else {
+                    continue;
+                };
+                (PlotStyle::Line, vec![[a.x, a.y], [b.x, b.y]])
+            }
+            Shape::Circle { center, radius } => {
+                let points = (0..=192)
+                    .map(|i| {
+                        let a = std::f64::consts::TAU * i as f64 / 192.;
+                        [center.x + radius * a.cos(), center.y + radius * a.sin()]
+                    })
+                    .collect();
+                (PlotStyle::Line, points)
+            }
+            Shape::Polygon(points) => {
+                let mut points = points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>();
+                if let Some(p) = points.first().copied() {
+                    points.push(p);
+                }
+                (PlotStyle::Line, points)
+            }
+            Shape::Number { .. } => continue,
+        };
+        data.push(format!("G{}", object.name), style, points)?;
+    }
+    data.geometry = Some(Box::new(scene));
+    Ok(data)
+}
+pub fn clip(a: Point2, b: Point2, extent: Extent, w: &PlotWindow) -> Option<[Point2; 2]> {
+    let d = primitives::delta(a, b);
+    let (mut lo, mut hi) = match extent {
+        Extent::Segment => (0., 1.),
+        Extent::Ray => (0., f64::INFINITY),
+        Extent::Line => (f64::NEG_INFINITY, f64::INFINITY),
+    };
+    for (p, d, min, max) in [(a.x, d.x, w.xmin, w.xmax), (a.y, d.y, w.ymin, w.ymax)] {
+        if d == 0. {
+            if p < min || p > max {
+                return None;
+            }
+            continue;
+        }
+        let t0 = (min - p) / d;
+        let t1 = (max - p) / d;
+        lo = lo.max(t0.min(t1));
+        hi = hi.min(t0.max(t1));
+    }
+    if lo > hi || !lo.is_finite() || !hi.is_finite() {
+        return None;
+    }
+    let p = point(Point2 {
+        x: a.x + lo * d.x,
+        y: a.y + lo * d.y,
+    })
+    .ok()?;
+    let q = point(Point2 {
+        x: a.x + hi * d.x,
+        y: a.y + hi * d.y,
+    })
+    .ok()?;
+    Some([p, q])
+}

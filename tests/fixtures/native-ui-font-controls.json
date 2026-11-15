@@ -1,0 +1,103 @@
+{
+  "origin": "HP Prime G1 firmware LCD controls",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "resource_sha256": "cf50aa599e236a10d24761f15217c5c97473603f208fb4ba14b4cd84c36b8edf",
+  "encoding": "RGB24, row-major, region coordinates x/y/width/height",
+  "controls": [
+    {
+      "id": "function_title",
+      "kind": "title",
+      "region": [
+        50,
+        0,
+        210,
+        18
+      ],
+      "rgb24_sha256": "1c7d9e0a9bbc08d00f173660d401303ddf416cb1fa16dafca61840ada2bc947b",
+      "title": "Function"
+    },
+    {
+      "id": "home_settings_title",
+      "kind": "title",
+      "region": [
+        50,
+        0,
+        210,
+        18
+      ],
+      "rgb24_sha256": "f81c412fd4780902b2450eee907a895a166c815133c572e2e62119cb018971a5",
+      "title": "Home Settings"
+    },
+    {
+      "id": "home_expression",
+      "kind": "expression",
+      "region": [
+        0,
+        180,
+        35,
+        22
+      ],
+      "rgb24_sha256": "cb9c6fc74450a9acd6c82908a6607870d72e1d3153b6e3b425b95139bd991fb6",
+      "input": "2+3",
+      "result": "5"
+    },
+    {
+      "id": "home_result",
+      "kind": "result",
+      "region": [
+        295,
+        180,
+        25,
+        22
+      ],
+      "rgb24_sha256": "3977fe52e89ccabe83a58bf6ffc41185f36013dba0c898ea8280a3fb2c740cad",
+      "input": "2+3",
+      "result": "5"
+    },
+    {
+      "id": "statistics_numeric_softkeys",
+      "kind": "softkeys",
+      "region": [
+        0,
+        220,
+        320,
+        20
+      ],
+      "rgb24_sha256": "abfd1ad48c793b3f5489d11f9d52f17a5219f7dfb9d2d6302e2ae8cd366a20bc",
+      "labels": [
+        "Edit",
+        "More",
+        "Go To",
+        "",
+        "Make",
+        "Stats"
+      ],
+      "menu_buttons": [
+        1
+      ]
+    },
+    {
+      "id": "function_numeric_softkeys",
+      "kind": "softkeys",
+      "region": [
+        0,
+        220,
+        320,
+        20
+      ],
+      "rgb24_sha256": "3122c286ae4d7c0140675e4d0653aa3206f162137b12b262642cb15daa045fee",
+      "labels": [
+        "Zoom",
+        "More",
+        "Go To",
+        "",
+        "Defn",
+        ""
+      ],
+      "menu_buttons": [
+        0,
+        1
+      ]
+    }
+  ]
+}

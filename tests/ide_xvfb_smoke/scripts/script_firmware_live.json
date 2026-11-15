@@ -1,0 +1,147 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/firmware_live/dump.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_environment",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_GUI_LIVE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_GUI_INIT()\nBEGIN\n A:=12; RETURN A;\nEND;\nEXPORT ZZT_GUI_FRAME()\nBEGIN\n LOCAL n:=37;\n A:=A+100;\n RECT_P(0,0,319,239,RGB(0,0,96));\n TEXTOUT_P(\"Live state: waiting\",50,100,2,RGB(255,255,255));\n WAIT(0);\n A:=A+1;\n RETURN {A,n,A+n};\nEND;\n"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "run_config",
+      "entry": "ZZT_GUI_INIT",
+      "args": ""
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "run_config",
+      "entry": "ZZT_GUI_FRAME",
+      "args": ""
+    },
+    {
+      "step": "wait_running",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 500,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "waiting"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_live/waiting.png"
+    },
+    {
+      "step": "click_ui_control",
+      "name": "firmware_save_live"
+    },
+    {
+      "step": "wait_live_save",
+      "timeout_ms": 120000
+    },
+    {
+      "step": "snapshot",
+      "label": "saved"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_live/saved-window.png"
+    },
+    {
+      "step": "firmware_restart"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_environment",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "restarted"
+    },
+    {
+      "step": "click_ui_control",
+      "name": "firmware_resume_live"
+    },
+    {
+      "step": "wait_session",
+      "state": "running",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_environment",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 500,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "resumed"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_live/resumed.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 60000
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 500,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "returned"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_live/returned.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

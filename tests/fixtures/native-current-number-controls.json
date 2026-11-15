@@ -1,0 +1,1140 @@
+{
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "provenance": "Self-authored source executed by original installed G1 build15751. Complete coherent typed returns, no fault or decoding caveat. Does not contain vendor bytes.",
+  "cases": [
+    {
+      "name": "operations",
+      "source": "EXPORT NUMMODEL() BEGIN RETURN {1E20/1E10,1E-20*1E10,1E20-1E20+1,SQRT(2)-SQRT(2)+1,1/3+SQRT(2),1/3+0.1,ROUND(1/3,2),IP(1/3),SQRT(1/4),SQRT(4/9),(1/3)^2,(1/3)^-2,π*0,π/π,π*π,π*π/π,π-π+1,π/3,π+1,π-1,1E19/1E19,1234567890123456789+1,12345678901234567890+1,(1/3)*3,0.333333333333*3,1E-19/3,(1E19/3)*3,(1E19/3)+(2E19/3)}; END;\n",
+      "source_sha256": "57379d6fe82a9ba0bd992afbce842e40ccd6daf3cf931f5bf7070f9aae35093a",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "10000000000"
+          },
+          {
+            "type": "real",
+            "value": "1e-10"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1.7475468957"
+          },
+          {
+            "denominator": "30",
+            "negative": false,
+            "numerator": "13",
+            "type": "rational"
+          },
+          {
+            "type": "real",
+            "value": "0.33"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0.5"
+          },
+          {
+            "denominator": "3",
+            "negative": false,
+            "numerator": "2",
+            "type": "rational"
+          },
+          {
+            "denominator": "9",
+            "negative": false,
+            "numerator": "1",
+            "type": "rational"
+          },
+          {
+            "type": "real",
+            "value": "9"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "9.86960440109"
+          },
+          {
+            "type": "real",
+            "value": "3.14159265359"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "denominator": "3",
+            "negative": false,
+            "numerator": "1",
+            "type": "pi_multiple"
+          },
+          {
+            "type": "real",
+            "value": "4.14159265359"
+          },
+          {
+            "type": "real",
+            "value": "2.14159265359"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1.23456789012345679e18"
+          },
+          {
+            "type": "real",
+            "value": "1.2345678901234567891e19"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0.999999999999"
+          },
+          {
+            "type": "real",
+            "value": "3.33333333333e-20"
+          },
+          {
+            "type": "real",
+            "value": "1e19"
+          },
+          {
+            "type": "real",
+            "value": "1e19"
+          }
+        ]
+      }
+    },
+    {
+      "name": "overflow",
+      "source": "EXPORT NUMOVER() BEGIN RETURN {(1234567890123456789/1000000000000000000)^2,(1234567890123456789/1000000000000000000)*(1234567890123456789/1000000000000000000),(1234567890123456789/1000000000000000000)+(1234567890123456788/999999999999999999),IP(SQRT(2)),ROUND(SQRT(2),2),TRUNCATE(SQRT(2),2),ABS(SQRT(2)),SIN(π/6),COS(π/3),IP(π),ROUND(π,2),TRUNCATE(π,2),(18446744073709551615/18446744073709551614)^10000000000}; END;\n",
+      "source_sha256": "a18a481e79fa5becddd64514716086d067ac8a03f2be8e95cc1bd69881075ea5",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1.52415787532"
+          },
+          {
+            "type": "real",
+            "value": "1.52415787532"
+          },
+          {
+            "type": "real",
+            "value": "2.46913578025"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1.41"
+          },
+          {
+            "type": "real",
+            "value": "1.41"
+          },
+          {
+            "type": "real",
+            "value": "1.41421356237"
+          },
+          {
+            "type": "real",
+            "value": "0.5"
+          },
+          {
+            "type": "real",
+            "value": "0.5"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3.14"
+          },
+          {
+            "type": "real",
+            "value": "3.14"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "format_and_roots",
+      "source": "EXPORT NUMFMT() BEGIN LOCAL a,r:={}; HSeparator:=0; HFormat:=0; IFERR a:=STRING(1234567890123456789,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(0.1234567890123456789,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(π,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(π/2,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(-2*π/3,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(SQRT(2),7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(0.333333333333,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(1/3,7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(ROUND(1/3,50),7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING(ROUND(1/3,100),7,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,50); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,100); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=(1/4)^(1/2); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=(8/27)^(1/3); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=SQRT(π); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=0.000000000000000000108420217248550443400745280086994171142578125; THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=π>3141592653589793238/1000000000000000000; THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=π<3141592653589793239/1000000000000000000; THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); RETURN r; END;\n",
+      "source_sha256": "f494506564ae9d16c139ae4a778f287d87f6df3a21de401e2e9238cdbddc4883",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "1.23456789012ᴇ18"
+          },
+          {
+            "type": "string",
+            "value": "1.23456789012ᴇ18/1ᴇ19"
+          },
+          {
+            "type": "string",
+            "value": "3.14159265359"
+          },
+          {
+            "type": "string",
+            "value": "1.57079632679"
+          },
+          {
+            "type": "string",
+            "value": "−2.09439510239"
+          },
+          {
+            "type": "string",
+            "value": "1.41421356237"
+          },
+          {
+            "type": "string",
+            "value": "333333333333/1ᴇ12"
+          },
+          {
+            "type": "string",
+            "value": "1/3"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "real",
+            "value": "0.5"
+          },
+          {
+            "denominator": "3",
+            "negative": false,
+            "numerator": "2",
+            "type": "rational"
+          },
+          {
+            "type": "real",
+            "value": "1.77245385091"
+          },
+          {
+            "type": "real",
+            "value": "1.08420217248550443400745280086994171142578125e-19"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "round_admission",
+      "source": "EXPORT NUMROUND() BEGIN LOCAL a,r:={}; IFERR a:=ROUND(1/3,-16); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-15); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-14); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-13); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-11); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-10); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-9); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-8); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-7); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-6); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-5); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-4); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-3); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-2); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,-1); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,0); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,1); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,2); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,3); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,4); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,5); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,6); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,7); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,8); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,9); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,10); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,11); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,12); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,13); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,14); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,15); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,16); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,0.5); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,1.9); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,\"2\"); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=ROUND(1/3,#2h); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=TRUNCATE(1/3,13); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); IFERR a:=TRUNCATE(1/3,-13); THEN a:=\"REJECT\"; END; r:=CONCAT(r,{a}); RETURN r; END;\n",
+      "source_sha256": "580445a08327ba00751432e7e32bfa8f1beffdee7f1054d7540af3f03455d98b",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "real",
+            "value": "0.333333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333333"
+          },
+          {
+            "type": "real",
+            "value": "0.333333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333"
+          },
+          {
+            "type": "real",
+            "value": "0.333"
+          },
+          {
+            "type": "real",
+            "value": "0.33"
+          },
+          {
+            "type": "real",
+            "value": "0.3"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0.3"
+          },
+          {
+            "type": "real",
+            "value": "0.33"
+          },
+          {
+            "type": "real",
+            "value": "0.333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333"
+          },
+          {
+            "type": "real",
+            "value": "0.333333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333333"
+          },
+          {
+            "type": "real",
+            "value": "0.333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.3333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.33333333333"
+          },
+          {
+            "type": "real",
+            "value": "0.333333333333"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "real",
+            "value": "0.33"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          },
+          {
+            "type": "string",
+            "value": "REJECT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "complex_zero",
+      "source": "EXPORT CXTYPES() BEGIN LOCAL a:=(2,0),m:=[[(2,0)]]; RETURN {TYPE((2,0)),TYPE(a),TYPE(a+0),TYPE(a*1),TYPE(a-a),TYPE(a/a),TYPE((0,1)*(0,-1)),TYPE(0*(2,3)),TYPE(2+0*(0,1)),TYPE(m(1,1)),m}; END;\n",
+      "source_sha256": "deefbf032b11c0af5bfc87c570d38bee73d9ae903466b3a2c4840b320bb8862b",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "columns": 1,
+            "rows": 1,
+            "type": "matrix",
+            "value": [
+              {
+                "type": "real",
+                "value": "2"
+              }
+            ],
+            "vector": false
+          }
+        ]
+      },
+      "legacy_15157_evidence": {
+        "firmware_sha256": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+        "source": "EXPORT ZZT_CXTYPE() BEGIN LOCAL a:=(2,0),m:=[[(2,0)]]; Notes(\"ZZT_CXTYPES_RESULT\"):=STRING({TYPE((2,0)),TYPE(a),TYPE(a+0),TYPE(a*1),TYPE(a-a),TYPE(a/a),TYPE((0,1)*(0,-1)),TYPE(0*(2,3)),TYPE(2+0*(0,1)),TYPE(m(1,1)),m}); RETURN 0; END;\n",
+        "source_sha256": "68fa46b640bb17204bfdaa1dc94c1904ead62a6f196df04853bc1f8b0905c556",
+        "lines": [
+          "{3,3,3,3,3,3,3,3,3,0,[[2]]}"
+        ]
+      }
+    },
+    {
+      "name": "runtime_saturation",
+      "source": "EXPORT OVSCOPE() BEGIN LOCAL a,r:={},x:=1E400,y:=1E-400; IFERR a:=1E400^2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=-1E400^2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-1E400)^3; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x*x; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-x)*x; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x/y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-x)/y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=EXP(1200); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x^-2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x*y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=0/0; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); RETURN r; END;\n",
+      "source_sha256": "fc60a63cd04eec013b99fd953404e918aefe4ce09eb13287f852eb4619083890",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "-9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "-9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "-9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "-9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "9.99999999999e499"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      "legacy_15157_evidence": {
+        "firmware_sha256": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+        "source": "EXPORT ZZT_OVSCOPE() BEGIN LOCAL a,r:={},x:=1E400,y:=1E-400; IFERR a:=1E400^2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=-1E400^2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-1E400)^3; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x*x; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-x)*x; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x/y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=(-x)/y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=EXP(1200); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x^-2; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=x*y; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=0/0; THEN a:=\"error\"; END; r:=CONCAT(r,{a}); Notes(\"ZZT_OVSCOPE_RESULT\"):=STRING(r); RETURN 0; END;\n",
+        "source_sha256": "3845df1b9d6253871997849361acf4238d93ea9aabbe15e771b86cb3534e3577",
+        "lines": [
+          "{9.99999999999ᴇ499,−9.99999999999ᴇ499,−9.99999999999ᴇ499,9.99999999999ᴇ499,−9.99999999999ᴇ499,9.99999999999ᴇ499,−9.99999999999ᴇ499,9.99999999999ᴇ499,0,1,\"error\"}"
+        ]
+      }
+    },
+    {
+      "name": "complex-functions",
+      "source": "EXPORT CXFUNC() BEGIN LOCAL a,r:={}; IFERR a:=TYPE(SQRT((4,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(SIN((0,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(EXP((0,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(LN((1,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(ABS((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(RE((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(IM((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(CONJ((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(SIGN((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(ROUND((2,0),1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(approx((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING((2,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); RETURN r; END;\n",
+      "source_sha256": "465027d8cbb43554c7bfe205d5a30d09caa544e8c00b96dbc899bc8ba0125e17",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "2"
+          }
+        ]
+      },
+      "legacy_15157_evidence": {
+        "firmware_sha256": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+        "source": "EXPORT ZZT_CXTYPE() BEGIN LOCAL a,r:={}; IFERR a:=TYPE(SQRT((4,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(SIN((0,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(EXP((0,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(LN((1,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(ABS((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(RE((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(IM((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(CONJ((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(SIGN((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(ROUND((2,0),1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TYPE(approx((2,0))); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=STRING((2,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); Notes(\"ZZT_CXTYPES_RESULT\"):=STRING(r); RETURN 0; END;\n",
+        "source_sha256": "09bc974f35d9351118a3a6c7293581591f6a645cea16cbd69c9a3d63aa1be372",
+        "expected_note": [
+          "{3,3,3,3,0,0,0,3,0,0,0,\"2\"}"
+        ]
+      }
+    },
+    {
+      "name": "complex-values",
+      "source": "EXPORT CXVALUES() BEGIN HComplex:=0; HAngle:=0; LOCAL a,r:={}; IFERR a:=SIN((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=COS((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TAN((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=EXP((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=LN((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=LOG((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=SIN((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=COS((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TAN((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=EXP((1000,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=LN((1E400,1E400)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=SQRT((1E-400,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); HAngle:=1; IFERR a:=SIN((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=COS((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TAN((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=EXP((0,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=LN((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=LOG((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=SIN((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=COS((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); IFERR a:=TAN((90,1)); THEN a:=\"error\"; END; r:=CONCAT(r,{a}); RETURN r; END;",
+      "source_sha256": "ec0e8d6b8e015181a8abb0df4f7f1493b04638161f32a2d726fdf7d9bf689594",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "imaginary": "1.17520119364",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0",
+            "real": "1.54308063482",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0.761594155956",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0.841470984808",
+            "real": "0.540302305868",
+            "type": "complex"
+          },
+          {
+            "imaginary": "3.14159265359",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "1.36437635384",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "-0.526576648515",
+            "real": "1.37950893919",
+            "type": "complex"
+          },
+          {
+            "imaginary": "-1.05062594618",
+            "real": "-0.691413720021",
+            "type": "complex"
+          },
+          {
+            "imaginary": "1.1463854257",
+            "real": "-0.253229957066",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0",
+            "real": "1.97007111402e434",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0.785398163397",
+            "real": "921.380610788",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0",
+            "real": "1e-200",
+            "type": "complex"
+          },
+          {
+            "imaginary": "1.17520119364",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0",
+            "real": "1.54308063482",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0.761594155956",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "0.841470984808",
+            "real": "0.540302305868",
+            "type": "complex"
+          },
+          {
+            "imaginary": "3.14159265359",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "1.36437635384",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "imaginary": "-0.526576648515",
+            "real": "1.37950893919",
+            "type": "complex"
+          },
+          {
+            "imaginary": "-1.05062594618",
+            "real": "-0.691413720021",
+            "type": "complex"
+          },
+          {
+            "imaginary": "1.1463854257",
+            "real": "-0.253229957066",
+            "type": "complex"
+          }
+        ]
+      }
+    },
+    {
+      "name": "app-arithmetic-angles",
+      "source": "EXPORT APPMATH() BEGIN LOCAL r:={}; HAngle:=0; AAngle:=0; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=0; AAngle:=1; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=0; AAngle:=2; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=0; AAngle:=3; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=1; AAngle:=0; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=1; AAngle:=1; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=1; AAngle:=2; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=1; AAngle:=3; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=2; AAngle:=0; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=2; AAngle:=1; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=2; AAngle:=2; r:=CONCAT(r,{HAngle,AAngle,SIN(90)});HAngle:=2; AAngle:=3; r:=CONCAT(r,{HAngle,AAngle,SIN(90)}); RETURN r; END;",
+      "source_sha256": "c0d581f50a091295a953c59e3c979c5ee2e8b6b4ff304fd644c47328d4aa34a9",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0.893996663601"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0.893996663601"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0.987688340595"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0.893996663601"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0.987688340595"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0.987688340595"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0.893996663601"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "0.987688340595"
+          }
+        ]
+      }
+    },
+    {
+      "name": "active-app-complex-modes",
+      "source": "EXPORT CXMODE() BEGIN LOCAL a,r:={}; HComplex:=0; AComplex:=0;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=0; AComplex:=1;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=0; AComplex:=2;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=0;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=1;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=2;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)}); RETURN r; END;",
+      "source_sha256": "28226f90c95e2b512e1316a71442a096a310da2953d490f052de15cd2e062d82",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "3.14159265359",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "3.14159265359",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "3.14159265359",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          }
+        ]
+      },
+      "legacy_15157_evidence": {
+        "firmware_sha256": "6f0bb2ab7d37b16e95ea94151e8d4d8933ff1eb1cf084c3dc0c75a626c69fdd4",
+        "source": "EXPORT ZZT_OVSCOPE() BEGIN LOCAL a,r:={}; HComplex:=0; AComplex:=0;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=0; AComplex:=1;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=0; AComplex:=2;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=0;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=1;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});HComplex:=1; AComplex:=2;IFERR a:=SQRT(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=(-1)^0.5; THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=LN(-1); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)});IFERR a:=SQRT((-1,0)); THEN a:=\"error\"; END; r:=CONCAT(r,{a,TYPE(a)}); Notes(\"ZZT_OVSCOPE_RESULT\"):=STRING(r); RETURN 0; END;",
+        "source_sha256": "1ae0bb7ce8f3c06f7ea029b3ebc9d325e8327aef00b182155669b502bf520fba",
+        "expected_note": [
+          "{\"error\",2,\"error\",2,\"error\",2,,3,\"error\",2,\"error\",2,\"error\",2,,3,,3,,3,3.14159265359*,3,,3,,3,,3,3.14159265359*,3,,3,\"error\",2,\"error\",2,\"error\",2,,3,,3,,3,3.14159265359*,3,,3}"
+        ]
+      }
+    }
+  ]
+}

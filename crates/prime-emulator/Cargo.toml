@@ -9,19 +9,27 @@ publish = false
 
 [dependencies]
 ppl-engine = { path = "../ppl-engine" }
-unicorn-engine = "2.1"
+ppl-syntax.workspace = true
+unicorn-engine = { version = "2.1", default-features = false, features = ["arch_arm"] }
 goblin = "0.10"
 memmap2 = "0.9"
 clap = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true, features = ["raw_value"] }
+serde_json = { workspace = true, features = ["raw_value", "float_roundtrip"] }
 png = { workspace = true }
 
 tempfile = "3"
 toml = { workspace = true }
 ctrlc = "3"
 fs2 = "0.4.3"
+flate2 = "1"
+same-file = "1.0"
+sha2 = "0.10"
+libc = "0.2"
 
 [[bin]]
 name = "prime-emulator"
 path = "src/main.rs"
+
+[dev-dependencies]
+ppl-device = { path = "../ppl-device" }

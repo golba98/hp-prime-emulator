@@ -35,10 +35,8 @@ Thumbs.db
 /target/
 *.rs.bk
 
-# Generated reports and engineering notes.
-# Reviewed public documentation is explicitly tracked; new Markdown under docs/
-# remains ignored until reviewed. This pattern does not affect tracked files.
-docs/**/*.md
+# Public Markdown is reviewed through scripts/maintenance/public-documentation.json.
+# Internal working notes belong under /.private/.
 !docs/device/autonomous-control.md
 !docs/device/program-inventory.md
 !docs/device/physical-debugging.md
@@ -46,7 +44,6 @@ docs/**/*.md
 !docs/device/INCREMENTAL_SCREEN_MIRROR.md
 !docs/device/FC04_PHYSICAL_VISUAL_VERIFICATION.md
 !docs/reverse-engineering/remote-input-investigation.md
-docs/reports/
 HANDOFF.md
 
 # Generated artifacts, scratch probes and agent runtime files
@@ -102,3 +99,32 @@ out.png
 
 # Living emulator overhaul implementation report.
 !docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md
+
+# Side-emulator remediation implementation and verification records.
+!docs/emulator/side-remediation/REMEDIATION.md
+!docs/emulator/SIDE_FIRMWARE_CAS_REMEDIATION.md
+!docs/development/native-graphics-data.md
+!docs/emulator/NATIVE_APP_SETTINGS.md
+!docs/emulator/NATIVE_CARTESIAN_GRAPHICS.md
+
+!docs/development/native-catalog-routing.md
+
+!docs/emulator/side-remediation/evidence/*.png
+
+# Local evidence, credentials, proprietary installed resources and cloud scratch.
+/.private/
+/.codex-local/
+/.env
+/.env.*
+!/.env.example
+**/credentials.json
+**/secrets.json
+*.pem
+*.key
+*.elf
+*.ROM
+*.rom
+/firmware/
+
+# Optional Giac helper build output; publish its source and license only.
+/tools/giac-helper/ppl-giac-helper

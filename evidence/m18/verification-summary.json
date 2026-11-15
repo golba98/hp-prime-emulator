@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "milestone": "M18",
+  "tested_source_checkpoint": "11356a16724e16cae2885e156d89cfed7ebc7136",
+  "workspace": {
+    "passed": 1901,
+    "failed": 0,
+    "ignored": 6,
+    "log": "artifacts/m18/workspace-final.log"
+  },
+  "formatting": true,
+  "clippy_warnings_denied": true,
+  "gui": {
+    "firmware_15751": 101,
+    "firmware_15157": 11,
+    "native_linkage": 15,
+    "native_debugger": 40,
+    "research_dialog": 2,
+    "assertions": 169,
+    "physical_usb_disabled": true,
+    "screenshots_inspected": true,
+    "final_pass_logs": [
+      "artifacts/m18/gui-final-m14-assert.log",
+      "artifacts/m18/native-debug-gui-final.log"
+    ]
+  },
+  "differential": {
+    "genuine_running_hle": true,
+    "assertions": 94,
+    "mismatches": 0,
+    "new_m18_assertions": 43
+  },
+  "synthetic_snapshot": {
+    "tests": 14,
+    "fresh_process_continuation": true,
+    "fallback_generations": 2,
+    "calculator_live_restore": false
+  },
+  "hardware": {
+    "published_qemu_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+    "agent_fresh_guest_runs": 12,
+    "coordinator_guest_runs": 5,
+    "virtual_clock_model_runs": 3,
+    "python_tests": 20,
+    "kernel_boot": false,
+    "physical_verification": false
+  },
+  "configured_release": {
+    "firmware_cases": 11,
+    "stateful_cases": 3,
+    "checkpoint_cases": 3,
+    "native_only_in_checkpoint_group": 1
+  },
+  "debug_post_cas": {
+    "passed": true,
+    "seconds": 71.54
+  },
+  "journal_stress": {
+    "parallel_trials": 4,
+    "transaction_passes": 72,
+    "journal_passes": 12,
+    "failed": 0
+  },
+  "historical_replay": {
+    "cases": 77,
+    "exact": 68,
+    "partial": 4,
+    "transcription": 5,
+    "mismatches": 0,
+    "new_physical_captures": 0
+  },
+  "native_historical": {
+    "exact": 49,
+    "transcription": 4,
+    "missing": 24
+  },
+  "initial_failures": {
+    "workspace": "readiness PID created before publication; fixed atomic fixture rename, five failures were poison fallout",
+    "app_gui": "120-second harness budget was shorter than149.4s scripted waits; standard300s passed unchanged assertions",
+    "cancellation_collector": "first collector lost auto-deleted CID; subsequent tests retained exact ID and proved absence"
+  },
+  "external_actions": {
+    "push": false,
+    "physical_device_access": false,
+    "proprietary_images_modified": false
+  },
+  "production_benchmarks": {
+    "pairs": 5,
+    "workloads": 13,
+    "expected_outcomes_passed": 130,
+    "maximum_absolute_median_change_percent": 4.965360554455023,
+    "summary": "evidence/m18/benchmark-summary.json",
+    "helper_sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165"
+  },
+  "toolchain": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "raw_artifacts": "artifacts/m18"
+}

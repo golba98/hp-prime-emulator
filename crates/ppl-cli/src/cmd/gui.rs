@@ -197,6 +197,7 @@ pub fn run(o: GuiOpts) -> u8 {
 
     let worker_config = WorkerConfig {
         prog: (*prog).clone(),
+        catalog: None,
         entry: Some(entry.clone()),
         args: o.args.clone(),
         settings,

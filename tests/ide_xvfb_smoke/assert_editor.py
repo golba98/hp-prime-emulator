@@ -56,9 +56,18 @@ def main():
     classes = {x["class"] for x in demo["diagnostics"]}
     check("valid PPL has no syntax/semantic errors", classes <= {"Compatibility"}, str(classes))
     codes = {x["code"] for x in demo["diagnostics"]}
-    for code in ["unsupported-command", "lowercase-command",
-                 "input-defaults-ignored", "symbolic-unsupported"]:
-        check(f"compat diagnostic {code}", code in codes, str(codes))
+    check("compat diagnostics exactly match supported implementation",
+          codes == {"unsupported-command", "lowercase-command"}, str(codes))
+    check("unsupported SOLVE remains explicitly diagnosed",
+          any(x["code"] == "unsupported-command" and x["line"] == 14 and x["col"] == 34
+              and x["message"] == "SOLVE is an HP Prime command that is not emulated"
+              for x in demo["diagnostics"]), str(demo["diagnostics"]))
+    check("lowercase append distinction remains explicitly diagnosed",
+          any(x["code"] == "lowercase-command" and x["line"] == 15 and x["col"] == 10
+              for x in demo["diagnostics"]), str(demo["diagnostics"]))
+    # INPUT defaults and quoted symbolic values now execute in the runtime;
+    # their old 'ignored'/'unsupported' warnings would be regressions. Actual
+    # INPUT and CAS execution is covered by the Native side workflows.
     check(
         "typed block auto-indented and paired",
         demo["content"].endswith(

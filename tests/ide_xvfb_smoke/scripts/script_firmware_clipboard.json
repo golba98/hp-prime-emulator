@@ -1,0 +1,123 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/firmware_clipboard/clipboard.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 250,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        43,
+        37,
+        39,
+        33,
+        42,
+        44,
+        38,
+        32,
+        34
+      ],
+      "gap_ms": 80
+    },
+    {
+      "step": "wait_lcd_settled",
+      "quiet_ms": 250,
+      "timeout_ms": 15000
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        9
+      ],
+      "gap_ms": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 600
+    },
+    {
+      "step": "click_lcd",
+      "x": 185,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 900
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_clipboard/clipboard_selected.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 1200
+    },
+    {
+      "step": "snapshot",
+      "label": "firmware_copied"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_clipboard/clipboard_copied.png"
+    },
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "key",
+      "key": "V",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "snapshot",
+      "label": "desktop_paste"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

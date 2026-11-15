@@ -6,7 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 autotests = false
 
+[features]
+giac-integration = ["ppl-vm/giac-integration", "ppl-cas/giac-integration"]
+
 [dependencies]
+ppl-cas = { path = "../ppl-cas" }
 ppl-programs = { path = "../ppl-programs" }
 ppl-engine = { path = "../ppl-engine" }
 fs2 = "0.4.3"

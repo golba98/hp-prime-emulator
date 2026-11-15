@@ -1,0 +1,8 @@
+{
+  "assertions": 6,
+  "fixture_sha256": "9d9318130d677d514e0aa5249934f0ad7acec085c03de4b88262560c8a12a8ba",
+  "mismatches": [],
+  "passed": true,
+  "schema_version": 1,
+  "source_sha256": "0d961cbdda406b48a1f515a5571dfc3c93ff0f6d0cadd8c0b3f80072bff2445e"
+}

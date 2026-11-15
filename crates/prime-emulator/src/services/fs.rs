@@ -9,16 +9,29 @@
 use std::collections::{HashMap, VecDeque};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+
+pub mod component;
+pub mod image;
 
 const FIRST_HANDLE: u32 = 0x0001_0001;
+
+fn next_guest_handle(counter: &AtomicU64) -> Option<u32> {
+    counter
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            (value != 0 && value <= u64::from(u32::MAX)).then(|| value + 1)
+        })
+        .ok()
+        .and_then(|value| u32::try_from(value).ok())
+}
 
 pub struct VFile {
     pub file: std::fs::File,
     pub host_path: PathBuf,
     pub readable: bool,
     pub writable: bool,
+    pub append: bool,
 }
 
 struct FindCtx {
@@ -35,6 +48,7 @@ struct FindCtx {
 }
 
 pub struct Vfs {
+    capacity: Arc<AtomicU64>,
     root: PathBuf,
     files: Mutex<HashMap<u32, VFile>>,
     next_handle: AtomicU64,
@@ -47,12 +61,19 @@ pub struct Vfs {
 
 impl Vfs {
     pub fn new(root: PathBuf) -> Vfs {
+        Self::with_capacity(
+            root,
+            Arc::new(AtomicU64::new(super::system2::STORAGE_CAPACITY)),
+        )
+    }
+    pub fn with_capacity(root: PathBuf, capacity: Arc<AtomicU64>) -> Vfs {
         let mut cwds: [String; 26] =
             std::array::from_fn(|i| format!("{}:", char::from(b'A' + i as u8)));
         for (i, c) in cwds.iter_mut().enumerate() {
             *c = format!("{}:", char::from(b'A' + i as u8));
         }
         Vfs {
+            capacity,
             root,
             files: Mutex::new(HashMap::new()),
             next_handle: AtomicU64::new(FIRST_HANDLE as u64),
@@ -64,8 +85,42 @@ impl Vfs {
         }
     }
 
+    pub fn inspection(&self) -> serde_json::Value {
+        let files = self.files.try_lock().ok();
+        serde_json::json!({"open_files":files.as_ref().map(|f| f.len()),"writable_files":files.as_ref().map(|f| f.values().filter(|v|v.writable).count()),"searches":self.finds.try_lock().ok().map(|f|f.len())})
+    }
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Rebind an admitted, stopped world's storage namespace before its staged
+    /// drive directories move into place. Open descriptors retain the same
+    /// inodes; no guest can execute while these paths are being relocated.
+    pub(crate) fn relocate_root(&mut self, root: PathBuf) -> Result<(), String> {
+        let rebase = |path: &Path| -> Result<PathBuf, String> {
+            Ok(root.join(
+                path.strip_prefix(&self.root)
+                    .map_err(|_| "VFS resource escaped its admitted root")?,
+            ))
+        };
+        let mut files = self.files.lock().map_err(|_| "VFS files are poisoned")?;
+        let mut finds = self.finds.lock().map_err(|_| "VFS searches are poisoned")?;
+        let file_paths = files
+            .iter()
+            .map(|(&id, f)| Ok((id, rebase(&f.host_path)?)))
+            .collect::<Result<Vec<_>, String>>()?;
+        let find_paths = finds
+            .iter()
+            .map(|(&id, f)| Ok((id, rebase(&f.host_dir)?)))
+            .collect::<Result<Vec<_>, String>>()?;
+        for (id, path) in file_paths {
+            files.get_mut(&id).unwrap().host_path = path;
+        }
+        for (id, path) in find_paths {
+            finds.get_mut(&id).unwrap().host_dir = path;
+        }
+        self.root = root;
+        Ok(())
     }
 
     /// Translate a guest path (ANSI or decoded wide) to a jailed host path.
@@ -179,6 +234,7 @@ impl Vfs {
         let opened = std::fs::OpenOptions::new()
             .read(readable)
             .write(writable)
+            .append(mode.contains('a'))
             .create(mode.contains('w') || mode.contains('a'))
             .truncate(mode.contains('w'))
             .open(&host);
@@ -197,7 +253,7 @@ impl Vfs {
                 return None;
             }
         };
-        let handle = self.next_handle.fetch_add(1, Ordering::Relaxed) as u32;
+        let handle = next_guest_handle(&self.next_handle)?;
         self.files.lock().unwrap().insert(
             handle,
             VFile {
@@ -205,6 +261,7 @@ impl Vfs {
                 host_path: host,
                 readable,
                 writable,
+                append: mode.contains('a'),
             },
         );
         Some(handle)
@@ -265,21 +322,93 @@ impl Vfs {
     pub fn record_write_error(&self, error: impl ToString) {
         *self.durability_error.lock().unwrap() = Some(error.to_string());
     }
+    /// Budget changes and writes share the file-table gate, so a concurrent
+    /// producer cannot reserve space against a stale capacity/occupancy pair.
+    pub fn set_capacity(&self, capacity: u64) -> Result<(), String> {
+        if capacity == 0 {
+            return Err("Internal storage capacity must be positive".into());
+        }
+        let _files = self.files.lock().unwrap();
+        let used = super::disk_room::used_bytes(&self.root.join("C")).map_err(|e| e.to_string())?;
+        if used > capacity {
+            return Err(format!(
+                "Internal storage already uses {used} bytes; capacity {capacity} would discard existing data"
+            ));
+        }
+        self.capacity.store(capacity, Ordering::Release);
+        Ok(())
+    }
+    fn available_write(
+        &self,
+        host: &Path,
+        position: u64,
+        length: u64,
+        requested: usize,
+    ) -> std::io::Result<usize> {
+        if !host.starts_with(self.root.join("C")) {
+            return Ok(requested);
+        }
+        let used = super::disk_room::used_bytes(&self.root.join("C"))?;
+        let free = self.capacity.load(Ordering::Acquire).saturating_sub(used);
+        let last = length.saturating_add(free);
+        Ok(usize::try_from(last.saturating_sub(position))
+            .unwrap_or(usize::MAX)
+            .min(requested))
+    }
     pub fn write(&self, handle: u32, src: &[u8]) -> Option<usize> {
         self.with(handle, |vf| {
-            Some(match vf.file.write(src) {
-                Ok(n) => {
-                    if n != src.len() {
-                        self.record_write_error("short guest file write");
-                    }
-                    n
-                }
+            if !vf.writable {
+                return Some(0);
+            }
+            let result = (|| {
+                let length = vf.file.metadata()?.len();
+                let position = if vf.append {
+                    length
+                } else {
+                    vf.file.stream_position()?
+                };
+                let allowed = self.available_write(&vf.host_path, position, length, src.len())?;
+                vf.file.write(&src[..allowed])
+            })();
+            Some(match result {
+                Ok(n) => n,
                 Err(e) => {
                     self.record_write_error(e);
                     0
                 }
             })
         })
+    }
+    /// Whole-file metadata writes refuse an over-budget replacement before
+    /// truncating existing contents. All capacity-accounted writers share a gate.
+    pub fn write_metadata(&self, guest: &str, bytes: &[u8]) -> bool {
+        let Some(host) = self.to_host(guest).map(|p| self.resolve_case(&p)) else {
+            return false;
+        };
+        let _files = self.files.lock().unwrap();
+        let result = (|| {
+            let length = match std::fs::metadata(&host) {
+                Ok(meta) => meta.len(),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
+                Err(e) => return Err(e),
+            };
+            if self.available_write(&host, 0, length, bytes.len())? < bytes.len() {
+                return Ok(false);
+            }
+            if let Some(parent) = host.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&host, bytes)?;
+            std::fs::File::open(&host)?.sync_all()?;
+            Ok(true)
+        })();
+        match result {
+            Ok(written) => written,
+            Err(e) => {
+                self.record_write_error(e);
+                false
+            }
+        }
     }
 
     pub fn seek_set(&self, handle: u32, offset: u64) -> Option<()> {
@@ -388,12 +517,7 @@ impl Vfs {
             names.push(e.file_name().to_string_lossy().into_owned());
         }
         names.sort();
-        Some((
-            self.next_find.fetch_add(1, Ordering::Relaxed) as u32,
-            dir,
-            names,
-            pattern,
-        ))
+        Some((next_guest_handle(&self.next_find)?, dir, names, pattern))
     }
 
     /// (size, packed DOS datetime, FAT attributes) for a found entry.
@@ -588,5 +712,74 @@ mod durability_tests {
         let fs = Vfs::new(root.path().to_owned());
         fs.record_write_error("disk full");
         assert!(fs.check_durable().is_err());
+    }
+    #[test]
+    fn exhausted_guest_handles_never_wrap_or_reuse_an_existing_identifier() {
+        for start in [u64::from(u32::MAX), u64::MAX] {
+            let counter = AtomicU64::new(start);
+            if start == u64::from(u32::MAX) {
+                assert_eq!(next_guest_handle(&counter), Some(u32::MAX));
+            }
+            assert_eq!(next_guest_handle(&counter), None);
+            assert_eq!(next_guest_handle(&counter), None);
+            assert_eq!(counter.load(Ordering::Relaxed), start.saturating_add(1));
+        }
+    }
+}
+
+#[cfg(test)]
+mod capacity_tests {
+    use super::*;
+    #[test]
+    fn full_volume_limits_growth_preserves_overwrites_and_frees_removed_space() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(root.path().join("C")).unwrap();
+        let vfs = Vfs::new(root.path().to_path_buf());
+        vfs.set_capacity(10).unwrap();
+        let first = vfs.open("C:/first", "w+").unwrap();
+        assert_eq!(vfs.write(first, b"12345678"), Some(8));
+        let second = vfs.open("C:/second", "a+").unwrap();
+        assert_eq!(vfs.write(second, b"abcd"), Some(2));
+        assert_eq!(std::fs::read(root.path().join("C/second")).unwrap(), b"ab");
+        assert_eq!(vfs.write(second, b"x"), Some(0));
+        vfs.seek_set(first, 0).unwrap();
+        assert_eq!(
+            vfs.write(first, b"XX"),
+            Some(2),
+            "overwrite consumes no new capacity"
+        );
+        vfs.seek_set(first, 20).unwrap();
+        assert_eq!(
+            vfs.write(first, b"x"),
+            Some(0),
+            "sparse seek cannot evade the budget"
+        );
+        assert!(vfs.set_capacity(9).is_err());
+        assert_eq!(vfs.capacity.load(Ordering::Acquire), 10);
+        assert!(vfs.close(first));
+        std::fs::remove_file(root.path().join("C/first")).unwrap();
+        assert_eq!(vfs.write(second, b"cdefghij"), Some(8));
+        assert_eq!(
+            std::fs::metadata(root.path().join("C/second"))
+                .unwrap()
+                .len(),
+            10
+        );
+        vfs.check_durable().unwrap();
+    }
+    #[test]
+    fn over_budget_metadata_replacement_leaves_previous_file_unchanged() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(root.path().join("C")).unwrap();
+        let vfs = Vfs::new(root.path().to_path_buf());
+        vfs.set_capacity(4).unwrap();
+        assert!(vfs.write_metadata("C:/settings", b"old"));
+        assert!(!vfs.write_metadata("C:/settings", b"exceeds"));
+        assert_eq!(
+            std::fs::read(root.path().join("C/settings")).unwrap(),
+            b"old"
+        );
+        assert!(vfs.write_metadata("C:/settings", b"new!"));
+        assert!(vfs.write_metadata("A:/factory", b"separate volume"));
     }
 }

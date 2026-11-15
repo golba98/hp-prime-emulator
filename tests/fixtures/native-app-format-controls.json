@@ -1,0 +1,61 @@
+{
+  "provenance": "Self-authored programs executed by original installed G1 build15751 in disposable virtual profiles; reference report includes accepted compilation and actual result or Invalid input error. No hardware claim or vendor asset.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "floating",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); AFormat:=5; ADigits:=4; RETURN {AFormat,ADigits,HFormat}; END;",
+      "source_sha256": "68e2b6846360170f268e57737bf64a3aef531be8a23fb45952c2030df5d0f627",
+      "entry": "ZZT_FCALL",
+      "success": true,
+      "firmware_message": "G1 firmware returned {5, 4, 0}",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN AFormat:=5; ADigits:=4; RETURN {AFormat,ADigits,HFormat}; END;"
+    },
+    {
+      "name": "rounded",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); AFormat:=6; ADigits:=4; RETURN {AFormat,ADigits,HFormat}; END;",
+      "source_sha256": "a60c7249c7de75a870e45598e78096166ae56d680677133daf03b0c580b2cd8a",
+      "entry": "ZZT_FCALL",
+      "success": true,
+      "firmware_message": "G1 firmware returned {6, 4, 0}",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN AFormat:=6; ADigits:=4; RETURN {AFormat,ADigits,HFormat}; END;"
+    },
+    {
+      "name": "digits_zero",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); AFormat:=2; ADigits:=0; RETURN {AFormat,ADigits}; END;",
+      "source_sha256": "4b0ebc09b47d5452ea6367e34a966bb3b7fea7d08d746ae2eb06c5e53ad15c69",
+      "entry": "ZZT_FCALL",
+      "success": true,
+      "firmware_message": "G1 firmware returned {2, 0}",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN AFormat:=2; ADigits:=0; RETURN {AFormat,ADigits}; END;"
+    },
+    {
+      "name": "digits_eleven",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); AFormat:=2; ADigits:=11; RETURN {AFormat,ADigits}; END;",
+      "source_sha256": "fe11ae9f3c2f45872a847ed6f855a533041e97f470f4724943b9b64a6ce19cd4",
+      "entry": "ZZT_FCALL",
+      "success": true,
+      "firmware_message": "G1 firmware returned {2, 11}",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN AFormat:=2; ADigits:=11; RETURN {AFormat,ADigits}; END;"
+    },
+    {
+      "name": "format_seven",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); AFormat:=7; RETURN AFormat; END;",
+      "source_sha256": "a1ee6f65df5ac4c4674e3ac37e6a3d001372b7bd96cd9149e4146bb596d8656e",
+      "entry": "ZZT_FCALL",
+      "success": false,
+      "firmware_message": "Firmware runtime error: Error: Invalid input; Error: Invalid input\nAFormat:=7.00000000000\nZZT_IDE",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN AFormat:=7; RETURN AFormat; END;"
+    },
+    {
+      "name": "digits_twelve",
+      "source": "EXPORT ZZT_FCALL() BEGIN STARTAPP(\"Function\"); ADigits:=12; RETURN ADigits; END;",
+      "source_sha256": "6615d05c46248e0e56f1eb9a0fe644728fd08fddddc9299954fc546eaf5691ee",
+      "entry": "ZZT_FCALL",
+      "success": false,
+      "firmware_message": "Firmware runtime error: Error: Invalid input; Error: Invalid input\nADigits:=12.0000000000\nZZT_IDE",
+      "native_transport_source": "EXPORT ZZT_FCALL() BEGIN ADigits:=12; RETURN ADigits; END;"
+    }
+  ],
+  "native_transport": "The headless VM has no application window and reports STARTAPP as Unsupported. These controls start the VM in its existing Function context and omit only STARTAPP; settings assignments and returned values are unchanged."
+}

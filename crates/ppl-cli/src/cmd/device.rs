@@ -44,6 +44,8 @@ pub struct DeviceOpts {
 
 #[derive(Subcommand, Debug)]
 pub enum DeviceAction {
+    /// Talk to the original firmware over a local virtual USB wire.
+    Virtual(super::device_virtual::VirtualOptions),
     /// Prepare, explicitly apply, or inspect a program replacement.
     Replace {
         #[command(subcommand)]
@@ -458,6 +460,9 @@ fn run_session(action: &SessionAction) -> u8 {
 }
 
 pub fn run(o: DeviceOpts) -> u8 {
+    if let DeviceAction::Virtual(options) = &o.action {
+        return super::device_virtual::run(options);
+    }
     if matches!(
         &o.action,
         DeviceAction::Mirror {
@@ -1228,6 +1233,7 @@ fn act(p: &mut Prime, action: &DeviceAction) -> Result<u8, DeviceError> {
         | DeviceAction::ExecFile { .. }
         | DeviceAction::Listener { .. }
         | DeviceAction::Detect
+        | DeviceAction::Virtual(_)
         | DeviceAction::Send { .. }
         | DeviceAction::Session { .. }
         | DeviceAction::Cleanup { .. }

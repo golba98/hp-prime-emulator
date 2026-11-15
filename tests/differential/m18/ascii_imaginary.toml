@@ -1,0 +1,55 @@
+schema_version=2
+id="m18_ascii_imaginary"
+[programs.ZZT_M18ASCII]
+source='''EXPORT M18ASCII() BEGIN RETURN i; END;
+EXPORT M18LOCAL() BEGIN LOCAL i:=7; RETURN i; END;
+EXPORT M18CAPITAL() BEGIN RETURN I; END;
+'''
+[programs.ZZT_M18IFUNC]
+source='''i() BEGIN RETURN 6; END;
+EXPORT M18IFUNC() BEGIN RETURN i; END;
+'''
+[[steps]]
+action="import"
+id="install_ascii"
+program="ZZT_M18ASCII"
+[[steps]]
+action="import"
+id="install_function"
+program="ZZT_M18IFUNC"
+[[steps]]
+action="run_program"
+id="bare"
+program="ZZT_M18ASCII"
+entry="M18ASCII"
+[[steps]]
+action="run_program"
+id="local"
+program="ZZT_M18ASCII"
+entry="M18LOCAL"
+[[steps]]
+action="run_program"
+id="capital"
+program="ZZT_M18ASCII"
+entry="M18CAPITAL"
+[[steps]]
+action="run_program"
+id="function"
+program="ZZT_M18IFUNC"
+entry="M18IFUNC"
+[[expect]]
+step="bare"
+path="/return_value"
+value={type="complex",real="0",imaginary="1"}
+[[expect]]
+step="local"
+path="/return_value"
+value={type="real",value="7"}
+[[expect]]
+step="capital"
+path="/return_value"
+value={type="real",value="0"}
+[[expect]]
+step="function"
+path="/return_value"
+value={type="real",value="6"}

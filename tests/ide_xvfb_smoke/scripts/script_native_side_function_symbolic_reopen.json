@@ -1,0 +1,163 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_symbolic_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_v17_reopened.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_numeric"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_v17_reopened_numeric.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_f0"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/function_v17_reopened_f0.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "wait_ms",
+      "ms": 500
+    }
+  ]
+}

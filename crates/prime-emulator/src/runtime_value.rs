@@ -17,13 +17,51 @@ pub enum FirmwareValue {
     Real {
         value: String,
     },
+    Complex {
+        real: String,
+        imaginary: String,
+    },
+    Integer {
+        literal: String,
+        bits: u8,
+        unsigned: String,
+        signed: String,
+        /// The signed-width flag differs from the N-bit two's-complement
+        /// diagnostic above. Its actual mathematical value is explicit here.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        signed_word: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        numeric: Option<String>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        system_base: bool,
+    },
+    Matrix {
+        rows: usize,
+        columns: usize,
+        vector: bool,
+        #[serde(rename = "value")]
+        items: Vec<FirmwareValue>,
+    },
     Rational {
+        negative: bool,
+        numerator: String,
+        denominator: String,
+    },
+    /// Home real carrying an exact rational coefficient of π. This is not
+    /// a CAS symbolic expression, nor a rounded host floating-point number.
+    PiMultiple {
         negative: bool,
         numerator: String,
         denominator: String,
     },
     String {
         value: String,
+    },
+    /// An actual HP string may contain isolated UTF16 units. Retain those
+    /// units instead of rejecting the entire returned object or substituting
+    /// replacement characters in its typed execution evidence.
+    Utf16 {
+        value: Vec<u16>,
     },
     /// Observed guest error enum, not a documented SDK error namespace.
     Error {
@@ -44,6 +82,40 @@ impl FirmwareValue {
     fn render(&self, top: bool) -> String {
         match self {
             Self::Real { value } => value.clone(),
+            Self::Complex { real, imaginary } => format!("({real},{imaginary})"),
+            Self::Integer { literal, .. } => literal.clone(),
+            Self::Matrix {
+                rows,
+                columns,
+                vector,
+                items,
+            } => {
+                if *vector {
+                    format!(
+                        "[{}]",
+                        items
+                            .iter()
+                            .map(|v| v.render(false))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    format!(
+                        "[{}]",
+                        (0..*rows)
+                            .map(|row| format!(
+                                "[{}]",
+                                items[row * columns..(row + 1) * columns]
+                                    .iter()
+                                    .map(|v| v.render(false))
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            ))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            }
             Self::Rational {
                 negative,
                 numerator,
@@ -52,8 +124,36 @@ impl FirmwareValue {
                 "{}{numerator}/{denominator}",
                 if *negative { "-" } else { "" }
             ),
+            Self::PiMultiple {
+                negative,
+                numerator,
+                denominator,
+            } => {
+                let coefficient = if numerator == "1" {
+                    String::new()
+                } else {
+                    format!("{numerator}*")
+                };
+                format!(
+                    "{}{coefficient}π{}",
+                    if *negative { "-" } else { "" },
+                    if denominator == "1" {
+                        String::new()
+                    } else {
+                        format!("/{denominator}")
+                    }
+                )
+            }
             Self::String { value } if top => value.clone(),
             Self::String { value } => serde_json::to_string(value).expect("serializable string"),
+            Self::Utf16 { value } => format!(
+                "CHAR({{{}}})",
+                value
+                    .iter()
+                    .map(u16::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
             Self::Error { raw_code } => format!("error {raw_code}"),
             Self::List { items } => format!(
                 "{{{}}}",

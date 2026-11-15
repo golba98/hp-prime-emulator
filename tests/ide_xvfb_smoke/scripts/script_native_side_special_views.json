@@ -1,0 +1,242 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_special_views.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "NumStep",
+      "content": "1"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_symbolic.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "type",
+      "text": "X^2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "definition"
+    },
+    {
+      "step": "new_program",
+      "name": "SPECIAL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(8,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_8"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 50
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "detail_zoom"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_plot_detail.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(9,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_plot_table.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(10,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_10"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(11,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_11"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(12,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_12"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n STARTAPP(\"Function\");\n RETURN STARTVIEW(13,1);\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "view_13"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SPECIAL()\nBEGIN\n Xmin:=1; Xmax:=4; STARTVIEW(9,1); RETURN {Xmin,Xmax};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "live_bounds"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "unsplit"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

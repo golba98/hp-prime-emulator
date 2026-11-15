@@ -38,9 +38,24 @@ pub struct FirmwareSettings {
     pub profile: String,
     pub os_rom: String,
     pub init_data: String,
+    pub environment: ppl_engine::environment::EnvironmentConfig,
+}
+pub(crate) struct EnvironmentRequests {
+    pub next: u64,
+    pub initialized: bool,
+    pub pending: Option<u64>,
+}
+impl Default for EnvironmentRequests {
+    fn default() -> Self {
+        Self {
+            next: 1 << 63,
+            initialized: false,
+            pending: None,
+        }
+    }
 }
 impl FirmwareSettings {
-    pub fn asset_paths(&self) -> Result<ppl_engine::firmware_options::AssetPaths, String> {
+    fn overrides(&self) -> ppl_engine::firmware_options::AssetPaths {
         let path = |s: &str| (!s.trim().is_empty()).then(|| PathBuf::from(s));
         ppl_engine::firmware_options::AssetPaths {
             firmware: path(&self.firmware),
@@ -49,7 +64,12 @@ impl FirmwareSettings {
             os_rom: path(&self.os_rom),
             init_data: path(&self.init_data),
         }
-        .resolve()
+    }
+    pub fn asset_paths(&self) -> Result<ppl_engine::firmware_options::AssetPaths, String> {
+        self.overrides().resolve()
+    }
+    pub fn preflight(&self) -> ppl_engine::preflight::PreflightReport {
+        ppl_engine::preflight::inspect(ppl_engine::Engine::Firmware, self.overrides())
     }
 }
 #[derive(Debug, Clone)]
@@ -60,6 +80,7 @@ pub struct Frame {
 }
 pub struct FirmwareClient {
     pub session_id: u64,
+    profile: Arc<Mutex<Option<PathBuf>>>,
     tx: SyncSender<Input>,
     rx: Receiver<Event>,
     pub latest: Arc<Mutex<Option<Frame>>>,
@@ -86,6 +107,7 @@ impl FirmwareClient {
         let (events, rx) = mpsc::channel();
         let client = Self {
             session_id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
+            profile: Arc::new(Mutex::new(None)),
             tx,
             rx,
             latest: Arc::new(Mutex::new(frame)),
@@ -107,6 +129,26 @@ impl FirmwareClient {
         ctx: egui::Context,
         previous: Option<FirmwareClient>,
     ) -> Self {
+        Self::start_mode(settings, ctx, previous, false)
+    }
+    pub fn start_resuming(
+        settings: FirmwareSettings,
+        ctx: egui::Context,
+        previous: Option<FirmwareClient>,
+    ) -> Self {
+        Self::start_mode(settings, ctx, previous, true)
+    }
+    pub fn profile(&self) -> Option<PathBuf> {
+        self.profile.lock().unwrap().clone()
+    }
+    fn start_mode(
+        settings: FirmwareSettings,
+        ctx: egui::Context,
+        previous: Option<FirmwareClient>,
+        resume_live: bool,
+    ) -> Self {
+        let profile = Arc::new(Mutex::new(None));
+        let selected_profile = profile.clone();
         let (tx, commands) = mpsc::sync_channel(128);
         let (events, rx) = mpsc::channel();
         let latest = Arc::new(Mutex::new(None));
@@ -137,6 +179,8 @@ impl FirmwareClient {
                 ctx.clone(),
                 child_pid,
                 reason.clone(),
+                selected_profile,
+                resume_live,
             );
             match result {
                 Ok(()) => {}
@@ -154,6 +198,7 @@ impl FirmwareClient {
         });
         Self {
             session_id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
+            profile,
             tx,
             rx,
             latest,
@@ -350,6 +395,8 @@ fn supervise(
     ctx: egui::Context,
     child_pid: Arc<AtomicU32>,
     unavailable: Arc<Mutex<Option<String>>>,
+    selected_profile: Arc<Mutex<Option<PathBuf>>>,
+    resume_live: bool,
 ) -> Result<(), SessionError> {
     let unavailable_err = SessionError::Unavailable;
     let paths = settings.asset_paths().map_err(unavailable_err)?;
@@ -363,7 +410,15 @@ fn supervise(
         || std::env::var_os("PPL_PROFILE").is_some();
     let base_profile = profile_path(&settings).map_err(unavailable_err)?;
 
-    let (profile, (lock, helper_lock)) = if explicit_profile {
+    let (profile, (lock, helper_lock)) = if resume_live {
+        if !base_profile.is_dir() {
+            return Err(unavailable_err(
+                "No calculator profile to resume; start it and save live state first".into(),
+            ));
+        }
+        let locks = lock_profile(&base_profile).map_err(unavailable_err)?;
+        (base_profile, locks)
+    } else if explicit_profile {
         std::fs::create_dir_all(&base_profile).map_err(|e| unavailable_err(e.to_string()))?;
         let locks = lock_profile(&base_profile).map_err(unavailable_err)?;
         (base_profile, locks)
@@ -381,7 +436,10 @@ fn supervise(
         }).next().ok_or_else(|| unavailable_err("All calculator profiles (primary and secondary 2-8) are currently locked by other sessions".to_string()))?
     };
 
-    seed_profile(&profile, &factory, paths.init_data.as_deref()).map_err(unavailable_err)?;
+    *selected_profile.lock().unwrap() = Some(profile.clone());
+    if !resume_live {
+        seed_profile(&profile, &factory, paths.init_data.as_deref()).map_err(unavailable_err)?;
+    }
     let leftovers = leftover_files(&profile);
     if !leftovers.is_empty() {
         let _ = events.send(Event::Status {
@@ -411,6 +469,9 @@ fn supervise(
         .stderr(Stdio::from(
             std::fs::File::create(profile.join("session.log")).map_err(|e| e.to_string())?,
         ));
+    if resume_live {
+        command.arg("--resume-live");
+    }
     if let Some(rom) = paths.os_rom.as_ref() {
         command.arg("--os-rom").arg(rom);
     }

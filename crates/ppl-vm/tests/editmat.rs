@@ -118,3 +118,48 @@ fn cancelling_does_not_consume_following_program_input() {
         "{[[1]],7}"
     );
 }
+
+#[test]
+fn editlist_calculator_variable_writes_back_and_cancel_preserves_list() {
+    assert_eq!(
+        text(
+            &run(
+                "L1:={1,2}; LOCAL result:=EDITLIST(L1); RETURN {L1,result};",
+                &["9", "3"]
+            )
+            .unwrap()
+        ),
+        "{{9,3},{9,3}}"
+    );
+    assert_eq!(
+        text(
+            &run(
+                "L1:={1,2}; LOCAL result:=EDITLIST(L1); RETURN {L1,result};",
+                &["9", "<ESC>"]
+            )
+            .unwrap()
+        ),
+        "{{1,2},{1,2}}"
+    );
+    assert_eq!(
+        text(&run("RETURN EDITLIST({1,2});", &["9", "3"]).unwrap()),
+        "{9,3}"
+    );
+}
+
+#[test]
+fn editlist_invalid_expression_reopens_with_error_and_preserves_original_on_cancel() {
+    let mut run = common::Run::new(
+        "<list validation>",
+        "EXPORT TEST() BEGIN L1:={1,2}; LOCAL result:=EDITLIST(L1); RETURN {L1,result}; END;",
+    );
+    let result = run
+        .call("TEST", &["unknown_variable", "2", "<ESC>"])
+        .unwrap();
+    assert_eq!(text(&result), "{{1,2},{1,2}}");
+    assert!(
+        run.dialogs()
+            .iter()
+            .any(|text| text.starts_with("EDITLIST-ERROR:"))
+    );
+}

@@ -1,0 +1,25 @@
+{
+  "provenance": "Original installed G1 firmware executed the included self-authored PPL programs in disposable local profiles. Complete320x240 RGB images are hashed without masking or tolerance. Vendor font bytes and captures remain private. No physical calculator was accessed.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "font_resource_sha256": "cf50aa599e236a10d24761f15217c5c97473603f208fb4ba14b4cd84c36b8edf",
+  "cases": [
+    {
+      "name": "joined",
+      "source": "EXPORT FONTREF() BEGIN LOCAL f; RECT_P(0); FOR f FROM 1 TO 7 DO TEXTOUT_P(\"AbgXπ√∑∫\"+CHAR(57347),10,20+f*26,f,RGB(255,255,255)); END; WAIT(0); RETURN 1; END;",
+      "entry": "FONTREF",
+      "rgb_sha256": "2113e36b3b45a10a9477d498f42f622ba64ed54ff475a462965f39fc8519a7f0"
+    },
+    {
+      "name": "isolated",
+      "source": "EXPORT FONTISOLATED() BEGIN LOCAL f,j,s:=\"AbgXπ√∑∫\"+CHAR(57347); RECT_P(0); FOR f FROM 1 TO 7 DO FOR j FROM 1 TO DIM(s) DO TEXTOUT_P(MID(s,j,1),10+(j-1)*32,20+f*26,f,RGB(255,255,255)); END; END; WAIT(0); RETURN 1; END;",
+      "entry": "FONTISOLATED",
+      "rgb_sha256": "fc83f8ba2f9b6d49643df8ed0ad9daeb162429a940da731693a76fe41a5b8e66"
+    },
+    {
+      "name": "layout_color",
+      "source": "EXPORT FONTLAYOUT() BEGIN LOCAL k,f; RECT_P(0); FOR k FROM 0 TO 3 DO f:=1+2*k; TEXTOUT_P(\"A\"+CHAR(10)+\"A\",10+80*k,40,f,RGB(255,255,255)); END; RECT_P(0,130,319,239,RGB(239,141,47)); TEXTOUT_P(\"A\",10,150,2,RGB(17,93,201)); WAIT(0); RETURN 1; END;",
+      "entry": "FONTLAYOUT",
+      "rgb_sha256": "5c67dd5f9f4ad2db6eab6f64e2a3700a0f65923f7813e6a9cad9d873cc653fec"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "milestone": "M19",
+  "tested_source_checkpoint": "7cd5d98ae13433e762e64a33646ae84b90c660c0",
+  "status": "complete",
+  "workspace": {
+    "passed": 1919,
+    "failed": 0,
+    "ignored": 6,
+    "log": "artifacts/m19/workspace-reviewed-final.log",
+    "log_sha256": "368ebdf658e287907de97aa45c64d05197ef2d191fa2be32002aa54eef651000"
+  },
+  "formatting": true,
+  "clippy_warnings_denied": true,
+  "synthetic_snapshot": {
+    "tests": 23,
+    "service_tests": 9,
+    "actual_fresh_child_continuation": true,
+    "calculator_live_restore": false
+  },
+  "hardware": {
+    "qemu_sha256": "e474ec9f608ea44aaf4934d3dafaf8546a78c8985c2d4bf148f667c262e777b3",
+    "combined_guest_runs": 33,
+    "combined_guest_failures": 0,
+    "combined_host_suites": 5,
+    "actual_nand_sigint": {
+      "returncode": 130,
+      "container_id": "936ca125ad65bab5ae86ee224010c372a8fc6dbfbaf4e771f13739e210d9e4ae",
+      "container_absent": true
+    }
+  },
+  "python": {
+    "emulator_tests": 53,
+    "general_tests": 41
+  },
+  "native_hle": {
+    "assertions": 101,
+    "mismatches": 0
+  },
+  "historical_physical": {
+    "cases": 77,
+    "exact": 68,
+    "partial": 4,
+    "transcription": 5,
+    "mismatches": 0,
+    "new_device_access": false
+  },
+  "configured_runtime": {
+    "firmware": 11,
+    "stateful": 22,
+    "checkpoints": 3,
+    "no_skips": true,
+    "evidence": "evidence/m19/runtime-regressions-display.json"
+  },
+  "gui": {
+    "firmware_boot": 9,
+    "firmware_cas_graph_apps": 59,
+    "persistence_recovery": 35,
+    "typing_15751": 11,
+    "typing_15157": 11,
+    "native_debugger": 40,
+    "research_executed_cases": 2,
+    "physical_usb_disabled": true,
+    "research_preview_inspected": true,
+    "native_linkage": 15,
+    "scripted_assertions": 180
+  },
+  "kernel_boot_status": "not attempted \u2014 missing matching authorized artifacts",
+  "physical_hardware_verified": false,
+  "performance": {
+    "status": "passed",
+    "trials_per_helper": 5,
+    "workloads": 13,
+    "expected_outcomes": 130,
+    "largest_median_increase_percent": 7.474388555789546,
+    "summary": "evidence/m19/benchmark-summary.json"
+  },
+  "cleanup": {
+    "all_recorded_names_absent": true,
+    "count": 48,
+    "evidence": "evidence/m19/container-cleanup.json"
+  }
+}

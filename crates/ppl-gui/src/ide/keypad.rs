@@ -30,12 +30,14 @@ impl KeyDef {
 pub struct VirtualKeypad {
     pub last_clicked_key: Option<i64>,
     captured: Option<i64>,
+    repeat_at: Option<f64>,
 }
 impl VirtualKeypad {
     pub fn new() -> Self {
         Self::default()
     }
     pub fn release(&mut self, state: &mut IdeAppState) {
+        self.repeat_at = None;
         if let Some(code) = self.captured.take() {
             state.set_key_down(code, false);
             state.key_transitions.push((code, false));
@@ -97,6 +99,19 @@ impl VirtualKeypad {
         if !input.1 || !input.3 {
             self.release(state);
         }
+        let now = ui.input(|i| i.time);
+        if !state.firmware_backend {
+            if let (Some(code), Some(deadline)) = (self.captured, self.repeat_at) {
+                if matches!(code, 2 | 7 | 8 | 12 | 19) {
+                    if now >= deadline {
+                        state.push_key_event(code);
+                        self.repeat_at = Some(now + 0.075);
+                    }
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(40));
+                }
+            }
+        }
         for key in &KEYS {
             let dismiss_output = key.code == crate::keymap::KEY_ESC && state.can_dismiss_output();
             let enabled =
@@ -120,11 +135,20 @@ impl VirtualKeypad {
                 });
                 self.last_clicked_key = Some(key.code);
                 self.captured = Some(key.code);
+                self.repeat_at = Some(now + 0.45);
+                if !state.firmware_backend && matches!(key.code, 2 | 7 | 8 | 12 | 19) {
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(40));
+                }
                 state.set_key_down(key.code, true);
                 state.key_transitions.push((key.code, true));
                 state.push_key_event(key.code);
             }
-            let pressed = state.keys_down.contains(&key.code);
+            let pressed = state.keys_down.contains(&key.code)
+                || (!state.firmware_backend
+                    && ((key.code == 41 && state.native.shifted)
+                        || (key.code == 36
+                            && state.native.alpha != super::native::keys::AlphaMode::Off)));
             if key.directional() {
                 if pressed || over {
                     ui.painter().rect_filled(
@@ -300,7 +324,15 @@ impl VirtualKeypad {
                     orange,
                 );
             }
-            response.on_hover_text(if dismiss_output {"Return to the caller; keep the program result and output history".into()} else if enabled {format!("{} · HP key {}",key.label,key.code)}else if state.firmware_backend {"Calculator input is reserved while the firmware compiles".into()}else {"This key is unavailable in Native Home/PPL. CAS and built-in calculator apps are not implemented.".into()});
+            response.on_hover_text(if dismiss_output {
+                "Return to the caller; keep the program result and output history".into()
+            } else if enabled {
+                format!("{} · HP key {}", key.label, key.code)
+            } else if state.firmware_backend {
+                "Calculator input is reserved while the firmware compiles".into()
+            } else {
+                "This key is not available in the current calculator context.".into()
+            });
             if !enabled {
                 ui.painter()
                     .rect_filled(rect, 3.0 * scale, Color32::from_black_alpha(75));

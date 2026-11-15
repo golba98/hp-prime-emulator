@@ -1,7 +1,7 @@
 //! Numeric commands and integer/bit operations.
 
 use ppl_compiler::builtins::Builtin;
-use ppl_math::{Complex, HpInt, IntBase, MathError, Real};
+use ppl_math::{Complex, HpInt, IntBase, MathError, Real, RealPresentation};
 use ppl_syntax::ast::BinOp;
 
 use super::arg;
@@ -15,18 +15,51 @@ fn real_map(v: &Value, f: impl Fn(Real) -> RtResult<Real>) -> RtResult<Value> {
     map_numeric(v, &mut |x| Ok(Value::Real(f(x.expect_real("argument")?)?)))
 }
 
+fn analytic_map(
+    value: &Value,
+    real: impl Fn(Real) -> RtResult<Real>,
+    complex: impl Fn(Complex) -> Result<Complex, MathError>,
+) -> RtResult<Value> {
+    map_numeric(value, &mut |value| match value {
+        Value::Complex(value) => Ok(Value::Complex(complex(*value)?)),
+        value => Ok(Value::Real(real(value.expect_real("argument")?)?)),
+    })
+}
+
+fn sexagesimal_map(value: &Value, presentation: RealPresentation) -> RtResult<Value> {
+    match value {
+        Value::List(items) => items
+            .iter()
+            .map(|value| sexagesimal_map(value, presentation))
+            .collect::<RtResult<Vec<_>>>()
+            .map(Value::list),
+        Value::Matrix(_) => Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            "Hexagesimal conversion accepts real values or lists, not matrices",
+        )),
+        value => Ok(Value::Real(
+            value
+                .expect_real("hexagesimal conversion")?
+                .with_presentation(presentation),
+        )),
+    }
+}
+
 fn f64_map(v: &Value, f: impl Fn(f64) -> f64) -> RtResult<Value> {
     real_map(v, |x| Ok(Real::from_f64(f(x.to_f64()))?))
 }
 
 pub fn sqrt(m: &Machine, v: &Value) -> RtResult<Value> {
-    let complex = m.settings.complex_results;
+    let complex = m.arithmetic_settings().complex_results;
     map_numeric(v, &mut |x| match x {
-        Value::Complex(c) => Ok(norm_complex(c.sqrt()?)),
+        Value::Complex(c) => {
+            let root = c.sqrt()?;
+            Ok(Value::Complex(root))
+        }
         other => {
             let r = other.expect_real("√")?;
             match r.sqrt() {
-                Ok(s) => Ok(Value::Real(s)),
+                Ok(s) => Ok(Value::Real(s.with_presentation(r.presentation()))),
                 Err(MathError::NonReal) if complex => {
                     Ok(Value::Complex(Complex::new(Real::ZERO, r.neg().sqrt()?)))
                 }
@@ -39,7 +72,12 @@ pub fn sqrt(m: &Machine, v: &Value) -> RtResult<Value> {
 /// Reduces an angle in the current mode and returns exact results for
 /// multiples of a quarter turn, so `SIN(180)` is 0 in degree mode.
 fn trig(s: &Settings, x: Real, which: u8) -> RtResult<Real> {
-    let turn = match s.angle {
+    let mode = if x.presentation() == RealPresentation::Sexagesimal {
+        AngleMode::Degrees
+    } else {
+        s.angle
+    };
+    let turn = match mode {
         AngleMode::Degrees => Some(Real::from_i64(360)),
         AngleMode::Gradians => Some(Real::from_i64(400)),
         AngleMode::Radians => None,
@@ -67,13 +105,30 @@ fn trig(s: &Settings, x: Real, which: u8) -> RtResult<Real> {
             };
         }
     }
-    let rad = s.to_radians(x);
+    let rad = if mode == AngleMode::Degrees {
+        x.to_f64().to_radians()
+    } else {
+        s.to_radians(x)
+    };
     let v = match which {
         0 => rad.sin(),
         1 => rad.cos(),
         _ => rad.tan(),
     };
     Ok(Real::from_f64(v)?)
+}
+
+/// Native Home polar-complex entry. Magnitude multiplication remains decimal
+/// across the full BCD exponent range. Explicit complex entry is allowed even
+/// when HComplex disables implicit complex results from real-domain functions.
+pub(crate) fn polar(magnitude: Real, angle: Real, settings: &Settings) -> RtResult<Complex> {
+    if magnitude.is_zero() {
+        return Ok(Complex::new(Real::ZERO, Real::ZERO)
+            .with_presentation(ppl_math::ComplexPresentation::Polar));
+    }
+    let real = magnitude.mul(trig(settings, angle, 1)?)?;
+    let imaginary = magnitude.mul(trig(settings, angle, 0)?)?;
+    Ok(Complex::new(real, imaginary).with_presentation(ppl_math::ComplexPresentation::Polar))
 }
 
 fn inverse_trig(s: &Settings, x: Real, f: fn(f64) -> f64, domain_check: bool) -> RtResult<Real> {
@@ -84,29 +139,54 @@ fn inverse_trig(s: &Settings, x: Real, f: fn(f64) -> f64, domain_check: bool) ->
     Ok(Real::from_f64(s.from_radians(f(v)))?)
 }
 
-fn int_value(v: &Value) -> RtResult<(u64, Option<HpInt>)> {
-    match v {
-        Value::Int(i) => Ok((i.unsigned(), Some(*i))),
-        other => {
-            let n = other.expect_i64("integer")?;
-            Ok((n as u64, None))
-        }
+fn real_integer(value: &Value, what: &str) -> RtResult<i128> {
+    if let Value::Int(word) = value {
+        return Ok(word.numeric_value());
     }
+    let value = value.expect_real(what)?;
+    if !value.is_integer() {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            format!("{what} requires an integral operand"),
+        ));
+    }
+    value.to_i128().ok_or_else(|| {
+        RuntimeError::new(
+            ErrorKind::BadArgValue,
+            format!("{what}: integer is outside the conversion range"),
+        )
+    })
 }
-
-fn int_result(v: u64, like: Option<HpInt>, s: &Settings) -> Value {
-    match like {
-        Some(i) => Value::Int(HpInt::new(v as i128, i.bits(), i.base)),
-        None => {
-            let bits = s.int_bits;
-            let masked = if bits >= 64 {
-                v
-            } else {
-                v & ((1u64 << bits) - 1)
-            };
-            Value::Real(Real::from_u64(masked))
-        }
+fn word_argument(value: &Value, what: &str) -> RtResult<i64> {
+    i64::try_from(real_integer(value, what)?).map_err(|_| {
+        RuntimeError::new(
+            ErrorKind::BadArgValue,
+            format!("{what} is outside the signed64-bit range"),
+        )
+    })
+}
+fn real_bits(value: &Value) -> RtResult<u64> {
+    if matches!(value, Value::Int(_)) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            "BITAND/BITOR/BITXOR/BITNOT require real operands; use word AND/OR/XOR/NOT for integers",
+        ));
     }
+    let value = real_integer(value, "bit operation")?;
+    u64::try_from(value).map_err(|_| {
+        RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "Real bit operands must be nonnegative and fit64 bits",
+        )
+    })
+}
+fn word(value: i128, width: i64, base: IntBase) -> RtResult<HpInt> {
+    HpInt::new_with_width(value, width, base).ok_or_else(|| {
+        RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "Word width must be1..64 unsigned or -1..-63 signed",
+        )
+    })
 }
 
 fn base_code(b: IntBase) -> i64 {
@@ -155,9 +235,72 @@ fn stats_values(args: &[Value], name: &str) -> RtResult<Vec<Real>> {
     Ok(out)
 }
 
+fn numeric_series(value: &Value, name: &str) -> RtResult<Vec<Real>> {
+    match value {
+        Value::List(values) => values.iter().map(|v| v.expect_real(name)).collect(),
+        Value::Matrix(matrix) if matrix.vector => {
+            matrix.data.iter().map(|v| v.expect_real(name)).collect()
+        }
+        _ => Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            format!("{name} requires a list or vector"),
+        )),
+    }
+}
+/// Population deviation, matching local firmware stddev(), without expanding
+/// weights or squaring huge/tiny unscaled decimal values.
+fn weighted_deviation(values: &[Real], weights: Option<&[Real]>) -> RtResult<Real> {
+    if values.is_empty() || weights.is_some_and(|weights| weights.len() != values.len()) {
+        return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
+    }
+    let weights = weights.map_or_else(|| vec![Real::ONE; values.len()], <[Real]>::to_vec);
+    if weights.iter().any(|v| v.is_negative()) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "STDDEV weights must be nonnegative",
+        ));
+    }
+    let largest_weight = weights
+        .iter()
+        .copied()
+        .max_by(|a, b| a.cmp_value(*b))
+        .unwrap();
+    if largest_weight.is_zero() {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "STDDEV requires a positive total weight",
+        ));
+    }
+    let largest_value = values
+        .iter()
+        .map(|v| v.abs())
+        .max_by(|a, b| a.cmp_value(*b))
+        .unwrap();
+    if largest_value.is_zero() {
+        return Ok(Real::ZERO);
+    }
+    // Powers of ten preserve finite decimal inputs exactly during scaling.
+    let weight_scale = Real::from_parts(false, 1, largest_weight.exp10())?;
+    let scale = Real::from_parts(false, 1, largest_value.exp10())?;
+    let mut total = Real::ZERO;
+    let mut sum = Real::ZERO;
+    for (value, weight) in values.iter().zip(&weights) {
+        let weight = weight.div(weight_scale)?;
+        total = total.add(weight)?;
+        sum = sum.add(value.div(scale)?.mul(weight)?)?;
+    }
+    let mean = sum.div(total)?;
+    let mut variance = Real::ZERO;
+    for (value, weight) in values.iter().zip(weights) {
+        let delta = value.div(scale)?.sub(mean)?;
+        variance = variance.add(delta.mul(delta)?.mul(weight.div(weight_scale)?)?)?;
+    }
+    Ok(variance.div(total)?.sqrt()?.mul(scale)?)
+}
+
 pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult<Value> {
     use Builtin as B;
-    let s = m.settings.clone();
+    let s = m.arithmetic_settings();
     let a0 = || arg(args, 0, name);
     match b {
         B::Abs => map_numeric(a0()?, &mut |x| match x {
@@ -167,10 +310,28 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         }),
         B::Sqrt => sqrt(m, a0()?),
         B::Sq => map_numeric(a0()?, &mut |x| ops::binary(BinOp::Mul, x, x, &s)),
-        B::Exp => real_map(a0()?, |x| Ok(x.exp_e()?)),
-        B::Ln => real_map(a0()?, |x| Ok(x.ln()?)),
+        B::Exp => analytic_map(a0()?, |x| Ok(x.exp_e()?), Complex::exp),
+        B::Ln => map_numeric(a0()?, &mut |x| match x {
+            Value::Complex(c) => Ok(Value::Complex(c.ln()?)),
+            value => {
+                let value = value.expect_real(name)?;
+                if value.is_negative() && s.complex_results {
+                    Ok(Value::Complex(Complex::new(value, Real::ZERO).ln()?))
+                } else {
+                    Ok(Value::Real(value.ln()?))
+                }
+            }
+        }),
         B::Log => match args.get(1) {
-            None => real_map(a0()?, |x| Ok(x.log10()?)),
+            None => analytic_map(
+                a0()?,
+                |x| Ok(x.log10()?),
+                |x| {
+                    let value = x.ln()?;
+                    let base = Real::from_i64(10).ln()?;
+                    Ok(Complex::new(value.re.div(base)?, value.im.div(base)?))
+                },
+            ),
             Some(base) => {
                 let b = base.expect_real("LOG")?;
                 real_map(a0()?, |x| Ok(x.ln()?.div(b.ln()?)?))
@@ -184,9 +345,9 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
             Ok(Real::from_f64(x.to_f64().ln_1p())?)
         }),
-        B::Sin => real_map(a0()?, |x| trig(&s, x, 0)),
-        B::Cos => real_map(a0()?, |x| trig(&s, x, 1)),
-        B::Tan => real_map(a0()?, |x| trig(&s, x, 2)),
+        B::Sin => analytic_map(a0()?, |x| trig(&s, x, 0), Complex::sin),
+        B::Cos => analytic_map(a0()?, |x| trig(&s, x, 1), Complex::cos),
+        B::Tan => analytic_map(a0()?, |x| trig(&s, x, 2), Complex::tan),
         B::Csc => real_map(a0()?, |x| Ok(Real::ONE.div(trig(&s, x, 0)?)?)),
         B::Sec => real_map(a0()?, |x| Ok(Real::ONE.div(trig(&s, x, 1)?)?)),
         B::Cot => real_map(a0()?, |x| Ok(Real::ONE.div(trig(&s, x, 2)?)?)),
@@ -214,12 +375,29 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
             Ok(Real::from_f64(v.atanh())?)
         }),
-        B::Floor => real_map(a0()?, |x| Ok(x.floor())),
-        B::Ceiling => real_map(a0()?, |x| Ok(x.ceil())),
-        B::Ip => real_map(a0()?, |x| Ok(x.trunc())),
-        B::Fp => real_map(a0()?, |x| Ok(x.fract())),
+        B::Floor => real_map(a0()?, |x| Ok(x.floor().with_presentation(x.presentation()))),
+        B::Ceiling => real_map(a0()?, |x| {
+            Ok(x.ceil().with_presentation(RealPresentation::Decimal))
+        }),
+        B::Ip => real_map(a0()?, |x| Ok(x.trunc().with_presentation(x.presentation()))),
+        B::Fp => real_map(a0()?, |x| {
+            Ok(x.fract().with_presentation(RealPresentation::Decimal))
+        }),
         B::Round | B::Truncate => {
             let places = match args.get(1) {
+                Some(p) if m.settings.numeric_version == ppl_math::NumericVersion::Current15751 => {
+                    let precision = p
+                        .expect_real(name)?
+                        .to_i64()
+                        .filter(|p| (-12..=12).contains(p))
+                        .ok_or_else(|| {
+                            RuntimeError::new(
+                                ErrorKind::BadArgValue,
+                                "Precision must be an integer from -12 through 12",
+                            )
+                        })?;
+                    precision as i32
+                }
                 // Clamp rather than wrap: ROUND(x, 2^32) must not act like
                 // ROUND(x, 0).
                 Some(p) => p.expect_i64(name)?.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
@@ -227,11 +405,12 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             };
             let round = b == B::Round;
             real_map(a0()?, |x| {
-                Ok(if round {
+                Ok((if round {
                     x.round_places(places)
                 } else {
                     x.truncate_places(places)
                 })
+                .with_presentation(x.presentation()))
             })
         }
         B::Sign => map_numeric(a0()?, &mut |x| match x {
@@ -381,26 +560,25 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
                 s.from_radians(c.arg_radians()?.to_f64()),
             )?))
         }),
-        B::Approx => Ok(a0()?.clone()),
-        B::Hms => real_map(a0()?, |x| {
-            // decimal hours → H.MMSS
-            let neg = x.is_negative();
-            let total = x.abs().to_f64() * 3600.0;
-            let h = (total / 3600.0).floor();
-            let mi = ((total - h * 3600.0) / 60.0).floor();
-            let sec = total - h * 3600.0 - mi * 60.0;
-            let v = h + mi / 100.0 + sec / 10000.0;
-            Ok(Real::from_f64(if neg { -v } else { v })?)
-        }),
-        B::HmsFrom => real_map(a0()?, |x| {
-            let v = x.abs().to_f64();
-            let h = v.trunc();
-            let rest = (v - h) * 100.0;
-            let mi = (rest + 1e-9).trunc();
-            let sec = (rest - mi) * 100.0;
-            let out = h + mi / 60.0 + sec / 3600.0;
-            Ok(Real::from_f64(if x.is_negative() { -out } else { out })?)
-        }),
+        B::Approx => match a0()? {
+            Value::Complex(value) if value.im.is_zero() => Ok(Value::Real(value.re.decimal())),
+            Value::Real(value)
+                if m.settings.numeric_version == ppl_math::NumericVersion::Current15751 =>
+            {
+                Ok(Value::Real(value.decimal()))
+            }
+            Value::List(items) => items
+                .iter()
+                .map(|value| super::call(m, B::Approx, vec![value.clone()]))
+                .collect::<RtResult<Vec<_>>>()
+                .map(Value::list),
+            Value::Matrix(matrix) => ops::map_matrix(matrix, |value| {
+                super::call(m, B::Approx, vec![value.clone()])
+            }),
+            value => Ok(value.clone()),
+        },
+        B::Hms => sexagesimal_map(a0()?, RealPresentation::Sexagesimal),
+        B::HmsFrom => sexagesimal_map(a0()?, RealPresentation::Decimal),
         B::Nthroot => {
             let n = a0()?.expect_real(name)?;
             real_map(arg(args, 1, name)?, |x| {
@@ -436,104 +614,179 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
         }
         B::Stddev => {
-            // Population standard deviation (unverified: the Prime may use
-            // the sample form).
-            let v = stats_values(args, name)?;
-            let n = v.len() as f64;
-            let mean = v.iter().map(|x| x.to_f64()).sum::<f64>() / n;
-            let var = v.iter().map(|x| (x.to_f64() - mean).powi(2)).sum::<f64>() / n;
-            Ok(Value::Real(Real::from_f64(var.sqrt())?))
+            let data = arg(args, 0, name)?;
+            let weights = args.get(1).map(|v| numeric_series(v, name)).transpose()?;
+            if let Value::Matrix(matrix) = data {
+                if !matrix.vector {
+                    if weights.is_some() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgValue,
+                            "STDDEV(matrix) does not take a weight vector",
+                        ));
+                    }
+                    let mut columns = Vec::with_capacity(matrix.cols);
+                    for col in 0..matrix.cols {
+                        m.check_limits()?;
+                        let values = (0..matrix.rows)
+                            .map(|row| matrix.data[row * matrix.cols + col].expect_real(name))
+                            .collect::<RtResult<Vec<_>>>()?;
+                        columns.push(Value::Real(weighted_deviation(&values, None)?));
+                    }
+                    return Ok(Value::Matrix(std::rc::Rc::new(crate::value::Matrix {
+                        rows: 1,
+                        cols: columns.len(),
+                        vector: true,
+                        data: columns,
+                    })));
+                }
+            }
+            let values = numeric_series(data, name)?;
+            m.check_limits()?;
+            Ok(Value::Real(weighted_deviation(
+                &values,
+                weights.as_deref(),
+            )?))
         }
         B::Ifte => {
             let c = a0()?.truthy()?;
             Ok(arg(args, if c { 1 } else { 2 }, name)?.clone())
         }
         B::Bitand | B::Bitor | B::Bitxor => {
-            let (mut acc, mut like) = int_value(a0()?)?;
-            for v in &args[1..] {
-                let (x, l) = int_value(v)?;
-                like = like.or(l);
-                acc = match b {
-                    B::Bitand => acc & x,
-                    B::Bitor => acc | x,
-                    _ => acc ^ x,
+            let mut result = real_bits(a0()?)?;
+            for value in &args[1..] {
+                let value = real_bits(value)?;
+                result = match b {
+                    B::Bitand => result & value,
+                    B::Bitor => result | value,
+                    _ => result ^ value,
                 };
             }
-            Ok(int_result(acc, like, &s))
+            Ok(Value::Real(Real::from_u64(result)))
         }
-        B::Bitnot => {
-            let (x, like) = int_value(a0()?)?;
-            Ok(int_result(!x, like, &s))
-        }
+        B::Bitnot => Ok(Value::Real(Real::from_u64(
+            !real_bits(a0()?)? & ((1u64 << 39) - 1),
+        ))),
         B::Bitsl | B::Bitsr => {
-            let (x, like) = int_value(a0()?)?;
-            let n = match args.get(1) {
-                Some(v) => v.expect_i64(name)?,
-                None => 1,
-            };
-            let r = if n >= 64 || n <= -64 {
-                0
-            } else if (b == B::Bitsl) == (n >= 0) {
-                x << n.unsigned_abs()
-            } else {
-                x >> n.unsigned_abs()
-            };
-            Ok(int_result(r, like, &s))
+            let count = args
+                .get(1)
+                .map(|value| word_argument(value, name))
+                .transpose()?
+                .unwrap_or(1);
+            let left = (b == B::Bitsl) == (count >= 0);
+            let count = count.unsigned_abs().min(u32::MAX as u64) as u32;
+            match a0()? {
+                Value::Int(value) => Ok(Value::Int(if left {
+                    value.shift_left(count)
+                } else {
+                    value.shift_right(count)
+                })),
+                value => {
+                    let value = real_integer(value, name)? as u64;
+                    let shifted = if count >= 64 {
+                        0
+                    } else if left {
+                        value << count
+                    } else {
+                        value >> count
+                    };
+                    Ok(Value::Real(Real::from_u64(shifted)))
+                }
+            }
         }
         B::RtoB => {
-            let n = a0()?.expect_i64(name)?;
-            Ok(Value::Int(HpInt::new(n as i128, s.int_bits, s.int_base)))
-        }
-        B::BtoR => match a0()? {
-            Value::Int(i) => Ok(Value::Real(if s.int_signed {
-                Real::from_i64(i.signed())
+            let width = args
+                .get(1)
+                .map(|value| word_argument(value, name))
+                .transpose()?
+                .unwrap_or(s.integer_width_code());
+            let template = word(0, width, s.int_base)?;
+            let upper = (1i128 << template.bits()) - 1;
+            let lower = if template.is_signed() {
+                -(1i128 << template.bits())
             } else {
-                Real::from_u64(i.unsigned())
-            })),
-            other => Ok(Value::Real(other.expect_real(name)?)),
-        },
+                0
+            };
+            let value = match a0()? {
+                Value::Int(value) => value.numeric_value(),
+                value => {
+                    let value = value.expect_real(name)?.round_places(0);
+                    value
+                        .to_i128()
+                        .unwrap_or(if value.is_negative() { lower } else { upper })
+                }
+            }
+            .clamp(lower, upper);
+            Ok(Value::Int(
+                template.with_value(value).with_system_base(true),
+            ))
+        }
+        B::BtoR => Ok(Value::Real(a0()?.expect_real(name)?)),
         B::Setbase => {
-            let (x, like) = int_value(a0()?)?;
+            let value = match a0()? {
+                Value::Int(value) => *value,
+                value => word(
+                    real_integer(value, name)?,
+                    s.integer_width_code(),
+                    s.int_base,
+                )?
+                .with_system_base(true),
+            };
             let code = args
                 .get(1)
-                .map(|v| v.expect_i64(name))
+                .map(|value| word_argument(value, name))
                 .transpose()?
-                .unwrap_or(base_code(s.int_base));
-            let base = match code {
-                1 => IntBase::Bin,
-                2 => IntBase::Oct,
-                3 => IntBase::Dec,
-                4 => IntBase::Hex,
+                .unwrap_or(0);
+            let value = match code {
+                0 => value.with_system_base(true),
+                1 => value.with_base(IntBase::Bin),
+                2 => value.with_base(IntBase::Oct),
+                3 => value.with_base(IntBase::Dec),
+                4 => value.with_base(IntBase::Hex),
                 _ => {
                     return Err(RuntimeError::new(
                         ErrorKind::BadArgValue,
-                        "base must be 1 (bin) … 4 (hex)",
+                        "Base must be0 (system) through4 (hex)",
                     ));
                 }
             };
-            let bits = like.map(|i| i.bits()).unwrap_or(s.int_bits);
-            Ok(Value::Int(HpInt::new(x as i128, bits, base)))
+            Ok(Value::Int(value))
         }
         B::Getbase => match a0()? {
-            Value::Int(i) => Ok(Value::from_i64(base_code(i.base))),
+            Value::Int(value) => Ok(Value::Int(
+                word(
+                    if value.is_system_base() {
+                        0
+                    } else {
+                        base_code(value.base) as i128
+                    },
+                    s.integer_width_code(),
+                    s.int_base,
+                )?
+                .with_system_base(true),
+            )),
             _ => Err(RuntimeError::new(
                 ErrorKind::BadArgType,
                 "GETBASE needs an integer (#…)",
             )),
         },
         B::Setbits => {
-            let (x, like) = int_value(a0()?)?;
-            let bits = args
+            let width = args
                 .get(1)
-                .map(|v| v.expect_i64(name))
+                .map(|value| word_argument(value, name))
                 .transpose()?
-                .unwrap_or(s.int_bits as i64)
-                .clamp(1, 64) as u8;
-            let base = like.map(|i| i.base).unwrap_or(s.int_base);
-            Ok(Value::Int(HpInt::new(x as i128, bits, base)))
+                .unwrap_or(s.integer_width_code());
+            let value = match a0()? {
+                Value::Int(value) => value.with_word_size(width).ok_or_else(|| {
+                    RuntimeError::new(ErrorKind::BadArgValue, "Invalid signed word width")
+                })?,
+                value => {
+                    word(real_integer(value, name)?, width, s.int_base)?.with_system_base(true)
+                }
+            };
+            Ok(Value::Int(value))
         }
         B::Getbits => match a0()? {
-            Value::Int(i) => Ok(Value::from_i64(i.bits() as i64)),
+            Value::Int(value) => Ok(Value::from_i64(value.width_code())),
             _ => Err(RuntimeError::new(
                 ErrorKind::BadArgType,
                 "GETBITS needs an integer (#…)",

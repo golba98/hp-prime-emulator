@@ -1,0 +1,64 @@
+--- a/hw/intc/s3c2416_intc.c
++++ b/hw/intc/s3c2416_intc.c
+@@ -61 +61 @@
+-        if (int_info_array[i].subint == (1 << subint))
++        if (int_info_array[i].subint == (1u << subint))
+@@ -64 +64 @@
+-    return 0xFFFFFF;
++    return INT_END;
+@@ -76 +76 @@
+-    return 0xFFFFFF;
++    return INT_END;
+@@ -88 +88 @@
+-    return 0xFFFFFF;
++    return INT_END;
+@@ -117,0 +118,4 @@
++            if (n == INT_END) {
++                qemu_log_mask(LOG_UNIMP, "S3C2416: unsupported subinterrupt %d\n", j);
++                continue;
++            }
+@@ -139,0 +144,4 @@
++                    if (id == INT_END) {
++                        qemu_log_mask(LOG_UNIMP, "S3C2416: unsupported source bit %d\n", j);
++                        continue;
++                    }
+@@ -280,2 +288,15 @@
+-        if (s->SRCPND[i] & s->INTMOD[i]) {
+-            return s3c2416_get_int_from_val(s->INTMOD[i], i);
++        uint32_t pending = s->SRCPND[i] & s->INTMOD[i];
++        if (pending) {
++            /* A selection mask may contain several bits while only one
++             * source is pending. Never look up the entire selection mask.
++             * Simultaneous FIQ priority remains unverified in this model. */
++            if (pending & (pending - 1)) {
++                qemu_log_mask(LOG_UNIMP, "S3C2416: simultaneous FIQ priority unsupported\n");
++                return -1;
++            }
++            int id = s3c2416_get_int_from_val(pending, i);
++            if (id == INT_END) {
++                qemu_log_mask(LOG_UNIMP, "S3C2416: unsupported FIQ source %#x\n", pending);
++                return -1;
++            }
++            return id;
+@@ -316 +337,4 @@
+-    assert(irq != 0xFFFFFF);
++    if (irq == INT_END) {
++        qemu_log_mask(LOG_UNIMP, "S3C2416: interrupt lookup unavailable\n");
++        return;
++    }
+@@ -351,0 +376,4 @@
++    if (n < 0 || n >= INT_END || !int_info_array[n].value) {
++        qemu_log_mask(LOG_UNIMP, "S3C2416: unsupported input %d\n", n);
++        return;
++    }
+@@ -525,0 +554,10 @@
++    /* Reset must discard prior pending/mode state and lower CPU lines. */
++    memset(s->SRCPND, 0, sizeof(s->SRCPND));
++    memset(s->INTMOD, 0, sizeof(s->INTMOD));
++    memset(s->INTPND, 0, sizeof(s->INTPND));
++    memset(s->INTOFFSET, 0, sizeof(s->INTOFFSET));
++    memset(s->PRIORITY_UPDATE, 0, sizeof(s->PRIORITY_UPDATE));
++    s->SUBSRCPND = 0;
++    qemu_set_irq(s->irq, 0);
++    qemu_set_irq(s->fiq, 0);
++

@@ -1,3 +1,4 @@
+pub mod capture;
 pub mod commands;
 pub mod common;
 pub mod compare;
@@ -6,7 +7,10 @@ pub mod device;
 pub mod device_delete;
 mod device_delete_legacy;
 mod device_delete_store;
+mod device_virtual;
 pub mod diag_parity;
+pub mod differential;
+pub mod doctor;
 pub mod gui;
 pub mod run;
 pub mod test;
@@ -28,3 +32,5 @@ mod device_incremental;
 mod device_incremental_stream;
 
 mod program_management;
+
+pub mod full_system;

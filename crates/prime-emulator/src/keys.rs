@@ -57,7 +57,7 @@ pub const KEYS: &[(&str, u16, bool)] = &[
 ];
 
 /// One item of a script: a key press, or a touch gesture.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Key {
     /// The item as given.
     pub name: String,

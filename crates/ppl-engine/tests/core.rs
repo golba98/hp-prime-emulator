@@ -80,13 +80,42 @@ fn report_serialization_and_native_compatibility() {
 #[test]
 fn native_tagged_values_round_trip_without_losing_width_or_precision() {
     let settings = Settings::default();
-    let values=arguments::json_args(r##"[{"type":"ppl","value":"#FF:8h"},{"type":"complex","real":"1e400","imaginary":"2"},{"type":"matrix","rows":1,"columns":2,"vector":true,"value":[1,2]},{"type":"list","value":[1e400]},{"type":"grob","index":2}]"##,&settings).unwrap();
+    let values=arguments::json_args(r##"[{"type":"ppl","value":"#FF:8h"},{"type":"complex","real":"1e400","imaginary":"2"},{"type":"matrix","rows":1,"columns":2,"vector":true,"value":[1,2]},{"type":"list","value":[1e400]},{"type":"grob","index":2},{"type":"real","value":"1.375","presentation":"sexagesimal"},{"type":"complex","real":"0","imaginary":"2","presentation":"polar"},{"type":"complex","real":"1","imaginary":"2","presentation":"sexagesimal"}]"##,&settings).unwrap();
     for value in values {
         let encoded = arguments::encode(&value);
         let again =
             arguments::json_args(&serde_json::json!([encoded]).to_string(), &settings).unwrap();
         assert_eq!(arguments::encode(&again[0]), arguments::encode(&value));
     }
+    assert!(
+        arguments::json_args(
+            r#"[{"type":"real","value":"1","presentation":"future"}]"#,
+            &settings
+        )
+        .is_err()
+    );
+    assert!(
+        arguments::json_args(
+            r#"[{"type":"complex","real":"1","imaginary":"2","presentation":"future"}]"#,
+            &settings
+        )
+        .is_err()
+    );
+    let report = ppl_engine::native::execute(
+        Source::text("EXPORT METAARGS(angle,point) BEGIN HAngle:=1; RETURN {STRING(angle+2),STRING(point*2)}; END;", "METAARGS").unwrap(),
+        Operation::Run,
+        ppl_engine::native::Options {
+            modules: Default::default(), entry: None,
+            args: r#"[{"type":"real","value":"1.375","presentation":"sexagesimal"},{"type":"complex","real":"0","imaginary":"2","presentation":"polar"}]"#.into(),
+            json_arguments: true, host: Default::default(), settings, limits: Default::default(),
+            seed: 0, png: None, deny_warnings: false, dump_bytecode: false,
+        }, &ppl_engine::Cancellation::default());
+    assert_eq!(report.exit_code, 0, "{report:?}");
+    assert_eq!(
+        report.return_value.unwrap(),
+        serde_json::json!({"type":"list","value":[
+        {"type":"string","value":"3°22′30″"},{"type":"string","value":"4∡90"}]})
+    );
 }
 
 fn interaction_report(source: &str, inputs: &[&str]) -> Report {
@@ -94,6 +123,7 @@ fn interaction_report(source: &str, inputs: &[&str]) -> Report {
         Source::text(source, "TRACE").unwrap(),
         Operation::Run,
         ppl_engine::native::Options {
+            modules: Default::default(),
             entry: None,
             args: "[]".into(),
             json_arguments: true,
@@ -155,4 +185,117 @@ fn native_report_preserves_prior_dialogs_when_script_exhausts() {
         report.backend["dialogs"],
         serde_json::json!(["MSGBOX: Start"])
     );
+}
+
+#[test]
+fn binary_calculator_strings_round_trip_json_arguments_without_replacement_characters() {
+    use ppl_engine::arguments::{encode, json_args};
+    use ppl_vm::{Settings, Value};
+    let value = Value::from_utf16(vec![55357, 0, 56832]);
+    let encoded = encode(&value);
+    assert_eq!(
+        encoded,
+        serde_json::json!({"type":"string","utf16":[55357,0,56832]})
+    );
+    let restored = json_args(&format!("[{encoded}]"), &Settings::default()).unwrap();
+    assert!(value.equals(&restored[0]));
+    for bad in [
+        r#"[{"type":"string","utf16":[65536]}]"#,
+        r#"[{"type":"string","utf16":[-1]}]"#,
+        r#"[{"type":"string","value":"x","utf16":[55357]}]"#,
+    ] {
+        assert!(json_args(bad, &Settings::default()).is_err());
+    }
+}
+
+#[test]
+fn firmware_raw_utf16_results_can_be_passed_as_native_typed_arguments_losslessly() {
+    let settings = ppl_vm::Settings::default();
+    for units in [
+        vec![55296],
+        vec![56320],
+        vec![65, 0, 66],
+        vec![55357, 56832],
+        vec![],
+    ] {
+        let wire = serde_json::json!([{"type":"utf16","value":units}]).to_string();
+        let values = ppl_engine::arguments::json_args(&wire, &settings).unwrap();
+        assert_eq!(values[0].string_units().unwrap().as_ref(), units);
+        let encoded = ppl_engine::arguments::encode(&values[0]);
+        let roundtrip =
+            ppl_engine::arguments::json_args(&serde_json::json!([encoded]).to_string(), &settings)
+                .unwrap();
+        assert_eq!(roundtrip[0].string_units(), values[0].string_units());
+    }
+    for value in [
+        serde_json::json!([-1]),
+        serde_json::json!([65536]),
+        serde_json::json!("bad"),
+        serde_json::Value::Null,
+    ] {
+        assert!(
+            ppl_engine::arguments::json_args(
+                &serde_json::json!([{"type":"utf16","value":value}]).to_string(),
+                &settings
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn signed_word_transport_roundtrips_numeric_sign_width_and_base_affinity() {
+    use ppl_math::{HpInt, IntBase};
+    use ppl_vm::Value;
+    for (number, width, system) in [
+        (255, -8, false),
+        (-5, -8, true),
+        (-256, -8, true),
+        (-1, -63, true),
+        (u64::MAX as i128, 64, false),
+    ] {
+        let word = HpInt::new_with_width(number, width, IntBase::Hex)
+            .unwrap()
+            .with_system_base(system);
+        let encoded = arguments::encode(&Value::Int(word));
+        let decoded = arguments::json_args(&format!("[{encoded}]"), &Settings::default()).unwrap();
+        let Value::Int(actual) = decoded[0] else {
+            panic!("lost word type")
+        };
+        assert_eq!(actual, word);
+    }
+    for bad in [
+        r##"[{"type":"integer","literal":"#1h","bits":64,"signed_word":true}]"##,
+        r##"[{"type":"integer","literal":"#1h","signed_word":1}]"##,
+    ] {
+        assert!(arguments::json_args(bad, &Settings::default()).is_err());
+    }
+    let controls: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/firmware-word-return-controls.json"
+    ))
+    .unwrap();
+    for case in controls["cases"].as_array().unwrap() {
+        let words =
+            arguments::json_args(&format!("[{}]", case["expected"]), &Settings::default()).unwrap();
+        let Value::Int(word) = words[0] else {
+            panic!("lost firmware word")
+        };
+        let expected = &case["expected"];
+        assert_eq!(word.bits(), expected["bits"].as_u64().unwrap() as u8);
+        assert_eq!(
+            word.is_signed(),
+            expected["signed_word"].as_bool().unwrap_or(false)
+        );
+        assert_eq!(
+            word.is_system_base(),
+            expected["system_base"].as_bool().unwrap_or(false)
+        );
+        assert_eq!(
+            word.numeric_value().to_string(),
+            expected["numeric"]
+                .as_str()
+                .or(expected["unsigned"].as_str())
+                .unwrap()
+        );
+    }
 }

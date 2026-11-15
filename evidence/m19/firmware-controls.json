@@ -1,0 +1,2223 @@
+{
+  "scope": "firmware_control_capture",
+  "physical_hardware_verified": false,
+  "helper_sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "initializer_retry",
+      "requests": [
+        {
+          "command": {
+            "request": 1,
+            "name": "ZZT_M19PROBE",
+            "command": "store_program",
+            "source": "EXPORT M19RESET() BEGIN A:=0; RETURN A; END;\nEXPORT M19PROBE() BEGIN RETURN A; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "status",
+              "message": "Storing named firmware program\u2026"
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 1,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19PROBE",
+              "check": {
+                "accepted": true,
+                "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 2,
+            "name": "ZZT_M19PROBE",
+            "command": "run_stored",
+            "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+            "entry": "M19RESET",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 2,
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "entry": "M19RESET"
+            },
+            {
+              "event": "execution",
+              "request": 2,
+              "program": "ZZT_M19PROBE",
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19RESET",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "0"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+                      "result": {
+                        "address": 541699136,
+                        "bytes": [
+                          2,
+                          0,
+                          31,
+                          1,
+                          0,
+                          196,
+                          73,
+                          32,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541699136,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                196,
+                                73,
+                                32,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "0"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 2,
+              "success": true,
+              "message": "G1 firmware returned 0"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 3,
+            "name": "ZZT_M19FAIL",
+            "command": "store_program",
+            "source": "M19MAKE() BEGIN A:=A+1; RETURN 1/0; END;\nLOCAL count:=M19MAKE();\nEXPORT M19READ() BEGIN RETURN count; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 3,
+              "success": false,
+              "message": "source assignment did not prove exact successful firmware compilation"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 4,
+            "name": "ZZT_M19PROBE",
+            "command": "run_stored",
+            "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+            "entry": "M19PROBE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 4,
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "entry": "M19PROBE"
+            },
+            {
+              "event": "execution",
+              "request": 4,
+              "program": "ZZT_M19PROBE",
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19PROBE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "1"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+                      "result": {
+                        "address": 541761600,
+                        "bytes": [
+                          1,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541761600,
+                              "bytes": [
+                                1,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "1"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 4,
+              "success": true,
+              "message": "G1 firmware returned 1"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 5,
+            "name": "ZZT_M19FAIL",
+            "command": "run_stored",
+            "source_sha256": "4ca721939f64283e7d99d3466521200818e73a1ebf2df7e86ef6b9416860ae68",
+            "entry": "M19READ",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "result",
+              "request": 5,
+              "success": false,
+              "message": "Stored source differs from requested exact revision"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 6,
+            "name": "ZZT_M19PROBE",
+            "command": "run_stored",
+            "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+            "entry": "M19PROBE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 6,
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "entry": "M19PROBE"
+            },
+            {
+              "event": "execution",
+              "request": 6,
+              "program": "ZZT_M19PROBE",
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19PROBE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "1"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+                      "result": {
+                        "address": 541761600,
+                        "bytes": [
+                          1,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541761600,
+                              "bytes": [
+                                1,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "1"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 6,
+              "success": true,
+              "message": "G1 firmware returned 1"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 7,
+            "name": "ZZT_M19FAIL",
+            "command": "run_stored",
+            "source_sha256": "4ca721939f64283e7d99d3466521200818e73a1ebf2df7e86ef6b9416860ae68",
+            "entry": "M19READ",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "result",
+              "request": 7,
+              "success": false,
+              "message": "Stored source differs from requested exact revision"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 8,
+            "name": "ZZT_M19PROBE",
+            "command": "run_stored",
+            "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+            "entry": "M19PROBE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 8,
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "entry": "M19PROBE"
+            },
+            {
+              "event": "execution",
+              "request": 8,
+              "program": "ZZT_M19PROBE",
+              "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19PROBE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "1"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "979e1e9271109a8a5d707a0204cd4b7b98d5034084905a5e45396993cb547607",
+                      "result": {
+                        "address": 541761600,
+                        "bytes": [
+                          1,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541761600,
+                              "bytes": [
+                                1,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "1"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 8,
+              "success": true,
+              "message": "G1 firmware returned 1"
+            }
+          ]
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "name": "duplicate_exports",
+      "requests": [
+        {
+          "command": {
+            "request": 1,
+            "name": "ZZT_M19ONE",
+            "command": "store_program",
+            "source": "EXPORT M19GLOBAL:=11;\nEXPORT M19ONE() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "status",
+              "message": "Storing named firmware program\u2026"
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 1,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19ONE",
+              "check": {
+                "accepted": true,
+                "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 2,
+            "name": "ZZT_M19ONE",
+            "command": "run_stored",
+            "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+            "entry": "M19ONE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 2,
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "entry": "M19ONE"
+            },
+            {
+              "event": "execution",
+              "request": 2,
+              "program": "ZZT_M19ONE",
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19ONE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "11"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+                      "result": {
+                        "address": 541704976,
+                        "bytes": [
+                          2,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          112,
+                          0,
+                          11,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541704976,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                112,
+                                0,
+                                11,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "11"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 2,
+              "success": true,
+              "message": "G1 firmware returned 11"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 3,
+            "name": "ZZT_M19TWO",
+            "command": "store_program",
+            "source": "EXPORT M19GLOBAL:=22;\nEXPORT M19TWO() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 3,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19TWO",
+              "check": {
+                "accepted": true,
+                "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 4,
+            "name": "ZZT_M19ONE",
+            "command": "run_stored",
+            "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+            "entry": "M19ONE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 4,
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "entry": "M19ONE"
+            },
+            {
+              "event": "execution",
+              "request": 4,
+              "program": "ZZT_M19ONE",
+              "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19ONE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "11"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "a0165f7dcc9f07dacd13de8e1bd9c7cfa718917055434003adb0c04f75cd8bdd",
+                      "result": {
+                        "address": 541704976,
+                        "bytes": [
+                          2,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          112,
+                          0,
+                          11,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541704976,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                112,
+                                0,
+                                11,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "11"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 4,
+              "success": true,
+              "message": "G1 firmware returned 11"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 5,
+            "name": "ZZT_M19TWO",
+            "command": "run_stored",
+            "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+            "entry": "M19TWO",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 5,
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "entry": "M19TWO"
+            },
+            {
+              "event": "execution",
+              "request": 5,
+              "program": "ZZT_M19TWO",
+              "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19TWO",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "22"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "192c0ae2e2d1692a87d53c13dbedd77dd376c8250bf9750986169e4b6668ff6d",
+                      "result": {
+                        "address": 541761344,
+                        "bytes": [
+                          2,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          112,
+                          0,
+                          22,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541761344,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                112,
+                                0,
+                                22,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "22"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 5,
+              "success": true,
+              "message": "G1 firmware returned 22"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 6,
+            "name": "ZZT_M19USE",
+            "command": "store_program",
+            "source": "EXPORT M19USE() BEGIN RETURN M19GLOBAL; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 6,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19USE",
+              "check": {
+                "accepted": true,
+                "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 7,
+            "name": "ZZT_M19USE",
+            "command": "run_stored",
+            "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+            "entry": "M19USE",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 7,
+              "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+              "entry": "M19USE"
+            },
+            {
+              "event": "execution",
+              "request": 7,
+              "program": "ZZT_M19USE",
+              "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19USE",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "real",
+                  "value": "11"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "6cd580c6f92b7f4a92b82896d3190728f09502e9586895ba7bdc7d2ff5d6e815",
+                      "result": {
+                        "address": 541704976,
+                        "bytes": [
+                          2,
+                          0,
+                          31,
+                          1,
+                          0,
+                          0,
+                          112,
+                          0,
+                          11,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          1,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "representation": {
+                          "captured_bytes": 24,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541704976,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                0,
+                                112,
+                                0,
+                                11,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 1,
+                        "tag": 31,
+                        "unavailable": null,
+                        "value": {
+                          "type": "real",
+                          "value": "11"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 7,
+              "success": true,
+              "message": "G1 firmware returned 11"
+            }
+          ]
+        }
+      ],
+      "status": "captured"
+    },
+    {
+      "name": "typed_returns",
+      "requests": [
+        {
+          "command": {
+            "request": 1,
+            "name": "ZZT_M19TYPES",
+            "command": "store_program",
+            "source": "EXPORT M19RAT() BEGIN RETURN CAS(\"1/3\"); END;\nEXPORT M19SYM() BEGIN RETURN CAS(\"x+1\"); END;\nEXPORT M19NEST() BEGIN RETURN {{1+2*i,3-4*i},{5}}; END;\nEXPORT M19INT() BEGIN RETURN #FFFFFFFFFFFFFFFF:64h; END;\n",
+            "expected_previous_sha256": null
+          },
+          "events": [
+            {
+              "event": "status",
+              "message": "Storing named firmware program\u2026"
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 1,
+              "success": true,
+              "message": "Firmware stored exact program ZZT_M19TYPES",
+              "check": {
+                "accepted": true,
+                "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+                "diagnostics": []
+              }
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 2,
+            "name": "ZZT_M19TYPES",
+            "command": "run_stored",
+            "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+            "entry": "M19RAT",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 2,
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "entry": "M19RAT"
+            },
+            {
+              "event": "execution",
+              "request": 2,
+              "program": "ZZT_M19TYPES",
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19RAT",
+                "body_entered": true,
+                "completed": true,
+                "return_value": null,
+                "return_representation": {
+                  "kind": "undecoded",
+                  "reason": "return: unverified runtime value tag 0x18/0x2",
+                  "subtype": 2,
+                  "tag": 24
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+                      "result": {
+                        "address": 541752816,
+                        "bytes": [
+                          0,
+                          0,
+                          24,
+                          2,
+                          0,
+                          0,
+                          0,
+                          0,
+                          192,
+                          45,
+                          197,
+                          48,
+                          224,
+                          156,
+                          192,
+                          48,
+                          152,
+                          160,
+                          192,
+                          48,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "probe": [
+                          {
+                            "address": 541752816,
+                            "bytes": [
+                              0,
+                              0,
+                              24,
+                              2,
+                              0,
+                              0,
+                              0,
+                              0,
+                              192,
+                              45,
+                              197,
+                              48,
+                              224,
+                              156,
+                              192,
+                              48,
+                              152,
+                              160,
+                              192,
+                              48,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0
+                            ]
+                          }
+                        ],
+                        "representation": {
+                          "captured_bytes": 32,
+                          "coherent": true,
+                          "complete": false,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541752816,
+                              "bytes": [
+                                0,
+                                0,
+                                24,
+                                2,
+                                0,
+                                0,
+                                0,
+                                0,
+                                192,
+                                45,
+                                197,
+                                48,
+                                224,
+                                156,
+                                192,
+                                48,
+                                152,
+                                160,
+                                192,
+                                48,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": "unverified runtime value tag 0x18/0x2"
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 2,
+                        "tag": 24,
+                        "unavailable": "return: unverified runtime value tag 0x18/0x2",
+                        "value": null
+                      },
+                      "caveats": [
+                        "return value not decoded: return: unverified runtime value tag 0x18/0x2"
+                      ],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 2,
+              "success": true,
+              "message": "G1 firmware completed; return value not decoded by host (tag 0x18/0x2)\nCaveat: return value not decoded: return: unverified runtime value tag 0x18/0x2"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 3,
+            "name": "ZZT_M19TYPES",
+            "command": "run_stored",
+            "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+            "entry": "M19SYM",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 3,
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "entry": "M19SYM"
+            },
+            {
+              "event": "execution",
+              "request": 3,
+              "program": "ZZT_M19TYPES",
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19SYM",
+                "body_entered": true,
+                "completed": true,
+                "return_value": null,
+                "return_representation": {
+                  "kind": "undecoded",
+                  "reason": "return: unverified runtime value tag 0x18/0x2",
+                  "subtype": 2,
+                  "tag": 24
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+                      "result": {
+                        "address": 541759456,
+                        "bytes": [
+                          0,
+                          0,
+                          24,
+                          2,
+                          0,
+                          0,
+                          0,
+                          0,
+                          192,
+                          43,
+                          197,
+                          48,
+                          208,
+                          151,
+                          74,
+                          32,
+                          224,
+                          156,
+                          192,
+                          48,
+                          0,
+                          0,
+                          0,
+                          0
+                        ],
+                        "probe": [
+                          {
+                            "address": 541759456,
+                            "bytes": [
+                              0,
+                              0,
+                              24,
+                              2,
+                              0,
+                              0,
+                              0,
+                              0,
+                              192,
+                              43,
+                              197,
+                              48,
+                              208,
+                              151,
+                              74,
+                              32,
+                              224,
+                              156,
+                              192,
+                              48,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0
+                            ]
+                          }
+                        ],
+                        "representation": {
+                          "captured_bytes": 32,
+                          "coherent": true,
+                          "complete": false,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541759456,
+                              "bytes": [
+                                0,
+                                0,
+                                24,
+                                2,
+                                0,
+                                0,
+                                0,
+                                0,
+                                192,
+                                43,
+                                197,
+                                48,
+                                208,
+                                151,
+                                74,
+                                32,
+                                224,
+                                156,
+                                192,
+                                48,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": "unverified runtime value tag 0x18/0x2"
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 2,
+                        "tag": 24,
+                        "unavailable": "return: unverified runtime value tag 0x18/0x2",
+                        "value": null
+                      },
+                      "caveats": [
+                        "return value not decoded: return: unverified runtime value tag 0x18/0x2"
+                      ],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 3,
+              "success": true,
+              "message": "G1 firmware completed; return value not decoded by host (tag 0x18/0x2)\nCaveat: return value not decoded: return: unverified runtime value tag 0x18/0x2"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 4,
+            "name": "ZZT_M19TYPES",
+            "command": "run_stored",
+            "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+            "entry": "M19NEST",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 4,
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "entry": "M19NEST"
+            },
+            {
+              "event": "execution",
+              "request": 4,
+              "program": "ZZT_M19TYPES",
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19NEST",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "type": "list",
+                  "value": [
+                    {
+                      "type": "list",
+                      "value": [
+                        {
+                          "imaginary": "2",
+                          "real": "1",
+                          "type": "complex"
+                        },
+                        {
+                          "imaginary": "-4",
+                          "real": "3",
+                          "type": "complex"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "list",
+                      "value": [
+                        {
+                          "type": "real",
+                          "value": "5"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+                      "result": {
+                        "address": 541759200,
+                        "bytes": [
+                          0,
+                          0,
+                          22,
+                          0,
+                          2,
+                          0,
+                          0,
+                          0,
+                          240,
+                          150,
+                          74,
+                          32,
+                          0,
+                          151,
+                          74,
+                          32
+                        ],
+                        "representation": {
+                          "captured_bytes": 132,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 5,
+                          "nodes": [
+                            {
+                              "address": 541759200,
+                              "bytes": [
+                                0,
+                                0,
+                                22,
+                                0,
+                                2,
+                                0,
+                                0,
+                                0,
+                                240,
+                                150,
+                                74,
+                                32,
+                                0,
+                                151,
+                                74,
+                                32
+                              ],
+                              "children": [
+                                1,
+                                4
+                              ],
+                              "path": [],
+                              "unavailable": null
+                            },
+                            {
+                              "address": 541759216,
+                              "bytes": [
+                                1,
+                                0,
+                                22,
+                                0,
+                                2,
+                                0,
+                                0,
+                                0,
+                                80,
+                                154,
+                                74,
+                                32,
+                                112,
+                                154,
+                                74,
+                                32
+                              ],
+                              "children": [
+                                2,
+                                3
+                              ],
+                              "path": [
+                                1
+                              ],
+                              "unavailable": null
+                            },
+                            {
+                              "address": 541760080,
+                              "bytes": [
+                                1,
+                                0,
+                                19,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                16,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                2
+                              ],
+                              "children": [],
+                              "path": [
+                                1,
+                                1
+                              ],
+                              "unavailable": null
+                            },
+                            {
+                              "address": 541760112,
+                              "bytes": [
+                                1,
+                                0,
+                                19,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                3,
+                                0,
+                                0,
+                                16,
+                                255,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                4
+                              ],
+                              "children": [],
+                              "path": [
+                                1,
+                                2
+                              ],
+                              "unavailable": null
+                            },
+                            {
+                              "address": 541759232,
+                              "bytes": [
+                                1,
+                                0,
+                                22,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                32,
+                                118,
+                                74,
+                                32
+                              ],
+                              "children": [
+                                5
+                              ],
+                              "path": [
+                                2
+                              ],
+                              "unavailable": null
+                            },
+                            {
+                              "address": 541750816,
+                              "bytes": [
+                                2,
+                                0,
+                                31,
+                                1,
+                                0,
+                                196,
+                                73,
+                                32,
+                                5,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                1,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0
+                              ],
+                              "children": [],
+                              "path": [
+                                2,
+                                1
+                              ],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 0,
+                        "tag": 22,
+                        "unavailable": null,
+                        "value": {
+                          "type": "list",
+                          "value": [
+                            {
+                              "type": "list",
+                              "value": [
+                                {
+                                  "imaginary": "2",
+                                  "real": "1",
+                                  "type": "complex"
+                                },
+                                {
+                                  "imaginary": "-4",
+                                  "real": "3",
+                                  "type": "complex"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "list",
+                              "value": [
+                                {
+                                  "type": "real",
+                                  "value": "5"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 4,
+              "success": true,
+              "message": "G1 firmware returned {{(1,2), (3,-4)}, {5}}"
+            }
+          ]
+        },
+        {
+          "command": {
+            "request": 5,
+            "name": "ZZT_M19TYPES",
+            "command": "run_stored",
+            "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+            "entry": "M19INT",
+            "arguments": ""
+          },
+          "events": [
+            {
+              "event": "phase",
+              "phase": "running"
+            },
+            {
+              "event": "execution_started",
+              "request": 5,
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "entry": "M19INT"
+            },
+            {
+              "event": "execution",
+              "request": 5,
+              "program": "ZZT_M19TYPES",
+              "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+              "observation": {
+                "status": "completed",
+                "binding": "stored_source_dispatch",
+                "entry": "M19INT",
+                "body_entered": true,
+                "completed": true,
+                "return_value": {
+                  "bits": 64,
+                  "literal": "#FFFFFFFFFFFFFFFFh",
+                  "signed": "-1",
+                  "type": "integer",
+                  "unsigned": "18446744073709551615"
+                },
+                "return_representation": {
+                  "kind": "decoded"
+                },
+                "output": [],
+                "diagnostics": [],
+                "runtime": {
+                  "invocations": [
+                    {
+                      "status": "completed",
+                      "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+                      "result": {
+                        "address": 541751648,
+                        "bytes": [
+                          1,
+                          0,
+                          145,
+                          64,
+                          84,
+                          0,
+                          0,
+                          0,
+                          255,
+                          255,
+                          255,
+                          255,
+                          255,
+                          255,
+                          255,
+                          255
+                        ],
+                        "representation": {
+                          "captured_bytes": 16,
+                          "coherent": true,
+                          "complete": true,
+                          "logical_items": 0,
+                          "nodes": [
+                            {
+                              "address": 541751648,
+                              "bytes": [
+                                1,
+                                0,
+                                145,
+                                64,
+                                84,
+                                0,
+                                0,
+                                0,
+                                255,
+                                255,
+                                255,
+                                255,
+                                255,
+                                255,
+                                255,
+                                255
+                              ],
+                              "children": [],
+                              "path": [],
+                              "unavailable": null
+                            }
+                          ],
+                          "schema_version": 1,
+                          "unavailable": null
+                        },
+                        "subtype": 64,
+                        "tag": 145,
+                        "unavailable": null,
+                        "value": {
+                          "bits": 64,
+                          "literal": "#FFFFFFFFFFFFFFFFh",
+                          "signed": "-1",
+                          "type": "integer",
+                          "unsigned": "18446744073709551615"
+                        }
+                      },
+                      "caveats": [],
+                      "unavailable": []
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "event": "phase",
+              "phase": "ready"
+            },
+            {
+              "event": "result",
+              "request": 5,
+              "success": true,
+              "message": "G1 firmware returned #FFFFFFFFFFFFFFFFh"
+            }
+          ]
+        }
+      ],
+      "status": "captured"
+    }
+  ],
+  "classification": "genuine firmware control capture; no physical or differential parity claim"
+}

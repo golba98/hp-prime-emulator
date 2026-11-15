@@ -1,0 +1,1046 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_numeric_controls.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "12+"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "native_app",
+      "name": "Function"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "empty"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_empty.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "X"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "X+1"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "X+2"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "X+3"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "X+4"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "five"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_five.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "horizontal"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_horizontal.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 165
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 125,
+      "y": 165
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "row_selection"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_row_selection.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "V",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "row_paste"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_row_paste.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "12+"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "in"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_in.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "out"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_out.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "undo"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_undo.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "decimal"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_decimal.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "integer"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_integer.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "AAngle",
+      "content": "3"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "gradians"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_gradians.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "AAngle",
+      "content": "2"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "degrees"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_degrees.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "native_object",
+      "kind": "variable",
+      "name": "AAngle",
+      "content": "1"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "radians"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_radians.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "setup"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_setup.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 235,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_confirmation"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_plot_confirmation.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 235,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_cancelled"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_plot_cancelled.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 235,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_accepted"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_plot_accepted.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_table"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/numeric_controls_plot_table.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

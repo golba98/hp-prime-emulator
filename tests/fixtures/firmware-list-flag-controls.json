@@ -1,0 +1,484 @@
+{
+  "provenance": "Self-authored sources executed by original installed15751 firmware. Stored/STRING/index projections independently validate exact values. Original managed-list initializer execution proves byte3 is not initialized for tag16; allocation reuse produces varying values. No vendor object bytes are bundled.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "source": "EXPORT GROUPADMIT() BEGIN LOCAL out:={},vals:={0,1,12,12345},groups:={\",\",\"x\",\"1x\",\"x1\",\"xx\",\"\"},i,j,r; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 6 DO IFERR r:=STRING(vals(i),2,3,groups(j)); THEN r:=\"error\"; END; out:=CONCAT(out,{{i,j,r}}); END; END; RETURN out; END;",
+  "source_sha256": "ab18a851bed0049d757ba80d49a10f540491070f17dd75439aaef996cc050406",
+  "expected": {
+    "type": "list",
+    "value": [
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "string",
+            "value": "0.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "5"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "6"
+          },
+          {
+            "type": "string",
+            "value": "0.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "string",
+            "value": "1.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "5"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "6"
+          },
+          {
+            "type": "string",
+            "value": "1.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "string",
+            "value": "1x2.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "5"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "real",
+            "value": "6"
+          },
+          {
+            "type": "string",
+            "value": "12.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "3"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "string",
+            "value": "1234x5.000"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "5"
+          },
+          {
+            "type": "string",
+            "value": "error"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "4"
+          },
+          {
+            "type": "real",
+            "value": "6"
+          },
+          {
+            "type": "string",
+            "value": "12345.000"
+          }
+        ]
+      }
+    ]
+  },
+  "projection_source": "EXPORT GROUPADMIT() BEGIN LOCAL out:={},vals:={0,1,12,12345},groups:={\",\",\"x\",\"1x\",\"x1\",\"xx\",\"\"},i,j,r; FOR i FROM 1 TO 4 DO FOR j FROM 1 TO 6 DO IFERR r:=STRING(vals(i),2,3,groups(j)); THEN r:=\"error\"; END; out:=CONCAT(out,{{i,j,r}}); END; END; RETURN STRING(out); END;",
+  "projection_source_sha256": "9c28cf5f3838c3a7ef58824a6e50e118a33bd2cf08d5f1e1acdbdecadf0e2e1a",
+  "projection_expected": "{{1,1,\"error\"},{1,2,\"error\"},{1,3,\"error\"},{1,4,\"0.000\"},{1,5,\"error\"},{1,6,\"0.000\"},{2,1,\"error\"},{2,2,\"error\"},{2,3,\"error\"},{2,4,\"1.000\"},{2,5,\"error\"},{2,6,\"1.000\"},{3,1,\"error\"},{3,2,\"error\"},{3,3,\"error\"},{3,4,\"1x2.000\"},{3,5,\"error\"},{3,6,\"12.000\"},{4,1,\"error\"},{4,2,\"error\"},{4,3,\"error\"},{4,4,\"1234x5.000\"},{4,5,\"error\"},{4,6,\"12345.000\"}}",
+  "reset_source": "EXPORT RESETSEP() BEGIN HSeparator:=0; HFormat:=0; HDigits:=4; Base:=3; Bits:=32; Signed:=0; RETURN 0; END;",
+  "managed_list_initializer": {
+    "address": "0x306bb234",
+    "size": 40,
+    "sha256": "3d2b3224539b641c85261ca871692d2b9a22982b9f7698b1ac5951b05e11503d",
+    "observed": "Writes bytes0..2; leaves byte3 and all payload bytes unchanged for all256 initial byte3 values."
+  },
+  "additional_cases": [
+    {
+      "entry": "MVAL0",
+      "source": "EXPORT MVAL0() BEGIN LOCAL r:=DRAWMENU(\"π√∑\",\"A very long label\",\"G1\",\"x²\",\"2/3\",\"ⅈ\"); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "5461ed14370ea3b967f2cab746fa46b1743b29a1deca807bc4861aea2dcaa66f",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      }
+    },
+    {
+      "entry": "MVAL1",
+      "source": "EXPORT MVAL1() BEGIN LOCAL r:=DRAWMENU(\"π√∑\",\"A very long label\",\"G1\",\"x²\",\"2/3\",\"ⅈ\"); RETURN {TYPE({r,TYPE(r)}),{r,TYPE(r)},STRING({r,TYPE(r)}),r==1}; END;",
+      "source_sha256": "269c9c659aa5d5d3a1834654db20ab71978b19d547a620fcbebbee98e6db797e",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "6"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "1"
+              },
+              {
+                "type": "real",
+                "value": "0"
+              }
+            ]
+          },
+          {
+            "type": "string",
+            "value": "{1,0}"
+          },
+          {
+            "type": "real",
+            "value": "1"
+          }
+        ]
+      }
+    }
+  ]
+}

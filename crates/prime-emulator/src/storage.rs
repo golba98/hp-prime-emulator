@@ -1,5 +1,6 @@
 //! Host-side snapshots of a guest data directory (`--storage-diff`): what
 //! the firmware created, changed or deleted during a run.
+pub mod image;
 
 use std::collections::BTreeMap;
 use std::path::Path;

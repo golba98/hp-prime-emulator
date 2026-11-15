@@ -1,0 +1,48 @@
+{
+  "provenance": "Self-authored Home inputs entered through the original virtual G1 UI. Values transcribed from original calculator screens; no physical verification or vendor image/font bytes bundled. Each entry is followed by Enter in Home.",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "case": "rational",
+      "entries": [
+        "1/3"
+      ],
+      "visible_result": "0.333333333333"
+    },
+    {
+      "case": "long_integer",
+      "entries": [
+        "1234567890123456789"
+      ],
+      "visible_input": "1.23456789012E18",
+      "visible_result": "1.23456789012E18"
+    },
+    {
+      "case": "exact_list",
+      "entries": [
+        "{1/3,π/7}"
+      ],
+      "visible_result": "{0.333333333333, 0.448798950513}"
+    },
+    {
+      "case": "rational_ans",
+      "entries": [
+        "1/3",
+        "3*Ans"
+      ],
+      "visible_result": "1"
+    },
+    {
+      "case": "long_ans_difference",
+      "entries": [
+        "1234567890123456789",
+        "Ans-1234567890123456788"
+      ],
+      "visible_result": "1"
+    }
+  ]
+}

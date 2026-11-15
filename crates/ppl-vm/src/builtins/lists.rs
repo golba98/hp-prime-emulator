@@ -16,12 +16,12 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
     let s = m.settings.clone();
     match b {
         B::Concat => {
-            if args.iter().all(|v| matches!(v, Value::Str(_))) {
-                let mut out = String::new();
+            if args.iter().all(Value::is_string) {
+                let mut out = Vec::new();
                 for v in args {
-                    out.push_str(&v.expect_str(name)?);
+                    out.extend_from_slice(&v.expect_string_units(name)?);
                 }
-                return Ok(Value::str(out));
+                return Ok(Value::from_utf16(out));
             }
             let mut out = Vec::new();
             for v in args {
@@ -39,7 +39,9 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         )),
         B::Size => Ok(match a0 {
             Value::List(l) => Value::from_i64(l.len() as i64),
-            Value::Str(st) => Value::from_i64(st.chars().count() as i64),
+            value if value.is_string() => {
+                Value::from_i64(value.expect_string_units(name)?.len() as i64)
+            }
             Value::Matrix(mx) if mx.vector => Value::list(vec![Value::from_i64(mx.cols as i64)]),
             Value::Matrix(mx) => Value::list(vec![
                 Value::from_i64(mx.rows as i64),
@@ -67,7 +69,11 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             Ok(Value::list(items))
         }
         B::Reverse => match a0 {
-            Value::Str(st) => Ok(Value::str(st.chars().rev().collect::<String>())),
+            value if value.is_string() => {
+                let mut units = value.expect_string_units(name)?.into_owned();
+                units.reverse();
+                Ok(Value::from_utf16(units))
+            }
             other => {
                 let mut items: Vec<Value> = other.expect_list(name)?.iter().cloned().collect();
                 items.reverse();
@@ -77,12 +83,11 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         B::Pos => {
             let needle = arg(args, 1, name)?;
             match a0 {
-                Value::Str(st) => {
-                    let n = needle.expect_str(name)?;
+                value if value.is_string() => {
+                    let hay = value.expect_string_units(name)?;
+                    let needle = needle.expect_string_units(name)?;
                     Ok(Value::from_i64(
-                        st.find(&*n)
-                            .map(|i| st[..i].chars().count() as i64 + 1)
-                            .unwrap_or(0),
+                        super::strings::position(&hay, &needle) as i64
                     ))
                 }
                 other => {
@@ -123,15 +128,27 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         }
         B::Equal => Ok(Value::from_bool(a0.equals(arg(args, 1, name)?))),
         B::Head => match a0 {
-            Value::Str(st) => Ok(Value::str(
-                st.chars().next().map(String::from).unwrap_or_default(),
+            value if value.is_string() => Ok(Value::from_utf16(
+                value
+                    .expect_string_units(name)?
+                    .iter()
+                    .take(1)
+                    .copied()
+                    .collect::<Vec<_>>(),
             )),
             other => other.expect_list(name)?.first().cloned().ok_or_else(|| {
                 RuntimeError::new(ErrorKind::InvalidDimension, "HEAD of an empty list")
             }),
         },
         B::Tail => match a0 {
-            Value::Str(st) => Ok(Value::str(st.chars().skip(1).collect::<String>())),
+            value if value.is_string() => Ok(Value::from_utf16(
+                value
+                    .expect_string_units(name)?
+                    .iter()
+                    .skip(1)
+                    .copied()
+                    .collect::<Vec<_>>(),
+            )),
             other => {
                 let l = other.expect_list(name)?;
                 if l.is_empty() {
@@ -144,10 +161,28 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
         },
         B::Append => {
-            let mut items: Vec<Value> = a0.expect_list(name)?.iter().cloned().collect();
-            items.push(arg(args, 1, name)?.clone());
-            m.check_len(items.len())?;
-            Ok(Value::list(items))
+            let item = arg(args, 1, name)?.clone();
+            match a0 {
+                Value::Matrix(vector) if vector.vector => {
+                    if !matches!(item, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "APPEND to a vector requires a numeric element",
+                        ));
+                    }
+                    m.check_len(vector.data.len() + 1)?;
+                    let mut vector = (**vector).clone();
+                    vector.data.push(item);
+                    vector.cols = vector.data.len();
+                    Ok(Value::Matrix(std::rc::Rc::new(vector)))
+                }
+                _ => {
+                    let mut items: Vec<Value> = a0.expect_list(name)?.iter().cloned().collect();
+                    m.check_len(items.len() + 1)?;
+                    items.push(item);
+                    Ok(Value::list(items))
+                }
+            }
         }
         other => Err(RuntimeError::new(
             ErrorKind::Unsupported,

@@ -5,7 +5,8 @@
 # WINIT_X11_SCALE_FACTOR (e.g. 1.5, 2) emulates a high-DPI display.
 set -u
 SCREEN="${PPL_XVFB_SCREEN:-1280x900x24}"
-mkdir -p /tmp/ppl-ide-e2e
+LOG_DIR="${PPL_IDE_LOG_DIR:-/tmp/ppl-ide-e2e}"
+mkdir -p "$LOG_DIR"
 SCRIPT="$(readlink -f "$1")"
 TIMEOUT="${2:-90}"
 for n in $(seq 300 380); do
@@ -13,7 +14,7 @@ for n in $(seq 300 380); do
 done
 export DISPLAY="$DISP"
 unset WAYLAND_DISPLAY
-Xvfb "$DISP" -screen 0 "$SCREEN" -nolisten tcp >/tmp/ppl-ide-e2e/xvfb.log 2>&1 &
+Xvfb "$DISP" -screen 0 "$SCREEN" -nolisten tcp >"$LOG_DIR/xvfb.log" 2>&1 &
 XVFB_PID=$!
 for i in $(seq 1 40); do [ -e "/tmp/.X11-unix/X${DISP#:}" ] && break; sleep 0.2; done
 sleep 0.5
@@ -34,9 +35,10 @@ PPL_BIN="${PPL_BIN:-${TARGET_DIR:-./target}/release/ppl}"
 # advances while it is focused.
 python3 tests/ide_xvfb_smoke/x11_focus.py "HP Prime PPL Emulator" "$TIMEOUT" &
 FOCUS_PID=$!
-timeout "$TIMEOUT" "$PPL_BIN" gui >/tmp/ppl-ide-e2e/ide_run.log 2>&1
+timeout "$TIMEOUT" "$PPL_BIN" gui >"$LOG_DIR/ide_run.log" 2>&1
 CODE=$?
 kill "$FOCUS_PID" 2>/dev/null
 T1=$(date +%s)
 kill -TERM "$XVFB_PID" 2>/dev/null
 echo "exit=$CODE elapsed=$((T1-T0))s display=$DISP screen=$SCREEN scale=${WINIT_X11_SCALE_FACTOR:-native}"
+exit "$CODE"

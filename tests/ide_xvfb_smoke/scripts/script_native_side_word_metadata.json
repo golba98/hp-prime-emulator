@@ -1,0 +1,395 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_word_metadata.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "#FF:-8h"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "positive_word"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_positive_word.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "positive_editor"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_positive_editor.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 27
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "negated_copy"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_negated_copy.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "saved_copy"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_saved_copy.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "cached_copy"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_cached_copy.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "#\u22125:-8h"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "negative_word"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_negative_word.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "negative_editor"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_negative_editor.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "Setbase(#101B:16h,0)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "system_word"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_system_word.png"
+    },
+    {
+      "step": "type",
+      "text": "Base:=2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "type",
+      "text": "Bits:=64"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "changed_settings"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_changed_settings.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "selected_system_history"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_selected_system_history.png"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        45
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "selected_system_editor"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_selected_system_editor.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "explicit_editor"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_explicit_editor.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 4
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "history_copy"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_history_copy.png"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "snapshot",
+      "label": "recalled_word"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/word_metadata_recalled_word.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

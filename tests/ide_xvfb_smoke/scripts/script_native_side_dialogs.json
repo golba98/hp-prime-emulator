@@ -1,0 +1,268 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_dialogs.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "DIALOGS"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL n:=3,ok; M1:=[[1,2],[3,4]]; ok:=INPUT(n,\"Input\",\"Number\"); IF NOT ok THEN RETURN -1; END; ok:=EDITMAT(M1); RETURN {n,M1,ok}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "input_open"
+    },
+    {
+      "step": "calc_key",
+      "code": 19
+    },
+    {
+      "step": "calc_key",
+      "code": 39
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "matrix",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_open"
+    },
+    {
+      "step": "calc_key",
+      "code": 34
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 200
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "resized"
+    },
+    {
+      "step": "click_lcd",
+      "x": 45,
+      "y": 225
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "dialog_result"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN A:=10; LOCAL n:=7,items:={2,4},answer:=0; LOCAL ok:=INPUT(answer,\"Live values\",\"Expression\"); LOCAL changed:=EXPR(\"n:=n+2\"); RETURN {ok,answer,n,A,changed}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "A+n+items(2)"
+    },
+    {
+      "step": "snapshot",
+      "label": "live_expression_entered"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "live_expression_result"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL x:=0; LOCAL ok:=INPUT({{x,[5]}},\"Untouched defaults\"); RETURN {ok,TYPE(x),STRING(x)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "untouched_filter"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "type",
+      "text": "9"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "rejected_filter"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "cancelled_filter"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL a:=5,b:=8; LOCAL ok:=INPUT({a,b},\"Short defaults\",{\"A\",\"B\"},{},{1},{3}); RETURN {ok,a,b}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "short_defaults"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL a:=EXPR(\"1_m\"); LOCAL ok:=INPUT({{a,[9]}},\"Units\"); RETURN {ok,TYPE(a),STRING(a)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "type",
+      "text": "2_m"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "typed_unit"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT DIALOGS() BEGIN LOCAL a:=CAS.sqrt(2); LOCAL ok:=INPUT({{a,[8]}},\"Algebra\"); RETURN {ok,TYPE(a),STRING(a)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_dialog",
+      "kind": "input",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "type",
+      "text": "CAS.sqrt(3)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "typed_algebra"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

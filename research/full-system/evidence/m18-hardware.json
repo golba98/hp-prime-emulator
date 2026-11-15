@@ -1,0 +1,1132 @@
+{
+  "schema_version": 1,
+  "scope": "full_system_synthetic_hardware",
+  "physical_hardware_verified": false,
+  "kernel_boot_verified": false,
+  "cases": {
+    "timer_irq": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "timer_irq",
+      "guest_cpu_execution_verified": true,
+      "physical_hardware_verified": false,
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m18-release-timer_irq-0/guest/hardware.elf",
+        "sha256": "5d5fb5a3d9f8ea0961f638448509426ac62889895035288483cd0a1de8602869",
+        "entry": "0x30000000",
+        "source_sha256": "0ecd9abb8d9fe3d8f0e9fd4ea3ba54876c095309623944621b0dd4a23f548947",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306824,
+        "halt_address": 805306824,
+        "mailbox": [
+          1611464728,
+          9,
+          0,
+          0,
+          4276944920,
+          5,
+          6,
+          0,
+          0,
+          1610613202,
+          0,
+          1610613075,
+          805306748,
+          805367752,
+          0,
+          0,
+          0,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          11,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 4276944920,
+          "r1": 1342177312,
+          "r2": 805310720,
+          "r3": 805306960,
+          "r4": 805310464,
+          "r5": 1241513984,
+          "r6": 1358954496,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613075,
+        "uart_hex": "49494949494949494945"
+      },
+      "gdb.log_sha256": "8edca45aab0cd14bb7c8ffd405fff0aa2031725e1971a830b767beacf02d6f34",
+      "execution.log_sha256": "342fe273a96423ea30cc34527323a22495c409fa55a02cca130550f9e13b5cc4",
+      "uart.log_sha256": "8305f52f0c301f07cbd161785322ce1ec2b69a0c7990942075ea5bcc9bb4c25a"
+    },
+    "timer_fiq": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "timer_fiq",
+      "guest_cpu_execution_verified": true,
+      "physical_hardware_verified": false,
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m18-release-timer_fiq-0/guest/hardware.elf",
+        "sha256": "89364f5ae4e76e34c169cb15719a2a45de7ee1532eca5e800806e4a9abb0b26a",
+        "entry": "0x30000000",
+        "source_sha256": "0ecd9abb8d9fe3d8f0e9fd4ea3ba54876c095309623944621b0dd4a23f548947",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306608,
+        "halt_address": 805306608,
+        "mailbox": [
+          1611464728,
+          0,
+          3,
+          0,
+          4276944920,
+          0,
+          0,
+          0,
+          0,
+          0,
+          2147484113,
+          2147483923,
+          805306580,
+          805363656,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 4276944920,
+          "r1": 1342177312,
+          "r2": 805310720,
+          "r3": 805306744,
+          "r4": 805310464,
+          "r5": 1241513984,
+          "r6": 1358954496,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613011,
+        "uart_hex": "46464645"
+      },
+      "gdb.log_sha256": "08c3091421c0d7d6d6f69d37eedf7b4e50e9ec085e166fca0bcd46639582552e",
+      "execution.log_sha256": "511ab9f1ac3b8a2d2cd44c91442ba70836e29842ac9c184e27b3729e6f34a5b3",
+      "uart.log_sha256": "87a2fdde89daec449c3cb5804f89277b2b5ef4c3f5d8b63a553e2150f8856057"
+    },
+    "uart_gpio": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "uart_gpio",
+      "guest_cpu_execution_verified": true,
+      "physical_hardware_verified": false,
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m18-release-uart_gpio-0/guest/hardware.elf",
+        "sha256": "2eca01444d58ced845e2272269bda899bf96d181933be69c32053e995f293937",
+        "entry": "0x30000000",
+        "source_sha256": "0ecd9abb8d9fe3d8f0e9fd4ea3ba54876c095309623944621b0dd4a23f548947",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306600,
+        "halt_address": 805306600,
+        "mailbox": [
+          1611464728,
+          0,
+          0,
+          0,
+          4276944920,
+          0,
+          0,
+          21845,
+          42330,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 4276944920,
+          "r1": 805307010,
+          "r2": 805310720,
+          "r3": 805306736,
+          "r4": 805310464,
+          "r5": 1442840576,
+          "r6": 1358954496,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613203,
+        "uart_hex": "4d313820554152540a"
+      },
+      "gdb.log_sha256": "1a76a71c8cab150b7a6148d984a017591536229b6204e55c7f6ee20b6de1de76",
+      "execution.log_sha256": "d51502c5bd44723dc2e3194b2c3ddca55e777e8cddf82f60262a36751d4ac3f7",
+      "uart.log_sha256": "0204986a0e6105e2a3f49a4d7f2443d0e92f1986fc4837d4f1d828186b2f6cb5"
+    },
+    "mmu": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "mmu",
+      "guest_cpu_execution_verified": true,
+      "physical_hardware_verified": false,
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m18-release-mmu-0/guest/hardware.elf",
+        "sha256": "5e75e907f59505e155019d750f6d81c7b9c1b0a80d61b639619e8429952e6e28",
+        "entry": "0x30000000",
+        "source_sha256": "0ecd9abb8d9fe3d8f0e9fd4ea3ba54876c095309623944621b0dd4a23f548947",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306736,
+        "halt_address": 805306736,
+        "mailbox": [
+          1611464728,
+          0,
+          0,
+          3,
+          4276944920,
+          0,
+          0,
+          305419896,
+          589947,
+          0,
+          0,
+          1193046,
+          1193046,
+          0,
+          1,
+          5,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5,
+          536870912,
+          1,
+          805314561,
+          13,
+          268443648,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "registers": {
+          "r0": 4276944920,
+          "r1": 268443648,
+          "r2": 305419896,
+          "r3": 805306872,
+          "r4": 805310464,
+          "r5": 805322752,
+          "r6": 1358954496,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613203,
+        "uart_hex": ""
+      },
+      "gdb.log_sha256": "7a1f45fb6099bb5ef73ee40dfc5c7691a19bd071d385865d5e97ad6e043bfea4",
+      "execution.log_sha256": "6277a106ff76b4373d8fc3252f529492f376d37e78c05289d643f1b340c0703c",
+      "uart.log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "repeated_execution": [
+    {
+      "case": "timer_irq",
+      "cycle": 0,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_irq-0",
+      "guest_sha256": "5d5fb5a3d9f8ea0961f638448509426ac62889895035288483cd0a1de8602869",
+      "execution_sha256": "342fe273a96423ea30cc34527323a22495c409fa55a02cca130550f9e13b5cc4"
+    },
+    {
+      "case": "timer_irq",
+      "cycle": 1,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_irq-1",
+      "guest_sha256": "5d5fb5a3d9f8ea0961f638448509426ac62889895035288483cd0a1de8602869",
+      "execution_sha256": "342fe273a96423ea30cc34527323a22495c409fa55a02cca130550f9e13b5cc4"
+    },
+    {
+      "case": "timer_irq",
+      "cycle": 2,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_irq-2",
+      "guest_sha256": "5d5fb5a3d9f8ea0961f638448509426ac62889895035288483cd0a1de8602869",
+      "execution_sha256": "342fe273a96423ea30cc34527323a22495c409fa55a02cca130550f9e13b5cc4"
+    },
+    {
+      "case": "timer_fiq",
+      "cycle": 0,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_fiq-0",
+      "guest_sha256": "89364f5ae4e76e34c169cb15719a2a45de7ee1532eca5e800806e4a9abb0b26a",
+      "execution_sha256": "511ab9f1ac3b8a2d2cd44c91442ba70836e29842ac9c184e27b3729e6f34a5b3"
+    },
+    {
+      "case": "timer_fiq",
+      "cycle": 1,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_fiq-1",
+      "guest_sha256": "89364f5ae4e76e34c169cb15719a2a45de7ee1532eca5e800806e4a9abb0b26a",
+      "execution_sha256": "511ab9f1ac3b8a2d2cd44c91442ba70836e29842ac9c184e27b3729e6f34a5b3"
+    },
+    {
+      "case": "timer_fiq",
+      "cycle": 2,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer_fiq-2",
+      "guest_sha256": "89364f5ae4e76e34c169cb15719a2a45de7ee1532eca5e800806e4a9abb0b26a",
+      "execution_sha256": "511ab9f1ac3b8a2d2cd44c91442ba70836e29842ac9c184e27b3729e6f34a5b3"
+    },
+    {
+      "case": "uart_gpio",
+      "cycle": 0,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-uart_gpio-0",
+      "guest_sha256": "2eca01444d58ced845e2272269bda899bf96d181933be69c32053e995f293937",
+      "execution_sha256": "d51502c5bd44723dc2e3194b2c3ddca55e777e8cddf82f60262a36751d4ac3f7"
+    },
+    {
+      "case": "uart_gpio",
+      "cycle": 1,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-uart_gpio-1",
+      "guest_sha256": "2eca01444d58ced845e2272269bda899bf96d181933be69c32053e995f293937",
+      "execution_sha256": "d51502c5bd44723dc2e3194b2c3ddca55e777e8cddf82f60262a36751d4ac3f7"
+    },
+    {
+      "case": "uart_gpio",
+      "cycle": 2,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-uart_gpio-2",
+      "guest_sha256": "2eca01444d58ced845e2272269bda899bf96d181933be69c32053e995f293937",
+      "execution_sha256": "d51502c5bd44723dc2e3194b2c3ddca55e777e8cddf82f60262a36751d4ac3f7"
+    },
+    {
+      "case": "mmu",
+      "cycle": 0,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-mmu-0",
+      "guest_sha256": "5e75e907f59505e155019d750f6d81c7b9c1b0a80d61b639619e8429952e6e28",
+      "execution_sha256": "6277a106ff76b4373d8fc3252f529492f376d37e78c05289d643f1b340c0703c"
+    },
+    {
+      "case": "mmu",
+      "cycle": 1,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-mmu-1",
+      "guest_sha256": "5e75e907f59505e155019d750f6d81c7b9c1b0a80d61b639619e8429952e6e28",
+      "execution_sha256": "6277a106ff76b4373d8fc3252f529492f376d37e78c05289d643f1b340c0703c"
+    },
+    {
+      "case": "mmu",
+      "cycle": 2,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-mmu-2",
+      "guest_sha256": "5e75e907f59505e155019d750f6d81c7b9c1b0a80d61b639619e8429952e6e28",
+      "execution_sha256": "6277a106ff76b4373d8fc3252f529492f376d37e78c05289d643f1b340c0703c"
+    }
+  ],
+  "timer_model": [
+    {
+      "cycle": 0,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer-model-0"
+    },
+    {
+      "cycle": 1,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer-model-1"
+    },
+    {
+      "cycle": 2,
+      "status": "passed",
+      "directory": "/home/k9-vortex/.cache/prime-m18-release-timer-model-2"
+    }
+  ],
+  "timer_model_observations": {
+    "schema_version": 1,
+    "case": "timer_model",
+    "scope": "qtest_s3c2416_device_model",
+    "status": "passed",
+    "physical_hardware_verified": false,
+    "guest_cpu_execution_verified": false,
+    "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+    "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+    "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+    "patches": [
+      {
+        "name": "0001-intc-reset-fiq.patch",
+        "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+      },
+      {
+        "name": "0002-s3c2416-timer.patch",
+        "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+      },
+      {
+        "name": "0003-armv5-alignment.patch",
+        "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+      }
+    ],
+    "observations": [
+      {
+        "channel": 0,
+        "width16": true,
+        "manual": 10,
+        "oneshot": true,
+        "autoreload_cycles": 3,
+        "stop": true
+      },
+      {
+        "channel": 1,
+        "width16": true,
+        "manual": 10,
+        "oneshot": true,
+        "autoreload_cycles": 3,
+        "stop": true
+      },
+      {
+        "channel": 2,
+        "width16": true,
+        "manual": 10,
+        "oneshot": true,
+        "autoreload_cycles": 3,
+        "stop": true
+      },
+      {
+        "channel": 3,
+        "width16": true,
+        "manual": 10,
+        "oneshot": true,
+        "autoreload_cycles": 3,
+        "stop": true
+      },
+      {
+        "channel": 4,
+        "width16": true,
+        "manual": 10,
+        "oneshot": true,
+        "autoreload_cycles": 3,
+        "stop": true
+      },
+      {
+        "clock_formula": "66000000/66/16",
+        "external_clock_rejected": true,
+        "active_reset": true,
+        "unsupported_registers_rejected": true
+      }
+    ]
+  },
+  "alignment_before": {
+    "result": {
+      "schema_version": 1,
+      "scope": "full_system_synthetic_hardware",
+      "case": "mmu",
+      "guest_cpu_execution_verified": false,
+      "physical_hardware_verified": false,
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "fc931fc53786c353ff8231910030e021c6bae92174f6cece1f93ad142e99e9c2",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "6e993be985092574c6042e4253154933a47df3efd9f782b4d61a7d0936c710d6"
+        }
+      ],
+      "guest": {
+        "path": "/home/k9-vortex/.cache/prime-m18-hardware-mmu-01/guest/hardware.elf",
+        "sha256": "a8b324e47340cbf37da2e2a0c14963c9e5cb0e72191b616d23bdde94582299dd",
+        "entry": "0x30000000",
+        "source_sha256": "e1d299269ee244b53222369a5ec1c28b57ed33a9d43f9b50e2fe2f2f5fd61b7e",
+        "linked": true,
+        "executed": false
+      },
+      "status": "failed",
+      "error": "MMU alias or abort count differs",
+      "gdb.log_sha256": "8ec8ebc2f47da5a915d994c252f76e6daacf5e01e205fc5c30b417b86e59b1a6",
+      "execution.log_sha256": "61bc339fc126944f8d0c93e93c308f689af298173cba314408414c3b72828695",
+      "uart.log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "observations": {
+      "initial_pc": 805306368,
+      "initial_mailbox": 0,
+      "stepped_pc": 805306372,
+      "stopped_pc": 805306684,
+      "halt_address": 805306684,
+      "mailbox": [
+        1611464728,
+        0,
+        0,
+        2,
+        4276944920,
+        0,
+        0,
+        305419896,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5,
+        536870912,
+        13,
+        268443648,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "registers": {
+        "r0": -18022376,
+        "r1": 268443648,
+        "r2": 305419896,
+        "r3": 805306804,
+        "r4": 805310464,
+        "r5": 805322752,
+        "r6": 1358954496,
+        "r7": 0,
+        "r8": 0,
+        "r9": 0,
+        "r10": 0,
+        "r11": 0,
+        "r12": 0
+      },
+      "cpsr": 1610613203
+    },
+    "finding": "SCTLR.A did not raise an alignment fault before ARMv5 overlay; translation and permission faults executed"
+  },
+  "remaining_limits": [
+    "No proprietary boot/kernel execution",
+    "No physical captures",
+    "No simultaneous FIQ priority claim",
+    "No clock-tree/PWM waveform/DMA/external-clock implementation",
+    "No cache timing/coherency fidelity",
+    "ARMv5 alignment correction tested for ordinary A32 LDR; multiword instruction edge cases not exhaustively verified",
+    "GPIO register model readback is not pin electrical/keyboard fidelity"
+  ],
+  "build": {
+    "schema_version": 1,
+    "status": "built",
+    "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+    "dtc_revision": "558cd81bdd432769b59bff01240c44f82cfb1a9d",
+    "image": "localhost/prime-m17-qemu-xenial",
+    "configure_flags": [
+      "--target-list=arm-softmmu",
+      "--python=/usr/bin/python2.7",
+      "--disable-werror",
+      "--disable-sdl",
+      "--disable-gtk",
+      "--disable-vnc",
+      "--disable-curses",
+      "--disable-opengl",
+      "--disable-tools",
+      "--disable-docs",
+      "--disable-kvm",
+      "--disable-blobs",
+      "--with-system-pixman"
+    ],
+    "containerfile_sha256": "882e857a8e99b9965a0c585985ba14ae112f9d9fe41782fd1edd1b7e3b5ba6b1",
+    "patches": [
+      {
+        "name": "0001-intc-reset-fiq.patch",
+        "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+      },
+      {
+        "name": "0002-s3c2416-timer.patch",
+        "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+      },
+      {
+        "name": "0003-armv5-alignment.patch",
+        "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+      }
+    ],
+    "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+    "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a"
+  },
+  "build_root": "/home/k9-vortex/.cache/prime-m18-hardware-published-build-02",
+  "timer_width_before": {
+    "schema_version": 1,
+    "case": "timer_model",
+    "scope": "qtest_s3c2416_device_model",
+    "status": "failed",
+    "physical_hardware_verified": false,
+    "guest_cpu_execution_verified": false,
+    "binary_sha256": "011b39176130685aba44be06f96b1e63c6b41d59efba4e48ce82bc26542a7b46",
+    "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+    "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+    "patches": [
+      {
+        "name": "0001-intc-reset-fiq.patch",
+        "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+      }
+    ],
+    "observations": [],
+    "error": "counter buffer did not enforce16bit width"
+  },
+  "regressions": {
+    "intc-reset": {
+      "schema_version": 1,
+      "case": "reset",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "passed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "observations": [
+        {
+          "cycle": 0,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 1,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 2,
+          "before": {
+            "source": 268435456,
+            "mode": 0,
+            "pending": 268435456,
+            "offset": 28,
+            "subsource": 2
+          },
+          "after_reset": {
+            "source": 0,
+            "mode": 0,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        }
+      ]
+    },
+    "intc-fiq": {
+      "schema_version": 1,
+      "case": "fiq",
+      "scope": "qtest_s3c2416_device_model",
+      "status": "passed",
+      "physical_hardware_verified": false,
+      "guest_cpu_execution_verified": false,
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "observations": [
+        {
+          "cycle": 0,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 1,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        },
+        {
+          "cycle": 2,
+          "before": {
+            "source": 268435456,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 2
+          },
+          "after_ack": {
+            "source": 0,
+            "mode": 268436480,
+            "pending": 0,
+            "offset": 0,
+            "subsource": 0
+          }
+        }
+      ]
+    },
+    "original-smoke": {
+      "schema_version": 1,
+      "scope": "s3c2416_machine_model_smoke",
+      "machine": "hp-prime",
+      "cpu": "arm926",
+      "kernel_boot_verified": false,
+      "reference_revision": "32e891a9fc568de3110343c3e35b9ec0d23f6f44",
+      "binary_sha256": "6312c95a5e628798913cbe40cfd8a053801d6637ae44fb76c9e27ed8f0c71c5a",
+      "image_id": "ebb5b50b3fee1ce2879db02927a7f64437f9ab7b6bb7e1750fdb52d08aa3b2b7",
+      "patches": [
+        {
+          "name": "0001-intc-reset-fiq.patch",
+          "sha256": "4221c9856d889941eb89ccbff14474465a6692b9fabdf727e30974ad1a10074c"
+        },
+        {
+          "name": "0002-s3c2416-timer.patch",
+          "sha256": "ee0c78122080dc8996a5d6877cef14209012013757072e11b60e607013dab643"
+        },
+        {
+          "name": "0003-armv5-alignment.patch",
+          "sha256": "61d144802885dd4cbb2c55ab64262ee62af0d078c15ff97f58d02be3b5d0cf4e"
+        }
+      ],
+      "smoke": {
+        "path": "/home/k9-vortex/.cache/prime-m18-release-original-smoke/guest/smoke.elf",
+        "sha256": "a02feadb749388fab894f6a051e90a1edbadd268687074aeda9efbaaedb54d5f",
+        "entry": "0x30000000",
+        "linked": true,
+        "executed": true
+      },
+      "status": "passed",
+      "observations": {
+        "initial_pc": 805306368,
+        "initial_mailbox": 0,
+        "stepped_pc": 805306372,
+        "stopped_pc": 805306460,
+        "halt_address": 805306460,
+        "mailbox": 1611464705,
+        "aliases": [
+          305419896,
+          305419896,
+          305419896,
+          305419896
+        ],
+        "registers": {
+          "r0": 805310464,
+          "r1": 1611464705,
+          "r2": 905977856,
+          "r3": 305419896,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0,
+          "r7": 0,
+          "r8": 0,
+          "r9": 0,
+          "r10": 0,
+          "r11": 0,
+          "r12": 0
+        },
+        "cpsr": 1610613203
+      },
+      "gdb.log_sha256": "1eedbfc3b7fdcb96a46ec02a67cb591d30529c5ece1b214b1cdb999bfd3b9616",
+      "execution.log_sha256": "0414b0bda3596d5d7118afa00c98a7895c94309b0fb4607ebba0fc08c5eb4081",
+      "uart.log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "python_tests_passed": 20
+}

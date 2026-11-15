@@ -1,0 +1,1073 @@
+{
+  "schema_version": 1,
+  "origin": "local-firmware",
+  "physical_verification": false,
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "patched_helper_sha256": "fdcf838e7f6a451dafa3a9f9e95c4cd8f9f1891d2865d2fa42f010cf1d9169ad",
+  "comparisons": {
+    "ascii-newcodec": {
+      "passed": true,
+      "assertions": 14,
+      "mismatches": [],
+      "fixture_sha256": "7b57b6b583462e312730d2e6960cea54e7b2bf3e2733796c9743572b43d8fe55",
+      "raw_report_sha256": "6759a09167b94a8014f3071bd25dda26edb7834f0ab91494ebbd251e8ff09a6c",
+      "raw_report_path": "/home/k9-vortex/.cache/prime-m18-native-comparisons/ascii-newcodec.json"
+    },
+    "exported-newcodec": {
+      "passed": true,
+      "assertions": 29,
+      "mismatches": [],
+      "fixture_sha256": "e4e415eace3b36941b6b08342f58b4391dd89359582c620298210d2dc20c065f",
+      "raw_report_sha256": "a890d23e21037e1b72c5b8a7e18707b74d7bc4c611bccde81d1aa02d58d79be4",
+      "raw_report_path": "/home/k9-vortex/.cache/prime-m18-native-comparisons/exported-newcodec.json"
+    }
+  },
+  "controls": [
+    {
+      "run": "prime-m18-native-controls",
+      "label": "bare",
+      "command": {
+        "command": "run",
+        "request": 1,
+        "source": "EXPORT M18ASCII() BEGIN RETURN i; END;",
+        "entry": "M18ASCII",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 1,
+        "success": true,
+        "message": "G1 firmware returned (0,1)",
+        "check": {
+          "accepted": true,
+          "source_sha256": "38986367b2043c704f9eeb8eb32f62e44a5485ac3e20d3399eff7ca992ec47e9",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "capital",
+      "command": {
+        "command": "run",
+        "request": 2,
+        "source": "EXPORT M18CAPITAL() BEGIN RETURN I; END;",
+        "entry": "M18CAPITAL",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 2,
+        "success": true,
+        "message": "G1 firmware returned 0",
+        "check": {
+          "accepted": true,
+          "source_sha256": "574bcf49c13d946ff96f11af09b669872b36164208ea9531f6fbee81d2392c29",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "local",
+      "command": {
+        "command": "run",
+        "request": 3,
+        "source": "EXPORT M18LOCAL() BEGIN LOCAL i:=7; RETURN i; END;",
+        "entry": "M18LOCAL",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 3,
+        "success": true,
+        "message": "G1 firmware returned 7",
+        "check": {
+          "accepted": true,
+          "source_sha256": "ef5a07ea35073db24692722762ab1317e63482c64422bf30c301f4b027ab94d3",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "param",
+      "command": {
+        "command": "run",
+        "request": 4,
+        "source": "EXPORT M18PARAM(i) BEGIN RETURN i; END;",
+        "entry": "M18PARAM",
+        "arguments": "7"
+      },
+      "result": {
+        "event": "result",
+        "request": 4,
+        "success": false,
+        "message": "Error: Syntax Error",
+        "check": {
+          "accepted": false,
+          "source_sha256": "a3e986bd9bb6d7218dd15fbe9de5bb12bf655247fc1fc8ceca54cd9ad7681a01",
+          "diagnostics": [
+            {
+              "source": "guest-firmware",
+              "severity": "error",
+              "code": null,
+              "message": "Error: Syntax Error",
+              "line": 1,
+              "column": 18,
+              "raw_position": {
+                "line": 1,
+                "offset_utf16": 17,
+                "source_index": 0
+              }
+            }
+          ]
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "global",
+      "command": {
+        "command": "run",
+        "request": 5,
+        "source": "LOCAL i:=9; EXPORT M18GLOBAL() BEGIN RETURN i; END;",
+        "entry": "M18GLOBAL",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 5,
+        "success": false,
+        "message": "Error: Syntax Error",
+        "check": {
+          "accepted": false,
+          "source_sha256": "0ff2b4ece91ca0e7e9fea4ae917500e7307e7f7b276628746b4274ffba7c2180",
+          "diagnostics": [
+            {
+              "source": "guest-firmware",
+              "severity": "error",
+              "code": null,
+              "message": "Error: Syntax Error",
+              "line": 1,
+              "column": 8,
+              "raw_position": {
+                "line": 1,
+                "offset_utf16": 7,
+                "source_index": 0
+              }
+            }
+          ]
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "function",
+      "command": {
+        "command": "run",
+        "request": 6,
+        "source": "i() BEGIN RETURN 6; END; EXPORT M18FUNC() BEGIN RETURN i(); END;",
+        "entry": "M18FUNC",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 6,
+        "success": true,
+        "message": "G1 firmware returned 6",
+        "check": {
+          "accepted": true,
+          "source_sha256": "d508673c02777103347b08d814b963a7922815da5bcc2feab2b6c2e4a96ee437",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "function_bare",
+      "command": {
+        "command": "run",
+        "request": 7,
+        "source": "i() BEGIN RETURN 6; END; EXPORT M18FUNC() BEGIN RETURN i; END;",
+        "entry": "M18FUNC",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 7,
+        "success": true,
+        "message": "G1 firmware returned 6",
+        "check": {
+          "accepted": true,
+          "source_sha256": "3310faf0a65bf78d2d09e6293cf38b4dec78c2aed2e1262182a8168a010f11e2",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "assignment",
+      "command": {
+        "command": "run",
+        "request": 8,
+        "source": "EXPORT M18ASSIGN() BEGIN i:=9; RETURN i; END;",
+        "entry": "M18ASSIGN",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 8,
+        "success": false,
+        "message": "Firmware runtime error: Error: Bad argument type; Error: Bad argument type\ni:=9; RETURN i\nZZT_IDE",
+        "check": {
+          "accepted": true,
+          "source_sha256": "0deb4d98e6d9c2981222113a639b454dd3130535fbc89a864bca6a5d3f621d14",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "export_producer",
+      "command": {
+        "command": "store_program",
+        "request": 9,
+        "name": "ZZT_M18GLOBAL",
+        "source": "EXPORT m18shared:=10; EXPORT M18READ() BEGIN RETURN m18shared; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 9,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18GLOBAL",
+        "check": {
+          "accepted": true,
+          "source_sha256": "75d8ed4072883478630b8831f502685ca3690f85bcc71ed38211fdc310b73aee",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "export_consumer_read",
+      "command": {
+        "command": "run",
+        "request": 10,
+        "source": "EXPORT M18GET() BEGIN RETURN m18shared; END; EXPORT M18SET() BEGIN m18shared:=m18shared+1; RETURN m18shared; END;",
+        "entry": "M18GET",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 10,
+        "success": true,
+        "message": "G1 firmware returned 10",
+        "check": {
+          "accepted": true,
+          "source_sha256": "f960ad48f494893a7b6f96c2bc2e0e01842c709060fafc0e5cb623f52d0e84f7",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "export_consumer_write",
+      "command": {
+        "command": "run",
+        "request": 11,
+        "source": "EXPORT M18GET() BEGIN RETURN m18shared; END; EXPORT M18SET() BEGIN m18shared:=m18shared+1; RETURN m18shared; END;",
+        "entry": "M18SET",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 11,
+        "success": true,
+        "message": "G1 firmware returned 11",
+        "check": {
+          "accepted": true,
+          "source_sha256": "f960ad48f494893a7b6f96c2bc2e0e01842c709060fafc0e5cb623f52d0e84f7",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls",
+      "label": "export_producer_after",
+      "command": {
+        "command": "run_stored",
+        "request": 12,
+        "name": "ZZT_M18GLOBAL",
+        "source_sha256": "75d8ed4072883478630b8831f502685ca3690f85bcc71ed38211fdc310b73aee",
+        "entry": "M18READ",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 12,
+        "success": true,
+        "message": "G1 firmware returned 11"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18READ",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "real",
+            "value": "11"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "bare_install",
+      "command": {
+        "command": "store_program",
+        "request": 1,
+        "name": "ZZT_M18I0",
+        "source": "EXPORT M18ASCII() BEGIN RETURN i; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 1,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18I0",
+        "check": {
+          "accepted": true,
+          "source_sha256": "38986367b2043c704f9eeb8eb32f62e44a5485ac3e20d3399eff7ca992ec47e9",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "bare",
+      "command": {
+        "command": "run_stored",
+        "request": 2,
+        "name": "ZZT_M18I0",
+        "source_sha256": "38986367b2043c704f9eeb8eb32f62e44a5485ac3e20d3399eff7ca992ec47e9",
+        "entry": "M18ASCII",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 2,
+        "success": true,
+        "message": "G1 firmware returned (0,1)"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18ASCII",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "imaginary": "1",
+            "real": "0",
+            "type": "complex"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "local_install",
+      "command": {
+        "command": "store_program",
+        "request": 3,
+        "name": "ZZT_M18I1",
+        "source": "EXPORT M18LOCAL() BEGIN LOCAL i:=7; RETURN i; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 3,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18I1",
+        "check": {
+          "accepted": true,
+          "source_sha256": "ef5a07ea35073db24692722762ab1317e63482c64422bf30c301f4b027ab94d3",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "local",
+      "command": {
+        "command": "run_stored",
+        "request": 4,
+        "name": "ZZT_M18I1",
+        "source_sha256": "ef5a07ea35073db24692722762ab1317e63482c64422bf30c301f4b027ab94d3",
+        "entry": "M18LOCAL",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 4,
+        "success": true,
+        "message": "G1 firmware returned 7"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18LOCAL",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "real",
+            "value": "7"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "function_install",
+      "command": {
+        "command": "store_program",
+        "request": 5,
+        "name": "ZZT_M18I2",
+        "source": "i() BEGIN RETURN 6; END; EXPORT M18FUNC() BEGIN RETURN i; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 5,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18I2",
+        "check": {
+          "accepted": true,
+          "source_sha256": "3310faf0a65bf78d2d09e6293cf38b4dec78c2aed2e1262182a8168a010f11e2",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "function",
+      "command": {
+        "command": "run_stored",
+        "request": 6,
+        "name": "ZZT_M18I2",
+        "source_sha256": "3310faf0a65bf78d2d09e6293cf38b4dec78c2aed2e1262182a8168a010f11e2",
+        "entry": "M18FUNC",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 6,
+        "success": true,
+        "message": "G1 firmware returned 6"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18FUNC",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "real",
+            "value": "6"
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "producer",
+      "command": {
+        "command": "store_program",
+        "request": 7,
+        "name": "ZZT_M18EXPORT",
+        "source": "EXPORT m18shared:=10,m18list:={1,2},m18matrix:=[[1,2],[3,4]]; LOCAL private:=99; EXPORT M18READ() BEGIN RETURN {m18shared,m18list,m18matrix,private}; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 7,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18EXPORT",
+        "check": {
+          "accepted": true,
+          "source_sha256": "29fc1403ada169a75410e3a1fb3f1171c890ac4cebf3cd7882bf3503747147dc",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "consumer",
+      "command": {
+        "command": "store_program",
+        "request": 8,
+        "name": "ZZT_M18CONSUMER",
+        "source": "EXPORT M18GET() BEGIN RETURN {m18shared,m18list,m18matrix}; END; EXPORT M18SET() BEGIN m18shared:=m18shared+1; m18list(2):=9; m18matrix(2,1):=8; RETURN {m18shared,m18list,m18matrix}; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 8,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18CONSUMER",
+        "check": {
+          "accepted": true,
+          "source_sha256": "8d14fc84355072208c649ecd8acd6fb047ee56b55236f6b9b1ceae547492415c",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "consumer_read",
+      "command": {
+        "command": "run_stored",
+        "request": 9,
+        "name": "ZZT_M18CONSUMER",
+        "source_sha256": "8d14fc84355072208c649ecd8acd6fb047ee56b55236f6b9b1ceae547492415c",
+        "entry": "M18GET",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 9,
+        "success": true,
+        "message": "G1 firmware returned {10, {1, 2}, [[1, 2], [3, 4]]}"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18GET",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "10"
+              },
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  }
+                ]
+              },
+              {
+                "columns": 2,
+                "rows": 2,
+                "type": "matrix",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  },
+                  {
+                    "type": "real",
+                    "value": "3"
+                  },
+                  {
+                    "type": "real",
+                    "value": "4"
+                  }
+                ],
+                "vector": false
+              }
+            ]
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "consumer_write",
+      "command": {
+        "command": "run_stored",
+        "request": 10,
+        "name": "ZZT_M18CONSUMER",
+        "source_sha256": "8d14fc84355072208c649ecd8acd6fb047ee56b55236f6b9b1ceae547492415c",
+        "entry": "M18SET",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 10,
+        "success": true,
+        "message": "G1 firmware returned {11, {1, 9}, [[1, 2], [8, 4]]}"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18SET",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "11"
+              },
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "9"
+                  }
+                ]
+              },
+              {
+                "columns": 2,
+                "rows": 2,
+                "type": "matrix",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  },
+                  {
+                    "type": "real",
+                    "value": "8"
+                  },
+                  {
+                    "type": "real",
+                    "value": "4"
+                  }
+                ],
+                "vector": false
+              }
+            ]
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "producer_after",
+      "command": {
+        "command": "run_stored",
+        "request": 11,
+        "name": "ZZT_M18EXPORT",
+        "source_sha256": "29fc1403ada169a75410e3a1fb3f1171c890ac4cebf3cd7882bf3503747147dc",
+        "entry": "M18READ",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 11,
+        "success": true,
+        "message": "G1 firmware returned {11, {1, 9}, [[1, 2], [8, 4]], 99}"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18READ",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "11"
+              },
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "9"
+                  }
+                ]
+              },
+              {
+                "columns": 2,
+                "rows": 2,
+                "type": "matrix",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  },
+                  {
+                    "type": "real",
+                    "value": "8"
+                  },
+                  {
+                    "type": "real",
+                    "value": "4"
+                  }
+                ],
+                "vector": false
+              },
+              {
+                "type": "real",
+                "value": "99"
+              }
+            ]
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "private_shadow",
+      "command": {
+        "command": "run",
+        "request": 12,
+        "source": "LOCAL m18shared:=200; EXPORT M18SHADOW() BEGIN m18shared:=m18shared+1; RETURN m18shared; END;",
+        "entry": "M18SHADOW",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 12,
+        "success": false,
+        "message": "The current firmware catalog order could not be verified (observed [\"ZZT_NAMED\", \"ZZT_M18I0\", \"ZZT_M18I1\", \"ZZT_M18I2\", \"ZZT_M18EXPORT\", \"ZZT_M18CONSUMER\"], expected 9 programs)"
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "after_shadow",
+      "command": {
+        "command": "run_stored",
+        "request": 13,
+        "name": "ZZT_M18EXPORT",
+        "source_sha256": "29fc1403ada169a75410e3a1fb3f1171c890ac4cebf3cd7882bf3503747147dc",
+        "entry": "M18READ",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 13,
+        "success": true,
+        "message": "G1 firmware returned {11, {1, 9}, [[1, 2], [8, 4]], 99}"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18READ",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "11"
+              },
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "9"
+                  }
+                ]
+              },
+              {
+                "columns": 2,
+                "rows": 2,
+                "type": "matrix",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  },
+                  {
+                    "type": "real",
+                    "value": "8"
+                  },
+                  {
+                    "type": "real",
+                    "value": "4"
+                  }
+                ],
+                "vector": false
+              },
+              {
+                "type": "real",
+                "value": "99"
+              }
+            ]
+          },
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "duplicate_export",
+      "command": {
+        "command": "store_program",
+        "request": 14,
+        "name": "ZZT_M18DUP",
+        "source": "EXPORT m18shared:=777; EXPORT M18DUP() BEGIN RETURN m18shared; END;",
+        "expected_previous_sha256": null
+      },
+      "result": {
+        "event": "result",
+        "request": 14,
+        "success": true,
+        "message": "Firmware stored exact program ZZT_M18DUP",
+        "check": {
+          "accepted": true,
+          "source_sha256": "fdca3f9ac46c977a53321506339a0fa527c75031442dbb32b6b770505dd01c0a",
+          "diagnostics": []
+        }
+      },
+      "observations": []
+    },
+    {
+      "run": "prime-m18-native-controls-2",
+      "label": "after_duplicate",
+      "command": {
+        "command": "run_stored",
+        "request": 15,
+        "name": "ZZT_M18EXPORT",
+        "source_sha256": "29fc1403ada169a75410e3a1fb3f1171c890ac4cebf3cd7882bf3503747147dc",
+        "entry": "M18READ",
+        "arguments": ""
+      },
+      "result": {
+        "event": "result",
+        "request": 15,
+        "success": true,
+        "message": "G1 firmware returned {11, {1, 9}, [[1, 2], [8, 4]], 99}"
+      },
+      "observations": [
+        {
+          "status": "completed",
+          "binding": "stored_source_dispatch",
+          "entry": "M18READ",
+          "body_entered": true,
+          "completed": true,
+          "return_value": {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "11"
+              },
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "9"
+                  }
+                ]
+              },
+              {
+                "columns": 2,
+                "rows": 2,
+                "type": "matrix",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "real",
+                    "value": "2"
+                  },
+                  {
+                    "type": "real",
+                    "value": "8"
+                  },
+                  {
+                    "type": "real",
+                    "value": "4"
+                  }
+                ],
+                "vector": false
+              },
+              {
+                "type": "real",
+                "value": "99"
+              }
+            ]
+          },
+          "diagnostics": []
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "The private-shadow direct Run catalog-order failure is infrastructure evidence, not a language verdict.",
+    "Duplicate exports installed in firmware; complete duplicate symbol rebinding remains unverified and Native rejects ambiguous references.",
+    "Header parameter i and file-local i are rejected by firmware but Native still accepts them; assignment to undeclared i differs in validation stage.",
+    "Initializer cycles/failure retry and dynamic active-call replacement remain unverified/unsupported."
+  ],
+  "frozen_helper_failure": {
+    "passed": false,
+    "mismatches": [
+      {
+        "actual": "unobserved",
+        "backend": "firmware_hle",
+        "expected": "success or explicitly expected error",
+        "path": "/status",
+        "reason": "unexpected outcome or observation gap",
+        "reference": null,
+        "step": "repeat_write"
+      },
+      {
+        "actual": null,
+        "backend": "firmware_hle",
+        "expected": {
+          "type": "real",
+          "value": "12"
+        },
+        "path": "/return_value/value/0",
+        "reason": "declared expectation differs or is absent",
+        "reference": null,
+        "step": "repeat_write"
+      },
+      {
+        "actual": null,
+        "backend": "firmware_hle",
+        "expected": {
+          "type": "list",
+          "value": [
+            {
+              "type": "real",
+              "value": "12"
+            },
+            {
+              "type": "list",
+              "value": [
+                {
+                  "type": "real",
+                  "value": "1"
+                },
+                {
+                  "type": "real",
+                  "value": "9"
+                }
+              ]
+            },
+            {
+              "columns": 2,
+              "rows": 2,
+              "type": "matrix",
+              "value": [
+                {
+                  "type": "real",
+                  "value": "1"
+                },
+                {
+                  "type": "real",
+                  "value": "2"
+                },
+                {
+                  "type": "real",
+                  "value": "8"
+                },
+                {
+                  "type": "real",
+                  "value": "4"
+                }
+              ],
+              "vector": false
+            }
+          ]
+        },
+        "path": "/return_value",
+        "reason": "exact observable value differs",
+        "reference": "native",
+        "step": "repeat_write"
+      },
+      {
+        "actual": "unobserved",
+        "backend": "firmware_hle",
+        "expected": "success",
+        "path": "/status",
+        "reason": "exact observable value differs",
+        "reference": "native",
+        "step": "repeat_write"
+      }
+    ],
+    "raw_report_sha256": "13bb952974357878979c6e07eb3fd7540cbaa3bab048d373f8efd3f60b342feb",
+    "raw_report_path": "/home/k9-vortex/.cache/prime-m18-native-comparisons/exported.json",
+    "reason": "Completed fourth retained return had genuine unverified list tag0x16/subtype2; no value fabricated."
+  }
+}

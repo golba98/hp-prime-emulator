@@ -8,7 +8,14 @@ use crate::builtins::Builtin;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Const {
+    Symbolic(String),
     Real(Real),
+    /// Retain the original digits until the execution model is selected.
+    Number {
+        source: String,
+        legacy: Real,
+    },
+    Pi,
     Int(HpInt),
     Complex(Complex),
     Str(String),
@@ -22,21 +29,63 @@ pub enum Op {
     StoreLocal(u16),
     LoadGlobal(u32),
     StoreGlobal(u32),
+    /// Explicit CAS namespace access; the name indexes `CompiledProgram.names`.
+    CasVariable {
+        name: u32,
+        store: bool,
+    },
+    /// App-owned variable access; the qualified name indexes `names`. Stack:
+    /// indices, optional assigned value -> actual returned value.
+    AppVariable {
+        name: u32,
+        argc: u8,
+        store: bool,
+    },
     Pop,
     Dup,
+    /// Duplicate an existing stack value beneath `depth` newer values.
+    DupFrom(u8),
     Bin(BinOp),
     Neg,
     Not,
     Sqrt,
+    Sexagesimal,
     Factorial,
     Square,
     Cube,
     Jump(u32),
     /// Pops a condition; jumps when it is false (zero).
     JumpIfFalse(u32),
+    /// Typed lazy AND/OR. Keep the left operand for the eventual binary
+    /// operation, or preserve its word metadata when it decides the result.
+    LogicJump {
+        or: bool,
+        target: u32,
+    },
     /// Calls user function `func` with `argc` arguments on the stack.
     Call {
         func: u32,
+        argc: u8,
+    },
+    /// A genuine installed external export, resolved by the Native linker.
+    CallExternal {
+        name: u32,
+        argc: u8,
+    },
+    /// Relocated external call in a linked execution image.
+    CallLinked {
+        func: u32,
+        argc: u8,
+    },
+    /// A CAS argument retains quoted syntax independently of Native execution.
+    /// Statement syntax produces the firmware's error *value*, not an IFERR
+    /// exception or a Native side effect. The argument remains on the stack.
+    CasCall {
+        assignment: bool,
+        source: bool,
+    },
+    /// Stack: native operands, source template, private marker -> quoted algebra.
+    CasCompose {
         argc: u8,
     },
     Builtin {
@@ -77,6 +126,9 @@ pub enum Op {
     /// Stack: name, value → writes a calculator note (empty value deletes
     /// it); pushes the value back.
     StoreNote,
+    StoreHomeVariable,
+    StoreHomeParameters,
+    StoreAppFile,
     /// Stack: name, value → writes a calculator program (empty value
     /// deletes it); pushes the value back.
     StoreProgram,
@@ -101,6 +153,8 @@ pub struct Chunk {
     pub params: u8,
     pub locals: u16,
     pub local_names: Vec<String>,
+    /// Lexical visibility of each local slot, in instruction positions.
+    pub local_scopes: Vec<std::ops::Range<u32>>,
     pub code: Vec<Op>,
     /// Source span for each instruction (same length as `code`).
     pub spans: Vec<Span>,
@@ -109,6 +163,11 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    pub fn local_visible(&self, slot: usize, instruction: usize) -> bool {
+        self.local_scopes
+            .get(slot)
+            .is_some_and(|scope| scope.contains(&(instruction as u32)))
+    }
     pub fn emit(&mut self, op: Op, span: Span) -> usize {
         self.code.push(op);
         self.spans.push(span);
@@ -121,7 +180,10 @@ impl Chunk {
 
     pub fn patch_jump(&mut self, at: usize, target: u32) {
         match &mut self.code[at] {
-            Op::Jump(t) | Op::JumpIfFalse(t) | Op::TryBegin(t) => *t = target,
+            Op::Jump(t)
+            | Op::JumpIfFalse(t)
+            | Op::TryBegin(t)
+            | Op::LogicJump { target: t, .. } => *t = target,
             other => panic!("patching non-jump {other:?}"),
         }
     }
@@ -131,6 +193,7 @@ impl Chunk {
 #[derive(Clone, Debug, PartialEq)]
 pub enum GlobalInit {
     Zero,
+    Real(Real),
     EmptyList,
     ZeroMatrix,
     ComplexZero,
@@ -143,8 +206,18 @@ pub enum GlobalInit {
 pub enum Setting {
     HAngle,
     HFormat,
+    HSeparator,
     HDigits,
     HComplex,
+    AAngle,
+    AFormat,
+    ADigits,
+    AComplex,
+    NumStart,
+    NumStep,
+    NumZoom,
+    NumType,
+    NumIndep,
     Base,
     Bits,
     Signed,
@@ -156,6 +229,10 @@ pub struct GlobalSlot {
     pub init: GlobalInit,
     /// Declared by the program (file-level LOCAL/EXPORT).
     pub program_var: bool,
+    /// File-level EXPORT, visible to independently compiled modules.
+    pub exported: bool,
+    /// Unresolved reference to an installed exported variable; linker-owned.
+    pub external: bool,
     pub read_only: bool,
 }
 
