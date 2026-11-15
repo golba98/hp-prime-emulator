@@ -116,3 +116,19 @@ copyright 2017 The FreeType Project (https://freetype.org/). All rights reserved
 Unmodified upstream scan-converter files, their provenance and the FreeType
 License are retained in `crates/ppl-graphics/src/text/legacy_gray/`. The surrounding
 adapter is separate; no older font parser is included.
+
+## Visible-work bounds
+
+Native circle and filled-circle operations clip their work to the target GROB
+before iterating. Large finite centers and radii no longer overflow integer
+squares or walk every offscreen radius step. The outline reconstructs the
+existing midpoint octants, retaining endpoint/diagonal transparency writes;
+filled circles use exact integer pixel-center inclusion. Generic UI lines and
+rectangle borders also iterate only visible coordinates while retaining their
+existing Bresenham pixels. These bounds protect the calculator worker and
+Native app rendering from extreme user coordinates.
+
+The graphics tests compare bounded rendering against independent small-shape
+reference rasterizers and exercise full-i64 centers and radii. A VM regression
+executes CIRCLE_P and FILLCIRCLE_P with a radius of 1E18. These are implementation
+and regression checks, not new firmware or physical-device parity evidence.

@@ -9,6 +9,7 @@
 //! Nothing here opens a window, so every primitive is unit-testable.
 
 mod arc;
+mod circle;
 mod ellipse;
 mod raster;
 pub mod softkeys;
@@ -139,7 +140,7 @@ impl Grob {
             self.hline(x1, x2, y1, edge);
             self.hline(x1, x2, y2, edge);
             let (ya, yb) = if y1 <= y2 { (y1, y2) } else { (y2, y1) };
-            for y in ya..=yb {
+            for y in ya.max(0)..=yb.min(self.h as i64 - 1) {
                 self.set(x1, y, edge);
                 self.set(x2, y, edge);
             }
@@ -148,27 +149,40 @@ impl Grob {
 
     /// Bresenham line, both endpoints included.
     pub fn line(&mut self, x1: i64, y1: i64, x2: i64, y2: i64, c: Color) {
-        let dx = (x2 - x1).abs();
-        let dy = -(y2 - y1).abs();
-        let sx = if x1 < x2 { 1 } else { -1 };
-        let sy = if y1 < y2 { 1 } else { -1 };
-        let mut err = dx + dy;
-        let (mut x, mut y) = (x1, y1);
-        // Bound the walk so huge off-screen coordinates cannot hang.
-        let max_steps = dx.max(-dy) + 1;
-        for _ in 0..=max_steps {
-            self.set(x, y, c);
-            if x == x2 && y == y2 {
-                break;
+        let (dx, dy) = (
+            i128::from(x2).abs_diff(i128::from(x1)),
+            i128::from(y2).abs_diff(i128::from(y1)),
+        );
+        let (sx, sy): (i128, i128) = (if x1 < x2 { 1 } else { -1 }, if y1 < y2 { 1 } else { -1 });
+        if dx == 0 && dy == 0 {
+            self.set(x1, y1, c);
+            return;
+        }
+        // Reconstruct Bresenham at each visible major-axis position instead
+        // of walking the entire (possibly full-i64) offscreen segment.
+        if dx >= dy {
+            for x in 0..self.w {
+                let step = (x as i128 - i128::from(x1)) * sx;
+                if step < 0 || step as u128 > dx {
+                    continue;
+                }
+                let minor = ((step as u128 * dy + dx / 2) / dx) as i128;
+                let y = i128::from(y1) + sy * minor;
+                if y >= 0 && y < self.h as i128 {
+                    self.set(x as i64, y as i64, c);
+                }
             }
-            let e2 = 2 * err;
-            if e2 >= dy {
-                err += dy;
-                x += sx;
-            }
-            if e2 <= dx {
-                err += dx;
-                y += sy;
+        } else {
+            for y in 0..self.h {
+                let step = (y as i128 - i128::from(y1)) * sy;
+                if step < 0 || step as u128 > dy {
+                    continue;
+                }
+                let minor = ((step as u128 * dx + dy / 2) / dy) as i128;
+                let x = i128::from(x1) + sx * minor;
+                if x >= 0 && x < self.w as i128 {
+                    self.set(x as i64, y as i64, c);
+                }
             }
         }
     }
@@ -197,43 +211,15 @@ impl Grob {
         raster::rectangle(self, a, b, edge, fill)
     }
 
-    /// Midpoint circle outline.
+    /// Midpoint circle outline, clipped before iteration. Work is bounded by
+    /// the framebuffer dimensions even when the center or radius is enormous.
     pub fn circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
-        if r < 0 {
-            return;
-        }
-        let (mut x, mut y, mut d) = (r, 0i64, 1 - r);
-        while x >= y {
-            for (px, py) in [
-                (x, y),
-                (y, x),
-                (-y, x),
-                (-x, y),
-                (-x, -y),
-                (-y, -x),
-                (y, -x),
-                (x, -y),
-            ] {
-                self.set(xc + px, yc + py, c);
-            }
-            y += 1;
-            if d < 0 {
-                d += 2 * y + 1;
-            } else {
-                x -= 1;
-                d += 2 * (y - x) + 1;
-            }
-        }
+        circle::outline(self, xc, yc, r, c);
     }
 
+    /// Filled circle with integer pixel-center inclusion and visible-row work.
     pub fn fill_circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
-        if r < 0 {
-            return;
-        }
-        for dy in -r..=r {
-            let half = (((r * r - dy * dy) as f64).sqrt()).floor() as i64;
-            self.hline(xc - half, xc + half, yc + dy, c);
-        }
+        circle::fill(self, xc, yc, r, c);
     }
 
     /// Arc from `a1` to `a2` radians, counter-clockwise as seen on screen.
@@ -662,6 +648,53 @@ pub fn compare_screens_detailed(a: &Grob, b: &Grob) -> Option<ScreenDiffDetailed
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ui_lines_clip_before_walking_without_changing_bresenham_pixels() {
+        fn reference(g: &mut Grob, a: (i64, i64), b: (i64, i64)) {
+            let (mut x, mut y) = a;
+            let dx = (b.0 - x).abs();
+            let dy = -(b.1 - y).abs();
+            let sx = if x < b.0 { 1 } else { -1 };
+            let sy = if y < b.1 { 1 } else { -1 };
+            let mut err = dx + dy;
+            loop {
+                g.set(x, y, BLACK);
+                if (x, y) == b {
+                    break;
+                }
+                let e2 = 2 * err;
+                if e2 >= dy {
+                    err += dy;
+                    x += sx;
+                }
+                if e2 <= dx {
+                    err += dx;
+                    y += sy;
+                }
+            }
+        }
+        for x1 in -3..10 {
+            for y1 in -3..10 {
+                for x2 in -3..10 {
+                    for y2 in -3..10 {
+                        let mut a = Grob::new(7, 7, WHITE);
+                        let mut b = a.clone();
+                        reference(&mut a, (x1, y1), (x2, y2));
+                        b.line(x1, y1, x2, y2, BLACK);
+                        assert_eq!(a, b, "({x1},{y1}) to ({x2},{y2})");
+                    }
+                }
+            }
+        }
+        let mut extreme = Grob::new(8, 8, WHITE);
+        extreme.line(i64::MIN, i64::MIN, i64::MAX, i64::MAX, BLACK);
+        for i in 0..8 {
+            assert_eq!(extreme.get(i, i), Some(BLACK));
+        }
+        extreme.rect(0, i64::MIN, 7, i64::MAX, BLACK, WHITE);
+        assert_eq!(extreme.get(0, 4), Some(BLACK));
+    }
+
     use super::*;
 
     #[test]
