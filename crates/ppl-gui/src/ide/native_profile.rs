@@ -6,7 +6,6 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, mpsc},
     thread,
-    time::Duration,
 };
 
 const MAX_PROFILE: u64 = 64 * 1024 * 1024;
@@ -15,9 +14,13 @@ pub struct NativeProfile {
     inner: Arc<Inner>,
 }
 struct Inner {
-    pending: Mutex<Value>,
+    pending: Mutex<Pending>,
     tx: mpsc::SyncSender<Message>,
     error: Mutex<Option<String>>,
+}
+struct Pending {
+    image: Value,
+    revision: u64,
 }
 enum Message {
     Changed,
@@ -69,7 +72,10 @@ impl NativeProfile {
         };
         let (tx, rx) = mpsc::sync_channel(2);
         let inner = Arc::new(Inner {
-            pending: Mutex::new(state.clone()),
+            pending: Mutex::new(Pending {
+                image: state.clone(),
+                revision: 0,
+            }),
             tx,
             error: Mutex::new(None),
         });
@@ -77,18 +83,29 @@ impl NativeProfile {
         let directory = path.to_path_buf();
         thread::spawn(move || {
             let _lock = lock;
+            let mut saved_revision = None;
             while let Ok(message) = rx.recv() {
                 let Some(inner) = weak.upgrade() else { break };
-                let image = inner
-                    .pending
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .clone();
-                let result = write(&directory, &image);
+                let requests = std::iter::once(message)
+                    .chain(rx.try_iter().take(2))
+                    .filter_map(|message| match message {
+                        Message::Flush(reply) => Some(reply),
+                        Message::Changed => None,
+                    })
+                    .collect::<Vec<_>>();
+                let pending = inner.pending.lock().unwrap_or_else(|e| e.into_inner());
+                let snapshot = (saved_revision != Some(pending.revision))
+                    .then(|| (pending.revision, pending.image.clone()));
+                drop(pending);
+                let result = snapshot.map_or(Ok(()), |(revision, image)| {
+                    write(&directory, &image).map(|()| {
+                        saved_revision = Some(revision);
+                    })
+                });
                 *inner.error.lock().unwrap_or_else(|e| e.into_inner()) =
                     result.as_ref().err().cloned();
-                if let Message::Flush(reply) = message {
-                    let _ = reply.send(result);
+                for reply in requests {
+                    let _ = reply.send(result.clone());
                 }
             }
         });
@@ -104,8 +121,9 @@ impl NativeProfile {
         {
             let mut pending = self.inner.pending.lock().unwrap_or_else(|e| e.into_inner());
             for (key, value) in fields {
-                pending[key] = value;
+                pending.image[key] = value;
             }
+            pending.revision = pending.revision.wrapping_add(1);
         }
         let _ = self.inner.tx.try_send(Message::Changed);
     }
@@ -118,25 +136,12 @@ impl NativeProfile {
     }
     pub fn flush(&self) -> Result<(), String> {
         let (tx, rx) = mpsc::channel();
-        let deadline = std::time::Instant::now() + Duration::from_secs(10);
-        let mut message = Message::Flush(tx);
-        loop {
-            match self.inner.tx.try_send(message) {
-                Ok(()) => break,
-                Err(mpsc::TrySendError::Disconnected(_)) => {
-                    return Err("Profile writer stopped".into());
-                }
-                Err(mpsc::TrySendError::Full(returned)) => {
-                    if std::time::Instant::now() >= deadline {
-                        return Err("Profile writer did not accept flush".into());
-                    }
-                    message = returned;
-                    thread::sleep(Duration::from_millis(2));
-                }
-            }
-        }
-        rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
-            .map_err(|_| "Profile writer did not finish".to_string())?
+        self.inner
+            .tx
+            .send(Message::Flush(tx))
+            .map_err(|_| "Profile writer stopped".to_string())?;
+        rx.recv()
+            .map_err(|_| "Profile writer stopped".to_string())?
     }
 }
 fn read(path: &Path) -> Result<Value, String> {
@@ -213,6 +218,7 @@ pub fn default_directory() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     #[test]
     fn profile_reopens_and_preserves_previous_generation() {
         let dir = std::env::temp_dir().join(format!("ppl-native-profile-{}", std::process::id()));
@@ -225,6 +231,9 @@ mod tests {
             p.flush().unwrap();
             p.update("ui", json!({"history":[one,two]}));
             p.flush().unwrap();
+            p.flush().unwrap();
+            let previous = read(&dir.join("state-v1.previous.json")).unwrap();
+            assert_eq!(previous["ui"]["history"].as_array().unwrap().len(), 1);
             assert!(NativeProfile::open(&dir).is_err());
         }
         // Writer exits after its channel disconnects and releases the profile lock.

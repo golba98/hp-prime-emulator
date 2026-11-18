@@ -344,6 +344,7 @@ pub struct GuiHost {
     operation_epoch: u64,
     /// Also write `PRINT` output to stdout (like `ppl run`).
     echo: bool,
+    decimal_worksheet_reads: bool,
 }
 
 impl GuiHost {
@@ -353,7 +354,13 @@ impl GuiHost {
             state,
             operation_epoch,
             echo: false,
+            decimal_worksheet_reads: false,
         }
+    }
+
+    pub(crate) fn with_decimal_worksheet_reads(mut self, enabled: bool) -> Self {
+        self.decimal_worksheet_reads = enabled;
+        self
     }
 
     /// Echo `PRINT` output to stdout as well as the emulated terminal.
@@ -391,6 +398,8 @@ impl Host for GuiHost {
         if self.operation_epoch != self.state.operation_epoch.load(Ordering::Acquire) {
             return Err(RuntimeError::kind(ErrorKind::Interrupted));
         }
+        let decimal =
+            self.decimal_worksheet_reads && request.app == "Spreadsheet" && request.value.is_none();
         let (tx, rx) = std::sync::mpsc::channel();
         let cancelled = Arc::new(AtomicBool::new(false));
         let _guard = AppRequestGuard(cancelled.clone());
@@ -408,7 +417,16 @@ impl Host for GuiHost {
                 return Err(RuntimeError::kind(ErrorKind::Interrupted));
             }
             match rx.recv_timeout(WAIT_SLICE) {
-                Ok(result) => return result,
+                Ok(result) => {
+                    return result.map(|value| match value {
+                        // The standalone CAS value read projects the cell's
+                        // numeric result. The stored expression stays exact.
+                        ppl_vm::PortableValue::Real(real) if decimal && !real.is_integer() => {
+                            ppl_vm::PortableValue::Real(real.decimal())
+                        }
+                        value => value,
+                    });
+                }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                 Err(_) => {
                     return Err(RuntimeError::new(

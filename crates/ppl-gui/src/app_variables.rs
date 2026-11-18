@@ -73,10 +73,40 @@ pub(super) fn cas_assignment(expression: &ppl_syntax::ast::Expr) -> bool {
         _ => false,
     }
 }
+fn worksheet_cell(expression: &ppl_syntax::ast::Expr) -> Option<&str> {
+    let ppl_syntax::ast::ExprKind::Ident(name) = &expression.kind else {
+        return None;
+    };
+    let cell = name.strip_prefix("Spreadsheet.")?;
+    crate::ide::native_app_models::spreadsheet::cell_coordinates(cell)?;
+    Some(cell)
+}
+pub(super) fn cas_worksheet_value_read(expression: &ppl_syntax::ast::Expr) -> bool {
+    use ppl_syntax::ast::ExprKind;
+    if let ExprKind::Call(target, indices) = &expression.kind
+        && let [index] = indices.as_slice()
+        && matches!(&index.kind, ExprKind::Number(source)
+            if ppl_math::Real::parse(source).is_some_and(ppl_math::Real::is_zero))
+    {
+        return worksheet_cell(target).is_some();
+    }
+    worksheet_cell(expression).is_some()
+}
+pub(super) fn cas_worksheet_assignment(
+    expression: &ppl_syntax::ast::Expr,
+) -> Option<(&str, &ppl_syntax::ast::Expr)> {
+    use ppl_syntax::ast::ExprKind;
+    let ExprKind::Assign(target, value) = &expression.kind else {
+        return None;
+    };
+    let cell = worksheet_cell(target)?;
+    (!cas_assignment(value)).then_some((cell, value))
+}
 pub(super) fn evaluate_qualified_cas(
     source: &str,
     snapshot: &ppl_vm::SessionSnapshot,
     shared: Arc<crate::host::GuiSharedState>,
+    decimal_worksheet_read: bool,
 ) -> Result<(ppl_cas::CasSession, ppl_cas::CasEvaluation), ppl_cas::CasError> {
     let failure = |e: RuntimeError| ppl_cas::CasError::Protocol(e.to_string());
     let mut context = ppl_vm::SessionContext::new(snapshot.settings.clone(), 0x434153415050);
@@ -102,7 +132,9 @@ pub(super) fn evaluate_qualified_cas(
     }
     let run = context.evaluate_home(
         &format!("CAS({source})"),
-        Box::new(crate::host::GuiHost::new(shared)),
+        Box::new(
+            crate::host::GuiHost::new(shared).with_decimal_worksheet_reads(decimal_worksheet_read),
+        ),
         ppl_vm::Limits {
             max_steps: Some(1_000_000),
             max_time: Some(Duration::from_secs(15)),
@@ -129,6 +161,17 @@ pub(super) fn evaluate_qualified_cas(
     ))
 }
 impl IdeDesktopApp {
+    pub(super) fn apply_spreadsheet_write(
+        &mut self,
+        sheet: crate::ide::native_app_models::spreadsheet::Spreadsheet,
+    ) {
+        let models = &mut self.native_tools.memory.models;
+        models.spreadsheet = sheet;
+        let cell = models.selected_cell.clone();
+        models.select_cell(&cell);
+        self.native_tools.spreadsheet_changed(false);
+    }
+
     fn app_access_source(&self, app: &str) -> serde_json::Value {
         if app == crate::ide::native_graph3d::NAME {
             return serde_json::json!(self.native_tools.memory.graph3d.definitions);
@@ -262,11 +305,7 @@ impl IdeDesktopApp {
                             self.native_tools.dirty();
                         }
                         if let Some(sheet) = result.sheet {
-                            let models = &mut self.native_tools.memory.models;
-                            models.spreadsheet = sheet;
-                            let cell = models.selected_cell.clone();
-                            models.select_cell(&cell);
-                            self.native_tools.spreadsheet_changed(false);
+                            self.apply_spreadsheet_write(sheet);
                         }
                         if let Some(definitions) = result.graph3d {
                             self.native_tools.memory.graph3d.definitions = definitions;
@@ -1284,7 +1323,7 @@ mod tests {
         );
     }
     #[test]
-    fn unavailable_cas_assignment_is_a_visible_error_and_keeps_the_formula() {
+    fn unavailable_cas_attribute_assignment_is_a_visible_error_and_keeps_the_formula() {
         let (mut app, ctx) = fixture();
         app.state.native.cas_mode = true;
         app.native_tools
@@ -1293,20 +1332,99 @@ mod tests {
             .spreadsheet
             .set("A1", "=2+3")
             .unwrap();
-        app.handle_native_tool_request(Request::Cas("Spreadsheet.A1:=7".into()), &ctx);
+        app.handle_native_tool_request(Request::Cas("Spreadsheet.A1(3):=1".into()), &ctx);
         assert!(app.state.native.history.back().unwrap().error);
         assert!(
             app.native_tools
                 .error
                 .as_deref()
                 .unwrap()
-                .contains("not available")
+                .contains("direct Spreadsheet cell")
         );
         assert_eq!(
             app.native_tools.memory.models.spreadsheet.cells["A1"],
             "=2+3"
         );
         assert!(!app.controller.operation_active());
+    }
+    #[cfg(feature = "giac-integration")]
+    #[test]
+    fn standalone_cas_worksheet_value_is_decimal_with_exact_formula_and_operands() {
+        let (mut app, ctx) = fixture();
+        app.controller
+            .mutate_memory(|memory| {
+                memory.settings.numeric_version = ppl_math::NumericVersion::Current15751;
+                Ok(())
+            })
+            .unwrap();
+        app.native_tools
+            .memory
+            .models
+            .spreadsheet
+            .set("A1", "=1/3")
+            .unwrap();
+        app.state.native.cas_mode = true;
+        for (source, expected) in [
+            ("Spreadsheet.A1", "0.333333333333"),
+            ("Spreadsheet.A1(0)", "0.333333333333"),
+            ("Spreadsheet.A1(1)", "1/3"),
+            ("Spreadsheet.A1+1", "4/3"),
+            ("Spreadsheet.B1:=Spreadsheet.A1", "1/3"),
+        ] {
+            app.handle_native_tool_request(Request::Cas(source.into()), &ctx);
+            wait(&mut app, &ctx, |a| {
+                a.cas_task.is_none() && !a.controller.operation_active()
+            });
+            assert_eq!(
+                app.state.native.history.back().unwrap().result,
+                expected,
+                "{source}"
+            );
+        }
+        let cells = &app.native_tools.memory.models.spreadsheet.cells;
+        assert_eq!(cells["A1"], "=1/3");
+        assert_eq!(cells["B1"], "=1/3");
+    }
+    #[cfg(feature = "giac-integration")]
+    #[test]
+    fn cas_worksheet_assignment_preserves_exact_rhs_and_rejects_a_stale_sheet() {
+        let (mut app, ctx) = fixture();
+        app.state.native.cas_mode = true;
+        app.handle_native_tool_request(Request::Cas("Spreadsheet.A1:=1/3".into()), &ctx);
+        wait(&mut app, &ctx, |a| {
+            a.cas_task.is_none() && !a.controller.operation_active()
+        });
+        assert_eq!(app.state.native.history.back().unwrap().result, "1/3");
+        assert_eq!(
+            app.native_tools.memory.models.spreadsheet.cells["A1"],
+            "=1/3"
+        );
+
+        app.handle_native_tool_request(Request::Cas("Spreadsheet.A1:=11".into()), &ctx);
+        app.native_tools
+            .memory
+            .models
+            .spreadsheet
+            .set("A2", "42")
+            .unwrap();
+        wait(&mut app, &ctx, |a| {
+            a.cas_task.is_none() && !a.controller.operation_active()
+        });
+        assert!(app.state.native.history.back().unwrap().error);
+        assert_eq!(
+            app.native_tools.memory.models.spreadsheet.cells["A1"],
+            "=1/3"
+        );
+        assert_eq!(app.native_tools.memory.models.spreadsheet.cells["A2"], "42");
+        assert_eq!(
+            app.controller
+                .session_snapshot()
+                .cas
+                .last_value
+                .unwrap()
+                .to_string(),
+            "1/3"
+        );
     }
     #[cfg(feature = "giac-integration")]
     #[test]

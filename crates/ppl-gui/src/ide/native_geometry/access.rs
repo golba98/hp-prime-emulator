@@ -105,6 +105,36 @@ impl Book {
                 );
             }
         }
+        // Compare successive evaluated scenes. This includes constructed points that
+        // move because their inputs changed, without making their definitions draggable.
+        let positions: BTreeMap<_, _> = scene
+            .objects
+            .iter()
+            .filter_map(|object| {
+                if let Ok(Shape::Point(p)) = object.value {
+                    Some((object.name.as_str(), p))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let previous = std::mem::take(&mut self.last_trace_positions);
+        for object in self.objects.iter_mut().filter(|object| object.traced) {
+            if let Some(&position) = positions.get(object.name.as_str()) {
+                if let Some(&old) = previous.get(&object.name)
+                    && old != position
+                    && !object.trace_samples.back().is_some_and(|p| {
+                        canonical(p.x) == canonical(position.x)
+                            && canonical(p.y) == canonical(position.y)
+                    })
+                {
+                    push_trace(&mut object.trace_samples, old);
+                    push_trace(&mut object.trace_samples, position);
+                }
+                self.last_trace_positions
+                    .insert(object.name.clone(), position);
+            }
+        }
         self.current_values = values;
         self.current_point_curves.clone_from(&scene.point_curves);
         Ok(())

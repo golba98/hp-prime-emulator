@@ -1,0 +1,208 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_plot_goto.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DPLOT"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DPLOT() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"(X+2*Y)/4\";CHECK(1);RETURN STARTVIEW(1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "initial"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_goto_initial.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 161,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 115
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 53
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 115
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 15,
+      "y": 77
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "selected"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_goto_selected.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 161,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 115
+    },
+    {
+      "step": "type",
+      "text": "9"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 115
+    },
+    {
+      "step": "snapshot",
+      "label": "canceled"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_goto_canceled.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DPLOT() BEGIN RETURN {Graph_3D.FZ1(0,0),Graph_3D.FZ1(2,3),Graph_3D.Xmin,Graph_3D.Xmax,Graph_3D.Ymin,Graph_3D.Ymax,Graph_3D.NumXStart,Graph_3D.NumYStart}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "typed"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

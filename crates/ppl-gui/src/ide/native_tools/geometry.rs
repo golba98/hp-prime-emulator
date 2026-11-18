@@ -199,11 +199,58 @@ const LINES: &[Command] = &[
         needs: &[Need::Point, Need::Point, Need::Point],
     },
 ];
-const POLYGONS: &[Command] = &[Command {
-    label: "Triangle",
-    function: "triangle",
-    needs: &[Need::Point, Need::Point, Need::Point],
-}];
+const POLYGONS: &[Command] = &[
+    Command {
+        label: "Triangle",
+        function: "triangle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Equilateral Triangle",
+        function: "equilateral_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Isosceles Triangle",
+        function: "isosceles_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Right Triangle",
+        function: "right_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Quadrilateral",
+        function: "quadrilateral",
+        needs: &[Need::Point, Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Parallelogram",
+        function: "parallelogram",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Rhombus",
+        function: "rhombus",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Rectangle",
+        function: "rectangle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Regular Polygon",
+        function: "isopolygon",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Square",
+        function: "square",
+        needs: &[Need::Point, Need::Point],
+    },
+];
 const CURVES: &[Command] = &[
     Command {
         label: "Circle",
@@ -657,10 +704,11 @@ impl NativeTools {
             _ => (0..=6).collect(),
         }
     }
-    fn trace_selected(&self, book: &Book, scene: Option<&Scene>) -> bool {
-        self.geometry_panel.selected.as_deref().is_some_and(|name| {
-            book.can_move_point(name) && scene.is_some_and(|scene| scene.is_point(name))
-        })
+    fn trace_selected(&self, scene: Option<&Scene>) -> bool {
+        self.geometry_panel
+            .selected
+            .as_deref()
+            .is_some_and(|name| scene.is_some_and(|scene| scene.is_point(name)))
     }
     fn geometry_menu_items(&self, category: Option<usize>) -> Vec<String> {
         match category {
@@ -859,6 +907,16 @@ impl NativeTools {
                 };
                 format!("rotation({shape},{angle},{center})")
             }
+            ("isosceles_triangle" | "rhombus", [a, b]) => {
+                let angle = match self.geometry_panel.angle_turn {
+                    360. => "60",
+                    400. => "200/3",
+                    _ => "π/3",
+                };
+                format!("{}({a},{b},{angle})", command.function)
+            }
+            ("right_triangle", [a, b]) => format!("right_triangle({a},{b},1)"),
+            ("isopolygon", [a, b]) => format!("isopolygon({a},{b},6)"),
             ("homothety", [shape, center]) => format!("homothety({shape},2,{center})"),
             (name, _) => format!("{name}({})", args.join(",")),
         })
@@ -942,7 +1000,15 @@ impl NativeTools {
                     .as_ref()
                     .unwrap()
                     .next_name();
-                if matches!(command.function, "rotation" | "homothety") {
+                if matches!(
+                    command.function,
+                    "rotation"
+                        | "homothety"
+                        | "isosceles_triangle"
+                        | "rhombus"
+                        | "right_triangle"
+                        | "isopolygon"
+                ) {
                     return vec![Request::EditMath(MathTarget::GeometryObject {
                         name,
                         preset: Some(source),

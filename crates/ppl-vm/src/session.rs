@@ -327,6 +327,27 @@ impl SessionContext {
         self.app_settings().effective(&self.settings)
     }
     /// Mutations from calculator catalogs share exactly the memory used by PPL.
+    pub fn set_graph3d_numeric_settings(
+        &mut self,
+        settings: crate::AppNumericSettings,
+    ) -> RtResult<()> {
+        if settings.graph3d.is_none() {
+            return Err(RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Graph 3D requires separate X and Y Numeric settings",
+            ));
+        }
+        settings
+            .validate()
+            .map_err(|message| RuntimeError::new(ErrorKind::InvalidInput, message))?;
+        if self.app_numeric_settings.get("Graph 3D") != Some(&settings) {
+            self.app_numeric_settings
+                .insert("Graph 3D".into(), settings);
+            self.generation += 1;
+        }
+        Ok(())
+    }
+
     pub fn set_variable(&mut self, name: &str, value: PortableValue) -> RtResult<()> {
         if name.is_empty()
             || !name

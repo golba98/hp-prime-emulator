@@ -18,7 +18,7 @@ mod statistics_columns;
 pub mod value;
 
 pub use app_geometry::GeometryPlotSettings;
-pub use app_numeric::AppNumericSettings;
+pub use app_numeric::{AppNumericSettings, Graph3dNumericSettings};
 pub use app_plot::{AppPlotSettings, PlotBound};
 pub use error::{ErrorKind, ResourceKind, RtResult, RuntimeError};
 pub use host::{

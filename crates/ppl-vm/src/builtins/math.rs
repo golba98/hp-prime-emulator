@@ -11,6 +11,7 @@ use crate::ops::{self, map_numeric, norm_complex};
 use crate::settings::{AngleMode, Settings};
 use crate::value::Value;
 
+mod polynomial_roots;
 mod prediction;
 
 fn real_map(v: &Value, f: impl Fn(Real) -> RtResult<Real>) -> RtResult<Value> {

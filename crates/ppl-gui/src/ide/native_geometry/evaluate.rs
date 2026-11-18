@@ -356,6 +356,12 @@ impl Evaluator<'_> {
             return Ok(None);
         };
         let curve = self.value(curve, source)?;
+        if let Shape::Function { expression, .. } = curve {
+            return Ok(Some(Shape::Function {
+                expression,
+                paths: Vec::new(),
+            }));
+        }
         Ok(matches!(
             curve,
             Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
@@ -443,11 +449,33 @@ impl Evaluator<'_> {
                     let curve = self
                         .point_curve(point, source)?
                         .ok_or("A one-argument tangent needs a point on a curve")?;
-                    g::tangent_at(&curve, as_point(location)?)
+                    let p = as_point(location)?;
+                    if let Shape::Function { expression, .. } = &curve {
+                        return super::function::tangent(
+                            expression,
+                            p.x,
+                            self.snapshot,
+                            self.cancel.clone(),
+                        );
+                    }
+                    g::tangent_at(&curve, p)
                 }
                 [curve, location] => {
                     let curve = self.value(curve, source)?;
                     let at = self.value(location, source)?;
+                    if let Shape::Function { expression, .. } = &curve {
+                        let x = match at {
+                            Shape::Point(p) => p.x,
+                            Shape::Number { re, im: 0. } => re,
+                            _ => return Err("Select a function point or real abscissa".into()),
+                        };
+                        return super::function::tangent(
+                            expression,
+                            x,
+                            self.snapshot,
+                            self.cancel.clone(),
+                        );
+                    }
                     if let Shape::Point(p) = at
                         && let Some(constraint) = self.point_curve(location, source)?
                         && super::access::shape_value(&curve)?
@@ -659,8 +687,73 @@ impl Evaluator<'_> {
                     )
                 }
             }
-            "triangle" | "polygon" => {
-                if name == "triangle" {
+            "equilateral_triangle"
+            | "square"
+            | "rhombus"
+            | "isosceles_triangle"
+            | "rectangle"
+            | "right_triangle"
+            | "parallelogram"
+            | "isopolygon" => {
+                arity(
+                    if matches!(name.as_str(), "equilateral_triangle" | "square") {
+                        2
+                    } else {
+                        3
+                    },
+                )?;
+                let a = self.pt(&args[0], source)?;
+                let b = self.pt(&args[1], source)?;
+                let side = g::delta(a, b);
+                let offset = match name.as_str() {
+                    "isopolygon" => return g::regular_polygon(a, b, self.real(&args[2], source)?),
+                    "parallelogram" => g::delta(b, self.pt(&args[2], source)?),
+                    "rectangle" | "right_triangle" => {
+                        let scale = match self.value(&args[2], source)? {
+                            Shape::Number { re, im: 0. } => re,
+                            third => {
+                                let p = as_point(third)?;
+                                let foot = g::project(p, a, b)?;
+                                let offset = g::delta(foot, p);
+                                return g::side_polygon(a, b, offset, name == "rectangle");
+                            }
+                        };
+                        Point2 {
+                            x: -side.y * scale,
+                            y: side.x * scale,
+                        }
+                    }
+                    "square" => Point2 {
+                        x: -side.y,
+                        y: side.x,
+                    },
+                    _ => {
+                        let angle = if name == "equilateral_triangle" {
+                            std::f64::consts::FRAC_PI_3
+                        } else {
+                            self.real(&args[2], source)? * std::f64::consts::TAU / self.angle_turn()
+                        };
+                        let (sin, cos) = angle.sin_cos();
+                        Point2 {
+                            x: side.x * cos - side.y * sin,
+                            y: side.y * cos + side.x * sin,
+                        }
+                    }
+                };
+                g::side_polygon(
+                    a,
+                    b,
+                    offset,
+                    matches!(
+                        name.as_str(),
+                        "parallelogram" | "rectangle" | "square" | "rhombus"
+                    ),
+                )
+            }
+            "quadrilateral" | "triangle" | "polygon" => {
+                if name == "quadrilateral" {
+                    arity(4)?;
+                } else if name == "triangle" {
                     arity(3)?;
                 }
                 let points = args
@@ -1012,6 +1105,15 @@ fn known(name: &str) -> bool {
             | "ellipse"
             | "circumcircle"
             | "incircle"
+            | "quadrilateral"
+            | "equilateral_triangle"
+            | "square"
+            | "rectangle"
+            | "parallelogram"
+            | "right_triangle"
+            | "rhombus"
+            | "isosceles_triangle"
+            | "isopolygon"
             | "triangle"
             | "polygon"
             | "center"

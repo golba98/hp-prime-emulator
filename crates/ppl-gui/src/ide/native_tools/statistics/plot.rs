@@ -202,8 +202,17 @@ impl NativeTools {
     }
     pub fn statistics_plot_goto(&mut self, x: f64) {
         let samples = self.trace_samples();
-        let visible = self.memory.statistics_fit_visible
-            [usize::from(mode(&self.memory.selected_app).unwrap_or(false))];
+        let app_mode = mode(&self.memory.selected_app);
+        let one = app_mode == Some(false);
+        // Statistics 1Var Go To moves along the active H analysis. Up and
+        // Down change the analysis separately.
+        let active_curve = if one {
+            let mut trace = self.trace;
+            trace.enable(&samples).map(|point| point.curve)
+        } else {
+            None
+        };
+        let visible = self.memory.statistics_fit_visible[usize::from(app_mode.unwrap_or(false))];
         let styles = self
             .memory
             .models
@@ -218,9 +227,11 @@ impl NativeTools {
             .iter()
             .enumerate()
             .filter(|(i, _)| {
-                mode(&self.memory.selected_app) == Some(false)
-                    || visible
-                    || styles.get(*i) != Some(&PlotStyle::Line)
+                if one {
+                    Some(*i) == active_curve
+                } else {
+                    visible || styles.get(*i) != Some(&PlotStyle::Line)
+                }
             })
             .flat_map(|(curve, values)| {
                 values

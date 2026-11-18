@@ -1,0 +1,420 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_numeric_navigation.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DNAV"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"X+2*Y\";CHECK(1);Graph_3D.NumXStart:=2;Graph_3D.NumYStart:=3;Graph_3D.NumXStep:=0.5;Graph_3D.NumYStep:=2;Graph_3D.NumXZoom:=4;Graph_3D.NumYZoom:=3;RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "snapshot",
+      "label": "third_row"
+    },
+    {
+      "step": "click_lcd",
+      "x": 78,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 64
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "x_zoom_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN RETURN {Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "x_zoom"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN Graph_3D.NumXStart:=2;Graph_3D.NumYStart:=3;Graph_3D.NumXStep:=0.5;Graph_3D.NumYStep:=2;Graph_3D.NumXZoom:=4;Graph_3D.NumYZoom:=3;RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 10,
+      "y": 132
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "pointer_row"
+    },
+    {
+      "step": "click_lcd",
+      "x": 78,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "y_zoom_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN RETURN {Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "y_zoom"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN HAngle:=1;AAngle:=2;Graph_3D.NumXStart:=2;Graph_3D.NumYStart:=3;Graph_3D.NumXStep:=0.5;Graph_3D.NumYStep:=2;Graph_3D.NumXZoom:=4;Graph_3D.NumYZoom:=3;RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 78,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 108
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "trig_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN RETURN {Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "trig"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN Graph_3D.NumXStart:=2;Graph_3D.NumYStart:=3;Graph_3D.NumXStep:=0.5;Graph_3D.NumYStep:=2;Graph_3D.NumXZoom:=4;Graph_3D.NumYZoom:=3;RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 132,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "6"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 53
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "-5"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 15,
+      "y": 76
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "go_table"
+    },
+    {
+      "step": "click_lcd",
+      "x": 132,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "9"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "snapshot",
+      "label": "canceled"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNAV() BEGIN RETURN {Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "go"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

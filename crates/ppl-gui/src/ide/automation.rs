@@ -1227,6 +1227,10 @@ impl Automation {
         dump["calculator_cas"] = json!(app.controller.session_snapshot().cas);
         dump["native_tools"] = json!({"page":app.native_tools.page,"memory":app.native_tools.memory,"error":app.native_tools.error,"plot_points":app.native_tools.plot_samples(),"detail_plot":app.native_tools.detail_plot(),"table":app.native_tools.numeric_table(),"integer_edit":app.native_tools.integer_edit,"calculating":app.native_tools.calculating()});
         dump["native_tools"]["help"] = app.native_tools.help_snapshot();
+        let cell = app.native_tools.graph3d_numeric_cell();
+        dump["native_tools"]["graph3d_numeric_row"] = json!(cell.map(|[row, _]| row));
+        dump["native_tools"]["graph3d_numeric_cell"] = json!(cell);
+        dump["native_tools"]["graph3d_trace_point"] = json!(app.native_tools.graph3d_trace_point());
         dump["native_tools"]["trace_points"] = json!(app.native_tools.trace_samples());
         let memory = app.controller.session_snapshot();
         dump["native_tools"]["statistics_trace"] =

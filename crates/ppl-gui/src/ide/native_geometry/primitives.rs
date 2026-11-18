@@ -73,6 +73,49 @@ pub fn reflect(p: Point2, a: Point2, b: Point2) -> Result<Point2, String> {
         y: 2. * m.y - p.y,
     })
 }
+pub fn side_polygon(
+    a: Point2,
+    b: Point2,
+    offset: Point2,
+    four_sides: bool,
+) -> Result<Shape, String> {
+    let mut points = vec![a, b];
+    if four_sides {
+        points.push(Point2 {
+            x: b.x + offset.x,
+            y: b.y + offset.y,
+        });
+    }
+    points.push(Point2 {
+        x: a.x + offset.x,
+        y: a.y + offset.y,
+    });
+    polygon(points)
+}
+pub fn regular_polygon(a: Point2, b: Point2, count: f64) -> Result<Shape, String> {
+    if count.fract() != 0. || !(2. ..=super::MAX_OBJECTS as f64).contains(&count) {
+        return Err(format!(
+            "Expected an integer side count between 2 and {}",
+            super::MAX_OBJECTS
+        ));
+    }
+    if count == 2. {
+        return line(a, b, Extent::Segment);
+    }
+    let side = delta(a, b);
+    let mut vertices = vec![a, b];
+    let mut p = b;
+    let step = std::f64::consts::TAU / count;
+    for i in 1..count as usize - 1 {
+        let (sin, cos) = (i as f64 * step).sin_cos();
+        p = point(Point2 {
+            x: p.x + side.x * cos - side.y * sin,
+            y: p.y + side.y * cos + side.x * sin,
+        })?;
+        vertices.push(p);
+    }
+    polygon(vertices)
+}
 pub fn polygon(points: Vec<Point2>) -> Result<Shape, String> {
     if points.len() < 3 {
         return Err("A polygon needs at least three vertices".into());

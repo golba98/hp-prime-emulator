@@ -270,6 +270,21 @@ fn decode(j: &Json, depth: usize, remaining: &mut usize) -> Result<PortableValue
         _ => return Err("Unknown calculator value kind".into()),
     })
 }
+fn encode_numeric_settings(settings: &crate::AppNumericSettings) -> Json {
+    let real = |value| encode_value(&PortableValue::Real(value));
+    let mut value = json!({
+        "start": real(settings.start), "step": real(settings.step), "zoom": real(settings.zoom),
+        "kind": settings.kind, "independent": settings.independent.iter().copied().map(real).collect::<Vec<_>>(),
+    });
+    if let Some(graph) = &settings.graph3d {
+        value["graph3d"] = json!({
+            "start": real(graph.y_start), "step": real(graph.y_step), "zoom": real(graph.y_zoom),
+            "points": graph.points.iter().map(|point| point.map(real)).collect::<Vec<_>>(),
+        });
+    }
+    value
+}
+
 fn encode_map(map: &BTreeMap<String, PortableValue>) -> Json {
     Json::Object(
         map.iter()
@@ -286,7 +301,7 @@ fn decode_map(j: &Json) -> Result<BTreeMap<String, PortableValue>, String> {
 }
 impl SessionContext {
     pub fn memory_json(&self) -> Json {
-        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_plot_settings":self.app_plot_settings.iter().map(|(name,settings)|(name.clone(),Json::Object(crate::AppPlotSettings::NAMES.into_iter().map(|field|(field.into(),encode_value(&PortableValue::from(&settings.get(field).unwrap())))).collect()))).collect::<serde_json::Map<String,Json>>(),"geometry_plot_settings":self.geometry_plot_settings.as_ref().map(|settings|Json::Object(crate::GeometryPlotSettings::NAMES.into_iter().map(|name|(name.into(),encode_value(&PortableValue::from(&settings.get(name).expect("Geometry field"))))).collect())),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
+        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_plot_settings":self.app_plot_settings.iter().map(|(name,settings)|(name.clone(),Json::Object(crate::AppPlotSettings::fields(name).iter().map(|&field|(field.into(),encode_value(&PortableValue::from(&settings.get(field).unwrap())))).collect()))).collect::<serde_json::Map<String,Json>>(),"geometry_plot_settings":self.geometry_plot_settings.as_ref().map(|settings|Json::Object(crate::GeometryPlotSettings::NAMES.into_iter().map(|name|(name.into(),encode_value(&PortableValue::from(&settings.get(name).expect("Geometry field"))))).collect())),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),encode_numeric_settings(s))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
             "modules":self.modules.iter().map(|(k,m)|(k.clone(),json!({"revision":m.revision,"initialized":m.initialized,"values":encode_map(&m.values)}))).collect::<serde_json::Map<String,Json>>(),
             "notes":self.notes,"note_bullets":self.note_bullets,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
             "settings":{"angle":self.settings.angle.code(),"format":self.settings.hformat,"digits":self.settings.hdigits,"string_format_version":self.settings.string_format_version.code(),"numeric_version":self.settings.numeric_version.code(),"complex":self.settings.complex_results,"separator":self.settings.digit_grouping.code(),"complex_format":self.settings.complex_display.code(),"base":base_code(self.settings.int_base),"bits":self.settings.int_bits,"signed":self.settings.int_signed,"font_px":self.settings.font_px,"exp_char":self.settings.exp_char.to_string()},
@@ -368,10 +383,10 @@ impl SessionContext {
                 let mut settings = crate::AppPlotSettings::for_app(name)
                     .ok_or_else(|| format!("Unestablished Plot settings app {name}"))?;
                 let fields = value.as_object().ok_or("Invalid Plot settings")?;
-                if fields.len() != crate::AppPlotSettings::NAMES.len() {
+                if fields.len() != crate::AppPlotSettings::fields(name).len() {
                     return Err("Invalid Plot settings fields".into());
                 }
-                for field in crate::AppPlotSettings::NAMES {
+                for &field in crate::AppPlotSettings::fields(name) {
                     let decoded = decode_value(&value[field])?;
                     let number = match &decoded {
                         PortableValue::Real(number) => *number,
@@ -410,7 +425,40 @@ impl SessionContext {
                 }
                 let legacy = version < TYPED_NUMERIC_VERSION;
                 let real = |key: &str| numeric_value(&value[key], legacy);
+                let graph3d = match (name.as_str(), value.get("graph3d")) {
+                    ("Graph 3D", Some(graph)) => {
+                        let points = graph["points"]
+                            .as_array()
+                            .ok_or("Invalid Graph 3D Numeric rows")?;
+                        if points.len() > MAX_CELLS / 2 {
+                            return Err("Too many Graph 3D Numeric rows".into());
+                        }
+                        let points = points
+                            .iter()
+                            .map(|value| {
+                                let pair =
+                                    value.as_array().ok_or("Invalid Graph 3D Numeric pair")?;
+                                let [x, y] = pair.as_slice() else {
+                                    return Err("Expected two Graph 3D coordinates".into());
+                                };
+                                Ok([numeric_value(x, legacy)?, numeric_value(y, legacy)?])
+                            })
+                            .collect::<Result<Vec<_>, String>>()?;
+                        Some(Box::new(crate::Graph3dNumericSettings {
+                            y_start: numeric_value(&graph["start"], legacy)?,
+                            y_step: numeric_value(&graph["step"], legacy)?,
+                            y_zoom: numeric_value(&graph["zoom"], legacy)?,
+                            points,
+                        }))
+                    }
+                    ("Graph 3D", None) => Some(Box::default()),
+                    (_, Some(_)) => {
+                        return Err("Graph 3D Numeric values belong to the Graph 3D app".into());
+                    }
+                    (_, None) => None,
+                };
                 let settings = crate::AppNumericSettings {
+                    graph3d,
                     start: real("start")?,
                     step: real("step")?,
                     zoom: real("zoom")?,
@@ -445,9 +493,14 @@ impl SessionContext {
         next.globals = decode_map(&j["globals"])?;
         // Older profiles stored active-app bounds in Home globals. Migrate
         // those exact values once, never overwrite an explicit scoped map.
-        if let Some(mut settings) = crate::AppPlotSettings::for_app(&next.active_app) {
+        if next.active_app == "Graph 3D" {
+            // Older Graph 3D profiles save the actual viewport in the UI book.
+            // The flat 2-D aliases were emitted by the generic view response.
+            next.globals
+                .retain(|name, _| crate::AppPlotSettings::canonical_name(name).is_none());
+        } else if let Some(mut settings) = crate::AppPlotSettings::for_app(&next.active_app) {
             let mut found = false;
-            for name in crate::AppPlotSettings::NAMES {
+            for &name in crate::AppPlotSettings::fields(&next.active_app) {
                 if let Some(value) = next.globals.remove(name) {
                     if !next.app_plot_settings.contains_key(&next.active_app) {
                         settings

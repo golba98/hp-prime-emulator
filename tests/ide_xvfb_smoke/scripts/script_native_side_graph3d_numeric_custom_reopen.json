@@ -1,0 +1,48 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_numeric_custom_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DCUSTOM"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN {Graph_3D.NumIndep,STARTVIEW(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

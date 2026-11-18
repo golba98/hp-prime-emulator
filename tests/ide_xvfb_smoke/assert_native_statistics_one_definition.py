@@ -76,6 +76,10 @@ assert states['line_defn_trace_on']['native_plot_trace']['enabled']
 assert trace(states['line_defn_trace_on'])['index'] == 2
 assert normalized(trace(states['line_defn_trace_on'])['left'] + trace(states['line_defn_trace_on'])['right']) == 'H1[3]:3F:2'
 assert footer_pixels('line_defn_trace_on') != footer_pixels('line_defn_again')
+# X=6 belongs to H2, while Go To from H1 must stay on its closest sample, X=5.
+line_goto = trace(states['line_goto_h1'])
+assert line_goto['analysis'] == 1 and line_goto['index'] == 0
+assert value(line_goto['sample']) == 5 and line_goto['sample']['frequency'] == 2
 for label in ['line_after_home', 'control_after_home']:
     assert definition(states[label]) is None, label
     assert states[label]['native_plot_trace']['sample'] == states[label]['native_plot_trace']['curve'] == 0

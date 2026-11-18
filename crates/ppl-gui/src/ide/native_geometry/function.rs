@@ -121,3 +121,51 @@ pub(super) fn element(
         x,
     )
 }
+
+/// Use the same evaluator and angle settings as the plotted curve. Successive
+/// centered differences remove their leading curvature error by extrapolation.
+pub(super) fn tangent(
+    expression: &str,
+    x: f64,
+    snapshot: &SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<Shape, String> {
+    let mut evaluator = Evaluator::geometry_function(expression, snapshot, cancel)?;
+    let p = at(&mut evaluator, x)?;
+    let mut step = x.abs().max(1.) / 32.;
+    let mut previous: Option<(f64, f64)> = None;
+    let mut extrapolated: Option<f64> = None;
+    for _ in 0..16 {
+        let left = at(&mut evaluator, x - step)?;
+        let right = at(&mut evaluator, x + step)?;
+        let backward = (p.y - left.y) / step;
+        let forward = (right.y - p.y) / step;
+        let slope = (backward + forward) / 2.;
+        if let Some((old_backward, old_forward)) = previous {
+            let coarse = (old_backward + old_forward) / 2.;
+            let refined: f64 = slope + (slope - coarse) / 3.;
+            let scale = refined.abs().max(1.);
+            if extrapolated.is_some_and(|old| (refined - old).abs() <= 1e-8 * scale)
+                && ((2. * forward - old_forward) - (2. * backward - old_backward)).abs()
+                    <= 1e-7 * scale
+            {
+                let refined = ppl_math::Real::from_f64(refined)
+                    .map_err(|error| error.to_string())?
+                    .to_f64();
+                let dx = x.abs().max(1.);
+                return primitives::line(
+                    p,
+                    Point2 {
+                        x: x + dx,
+                        y: p.y + dx * refined,
+                    },
+                    Extent::Line,
+                );
+            }
+            extrapolated = Some(refined);
+        }
+        previous = Some((backward, forward));
+        step /= 2.;
+    }
+    Err("No finite tangent could be resolved at this point".into())
+}

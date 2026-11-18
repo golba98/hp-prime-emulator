@@ -1,0 +1,326 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_plot_definition.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DDEF"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DDEF() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"0\";FZ2:=\"1\";CHECK(1);CHECK(2);RETURN STARTVIEW(1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "initial"
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 42,
+      "y": 204
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 226
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 240
+    },
+    {
+      "step": "snapshot",
+      "label": "selected"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_definition_selected.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 93,
+      "y": 204
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 51
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 240
+    },
+    {
+      "step": "snapshot",
+      "label": "updated"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_definition_updated.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DDEF() BEGIN RETURN {FZ1(0,0),FZ2(0,0),TYPE(FZ2),ISCHECK(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "typed"
+    },
+    {
+      "step": "click_lcd",
+      "x": 93,
+      "y": 204
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 51
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "X+"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 74
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 240
+    },
+    {
+      "step": "snapshot",
+      "label": "invalid"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "snapshot",
+      "label": "canceled"
+    },
+    {
+      "step": "click_lcd",
+      "x": 161,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 53
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "click_lcd",
+      "x": 15,
+      "y": 77
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 220
+    },
+    {
+      "step": "snapshot",
+      "label": "goto_edited"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DDEF() BEGIN RETURN {FZ1(0,0),FZ2(0,0),TYPE(FZ2),ISCHECK(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "retained"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

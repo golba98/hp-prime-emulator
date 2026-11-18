@@ -122,8 +122,12 @@ impl Default for ToolMemory {
             .map(|(name, kind)| {
                 let mut graph = GraphApp::new(kind);
                 if name == "Function" {
+                    graph.window = NativeTools::default_model_window(name);
                     graph.numeric_step = 0.1;
                     graph.curves[0].enabled = false;
+                }
+                if name == "Sequence" {
+                    graph.window = NativeTools::default_model_window(name);
                 }
                 (name.into(), graph)
             })
@@ -269,6 +273,7 @@ pub enum MathTarget {
 }
 #[derive(Clone, Copy)]
 pub enum ResetApp {
+    Sequence,
     Geometry,
     StatisticsOne,
     StatisticsTwo,
@@ -276,6 +281,7 @@ pub enum ResetApp {
 impl ResetApp {
     fn from_name(name: &str) -> Option<Self> {
         match name {
+            "Sequence" => Some(Self::Sequence),
             "Geometry" => Some(Self::Geometry),
             "Statistics 1Var" => Some(Self::StatisticsOne),
             "Statistics 2Var" => Some(Self::StatisticsTwo),
@@ -284,6 +290,7 @@ impl ResetApp {
     }
     pub fn name(self) -> &'static str {
         match self {
+            Self::Sequence => "Sequence",
             Self::Geometry => "Geometry",
             Self::StatisticsOne => "Statistics 1Var",
             Self::StatisticsTwo => "Statistics 2Var",
@@ -325,6 +332,11 @@ pub enum Request {
     GeometryPlotConfiguration(ppl_vm::GeometryPlotSettings),
     ResetApp(ResetApp),
     FunctionNumericConfiguration(ppl_vm::AppNumericSettings),
+    Graph3dNumericConfiguration {
+        source: Box<ppl_vm::AppNumericSettings>,
+        edited: Box<ppl_vm::AppNumericSettings>,
+        selected_cell: [usize; 2],
+    },
     EditCollection {
         name: String,
         matrix: bool,
@@ -526,6 +538,9 @@ impl NativeTools {
         self.geometry_apply_context(context, committed_generation);
         self.spreadsheet_apply_context(context, committed_generation);
         self.function_numeric_apply_context(context);
+        if let Err(error) = self.graph3d_apply_plot_context(context) {
+            self.record_calculation_error("surface", Some(error));
+        }
         self.project_numeric_graph(context);
         if let Some(app) = self.memory.graphs.get_mut(&context.active_app) {
             for (name, target) in [
@@ -545,6 +560,7 @@ impl NativeTools {
             }
         }
         if context.active_app != "Geometry"
+            && context.active_app != super::native_graph3d::NAME
             && !self.memory.graphs.contains_key(&context.active_app)
             && super::native_app_views::supports(
                 &context.active_app,
@@ -582,6 +598,9 @@ impl NativeTools {
     }
     pub fn view_outcome(&self, changed: bool) -> ppl_vm::host::CalculatorViewOutcome {
         let mut globals = std::collections::BTreeMap::new();
+        if self.memory.selected_app == super::native_graph3d::NAME {
+            return ppl_vm::host::CalculatorViewOutcome { changed, globals };
+        }
         if changed && self.memory.selected_app == "Geometry" {
             let settings = self.geometry_plot_configuration().unwrap_or_default();
             for name in ppl_vm::GeometryPlotSettings::NAMES {
@@ -698,6 +717,9 @@ impl NativeTools {
         supports(&self.memory.selected_app, view)
     }
     pub fn open(&mut self, page: Page) {
+        if page == Page::NumericSetup {
+            self.graph3d_panel.reset_numeric_draft();
+        }
         if page == Page::Plot
             && self.page != Some(Page::Plot)
             && statistics::mode(&self.memory.selected_app) == Some(false)
@@ -728,6 +750,9 @@ impl NativeTools {
                 super::native::expression::palette::CELLS[0].name.into();
         }
         self.page = Some(page);
+        if self.memory.selected_app == super::native_graph3d::NAME && page == Page::Numeric {
+            self.graph3d_select_numeric_cell([0, 0]);
+        }
         if page == Page::Settings {
             self.home_settings = Default::default();
         }
@@ -800,6 +825,28 @@ impl NativeTools {
                 })
                 .unwrap_or_default()
         }
+    }
+    pub fn reset_sequence(&mut self, settings: &ppl_vm::AppPlotSettings) {
+        let name = "Sequence";
+        let mut graph = GraphApp::new(GraphKind::Sequence);
+        graph.window = Self::settings_window(settings);
+        graph.curves[0].enabled = false;
+        self.memory.graphs.insert(name.into(), graph);
+        self.pending_actions.retain(|request| {
+            !matches!(request,
+                Request::GraphConfiguration(app, _) | Request::PlotConfiguration(app, _)
+                if app == name
+            )
+        });
+        if self.memory.selected_app == name {
+            self.job = None;
+            self.table_job = None;
+            self.points.clear();
+            self.table.clear();
+            self.trace = Default::default();
+            self.error = None;
+        }
+        self.dirty();
     }
     pub fn default_model_window(name: &str) -> super::native_apps::PlotWindow {
         if name == "Geometry" {

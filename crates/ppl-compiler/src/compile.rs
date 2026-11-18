@@ -73,7 +73,22 @@ fn is_app_variable(name: &str) -> bool {
             .strip_prefix("Spreadsheet.")
             .is_some_and(|field| !field.is_empty() && !field.contains('.'))
         || name.strip_prefix("Function.").is_some_and(is_function_slot)
-        || name.strip_prefix("Graph_3D.").is_some_and(is_graph3d_slot)
+        || name.strip_prefix("Graph_3D.").is_some_and(|field| {
+            is_graph3d_slot(field)
+                || is_plot_variable(field)
+                || matches!(field, "Zmin" | "Zmax" | "Ztick")
+                || matches!(
+                    field,
+                    "NumXStart"
+                        | "NumYStart"
+                        | "NumXStep"
+                        | "NumYStep"
+                        | "NumXZoom"
+                        | "NumYZoom"
+                        | "NumType"
+                        | "NumIndep"
+                )
+        })
         || [
             "Function.",
             "Parametric.",
@@ -1485,6 +1500,7 @@ impl<'a> Compiler<'a> {
         is_app_variable(name)
             || ((is_function_slot(name)
                 || is_graph3d_slot(name)
+                || matches!(name, "Zmin" | "Zmax")
                 || is_statistics_slot(name)
                 || is_statistics_two_slot(name)
                 || (crate::geometry::is_variable(name)

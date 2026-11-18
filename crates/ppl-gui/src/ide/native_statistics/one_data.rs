@@ -189,7 +189,13 @@ impl Data {
             return Err("A statistics data expression must return a list".into());
         };
         let values = values.iter().map(real).collect::<Result<Vec<_>, _>>()?;
-        let source = analysis.frequency_expression();
+        // Charts that count raw observations retain the saved frequency
+        // expression. It becomes active again when the chart uses weights.
+        let source = if analysis.chart.uses_frequencies() {
+            analysis.frequency_expression()
+        } else {
+            String::new()
+        };
         let explicit_weights = !source.is_empty();
         let weights = if !explicit_weights {
             vec![Frequency::Whole(1); values.len()]
@@ -513,6 +519,61 @@ mod tests {
         assert_eq!(session.snapshot().globals, snapshot.globals);
         let cancelled = Arc::new(AtomicBool::new(true));
         assert!(Data::evaluate(&analysis, &snapshot, cancelled).is_err());
+    }
+    #[test]
+    fn original_chart_selection_controls_summary_weights_without_clearing_the_source() {
+        use crate::ide::native_statistics::one::Chart;
+
+        let mut context = ppl_vm::SessionContext::default();
+        let list = |values: &[&str]| {
+            PortableValue::List(
+                values
+                    .iter()
+                    .map(|value| PortableValue::Real(parse(value)))
+                    .collect(),
+            )
+        };
+        context
+            .set_variable("D1", list(&["1", "3", "5", "9"]))
+            .unwrap();
+        context
+            .set_variable("D2", list(&["0", "1.25", "3.75", "1"]))
+            .unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut analysis = OneAnalysis {
+            data_source: Some("D1".into()),
+            frequency_source: Some("D2".into()),
+            ..Default::default()
+        };
+        for chart in Chart::ALL {
+            analysis.chart = chart;
+            let summary = Data::evaluate(&analysis, &context.snapshot(), cancel.clone())
+                .unwrap()
+                .summary(&cancel)
+                .unwrap();
+            let expected = match chart.code() {
+                1 | 2 | 4 | 8 => ["6", "3", "5", "5.25"],
+                _ => ["4", "1", "4", "4.5"],
+            };
+            for (field, value) in ["NbItem", "MinVal", "MedVal", "MeanX"]
+                .into_iter()
+                .zip(expected)
+            {
+                assert_eq!(
+                    summary.finite(field).to_string(),
+                    value,
+                    "{chart:?} {field}"
+                );
+            }
+            assert_eq!(analysis.frequency_expression(), "D2");
+        }
+
+        context.set_variable("D2", list(&["1", "2"])).unwrap();
+        let snapshot = context.snapshot();
+        analysis.chart = Chart::Bar;
+        assert!(Data::evaluate(&analysis, &snapshot, cancel.clone()).is_ok());
+        analysis.chart = Chart::Histogram;
+        assert!(Data::evaluate(&analysis, &snapshot, cancel).is_err());
     }
     #[test]
     fn original_frequency_controls_accept_list_expressions_and_only_literal_scalars() {

@@ -132,7 +132,7 @@ pub(crate) fn autoscale_with_geometry(
         check(&cancel)?;
         let data =
             Data::evaluate_with_geometry(analysis, snapshot, cancel.clone(), geometry.clone())?;
-        let model = one_plots::projection(&data)?;
+        let model = one_plots::projection(&data, analysis.chart)?;
         analyses.push((index, analysis, data, model));
     }
     if analyses.is_empty() {
@@ -149,8 +149,13 @@ pub(crate) fn autoscale_with_geometry(
     for (index, analysis, data, model) in analyses.iter().rev() {
         check(&cancel)?;
         let values = &model.samples;
-        let lo = values.iter().copied().fold(f64::INFINITY, f64::min);
-        let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        let weighted_box = analysis.chart == Chart::BoxWhisker && analysis.option == 1;
+        let observations = values
+            .iter()
+            .zip(&data.weights)
+            .filter_map(|(&value, weight)| (!weighted_box || !weight.is_zero()).then_some(value));
+        let lo = observations.clone().fold(f64::INFINITY, f64::min);
+        let hi = observations.fold(f64::NEG_INFINITY, f64::max);
         let n = values.len() as f64;
         if matches!(
             analysis.chart,
@@ -342,6 +347,74 @@ mod tests {
             ref other => panic!("Expected finite Autoscale bounds: {other:?}"),
         }
     }
+
+    #[test]
+    fn original_box_options_use_raw_fences_or_weighted_extrema() {
+        let mut context = SessionContext::default();
+        let list = |values: &[i64]| {
+            PortableValue::List(
+                values
+                    .iter()
+                    .map(|&value| PortableValue::Real(Real::from_i64(value)))
+                    .collect(),
+            )
+        };
+        context
+            .set_variable("D1", list(&[0, 1, 2, 4, 6, 8, 9, 10, -80, 90]))
+            .unwrap();
+        context
+            .set_variable("D2", list(&[0, 0, 3, 3, 3, 3, 0, 0, 0, 0]))
+            .unwrap();
+        let snapshot = context.snapshot();
+        let mut book = OneBook::default();
+        let analysis = &mut book.analyses[0];
+        analysis.chart = Chart::BoxWhisker;
+        analysis.option = 2;
+        analysis.frequency_source = Some("D2".into());
+        let cancel = Arc::new(AtomicBool::new(false));
+        let shown = one_plots::plot(&book, &snapshot, None, cancel.clone()).unwrap();
+        let markers = |plot: &crate::ide::native_model_plots::PlotData| {
+            plot.statistics_traces[0]
+                .samples
+                .iter()
+                .map(|sample| (sample.label.clone().unwrap(), sample.x))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            markers(&shown),
+            [
+                ("Outlier", -80.),
+                ("Min", 0.),
+                ("Q1", 3.),
+                ("Med", 5.),
+                ("Q3", 7.),
+                ("Max", 10.),
+                ("Outlier", 90.),
+            ]
+            .map(|(label, x)| (label.to_owned(), x))
+        );
+        assert_eq!(shown.curves[0], [[-80., 1.5], [90., 1.5]]);
+        let raw = finite_bounds(&autoscale(&book, &snapshot, cancel.clone()).unwrap());
+        assert!((raw[0] + 87.9137931034).abs() < 1e-9);
+        assert_eq!(raw[1], 98.5);
+
+        book.analyses[0].option = 1;
+        let weighted = finite_bounds(&autoscale(&book, &snapshot, cancel.clone()).unwrap());
+        assert!((weighted[0] - 1.72068965517).abs() < 1e-11);
+        assert_eq!(weighted[1], 8.3);
+        let hidden = one_plots::plot(&book, &snapshot, None, cancel).unwrap();
+        assert_eq!(
+            markers(&hidden),
+            [
+                ("Min", 2.),
+                ("Q1", 3.),
+                ("Med", 5.),
+                ("Q3", 7.),
+                ("Max", 8.)
+            ]
+            .map(|(label, x)| (label.to_owned(), x))
+        );
+    }
     #[test]
     fn original_fractional_weights_scale_all_charts_and_preserve_plot_frequencies() {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
@@ -439,6 +512,61 @@ mod tests {
         assert_eq!(data.statistics_traces[0].samples[0].frequency, Some(0));
         assert_eq!(data.dots[0].count, 0);
         assert_eq!(data.dots[0].fraction, None);
+        assert_eq!(data.dots[1].color, 0xa9a9f6);
+    }
+
+    #[test]
+    fn original_all_zero_dot_autoscales_and_traces_each_distinct_observation() {
+        let mut context = SessionContext::default();
+        let integers = |values: &[i64]| {
+            PortableValue::List(
+                values
+                    .iter()
+                    .map(|&value| PortableValue::Real(Real::from_i64(value)))
+                    .collect(),
+            )
+        };
+        context
+            .set_variable("D1", integers(&[8, 1, 4, -7, 1]))
+            .unwrap();
+        context.set_variable("D2", integers(&[0; 5])).unwrap();
+        let snapshot = context.snapshot();
+        let mut book = OneBook::default();
+        book.analyses[0].frequency_source = Some("D2".into());
+        book.analyses[0].chart = Chart::Dot;
+        let cancel = Arc::new(AtomicBool::new(false));
+        let bounds = finite_bounds(&autoscale(&book, &snapshot, cancel.clone()).unwrap());
+        for (actual, expected) in bounds.into_iter().zip([
+            -7.97983281087,
+            9.03333333333,
+            -0.0166666666667,
+            0.516666666667,
+        ]) {
+            assert!((actual - expected).abs() < 1e-11);
+        }
+        let plot = one_plots::plot(&book, &snapshot, None, cancel.clone()).unwrap();
+        assert_eq!(
+            plot.statistics_traces[0]
+                .samples
+                .iter()
+                .map(|sample| (sample.x, sample.y, sample.frequency))
+                .collect::<Vec<_>>(),
+            [-7., 1., 4., 8.].map(|x| (x, Some(0.), Some(0)))
+        );
+        assert!(
+            plot.dots
+                .iter()
+                .all(|dot| dot.count == 0 && dot.fraction.is_none())
+        );
+        assert!(
+            Data::evaluate(&book.analyses[0], &snapshot, cancel.clone())
+                .unwrap()
+                .summary(&cancel)
+                .is_err()
+        );
+        book.analyses[0].chart = Chart::Histogram;
+        assert!(one_plots::plot(&book, &snapshot, None, cancel.clone()).is_err());
+        assert!(autoscale(&book, &snapshot, cancel).is_err());
     }
 
     #[test]

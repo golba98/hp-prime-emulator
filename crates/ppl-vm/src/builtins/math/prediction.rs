@@ -45,7 +45,7 @@ pub(super) fn call(
     Ok(Value::Real(value))
 }
 
-fn invalid(name: &str, message: &str) -> RuntimeError {
+pub(super) fn invalid(name: &str, message: &str) -> RuntimeError {
     RuntimeError::new(ErrorKind::InvalidInput, format!("{name}: {message}"))
 }
 
@@ -127,10 +127,12 @@ fn polynomial_x(y: Real, coefficients: &[Real]) -> RtResult<Real> {
         None | Some(0) => Err(RuntimeError::new(ErrorKind::Undefined, "Constant function")),
         Some(1) => Ok(residual_at_zero.neg().div(coefficients[1])?),
         Some(2) => quadratic_x(coefficients[2], coefficients[1], residual_at_zero),
-        _ => Err(RuntimeError::new(
-            ErrorKind::Unsupported,
-            "PredX root search beyond degree two is unavailable",
-        )),
+        Some(degree) => super::polynomial_roots::inverse(
+            &coefficients[..=degree],
+            y,
+            residual_at_zero,
+            residual_at_one,
+        ),
     }
 }
 

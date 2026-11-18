@@ -22,6 +22,7 @@ pub(super) struct ModelTask {
 pub(super) struct CasTask {
     catalog: bool,
     deleted: Option<String>,
+    worksheet_assignment: Option<(String, serde_json::Value)>,
     thread: Option<std::thread::JoinHandle<()>>,
     owner: crate::ide::execution::worker::SessionLease,
     rx: mpsc::Receiver<(
@@ -150,7 +151,7 @@ impl IdeDesktopApp {
                 return true;
             }
         }
-        if self.native_tools.graph3d_rotate_key(action) {
+        if self.native_tools.graph3d_key(action) {
             ctx.request_repaint();
             return true;
         }
@@ -636,6 +637,30 @@ impl IdeDesktopApp {
             }
         }
     }
+    fn promote_legacy_graph3d_plot_settings(&self) -> Result<(), String> {
+        use crate::ide::native_graph3d::{Book, NAME};
+
+        let stored = &self.native_tools.memory.graph3d;
+        let defaults = Book::default();
+        if stored.bounds == defaults.bounds && stored.ticks == defaults.ticks {
+            return Ok(());
+        }
+        if self
+            .controller
+            .session_snapshot()
+            .app_plot_settings
+            .contains_key(NAME)
+        {
+            return Ok(());
+        }
+        let settings = stored.plot_settings()?;
+        self.controller.mutate_memory(|memory| {
+            memory
+                .set_app_plot_settings(NAME, settings)
+                .map_err(|error| error.to_string())
+        })
+    }
+
     fn promote_legacy_geometry_window(&mut self) -> Result<(), String> {
         if self
             .controller
@@ -730,6 +755,9 @@ impl IdeDesktopApp {
                     self.native_tools.memory.graphs.entry(name).or_insert(app);
                 }
                 if let Err(error) = self.promote_legacy_geometry_window() {
+                    self.native_tools.error = Some(error);
+                }
+                if let Err(error) = self.promote_legacy_graph3d_plot_settings() {
                     self.native_tools.error = Some(error);
                 }
                 self.sync_native_statistics_memory();
@@ -864,11 +892,29 @@ impl IdeDesktopApp {
                         .push_back(message);
                 } else {
                     self.native_tools.presentation_pending = false;
-                    let outcome = self
+                    let opened_invalid_surface = matches!(
+                        message.request,
+                        ppl_vm::host::CalculatorView::StartView { number: 1, .. }
+                    ) && self.native_tools.memory.selected_app
+                        == crate::ide::native_graph3d::NAME
+                        && self.native_tools.error.is_some()
+                        && self.native_tools.error
+                            == self.native_tools.memory.graph3d.range_error();
+                    let opened_graph3d_without_draw = matches!(
+                        message.request,
+                        ppl_vm::host::CalculatorView::StartView {
+                            number: 1,
+                            draw: false
+                        }
+                    ) && self.native_tools.memory.selected_app
+                        == crate::ide::native_graph3d::NAME;
+                    let error = self
                         .native_tools
                         .error
                         .clone()
-                        .map_or_else(|| Ok(self.native_tools.view_outcome(true)), Err);
+                        .filter(|_| !opened_invalid_surface && !opened_graph3d_without_draw);
+                    let outcome =
+                        error.map_or_else(|| Ok(self.native_tools.view_outcome(true)), Err);
                     let _ = message.reply.send(outcome);
                 }
                 continue;
@@ -979,16 +1025,18 @@ impl IdeDesktopApp {
                         self.native_tools.open(page);
                         let geometry_redraw = self.native_tools.memory.selected_app == "Geometry"
                             && matches!(page, Page::Symbolic | Page::Plot | Page::Numeric);
-                        if geometry_redraw || (draw && page == Page::Plot) {
+                        let graph3d_view = self.native_tools.memory.selected_app
+                            == crate::ide::native_graph3d::NAME
+                            && matches!(page, Page::Numeric | Page::Plot);
+                        // Graph 3D populates Plot even when STARTVIEW omits
+                        // the draw flag or explicitly passes zero.
+                        if geometry_redraw || (page == Page::Plot && (draw || graph3d_view)) {
                             self.native_tools.plot(snapshot.clone());
                         } else if page == Page::Numeric {
                             self.native_tools.table(&snapshot);
                         }
                         let function_table = page == Page::Numeric
                             && self.native_tools.memory.selected_app == "Function";
-                        let graph3d_view = self.native_tools.memory.selected_app
-                            == crate::ide::native_graph3d::NAME
-                            && (page == Page::Numeric || (draw && page == Page::Plot));
                         if geometry_redraw || function_table || graph3d_view {
                             message.await_plot = true;
                             self.native_tools.presentation_pending = true;
@@ -1247,6 +1295,29 @@ impl IdeDesktopApp {
                     if self.controller.shared.is_interrupted() {
                         result = Err(ppl_cas::CasError::Cancelled);
                     }
+                    let mut worksheet = None;
+                    if let (Some((cell, source)), Ok(evaluation)) =
+                        (&task.worksheet_assignment, &result)
+                    {
+                        let live = &self.native_tools.memory.models.spreadsheet;
+                        if &json!(live) == source {
+                            let version =
+                                self.controller.session_snapshot().settings.numeric_version;
+                            let value = ppl_vm::PortableValue::from(
+                                &ppl_vm::cas::from_cas_in_model(evaluation.value.clone(), version),
+                            );
+                            match live.write_attribute(cell, 0, &value) {
+                                Ok(sheet) => worksheet = Some(sheet),
+                                Err(error) => {
+                                    result = Err(ppl_cas::CasError::Protocol(error.to_string()))
+                                }
+                            }
+                        } else {
+                            result = Err(ppl_cas::CasError::Protocol(
+                                "Spreadsheet changed during CAS assignment".into(),
+                            ));
+                        }
+                    }
                     if let Ok(evaluation) = &result {
                         let cas = session.clone();
                         if let Err(error) =
@@ -1268,6 +1339,11 @@ impl IdeDesktopApp {
                         {
                             result = Err(ppl_cas::CasError::Protocol(error));
                         }
+                    }
+                    if result.is_ok()
+                        && let Some(sheet) = worksheet
+                    {
+                        self.apply_spreadsheet_write(sheet);
                     }
                     let catalog = task.catalog;
                     let deleted = task.deleted.clone();
@@ -1707,6 +1783,29 @@ impl IdeDesktopApp {
                 }
                 result
             }
+            Request::Graph3dNumericConfiguration {
+                source,
+                edited,
+                selected_cell,
+            } => {
+                let result = self.controller.mutate_memory(|memory| {
+                    if memory.active_app != crate::ide::native_graph3d::NAME {
+                        return Err("Graph 3D is no longer active".into());
+                    }
+                    if memory.app_numeric_settings() != *source {
+                        return Err("Graph 3D Numeric settings changed while editing".into());
+                    }
+                    memory
+                        .set_graph3d_numeric_settings(*edited)
+                        .map_err(|e| e.to_string())
+                });
+                if result.is_ok() {
+                    self.native_tools.open(Page::Numeric);
+                    self.native_tools.graph3d_select_numeric_cell(selected_cell);
+                    self.native_tools.table(&self.controller.session_snapshot());
+                }
+                result
+            }
             Request::FunctionNumericConfiguration(state) => {
                 let result = self.controller.mutate_memory(|memory| {
                     if memory.active_app != "Function" {
@@ -1728,6 +1827,17 @@ impl IdeDesktopApp {
                 use crate::ide::native_tools::ResetApp;
                 self.controller.mutate_memory_and_ui(|memory| {
                     match target {
+                        ResetApp::Sequence => {
+                            let name = target.name();
+                            let settings = ppl_vm::AppPlotSettings::for_app(name)
+                                .expect("Sequence has established Plot Setup defaults");
+                            memory
+                                .set_app_plot_settings(name, settings.clone())
+                                .map_err(|error| error.to_string())?;
+                            memory.app_numeric_settings.remove(name);
+                            memory.app_settings.remove(name);
+                            self.native_tools.reset_sequence(&settings);
+                        }
                         ResetApp::Geometry => {
                             let settings = ppl_vm::GeometryPlotSettings::default();
                             memory
@@ -2109,8 +2219,14 @@ impl IdeDesktopApp {
                         }
                     };
                     let (parsed, diagnostics) = ppl_syntax::parse_expression(&expression);
+                    let worksheet_store = if !catalog_cas && !diagnostics.has_errors() {
+                        app_variable_integration::cas_worksheet_assignment(&parsed)
+                    } else {
+                        None
+                    };
+                    let operand = worksheet_store.map_or(&parsed, |(_, rhs)| rhs);
                     let qualified_cas =
-                        match app_variable_integration::qualified_cas_operand(&parsed) {
+                        match app_variable_integration::qualified_cas_operand(operand) {
                             Ok(found) => found,
                             Err(error) => {
                                 self.reject_qualified_cas(
@@ -2133,14 +2249,20 @@ impl IdeDesktopApp {
                         );
                         return;
                     }
-                    if qualified_cas && app_variable_integration::cas_assignment(&parsed) {
-                        self.reject_qualified_cas(expression.clone(),"CAS worksheet assignments are not available; assign the cell from Home or PPL".into(),catalog_cas,ctx);
+                    if qualified_cas && app_variable_integration::cas_assignment(operand) {
+                        self.reject_qualified_cas(
+                            expression.clone(),
+                            "CAS application assignments require a direct Spreadsheet cell target"
+                                .into(),
+                            catalog_cas,
+                            ctx,
+                        );
                         return;
                     }
                     let cas_source = if diagnostics.has_errors() {
                         expression.clone()
                     } else {
-                        ppl_compiler::cas_entry_source(&parsed)
+                        ppl_compiler::cas_entry_source(operand)
                     };
                     let cas_source = match ppl_cas::units::translate_home(&cas_source) {
                         Ok(Some(source)) => source,
@@ -2152,6 +2274,16 @@ impl IdeDesktopApp {
                     };
                     let snapshot = self.controller.session_snapshot();
                     let qualified_context = snapshot.clone();
+                    let worksheet_assignment = worksheet_store.map(|(cell, _)| {
+                        (
+                            cell.to_owned(),
+                            json!(self.native_tools.memory.models.spreadsheet),
+                        )
+                    });
+                    let decimal_worksheet_read = !catalog_cas
+                        && worksheet_store.is_none()
+                        && !diagnostics.has_errors()
+                        && app_variable_integration::cas_worksheet_value_read(operand);
                     let qualified_shared = self.controller.shared.clone();
                     let home = snapshot
                         .globals
@@ -2173,6 +2305,7 @@ impl IdeDesktopApp {
                                 &cas_source,
                                 &qualified_context,
                                 qualified_shared,
+                                decimal_worksheet_read,
                             ) {
                                 Ok((next, result)) => {
                                     session = next;
@@ -2197,6 +2330,7 @@ impl IdeDesktopApp {
                     self.cas_task = Some(CasTask {
                         catalog: catalog_cas,
                         deleted: catalog_deleted,
+                        worksheet_assignment,
                         thread: Some(thread),
                         owner,
                         rx,

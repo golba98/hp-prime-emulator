@@ -1243,7 +1243,10 @@ impl IdeDesktopApp {
         if (matches!(
             self.native_tools.page,
             Some(crate::ide::native_tools::Page::Characters | crate::ide::native_tools::Page::Help)
-        ) || self.native_tools.is_picker_page())
+        ) || self.native_tools.is_picker_page()
+            || self.native_tools.graph3d_numeric_navigation_active()
+            || (self.native_tools.memory.selected_app == crate::ide::native_graph3d::NAME
+                && self.native_tools.page == Some(crate::ide::native_tools::Page::Plot)))
             && egui::Popup::is_any_open(ctx)
         {
             return;
@@ -1343,8 +1346,17 @@ impl IdeDesktopApp {
                         | egui::Key::Plus
                         | egui::Key::Minus
                 );
+            let graph3d_row_navigation = self.native_tools.graph3d_numeric_navigation_active()
+                && matches!(
+                    key,
+                    egui::Key::ArrowUp
+                        | egui::Key::ArrowDown
+                        | egui::Key::ArrowLeft
+                        | egui::Key::ArrowRight
+                );
             if !catalog_navigation
                 && !plot_navigation
+                && !graph3d_row_navigation
                 && !matches!(
                     key,
                     egui::Key::F1
@@ -1372,7 +1384,9 @@ impl IdeDesktopApp {
             };
             consumed.push(index);
             self.state.set_key_down(code, *pressed);
-            if *pressed && (!repeat || catalog_navigation || plot_navigation) {
+            if *pressed
+                && (!repeat || catalog_navigation || plot_navigation || graph3d_row_navigation)
+            {
                 if modifiers.shift {
                     self.state.native.shifted = true;
                 }

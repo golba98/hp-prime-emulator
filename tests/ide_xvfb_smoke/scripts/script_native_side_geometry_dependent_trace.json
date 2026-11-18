@@ -1,0 +1,222 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_dependent_trace.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOTRACESETUP",
+      "content": "EXPORT GEOTRACESETUP() BEGIN\n STARTAPP(\"Geometry\");Geometry.DelInstruction();\n Geometry.Instruction(0):=\"point(1,2)\";Geometry.Instruction(0):=\"point(abscissa(GA)+3,ordinate(GA))\";Geometry.Instruction(0):=\"plotfunc(x^2)\";Geometry.Instruction(0):=\"element(GC,2)\";Geometry.Instruction(0):=\"tangent(GD)\";STARTVIEW(1,1);RETURN {Geometry.Instruction(1,9),slope(Geometry.GE),slope(tangent(Geometry.GC,2))};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOTRACESETUP()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "prepared"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 200,
+      "y": 89
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 235,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 55,
+      "y": 50
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "armed"
+    },
+    {
+      "step": "click_lcd",
+      "x": 170,
+      "y": 89
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 170,
+      "from_y": 89,
+      "to_x": 212,
+      "to_y": 135
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "moved"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/dependent_trail.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 //! Shared LCD plot geometry and interaction for function and model apps.
 use super::{
     native_apps::{CurveSamples, PlotWindow},
-    native_model_plots::PlotStyle,
+    native_model_plots::{DOT_FILL_ALPHA, PlotStyle},
 };
 #[derive(Default)]
 pub struct PlotInteraction {
@@ -121,6 +121,16 @@ fn paint_dots(
         }
         let x = rect.left()
             + ((column.x - window.xmin) / (window.xmax - window.xmin)) as f32 * rect.width();
+        // The stored shade includes the contribution from a white background.
+        // Remove it so the mesh also blends with the grid and earlier stacks.
+        let background = 255 - DOT_FILL_ALPHA;
+        let color = rgb(column.color);
+        let fill = egui::Color32::from_rgba_premultiplied(
+            color.r().saturating_sub(background),
+            color.g().saturating_sub(background),
+            color.b().saturating_sub(background),
+            DOT_FILL_ALPHA,
+        );
         // At least one pixel per disk bounds this loop by the visible LCD
         // height, independently of the frequency total stored in memory.
         for row in first..=last {
@@ -141,9 +151,9 @@ fn paint_dots(
                 })
                 .collect::<Vec<_>>();
             let mut mesh = egui::Mesh::default();
-            mesh.colored_vertex(center, rgb(column.color));
+            mesh.colored_vertex(center, fill);
             for &point in &ring {
-                mesh.colored_vertex(point, rgb(column.color));
+                mesh.colored_vertex(point, fill);
             }
             for index in 0..segments {
                 mesh.add_triangle(0, index as u32 + 1, ((index + 1) % ring.len()) as u32 + 1);

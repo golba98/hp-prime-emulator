@@ -749,7 +749,7 @@ impl NativeTools {
             .command_text
             .update(preview, automatic, now);
         if plot {
-            let trace = self.trace_selected(&book, scene.as_ref());
+            let trace = self.trace_selected(scene.as_ref());
             self.paint_geometry_plot(&mut image, &book, scene.as_ref(), &window, &settings);
             image.fill_rect(0, 219, 319, 239, PAPER);
             chrome::softkeys(
@@ -1064,7 +1064,11 @@ impl NativeTools {
                 }
                 if plot && self.geometry_panel.menu.is_none() && !self.geometry_panel.busy {
                     if response.drag_started() {
-                        self.geometry_panel.drag = self.geometry_panel.selected.clone();
+                        self.geometry_panel.drag = self
+                            .geometry_panel
+                            .selected
+                            .clone()
+                            .filter(|name| book.can_move_point(name));
                         self.geometry_panel.drag_trace.clear();
                         if let Some(name) = self.geometry_panel.drag.as_deref()
                             && book.objects.iter().any(|o| o.name == name && o.traced)
@@ -1086,6 +1090,20 @@ impl NativeTools {
                             && let Some(p) = book.trace_position(name, p, scene.as_ref())
                         {
                             geo::push_trace(&mut self.geometry_panel.drag_trace, p);
+                        }
+                        // Redraw dependent traces through the normal plot worker. Keep
+                        // the last complete scene visible while the next sample evaluates.
+                        if let Some(name) = self.geometry_panel.drag.as_deref()
+                            && book
+                                .objects
+                                .iter()
+                                .any(|object| object.traced && object.name != name)
+                            && !self.calculating()
+                            && let Some(live) = self.memory.models.geometry_book.as_mut()
+                            && live.move_point(name, p, scene.as_ref()).is_ok()
+                        {
+                            self.memory.models.results.remove("Geometry");
+                            self.geometry_panel.refresh = true;
                         }
                         self.dirty();
                         ctx.request_repaint();
@@ -1163,7 +1181,7 @@ impl NativeTools {
                         index: self.memory.geometry_cursor.measurement,
                     }))
                 }
-                4 if self.page == Some(Page::Plot) && self.trace_selected(book, scene) => {
+                4 if self.page == Some(Page::Plot) && self.trace_selected(scene) => {
                     self.geometry_panel.menu = Some(Menu {
                         category: Some(TRACE_MENU),
                         index: 0,

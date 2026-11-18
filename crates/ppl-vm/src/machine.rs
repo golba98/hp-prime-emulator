@@ -1160,6 +1160,25 @@ impl Machine {
                     self.stack.push(settings.get(&name).unwrap());
                     return Ok(Flow::Next);
                 }
+                if app == "Graph 3D" && crate::AppNumericSettings::graph3d_field(&name) {
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "Graph 3D Numeric Setup requires an unindexed field",
+                        ));
+                    }
+                    let mut settings = self
+                        .app_numeric_settings
+                        .get(&app)
+                        .cloned()
+                        .unwrap_or_else(|| crate::AppNumericSettings::for_app(&app));
+                    if let Some(value) = value {
+                        settings.set_graph3d(&name, &value.to_value())?;
+                        self.app_numeric_settings.insert(app, settings.clone());
+                    }
+                    self.stack.push(settings.get_graph3d(&name)?);
+                    return Ok(Flow::Next);
+                }
                 if app == "Statistics 1Var"
                     && name.starts_with('D')
                     && crate::statistics_columns::is_column(&name)

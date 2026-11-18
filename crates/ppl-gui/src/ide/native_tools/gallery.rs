@@ -310,6 +310,7 @@ impl NativeTools {
             let title = format!("Reset {}?", target.name());
             draw_text(&mut g, &title, 39, 78, 16., 0xffffff, None, None);
             let scope = match target {
+                ResetApp::Sequence => "Clear definitions and initial terms.",
                 ResetApp::Geometry => "Clear constructions and measurements.",
                 ResetApp::StatisticsOne | ResetApp::StatisticsTwo => {
                     "Clear data columns and analysis definitions."
@@ -317,6 +318,7 @@ impl NativeTools {
             };
             label(&mut g, scope, 39, 108);
             let settings = match target {
+                ResetApp::Sequence => "Reset Plot, Numeric and Symbolic.",
                 ResetApp::Geometry => "Restore the default plot settings.",
                 ResetApp::StatisticsOne | ResetApp::StatisticsTwo => {
                     "Restore default plot and Symbolic settings."

@@ -76,6 +76,9 @@ pub struct Book {
     /// Snapshots of the curves that produced the current constrained points.
     #[serde(skip)]
     pub current_point_curves: BTreeMap<String, Shape>,
+    /// Last evaluated positions of armed points; restart establishes a fresh baseline.
+    #[serde(skip)]
+    pub(crate) last_trace_positions: BTreeMap<String, Point2>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Extent {
@@ -407,6 +410,130 @@ mod tests {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn constructed_polygons_use_ordered_vertices_and_follow_their_parents() {
+        let mut construction = book(&[
+            ("A", "point(0,0)"),
+            ("B", "point(2,0)"),
+            ("C", "point(3,4)"),
+            ("D", "square(GA,GB)"),
+            ("E", "equilateral_triangle(GA,GB)"),
+            ("F", "parallelogram(GA,GB,GC)"),
+            ("G", "rectangle(GA,GB,GC)"),
+            ("H", "rectangle(GA,GB,2)"),
+            ("I", "right_triangle(GA,GB,2)"),
+            ("J", "quadrilateral(GA,GB,GC,point(0,4))"),
+            ("K", "isopolygon(GA,GB,6)"),
+            ("L", "isopolygon(GA,GB,2)"),
+            ("M", "isopolygon(GA,GB,2.5)"),
+            ("N", "isosceles_triangle(GA,GB,angle(GA,GB,point(0,1)))"),
+            ("O", "rhombus(GA,GB,angle(GA,GB,point(0,1)))"),
+        ]);
+        let initial = scene(&construction);
+        for (name, count, area) in [
+            ("D", 4, 4.),
+            ("E", 3, 3_f64.sqrt()),
+            ("F", 4, 8.),
+            ("G", 4, 8.),
+            ("H", 4, 8.),
+            ("I", 3, 4.),
+            ("J", 4, 10.),
+            ("K", 6, 6. * 3_f64.sqrt()),
+            ("N", 3, 2.),
+            ("O", 4, 4.),
+        ] {
+            let Shape::Polygon(vertices) = shape(&initial, name) else {
+                panic!("{name}")
+            };
+            assert_eq!(vertices.len(), count);
+            assert!(
+                (crate::ide::native_app_models::Geometry::polygon_area(&vertices).unwrap() - area)
+                    .abs()
+                    < 1e-10,
+                "{name}"
+            );
+        }
+        assert!(matches!(
+            shape(&initial, "L"),
+            Shape::Line {
+                extent: Extent::Segment,
+                ..
+            }
+        ));
+        assert!(initial.objects[12].value.is_err());
+        construction
+            .move_point("B", Point2 { x: 0., y: -2. }, Some(&initial))
+            .unwrap();
+        let Shape::Polygon(square) = shape(&scene(&construction), "D") else {
+            panic!()
+        };
+        assert_eq!(
+            square,
+            vec![
+                Point2 { x: 0., y: 0. },
+                Point2 { x: 0., y: -2. },
+                Point2 { x: 2., y: -2. },
+                Point2 { x: 2., y: 0. }
+            ]
+        );
+    }
+
+    #[test]
+    fn original_function_tangent_forms_use_the_evaluated_slope() {
+        let construction = book(&[
+            ("A", "plotfunc(x^2)"),
+            ("B", "element(GA,2)"),
+            ("C", "tangent(GB)"),
+            ("D", "tangent(GA,GB)"),
+            ("E", "tangent(GA,2)"),
+        ]);
+        let scene = scene(&construction);
+        for object in &scene.objects[2..] {
+            let Ok(Shape::Line {
+                a,
+                b,
+                extent: Extent::Line,
+            }) = object.value
+            else {
+                panic!("{object:?}");
+            };
+            assert_eq!(a, Point2 { x: 2., y: 4. });
+            assert_eq!((b.y - a.y) / (b.x - a.x), 4.);
+        }
+    }
+
+    #[test]
+    fn trace_records_evaluated_dependent_points_only_when_they_move() {
+        let mut construction = book(&[
+            ("A", "point(1,2)"),
+            ("B", "point(abscissa(GA)+3,ordinate(GA))"),
+            ("C", "point(8,9)"),
+        ]);
+        construction.objects[1].traced = true;
+        construction.objects[2].traced = true;
+        let initial = scene(&construction);
+        construction.cache_scene(&initial).unwrap();
+        assert!(!construction.can_move_point("B"));
+        construction
+            .move_point("A", Point2 { x: 2., y: 3. }, Some(&initial))
+            .unwrap();
+        let moved = scene(&construction);
+        construction.cache_scene(&moved).unwrap();
+        construction.cache_scene(&moved).unwrap();
+        assert_eq!(
+            construction.objects[1].trace_samples,
+            [Point2 { x: 4., y: 2. }, Point2 { x: 5., y: 3. }]
+        );
+        assert!(construction.objects[2].trace_samples.is_empty());
+        let restored: Book =
+            serde_json::from_value(serde_json::to_value(&construction).unwrap()).unwrap();
+        assert_eq!(
+            restored.objects[1].trace_samples,
+            construction.objects[1].trace_samples
+        );
+        assert!(restored.last_trace_positions.is_empty());
     }
 
     #[test]
