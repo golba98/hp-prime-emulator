@@ -150,7 +150,7 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         .map(Real::exp10)
         .max()
         .expect("a quadratic has a nonzero leading coefficient");
-    let [a, b, c] = [a, b, c].map(|coefficient| {
+    let scaled = [a, b, c].map(|coefficient| {
         let value = coefficient.scale10(-exponent)?.to_f64();
         if !coefficient.is_zero() && value == 0.0 {
             return Err(RuntimeError::new(
@@ -160,25 +160,26 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         }
         Ok(value)
     });
-    let (a, b, c) = (a?, b?, c?);
-    let cross = 4.0 * a * c;
-    let discriminant = b.mul_add(b, -cross);
-    let rounding = (b * b + cross.abs()) * f64::EPSILON;
+    let [sa, sb, sc] = scaled;
+    let (qa, qb, qc) = (sa?, sb?, sc?);
+    let cross = 4.0 * qa * qc;
+    let discriminant = qb.mul_add(qb, -cross);
+    let rounding = (qb * qb + cross.abs()) * f64::EPSILON;
     if discriminant <= rounding {
-        let root = (-0.5 * b) / a;
-        if discriminant.abs() <= rounding && (0.0..1.0).contains(&root) {
-            return Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                "PredX repeated root search inside the initial interval is unavailable",
-            ));
+        let root = (-0.5 * qb) / qa;
+        if discriminant.abs() <= rounding
+            && (0.0..1.0).contains(&root)
+            && let Some(vertex) = sampled_quadratic_vertex(a, b, c)?
+        {
+            return Ok(vertex);
         }
         return Err(RuntimeError::new(ErrorKind::Undefined, "Extremum found"));
     }
 
     // Compute the farther root without subtracting nearly equal terms and
     // derive the other from the product of the two roots.
-    let q = -0.5 * (b + discriminant.sqrt().copysign(b));
-    let (first, second) = (q / a, c / q);
+    let q = -0.5 * (qb + discriminant.sqrt().copysign(qb));
+    let (first, second) = (q / qa, qc / q);
     let (left, right) = (first.min(second), first.max(second));
     // The search starts at 0 and 1. The sum of the roots identifies the
     // closer endpoint when both roots are inside or straddle that interval.
@@ -189,4 +190,32 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         (false, _) => left,
     };
     Ok(Real::from_f64(root)?)
+}
+
+// Sample on the original 0,1 secant, then interpolate the vertex using divided
+// differences at calculator precision. A flat residual alone is ambiguous at
+// a repeated zero. Require the same stationary point from the coefficients.
+fn sampled_quadratic_vertex(a: Real, b: Real, c: Real) -> RtResult<Option<Real>> {
+    let f = |x: Real| a.mul(x)?.add(b)?.mul(x)?.add(c);
+    let first_slope = a.add(b)?;
+    let half = Real::ONE.div(Real::from_i64(2))?;
+    let z = if first_slope.is_zero() {
+        half
+    } else {
+        c.neg().div(first_slope)?
+    };
+    if z == Real::ONE || z.is_zero() {
+        return Ok(None);
+    }
+    let exact = b.neg().div(a)?.mul(half)?;
+    if z == exact && f(z)?.is_zero() {
+        return Ok(Some(z));
+    }
+    let second_slope = f(z)?.sub(f(Real::ONE)?)?.div(z.sub(Real::ONE)?)?;
+    let curvature = second_slope.sub(first_slope)?.div(z)?;
+    if curvature.is_zero() {
+        return Ok(None);
+    }
+    let vertex = Real::ONE.sub(first_slope.div(curvature)?)?.mul(half)?;
+    Ok((vertex == exact && f(vertex)?.is_zero()).then_some(vertex))
 }

@@ -97,6 +97,9 @@ fn polynomial_inverse_matches_the_original_quadratic_selection() {
         ("PredX(9,0,6,1,-1)", "3"),
         ("PredX(9,0,6,-5,1)", "2"),
         ("PredX(9,0,6,5,1)", "-2"),
+        ("PredX(9,0,0.64,-1.6,1)", "0.8"),
+        ("PredX(9,0,0.25,-1,1)", "0.5"),
+        ("PredX(9,0,0.0625,-0.5,1)", "0.25"),
         ("PredX(9,0,0.16,-1,1)", "0.2"),
         ("PredX(9,0,0.27,-1.2,1)", "0.9"),
         ("PredX(9,0,0.2,-1.2,1)", "1"),
@@ -137,12 +140,17 @@ fn polynomial_inverse_matches_the_original_quadratic_selection() {
 fn polynomial_inverse_preserves_distinct_failure_cases() {
     let mut context = spreadsheet();
     for (source, kind, detail) in [
+        (
+            "PredX(9,0,0.990025,-1.99,1)",
+            ErrorKind::Undefined,
+            "Extremum found",
+        ),
         ("PredX(9,0,4,-4,1)", ErrorKind::Undefined, "Extremum found"),
         ("PredX(9,0,1,0,1)", ErrorKind::Undefined, "Extremum found"),
         (
-            "PredX(9,0,0.64,-1.6,1)",
-            ErrorKind::Unsupported,
-            "PredX repeated root search inside the initial interval is unavailable",
+            "PredX(9,0,0.0025,-0.1,1)",
+            ErrorKind::Undefined,
+            "Extremum found",
         ),
         (
             "PredX(11,7,6,0,0,0,0)",
