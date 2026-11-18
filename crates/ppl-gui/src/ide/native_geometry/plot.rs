@@ -98,7 +98,27 @@ pub fn build(
                 }
                 (PlotStyle::Line, points)
             }
-            Shape::Function { paths, .. } => {
+            Shape::Sequence(seq) => {
+                let label = format!("G{}", object.name);
+                if let Some([a, b]) = clip(
+                    Point2 { x: 0., y: 0. },
+                    Point2 { x: 1., y: 1. },
+                    Extent::Line,
+                    &window,
+                ) {
+                    data.push(label.clone(), PlotStyle::Line, vec![[a.x, a.y], [b.x, b.y]])?;
+                }
+                for path in &seq.paths {
+                    data.push(
+                        label.clone(),
+                        PlotStyle::Line,
+                        path.iter().map(|p| [p.x, p.y]).collect(),
+                    )?;
+                }
+                continue;
+            }
+            Shape::Function { paths, .. }
+            | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => {
                 for path in paths {
                     data.push(
                         format!("G{}", object.name),

@@ -154,6 +154,8 @@ fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
         Shape::Circle { .. } => "Circle".into(),
         Shape::Arc(_) => "Arc".into(),
         Shape::Function { .. } => "Function Graph".into(),
+        Shape::Parametric(_) => "Parametric".into(),
+        Shape::Sequence(_) => "Sequence".into(),
         Shape::Hyperbola(_) => "Hyperbola".into(),
         Shape::Parabola(_) => "Parabola".into(),
         Shape::Ellipse(_) => "Ellipse".into(),
@@ -279,7 +281,21 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 );
             }
         }
-        Shape::Function { paths, .. } => {
+        Shape::Sequence(curve) => {
+            segment(
+                g,
+                Point2 { x: 0., y: 0. },
+                Point2 { x: 1., y: 1. },
+                geo::Extent::Line,
+                w,
+                color,
+            );
+            for pair in curve.paths.iter().flat_map(|p| p.windows(2)) {
+                segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
+            }
+        }
+        Shape::Function { paths, .. }
+        | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => {
             for pair in paths.iter().flat_map(|path| path.windows(2)) {
                 segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
             }
@@ -320,6 +336,7 @@ pub(super) fn hit(
                 shape,
                 Shape::Line { .. }
                     | Shape::Circle { .. }
+                    | Shape::Parametric(_)
                     | Shape::Function { .. }
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
@@ -396,7 +413,9 @@ pub(super) fn hit(
                     )
                 })
                 .fold(f64::INFINITY, f64::min),
-            Shape::Function { paths, .. } => paths
+            Shape::Sequence(crate::ide::native_geometry::SequencePlot { paths, .. })
+            | Shape::Function { paths, .. }
+            | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => paths
                 .iter()
                 .flat_map(|path| path.windows(2))
                 .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))

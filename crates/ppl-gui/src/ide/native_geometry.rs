@@ -8,8 +8,10 @@ mod evaluate;
 mod function;
 mod hyperbola;
 mod parabola;
+mod parametric;
 pub mod plot;
 pub mod primitives;
+mod sequence;
 mod transform;
 use super::native_app_models::Geometry;
 pub use super::native_app_models::Point2;
@@ -17,7 +19,10 @@ pub use arc::CircularArc;
 pub use ellipse::Ellipse;
 pub use hyperbola::Hyperbola;
 pub use parabola::Parabola;
+pub use parametric::Parametric;
+pub(crate) use parametric::plot_syntax;
 use ppl_vm::SessionSnapshot;
+pub use sequence::SequencePlot;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -118,6 +123,8 @@ pub enum Shape {
     Ellipse(Ellipse),
     Hyperbola(Hyperbola),
     Parabola(Parabola),
+    Parametric(Parametric),
+    Sequence(SequencePlot),
     Polygon(Vec<Point2>),
     Points(Vec<Point2>),
     Function {
@@ -424,6 +431,91 @@ mod tests {
         }
     }
 
+    #[test]
+    fn geometry_plot_parameters_and_loci_match_virtual_g1_controls() {
+        for (def, x, y, area) in [
+            ("plotparam(t+i*t^2,t=-2..2)", 1., 1., -16. / 3.),
+            (
+                "plotpolar(2,t,0,2*π)",
+                2. * 1_f64.cos(),
+                2. * 1_f64.sin(),
+                4. * std::f64::consts::PI,
+            ),
+            (
+                "plotparam(COS(t)+i*SIN(t),t=0..2*π,tstep=π/3)",
+                1_f64.cos(),
+                1_f64.sin(),
+                std::f64::consts::PI,
+            ),
+        ] {
+            let result = scene(&book(&[
+                ("A", def),
+                ("B", "element(GA,1)"),
+                ("C", "area(GA)"),
+            ]));
+            pt(&result, "B", Point2 { x, y });
+            let Shape::Number { re, .. } = shape(&result, "C") else {
+                panic!()
+            };
+            assert!((re - area).abs() < 1e-8, "{def}: {re}");
+        }
+        let result = scene(&book(&[
+            ("A", "circle(point(0,0),2)"),
+            ("B", "element(GA,0.5)"),
+            ("C", "translation(1+2*i,GB)"),
+            ("D", "locus(GC,GB)"),
+            ("E", "point(abscissa(GB),ordinate(GB)^2)"),
+            ("F", "locus(GE,GB)"),
+            ("G", "element(GF,1)"),
+            ("H", "segment(point(0,0),point(4,0))"),
+            ("J", "element(GH,0.5)"),
+            ("K", "midpoint(GJ,point(0,4))"),
+            ("L", "locus(GK,GJ)"),
+            ("M", "element(GL,1)"),
+        ]));
+        assert_eq!(
+            shape(&result, "D"),
+            Shape::Circle {
+                center: Point2 { x: 1., y: 2. },
+                radius: 2.
+            }
+        );
+        pt(&result, "G", Point2 { x: 0., y: 4. });
+        pt(&result, "M", Point2 { x: 32., y: 2. });
+    }
+    #[test]
+    fn geometry_sequence_plot_contains_the_original_cobweb_and_terminal_segment() {
+        let result = scene(&book(&[
+            ("A", "plotseq(1-x/2,x={3,-1,6},5)"),
+            ("B", "element(GA,1)"),
+            ("C", "plotseq(x^2/3,x={1,-2,3},3)"),
+            ("D", "plotseq(1-x/2,x={3,-1,6},-1)"),
+        ]));
+        pt(&result, "B", Point2 { x: 6., y: -2. });
+        let Shape::Sequence(s) = shape(&result, "A") else {
+            panic!()
+        };
+        assert!(matches!(s.value().unwrap(),PortableValue::List(v) if v.len()==4));
+        assert_eq!(s.paths[1].len(), 11);
+        assert_eq!(
+            s.paths[2],
+            [
+                Point2 {
+                    x: 0.59375,
+                    y: 0.59375
+                },
+                Point2 { x: 0.59375, y: -1. }
+            ]
+        );
+        let Shape::Sequence(s) = shape(&result, "C") else {
+            panic!()
+        };
+        assert!(matches!(*s.function, Shape::Parametric(_)));
+        let Shape::Sequence(s) = shape(&result, "D") else {
+            panic!()
+        };
+        assert_eq!(s.paths[1].len(), 3);
+    }
     #[test]
     fn quadratic_constructions_follow_original_geometry_parameters_and_signed_areas() {
         let cases = [

@@ -156,6 +156,25 @@ impl Ellipse {
         self.major * ((4. * step / 3.) * sum)
     }
 
+    pub(super) fn locus_source(&self, t: &str) -> String {
+        use super::canonical;
+        let phase = self.equation_phase.unwrap_or(0.);
+        let a = self.at(phase);
+        let b = self.at(phase + FRAC_PI_2);
+        let component = |c: f64, u: f64, v: f64| {
+            format!(
+                "({}+(({})*(1-{t}^2)+({})*2*{t})/(1+{t}^2))",
+                canonical(c),
+                canonical(u - c),
+                canonical(v - c)
+            )
+        };
+        format!(
+            "({}+i*{})",
+            component(self.center.x, a.x, b.x),
+            component(self.center.y, a.y, b.y)
+        )
+    }
     pub(super) fn equation_source(&self, phase: f64) -> String {
         use super::canonical;
         let (sin, cos) = phase.sin_cos();

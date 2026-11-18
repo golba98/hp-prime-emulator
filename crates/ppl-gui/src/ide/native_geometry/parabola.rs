@@ -1,5 +1,5 @@
 //! Focal parabola in an orthonormal frame, with the G1 parameter interval.
-use super::{Extent, Point2, Shape, number, point, primitives as g};
+use super::{Extent, Point2, Shape, canonical, number, point, primitives as g};
 use serde::{Deserialize, Serialize};
 
 fn default_limit() -> f64 {
@@ -62,8 +62,14 @@ impl Parabola {
         })
     }
     pub(super) fn equation_source(&self) -> String {
-        use super::canonical;
-        let t = format!("(x-({}))", canonical(self.offset));
+        let expr = self.locus_source("x");
+        format!(
+            "plotparam({expr},x,-{lim},{lim})",
+            lim = canonical(self.limit)
+        )
+    }
+    pub(super) fn locus_source(&self, variable: &str) -> String {
+        let t = format!("({variable}-({}))", canonical(self.offset));
         let component = |c: f64, a: f64, b: f64| {
             format!(
                 "({}+({})*{t}+({})*{t}^2)",
@@ -73,10 +79,9 @@ impl Parabola {
             )
         };
         format!(
-            "plotparam({}+i*{},x,-{lim},{lim})",
+            "({}+i*{})",
             component(self.vertex.x, self.axis.x, -self.axis.y),
             component(self.vertex.y, self.axis.y, self.axis.x),
-            lim = canonical(self.limit)
         )
     }
     fn world(&self, x: f64, y: f64) -> Point2 {

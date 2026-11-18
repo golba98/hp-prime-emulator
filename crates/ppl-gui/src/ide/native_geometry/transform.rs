@@ -125,7 +125,7 @@ impl Transform {
             }
             Shape::Undefined => Shape::Undefined,
             Shape::EmptyConic(_) => shape,
-            Shape::Function { .. } => {
+            Shape::Sequence(_) | Shape::Parametric(_) | Shape::Function { .. } => {
                 return Err("Transform requires a point, straight object, polygon or conic".into());
             }
         })

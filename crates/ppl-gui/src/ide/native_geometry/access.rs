@@ -93,6 +93,8 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         Shape::Points(points) => {
             PortableValue::List(points.iter().map(|p| symbolic(point_source(*p))).collect())
         }
+        Shape::Sequence(curve) => curve.value()?,
+        Shape::Parametric(curve) => symbolic(curve.source()),
         Shape::Function { expression, .. } => symbolic(format!("plotfunc({expression})")),
     })
 }
@@ -156,7 +158,9 @@ impl Book {
             .iter()
             .filter_map(|obj| match &obj.value {
                 Ok(
-                    shape @ (Shape::Hyperbola(_)
+                    shape @ (Shape::Parametric(_)
+                    | Shape::Sequence(_)
+                    | Shape::Hyperbola(_)
                     | Shape::Parabola(_)
                     | Shape::Ellipse(_)
                     | Shape::Circle { radius: 0., .. }

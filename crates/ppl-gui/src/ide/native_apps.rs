@@ -471,6 +471,17 @@ impl Evaluator {
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        Self::geometry_curve(expression, "x", snapshot, cancel)
+    }
+    pub(super) fn geometry_curve(
+        expression: &str,
+        variable: &str,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        if !valid_name(variable) {
+            return Err("Invalid curve variable".into());
+        }
         Self::build(
             GraphKind::Function,
             expression,
@@ -478,7 +489,7 @@ impl Evaluator {
             cancel,
             None,
             None,
-            Some("x"),
+            Some(variable),
         )
     }
     fn build(

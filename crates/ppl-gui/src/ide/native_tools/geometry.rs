@@ -92,6 +92,8 @@ impl Need {
                 shape,
                 Shape::Undefined
                     | Shape::EmptyConic(_)
+                    | Shape::Sequence(_)
+                    | Shape::Parametric(_)
                     | Shape::Function { .. }
                     | Shape::Number { .. }
             ),
@@ -107,7 +109,8 @@ impl Need {
                         | Shape::Ellipse(_)
                         | Shape::Parabola(_)
                         | Shape::Hyperbola(_)
-                ) || command.function == "element" && matches!(shape, Shape::Function { .. })
+                ) || command.function == "element"
+                    && matches!(shape, Shape::Function { .. } | Shape::Parametric(_))
             }
             Self::Shape => matches!(
                 shape,
@@ -325,6 +328,26 @@ const CURVES: &[Command] = &[
     Command {
         label: "Conic",
         function: "conic",
+        needs: &[],
+    },
+    Command {
+        label: "Parametric",
+        function: "plotparam",
+        needs: &[],
+    },
+    Command {
+        label: "Polar",
+        function: "plotpolar",
+        needs: &[],
+    },
+    Command {
+        label: "Locus",
+        function: "locus",
+        needs: &[Need::Point, Need::PointOnCurve],
+    },
+    Command {
+        label: "Sequence",
+        function: "plotseq",
         needs: &[],
     },
 ];
@@ -889,7 +912,12 @@ impl NativeTools {
         let Some(command) = commands(category).get(menu.index).copied() else {
             return vec![];
         };
-        if self.page == Some(Page::Plot) && matches!(command.function, "plotfunc" | "conic") {
+        if self.page == Some(Page::Plot)
+            && matches!(
+                command.function,
+                "plotfunc" | "conic" | "plotparam" | "plotpolar" | "plotseq"
+            )
+        {
             self.geometry_panel.tool = None;
             self.geometry_panel.args.clear();
             let name = self

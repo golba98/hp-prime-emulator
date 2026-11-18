@@ -186,6 +186,22 @@ impl Hyperbola {
         let s = 6_f64.sinh();
         self.major * self.minor * (self.axis.y.powi(2) * (s + 6.) - self.axis.x.powi(2) * (s - 6.))
     }
+    pub(super) fn locus_source(&self, t: &str) -> String {
+        let axis = self.axis;
+        let component = |c: f64, u: f64, v: f64| {
+            format!(
+                "({}+({})*({t}+1/{t})/2+({})*({t}-1/{t})/2)",
+                canonical(c),
+                canonical(self.major * u),
+                canonical(self.minor * v)
+            )
+        };
+        format!(
+            "({}+i*{})",
+            component(self.center.x, axis.x, -axis.y),
+            component(self.center.y, axis.y, axis.x)
+        )
+    }
     pub(super) fn branch_source(&self, sign: f64) -> String {
         let u = self.axis;
         let coordinate = |c: f64, a: f64, b: f64| {

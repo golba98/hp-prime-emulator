@@ -286,6 +286,7 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
             Ok(d.y.atan2(d.x))
         }
         Shape::Function { ref paths, .. } => function_projection(paths, cursor).map(|p| p.x),
+        Shape::Parametric(ref curve) => curve.nearest(cursor).map(|(t, _)| t),
         Shape::Hyperbola(ref curve) => curve.parameter(cursor),
         Shape::Parabola(ref curve) => curve.parameter(cursor),
         Shape::Ellipse(ref ellipse) => ellipse.parameter(cursor),
@@ -295,6 +296,9 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
     }
 }
 pub(super) fn curve_projection(curve: &Shape, cursor: Point2) -> Result<Point2, String> {
+    if let Shape::Parametric(p) = curve {
+        return p.nearest(cursor).map(|(_, p)| p);
+    }
     if let Shape::Function { paths, .. } = curve {
         return function_projection(paths, cursor);
     }

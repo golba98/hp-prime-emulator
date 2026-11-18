@@ -1,3 +1,4 @@
+mod locus;
 use super::{primitives as g, *};
 use ppl_syntax::ast::{Expr, ExprKind};
 use ppl_vm::Value;
@@ -54,7 +55,7 @@ pub(super) fn current_expression(
     cancel: Arc<AtomicBool>,
 ) -> Result<ppl_vm::PortableValue, String> {
     super::source(source)?;
-    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    let (ast, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if diagnostics.has_errors() {
         return Err(diagnostics.errors().next().unwrap().message.clone());
     }
@@ -372,6 +373,7 @@ impl Evaluator<'_> {
                 | Shape::Circle { .. }
                 | Shape::Arc(_)
                 | Shape::Ellipse(_)
+                | Shape::Parametric(_)
                 | Shape::Hyperbola(_)
                 | Shape::Parabola(_)
         )
@@ -419,13 +421,66 @@ impl Evaluator<'_> {
                 })?)),
                 _ => Err("point expects one affix or two coordinates".into()),
             },
+            "locus" => {
+                arity(2)?;
+                self.locus(&args[0], &args[1], source)
+            }
             "conic" => {
                 arity(1)?;
                 super::conic::build(&args[0], source, |arg| self.real(arg, source))
             }
+            "plotseq" => {
+                let [expr, var, range, count] = args.as_slice() else {
+                    return Err("Expected expression, variable, sequence interval and count".into());
+                };
+                let (ExprKind::Ident(var), ExprKind::List(range)) = (&var.kind, &range.kind) else {
+                    return Err("Invalid sequence variable or interval".into());
+                };
+                let [start, lo, hi] = range.as_slice() else {
+                    return Err("Sequence requires start, minimum and maximum".into());
+                };
+                let range = [
+                    self.real(start, source)?,
+                    self.real(lo, source)?,
+                    self.real(hi, source)?,
+                ];
+                let n = self.real(count, source)?;
+                if n.fract() != 0. {
+                    return Err("Sequence count must be an integer".into());
+                }
+                Ok(Shape::Sequence(SequencePlot::build(
+                    self.expression_text(expr, source, Some(var))?,
+                    var.clone(),
+                    range,
+                    n as i64,
+                    self.snapshot,
+                    self.cancel.clone(),
+                )?))
+            }
+            "plotparam" | "plotpolar" => {
+                if !matches!(args.len(), 4 | 5) {
+                    return Err(
+                        "A curve needs expression, variable, bounds and optional step".into(),
+                    );
+                }
+                let ExprKind::Ident(variable) = &args[1].kind else {
+                    return Err("Expected curve parameter name".into());
+                };
+                let mut expression = self.expression_text(&args[0], source, Some(variable))?;
+                if name == "plotpolar" {
+                    expression = format!("({expression})*(COS({variable})+i*SIN({variable}))");
+                }
+                let bounds = [self.real(&args[2], source)?, self.real(&args[3], source)?];
+                let step = args.get(4).map(|x| self.real(x, source)).transpose()?;
+                let mut curve = Parametric::new(expression, variable.clone(), bounds, step)?;
+                if !self.current {
+                    curve.trace(self.snapshot, self.cancel.clone())?;
+                }
+                Ok(Shape::Parametric(curve))
+            }
             "plotfunc" => {
                 arity(1)?;
-                let expression = self.expression_text(&args[0], source, true)?;
+                let expression = self.expression_text(&args[0], source, Some("x"))?;
                 super::function::build(
                     expression,
                     self.snapshot,
@@ -445,7 +500,13 @@ impl Evaluator<'_> {
                     }
                 };
                 let curve = self.value(curve, source)?;
+                let curve = if let Shape::Sequence(seq) = curve {
+                    *seq.function
+                } else {
+                    curve
+                };
                 let p = match curve {
+                    Shape::Parametric(c) => c.at(parameter, self.snapshot, self.cancel.clone())?,
                     Shape::Function { expression, .. } => super::function::element(
                         &expression,
                         parameter,
@@ -463,6 +524,10 @@ impl Evaluator<'_> {
                         .point_curve(point, source)?
                         .ok_or("A one-argument tangent needs a point on a curve")?;
                     let p = as_point(location)?;
+                    if let Shape::Parametric(c) = &curve {
+                        let t = c.nearest(p)?.0;
+                        return c.tangent(t, self.snapshot, self.cancel.clone());
+                    }
                     if let Shape::Function { expression, .. } = &curve {
                         return super::function::tangent(
                             expression,
@@ -476,6 +541,14 @@ impl Evaluator<'_> {
                 [curve, location] => {
                     let curve = self.value(curve, source)?;
                     let at = self.value(location, source)?;
+                    if let Shape::Parametric(c) = &curve {
+                        let t = match at {
+                            Shape::Number { re, im: 0. } => re,
+                            Shape::Point(p) => c.nearest(p)?.0,
+                            _ => return Err("Expected a point or parameter".into()),
+                        };
+                        return c.tangent(t, self.snapshot, self.cancel.clone());
+                    }
                     if let Shape::Function { expression, .. } = &curve {
                         let x = match at {
                             Shape::Point(p) => p.x,
@@ -848,8 +921,11 @@ impl Evaluator<'_> {
                             std::f64::consts::TAU * radius
                         }
                     }
+                    Shape::Parametric(curve) => {
+                        curve.integral(name == "area", self.snapshot, self.cancel.clone())?
+                    }
                     Shape::EmptyConic(_) if name == "area" => 0.,
-                    Shape::Lines(_) => return Ok(Shape::Undefined),
+                    Shape::Lines(_) | Shape::Sequence(_) => return Ok(Shape::Undefined),
                     Shape::Arc(arc) => {
                         if name == "area" {
                             arc.area()
@@ -1006,7 +1082,7 @@ impl Evaluator<'_> {
         &mut self,
         e: &Expr,
         source: &str,
-        function: bool,
+        function: Option<&str>,
     ) -> Result<String, String> {
         let mut replacements = Vec::new();
         self.rewrite(e, source, &mut replacements, function)?;
@@ -1024,7 +1100,7 @@ impl Evaluator<'_> {
         Ok(expression)
     }
     fn numeric(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
-        let expression = self.expression_text(e, source, false)?;
+        let expression = self.expression_text(e, source, None)?;
         let result = super::super::native_readonly::evaluate(
             &expression,
             "Geometry",
@@ -1049,17 +1125,17 @@ impl Evaluator<'_> {
         e: &Expr,
         source: &str,
         out: &mut Vec<(usize, usize, String)>,
-        function: bool,
+        function: Option<&str>,
     ) -> Result<(), String> {
         if let ExprKind::Assign(..) | ExprKind::Store(..) = &e.kind {
             return Err("Geometry expressions cannot assign calculator variables".into());
         }
         let replacement = match &e.kind {
-            ExprKind::Ident(name) if function && name == "x" => None,
+            ExprKind::Ident(name) if function == Some(name.as_str()) => None,
             ExprKind::Ident(name) => {
                 if let Some(name) = self.reference(name) {
                     Some(self.resolve(&name))
-                } else if function
+                } else if function.is_some()
                     && let Some(ppl_vm::PortableValue::Real(value)) =
                         self.snapshot.globals.get(name)
                 {
@@ -1070,7 +1146,7 @@ impl Evaluator<'_> {
             }
             ExprKind::Call(callee, _) if matches!(&callee.kind,ExprKind::Ident(name)if known(name)) =>
             {
-                if function && super::function::reads_x(e) {
+                if function.is_some_and(|v| super::function::reads_variable(e, v)) {
                     return Err("Function graphs require fixed Geometry arguments".into());
                 }
                 Some(self.value(e, source))
@@ -1079,7 +1155,7 @@ impl Evaluator<'_> {
         };
         if let Some(value) = replacement {
             let p = as_point(value?)?;
-            let text = if function && p.y == 0. {
+            let text = if function.is_some() && p.y == 0. {
                 format!("({})", canonical(p.x))
             } else {
                 format!("(({})+({})*i)", canonical(p.x), canonical(p.y))
@@ -1113,7 +1189,7 @@ impl Evaluator<'_> {
 }
 fn parse(source: &str) -> Result<Expr, String> {
     super::source(source)?;
-    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    let (ast, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if let Some(error) = diagnostics.errors().next() {
         return Err(error.message.clone());
     }
@@ -1158,7 +1234,11 @@ fn known(name: &str) -> bool {
         name.to_ascii_lowercase().as_str(),
         "point"
             | "element"
+            | "locus"
             | "conic"
+            | "plotseq"
+            | "plotparam"
+            | "plotpolar"
             | "plotfunc"
             | "tangent"
             | "segment"
@@ -1236,7 +1316,7 @@ pub(super) fn point_movement(source: &str) -> Option<PointMovement> {
             _ => false,
         }
     }
-    let (e, diagnostics) = ppl_syntax::parse_expression(source);
+    let (e, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if diagnostics.has_errors() {
         return None;
     }

@@ -123,7 +123,8 @@ fn assigned_source(value: &P) -> Result<String, RuntimeError> {
     if source.is_empty() || source.len() > 4096 {
         return Err(invalid("Geometry definition needs 1 to 4096 bytes"));
     }
-    let (_, diagnostics) = ppl_syntax::parse_expression(&source);
+    let (_, diagnostics) =
+        ppl_syntax::parse_expression(&crate::ide::native_geometry::plot_syntax(&source));
     if diagnostics.has_errors() {
         return Err(invalid(
             diagnostics.errors().next().unwrap().message.clone(),
