@@ -1154,7 +1154,7 @@ impl<'a> Compiler<'a> {
                     return;
                 }
                 if self.is_app_access(name) {
-                    self.expr(value);
+                    self.app_store_value(name, value);
                     self.app_variable(name, 0, true, target.span);
                     if !want_value {
                         self.cur.emit(Op::Pop, span);
@@ -1246,7 +1246,7 @@ impl<'a> Compiler<'a> {
                     for index in idx {
                         self.expr(index);
                     }
-                    self.expr(value);
+                    self.app_store_value(name, value);
                     self.app_variable(name, idx.len() as u8, true, target.span);
                     if !want_value {
                         self.cur.emit(Op::Pop, span);
@@ -1500,7 +1500,7 @@ impl<'a> Compiler<'a> {
         is_app_variable(name)
             || ((is_function_slot(name)
                 || is_graph3d_slot(name)
-                || matches!(name, "Zmin" | "Zmax")
+                || matches!(name, "Zmin" | "Zmax" | "Ztick")
                 || is_statistics_slot(name)
                 || is_statistics_two_slot(name)
                 || (crate::geometry::is_variable(name)
@@ -1512,6 +1512,19 @@ impl<'a> Compiler<'a> {
                 && !self.opts.external_variables.contains(name)
                 && !self.opts.external_functions.contains_key(name)
                 && !self.opts.ambiguous_externals.contains(name))
+    }
+
+    fn app_store_value(&mut self, name: &str, value: &Expr) {
+        // A quoted worksheet formula executes as PPL when its cell recalculates.
+        // CAS syntax such as list[...] would change a list literal into an index.
+        if name.starts_with("Spreadsheet.")
+            && let ExprKind::Quoted(inner) = &value.kind
+            && let Ok(source) = crate::ppl_expression_source(inner)
+        {
+            self.constant(Const::Symbolic(source), value.span);
+        } else {
+            self.expr(value);
+        }
     }
 
     fn app_variable(&mut self, name: &str, argc: u8, store: bool, span: Span) {

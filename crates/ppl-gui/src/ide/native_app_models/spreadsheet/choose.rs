@@ -1,5 +1,5 @@
 //! The worksheet CHOOSE formula reads and writes a companion cell's index.
-use super::{Address, Book, Evaluator, Spreadsheet, call_end, cell_name, quoted_end};
+use super::{Address, Book, Evaluator, Spreadsheet, call_end, cell_name, formula_arguments};
 use ppl_math::Real;
 use ppl_vm::{PortableValue, SessionSnapshot, Value};
 use serde::{Deserialize, Serialize};
@@ -47,39 +47,13 @@ pub(super) fn body(source: &str) -> Option<&str> {
     Some(&call[1..call.len() - 1])
 }
 
-fn arguments(body: &str) -> Result<Vec<&str>, String> {
-    let mut values = Vec::new();
-    let mut start = 0;
-    let mut pos = 0;
-    let mut depth = 0;
-    while pos < body.len() {
-        let ch = body[pos..].chars().next().unwrap();
-        match ch {
-            '"' => {
-                pos = quoted_end(body, pos)?;
-                continue;
-            }
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth -= 1,
-            ',' if depth == 0 => {
-                values.push(body[start..pos].trim());
-                start = pos + 1;
-            }
-            _ => {}
-        }
-        pos += ch.len_utf8();
-    }
-    values.push(body[start..].trim());
-    Ok(values)
-}
-
 impl Evaluator<'_> {
     pub(super) fn choose_definition(
         &mut self,
         body: &str,
         address: Address,
     ) -> Result<ChoiceDefinition, String> {
-        let args = arguments(body)?;
+        let args = formula_arguments(body)?;
         let [target, title, items @ ..] = args.as_slice() else {
             return Err("Use CHOOSE(index cell, title, list of choices)".into());
         };

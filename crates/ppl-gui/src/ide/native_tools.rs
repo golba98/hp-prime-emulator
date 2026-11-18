@@ -329,6 +329,10 @@ pub enum Request {
     StartApp(String),
     GraphConfiguration(String, super::native_apps::GraphApp),
     PlotConfiguration(String, ppl_vm::AppPlotSettings),
+    Graph3dPlotZoom {
+        source: Box<ppl_vm::AppPlotSettings>,
+        edited: Box<ppl_vm::AppPlotSettings>,
+    },
     GeometryPlotConfiguration(ppl_vm::GeometryPlotSettings),
     ResetApp(ResetApp),
     FunctionNumericConfiguration(ppl_vm::AppNumericSettings),

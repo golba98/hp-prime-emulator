@@ -86,6 +86,37 @@ impl Ellipse {
         }
     }
 
+    pub(super) fn tangent(&self, p: Point2, constrained: bool) -> Result<super::Shape, String> {
+        use super::{Shape, primitives as g};
+        if self.minor == 0. {
+            return Err("A tangent needs a nondegenerate ellipse".into());
+        }
+        let d = self.local_vector(delta(self.center, p));
+        let at = Point2 {
+            x: d.x / self.major,
+            y: d.y / self.minor,
+        };
+        let unit = Shape::Circle {
+            center: Point2 { x: 0., y: 0. },
+            radius: 1.,
+        };
+        let lines = if constrained {
+            g::tangent_at(&unit, at)?
+        } else {
+            g::tangent(unit, Shape::Point(at))?
+        };
+        let world = |q: Point2| point(self.world(q.x * self.major, q.y * self.minor));
+        match lines {
+            Shape::Line { a, b, extent } => g::line(world(a)?, world(b)?, extent),
+            Shape::Lines(lines) => Ok(Shape::Lines(
+                lines
+                    .into_iter()
+                    .map(|[a, b]| Ok([world(a)?, world(b)?]))
+                    .collect::<Result<_, String>>()?,
+            )),
+            _ => Err("Expected tangent lines".into()),
+        }
+    }
     pub fn vertices(&self) -> impl Iterator<Item = Point2> + '_ {
         (0..=STEPS).map(|i| self.at(i as f64 * STEP))
     }

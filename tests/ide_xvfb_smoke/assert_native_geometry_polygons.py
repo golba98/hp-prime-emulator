@@ -15,5 +15,5 @@ points = shapes[-1]['value']['Ok']['Polygon']
 assert [(p['x'], p['y']) for p in points] == [(-2, 0), (2, 0), (0, 3), (-4, 3)]
 outcome = states['values']['native_session']['last_outcome']
 assert outcome['status'] == 'success', outcome
-assert [float(v['value']) for v in outcome['typed_result']['value']] == [12, 12, 16, 12]
+assert [float(v['value']) for v in outcome['typed_result']['value']] == [12, 12, 16, 12, 48, 12]
 print('Geometry Cmds constructed and measured the expected polygon vertices')

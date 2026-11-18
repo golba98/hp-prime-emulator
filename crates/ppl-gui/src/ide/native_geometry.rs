@@ -7,6 +7,7 @@ mod evaluate;
 mod function;
 pub mod plot;
 pub mod primitives;
+mod transform;
 use super::native_app_models::Geometry;
 pub use super::native_app_models::Point2;
 pub use arc::CircularArc;
@@ -410,6 +411,66 @@ mod tests {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn original_ellipse_and_arc_tangents_use_curve_parameters() {
+        let construction = book(&[
+            ("A", "ellipse(point(-2,0),point(2,0),3)"),
+            ("B", "circle(point(0,0),2,0,2)"),
+            ("C", "slope(tangent(GA,1))"),
+            ("D", "slope(tangent(GB,1))"),
+            ("E", "element(GA,1)"),
+            ("F", "slope(tangent(GE))"),
+        ]);
+        let scene = scene(&construction);
+        for (name, expected) in [("C", 2. / 9.), ("D", -1. / 1_f64.tan()), ("F", 2. / 9.)] {
+            let Shape::Number { re, .. } = shape(&scene, name) else {
+                panic!("{name}")
+            };
+            assert!((re - expected).abs() < 1e-10, "{name}: {re}");
+        }
+    }
+
+    #[test]
+    fn similarities_transform_whole_objects_and_reject_a_point_as_displacement() {
+        let construction = book(&[
+            ("A", "square(point(0,0),point(2,0))"),
+            ("B", "translation(1+2*i,GA)"),
+            ("C", "similarity(0,2,0,GA)"),
+            ("D", "reflection(line(point(0,0),point(1,0)),GA)"),
+            ("E", "translation(point(1,2),GA)"),
+            ("F", "rotation(point(0,0),0,segment(point(1,2),point(3,4)))"),
+            ("G", "homothety(point(1,1),2,circle(point(1,1),2))"),
+        ]);
+        let scene = scene(&construction);
+        for (name, last) in [("B", (1., 4.)), ("C", (0., 4.)), ("D", (0., -2.))] {
+            let Shape::Polygon(vertices) = shape(&scene, name) else {
+                panic!("{name}")
+            };
+            assert_eq!(
+                vertices[3],
+                Point2 {
+                    x: last.0,
+                    y: last.1
+                }
+            );
+        }
+        assert!(scene.objects[4].value.is_err());
+        assert!(matches!(
+            shape(&scene, "F"),
+            Shape::Line {
+                extent: Extent::Segment,
+                ..
+            }
+        ));
+        assert_eq!(
+            shape(&scene, "G"),
+            Shape::Circle {
+                center: Point2 { x: 1., y: 1. },
+                radius: 4.
+            }
+        );
     }
 
     #[test]

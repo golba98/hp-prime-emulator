@@ -64,6 +64,7 @@ pub(super) struct Panel {
     report: bool,
     report_row: usize,
     report_first: usize,
+    report_selection: [usize; 2],
     equation: Option<String>,
     plot_controls: bool,
     plot_definition: bool,
@@ -106,6 +107,33 @@ fn stats_two_reference(field: Field) -> Option<usize> {
 }
 
 impl NativeTools {
+    fn statistics_move_report_selection(&mut self, rows: isize, columns: isize) {
+        let available = self
+            .memory
+            .models
+            .results
+            .get(app(false))
+            .and_then(serde_json::Value::as_object)
+            .map_or(0, |result| {
+                result.keys().filter(|name| name.starts_with('H')).count()
+            });
+        let panel = &mut self.statistics_panel;
+        let [row, column] = panel.report_selection;
+        let row = row
+            .saturating_add_signed(rows)
+            .min(view::ONE_REPORT_ROWS.len() - 1);
+        let column = column.saturating_add_signed(columns).min(available);
+        panel.report_selection = [row, column];
+        panel.report_row = panel
+            .report_row
+            .clamp(row.saturating_sub(view::REPORT_VISIBLE_ROWS - 1), row);
+        if column > 0 {
+            panel.report_first = panel.report_first.clamp(
+                column.saturating_sub(view::REPORT_VISIBLE_ANALYSES),
+                column - 1,
+            );
+        }
+    }
     pub fn statistics_seed_columns(
         &mut self,
         snapshot: &SessionSnapshot,
@@ -394,6 +422,28 @@ impl NativeTools {
                 Field::Color,
             ]
         }
+    }
+    fn statistics_frequency_enabled(&self, two: bool, analysis: usize) -> bool {
+        two || self
+            .memory
+            .models
+            .statistics1_book
+            .as_ref()
+            .is_none_or(|book| book.analyses[analysis].chart.uses_frequencies())
+    }
+    fn statistics_current_cursor(&mut self, two: bool) -> Cursor {
+        let index = usize::from(two);
+        let mut cursor = self.memory.statistics_cursor[index];
+        if self.page == Some(super::Page::Symbolic)
+            && cursor.field == Field::Frequency
+            && !self.statistics_frequency_enabled(two, cursor.analysis)
+        {
+            // Earlier profiles could save focus on an inactive Frequency field.
+            cursor.field = Field::X;
+            self.memory.statistics_cursor[index] = cursor;
+            self.dirty();
+        }
+        cursor
     }
     fn statistics_menu_items(&self, two: bool, kind: MenuKind) -> Vec<String> {
         match kind {
@@ -926,7 +976,7 @@ impl NativeTools {
             self.error = Some(error);
             return Some(Vec::new());
         }
-        let cursor = self.memory.statistics_cursor[usize::from(two)];
+        let cursor = self.statistics_current_cursor(two);
         if self.page == Some(super::Page::Numeric) {
             return Some(vec![
                 Request::EditMath(self.statistics_entry_target(two, true)),
@@ -980,7 +1030,7 @@ impl NativeTools {
             return Some(Vec::new());
         }
         let i = usize::from(two);
-        let mut cursor = self.memory.statistics_cursor[i];
+        let mut cursor = self.statistics_current_cursor(two);
         let mut requests = Vec::new();
         if matches!(action, A::Home | A::Tool(_)) {
             self.statistics_panel.menu = None;
@@ -1038,6 +1088,11 @@ impl NativeTools {
             }
         } else if self.statistics_panel.report {
             match action {
+                A::History(delta) if !two => {
+                    self.statistics_move_report_selection(delta as isize, 0);
+                }
+                A::Edit(E::Left(_)) if !two => self.statistics_move_report_selection(0, -1),
+                A::Edit(E::Right(_)) if !two => self.statistics_move_report_selection(0, 1),
                 A::History(delta) => {
                     self.statistics_panel.report_row =
                         (self.statistics_panel.report_row as i64 + delta as i64).clamp(0, 30)
@@ -1160,6 +1215,15 @@ impl NativeTools {
                 }
                 A::Back | A::On => requests.push(Request::Close),
                 _ => {}
+            }
+            if cursor.field == Field::Frequency
+                && !self.statistics_frequency_enabled(two, cursor.analysis)
+            {
+                cursor.field = if matches!(action, A::Edit(E::Right(_)) | A::History(1..)) {
+                    Field::Fit
+                } else {
+                    Field::X
+                };
             }
         }
         let length = self.memory.models.statistics_columns(two)?.0[cursor.column].len();

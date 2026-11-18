@@ -3247,6 +3247,80 @@
     },
     {
       "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
       "x": 230,
       "y": 30
     },
@@ -3257,80 +3331,6 @@
     {
       "step": "key",
       "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "click_lcd",
-      "x": 270,
-      "y": 60
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "click_lcd",
-      "x": 270,
-      "y": 60
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
     },
     {
       "step": "wait_ms",

@@ -53,7 +53,7 @@
       "step": "native_object",
       "kind": "program",
       "name": "GEOPOLYREAD",
-      "content": "EXPORT GEOPOLYREAD() BEGIN STARTAPP(\"Geometry\"); STARTVIEW(1,1);RETURN {area(Geometry.GD),area(rectangle(Geometry.GA,Geometry.GB,Geometry.GC)),area(right_triangle(Geometry.GA,Geometry.GB,2)),area(parallelogram(Geometry.GA,Geometry.GB,Geometry.GC))};END;"
+      "content": "EXPORT GEOPOLYREAD() BEGIN STARTAPP(\"Geometry\"); STARTVIEW(1,1);RETURN {area(Geometry.GD),area(rectangle(Geometry.GA,Geometry.GB,Geometry.GC)),area(right_triangle(Geometry.GA,Geometry.GB,2)),area(parallelogram(Geometry.GA,Geometry.GB,Geometry.GC)),area(similarity(0,2,0,Geometry.GD)),area(translation(Geometry.GB-Geometry.GA,Geometry.GD))};END;"
     },
     {
       "step": "wait_ms",

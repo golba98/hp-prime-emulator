@@ -51,8 +51,13 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
         );
     }
     match b {
+        B::SheetSum | B::SheetAverage if m.active_app == "Spreadsheet" => {
+            math::sheet_aggregate(&args, &m.settings.clone(), b == B::SheetAverage, || {
+                m.check_limits()
+            })
+        }
         B::PredX | B::PredY if m.active_app == "Spreadsheet" => math::call(m, b, name, &args),
-        B::PredX | B::PredY => Err(RuntimeError::new(
+        B::SheetSum | B::SheetAverage | B::PredX | B::PredY => Err(RuntimeError::new(
             ErrorKind::InvalidInput,
             format!("{name} requires the Spreadsheet app"),
         )),

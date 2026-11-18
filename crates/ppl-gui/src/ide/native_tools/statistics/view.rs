@@ -11,6 +11,38 @@ use ppl_graphics::{
 };
 const PAPER: u32 = 0xe8f1f6;
 const INK: u32 = 0;
+const INACTIVE_FIELD: u32 = 0xe1e1e1;
+const INACTIVE_TEXT: u32 = 0x888888;
+const SELECTED: u32 = 0xadccff;
+pub(super) const REPORT_VISIBLE_ROWS: usize = 10;
+pub(super) const REPORT_VISIBLE_ANALYSES: usize = 3;
+pub(super) const ONE_REPORT_ROWS: [(&str, &str, &str); 13] = [
+    ("n", "count", "Number of items"),
+    ("Min", "minimum", "Minimum value"),
+    ("Q1", "quartile1", "Lower quartile"),
+    ("Med", "median", "Median"),
+    ("Q3", "quartile3", "Upper quartile"),
+    ("Max", "maximum", "Maximum value"),
+    ("ΣX", "sum", "Sum of X"),
+    ("ΣX²", "sum_squares", "Sum of X²"),
+    ("x̄", "mean", "Mean of X"),
+    (
+        "sX",
+        "sample_standard_deviation",
+        "Sample standard deviation of X",
+    ),
+    (
+        "σX",
+        "population_standard_deviation",
+        "Population standard deviation of X",
+    ),
+    ("serrX", "standard_error", "Standard error of sample X"),
+    (
+        "ssX",
+        "sum_squared_deviations",
+        "Sum of squared deviations of X",
+    ),
+];
 pub(super) fn text(g: &mut Grob, s: &str, x: i64, y: i64) {
     draw_text(g, s, x, y, 14., INK, None, None);
 }
@@ -50,14 +82,24 @@ fn tick(g: &mut Grob, x: i64, y: i64) {
     g.line(x + 2, y + 7, x + 5, y + 11, 0);
     g.line(x + 5, y + 11, x + 11, y + 1, 0);
 }
-fn clipped(g: &mut Grob, s: &str, [x, y, r, b]: [i64; 4], right: bool) {
-    let mut cell = Grob::new((r - x + 1) as usize, (b - y + 1) as usize, 0xffffff);
+fn clipped(g: &mut Grob, s: &str, bounds: [i64; 4], right: bool) {
+    clipped_with_colors(g, s, bounds, right, INK, 0xffffff);
+}
+fn clipped_with_colors(
+    g: &mut Grob,
+    s: &str,
+    [x, y, r, b]: [i64; 4],
+    right: bool,
+    ink: u32,
+    paper: u32,
+) {
+    let mut cell = Grob::new((r - x + 1) as usize, (b - y + 1) as usize, paper);
     let at = if right {
         r - x - measure(s, 14.) - 1
     } else {
         1
     };
-    text(&mut cell, s, at, 1);
+    draw_text(&mut cell, s, at, 1, 14., ink, None, None);
     g.blit(
         (x, y, r + 1, b + 1),
         &cell,
@@ -222,9 +264,14 @@ impl NativeTools {
                 &[Field::X, Field::Frequency][..]
             } {
                 let bounds = rect(index, *field, cursor.symbolic_scroll, two);
-                g.rect(
-                    bounds[0], bounds[1], bounds[2], bounds[3], 0xdcdcdc, 0xffffff,
-                );
+                let inactive =
+                    *field == Field::Frequency && !self.statistics_frequency_enabled(two, index);
+                let (border, ink, paper) = if inactive {
+                    (INACTIVE_FIELD, INACTIVE_TEXT, INACTIVE_FIELD)
+                } else {
+                    (0xdcdcdc, INK, 0xffffff)
+                };
+                g.rect(bounds[0], bounds[1], bounds[2], bounds[3], border, paper);
                 let label = if two {
                     let analysis = &self
                         .memory
@@ -253,11 +300,13 @@ impl NativeTools {
                         analysis.data_expression()
                     }
                 };
-                clipped(
+                clipped_with_colors(
                     g,
                     &label,
                     [bounds[0] + 1, bounds[1] + 1, bounds[2] - 1, bounds[3] - 1],
                     false,
+                    ink,
+                    paper,
                 );
             }
             if two {
@@ -346,7 +395,12 @@ impl NativeTools {
         // The form scrolls under the fixed header and entry strip.
         chrome::header(g, &format!("{} Symbolic View", app(two)));
     }
-    fn paint_statistics_report(&self, g: &mut Grob, two: bool, settings: &ppl_vm::Settings) {
+    fn paint_statistics_report(
+        &self,
+        g: &mut Grob,
+        two: bool,
+        settings: &ppl_vm::Settings,
+    ) -> Option<String> {
         g.fill_rect(0, 20, 319, 219, 0xffffff);
         let Some(result) = self
             .memory
@@ -365,50 +419,39 @@ impl NativeTools {
                 0,
                 40,
             );
-            return;
+            return None;
         };
         let columns = result
             .iter()
             .filter(|(name, _)| name.starts_with(if two { 'S' } else { 'H' }))
             .skip(self.statistics_panel.report_first)
-            .take(3)
+            .take(REPORT_VISIBLE_ANALYSES)
             .collect::<Vec<_>>();
         if columns.is_empty() {
             text(g, "No selected analysis in this view", 0, 40);
-            return;
+            return None;
         }
-        let rows: &[(&str, &str)] = if two {
+        let rows: &[(&str, &str, &str)] = if two {
             &[
-                ("n", "summary.count"),
-                ("r", "summary.correlation"),
-                ("ΣXY", "summary.sum_products"),
-                ("covXY", "summary.population_covariance"),
-                ("sXY", "summary.sample_covariance"),
-                ("x̄", "summary.x.mean"),
-                ("ȳ", "summary.y.mean"),
-                ("ΣX", "summary.x.sum"),
-                ("ΣY", "summary.y.sum"),
-                ("ΣX²", "summary.x.sum_squares"),
-                ("ΣY²", "summary.y.sum_squares"),
-                ("SSE", "regression.residual_sum_squares"),
+                ("n", "summary.count", ""),
+                ("r", "summary.correlation", ""),
+                ("ΣXY", "summary.sum_products", ""),
+                ("covXY", "summary.population_covariance", ""),
+                ("sXY", "summary.sample_covariance", ""),
+                ("x̄", "summary.x.mean", ""),
+                ("ȳ", "summary.y.mean", ""),
+                ("ΣX", "summary.x.sum", ""),
+                ("ΣY", "summary.y.sum", ""),
+                ("ΣX²", "summary.x.sum_squares", ""),
+                ("ΣY²", "summary.y.sum_squares", ""),
+                ("SSE", "regression.residual_sum_squares", ""),
             ]
         } else {
-            &[
-                ("n", "count"),
-                ("Min", "minimum"),
-                ("Q1", "quartile1"),
-                ("Med", "median"),
-                ("Q3", "quartile3"),
-                ("Max", "maximum"),
-                ("ΣX", "sum"),
-                ("ΣX²", "sum_squares"),
-                ("x̄", "mean"),
-                ("sX", "sample_standard_deviation"),
-                ("σX", "population_standard_deviation"),
-                ("serrX", "standard_error"),
-                ("ssX", "sum_squared_deviations"),
-            ]
+            &ONE_REPORT_ROWS
         };
+        let [selected_row, selected_column] = self.statistics_panel.report_selection;
+        let mut footer = (!two && selected_column == 0).then(|| rows[selected_row].2.to_owned());
+        let first_row = self.statistics_panel.report_row.min(rows.len() - 1);
         g.fill_rect(0, 20, 319, 36, PAPER);
         g.line(0, 36, 319, 36, 0);
         for (column, (analysis_name, value)) in columns.iter().enumerate() {
@@ -421,14 +464,20 @@ impl NativeTools {
                 20,
             );
             g.line(left, 20, left, 202, 0);
-            for (row, (label, path)) in rows
+            for (row, (label, path, _)) in rows
                 .iter()
-                .skip(self.statistics_panel.report_row.min(rows.len() - 1))
-                .take(10)
+                .skip(first_row)
+                .take(REPORT_VISIBLE_ROWS)
                 .enumerate()
             {
                 let top = 37 + row as i64 * 17;
-                g.fill_rect(0, top, 64, top + 16, PAPER);
+                let row_selected = !two && first_row + row == selected_row;
+                let label_fill = if row_selected && selected_column == 0 {
+                    SELECTED
+                } else {
+                    PAPER
+                };
+                g.fill_rect(0, top, 64, top + 16, label_fill);
                 text(g, label, 0, top);
                 let v = path.split('.').try_fold(*value, |v, key| v.get(key));
                 let typed = if two {
@@ -471,10 +520,26 @@ impl NativeTools {
                             },
                         )
                     });
-                clipped(g, &label, [left + 1, top, right - 1, top + 15], false);
+                let result_fill = if row_selected
+                    && selected_column == self.statistics_panel.report_first + column + 1
+                {
+                    footer = Some(label.clone());
+                    SELECTED
+                } else {
+                    0xffffff
+                };
+                clipped_with_colors(
+                    g,
+                    &label,
+                    [left + 1, top, right - 1, top + 15],
+                    false,
+                    INK,
+                    result_fill,
+                );
                 g.line(0, top + 16, 319, top + 16, 0xdcdcdc);
             }
         }
+        footer
     }
     pub(crate) fn show_statistics(
         &mut self,
@@ -491,7 +556,7 @@ impl NativeTools {
             self.statistics_sync_error(Some(error));
         }
         let index = usize::from(two);
-        let cursor = self.memory.statistics_cursor[index];
+        let cursor = self.statistics_current_cursor(two);
         let numeric = self.page == Some(Page::Numeric);
         let mut settings = snapshot.settings.clone();
         if let Some(app) = snapshot.app_settings.get(app(two)) {
@@ -506,6 +571,7 @@ impl NativeTools {
                 if numeric { "Numeric" } else { "Symbolic" }
             ),
         );
+        let mut report_footer = None;
         if self.statistics_panel.sync_error.is_some() {
             text(&mut image, "Statistics data unavailable", 5, 35);
         } else if let Some(source) = &self.statistics_panel.equation {
@@ -520,7 +586,7 @@ impl NativeTools {
             );
             image.blit((0, 20, 320, 203), &body, (0, 0, 320, 183), None, 255);
         } else if self.statistics_panel.report {
-            self.paint_statistics_report(&mut image, two, &settings);
+            report_footer = self.paint_statistics_report(&mut image, two, &settings);
         } else if numeric {
             self.paint_statistics_numeric(&mut image, two, cursor, &settings);
         } else {
@@ -531,7 +597,7 @@ impl NativeTools {
         let help = if self.statistics_panel.busy {
             "Calculating…"
         } else if self.statistics_panel.report {
-            "Computed statistics"
+            report_footer.as_deref().unwrap_or("Computed statistics")
         } else if numeric {
             &cell_source
         } else {
@@ -710,7 +776,7 @@ impl NativeTools {
         requests: &mut Vec<Request>,
     ) {
         let index = usize::from(two);
-        let mut cursor = self.memory.statistics_cursor[index];
+        let mut cursor = self.statistics_current_cursor(two);
         if self.statistics_panel.sync_error.is_some() {
             if p.1 >= 220 && chrome::softkey_index(p.0) == 5 {
                 requests.push(Request::Close);
@@ -774,6 +840,7 @@ impl NativeTools {
                         self.statistics_panel.report = true;
                         self.statistics_panel.report_row = 0;
                         self.statistics_panel.report_first = 0;
+                        self.statistics_panel.report_selection = [0, 0];
                         if let Some(calculation) =
                             crate::ide::native_app_ui::numeric(app(two), &self.memory.models)
                         {
@@ -841,6 +908,13 @@ impl NativeTools {
                 for analysis in 0..5 {
                     for &field in Self::statistics_fields(two) {
                         if contains(rect(analysis, field, cursor.symbolic_scroll, two), p) {
+                            if field == Field::Frequency
+                                && !self.statistics_frequency_enabled(two, analysis)
+                            {
+                                cursor.analysis = analysis;
+                                cursor.field = Field::X;
+                                break;
+                            }
                             let same = (cursor.analysis, cursor.field) == (analysis, field);
                             cursor.analysis = analysis;
                             cursor.field = field;
@@ -912,6 +986,44 @@ mod tests {
                 modifiers: egui::Modifiers::NONE,
             }],
         )
+    }
+    #[test]
+    fn saved_focus_on_inactive_frequency_returns_to_sample() {
+        use crate::ide::native::{expression::EditCommand, keys::KeyAction};
+
+        let mut tools = one_tools();
+        let analysis = &mut tools
+            .memory
+            .models
+            .statistics1_book
+            .as_mut()
+            .unwrap()
+            .analyses[0];
+        analysis.chart = model::one::Chart::Bar;
+        analysis.frequency_source = Some("D2".into());
+        tools.memory.statistics_cursor[0].field = Field::Frequency;
+        let context = egui::Context::default();
+        assert!(frame(&mut tools, &context, Vec::new()).is_empty());
+        assert_eq!(tools.memory.statistics_cursor[0].field, Field::X);
+
+        tools.statistics_action(KeyAction::Edit(EditCommand::Right(false)));
+        assert_eq!(tools.memory.statistics_cursor[0].field, Field::Fit);
+        let point = egui::pos2(220., 33.);
+        for _ in 0..2 {
+            assert!(click(&mut tools, &context, point).is_empty());
+            assert_eq!(tools.memory.statistics_cursor[0].field, Field::X);
+        }
+        assert_eq!(
+            tools
+                .memory
+                .models
+                .statistics1_book
+                .as_ref()
+                .unwrap()
+                .analyses[0]
+                .frequency_expression(),
+            "D2"
+        );
     }
     #[test]
     fn chart_and_option_keyboard_choices_preserve_checked_analysis_and_restore() {
@@ -1034,6 +1146,52 @@ mod tests {
             .unwrap();
         tools.paint_statistics_symbolic(&mut image, false, cursor);
         assert!((24..=40).any(|y| (181..=311).any(|x| image.pixels()[y * 320 + x] == INK)));
+    }
+    #[test]
+    fn one_variable_summary_arrows_select_cells_and_keep_the_last_row_visible() {
+        use crate::ide::native::{expression::EditCommand, keys::KeyAction};
+
+        let mut tools = one_tools();
+        tools.open(Page::Numeric);
+        tools.statistics_panel.report = true;
+        tools.memory.models.results.insert(
+            app(false).into(),
+            serde_json::json!({ "H1": { "count": 6 }, "H2": { "count": 3 } }),
+        );
+        let mut image = Grob::new(320, 240, PAPER);
+        let settings = ppl_vm::Settings::default();
+        for _ in 0..3 {
+            tools.statistics_action(KeyAction::Edit(EditCommand::Right(false)));
+        }
+        assert_eq!(tools.statistics_panel.report_selection, [0, 2]);
+        assert_eq!(
+            tools
+                .paint_statistics_report(&mut image, false, &settings)
+                .as_deref(),
+            Some("3")
+        );
+        tools.statistics_action(KeyAction::Edit(EditCommand::Left(false)));
+        tools.statistics_action(KeyAction::Edit(EditCommand::Left(false)));
+        tools.statistics_action(KeyAction::History(1));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 0]);
+        assert_eq!(tools.statistics_panel.report_row, 0);
+        assert_eq!(
+            tools
+                .paint_statistics_report(&mut image, false, &settings)
+                .as_deref(),
+            Some("Minimum value")
+        );
+        for _ in 1..15 {
+            tools.statistics_action(KeyAction::History(1));
+        }
+        assert_eq!(tools.statistics_panel.report_selection, [12, 0]);
+        assert_eq!(tools.statistics_panel.report_row, 3);
+        assert_eq!(
+            tools
+                .paint_statistics_report(&mut image, false, &settings)
+                .as_deref(),
+            Some("Sum of squared deviations of X")
+        );
     }
     #[test]
     fn cached_statistics_report_repaints_typed_results_with_current_app_precision() {

@@ -1783,6 +1783,29 @@ impl IdeDesktopApp {
                 }
                 result
             }
+            Request::Graph3dPlotZoom { source, edited } => {
+                let name = crate::ide::native_graph3d::NAME;
+                let result = self.controller.mutate_memory(|memory| {
+                    if memory.active_app != name {
+                        return Err("Graph 3D is no longer active".into());
+                    }
+                    if memory
+                        .app_plot_settings()
+                        .map_err(|error| error.to_string())?
+                        != *source
+                    {
+                        return Err("Graph 3D Plot settings changed while choosing Zoom".into());
+                    }
+                    memory
+                        .set_app_plot_settings(name, *edited)
+                        .map_err(|error| error.to_string())
+                });
+                if result.is_ok() {
+                    self.native_tools
+                        .graph3d_refresh_zoom(self.controller.session_snapshot());
+                }
+                result
+            }
             Request::Graph3dNumericConfiguration {
                 source,
                 edited,

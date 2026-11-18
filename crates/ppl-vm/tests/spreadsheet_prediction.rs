@@ -160,3 +160,32 @@ fn polynomial_inverse_preserves_distinct_failure_cases() {
         assert_eq!(error.detail, detail, "{source}");
     }
 }
+
+#[test]
+fn spreadsheet_sum_and_average_preserve_typed_operands() {
+    let mut context = spreadsheet();
+    for (source, expected) in [
+        ("SUM()", "0"),
+        ("SUM({1,2},3)", "6"),
+        ("AVERAGE({{1,3},{8}})", "4"),
+        ("AVERAGE({#2h,#4h})", "3"),
+        ("SUM({{1,2},{3,4}})", "10"),
+        ("AVERAGE({1,2,3})", "2"),
+    ] {
+        expect_real(&mut context, source, expected);
+    }
+    for (source, expected) in [
+        ("SUM({#1h,#3h})", "#4h"),
+        ("AVERAGE(\"xx\")", "\"xx\""),
+        ("SUM({1,\"a\"})", "\"1a\""),
+        ("AVERAGE([[1,2],[3,4]])", "[[1,2],[3,4]]"),
+    ] {
+        assert!(
+            evaluate(&mut context, source)
+                .unwrap()
+                .equals(&evaluate(&mut context, expected).unwrap())
+        );
+    }
+    assert!(evaluate(&mut context, "AVERAGE({})").is_err());
+    assert!(evaluate(&mut context, "AVERAGE({1,\"a\"})").is_err());
+}

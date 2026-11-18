@@ -10,6 +10,7 @@ mod numeric_setup;
 mod plot_definition;
 mod plot_render;
 mod plot_trace;
+mod plot_zoom;
 mod surface_colors;
 
 use egui::{Rect, vec2};
@@ -320,6 +321,7 @@ impl NativeTools {
                     }
                     self.graph3d_plot_go_to_button(ui);
                     self.graph3d_definition_button(ui);
+                    self.graph3d_plot_zoom_menu(ui, snapshot);
                 });
                 let height = if self.graph3d_panel.trace.definition.visible() {
                     125.

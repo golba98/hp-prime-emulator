@@ -36,8 +36,8 @@ def result(state):
 
 states = snapshots("")
 reopened = snapshots("_reopen")
-expected = [4, 4, 4, 0.9, 8, 1, 2, [-6, -1, 1], 777, 4, 2.20506763921, -2]
-assert result(states["before_edit"]) == [3, 3, 3, 0.9, 8, 1, 2, [-6, -1, 1], 777, 3, 4, -2]
+expected = [4, 4, 4, 0.9, 8, 1, 2, [-6, -1, 1], 777, 4, 2.20506763921, -2, 11, 3.66666666667, 6]
+assert result(states["before_edit"]) == [3, 3, 3, 0.9, 8, 1, 2, [-6, -1, 1], 777, 3, 4, -2, 5, 1.66666666667, 6]
 assert result(states["after_edit"]) == expected
 assert result(reopened["reopened_ppl"]) == expected
 saved = sheet(states["saved"])

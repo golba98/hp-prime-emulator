@@ -868,40 +868,51 @@ impl Evaluator<'_> {
                 let p = self.pt(&args[1], source)?;
                 Ok(Shape::Point(g::project(p, a, b)?))
             }
-            "reflection" => {
-                arity(2)?;
-                let axis = self.value(&args[0], source)?;
-                let p = self.pt(&args[1], source)?;
-                let p = match axis {
-                    Shape::Line { a, b, .. } => g::reflect(p, a, b)?,
-                    center => {
-                        let c = as_point(center)?;
-                        point(Point2 {
-                            x: 2. * c.x - p.x,
-                            y: 2. * c.y - p.y,
-                        })?
+            "translation" | "reflection" | "rotation" | "homothety" | "similarity" => {
+                use super::transform::Transform;
+                let transform = match name.as_str() {
+                    "translation" => {
+                        arity(2)?;
+                        let Shape::Number { re, im } = self.value(&args[0], source)? else {
+                            return Err(
+                                "Translation requires a vector or a point difference".into()
+                            );
+                        };
+                        Transform::Translate(Point2 { x: re, y: im })
+                    }
+                    "reflection" => {
+                        arity(2)?;
+                        match self.value(&args[0], source)? {
+                            Shape::Line { a, b, .. } => Transform::Mirror { a, b },
+                            center => Transform::About {
+                                center: as_point(center)?,
+                                scale: -1.,
+                                radians: 0.,
+                            },
+                        }
+                    }
+                    _ => {
+                        arity(if name == "similarity" { 4 } else { 3 })?;
+                        let center = self.pt(&args[0], source)?;
+                        let scale = if name == "rotation" {
+                            1.
+                        } else {
+                            self.real(&args[1], source)?
+                        };
+                        let radians = if name == "homothety" {
+                            0.
+                        } else {
+                            let angle = &args[if name == "rotation" { 1 } else { 2 }];
+                            self.real(angle, source)? * std::f64::consts::TAU / self.angle_turn()
+                        };
+                        Transform::About {
+                            center,
+                            scale,
+                            radians,
+                        }
                     }
                 };
-                Ok(Shape::Point(p))
-            }
-            "rotation" => {
-                arity(3)?;
-                let center = self.pt(&args[0], source)?;
-                let angle = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(
-                    p.rotate(center, angle * 360. / self.angle_turn())?,
-                ))
-            }
-            "homothety" => {
-                arity(3)?;
-                let c = self.pt(&args[0], source)?;
-                let k = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(point(Point2 {
-                    x: c.x + k * (p.x - c.x),
-                    y: c.y + k * (p.y - c.y),
-                })?))
+                transform.apply(self.value(args.last().unwrap(), source)?)
             }
             _ => self.numeric(e, source),
         }
@@ -1127,6 +1138,8 @@ fn known(name: &str) -> bool {
             | "slope"
             | "angle"
             | "projection"
+            | "translation"
+            | "similarity"
             | "reflection"
             | "rotation"
             | "homothety"

@@ -255,7 +255,17 @@ impl Book {
             }
             if Some(surface) == index {
                 stopped(&cancel)?;
-                let coordinates = selection.map_or([Real::ZERO; 2], |point| point.coordinates);
+                let coordinates = if let Some(point) = selection {
+                    point.coordinates
+                } else {
+                    let midpoint = |[lo, hi]: [f64; 2]| {
+                        let value =
+                            Real::from_f64(lo.midpoint(hi)).map_err(|error| error.to_string())?;
+                        Real::parse(&value.to_string())
+                            .ok_or_else(|| "Invalid trace midpoint".to_owned())
+                    };
+                    [midpoint(self.bounds[0])?, midpoint(self.bounds[1])?]
+                };
                 let initial =
                     surface_point(&mut evaluator, surface, coordinates).unwrap_or(SurfacePoint {
                         index: surface,

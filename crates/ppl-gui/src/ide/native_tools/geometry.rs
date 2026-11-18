@@ -75,6 +75,8 @@ struct Menu {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Need {
+    Transformable,
+    Mirror,
     Point,
     PointOnCurve,
     Line,
@@ -85,6 +87,11 @@ enum Need {
 impl Need {
     fn accepts(self, command: Command, shape: &Shape) -> bool {
         match self {
+            Self::Mirror => matches!(shape, Shape::Point(_) | Shape::Line { .. }),
+            Self::Transformable => !matches!(
+                shape,
+                Shape::Undefined | Shape::Function { .. } | Shape::Number { .. }
+            ),
             Self::Point | Self::PointOnCurve => matches!(shape, Shape::Point(_)),
             Self::Line => matches!(shape, Shape::Line { .. }),
             Self::Circle => matches!(shape, Shape::Circle { .. } | Shape::Arc(_)),
@@ -282,17 +289,27 @@ const TRANSFORMS: &[Command] = &[
     Command {
         label: "Reflection",
         function: "reflection",
-        needs: &[Need::Line, Need::Point],
+        needs: &[Need::Mirror, Need::Transformable],
     },
     Command {
         label: "Rotation",
         function: "rotation",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::Transformable],
     },
     Command {
         label: "Dilation",
         function: "homothety",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::Transformable],
+    },
+    Command {
+        label: "Translation",
+        function: "translation",
+        needs: &[Need::Transformable, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Similarity",
+        function: "similarity",
+        needs: &[Need::Point, Need::Transformable],
     },
 ];
 const MEASURES: &[Command] = &[
@@ -917,6 +934,8 @@ impl NativeTools {
             }
             ("right_triangle", [a, b]) => format!("right_triangle({a},{b},1)"),
             ("isopolygon", [a, b]) => format!("isopolygon({a},{b},6)"),
+            ("translation", [object, a, b]) => format!("translation({b}-{a},{object})"),
+            ("similarity", [center, object]) => format!("similarity({center},2,0,{object})"),
             ("homothety", [shape, center]) => format!("homothety({shape},2,{center})"),
             (name, _) => format!("{name}({})", args.join(",")),
         })
@@ -1003,6 +1022,7 @@ impl NativeTools {
                 if matches!(
                     command.function,
                     "rotation"
+                        | "similarity"
                         | "homothety"
                         | "isosceles_triangle"
                         | "rhombus"

@@ -206,7 +206,9 @@ pub fn element(curve: &Shape, t: f64) -> Result<Point2, String> {
 pub(super) fn tangent_at(curve: &Shape, p: Point2) -> Result<Shape, String> {
     let (center, radius) = match *curve {
         Shape::Line { .. } => return Ok(curve.clone()),
-        Shape::Circle { center, radius } => (center, radius),
+        Shape::Circle { center, radius }
+        | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, true),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
     let radial = delta(center, p);
@@ -230,7 +232,9 @@ pub(super) fn tangent(curve: Shape, location: Shape) -> Result<Shape, String> {
     };
     let (center, radius) = match curve {
         Shape::Line { .. } => return Ok(curve),
-        Shape::Circle { center, radius } => (center, radius),
+        Shape::Circle { center, radius }
+        | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, false),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
     let radial = delta(center, p);

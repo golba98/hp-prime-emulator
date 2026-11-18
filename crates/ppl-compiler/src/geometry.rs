@@ -81,6 +81,8 @@ pub fn is_function(name: &str) -> bool {
             | "slope"
             | "angle"
             | "projection"
+            | "translation"
+            | "similarity"
             | "reflection"
             | "rotation"
             | "homothety"
