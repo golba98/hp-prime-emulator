@@ -461,3 +461,40 @@ fn order_curve_intersections(mut points: Vec<Point2>, a: Point2, b: Point2) -> V
     points.sort_by(|p, q| coordinate(q).total_cmp(&coordinate(p)));
     points
 }
+
+// Normalize before applying the factor so a large displacement does not need
+// to be squared. The center has no finite inverse.
+pub(super) fn inversion(center: Point2, factor: f64, p: Point2) -> Result<Shape, String> {
+    let d = delta(center, p);
+    let distance = number(d.x.hypot(d.y))?;
+    if distance == 0. {
+        return Ok(Shape::Undefined);
+    }
+    let length = factor / distance;
+    Ok(Shape::Point(point(Point2 {
+        x: center.x + length * (d.x / distance),
+        y: center.y + length * (d.y / distance),
+    })?))
+}
+
+pub(super) fn reciprocate(center: Point2, radius: f64, object: Shape) -> Result<Shape, String> {
+    let squared = number(radius * radius)?;
+    match object {
+        Shape::Line { a, b, .. } => inversion(center, squared, project(center, a, b)?),
+        other => {
+            let p = super::evaluate::as_point(other)?;
+            let Shape::Point(foot) = inversion(center, squared, p)? else {
+                return Err("Point at the center has no finite polar line".into());
+            };
+            let d = delta(center, p);
+            line(
+                foot,
+                point(Point2 {
+                    x: foot.x - d.y,
+                    y: foot.y + d.x,
+                })?,
+                Extent::Line,
+            )
+        }
+    }
+}

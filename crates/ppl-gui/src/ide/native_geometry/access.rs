@@ -40,6 +40,9 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         )),
         Shape::Point(p) => symbolic(point_source(*p)),
         Shape::Line { a, b, extent } => line_source(*a, *b, *extent),
+        Shape::Objects(objects) => {
+            PortableValue::List(objects.iter().map(shape_value).collect::<Result<_, _>>()?)
+        }
         Shape::Lines(lines) => PortableValue::List(
             lines
                 .iter()

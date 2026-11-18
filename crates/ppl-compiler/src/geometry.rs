@@ -83,6 +83,8 @@ pub fn is_function(name: &str) -> bool {
             | "perimeter"
             | "slope"
             | "angle"
+            | "inversion"
+            | "reciprocation"
             | "projection"
             | "translation"
             | "similarity"

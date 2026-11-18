@@ -132,6 +132,14 @@ fn display(n: f64, s: &ppl_vm::Settings) -> String {
 }
 fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
     match shape {
+        Shape::Objects(objects) => format!(
+            "[{}]",
+            objects
+                .iter()
+                .map(|o| value_text(o, s))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
         Shape::Undefined => "undef".into(),
         Shape::EmptyConic(s) => s.clone(),
         Shape::Number { re, im: 0. } => {
@@ -223,6 +231,11 @@ fn paint_trace(
 }
 fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
     match shape {
+        Shape::Objects(objects) => {
+            for o in objects {
+                paint_shape(g, o, w, color)
+            }
+        }
         Shape::Point(p) => point_marker(g, *p, w, color),
         Shape::Points(points) => {
             for p in points {
@@ -314,6 +327,85 @@ fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
     .clamp(0., 1.);
     (p[0] - a[0] - t * d[0]).hypot(p[1] - a[1] - t * d[1])
 }
+fn hit_distance(shape: &Shape, p: [f64; 2], w: &PlotWindow) -> f64 {
+    match shape {
+        Shape::Objects(objects) => objects
+            .iter()
+            .map(|o| hit_distance(o, p, w))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Point(a) => {
+            let a = project(*a, w);
+            (p[0] - a[0]).hypot(p[1] - a[1])
+        }
+        Shape::Points(points) => points
+            .iter()
+            .map(|a| {
+                let a = project(*a, w);
+                (p[0] - a[0]).hypot(p[1] - a[1])
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Line { a, b, extent } => geo::plot::clip(*a, *b, *extent, w)
+            .map_or(f64::INFINITY, |[a, b]| {
+                distance_segment(p, project(a, w), project(b, w))
+            }),
+        Shape::Lines(lines) => lines
+            .iter()
+            .filter_map(|&[a, b]| geo::plot::clip(a, b, geo::Extent::Line, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Circle { center, radius } => (0..96)
+            .map(|i| {
+                let a = std::f64::consts::TAU * i as f64 / 96.;
+                let q = project(
+                    Point2 {
+                        x: center.x + radius * a.cos(),
+                        y: center.y + radius * a.sin(),
+                    },
+                    w,
+                );
+                (p[0] - q[0]).hypot(p[1] - q[1])
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Arc(arc) => arc
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Hyperbola(curve) => curve
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Parabola(curve) => curve
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Ellipse(ellipse) => ellipse
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Polygon(points) => (0..points.len())
+            .map(|i| {
+                distance_segment(
+                    p,
+                    project(points[i], w),
+                    project(points[(i + 1) % points.len()], w),
+                )
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Sequence(crate::ide::native_geometry::SequencePlot { paths, .. })
+        | Shape::Function { paths, .. }
+        | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => paths
+            .iter()
+            .flat_map(|path| path.windows(2))
+            .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => f64::INFINITY,
+    }
+}
 pub(super) fn hit(
     scene: &Scene,
     book: &Book,
@@ -350,79 +442,7 @@ pub(super) fn hit(
         if !eligible {
             continue;
         }
-        let distance = match shape {
-            Shape::Point(a) => {
-                let a = project(*a, w);
-                (p[0] - a[0]).hypot(p[1] - a[1])
-            }
-            Shape::Points(points) => points
-                .iter()
-                .map(|a| {
-                    let a = project(*a, w);
-                    (p[0] - a[0]).hypot(p[1] - a[1])
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Line { a, b, extent } => geo::plot::clip(*a, *b, *extent, w)
-                .map_or(f64::INFINITY, |[a, b]| {
-                    distance_segment(p, project(a, w), project(b, w))
-                }),
-            Shape::Lines(lines) => lines
-                .iter()
-                .filter_map(|&[a, b]| geo::plot::clip(a, b, geo::Extent::Line, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Circle { center, radius } => (0..96)
-                .map(|i| {
-                    let a = std::f64::consts::TAU * i as f64 / 96.;
-                    let q = project(
-                        Point2 {
-                            x: center.x + radius * a.cos(),
-                            y: center.y + radius * a.sin(),
-                        },
-                        w,
-                    );
-                    (p[0] - q[0]).hypot(p[1] - q[1])
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Arc(arc) => arc
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Hyperbola(curve) => curve
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Parabola(curve) => curve
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Ellipse(ellipse) => ellipse
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Polygon(points) => (0..points.len())
-                .map(|i| {
-                    distance_segment(
-                        p,
-                        project(points[i], w),
-                        project(points[(i + 1) % points.len()], w),
-                    )
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Sequence(crate::ide::native_geometry::SequencePlot { paths, .. })
-            | Shape::Function { paths, .. }
-            | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => paths
-                .iter()
-                .flat_map(|path| path.windows(2))
-                .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => continue,
-        };
+        let distance = hit_distance(shape, p, w);
         if distance <= 7. {
             candidates.push((
                 !matches!(shape, Shape::Point(_)),

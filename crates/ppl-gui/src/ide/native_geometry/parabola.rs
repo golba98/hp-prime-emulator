@@ -118,6 +118,32 @@ impl Parabola {
             .zip(self.vertices().skip(1))
             .map(|(a, b)| [a, b])
     }
+    /// In local coordinates the closest point minimizes the squared distance to
+    /// (t, t²/4f). Its sign agrees with the cursor's local x. On that half-axis
+    /// the derivative has exactly one positive crossing, even above the focus.
+    pub(super) fn project(&self, cursor: Point2) -> Result<Point2, String> {
+        let cursor = self.local(cursor);
+        let f = self.focal;
+        let linear = number(8. * f * f - 4. * f * cursor.y)?;
+        let constant = number(8. * f * f * cursor.x.abs())?;
+        let mut lo = (-linear).max(0.).sqrt();
+        if constant == 0. {
+            return point(self.at_local(lo));
+        }
+        let mut hi = lo + constant.cbrt();
+        for _ in 0..64 {
+            let mid = lo + (hi - lo) / 2.;
+            if mid == lo || mid == hi {
+                break;
+            }
+            if mid * (mid * mid + linear) < constant {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        point(self.at_local((lo + (hi - lo) / 2.).copysign(cursor.x)))
+    }
     pub(super) fn parameter(&self, cursor: Point2) -> Result<f64, String> {
         let (_, near) = self
             .edges()

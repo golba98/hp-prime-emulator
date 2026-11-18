@@ -1000,9 +1000,43 @@ impl Evaluator<'_> {
             }
             "projection" => {
                 arity(2)?;
-                let (a, b, _) = self.ln(&args[0], source)?;
+                let curve = self.value(&args[0], source)?;
                 let p = self.pt(&args[1], source)?;
-                Ok(Shape::Point(g::project(p, a, b)?))
+                let q = match curve {
+                    Shape::Line { a, b, .. } => g::project(p, a, b)?,
+                    Shape::Circle { center, radius }
+                    | Shape::Arc(CircularArc { center, radius, .. }) => {
+                        let d = g::delta(center, p);
+                        point(g::circle_element(center, radius, d.y.atan2(d.x)))?
+                    }
+                    Shape::Parabola(curve) => curve.project(p)?,
+                    _ => g::curve_projection(&curve, p)?,
+                };
+                Ok(Shape::Point(q))
+            }
+            "inversion" => {
+                arity(3)?;
+                g::inversion(
+                    self.pt(&args[0], source)?,
+                    self.real(&args[1], source)?,
+                    self.pt(&args[2], source)?,
+                )
+            }
+            "reciprocation" => {
+                arity(2)?;
+                let Shape::Circle { center, radius } = self.value(&args[0], source)? else {
+                    return Err("Reciprocation needs a circle".into());
+                };
+                match &args[1].kind {
+                    ExprKind::Bracket(items) | ExprKind::List(items) => {
+                        let mut images = Vec::with_capacity(items.len());
+                        for e in items {
+                            images.push(g::reciprocate(center, radius, self.value(e, source)?)?);
+                        }
+                        Ok(Shape::Objects(images))
+                    }
+                    _ => g::reciprocate(center, radius, self.value(&args[1], source)?),
+                }
             }
             "translation" | "reflection" | "rotation" | "homothety" | "similarity" => {
                 use super::transform::Transform;
@@ -1281,6 +1315,8 @@ fn known(name: &str) -> bool {
             | "perimeter"
             | "slope"
             | "angle"
+            | "inversion"
+            | "reciprocation"
             | "projection"
             | "translation"
             | "similarity"
@@ -1295,7 +1331,7 @@ fn scalar(n: f64) -> Result<Shape, String> {
         im: 0.,
     })
 }
-fn as_point(shape: Shape) -> Result<Point2, String> {
+pub(super) fn as_point(shape: Shape) -> Result<Point2, String> {
     match shape {
         Shape::Point(p) => point(p),
         Shape::Number { re, im } => point(Point2 { x: re, y: im }),

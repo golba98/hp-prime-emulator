@@ -115,6 +115,7 @@ pub enum Shape {
         extent: Extent,
     },
     Lines(Vec<[Point2; 2]>),
+    Objects(Vec<Shape>),
     Circle {
         center: Point2,
         radius: f64,
@@ -431,6 +432,49 @@ mod tests {
         }
     }
 
+    #[test]
+    fn geometry_polar_lines_poles_inversion_and_curve_projections() {
+        let construction = book(&[
+            ("A", "point(1,1)"),
+            ("B", "point(3,3)"),
+            ("C", "circle(0,1)"),
+            ("D", "inversion(GA,4,GB)"),
+            ("E", "inversion(0,-2,point(0,2))"),
+            ("F", "inversion(GA,1,GA)"),
+            ("G", "reciprocation(GC,line(GA,point(2,0)))"),
+            ("H", "reciprocation(GC,point(1,2))"),
+            ("J", "slope(GH)"),
+            ("K", "reciprocation(GC,[GH,GG])"),
+            ("L", "projection(circle(0,2),point(3,4))"),
+            ("M", "projection(circle(0,2),point(0,0))"),
+            ("N", "projection(segment(0,1),point(3,4))"),
+            ("O", "projection(parabola(point(0,0),1),point(2,1))"),
+            ("P", "projection(circle(0,2,0,1),point(-3,0))"),
+        ]);
+        let result = scene(&construction);
+        for (name, x, y) in [
+            ("D", 2., 2.),
+            ("E", 0., -1.),
+            ("G", 0.5, 0.5),
+            ("L", 1.2, 1.6),
+            ("M", 2., 0.),
+            ("N", 3., 0.),
+            ("O", 2., 1.),
+            ("P", -2., 0.),
+        ] {
+            pt(&result, name, Point2 { x, y });
+        }
+        assert_eq!(shape(&result, "F"), Shape::Undefined);
+        assert_eq!(shape(&result, "J"), Shape::Number { re: -0.5, im: 0. });
+        let Shape::Objects(images) = shape(&result, "K") else {
+            panic!("expected pole and polar")
+        };
+        let Shape::Point(p) = images[0] else {
+            panic!("expected pole")
+        };
+        assert!(p.distance(Point2 { x: 1., y: 2. }).unwrap() < 1e-10);
+        assert!(matches!(images[1], Shape::Line { .. }));
+    }
     #[test]
     fn geometry_plot_parameters_and_loci_match_virtual_g1_controls() {
         for (def, x, y, area) in [

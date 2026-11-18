@@ -109,7 +109,7 @@ impl Need {
                         | Shape::Ellipse(_)
                         | Shape::Parabola(_)
                         | Shape::Hyperbola(_)
-                ) || command.function == "element"
+                ) || matches!(command.function, "element" | "projection")
                     && matches!(shape, Shape::Function { .. } | Shape::Parametric(_))
             }
             Self::Shape => matches!(
@@ -376,6 +376,21 @@ const TRANSFORMS: &[Command] = &[
         label: "Similarity",
         function: "similarity",
         needs: &[Need::Point, Need::Transformable],
+    },
+    Command {
+        label: "Projection",
+        function: "projection",
+        needs: &[Need::Curve, Need::Point],
+    },
+    Command {
+        label: "Inversion",
+        function: "inversion",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Reciprocation",
+        function: "reciprocation",
+        needs: &[Need::Circle, Need::Mirror],
     },
 ];
 const MEASURES: &[Command] = &[
@@ -1007,6 +1022,7 @@ impl NativeTools {
             ("isopolygon", [a, b]) => format!("isopolygon({a},{b},6)"),
             ("translation", [object, a, b]) => format!("translation({b}-{a},{object})"),
             ("similarity", [center, object]) => format!("similarity({center},2,0,{object})"),
+            ("inversion", [center, object]) => format!("inversion({center},1,{object})"),
             ("homothety", [shape, center]) => format!("homothety({shape},2,{center})"),
             (name, _) => format!("{name}({})", args.join(",")),
         })
@@ -1113,6 +1129,7 @@ impl NativeTools {
                 if matches!(
                     command.function,
                     "rotation"
+                        | "inversion"
                         | "similarity"
                         | "homothety"
                         | "isosceles_triangle"

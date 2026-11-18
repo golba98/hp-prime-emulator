@@ -61,6 +61,12 @@ impl Transform {
                     .map(|p| self.point(p))
                     .collect::<Result<_, _>>()?,
             ),
+            Shape::Objects(objects) => Shape::Objects(
+                objects
+                    .into_iter()
+                    .map(|s| self.apply(s))
+                    .collect::<Result<_, _>>()?,
+            ),
             Shape::Lines(lines) => Shape::Lines(
                 lines
                     .into_iter()
