@@ -58,6 +58,7 @@ impl NativeTools {
         let graph = self.memory.graphs["Function"].clone();
         let source = self.function_numeric_source_key();
         let sheet = self.memory.models.spreadsheet.clone();
+        let geometry = self.memory.models.geometry_book.clone().map(Arc::new);
         let generation = snapshot.generation;
         let mut context = snapshot.clone();
         context.active_app = "Function".into();
@@ -66,7 +67,7 @@ impl NativeTools {
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
             let result = crate::ide::native_application_access::evaluate_numeric_rows(
-                sheet, graph, &context, values, flag,
+                sheet, graph, geometry, &context, values, flag,
             )
             .map_err(|e| e.to_string());
             let _ = tx.send(result);

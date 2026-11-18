@@ -13,7 +13,7 @@ fn projection(value: &Value) -> serde_json::Value {
 }
 
 #[test]
-fn original_arc_and_blit_frames_match_including_endpoints_and_clipped_sampling() {
+fn original_arc_blit_and_subgrob_results_match() {
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../tests/fixtures/native-arc-blit-controls.json"
     ))

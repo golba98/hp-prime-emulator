@@ -1,0 +1,105 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_note_bullets_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 47
+    },
+    {
+      "step": "wait_ms",
+      "ms": 230
+    },
+    {
+      "step": "click_lcd",
+      "x": 45,
+      "y": 54
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_restored.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 42,
+      "y": 119
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 175
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_cleared.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 201
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "Notes(\"BULLETNOTE\")"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "ppl"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

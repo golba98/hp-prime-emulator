@@ -1,0 +1,87 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_cross_app_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "GEOREAD()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_values"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_reopened_values.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Spreadsheet"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "sheet_reopened"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_sheet_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

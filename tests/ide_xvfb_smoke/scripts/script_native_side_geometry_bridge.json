@@ -1,0 +1,113 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_bridge.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOBRIDGE",
+      "content": "EXPORT GEOBRIDGE() BEGIN\n STARTAPP(\"Geometry\"); Geometry.DelInstruction();\n Geometry.Instruction(0):=\"point(0,0)\";\n Geometry.Instruction(0):=\"point(4,0)\";\n Geometry.Instruction(0):=\"point(0,3)\";\n Geometry.Instruction(0):=\"triangle(GA,GB,GC)\";\n Geometry.Instruction(0):=\"distance(GB,GC)\";\n STARTVIEW(0,1);\n RETURN {Geometry.GE,area(Geometry.GD),perimeter(Geometry.GD)};\nEND;"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEORESTORE",
+      "content": "EXPORT GEORESTORE() BEGIN\n STARTAPP(\"Geometry\");\n RETURN {Geometry.GE,area(Geometry.GD),perimeter(Geometry.GD)};\nEND;"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "GEOBRIDGE()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "created_symbolic"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_bridge_created_symbolic.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "created_plot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_bridge_created_plot.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

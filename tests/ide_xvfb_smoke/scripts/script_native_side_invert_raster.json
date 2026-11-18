@@ -1,0 +1,39 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_invert_raster.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_INVLCD"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_INVLCD() BEGIN\nRECT_P(#123456h);\nLOCAL clipped:=INVERT_P(-0.4,-0.4,-0.1,2.5), visible:=INVERT_P(5.9,4.5,2.1,1.9), x,y, pixels:={};\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 6 DO\n pixels:=CONCAT(pixels,{B→R(GETPIX_P(x,y))});\nEND;END;\nRETURN {clipped,visible,pixels};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "invert_fractional_edge"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_invert_fractional_edge.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

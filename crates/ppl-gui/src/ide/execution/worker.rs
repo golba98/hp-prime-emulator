@@ -155,6 +155,15 @@ impl NativeSession {
         &self,
         change: impl FnOnce(&mut SessionContext) -> Result<(), String>,
     ) -> Result<(), String> {
+        self.mutate_with_ui(|context| {
+            change(context)?;
+            Ok(None)
+        })
+    }
+    pub(super) fn mutate_with_ui(
+        &self,
+        change: impl FnOnce(&mut SessionContext) -> Result<Option<serde_json::Value>, String>,
+    ) -> Result<(), String> {
         if self
             .busy
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -167,10 +176,15 @@ impl NativeSession {
                 .context
                 .try_lock()
                 .map_err(|_| "Calculator memory is busy")?;
-            change(&mut context)?;
+            let ui = change(&mut context)?;
             *self.published.lock().unwrap_or_else(|e| e.into_inner()) = context.snapshot();
             if let Some(p) = self.profile() {
-                p.update("memory", context.memory_json());
+                let memory = context.memory_json();
+                if let Some(ui) = ui {
+                    p.update_memory_and_ui(memory, ui);
+                } else {
+                    p.update("memory", memory);
+                }
             }
             Ok(())
         })();

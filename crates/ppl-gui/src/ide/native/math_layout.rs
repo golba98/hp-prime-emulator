@@ -196,6 +196,45 @@ fn sequence(parts: Vec<MathLayout>) -> MathLayout {
     }
     out
 }
+fn list_delimiters(body: MathLayout, px: f32) -> MathLayout {
+    if body.height <= px.ceil() as i64 + 3 {
+        return sequence(vec![text("{", px), body, text("}", px)]);
+    }
+
+    let bend = (px * 0.08).round().max(1.) as i64;
+    let inset = 3 * bend + 2;
+    let mut out = MathLayout {
+        width: body.width + 2 * inset,
+        height: body.height,
+        baseline: body.baseline,
+        ..Default::default()
+    };
+    out.append(body, inset, 0);
+    let bottom = out.height - 1;
+    let middle = bottom / 2;
+    let brace = [
+        (2 * bend, 0),
+        (bend, bend),
+        (bend, middle - bend),
+        (0, middle),
+        (bend, middle + bend),
+        (bend, bottom - bend),
+        (2 * bend, bottom),
+    ];
+    let right = out.width - 1;
+    for (&(x, y), &(next_x, next_y)) in brace.iter().zip(&brace[1..]) {
+        let dx = next_x - x;
+        for (x, width) in [(x, dx), (right - x, -dx)] {
+            out.rules.push(Rule {
+                x,
+                y,
+                width,
+                height: next_y - y,
+            });
+        }
+    }
+    out
+}
 fn range(editor: &ExpressionEditor, source: Range<usize>, px: f32) -> MathLayout {
     if source.is_empty() {
         return literal("", source.start, px);
@@ -219,6 +258,91 @@ fn range(editor: &ExpressionEditor, source: Range<usize>, px: f32) -> MathLayout
     }
     sequence(parts)
 }
+fn power(base: MathLayout, exponent: MathLayout) -> MathLayout {
+    let x = base.width + 2;
+    let y = exponent.height / 2;
+    let mut out = MathLayout {
+        width: x + exponent.width,
+        height: (base.height + y).max(exponent.height),
+        baseline: base.baseline + y,
+        ..Default::default()
+    };
+    out.append(base, 0, y);
+    out.append(exponent, x, 0);
+    out
+}
+
+fn radical(degree: Option<MathLayout>, mut body: MathLayout, px: f32) -> MathLayout {
+    let degree = degree.unwrap_or_default();
+    let mut sign = palette::mark("√", px);
+    let tall = body.height > sign.height;
+    if tall {
+        // Leave room under the overbar and keep the hook beside the lowest
+        // line of the radicand. The degree stays on the expression baseline.
+        body.translate(0, 2);
+        body.height += 2;
+        body.baseline += 2;
+        sign.glyphs.clear();
+        sign.width = sign.width.max(5);
+        sign.height = body.height;
+        sign.baseline = body.baseline;
+        let bottom = body.height - 2;
+        let knee = sign.width / 2;
+        let hook = knee / 2;
+        let rise = (px * 0.25).ceil().max(2.) as i64;
+        sign.rules.extend([
+            Rule {
+                x: 0,
+                y: bottom - rise + 1,
+                width: hook,
+                height: -1,
+            },
+            Rule {
+                x: hook,
+                y: bottom - rise,
+                width: knee - hook,
+                height: rise,
+            },
+            Rule {
+                x: knee,
+                y: bottom,
+                width: sign.width - 1 - knee,
+                height: -bottom,
+            },
+        ]);
+    }
+    let x = degree.width + sign.width - i64::from(tall);
+    let width = body.width;
+    let baseline = body.baseline;
+    let mut out = sequence(vec![degree, sign, body]);
+    out.rules.push(Rule {
+        x,
+        y: out.baseline - baseline,
+        width,
+        height: 0,
+    });
+    out
+}
+
+fn absolute(body: MathLayout) -> MathLayout {
+    let mut out = MathLayout {
+        width: body.width + 6,
+        height: body.height,
+        baseline: body.baseline,
+        ..Default::default()
+    };
+    out.append(body, 3, 0);
+    for x in [0, out.width - 1] {
+        out.rules.push(Rule {
+            x,
+            y: 1,
+            width: 0,
+            height: out.height - 2,
+        });
+    }
+    out
+}
+
 fn template_layout(editor: &ExpressionEditor, t: &Template, px: f32) -> MathLayout {
     use TemplateKind::*;
     let mut out = match t.kind {
@@ -249,69 +373,21 @@ fn template_layout(editor: &ExpressionEditor, t: &Template, px: f32) -> MathLayo
         }
         Power if t.fields.len() == 2 => {
             let base = range(editor, t.fields[0].clone(), px);
-            let exp = range(editor, t.fields[1].clone(), px * 0.72);
-            let mut out = MathLayout {
-                width: base.width + exp.width + 2,
-                height: base.height + exp.height / 2,
-                baseline: base.baseline + exp.height / 2,
-                ..Default::default()
-            };
-            let x = base.width + 2;
-            let y = exp.height / 2;
-            out.append(base, 0, y);
-            out.append(exp, x, 0);
-            out
+            let exponent = range(editor, t.fields[1].clone(), px * 0.72);
+            power(base, exponent)
         }
         NthRoot if t.fields.len() == 2 => {
             // G1 displays the degree on the same baseline as the radicand;
             // Left/Right traverse the two fields, Up/Down leave them alone.
             let degree = range(editor, t.fields[0].clone(), px);
             let body = range(editor, t.fields[1].clone(), px);
-            let sign = palette::mark("√", px);
-            let bx = degree.width + sign.width;
-            let bw = body.width;
-            let mut out = sequence(vec![degree, sign, body]);
-            out.rules.push(Rule {
-                x: bx,
-                y: 0,
-                width: bw,
-                height: 0,
-            });
-            out
+            radical(Some(degree), body, px)
         }
         Root => {
             let body = range(editor, t.fields[0].clone(), px);
-            let sign = palette::mark("√", px);
-            let sx = sign.width;
-            let bw = body.width;
-            let mut out = sequence(vec![sign, body]);
-            out.rules.push(Rule {
-                x: sx,
-                y: 0,
-                width: bw,
-                height: 0,
-            });
-            out
+            radical(None, body, px)
         }
-        Function("ABS") if t.fields.len() == 1 => {
-            let body = range(editor, t.fields[0].clone(), px);
-            let mut out = MathLayout {
-                width: body.width + 6,
-                height: body.height,
-                baseline: body.baseline,
-                ..Default::default()
-            };
-            out.append(body, 3, 0);
-            for x in [0, out.width - 1] {
-                out.rules.push(Rule {
-                    x,
-                    y: 1,
-                    width: 0,
-                    height: out.height - 2,
-                });
-            }
-            out
-        }
+        Function("ABS") if t.fields.len() == 1 => absolute(range(editor, t.fields[0].clone(), px)),
         _ => {
             // Function names, brackets, lists and nth-root arguments retain
             // exact syntax; their fields still share this geometry/hit model.
@@ -397,6 +473,48 @@ pub fn palette_icon(kind: TemplateKind, width: i64, height: i64) -> ppl_graphics
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn textbook_radical_keeps_pointer_positions_inside_fraction_fields() {
+        let source = "NTHROOT(3,(27)/(8))";
+        let editor = ExpressionEditor::from_text(source);
+        let layout = layout(&editor, 96);
+        let (upper_x, upper_y, upper_h) = layout.cursor(source.find("27").unwrap());
+        let (lower_x, lower_y, lower_h) = layout.cursor(source.find('8').unwrap());
+        assert!(upper_y + upper_h < lower_y);
+        assert!(lower_y + lower_h <= layout.height);
+        assert_eq!(
+            layout.hit_test(upper_x, upper_y + upper_h / 2),
+            source.find("27").unwrap()
+        );
+        assert_eq!(
+            layout.hit_test(lower_x, lower_y + lower_h / 2),
+            source.find('8').unwrap()
+        );
+    }
+
+    #[test]
+    fn textbook_power_editor_keeps_the_nested_exponent_caret_in_bounds() {
+        let mut editor = ExpressionEditor::default();
+        editor.insert_template(TemplateKind::Power);
+        editor.insert("x");
+        assert!(editor.vertical_field(false));
+        for _ in 0..12 {
+            editor.insert_template(TemplateKind::Fraction);
+            editor.insert("1");
+            assert!(editor.vertical_field(true));
+        }
+        editor.insert("z");
+        let render = layout(&editor, 400);
+        let (x, y, height) = render.cursor(editor.cursor());
+        assert!(
+            y + height <= render.height,
+            "caret bottom {y}+{height}, layout {}",
+            render.height
+        );
+        assert_eq!(render.hit_test(x, y + height / 2), editor.cursor());
+    }
+
     #[test]
     fn fraction_fields_have_distinct_rows_and_pointer_positions() {
         let mut e = ExpressionEditor::default();

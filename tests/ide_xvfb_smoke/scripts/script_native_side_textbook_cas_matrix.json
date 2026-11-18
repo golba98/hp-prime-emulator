@@ -1,0 +1,59 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook_cas_matrix.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "native_cas",
+      "expression": "[[1/2,2/3],[3/4,4/5]]"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "snapshot",
+      "label": "history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_cas_matrix_history.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_cas_matrix_show.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

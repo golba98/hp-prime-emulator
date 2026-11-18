@@ -1,0 +1,145 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_note_bullets.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 47
+    },
+    {
+      "step": "wait_ms",
+      "ms": 230
+    },
+    {
+      "step": "click_lcd",
+      "x": 128,
+      "y": 54
+    },
+    {
+      "step": "paste",
+      "text": "BULLETNOTE"
+    },
+    {
+      "step": "click_lcd",
+      "x": 110,
+      "y": 83
+    },
+    {
+      "step": "paste",
+      "text": "Plain control\nRound item"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "plain"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_plain.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 149
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "formatted"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_formatted.png"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "paste",
+      "text": "Next item"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "continued"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_continued.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 176
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "saved"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/note_bullets_saved.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "Notes(\"BULLETNOTE\")"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "ppl"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_triangle_raster.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_TRISCREEN"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_TRISCREEN() BEGIN\nXmin:=0; Xmax:=318; Ymin:=-218; Ymax:=0;\nRECT_P(#020406h);\nLOCAL painted:=TRIANGLE(-1,0,5,0,-1,-6,#FF0000h,#00FF00h,#0000FFh,128), x, y, pixels:={};\nFOR y FROM 0 TO 6 DO\n  FOR x FROM 0 TO 6 DO\n    pixels:=CONCAT(pixels,{B→R(GETPIX_P(x,y))});\n  END;\nEND;\nRETURN {painted,pixels};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "triangle_raster"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_triangle_raster.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_TALLRGB"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_TALLRGB() BEGIN\nRECT_P(#020406h); LOCAL r,x,y,a:={};\nr:=TRIANGLE_P(1,-70000,5,2,2,6,#FF0000h,#00FF00h,#0000FFh,128);\nFOR y FROM 0 TO 6 DO\n FOR x FROM 0 TO 6 DO\n  a:=CONCAT(a,{B→R(GETPIX_P(x,y))});\n END;\nEND;\nRETURN {r,a}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "tall_triangle_raster"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_tall_triangle_raster.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_WRAPSCREEN"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_WRAPSCREEN() BEGIN\nRECT_P(#020406h); LOCAL r,x,y,a:={};\nr:=TRIANGLE_P(2147483647,-1,-2147483648,-1,0,6,#FF0000h,#00FF00h,#0000FFh,128);\nFOR y FROM 0 TO 6 DO\n FOR x FROM 0 TO 6 DO\n  a:=CONCAT(a,{B→R(GETPIX_P(x,y))});\n END;\nEND;\nRETURN {r,a}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "wrapped_triangle_raster"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_wrapped_triangle_raster.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_ROWWORDS"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_ROWWORDS() BEGIN\nRECT_P(#020406h); LOCAL r,x,y,a:={};\nr:=TRIANGLE_P(-2147483648,2,0,2,2147483647,2,#306090h,#CB401Fh,#40DC11h,0);\nFOR y FROM 0 TO 4 DO\n FOR x FROM 0 TO 8 DO\n  a:=CONCAT(a,{B→R(GETPIX_P(x,y))});\n END;\nEND;\nRETURN {r,a}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "row_frame_word"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_row_frame_word.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_ROWALPHA"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_ROWALPHA() BEGIN\nRECT_P(#335588h); LOCAL r,x,y,a:={};\nr:=TRIANGLE_P(-2147483648,2,0,2,2147483647,2,#0AB000h,#010506h,#0AF000h,127);\nFOR y FROM 0 TO 4 DO\n FOR x FROM 0 TO 8 DO\n  a:=CONCAT(a,{B→R(GETPIX_P(x,y))});\n END;\nEND;\nRETURN {r,a}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "row_frame_alpha"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_row_frame_alpha.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

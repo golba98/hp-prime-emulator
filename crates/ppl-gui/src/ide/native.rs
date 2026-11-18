@@ -177,6 +177,13 @@ pub struct HistoryDisplay {
     pub text: String,
 }
 impl HomeEntry {
+    pub(crate) fn recall_result(&self) -> &str {
+        self.typed_result
+            .as_ref()
+            .and_then(|value| value["recall"].as_str())
+            .unwrap_or(&self.result)
+    }
+
     pub fn display_expression(&self) -> &str {
         // A submitted numeric object is painted in calculator notation; retain
         // its complete original source for recall and exact arithmetic.
@@ -587,8 +594,8 @@ impl NativeUiState {
                     &mut screen,
                     &[
                         "Sto ▸",
-                        "",
-                        "",
+                        if self.cas_mode { "Simplify" } else { "" },
+                        if self.cas_mode { "=" } else { "" },
                         "",
                         if self.history.is_empty() { "" } else { "Copy" },
                         if self.history.is_empty() { "" } else { "Show" },

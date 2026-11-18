@@ -1,0 +1,362 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook_lists.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "{1,2}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_short"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_home_short.png"
+    },
+    {
+      "step": "type",
+      "text": "{1/2,2/3}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_fraction"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_home_fraction.png"
+    },
+    {
+      "step": "type",
+      "text": "{1,[[1,2],[3,4]]}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_matrix"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_home_matrix.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_matrix_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_matrix_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_home_matrix_show.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "home_matrix_returned"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "native_cas",
+      "expression": "{1,2}"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_short"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_cas_short.png"
+    },
+    {
+      "step": "native_cas",
+      "expression": "{1/2,2/3}"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_fraction"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_cas_fraction.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_fraction_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_fraction_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_cas_fraction_show.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_fraction_returned"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "native_cas",
+      "expression": "{0,{1/2,sqrt(2/3)}}"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_nested"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_cas_nested.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_nested_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_nested_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_list_cas_nested_show.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_nested_returned"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 145
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

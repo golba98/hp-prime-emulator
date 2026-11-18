@@ -50,7 +50,7 @@ impl IdeDesktopApp {
     pub(super) fn write_statistics_columns(
         &mut self,
         two: bool,
-        updates: Vec<(usize, Vec<f64>)>,
+        updates: Vec<(usize, Vec<ppl_vm::PortableValue>)>,
         owner: Option<&crate::ide::execution::worker::SessionLease>,
     ) -> Result<(), String> {
         let mut values = Vec::new();
@@ -65,13 +65,12 @@ impl IdeDesktopApp {
             }
             let value = data
                 .into_iter()
-                .map(|n| {
-                    if !n.is_finite() {
-                        return Err("Statistics values must be finite real numbers".into());
-                    }
-                    ppl_math::Real::from_f64(n)
+                .map(|value| {
+                    value
+                        .to_value()
+                        .expect_real("statistics data")
                         .map(ppl_vm::PortableValue::Real)
-                        .map_err(|e| e.to_string())
+                        .map_err(|error| error.to_string())
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             values.push((name, ppl_vm::PortableValue::List(value)));
@@ -94,6 +93,61 @@ impl IdeDesktopApp {
         self.native_tools.statistics_sync_error(None);
         Ok(())
     }
+    pub(super) fn write_statistics_typed_column(
+        &mut self,
+        two: bool,
+        column: usize,
+        value: ppl_vm::PortableValue,
+        owner: Option<&crate::ide::execution::worker::SessionLease>,
+    ) -> Result<(), String> {
+        let ppl_vm::PortableValue::List(values) = value else {
+            return Err("A statistics column requires a list of real numbers".into());
+        };
+        self.write_statistics_columns(two, vec![(column, values)], owner)
+    }
+    pub(super) fn write_statistics_typed_cell(
+        &mut self,
+        two: bool,
+        column: usize,
+        row: usize,
+        value: ppl_vm::PortableValue,
+        owner: Option<&crate::ide::execution::worker::SessionLease>,
+    ) -> Result<(), String> {
+        if column >= crate::ide::native_statistics::COLUMN_COUNT
+            || row >= crate::ide::native_statistics::MAX_ROWS
+        {
+            return Err("Invalid statistics cell address".into());
+        }
+        let snapshot = self.controller.session_snapshot();
+        let name = Columns::label(column, two);
+        let mut values = match snapshot.globals.get(&name) {
+            Some(ppl_vm::PortableValue::List(values)) => values.clone(),
+            Some(_) => return Err(format!("{name} is not a statistics data list")),
+            None => Vec::new(),
+        };
+        if row > values.len() {
+            return Err("Enter statistics cells without gaps".into());
+        }
+        let value = value
+            .to_value()
+            .expect_real("statistics data")
+            .map(ppl_vm::PortableValue::Real)
+            .map_err(|error| error.to_string())?;
+        if row == values.len() {
+            values.push(value);
+        } else {
+            values[row] = value;
+        }
+        self.write_statistics_typed_column(
+            two,
+            column,
+            ppl_vm::PortableValue::List(values),
+            owner,
+        )?;
+        self.native_tools
+            .statistics_cell_committed(two, column, row);
+        Ok(())
+    }
     pub(super) fn write_statistics_cell(
         &mut self,
         two: bool,
@@ -102,18 +156,14 @@ impl IdeDesktopApp {
         value: f64,
         owner: Option<&crate::ide::execution::worker::SessionLease>,
     ) -> Result<(), String> {
-        let mut columns = self
-            .native_tools
-            .memory
-            .models
-            .statistics_columns(two)
-            .ok_or("Missing statistics data")?
-            .clone();
-        columns.set(column, row, value)?;
-        self.write_statistics_columns(two, vec![(column, columns.0[column].clone())], owner)?;
-        self.native_tools
-            .statistics_cell_committed(two, column, row);
-        Ok(())
+        let value = ppl_math::Real::from_f64(value).map_err(|error| error.to_string())?;
+        self.write_statistics_typed_cell(
+            two,
+            column,
+            row,
+            ppl_vm::PortableValue::Real(value),
+            owner,
+        )
     }
     pub(super) fn delete_statistics_cell(
         &mut self,
@@ -125,15 +175,21 @@ impl IdeDesktopApp {
             .memory
             .models
             .ensure_statistics_book(two)?;
-        let mut columns = self
-            .native_tools
-            .memory
-            .models
-            .statistics_columns(two)
-            .unwrap()
-            .clone();
-        columns.remove(column, row)?;
-        self.write_statistics_columns(two, vec![(column, columns.0[column].clone())], None)
+        if column >= crate::ide::native_statistics::COLUMN_COUNT {
+            return Err("Invalid statistics column".into());
+        }
+        let name = Columns::label(column, two);
+        let snapshot = self.controller.session_snapshot();
+        let mut values = match snapshot.globals.get(&name) {
+            Some(ppl_vm::PortableValue::List(values)) => values.clone(),
+            Some(_) => return Err(format!("{name} is not a statistics data list")),
+            None => Vec::new(),
+        };
+        if row >= values.len() {
+            return Err("Invalid statistics row".into());
+        }
+        values.remove(row);
+        self.write_statistics_typed_column(two, column, ppl_vm::PortableValue::List(values), None)
     }
 }
 #[cfg(test)]
@@ -148,6 +204,67 @@ mod tests {
                 .map(|&n| P::Real(ppl_math::Real::from_i64(n)))
                 .collect(),
         )
+    }
+    #[test]
+    fn typed_cell_edits_and_deletions_preserve_other_exact_values_and_valid_extreme_exponents() {
+        let mut app = IdeDesktopApp::default();
+        app.native_tools.memory.selected_app = "Statistics 1Var".into();
+        app.native_tools.open(Page::Numeric);
+        let version = ppl_math::NumericVersion::Current15751;
+        let parse = |source| ppl_math::Real::parse_versioned(source, version).unwrap();
+        let original = vec![
+            P::Real(parse("1234567890123456789")),
+            P::Real(
+                ppl_math::Real::ONE
+                    .div(ppl_math::Real::from_i64(3))
+                    .unwrap(),
+            ),
+            P::Real(parse("1E400")),
+            P::Real(parse("1E-400")),
+        ];
+        app.controller
+            .mutate_memory(|memory| {
+                memory.settings.numeric_version = version;
+                memory
+                    .set_variable("D1", P::List(original.clone()))
+                    .map_err(|error| error.to_string())
+            })
+            .unwrap();
+        app.sync_native_statistics_memory();
+        assert_eq!(
+            app.native_tools.statistics_cell_source(false, 0, 2, false),
+            parse("1E400").ppl_source()
+        );
+        assert_eq!(
+            app.native_tools.statistics_cell_source(false, 0, 3, false),
+            parse("1E-400").ppl_source()
+        );
+        app.write_statistics_typed_cell(false, 0, 1, P::Real(parse("7")), None)
+            .unwrap();
+        let mut expected = original;
+        expected[1] = P::Real(parse("7"));
+        let snapshot = app.controller.session_snapshot();
+        assert_eq!(
+            ppl_vm::session::encode_value(&snapshot.globals["D1"]),
+            ppl_vm::session::encode_value(&P::List(expected.clone()))
+        );
+        app.delete_statistics_cell(false, 0, 1).unwrap();
+        expected.remove(1);
+        assert_eq!(
+            ppl_vm::session::encode_value(&app.controller.session_snapshot().globals["D1"]),
+            ppl_vm::session::encode_value(&P::List(expected))
+        );
+        let before = app.controller.session_snapshot();
+        assert!(
+            app.write_statistics_typed_column(
+                false,
+                0,
+                P::List(vec![P::String("invalid".into())]),
+                None
+            )
+            .is_err()
+        );
+        assert_eq!(app.controller.session_snapshot().globals, before.globals);
     }
     #[test]
     fn migration_seeds_absent_only_and_never_replaces_explicit_ppl_data_or_empty_lists() {

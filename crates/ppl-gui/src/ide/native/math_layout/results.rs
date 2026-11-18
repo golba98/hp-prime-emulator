@@ -109,19 +109,26 @@ fn value(v: &Value, px: f32) -> MathLayout {
             expression(display, px)
         };
     }
+    // Giac history stores exact matrices and rational leaves as tagged CAS
+    // records. Native matrix history uses separate dimensions and a flat array.
+    if v["value"].is_object()
+        && let Ok(value) = serde_json::from_value::<ppl_cas::CasValue>(v.clone())
+        && value.validate().is_ok()
+    {
+        return cas_value(&value, px);
+    }
     match v["type"].as_str() {
         Some("list") => {
-            let mut parts = vec![text("{", px)];
+            let mut parts = Vec::new();
             if let Some(values) = v["value"].as_array() {
-                for (i, v) in values.iter().enumerate() {
-                    if i > 0 {
+                for (index, entry) in values.iter().enumerate() {
+                    if index != 0 {
                         parts.push(text(", ", px));
                     }
-                    parts.push(value(v, px));
+                    parts.push(value(entry, px));
                 }
             }
-            parts.push(text("}", px));
-            sequence(parts)
+            list_delimiters(sequence(parts), px)
         }
         Some("matrix") => {
             let rows = v["rows"].as_u64().unwrap_or(0) as usize;
@@ -205,10 +212,54 @@ fn value(v: &Value, px: f32) -> MathLayout {
         }
     }
 }
+fn cas_value(value: &ppl_cas::CasValue, px: f32) -> MathLayout {
+    use ppl_cas::CasValue;
+    match value {
+        CasValue::Matrix { rows, cols, values } if *rows != 0 && *cols != 0 => {
+            let cells = values.iter().map(|value| cas_value(value, px)).collect();
+            palette::brackets(cells, *rows, *cols)
+        }
+        CasValue::Rational {
+            numerator,
+            denominator,
+        } => expression(&format!("{numerator}/{denominator}"), px),
+        _ => expression(&value.expression(), px),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn cas_fraction_matrix_result_paints_its_exact_values() {
+        let rational = |num: &str, den: &str| {
+            json!({
+                "type":"rational","value":{"numerator":num,"denominator":den}
+            })
+        };
+        let typed = json!({"type":"matrix","value":{"rows":2,"cols":2,"values":[
+            rational("1", "2"), rational("2", "3"), rational("3", "4"), rational("4", "5")
+        ]}});
+        let layout = result("[[(1)/(2),(2)/(3)],[(3)/(4),(4)/(5)]]", Some(&typed), 17.);
+        assert_eq!(
+            layout
+                .rules
+                .iter()
+                .filter(|r| r.height == 0 && r.width > 5)
+                .count(),
+            4
+        );
+        assert_eq!(
+            layout
+                .glyphs
+                .iter()
+                .map(|glyph| glyph.text.as_str())
+                .collect::<String>(),
+            "12233445",
+        );
+    }
+
     #[test]
     fn tall_matrix_brackets_clip_continuously_to_a_scrolled_viewport() {
         let matrix = json!({"type":"matrix","rows":12,"cols":1,"vector":false,"value":
@@ -275,7 +326,13 @@ mod tests {
         );
         let list = json!({"type":"list","value":[matrix,{"type":"string","value":"SQRT(9)"}]});
         let l = result("", Some(&list), 17.);
-        assert_eq!(l.rules.len(), 6); // No radical over the literal string.
+        assert_eq!(l.rules.len(), 6 + 12); // Matrix brackets and two tall braces.
+        let glyphs = l
+            .glyphs
+            .iter()
+            .map(|glyph| glyph.text.as_str())
+            .collect::<String>();
+        assert!(glyphs.ends_with(", \"SQRT(9)\""));
         assert!(l.width > 100);
     }
 }

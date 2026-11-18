@@ -126,6 +126,42 @@ fn submit_home(app: &mut IdeDesktopApp, ctx: &egui::Context, text: &str) {
     complete(app, ctx);
 }
 
+#[test]
+fn automation_waits_for_a_finished_native_worker_to_publish_history() {
+    let (mut app, ctx) = fixture("");
+    app.handle_action(IdeAction::NativeHome, &ctx);
+    let prior = app.state.native.history.len();
+    type_text(&mut app, &ctx, "1+2");
+    let input = egui::RawInput {
+        focused: true,
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1280.0, 900.0),
+        )),
+        events: vec![
+            event_key(egui::Key::Enter, true),
+            event_key(egui::Key::Enter, false),
+        ],
+        ..Default::default()
+    };
+    let _ = ctx.run(input, |ctx| app.forward_calc_keys(ctx));
+    assert!(app.state.native.operation.is_some());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while app.controller.worker_alive() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+
+    assert_eq!(app.state.native.history.len(), prior);
+    assert!(
+        app.execution_busy(),
+        "the finished worker result has not reached history"
+    );
+    app.poll_execution();
+    assert!(!app.execution_busy());
+    assert_eq!(app.state.native.history.back().unwrap().result, "3");
+}
+
 fn baseconv_source() -> String {
     include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

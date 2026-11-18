@@ -1,8 +1,15 @@
 //! Native tools integration and durable profile lifecycle.
 use super::*;
-use crate::ide::native_tools::{Page, Request};
+use crate::ide::native_tools::{NativeTools, Page, Request};
 use serde_json::json;
 use std::sync::mpsc;
+
+fn native_profile_ui(
+    native: &crate::ide::native::NativeUiState,
+    tools: &crate::ide::native_tools::ToolMemory,
+) -> serde_json::Value {
+    json!({"history":native.history,"home_input":native.home_input,"tools":tools,"cas_mode":native.cas_mode})
+}
 
 pub(super) struct ModelTask {
     thread: Option<std::thread::JoinHandle<()>>,
@@ -10,6 +17,7 @@ pub(super) struct ModelTask {
     rx: mpsc::Receiver<Result<serde_json::Value, String>>,
     calculation: crate::ide::native_app_ui::Calculation,
     source: serde_json::Value,
+    statistics2_columns_revision: u64,
 }
 pub(super) struct CasTask {
     catalog: bool,
@@ -29,6 +37,13 @@ impl IdeDesktopApp {
         ctx: &egui::Context,
     ) -> bool {
         use crate::ide::native::keys::KeyAction;
+        if let Some(requests) = self.native_tools.help_action(action) {
+            for request in requests {
+                self.handle_native_tool_request(request, ctx);
+            }
+            ctx.request_repaint();
+            return true;
+        }
         if let Some(requests) = self
             .native_tools
             .home_settings_action(action, &self.controller.session_snapshot().settings)
@@ -134,6 +149,10 @@ impl IdeDesktopApp {
                 self.focus_native_calculator(ctx);
                 return true;
             }
+        }
+        if self.native_tools.graph3d_rotate_key(action) {
+            ctx.request_repaint();
+            return true;
         }
         if self
             .native_tools
@@ -321,6 +340,12 @@ impl IdeDesktopApp {
                     self.native_tools.memory.name = name.clone();
                     self.native_tools.memory.original_name = name.clone();
                     self.native_tools.memory.content = objects[&name].clone();
+                    if page == Page::Notes {
+                        self.native_tools
+                            .load_note_bullets(ctx, snapshot.note_bullets.get(&name));
+                    } else {
+                        self.native_tools.clear_note_bullets();
+                    }
                     self.native_tools.dirty();
                 }
                 return true;
@@ -611,6 +636,39 @@ impl IdeDesktopApp {
             }
         }
     }
+    fn promote_legacy_geometry_window(&mut self) -> Result<(), String> {
+        if self
+            .controller
+            .session_snapshot()
+            .geometry_plot_settings
+            .is_some()
+        {
+            return Ok(());
+        }
+        let Some(window) = self
+            .native_tools
+            .memory
+            .model_windows
+            .get("Geometry")
+            .cloned()
+        else {
+            return Ok(());
+        };
+        // Keep the original camera even if it exceeds the new coordinate range.
+        self.native_tools
+            .memory
+            .geometry_legacy_window
+            .get_or_insert(window.clone());
+        let settings = NativeTools::geometry_settings_for_legacy_window(&window)?;
+        self.controller.mutate_memory(|memory| {
+            memory
+                .set_geometry_plot_settings(settings.clone())
+                .map_err(|error| error.to_string())
+        })?;
+        self.native_tools.geometry_settings_changed(&settings);
+        Ok(())
+    }
+
     pub(super) fn initialize_native_memory(&mut self) {
         let Some(path) = crate::ide::native_profile::default_directory() else {
             self.profile_problem =
@@ -671,6 +729,9 @@ impl IdeDesktopApp {
                 for (name, app) in crate::ide::native_tools::ToolMemory::default().graphs {
                     self.native_tools.memory.graphs.entry(name).or_insert(app);
                 }
+                if let Err(error) = self.promote_legacy_geometry_window() {
+                    self.native_tools.error = Some(error);
+                }
                 self.sync_native_statistics_memory();
                 self.sync_native_presentation();
                 self.state.native.cas_mode = ui["cas_mode"].as_bool().unwrap_or(false);
@@ -692,7 +753,7 @@ impl IdeDesktopApp {
         let Some(profile) = self.controller.native_profile() else {
             return;
         };
-        let ui = json!({"history":self.state.native.history,"home_input":self.state.native.home_input,"tools":self.native_tools.memory,"cas_mode":self.state.native.cas_mode});
+        let ui = native_profile_ui(&self.state.native, &self.native_tools.memory);
         if ui != self.profile_ui_last {
             profile.update("ui", ui.clone());
             self.profile_ui_last = ui;
@@ -753,6 +814,8 @@ impl IdeDesktopApp {
         self.native_tools
             .spreadsheet_busy(self.controller.operation_active());
         self.native_tools
+            .geometry_busy(self.controller.operation_active());
+        self.native_tools
             .graph_symbolic_busy(self.controller.operation_active());
         self.native_tools
             .function_numeric_busy(self.controller.operation_active());
@@ -810,15 +873,14 @@ impl IdeDesktopApp {
                 }
                 continue;
             }
-            let snapshot = message
-                .context
-                .clone()
-                .unwrap_or_else(|| self.controller.session_snapshot());
-            if let Some(context) = &message.context {
+            let committed = self.controller.session_snapshot();
+            let committed_generation = committed.generation;
+            let mut snapshot = message.context.clone().unwrap_or(committed);
+            if message.context.is_some() {
                 self.native_tools
-                    .apply_view_context(context, self.controller.session_snapshot().generation);
+                    .apply_view_context(&snapshot, committed_generation);
             }
-            let result = match message.request {
+            let result = match message.request.clone() {
                 ppl_vm::host::CalculatorView::StartApp(name) => {
                     if self.native_tools.memory.graphs.contains_key(&name)
                         || crate::ide::native_app_ui::MODEL_APPS.contains(&name.as_str())
@@ -829,7 +891,27 @@ impl IdeDesktopApp {
                         );
                         self.native_tools.open(page);
                         if page == Page::Plot {
-                            self.native_tools.plot(snapshot.clone());
+                            let geometry = self.native_tools.memory.selected_app == "Geometry";
+                            if geometry && snapshot.active_app != "Geometry" {
+                                // STARTAPP carries the previous app's live frame,
+                                // whose revision is independent of committed memory.
+                                snapshot.active_app = "Geometry".into();
+                                self.native_tools
+                                    .geometry_apply_context(&snapshot, committed_generation);
+                            }
+                            self.native_tools.plot(snapshot);
+                            if geometry {
+                                message.await_plot = true;
+                                self.native_tools.presentation_pending = true;
+                                self.controller
+                                    .shared
+                                    .calculator_views
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner())
+                                    .push_back(message);
+                                ctx.request_repaint();
+                                continue;
+                            }
                         }
                         Ok(true)
                     } else {
@@ -895,10 +977,29 @@ impl IdeDesktopApp {
                             continue;
                         }
                         self.native_tools.open(page);
-                        if draw && page == Page::Plot {
+                        let geometry_redraw = self.native_tools.memory.selected_app == "Geometry"
+                            && matches!(page, Page::Symbolic | Page::Plot | Page::Numeric);
+                        if geometry_redraw || (draw && page == Page::Plot) {
                             self.native_tools.plot(snapshot.clone());
                         } else if page == Page::Numeric {
                             self.native_tools.table(&snapshot);
+                        }
+                        let function_table = page == Page::Numeric
+                            && self.native_tools.memory.selected_app == "Function";
+                        let graph3d_view = self.native_tools.memory.selected_app
+                            == crate::ide::native_graph3d::NAME
+                            && (page == Page::Numeric || (draw && page == Page::Plot));
+                        if geometry_redraw || function_table || graph3d_view {
+                            message.await_plot = true;
+                            self.native_tools.presentation_pending = true;
+                            self.controller
+                                .shared
+                                .calculator_views
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .push_back(message);
+                            ctx.request_repaint();
+                            continue;
                         }
                     } else {
                         self.native_tools.close();
@@ -915,8 +1016,56 @@ impl IdeDesktopApp {
             match task.rx.try_recv() {
                 Ok(result) => {
                     let task = self.model_task.take().unwrap();
-                    if self.native_tools.memory.models.input_fingerprint() == task.source {
+                    if let crate::ide::native_app_ui::Calculation::GeometryPlotField {
+                        name,
+                        source,
+                    } = &task.calculation
+                    {
+                        if self.geometry_plot_edit_matches(name, source) {
+                            let result = result.and_then(|value| {
+                                if self.controller.shared.is_interrupted() {
+                                    return Err("Geometry Plot Setup edit interrupted".into());
+                                }
+                                let value = ppl_vm::session::decode_value(&value)?;
+                                let mut settings =
+                                    self.controller.session_snapshot().geometry_plot_settings();
+                                settings
+                                    .set(name, &value.to_value())
+                                    .map_err(|error| error.to_string())?;
+                                self.controller.commit_native_operation(
+                                    &task._owner,
+                                    |memory| {
+                                        memory
+                                            .set_geometry_plot_settings(settings.clone())
+                                            .map_err(|error| error.to_string())
+                                    },
+                                )?;
+                                Ok(settings)
+                            });
+                            match result {
+                                Ok(settings) => {
+                                    self.native_tools.geometry_settings_changed(&settings);
+                                    self.finish_math_entry(false, ctx);
+                                }
+                                Err(error) => {
+                                    self.state.native.edit_title = Some(error.clone());
+                                    self.state.native.touch_view();
+                                    self.native_tools.error = Some(error);
+                                }
+                            }
+                        }
+                    } else if self.native_tools.memory.models.input_fingerprint() == task.source {
                         let result = result.and_then(|mut value| {
+                            if matches!(&task.calculation, crate::ide::native_app_ui::Calculation::Statistics1Book(..)) {
+                                let book: crate::ide::native_statistics::OneBook = serde_json::from_value(value["book"].take()).map_err(|e| e.to_string())?;
+                                book.validate()?;
+                                self.native_tools.memory.models.statistics1_book = Some(book);
+                                value = value["summaries"].take();
+                            }
+                            if matches!(&task.calculation, crate::ide::native_app_ui::Calculation::StatisticsDefinitionValue { .. }) {
+                                let source = value.as_str().ok_or("Invalid statistics expression result")?;
+                                self.native_tools.statistics_definition_evaluated(source.to_owned());
+                            }
                             if matches!(&task.calculation,crate::ide::native_app_ui::Calculation::GeometryEdit{..}|crate::ide::native_app_ui::Calculation::GeometryMeasurement{..}) {
                                 let book:crate::ide::native_geometry::Book=serde_json::from_value(value["book"].take()).map_err(|e|e.to_string())?;
                                 book.validate()?;
@@ -924,13 +1073,43 @@ impl IdeDesktopApp {
                                 self.native_tools.geometry_changed();
                                 value=value["scene"].take();
                             }
+                            if matches!(&task.calculation,
+                                crate::ide::native_app_ui::Calculation::GeometryBook(_)
+                                | crate::ide::native_app_ui::Calculation::GeometryEdit { .. }
+                                | crate::ide::native_app_ui::Calculation::GeometryMeasurement { .. })
+                            {
+                                let scene: crate::ide::native_geometry::Scene =
+                                    serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+                                if let Some(book) = &mut self.native_tools.memory.models.geometry_book {
+                                    book.cache_scene(&scene)?;
+                                }
+                            }
+                            use crate::ide::native_app_ui::Calculation;
+                            if matches!(&task.calculation, Calculation::SpreadsheetCopy(..)) {
+                                let block = serde_json::from_value(value.take()).map_err(|e| e.to_string())?;
+                                let text = self.native_tools.spreadsheet_copied(block);
+                                ctx.copy_text(text);
+                            }
+                            if let Calculation::SpreadsheetChoices(_, address, _) = &task.calculation {
+                                let choices = serde_json::from_value(value.take()).map_err(|e| e.to_string())?;
+                                self.native_tools.spreadsheet_choices_opened(address, choices);
+                            }
                             if matches!(
                                 &task.calculation,
-                                crate::ide::native_app_ui::Calculation::SpreadsheetEntry(..)
+                                Calculation::SpreadsheetEntry(..)
+                                    | Calculation::SpreadsheetPaste { .. }
+                                    | Calculation::SpreadsheetPasteCollection { .. }
+                                    | Calculation::SpreadsheetSort { .. }
+                                    | Calculation::SpreadsheetSelectChoice(..)
                             ) {
                                 let sheet: crate::ide::native_app_models::Spreadsheet =
                                     serde_json::from_value(value["sheet"].take())
                                         .map_err(|e| e.to_string())?;
+                                let selection = if matches!(&task.calculation, Calculation::SpreadsheetPasteCollection { .. }) {
+                                    serde_json::from_value(value["selection"].take()).map_err(|e| e.to_string())?
+                                } else {
+                                    None
+                                };
                                 sheet.validate()?;
                                 let models = &mut self.native_tools.memory.models;
                                 models.cell_source = sheet
@@ -940,7 +1119,14 @@ impl IdeDesktopApp {
                                     .unwrap_or_default();
                                 models.spreadsheet = sheet;
                                 value = value["values"].take();
-                                self.native_tools.spreadsheet_changed(true);
+                                if let Some(block) = selection {
+                                    self.native_tools.spreadsheet_select_block(block);
+                                }
+                                if let Calculation::SpreadsheetEntry(_, address, ..) = &task.calculation {
+                                    self.native_tools.spreadsheet_entry_changed(address);
+                                } else {
+                                    self.native_tools.spreadsheet_changed(false);
+                                }
                             }
                             if let crate::ide::native_app_ui::Calculation::StatisticsCell {
                                 two,
@@ -949,10 +1135,8 @@ impl IdeDesktopApp {
                                 ..
                             } = &task.calculation
                             {
-                                let number = value
-                                    .as_f64()
-                                    .ok_or("Statistics worker returned a nonnumeric cell")?;
-                                self.write_statistics_cell(
+                                let number = ppl_vm::session::decode_value(&value)?;
+                                self.write_statistics_typed_cell(
                                     *two,
                                     *column,
                                     *row,
@@ -966,11 +1150,10 @@ impl IdeDesktopApp {
                                 ..
                             } = &task.calculation
                             {
-                                let data: Vec<f64> = serde_json::from_value(value.clone())
-                                    .map_err(|e| e.to_string())?;
-                                self.write_statistics_columns(
+                                let data = ppl_vm::session::decode_value(&value)?;
+                                self.write_statistics_typed_column(
                                     *two,
-                                    vec![(*column, data)],
+                                    *column, data,
                                     Some(&task._owner),
                                 )?;
                             }
@@ -980,11 +1163,10 @@ impl IdeDesktopApp {
                             Ok(value) => {
                                 self.native_tools.error = None;
                                 let app_name = task.calculation.result_key();
-                                if let crate::ide::native_app_ui::Calculation::Plot(name, _) =
-                                    &task.calculation
+                                if matches!(&task.calculation, crate::ide::native_app_ui::Calculation::Plot(..) | crate::ide::native_app_ui::Calculation::Statistics1AutoScale(_) | crate::ide::native_app_ui::Calculation::Statistics2AutoScale(_))
                                 {
                                     if let Err(error) =
-                                        self.native_tools.model_plot_completed(name, &value)
+                                        self.native_tools.model_plot_completed(task.calculation.app_name(), &value)
                                     {
                                         self.native_tools.error = Some(error);
                                     }
@@ -1014,11 +1196,29 @@ impl IdeDesktopApp {
                                         }
                                     }
                                 }
-                                self.native_tools
-                                    .memory
-                                    .models
-                                    .results
-                                    .insert(app_name, value);
+                                if matches!(
+                                    task.calculation,
+                                    crate::ide::native_app_ui::Calculation::Statistics2Book(_)
+                                ) && let Ok(results) = serde_json::from_value(value.clone())
+                                    && let Some(book) =
+                                        &mut self.native_tools.memory.models.statistics2_book
+                                {
+                                    book.remember_fit_equations(
+                                        &results,
+                                        task.statistics2_columns_revision,
+                                    );
+                                }
+                                if !matches!(
+                                    task.calculation,
+                                    crate::ide::native_app_ui::Calculation::SpreadsheetCopy(..)
+                                        | crate::ide::native_app_ui::Calculation::SpreadsheetChoices(..)
+                                ) {
+                                    self.native_tools
+                                        .memory
+                                        .models
+                                        .results
+                                        .insert(app_name, value);
+                                }
                             }
                             Err(error) => self.native_tools.error = Some(error),
                         }
@@ -1180,6 +1380,7 @@ impl IdeDesktopApp {
                 None
             },
             spreadsheet_form,
+            self.spreadsheet_cas_mode(),
         );
         self.native_tools
             .graph_symbolic_editor(if self.graph_math_entry() {
@@ -1205,6 +1406,12 @@ impl IdeDesktopApp {
         graph: &crate::ide::native_apps::GraphApp,
     ) -> Result<(), String> {
         graph.window.validate()?;
+        memory
+            .set_variable(
+                "Axes",
+                ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(i64::from(graph.window.axes))),
+            )
+            .map_err(|e| e.to_string())?;
         for (name, value) in [
             ("Xmin", graph.window.xmin),
             ("Xmax", graph.window.xmax),
@@ -1258,12 +1465,14 @@ impl IdeDesktopApp {
                     | Request::RenameObject { .. }
                     | Request::SaveProgram(..)
                     | Request::SaveNote(..)
+                    | Request::SaveBulletedNote(..)
                     | Request::StoreVariable(..)
                     | Request::DeleteProgram(..)
                     | Request::DeleteNote(..)
                     | Request::DeleteVariable(..)
                     | Request::StoreCasVariable(..)
                     | Request::DeleteCasVariable(..)
+                    | Request::ResetApp(_)
             ) {
                 self.native_tools.error = Some(problem.clone());
                 return;
@@ -1304,6 +1513,16 @@ impl IdeDesktopApp {
             Request::FinishMath(commit) => {
                 self.finish_math_entry(commit, ctx);
                 return;
+            }
+            Request::ToggleSpreadsheetCas => {
+                self.toggle_spreadsheet_cas();
+                Ok(())
+            }
+            Request::SpreadsheetHistory(origin) => {
+                let active = (self.state.native.cas_mode == origin.is_cas())
+                    .then_some(&self.state.native.history);
+                self.native_tools.spreadsheet_open_history(origin, active);
+                Ok(())
             }
             Request::TypeText(text) => {
                 if self.math_entry.is_some() {
@@ -1359,23 +1578,84 @@ impl IdeDesktopApp {
                             .model_windows
                             .get(&name)
                             .cloned()
-                            .unwrap_or_else(|| {
-                                if name == "Geometry" {
-                                    crate::ide::native_geometry::default_window()
-                                } else {
-                                    Default::default()
-                                }
-                            }),
+                            .unwrap_or_else(|| NativeTools::default_model_window(&name)),
                     )
                 } else {
                     None
                 };
+                // Scoped VM settings are authoritative. Older UI-only profiles
+                // retain their saved window/histogram when first promoted to a
+                // scoped record; fresh apps start at their measured defaults.
+                let scoped_plot = if graph.is_none() {
+                    self.controller
+                        .session_snapshot()
+                        .app_plot_settings
+                        .get(&name)
+                        .cloned()
+                        .or_else(|| {
+                            let mut settings = ppl_vm::AppPlotSettings::for_app(&name)?;
+                            if let Some(window) = &model_window {
+                                for (field, value) in [
+                                    ("Xmin", window.xmin),
+                                    ("Xmax", window.xmax),
+                                    ("Ymin", window.ymin),
+                                    ("Ymax", window.ymax),
+                                ] {
+                                    settings
+                                        .set(
+                                            field,
+                                            &ppl_vm::Value::Real(
+                                                ppl_math::Real::from_f64(value).ok()?,
+                                            ),
+                                        )
+                                        .ok()?;
+                                }
+                                settings.axes = window.axes;
+                            }
+                            if name == "Statistics 1Var"
+                                && let Some(histogram) = self.native_tools.memory.models.histogram
+                            {
+                                for (field, value) in [
+                                    ("Hmin", histogram.minimum),
+                                    ("Hmax", histogram.maximum),
+                                    ("Hwidth", histogram.width),
+                                ] {
+                                    settings
+                                        .set(
+                                            field,
+                                            &ppl_vm::Value::Real(
+                                                ppl_math::Real::from_f64(value).ok()?,
+                                            ),
+                                        )
+                                        .ok()?;
+                                }
+                            }
+                            Some(settings)
+                        })
+                } else {
+                    None
+                };
+                if name == "Geometry"
+                    && let Err(error) = self.promote_legacy_geometry_window()
+                {
+                    // The legacy camera is still saved separately. Open the
+                    // app with a valid viewport so it can still be edited.
+                    self.state.status_message = error;
+                }
                 let selected = name.clone();
 
                 let result = self.controller.mutate_memory(|memory| {
                     memory.active_app = name;
-                    if let Some(graph) = graph {
+                    if selected == "Geometry" {
+                        memory
+                            .set_geometry_plot_settings(memory.geometry_plot_settings())
+                            .map_err(|error| error.to_string())?;
+                    } else if let Some(graph) = graph {
                         Self::store_graph_configuration(memory, &graph)?;
+                    } else if let Some(settings) = scoped_plot {
+                        memory
+                            .set_app_plot_settings(&selected, settings)
+                            .map_err(|e| e.to_string())?;
                     } else if let Some(window) = model_window {
                         for (name, value) in [
                             ("Xmin", window.xmin),
@@ -1398,6 +1678,10 @@ impl IdeDesktopApp {
                 });
                 if result.is_ok() {
                     self.native_tools.memory.selected_app = selected.clone();
+                    if selected == "Geometry" {
+                        let settings = self.controller.session_snapshot().geometry_plot_settings();
+                        self.native_tools.geometry_settings_changed(&settings);
+                    }
                     self.native_tools.gallery_started(&selected);
                     if start_app {
                         let page = crate::ide::native_tools::NativeTools::entry_page(
@@ -1439,6 +1723,63 @@ impl IdeDesktopApp {
                 result
             }
             Request::GraphConfiguration(_, _) if self.native_tools.presentation_pending => Ok(()),
+            Request::PlotConfiguration(_, _) if self.native_tools.presentation_pending => Ok(()),
+            Request::ResetApp(target) => {
+                use crate::ide::native_tools::ResetApp;
+                self.controller.mutate_memory_and_ui(|memory| {
+                    match target {
+                        ResetApp::Geometry => {
+                            let settings = ppl_vm::GeometryPlotSettings::default();
+                            memory
+                                .set_geometry_plot_settings(settings.clone())
+                                .map_err(|error| error.to_string())?;
+                            self.native_tools.reset_geometry(&settings);
+                        }
+                        ResetApp::StatisticsOne | ResetApp::StatisticsTwo => {
+                            use crate::ide::native_statistics::{COLUMN_COUNT, Columns};
+                            let app = target.name();
+                            let two = matches!(target, ResetApp::StatisticsTwo);
+                            let settings = ppl_vm::AppPlotSettings::for_app(app)
+                                .expect("Statistics has established Plot Setup defaults");
+                            memory
+                                .set_app_plot_settings(app, settings)
+                                .map_err(|error| error.to_string())?;
+                            memory.app_settings.remove(app);
+                            for index in 0..COLUMN_COUNT {
+                                let name = Columns::label(index, two);
+                                memory
+                                    .set_variable(&name, ppl_vm::PortableValue::List(Vec::new()))
+                                    .map_err(|error| error.to_string())?;
+                            }
+                            self.native_tools.reset_statistics(two, &memory.snapshot());
+                        }
+                    }
+                    let ui = native_profile_ui(&self.state.native, &self.native_tools.memory);
+                    self.profile_ui_last = ui.clone();
+                    Ok(ui)
+                })
+            }
+            Request::GeometryPlotConfiguration(settings) => {
+                let result = self.controller.mutate_memory(|memory| {
+                    memory
+                        .set_geometry_plot_settings(settings)
+                        .map_err(|error| error.to_string())
+                });
+                if result.is_err() {
+                    let committed = self.controller.session_snapshot().geometry_plot_settings();
+                    self.native_tools.geometry_settings_changed(&committed);
+                }
+                result
+            }
+            Request::PlotConfiguration(name, settings) => self.controller.mutate_memory(|memory| {
+                settings.validate()?;
+                if ppl_vm::AppPlotSettings::for_app(&name).is_none() {
+                    return Err("This app has no supported Plot Setup variables".into());
+                }
+                memory
+                    .set_app_plot_settings(&name, settings)
+                    .map_err(|e| e.to_string())
+            }),
             Request::GraphConfiguration(name, graph) => self.controller.mutate_memory(|memory| {
                 if memory.active_app == name {
                     Self::store_graph_configuration(memory, &graph)?;
@@ -1621,6 +1962,7 @@ impl IdeDesktopApp {
                     let (tx, rx) = mpsc::channel();
                     let operation = calculation.clone();
                     let snapshot = self.controller.session_snapshot();
+                    let statistics2_columns_revision = snapshot.statistics2_columns_revision;
                     let repaint = ctx.clone();
                     let thread = std::thread::spawn(move || {
                         let result = operation.calculate(cancel, &snapshot);
@@ -1635,6 +1977,7 @@ impl IdeDesktopApp {
                         rx,
                         calculation,
                         source,
+                        statistics2_columns_revision,
                     });
                     self.state.vm_state = crate::ide::VmExecutionState::Running;
                     Ok(())
@@ -1679,6 +2022,13 @@ impl IdeDesktopApp {
             Request::SaveNote(name, text) => self
                 .controller
                 .mutate_memory(|memory| memory.store_note(&name, text).map_err(|e| e.to_string())),
+            Request::SaveBulletedNote(name, text, bullets) => {
+                self.controller.mutate_memory(|memory| {
+                    memory
+                        .store_bulleted_note(&name, text, bullets)
+                        .map_err(|e| e.to_string())
+                })
+            }
             Request::DeleteNote(name) => self.controller.mutate_memory(|memory| {
                 if memory.delete_note(&name) {
                     Ok(())

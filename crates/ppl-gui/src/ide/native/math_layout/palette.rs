@@ -34,7 +34,7 @@ fn fraction(upper: MathLayout, lower: MathLayout) -> MathLayout {
     });
     out
 }
-fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
+pub(super) fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
     let widths = (0..cols)
         .map(|c| {
             parts

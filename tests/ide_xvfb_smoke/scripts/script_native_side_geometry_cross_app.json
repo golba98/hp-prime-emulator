@@ -1,0 +1,257 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_cross_app.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOFORMULAS",
+      "content": "EXPORT GEOFORMULAS() BEGIN\n            STARTAPP(\"Geometry\");Geometry.DelInstruction();\n            Geometry.Instruction(0):=\"point(0,0)\";\n            Geometry.Instruction(0):=\"point(3,4)\";\n            Geometry.Instruction(0):=\"distance(GA,GB)\";STARTVIEW(0,1);\n            STARTAPP(\"Spreadsheet\");Spreadsheet.A1(1):='Geometry.GC+2';\n            STARTAPP(\"Function\");Function.F1:=\"Geometry.GC+X\";\n            RETURN {TYPE(Spreadsheet.A1(1)),Spreadsheet.A1,F1(2)};\n        END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEORECALC",
+      "content": "EXPORT GEORECALC() BEGIN\n            Geometry.Instruction(2):=\"point(6,8)\";\n            LOCAL prior:=Spreadsheet.A1;\n            STARTAPP(\"Geometry\");STARTVIEW(0,1);\n            RETURN {prior,Spreadsheet.A1,Function.F1(2)};\n        END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOREAD",
+      "content": "EXPORT GEOREAD() BEGIN STARTAPP(\"Geometry\");RETURN {TYPE(Spreadsheet.A1(1)),Spreadsheet.A1,Function.F1(2)};END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "GEOFORMULAS()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "initial_values"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_initial_values.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Spreadsheet"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "sheet_value"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_sheet_value.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "GEORECALC()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "redrawn_values"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_redrawn_values.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Spreadsheet"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "sheet_updated"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_sheet_updated.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Function"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "function_plot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_function_plot.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "function_numeric"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_cross_app_function_numeric.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

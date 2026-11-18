@@ -1,0 +1,125 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_check.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SCHECKNATIVE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCHECKNATIVE() BEGIN D2:={2,4,8};SetSample(H2,D2);SetFreq(H2,1);LOCAL a:=CHECK(2),b:=CHECK(2),c:=UNCHECK(1),d:=UNCHECK(5);STARTVIEW(0);RETURN {a,b,c,d,ISCHECK(1),ISCHECK(2),ISCHECK(5)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "one_changed"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_check_one_changed.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCHECKNATIVE() BEGIN STARTAPP(\"Statistics 2Var\");C1:={1,2,3};C2:={3,5,7};LOCAL reject:=0,bad:=0,word:=0,on:=0;IFERR CHECK(2);THEN reject:=1;END;IFERR ISCHECK(2.5);THEN bad:=1;END;word:=CHECK(#1h);on:=ISCHECK(1.0);STARTVIEW(0);RETURN {reject,bad,word,on,ISCHECK(2),UNCHECK(5)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "two_changed"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_check_two_changed.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 7,
+      "y": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "two_pointer_off"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_check_two_pointer_off.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCHECKNATIVE() BEGIN RETURN {ISCHECK(1),ISCHECK(2),ISCHECK(5)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "two_pointer_read"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCHECKNATIVE() BEGIN STARTAPP(\"Statistics 1Var\");STARTVIEW(0);RETURN {ISCHECK(1),ISCHECK(2),ISCHECK(5)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "one_still_checked"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

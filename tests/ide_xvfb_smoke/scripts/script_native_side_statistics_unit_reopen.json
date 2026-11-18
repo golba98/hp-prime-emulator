@@ -1,0 +1,100 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_unit_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "LOWSTATREAD()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_ppl"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_summary"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_unit_reopened_summary.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

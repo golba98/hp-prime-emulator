@@ -1,0 +1,386 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_function.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOGRAPHSETUP",
+      "content": "EXPORT GEOGRAPHSETUP() BEGIN\n STARTAPP(\"Geometry\");Geometry.DelInstruction();\n Geometry.Instruction(0):=\"point(1,0)\";STARTVIEW(1,1);RETURN Geometry.Instruction();\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOGRAPHREDRAW",
+      "content": "EXPORT GEOGRAPHREDRAW() BEGIN\n LOCAL before,stale;\n before:=ordinate(Geometry.GC);\n Geometry.Instruction(\"GA\"):=\"point(3,0)\";\n stale:=ordinate(Geometry.GC);\n Geometry.Instruction(0):=\"plotfunc(x^2/4-12)\";\n STARTVIEW(1,1);\n RETURN {TYPE(Geometry.GB),TYPE(Geometry.GC),before,stale,abscissa(Geometry.GC),ordinate(Geometry.GC),\n abscissa(element(Geometry.GB,-30)),ordinate(element(Geometry.GB,2)),ordinate(element(Geometry.GD,6)),Geometry.Instruction(\"GB\")};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOGRAPHRESTORE",
+      "content": "EXPORT GEOGRAPHRESTORE() BEGIN\n STARTAPP(\"Geometry\");STARTVIEW(1,1);\n RETURN {TYPE(Geometry.GB),TYPE(Geometry.GC),abscissa(Geometry.GC),ordinate(Geometry.GC),\n ordinate(element(Geometry.GB,2)),ordinate(element(Geometry.GD,6)),Geometry.Instruction(\"GB\")};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOGRAPHSETUP()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "prepared"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_function_prepared.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 135
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 65,
+      "y": 114
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "function_entry"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "plotfunc(x^2/4+abscissa(GA))"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "curve_created"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_function_curve_created.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 65,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 183,
+      "y": 87
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "point_created"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_function_point_created.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 182,
+      "y": 87
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 182,
+      "from_y": 87,
+      "to_x": 198,
+      "to_y": 58
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "point_moved"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_function_point_moved.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOGRAPHREDRAW()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "redrawn"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_function_redrawn.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

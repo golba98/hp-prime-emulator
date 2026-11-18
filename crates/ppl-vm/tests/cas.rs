@@ -275,3 +275,49 @@ fn assignment_in_a_quoted_cas_argument_is_an_error_value_without_side_effects() 
         );
     }
 }
+
+#[test]
+fn signed_infinite_real_operations_run_without_algebra() {
+    use ppl_cas::{CasValue, InfinitySign};
+    use ppl_vm::{ErrorKind, HeadlessHost, Limits, PortableValue};
+
+    let mut context = SessionContext::default();
+    context
+        .set_variable(
+            "A",
+            PortableValue::Symbolic(CasValue::Infinity(InfinitySign::Positive)),
+        )
+        .unwrap();
+    let image = context.memory_json();
+    context.restore_memory(&image).unwrap();
+    for (source, expected) in [
+        ("TYPE(A)", "0"),
+        ("STRING(A+1E499)", "+Inf"),
+        ("STRING(A*1E-499)", "+Inf"),
+        ("STRING(A*(-1E-499))", "-Inf"),
+        ("STRING(1-A)", "-Inf"),
+        ("STRING((-A)/0)", "+Inf"),
+        ("STRING(2/A)", "0"),
+        ("STRING(A==A)", "1"),
+        ("STRING(A>1E499)", "1"),
+        ("STRING(ABS(-A))", "+Inf"),
+        ("STRING(SIGN(-A))", "−1"),
+        ("STRING(MAX(A,2))", "+Inf"),
+        ("STRING(MIN(A,2))", "2"),
+        ("STRING((-A)^3)", "-Inf"),
+        ("STRING((-A)^(-3))", "0"),
+    ] {
+        assert_eq!(
+            eval(&mut context, source).display(Default::default()),
+            expected,
+            "{source}"
+        );
+    }
+    for source in ["A*0", "A-A", "A/A", "A^0", "(-A)^.5", "√(-A)"] {
+        let failure = context
+            .evaluate_home(source, Box::new(HeadlessHost::default()), Limits::default())
+            .result
+            .unwrap_err();
+        assert_eq!(failure.kind, ErrorKind::Undefined, "{source}: {failure}");
+    }
+}

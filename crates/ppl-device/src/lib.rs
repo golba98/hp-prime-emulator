@@ -344,12 +344,22 @@ impl Prime {
                 );
             }
         }
-        let n = res?;
+        let n = match res {
+            Ok(n) => n,
+            Err(error) => {
+                // An I/O error can follow partial delivery. Further commands
+                // must not reuse this ambiguous wire/parser state.
+                self.retired = Some(error.to_string());
+                return Err(error);
+            }
+        };
         if n != report.len() {
-            return Err(DeviceError::Hid(format!(
+            let error = DeviceError::Hid(format!(
                 "short HID write: {n}/{} bytes; not retried",
                 report.len()
-            )));
+            ));
+            self.retired = Some(error.to_string());
+            return Err(error);
         }
         Ok(())
     }
@@ -377,6 +387,14 @@ impl Prime {
                     "no report",
                 );
                 Ok(None)
+            }
+            Ok(n) if *n > buf.len() => {
+                let error = DeviceError::Protocol(format!(
+                    "HID transport returned {n} bytes into a {}-byte report buffer",
+                    buf.len()
+                ));
+                self.retired = Some(error.to_string());
+                Err(error)
             }
             Ok(n) => {
                 buf.truncate(*n);
@@ -436,7 +454,12 @@ impl Prime {
         while n < DRAIN_MAX_REPORTS && Instant::now() < deadline {
             let mut buf = vec![0u8; self.report_size];
             match self.dev.read_timeout(&mut buf, DRAIN_TIMEOUT_MS) {
-                Ok(0) | Err(_) => break,
+                Ok(0) => break,
+                Err(_) => break,
+                Ok(k) if k > buf.len() => {
+                    self.retired = Some("oversized HID report while draining".into());
+                    break;
+                }
                 Ok(k) => {
                     buf.truncate(k);
                     self.log.push(Exchange {

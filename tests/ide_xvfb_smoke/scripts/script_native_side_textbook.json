@@ -199,6 +199,108 @@
       "label": "fraction_result"
     },
     {
+      "step": "type",
+      "text": "'x^(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(1/(z)))))))))))))))))))))))))'"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "tall_power_value"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "tall_power_top"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_tall_power_top.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "tall_power_scrolled"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_tall_power_scrolled.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "tall_power_closed"
+    },
+    {
       "step": "quit"
     }
   ]

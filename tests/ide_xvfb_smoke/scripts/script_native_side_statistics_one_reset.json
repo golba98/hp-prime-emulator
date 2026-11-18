@@ -1,0 +1,311 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_one_reset.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "new_program",
+      "name": "STATRST"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN STARTAPP(\"Statistics 2Var\");C1:={2,4,8};C2:={5,9,17};S1(4):=8;RETURN {C1,C2,S1}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "unrelated_seed"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN STARTAPP(\"Statistics 1Var\"); A:=123456789; D1:={1,2,3};D2:={2,1,4};\nH1(2):='D2'; H1(3):=8; H1(5):=#20A0C0h; H2(1):='D2'; CHECK(2);\nXmin:=-3; Xmax:=7; Ymin:=-4; Ymax:=17; Xtick:=2; Ytick:=3; Axes:=1; GridDots:=1; GridLines:=1; Labels:=1; Hmin:=2; Hmax:=22; Hwidth:=2;\nAAngle:=2; AFormat:=2; ADigits:=6; AComplex:=1;\nDo1VStats(H1); RETURN {MeanX,NbItem}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "summary"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN RETURN {H1,H2,D1,D2,ISCHECK(1),ISCHECK(2),MeanX,NbItem,Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,Hmin,Hmax,Hwidth,AAngle,AFormat,ADigits,AComplex,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "before"
+    },
+    {
+      "step": "calc_key",
+      "code": 0
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "cancel_prompt"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_cancel_prompt.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "canceled"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_canceled.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN RETURN {H1,H2,D1,D2,ISCHECK(1),ISCHECK(2),MeanX,NbItem,Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,Hmin,Hmax,Hwidth,AAngle,AFormat,ADigits,AComplex,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "after_cancel"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN STARTAPP(\"Statistics 2Var\");RETURN {C1,C2,S1,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "second_active"
+    },
+    {
+      "step": "calc_key",
+      "code": 0
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "inactive_highlight"
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "confirm_prompt"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_confirm_prompt.png"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "confirmed"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_confirmed.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN STARTAPP(\"Statistics 1Var\"); RETURN {H1,H2,D1,D2,ISCHECK(1),ISCHECK(2),MeanX,NbItem,Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,Hmin,Hmax,Hwidth,AAngle,AFormat,ADigits,AComplex,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "after_reset"
+    },
+    {
+      "step": "calc_key",
+      "code": 1
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "symbolic_restored"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_symbolic_restored.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 11
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "numeric_cleared"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_reset_numeric_cleared.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATRST() BEGIN STARTAPP(\"Statistics 2Var\");RETURN {C1,C2,S1,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "unrelated_preserved"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

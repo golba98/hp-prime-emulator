@@ -3,6 +3,7 @@
 //! Native point caches are versioned, portable JSON strings. They are not HP
 //! firmware heap-bearing cache strings; unrecognized cache strings are rejected.
 use super::*;
+use ppl_math::Real;
 use serde_json::{Value as Json, json};
 const CACHE: &str = "\u{e000}HP-PRIME-NATIVE-POINTS:1:";
 const DEPTH: &str = "\u{e000}HP-PRIME-NATIVE-DEPTH:1:";
@@ -90,6 +91,16 @@ impl Depth {
             self.values[index] = z;
             true
         }
+    }
+    fn accepts_line(&mut self, index: usize, z: i64) -> bool {
+        let held = &mut self.values[index];
+        if z >= i64::from(*held) {
+            return false;
+        }
+        // A steep descending line can extrapolate a negative signed depth.
+        // Compare it before writing the low byte back into the buffer.
+        *held = z as u8;
+        true
     }
 }
 fn invalid(message: &str) -> RuntimeError {
@@ -250,10 +261,11 @@ fn transform(points: &mut [Point], options: &Transform) -> RtResult<()> {
     Ok(())
 }
 fn cache(points: &[Point], options: &Transform) -> Value {
-    Value::str(format!(
-        "{CACHE}{}",
-        json!({"points":points.iter().map(|p|json!([p.xyz,p.original,p.depth,p.color])).collect::<Vec<_>>(),"eye":options.eye,"clip":options.clip})
-    ))
+    let mut payload = json!({"points":points.iter().map(|p|json!([p.xyz,p.original,p.depth,p.color])).collect::<Vec<_>>(),"eye":options.eye,"clip":options.clip});
+    if options.normalize {
+        payload["normalized"] = Json::Bool(true);
+    }
+    Value::str(format!("{CACHE}{payload}"))
 }
 fn json_numbers<const N: usize>(value: &Json) -> RtResult<[f64; N]> {
     let values = value
@@ -299,6 +311,13 @@ fn uncache(source: &str) -> RtResult<(Vec<Point>, Transform)> {
         })
         .collect::<RtResult<Vec<_>>>()?;
     let options = Transform {
+        normalize: match json.get("normalized") {
+            Some(value) => value
+                .as_bool()
+                .ok_or_else(|| invalid("Invalid cached normalization flag"))?,
+            // Older caches retained normalized depth separately from z.
+            None => points.iter().any(|p| p.depth != p.xyz[2]),
+        },
         eye: if json["eye"].is_null() {
             None
         } else {
@@ -319,10 +338,64 @@ fn uncache(source: &str) -> RtResult<(Vec<Point>, Transform)> {
     }
     Ok((points, options))
 }
-fn load_points(value: &Value) -> RtResult<Vec<Point>> {
+fn has_complex_cell(values: &[Value]) -> bool {
+    values
+        .iter()
+        .any(|value| matches!(value, Value::Complex(_)))
+}
+
+fn packed_point(values: &[Value], max_columns: usize) -> RtResult<Point> {
+    if !(1..=max_columns).contains(&values.len()) {
+        return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
+    }
+    // Complex rows encode (x, y) in their first cell and (z, color)
+    // in the optional second cell. A real cell has imaginary part zero.
+    let components = |value: &Value| -> RtResult<_> {
+        match value {
+            Value::Complex(value) => Ok((value.re, value.im)),
+            value => Ok((value.expect_real("mesh point")?, ppl_math::Real::ZERO)),
+        }
+    };
+    let (x, y) = components(&values[0])?;
+    let (z, color) = if let Some(value) = values.get(1) {
+        let (z, color) = components(value)?;
+        // The color is truncated and clamped to the nonnegative signed
+        // 32-bit range before using its low three RGB bytes.
+        let color = (number(&Value::Real(color))? as i32).max(0) as Color & 0xff_ff_ff;
+        (z, color)
+    } else {
+        (ppl_math::Real::ZERO, BLACK)
+    };
+    let xyz = [
+        number(&Value::Real(x))?,
+        number(&Value::Real(y))?,
+        number(&Value::Real(z))?,
+    ];
+    Ok(Point {
+        xyz,
+        original: xyz,
+        depth: xyz[2],
+        color,
+    })
+}
+
+fn load_points(value: &Value, packed_vectors: bool) -> RtResult<Vec<Point>> {
     match value {
-        Value::List(v) => v.iter().map(point).collect(),
+        Value::List(v) => v
+            .iter()
+            .map(|value| match value {
+                Value::Matrix(row)
+                    if packed_vectors && row.vector && has_complex_cell(&row.data) =>
+                {
+                    packed_point(&row.data, 2)
+                }
+                value => point(value),
+            })
+            .collect(),
         Value::Matrix(v) if v.vector => v.data.iter().map(point).collect(),
+        Value::Matrix(v) if has_complex_cell(&v.data) => {
+            (0..v.rows).map(|r| packed_point(v.row(r), 3)).collect()
+        }
         Value::Matrix(v) => (0..v.rows)
             .map(|r| point(&Value::list(v.row(r).to_vec())))
             .collect(),
@@ -486,16 +559,114 @@ fn check_interrupt(flag: Option<&std::sync::atomic::AtomicBool>) -> RtResult<()>
         Ok(())
     }
 }
+struct LineNormalization {
+    low: Real,
+    scale: Real,
+}
+
+impl LineNormalization {
+    fn new(points: &[Point], source_clip: Option<[f64; 6]>) -> Option<Self> {
+        // Source z clipping can change the original normalization range.
+        if source_clip.is_some_and(|bounds| {
+            points
+                .iter()
+                .any(|point| !(bounds[4]..=bounds[5]).contains(&point.original[2]))
+        }) {
+            return None;
+        }
+        let first = points.first()?.xyz[2];
+        let (low, high) = points.iter().fold((first, first), |(low, high), point| {
+            (low.min(point.xyz[2]), high.max(point.xyz[2]))
+        });
+        let low = Real::from_f64(low).ok()?;
+        let range = Real::from_f64(high).ok()?.sub(low).ok()?;
+        let scale = if range.is_zero() {
+            Real::ZERO
+        } else {
+            Real::from_i64(253).div(range).ok()?
+        };
+        Some(Self { low, scale })
+    }
+
+    fn depth(&self, point: Point) -> Option<i64> {
+        let z = Real::from_f64(point.xyz[2]).ok()?.sub(self.low).ok()?;
+        let depth = z.mul_trunc_to_i64(self.scale)?;
+        (0..=255).contains(&depth).then_some(depth)
+    }
+}
+
+const LINE_DEPTH_UNIT: i64 = 1 << 16;
+
+struct LineDepth {
+    first: i64,
+    second: i64,
+    origin: i64,
+    on_x: bool,
+    count: i64,
+    reciprocal: i64,
+}
+
+impl LineDepth {
+    fn new(depths: [i64; 2], positions: [(f64, f64); 2]) -> Option<Self> {
+        if positions.iter().any(|&(x, y)| {
+            [x, y]
+                .into_iter()
+                .any(|v| v.fract() != 0.0 || v < f64::from(i32::MIN) || v > f64::from(i32::MAX))
+        }) {
+            return None;
+        }
+        let [mut first, mut second] = depths;
+        let [(x1, y1), (x2, y2)] = positions.map(|(x, y)| (x as i64, y as i64));
+        // Depth endpoints are ordered by x. A steep line advances by y with
+        // an inclusive signed span, while a diagonal uses the x span length.
+        let (dx, dy) = if x1 > x2 {
+            std::mem::swap(&mut first, &mut second);
+            (x1 - x2, y1 - y2)
+        } else {
+            (x2 - x1, y2 - y1)
+        };
+        let on_x = dx > dy.abs();
+        let count = if dy.abs() > dx {
+            (dy + 1).abs().max(2)
+        } else {
+            dx + 1
+        };
+        if i32::try_from(count).is_err() {
+            return None;
+        }
+        Some(Self {
+            first: if dx == 0 && dy == 0 {
+                (first + second) / 2
+            } else {
+                first
+            },
+            second,
+            origin: if on_x { x1.min(x2) } else { y1.min(y2) },
+            on_x,
+            count,
+            reciprocal: LINE_DEPTH_UNIT / count,
+        })
+    }
+
+    fn at(&self, x: i64, y: i64) -> i64 {
+        let offset = (if self.on_x { x } else { y }) - self.origin;
+        let weighted = self.first * (self.count - offset) + self.second * offset;
+        weighted * self.reciprocal / LINE_DEPTH_UNIT
+    }
+}
+
 fn draw_line(
     grob: &mut Grob,
-    a: Point,
-    b: Point,
+    points: [Point; 2],
     positions: [(f64, f64); 2],
     alpha: Option<i64>,
     depth: &mut Option<Depth>,
+    phase_depths: Option<[i64; 2]>,
     interrupt: Option<&std::sync::atomic::AtomicBool>,
 ) -> RtResult<()> {
-    let (mut a, mut b) = (a, b);
+    // Depth advances on the entire projected segment. Clip the writes only.
+    let phase = phase_depths.and_then(|depths| LineDepth::new(depths, positions));
+    let [mut a, mut b] = points;
     let [(mut x1, mut y1), (mut x2, mut y2)] = positions;
     // Firmware walks along the increasing major axis in either endpoint order.
     if if (x2 - x1).abs() >= (y2 - y1).abs() {
@@ -541,16 +712,19 @@ fn draw_line(
         let x = (start.0 + (end.0 - start.0) * t).round() as i64;
         let y = (start.1 + (end.1 - start.1) * t).round() as i64;
         let position = low + (high - low) * t;
-        let z = a.depth + (b.depth - a.depth) * position;
         let color_position = if original_span == 0. {
             0.5
         } else {
             position * original_span / (original_span + 1.)
         };
-        if depth
-            .as_mut()
-            .is_none_or(|d| d.accepts(y as usize * grob.width() + x as usize, z))
-        {
+        if depth.as_mut().is_none_or(|d| {
+            let index = y as usize * grob.width() + x as usize;
+            if let Some(phase) = &phase {
+                d.accepts_line(index, phase.at(x, y))
+            } else {
+                d.accepts(index, a.depth + (b.depth - a.depth) * position)
+            }
+        }) {
             let color = if original_span == 0. {
                 (0..4).fold(0, |color, index| {
                     let shift = index * 8;
@@ -772,8 +946,15 @@ pub(super) fn render(
                     "3D graphics expect points, primitives, transform and optional z-string",
                 ));
             }
-            let mut points = load_points(arg(args, 0, "3D graphics")?)?;
             let options = transformation(args.get(2))?;
+            // Triangle point-vector rows require a transform with a z row.
+            // Actual complex matrices can use either supported row count.
+            let packed_vectors = !triangles
+                || options
+                    .matrix
+                    .as_ref()
+                    .is_some_and(|matrix| matrix.len() == 3);
+            let mut points = load_points(arg(args, 0, "3D graphics")?, packed_vectors)?;
             transform(&mut points, &options)?;
             (points, options)
         };
@@ -795,6 +976,11 @@ pub(super) fn render(
             "Z clipping requires depth from 0 through 255 or N normalization",
         ));
     }
+    let line_normalization = if !triangles && !cart && depth.is_some() && options.normalize {
+        LineNormalization::new(&points, options.clip)
+    } else {
+        None
+    };
     let required = if triangles { 3 } else { 2 };
     let interrupt = machine.host.interrupt_flag();
     for primitive in rows {
@@ -853,13 +1039,22 @@ pub(super) fn render(
                 project(a, options.eye, cart, window)?,
                 project(b, options.eye, cart, window)?,
             ];
+            let phase_depths = if cart || depth.is_none() {
+                None
+            } else if options.normalize {
+                line_normalization.as_ref().and_then(|normalization| {
+                    Some([normalization.depth(a)?, normalization.depth(b)?])
+                })
+            } else {
+                Some([a.depth as i64, b.depth as i64])
+            };
             draw_line(
                 &mut target,
-                a,
-                b,
+                [a, b],
                 positions,
                 alpha,
                 &mut depth,
+                phase_depths,
                 interrupt.as_deref(),
             )?;
         }

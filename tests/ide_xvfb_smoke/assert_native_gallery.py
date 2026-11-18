@@ -19,12 +19,14 @@ def memory(label):
     return states[label]['native_tools']['memory']
 
 for label, highlight in [('fixed', 'Function'), ('right', 'Advanced Graphing'),
-                         ('down', 'Statistics 2Var'), ('scrolled', 'Trig Explorer'),
+                         ('down', 'Statistics 2Var'), ('graph3d_highlighted', 'Graph 3D'),
+                         ('scrolled', 'Trig Explorer'),
                          ('prefix', 'Spreadsheet')]:
     m = memory(label)
     assert m['selected_app'] == 'Function', label
     assert m['gallery']['highlight'] == highlight, label
     assert states[label]['native_tools']['page'] == 'Apps', label
+assert memory('graph3d_highlighted')['gallery']['first_row'] == 2
 assert memory('scrolled')['gallery']['first_row'] == 2
 assert memory('prefix')['gallery']['first_row'] == 0
 assert states['sheet_open']['native_tools']['page'] == 'Numeric'

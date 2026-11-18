@@ -1,0 +1,72 @@
+{
+  "provenance": "Unchanged self-authored conversion programs run on original installed offline G1 firmware; no physical hardware or vendor assets. Tight numeric tolerance records the original floating conversion near zero rather than claiming bit-identical decimal inversion.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "geometry_cartesian_conversion_numeric_control",
+      "entry": "ZZT_GEO_COORD",
+      "source": "EXPORT ZZT_GEO_COORD() BEGIN Geometry.Xmin:=-16;Geometry.Ymin:=-11;Geometry.PixSize:=0.1;RETURN {C→PX({0,0}),C→PX({-12,-8}),C→PX({-15.5,-10.5}),PX→C({319,0}),PX→C({1,218}),PX→C({160.5,109.5}),PX→C({-1.5,-1.5})};END;",
+      "source_sha256": "953ee8d5ff1fda962c40bf296e1b769d12a9cf3b000f970a7e103ee3ed612aca",
+      "expected": [
+        [
+          160,
+          109
+        ],
+        [
+          41,
+          188
+        ],
+        [
+          6,
+          213
+        ],
+        [
+          15.9,
+          10.9
+        ],
+        [
+          -16,
+          -11
+        ],
+        [
+          -0.0499999999999,
+          -0.0499999999999
+        ],
+        [
+          -16.3009433962,
+          11.1009174312
+        ]
+      ],
+      "absolute_tolerance": "0.00000000001"
+    },
+    {
+      "name": "geometry_cartesian_changed_window_numeric_control",
+      "entry": "ZZT_GEO_COORD2",
+      "source": "EXPORT ZZT_GEO_COORD2() BEGIN Geometry.Xmin:=-7;Geometry.Ymin:=-3;Geometry.PixSize:=0.2;RETURN {C→PX({0,0}),C→PX({4,3}),C→PX({-6,-2}),PX→C({319,0}),PX→C({1,218})};END;",
+      "source_sha256": "c1f803562eaac45978592622788920633f62ec3aee82c96bea5ef7c7ae5f4260",
+      "expected": [
+        [
+          36,
+          203
+        ],
+        [
+          56,
+          188
+        ],
+        [
+          6,
+          213
+        ],
+        [
+          56.8,
+          40.8
+        ],
+        [
+          -7,
+          -3
+        ]
+      ],
+      "absolute_tolerance": "0.00000000001"
+    }
+  ]
+}

@@ -142,6 +142,31 @@ pub fn model_samples(data: &PlotData) -> PlotSamples {
         .map(|curve| curve.iter().copied().map(Some).collect())
         .collect()
 }
+
+/// Statistics trace entries represent observations and summaries, independently
+/// of the vertices used to paint bars, whiskers and sectors.
+pub fn model_trace_samples(data: &PlotData, window: &PlotWindow) -> PlotSamples {
+    if data.statistics_traces.is_empty() {
+        return model_samples(data);
+    }
+    let middle = window.ymin / 2. + window.ymax / 2.;
+    data.statistics_traces
+        .iter()
+        .map(|series| {
+            series
+                .samples
+                .iter()
+                .map(|sample| {
+                    let point = [sample.x, sample.y.unwrap_or(middle)];
+                    point
+                        .iter()
+                        .all(|coordinate| coordinate.is_finite())
+                        .then_some(point)
+                })
+                .collect()
+        })
+        .collect()
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceDirection {
     Left,
@@ -153,7 +178,9 @@ pub enum TraceDirection {
 pub struct TracePoint {
     pub curve: usize,
     pub sample: usize,
-    /// Exactly a computed sample, never a straight-line interpolation.
+    /// Cursor position for the selected entry, never an interpolated value.
+    /// Statistics stores its typed value separately; an undefined Moving Range
+    /// entry positions the cursor at the window midpoint while displaying NaN.
     pub point: [f64; 2],
 }
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -574,6 +601,13 @@ mod tests {
     fn dense_model_adapter_preserves_original_sample_order_and_values() {
         let data = PlotData {
             geometry: None,
+            colors: Vec::new(),
+            annotations: Vec::new(),
+            fills: Vec::new(),
+            dots: Vec::new(),
+            statistics_traces: Vec::new(),
+            scale: None,
+            statistics_two_fits: Vec::new(),
             curves: vec![vec![[3., 7.], [1., 2.]], vec![]],
             labels: vec![],
             styles: vec![],
@@ -593,6 +627,13 @@ mod tests {
     fn model_autoscale_uses_first_data_curve_and_both_axes() {
         let data = PlotData {
             geometry: None,
+            colors: Vec::new(),
+            annotations: Vec::new(),
+            fills: Vec::new(),
+            dots: Vec::new(),
+            statistics_traces: Vec::new(),
+            scale: None,
+            statistics_two_fits: Vec::new(),
             curves: vec![vec![[1., 2.], [3., 7.]], vec![[1e9, -1e9]]],
             labels: vec![],
             styles: vec![],

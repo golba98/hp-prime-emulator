@@ -1,0 +1,70 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3D"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3D() BEGIN LOCAL a:=STARTAPP(\"Graph 3D\");RETURN {a,ISCHECK(1),FZ1(3,1),STARTVIEW(1,1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_reopened.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3D() BEGIN RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_table"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_reopened_table.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

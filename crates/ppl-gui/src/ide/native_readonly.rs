@@ -1,8 +1,12 @@
 //! Isolated app expressions with cancellation and a fence against memory writes.
+use super::native_application_access::geometry::{ReadSnapshot, read_only_host};
 use ppl_vm::{PortableValue, SessionContext, SessionSnapshot, Value};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, Instant},
 };
 fn check(cancel: &AtomicBool) -> Result<(), String> {
     if cancel.load(Ordering::Acquire) {
@@ -18,7 +22,21 @@ pub fn evaluate(
     overrides: impl IntoIterator<Item = (String, PortableValue)>,
     cancel: Arc<AtomicBool>,
 ) -> Result<Value, String> {
+    evaluate_with_geometry(source, app, snapshot, overrides, cancel, None)
+}
+
+pub(crate) fn evaluate_with_geometry(
+    source: &str,
+    app: &str,
+    snapshot: &SessionSnapshot,
+    overrides: impl IntoIterator<Item = (String, PortableValue)>,
+    cancel: Arc<AtomicBool>,
+    geometry: ReadSnapshot,
+) -> Result<Value, String> {
     check(&cancel)?;
+    if let Some(book) = &geometry {
+        book.validate()?;
+    }
     if source.len() > 65536 {
         return Err("Expression exceeds64KiB".into());
     }
@@ -26,10 +44,14 @@ pub fn evaluate(
     context.active_app = app.into();
     context.app_settings = snapshot.app_settings.clone();
     context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+    context.app_plot_settings = snapshot.app_plot_settings.clone();
+    context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
     context.app_files = snapshot.app_files.clone();
     context.cas = snapshot.cas.clone();
     for (name, value) in &snapshot.globals {
-        if name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit() {
+        if (name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit())
+            || (context.active_app == "Geometry" && ppl_vm::GeometryPlotSettings::recognizes(name))
+        {
             continue;
         }
         context
@@ -44,22 +66,27 @@ pub fn evaluate(
     context.settings = snapshot.settings.clone();
     context.app_settings = snapshot.app_settings.clone();
     context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+    context.app_plot_settings = snapshot.app_plot_settings.clone();
+    context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
     for (name, source) in &snapshot.programs {
         context
             .store_program(name, source.clone())
             .map_err(|e| e.to_string())?;
     }
     let before = context.snapshot();
+    let timeout = Duration::from_secs(2);
     let result = context
         .evaluate_home(
             source,
-            Box::new(ppl_vm::HeadlessHost {
-                interrupt: Some(cancel.clone()),
-                ..Default::default()
-            }),
+            read_only_host(
+                geometry,
+                cancel.clone(),
+                Instant::now() + timeout,
+                "Calculation timed out",
+            ),
             ppl_vm::Limits {
                 max_steps: Some(1_000_000),
-                max_time: Some(std::time::Duration::from_secs(2)),
+                max_time: Some(timeout),
                 ..Default::default()
             },
         )
@@ -86,6 +113,8 @@ pub(super) fn changed(before: &SessionSnapshot, after: &SessionSnapshot) -> bool
         || before.active_app != after.active_app
         || before.app_settings != after.app_settings
         || before.app_numeric_settings != after.app_numeric_settings
+        || before.app_plot_settings != after.app_plot_settings
+        || before.geometry_plot_settings != after.geometry_plot_settings
         || before.app_files != after.app_files
         || before.notes != after.notes
         || before.programs != after.programs
@@ -103,6 +132,9 @@ mod numeric_tests {
             "NumZoom:=3",
             "NumType:=1",
             "NumIndep:={2,4,6}",
+            "Xmin:=7",
+            "Function.Xmax:=23",
+            "Statistics_1Var.Hwidth:=3",
         ] {
             let mut context = SessionContext::default();
             context
@@ -124,6 +156,34 @@ mod numeric_tests {
                     .unwrap_err()
                     .contains("cannot change calculator memory"),
                 "{assignment}"
+            );
+            assert_eq!(context.memory_json(), before);
+        }
+    }
+    #[test]
+    fn scoped_plot_reads_use_the_requested_app_and_do_not_mutate_the_snapshot() {
+        let mut context = SessionContext::default();
+        context
+            .set_variable("Xmin", PortableValue::Real(ppl_math::Real::from_i64(7)))
+            .unwrap();
+        let before = context.memory_json();
+        for (app, source, expected) in [
+            ("Function", "Xmin", "7"),
+            ("Statistics 1Var", "Function.Xmin", "7"),
+            ("Spreadsheet", "6*7", "42"),
+            ("Geometry", "6*7", "42"),
+        ] {
+            let result = evaluate(
+                source,
+                app,
+                &context.snapshot(),
+                [],
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+            assert_eq!(
+                result.string_form(ppl_vm::value::default_format()),
+                expected
             );
             assert_eq!(context.memory_json(), before);
         }

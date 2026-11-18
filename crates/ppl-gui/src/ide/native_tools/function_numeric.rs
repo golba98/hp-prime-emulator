@@ -211,7 +211,11 @@ impl NativeTools {
         value.ppl_source()
     }
     fn function_numeric_source_key(&self) -> serde_json::Value {
-        serde_json::json!({"curves":&self.memory.graphs["Function"].curves,"sheet":&self.memory.models.spreadsheet})
+        serde_json::json!({
+            "curves": &self.memory.graphs["Function"].curves,
+            "sheet": &self.memory.models.spreadsheet,
+            "geometry": self.memory.models.geometry_book.as_ref().map(|book| book.access_fingerprint()),
+        })
     }
     pub fn function_numeric_submit(
         &mut self,
@@ -223,6 +227,7 @@ impl NativeTools {
         let graph = self.function_numeric_source_key();
         let function = self.memory.graphs["Function"].clone();
         let sheet = self.memory.models.spreadsheet.clone();
+        let geometry = self.memory.models.geometry_book.clone().map(Arc::new);
         let mut context = snapshot.clone();
         context.active_app = "Function".into();
         let cancel = Arc::new(AtomicBool::new(false));
@@ -231,7 +236,7 @@ impl NativeTools {
         let text = source.clone();
         std::thread::spawn(move || {
             let result = crate::ide::native_application_access::evaluate_expression(
-                &text, sheet, function, &context, flag,
+                &text, sheet, function, geometry, &context, flag,
             )
             .map_err(|e| e.to_string())
             .and_then(|value| {
@@ -1052,6 +1057,7 @@ mod tests {
         let (rows, error) = crate::ide::native_application_access::evaluate_numeric_rows(
             Default::default(),
             graph.clone(),
+            None,
             &snapshot,
             vec![
                 Real::parse("1E400").unwrap(),
@@ -1078,6 +1084,7 @@ mod tests {
         let (rows, error) = crate::ide::native_application_access::evaluate_numeric_rows(
             Default::default(),
             graph,
+            None,
             &snapshot,
             vec![Real::from_i64(2)],
             Arc::new(AtomicBool::new(false)),
@@ -1101,6 +1108,7 @@ mod tests {
         let (rows, error) = crate::ide::native_application_access::evaluate_numeric_rows(
             Default::default(),
             graph,
+            None,
             &snapshot,
             vec![Real::ZERO, Real::ONE],
             Arc::new(AtomicBool::new(false)),

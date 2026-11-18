@@ -1,0 +1,169 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_scroll_text_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOSCROLLREAD()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_flag"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 93
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "click_lcd",
+      "x": 70,
+      "y": 176
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "click_lcd",
+      "x": 259,
+      "y": 113
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_early"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_scroll_text_reopened_early.png"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 700
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_later"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_scroll_text_reopened_later.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

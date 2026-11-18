@@ -3,7 +3,8 @@ use super::*;
 use ppl_math::IntBase;
 use serde_json::{Value as Json, json};
 
-const VERSION: u64 = 5;
+const VERSION: u64 = 6;
+const TYPED_NUMERIC_VERSION: u64 = 5;
 const MAX_CELLS: usize = 1_000_000;
 
 pub fn encode_value(value: &PortableValue) -> Json {
@@ -285,18 +286,19 @@ fn decode_map(j: &Json) -> Result<BTreeMap<String, PortableValue>, String> {
 }
 impl SessionContext {
     pub fn memory_json(&self) -> Json {
-        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
+        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_plot_settings":self.app_plot_settings.iter().map(|(name,settings)|(name.clone(),Json::Object(crate::AppPlotSettings::NAMES.into_iter().map(|field|(field.into(),encode_value(&PortableValue::from(&settings.get(field).unwrap())))).collect()))).collect::<serde_json::Map<String,Json>>(),"geometry_plot_settings":self.geometry_plot_settings.as_ref().map(|settings|Json::Object(crate::GeometryPlotSettings::NAMES.into_iter().map(|name|(name.into(),encode_value(&PortableValue::from(&settings.get(name).expect("Geometry field"))))).collect())),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
             "modules":self.modules.iter().map(|(k,m)|(k.clone(),json!({"revision":m.revision,"initialized":m.initialized,"values":encode_map(&m.values)}))).collect::<serde_json::Map<String,Json>>(),
-            "notes":self.notes,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
+            "notes":self.notes,"note_bullets":self.note_bullets,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
             "settings":{"angle":self.settings.angle.code(),"format":self.settings.hformat,"digits":self.settings.hdigits,"string_format_version":self.settings.string_format_version.code(),"numeric_version":self.settings.numeric_version.code(),"complex":self.settings.complex_results,"separator":self.settings.digit_grouping.code(),"complex_format":self.settings.complex_display.code(),"base":base_code(self.settings.int_base),"bits":self.settings.int_bits,"signed":self.settings.int_signed,"font_px":self.settings.font_px,"exp_char":self.settings.exp_char.to_string()},
             "rng":self.rng.state(),"terminal":self.terminal,"display":if self.display==DisplayMode::Graphics {"graphics"}else{"terminal"},
             "grobs":self.grobs.iter().map(|g|g.as_ref().map(|g|json!({"width":g.width(),"height":g.height(),"pixels":g.pixels()}))).collect::<Vec<_>>()})
     }
     /// Parse into a fresh context first; malformed/future state never mutates this session.
     pub fn restore_memory(&mut self, j: &Json) -> Result<(), String> {
-        if !matches!(j["version"].as_u64(), Some(1 | 2 | 3 | 4 | VERSION)) {
-            return Err("Unsupported Native memory version".into());
-        }
+        let version = j["version"]
+            .as_u64()
+            .filter(|version| (1..=VERSION).contains(version))
+            .ok_or("Unsupported Native memory version")?;
         let mut next = Self::default();
         if let Some(name) = j["active_app"].as_str() {
             next.active_app = name.into();
@@ -322,6 +324,81 @@ impl SessionContext {
                 next.app_settings.insert(name.clone(), settings);
             }
         }
+        if let Some(value) = j
+            .get("geometry_plot_settings")
+            .filter(|value| !value.is_null())
+        {
+            let fields = value.as_object().ok_or("Invalid Geometry Plot settings")?;
+            if fields.len() != crate::GeometryPlotSettings::NAMES.len() {
+                return Err("Invalid Geometry Plot settings fields".into());
+            }
+            let mut settings = crate::GeometryPlotSettings::default();
+            for field in crate::GeometryPlotSettings::NAMES {
+                let number = numeric_value(&value[field], false)?;
+                if matches!(
+                    field,
+                    "Axes" | "GridDots" | "GridLines" | "Labels" | "ScrollText"
+                ) && number != Real::ZERO
+                    && number != Real::ONE
+                {
+                    return Err("Invalid Geometry flag".into());
+                }
+                settings
+                    .set(field, &Value::Real(number))
+                    .map_err(|e| e.to_string())?;
+                if settings
+                    .get(field)
+                    .map_err(|e| e.to_string())?
+                    .expect_real(field)
+                    .map_err(|e| e.to_string())?
+                    != number
+                {
+                    return Err("Noncanonical Geometry Plot value".into());
+                }
+            }
+            settings.validate()?;
+            next.geometry_plot_settings = Some(settings);
+        }
+        if let Some(apps) = j.get("app_plot_settings") {
+            let apps = apps.as_object().ok_or("Invalid Plot settings map")?;
+            if apps.len() > 1024 {
+                return Err("Too many Plot settings".into());
+            }
+            for (name, value) in apps {
+                let mut settings = crate::AppPlotSettings::for_app(name)
+                    .ok_or_else(|| format!("Unestablished Plot settings app {name}"))?;
+                let fields = value.as_object().ok_or("Invalid Plot settings")?;
+                if fields.len() != crate::AppPlotSettings::NAMES.len() {
+                    return Err("Invalid Plot settings fields".into());
+                }
+                for field in crate::AppPlotSettings::NAMES {
+                    let decoded = decode_value(&value[field])?;
+                    let number = match &decoded {
+                        PortableValue::Real(number) => *number,
+                        PortableValue::Symbolic(ppl_cas::CasValue::Infinity(_))
+                            if name == "Statistics 1Var" && matches!(field, "Ymin" | "Ymax") =>
+                        {
+                            settings
+                                .set(field, &decoded.to_value())
+                                .map_err(|error| error.to_string())?;
+                            continue;
+                        }
+                        _ => return Err("Numeric setting must be a real".into()),
+                    };
+                    if matches!(field, "Axes" | "GridDots" | "GridLines" | "Labels")
+                        && number != Real::ZERO
+                        && number != Real::ONE
+                    {
+                        return Err("Invalid Plot flag".into());
+                    }
+                    settings
+                        .set(field, &Value::Real(number))
+                        .map_err(|error| error.to_string())?;
+                }
+                settings.validate_for(name)?;
+                next.app_plot_settings.insert(name.clone(), settings);
+            }
+        }
         if let Some(apps) = j.get("app_numeric_settings") {
             let apps = apps.as_object().ok_or("Invalid numeric settings map")?;
             if apps.len() > 1024 {
@@ -331,9 +408,7 @@ impl SessionContext {
                 if name.is_empty() || name.len() > 1024 {
                     return Err("Invalid numeric settings name".into());
                 }
-                let legacy = j["version"]
-                    .as_u64()
-                    .is_some_and(|version| version < VERSION);
+                let legacy = version < TYPED_NUMERIC_VERSION;
                 let real = |key: &str| numeric_value(&value[key], legacy);
                 let settings = crate::AppNumericSettings {
                     start: real("start")?,
@@ -354,7 +429,7 @@ impl SessionContext {
                 settings.validate()?;
                 next.app_numeric_settings.insert(name.clone(), settings);
             }
-        } else if j["version"].as_u64() == Some(VERSION) {
+        } else if version >= TYPED_NUMERIC_VERSION {
             return Err("Missing numeric settings map".into());
         }
         if let Some(files) = j["app_files"].as_object() {
@@ -368,10 +443,27 @@ impl SessionContext {
             next.cas.validate().map_err(|e| e.to_string())?;
         }
         next.globals = decode_map(&j["globals"])?;
-        if j["version"]
-            .as_u64()
-            .is_some_and(|version| version < VERSION)
-        {
+        // Older profiles stored active-app bounds in Home globals. Migrate
+        // those exact values once, never overwrite an explicit scoped map.
+        if let Some(mut settings) = crate::AppPlotSettings::for_app(&next.active_app) {
+            let mut found = false;
+            for name in crate::AppPlotSettings::NAMES {
+                if let Some(value) = next.globals.remove(name) {
+                    if !next.app_plot_settings.contains_key(&next.active_app) {
+                        settings
+                            .set(name, &value.to_value())
+                            .map_err(|e| e.to_string())?;
+                        found = true;
+                    }
+                }
+            }
+            if found {
+                next.app_plot_settings
+                    .insert(next.active_app.clone(), settings);
+            }
+        }
+
+        if version < TYPED_NUMERIC_VERSION {
             let mut settings = next.app_numeric_settings();
             let mut changed = false;
             for name in ["NumStart", "NumStep", "NumZoom", "NumType", "NumIndep"] {
@@ -419,6 +511,17 @@ impl SessionContext {
             })
             .collect::<Result<_, String>>()?;
         next.notes = serde_json::from_value(j["notes"].clone()).map_err(|e| e.to_string())?;
+        if let Some(bullets) = j.get("note_bullets") {
+            next.note_bullets =
+                serde_json::from_value(bullets.clone()).map_err(|e| e.to_string())?;
+            next.note_bullets.retain(|name, bullets| {
+                next.notes.get(name).is_some_and(|text| {
+                    let paragraphs = text.split('\n').count();
+                    bullets.retain(|index| *index < paragraphs);
+                    !bullets.is_empty()
+                })
+            });
+        }
         next.programs = serde_json::from_value(j["programs"].clone()).map_err(|e| e.to_string())?;
         next.last_value = if j["last_value"].is_null() {
             None
@@ -446,7 +549,7 @@ impl SessionContext {
                 .ok_or("Invalid STRING format version")?,
         };
         next.settings.numeric_version = match s.get("numeric_version") {
-            None if j["version"].as_u64() != Some(VERSION) => ppl_math::NumericVersion::Legacy15157,
+            None if version < TYPED_NUMERIC_VERSION => ppl_math::NumericVersion::Legacy15157,
             Some(value) => value
                 .as_i64()
                 .and_then(ppl_math::NumericVersion::from_code)
@@ -568,6 +671,38 @@ mod tests {
         assert!(b.restore_memory(&broken).is_err());
         assert_eq!(b.memory_json(), image);
     }
+    #[test]
+    fn note_bullets_are_optional_metadata_and_follow_the_saved_note() {
+        let mut context = SessionContext::default();
+        context
+            .store_bulleted_note("NOTE", "title\nitem".into(), [1, 8].into())
+            .unwrap();
+        let mut image = context.memory_json();
+        assert_eq!(image["notes"]["NOTE"], "title\nitem");
+        assert_eq!(image["note_bullets"]["NOTE"], json!([1]));
+
+        context.restore_memory(&image).unwrap();
+        context.rename_note("NOTE", "RENAMED").unwrap();
+        assert_eq!(context.snapshot().note_bullets["RENAMED"], [1].into());
+        let result = context.evaluate_home(
+            r#"Notes("RENAMED")"#,
+            Box::new(crate::HeadlessHost::new()),
+            crate::Limits::default(),
+        );
+        assert_eq!(
+            PortableValue::from(&result.result.unwrap()),
+            PortableValue::String("title\nitem".into())
+        );
+        assert_eq!(context.snapshot().note_bullets["RENAMED"], [1].into());
+
+        context.delete_note("RENAMED");
+        assert!(context.snapshot().note_bullets.is_empty());
+        image.as_object_mut().unwrap().remove("note_bullets");
+        context.restore_memory(&image).unwrap();
+        assert!(context.snapshot().note_bullets.is_empty());
+        assert_eq!(context.snapshot().notes["NOTE"], "title\nitem");
+    }
+
     #[test]
     fn malformed_matrix_and_words_are_rejected() {
         assert!(

@@ -717,10 +717,28 @@ impl IdeDesktopApp {
                     .button_double_clicked(egui::PointerButton::Primary),
             )
         });
-        if !down {
+        let touch = pos.and_then(|p| self.display.project_pointer_pos(p));
+        if self.state.native.history_viewer.is_some() {
+            let generation = self.state.native.view_generation;
+            if pressed
+                && down
+                && touch.is_some_and(|p| {
+                    p.y >= 220 && crate::ide::native::chrome::softkey_index(p.x) == 5
+                })
+            {
+                self.state.native.history_viewer = None;
+                self.state.native.touch_view();
+            } else {
+                self.state
+                    .native
+                    .drag_history_viewer(touch.filter(|_| down), pressed);
+            }
+            if self.state.native.view_generation != generation {
+                ctx.request_repaint();
+            }
             return;
         }
-        let Some(touch) = pos.and_then(|p| self.display.project_pointer_pos(p)) else {
+        let Some(touch) = touch.filter(|_| down) else {
             return;
         };
         match self.state.native.view {
@@ -736,20 +754,15 @@ impl IdeDesktopApp {
             }
             NativeView::Home if touch.y >= 220 && pressed => {
                 let key = crate::ide::native::chrome::softkey_index(touch.x);
-                if self.state.native.history_viewer.is_some() {
-                    if key == 5 {
-                        self.state.native.history_viewer = None;
-                    }
-                } else {
-                    match key {
-                        0 => self.state.native.store_to_variable(),
-                        4 => self.state.native.copy_history_to_entry(),
-                        5 => self.state.native.show_history(),
-                        _ => {}
-                    }
+                match key {
+                    0 => self.state.native.store_to_variable(),
+                    1 if self.state.native.cas_mode => self.native_cas_simplify(ctx),
+                    2 if self.state.native.cas_mode => self.state.native.edit(|e| e.insert("=")),
+                    4 => self.state.native.copy_history_to_entry(),
+                    5 => self.state.native.show_history(),
+                    _ => {}
                 }
             }
-            NativeView::Home if self.state.native.history_viewer.is_some() => {}
             NativeView::Home if touch.y >= self.state.native.entry_top() => {
                 let byte = self.state.native.editor_byte_at_position(touch.x, touch.y);
                 self.state
@@ -777,6 +790,20 @@ impl IdeDesktopApp {
         }
         self.state.native.touch_view();
         ctx.request_repaint();
+    }
+
+    fn native_cas_simplify(&mut self, ctx: &egui::Context) {
+        if !self.state.native.home_input.is_empty() {
+            self.state.native.edit(|editor| {
+                editor.insert("simplify()");
+                editor.set_cursor(editor.cursor() - 1, false);
+            });
+        } else if let Some(operand) = self.state.native.cas_simplify_operand() {
+            self.handle_native_tool_request(
+                crate::ide::native_tools::Request::Cas(format!("simplify({operand})")),
+                ctx,
+            );
+        }
     }
 
     fn native_polar_key(&mut self) {
@@ -991,6 +1018,9 @@ impl IdeDesktopApp {
             let events = ctx.input(|input| input.events.clone());
             let mut consumed = Vec::new();
             let mut opened_editor = false;
+            let copy_event = events
+                .iter()
+                .any(|event| matches!(event, egui::Event::Copy));
             for (index, event) in events.iter().enumerate() {
                 if self.model_task.is_some() {
                     if matches!(
@@ -1012,6 +1042,16 @@ impl IdeDesktopApp {
                     continue;
                 }
                 let requests = match event {
+                    egui::Event::Paste(text)
+                        if self.math_entry.is_none() && self.native_tools.is_spreadsheet_page() =>
+                    {
+                        self.native_tools.spreadsheet_paste_text(text)
+                    }
+                    egui::Event::Copy
+                        if self.math_entry.is_none() && self.native_tools.is_spreadsheet_page() =>
+                    {
+                        self.native_tools.spreadsheet_action(KeyAction::Copy)
+                    }
                     egui::Event::Text(text) | egui::Event::Paste(text) => {
                         if self.native_tools.graph_symbolic_menu() {
                             Some(Vec::new())
@@ -1077,7 +1117,13 @@ impl IdeDesktopApp {
                             egui::Key::Escape => Some(KeyAction::Back),
                             egui::Key::Backspace => Some(KeyAction::Edit(E::Backspace)),
                             egui::Key::Delete => Some(KeyAction::Edit(E::Delete)),
-                            egui::Key::C if modifiers.command => Some(KeyAction::Copy),
+                            egui::Key::C
+                                if modifiers.command
+                                    && (!copy_event
+                                        || !self.native_tools.is_spreadsheet_page()) =>
+                            {
+                                Some(KeyAction::Copy)
+                            }
                             _ => None,
                         };
                         if self.math_entry.is_some() {
@@ -1194,8 +1240,10 @@ impl IdeDesktopApp {
         }
         // Popup menus need the original events during egui's navigation pass.
         // Reinjecting calculator arrows later prevents menu focus from moving.
-        if (self.native_tools.page == Some(crate::ide::native_tools::Page::Characters)
-            || self.native_tools.is_picker_page())
+        if (matches!(
+            self.native_tools.page,
+            Some(crate::ide::native_tools::Page::Characters | crate::ide::native_tools::Page::Help)
+        ) || self.native_tools.is_picker_page())
             && egui::Popup::is_any_open(ctx)
         {
             return;
@@ -1270,6 +1318,7 @@ impl IdeDesktopApp {
                                     | Page::Matrices
                                     | Page::Base
                                     | Page::Characters
+                                    | Page::Help
                             )
                         )));
             let plot_navigation = matches!(
@@ -1282,6 +1331,7 @@ impl IdeDesktopApp {
                         | Page::Base
                         | Page::Characters
                         | Page::Templates
+                        | Page::Help
                 )
             ) && ctx.memory(|memory| memory.focused()).is_none()
                 && matches!(

@@ -110,7 +110,7 @@ fn formatting_metadata_survives_a_fresh_process_and_old_memory_migrates() {
     home(&mut session, "A:=1°22′30″");
     home(&mut session, "L1:={A,2∡1,(1°,2)}");
     let image = session.memory_json();
-    assert_eq!(image["version"], 5);
+    assert_eq!(image["version"], 6);
     let root = tempfile::tempdir().unwrap();
     std::fs::write(
         root.path().join("memory.json"),
@@ -133,12 +133,26 @@ fn formatting_metadata_survives_a_fresh_process_and_old_memory_migrates() {
     legacy["version"] = 1.into();
     let mut restored = SessionContext::default();
     restored.restore_memory(&legacy).unwrap();
-    assert_eq!(restored.memory_json()["version"], 5);
+    assert_eq!(restored.memory_json()["version"], 6);
     let mut version_two = image.clone();
     version_two["version"] = 2.into();
     restored.restore_memory(&version_two).unwrap();
     assert_eq!(restored.memory_json()["globals"], image["globals"]);
+    let mut version_five = image.clone();
+    version_five["version"] = 5.into();
+    version_five
+        .as_object_mut()
+        .unwrap()
+        .remove("geometry_plot_settings");
+    restored.restore_memory(&version_five).unwrap();
+    assert_eq!(restored.memory_json()["globals"], image["globals"]);
     let before = restored.memory_json();
+    version_five["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("numeric_version");
+    assert!(restored.restore_memory(&version_five).is_err());
+    assert_eq!(restored.memory_json(), before);
     let mut bad = image;
     bad["globals"]["A"]["presentation"] = "unknown future format".into();
     assert!(restored.restore_memory(&bad).is_err());

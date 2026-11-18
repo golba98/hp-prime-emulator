@@ -9,18 +9,76 @@ use ppl_vm::SessionSnapshot;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 pub mod evaluation;
 pub mod one;
 pub mod one_data;
+pub mod one_plots;
+pub mod one_scale;
+mod one_trace;
 pub mod plots;
+mod two;
 pub const COLUMN_COUNT: usize = 10;
 pub const ANALYSIS_COUNT: usize = 5;
+pub const ANALYSIS_COLORS: [u32; ANALYSIS_COUNT] =
+    [0x0000ff, 0xff0000, 0x008000, 0xffa500, 0x800080];
 pub const MAX_ROWS: usize = 1000;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Columns(pub [Vec<f64>; COLUMN_COUNT]);
 impl Columns {
+    pub fn from_snapshot(
+        snapshot: &SessionSnapshot,
+        two: bool,
+    ) -> Result<(Self, [Vec<ppl_math::Real>; COLUMN_COUNT]), String> {
+        let mut columns = Columns::default();
+        let mut typed = std::array::from_fn(|_| Vec::new());
+        for (index, data) in columns.0.iter_mut().enumerate() {
+            let name = Columns::label(index, two);
+            if let Some(value) = snapshot.globals.get(&name) {
+                let ppl_vm::PortableValue::List(values) = value else {
+                    return Err(format!("{name} is not a statistics data list"));
+                };
+                typed[index] = values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .to_value()
+                            .expect_real(&name)
+                            .map_err(|error| error.to_string())
+                    })
+                    .collect::<Result<Vec<_>, String>>()?;
+                // Binary geometry is a projection. Preserve calculator values
+                // separately so valid exponents and exact values remain editable.
+                *data = typed[index]
+                    .iter()
+                    .map(|number| {
+                        let projected = number.to_f64();
+                        if projected.is_infinite() {
+                            if number.is_negative() {
+                                -f64::MAX
+                            } else {
+                                f64::MAX
+                            }
+                        } else if projected == 0. && !number.is_zero() {
+                            if number.is_negative() {
+                                -f64::MIN_POSITIVE
+                            } else {
+                                f64::MIN_POSITIVE
+                            }
+                        } else {
+                            projected
+                        }
+                    })
+                    .collect();
+            }
+        }
+        columns.validate()?;
+        Ok((columns, typed))
+    }
     pub fn label(index: usize, two: bool) -> String {
         format!("{}{}", if two { 'C' } else { 'D' }, (index + 1) % 10)
     }
@@ -109,6 +167,20 @@ pub struct TwoAnalysis {
     pub frequency: Option<usize>,
     pub fit: FitKind,
     pub user_expression: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub y_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub observation_color: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fit_color: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fit_override: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub definition_number: Option<i64>,
 }
 impl Default for TwoAnalysis {
     fn default() -> Self {
@@ -119,6 +191,13 @@ impl Default for TwoAnalysis {
             frequency: None,
             fit: FitKind::Linear,
             user_expression: String::new(),
+            x_source: None,
+            y_source: None,
+            frequency_source: None,
+            observation_color: None,
+            fit_color: None,
+            fit_override: None,
+            definition_number: None,
         }
     }
 }
@@ -129,6 +208,10 @@ pub struct OneBook {
     pub analyses: [OneAnalysis; ANALYSIS_COUNT],
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub result_values: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
+    /// The first result column of the most recently successful calculation.
+    /// Checkbox edits do not rewrite the retained results table.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_analysis: Option<usize>,
 }
 impl Default for OneBook {
     fn default() -> Self {
@@ -143,6 +226,7 @@ impl Default for OneBook {
             columns: Columns::default(),
             analyses,
             result_values: BTreeMap::new(),
+            result_analysis: None,
         }
     }
 }
@@ -151,6 +235,11 @@ impl Default for OneBook {
 pub struct TwoBook {
     pub columns: Columns,
     pub analyses: [TwoAnalysis; ANALYSIS_COUNT],
+    #[serde(skip_serializing_if = "two::empty_equations")]
+    pub fit_equations: [Option<String>; ANALYSIS_COUNT],
+    // The saved equation survives Off. The G1 discards its freshness on reopen.
+    #[serde(skip)]
+    pub fit_columns_revisions: [Option<u64>; ANALYSIS_COUNT],
 }
 impl Default for TwoBook {
     fn default() -> Self {
@@ -164,6 +253,8 @@ impl Default for TwoBook {
         Self {
             columns: Columns::default(),
             analyses,
+            fit_equations: Default::default(),
+            fit_columns_revisions: Default::default(),
         }
     }
 }
@@ -326,44 +417,123 @@ impl TwoBook {
     }
     pub fn validate(&self) -> Result<(), String> {
         self.columns.validate()?;
+        if self
+            .fit_equations
+            .iter()
+            .flatten()
+            .any(|source| source.len() > 65536)
+        {
+            return Err("Statistics fit expression exceeds 64 KiB".into());
+        }
         if self.analyses.iter().any(|a| {
             !valid_reference(a.x)
                 || !valid_reference(a.y)
                 || !valid_reference(a.frequency)
-                || a.user_expression.len() > 65536
+                || !a.valid_definition()
         }) {
             return Err("Invalid two-variable analysis definition".into());
         }
         Ok(())
     }
-    pub fn model(&self, index: usize) -> Result<(Statistics2, Vec<u64>), String> {
+    fn model(
+        &self,
+        index: usize,
+        snapshot: &SessionSnapshot,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(Statistics2, Vec<u64>), String> {
         let a = self
             .analyses
             .get(index)
             .ok_or("Invalid two-variable analysis")?;
-        let x = self.columns.get(a.x)?;
-        let y = self.columns.get(a.y)?;
+        // The G1 Median–Median fit rejects every explicit frequency expression.
+        if a.fit == FitKind::MedianMedian && (a.frequency.is_some() || a.frequency_source.is_some())
+        {
+            return Err("Median-median fit requires an empty Frequency field".into());
+        }
+        let data = |field, column| {
+            if let Some(value) = a.evaluate_reference(field, snapshot, cancel)? {
+                let ppl_vm::Value::List(values) = value else {
+                    return Err("A statistics axis expression must return a list".into());
+                };
+                if values.len() > MAX_ROWS {
+                    return Err("Statistics columns need at most 1000 rows".into());
+                }
+                values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .expect_real("statistics observation")
+                            .map(|value| value.to_f64())
+                            .map_err(|error| error.to_string())
+                    })
+                    .collect()
+            } else {
+                self.columns.get(column).map(<[f64]>::to_vec)
+            }
+        };
+        let x = data(1, a.x)?;
+        let y = data(2, a.y)?;
         if x.len() != y.len() {
             return Err("The X and Y columns must have the same number of observations".into());
         }
-        let frequencies = self.columns.frequencies(a.frequency, x.len())?;
+        let frequencies = if let Some(value) = a.evaluate_reference(3, snapshot, cancel)? {
+            let frequency = |value: &ppl_vm::Value| {
+                let real = value
+                    .expect_real("statistics frequency")
+                    .map_err(|error| error.to_string())?;
+                real.is_integer()
+                    .then(|| real.to_i128())
+                    .flatten()
+                    .and_then(|count| u64::try_from(count).ok())
+                    .filter(|&count| count <= 9_007_199_254_740_992)
+                    .ok_or_else(|| {
+                        "Frequencies must be nonnegative integers within exact numerical range"
+                            .into()
+                    })
+            };
+            match value {
+                ppl_vm::Value::List(values) if values.len() == x.len() => values
+                    .iter()
+                    .map(frequency)
+                    .collect::<Result<Vec<_>, String>>()?,
+                ppl_vm::Value::List(_) => {
+                    return Err("Statistics frequencies must match the observations".into());
+                }
+                _ => return Err("A Statistics 2Var frequency expression must return a list".into()),
+            }
+        } else {
+            self.columns.frequencies(a.frequency, x.len())?
+        };
         Ok((
             Statistics2 {
                 fit_kind: a.fit,
-                pairs: x.iter().zip(y).map(|(&x, &y)| [x, y]).collect(),
+                pairs: x.into_iter().zip(y).map(|(x, y)| [x, y]).collect(),
             },
             frequencies,
         ))
     }
-    pub fn fit(
+    #[cfg(test)]
+    fn fit(
+        &self,
+        index: usize,
+        snapshot: &SessionSnapshot,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Regression, String> {
+        self.validate()?;
+        check(cancel)?;
+        let (model, frequencies) = self.model(index, snapshot, cancel)?;
+        self.fit_model(index, snapshot, cancel, &model, &frequencies)
+    }
+
+    fn fit_model(
         &self,
         index: usize,
         snapshot: &SessionSnapshot,
         cancel: &AtomicBool,
+        model: &Statistics2,
+        frequencies: &[u64],
     ) -> Result<Regression, String> {
         check(cancel)?;
-        self.validate()?;
-        let (model, frequencies) = self.model(index)?;
         let a = &self.analyses[index];
         let settings = snapshot
             .app_settings
@@ -385,26 +555,37 @@ impl TwoBook {
         } else {
             None
         };
-        model.fit_with_options(&FitOptions {
-            frequencies: &frequencies,
+        let options = FitOptions {
+            frequencies,
             logistic_limit: limit,
-            user_expression: Some(&a.user_expression),
+            user_expression: Some(a.fit_override.as_deref().unwrap_or(&a.user_expression)),
             angle: settings.angle,
             cancel: Some(cancel),
-        })
+        };
+        if a.fit_override.is_some() {
+            let manual = Statistics2 {
+                fit_kind: FitKind::UserDefined,
+                pairs: model.pairs.clone(),
+            };
+            manual.fit_with_options(&options)
+        } else {
+            model.fit_with_options(&options)
+        }
     }
     pub fn calculate(
         &self,
         snapshot: &SessionSnapshot,
-        cancel: &AtomicBool,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<BTreeMap<String, TwoResult>, String> {
         self.validate()?;
         let mut result = BTreeMap::new();
         for (index, _) in self.analyses.iter().enumerate().filter(|(_, a)| a.enabled) {
             check(cancel)?;
-            let (model, frequencies) = self.model(index)?;
+            let (model, frequencies) = self
+                .model(index, snapshot, cancel)
+                .map_err(|error| format!("S{}: {error}", index + 1))?;
             let regression = self
-                .fit(index, snapshot, cancel)
+                .fit_model(index, snapshot, cancel, &model, &frequencies)
                 .map_err(|e| format!("S{}: {e}", index + 1))?;
             let summary = model.summary_with_frequencies(&frequencies)?;
             let residuals = model
@@ -455,7 +636,7 @@ mod tests {
         let out = book
             .calculate(
                 &ppl_vm::SessionContext::default().snapshot(),
-                &AtomicBool::new(false),
+                &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
         assert_eq!(out.len(), 2);
@@ -522,7 +703,7 @@ mod tests {
         let out = book
             .calculate(
                 &ppl_vm::SessionContext::default().snapshot(),
-                &AtomicBool::new(false),
+                &Arc::new(AtomicBool::new(false)),
             )
             .unwrap();
         assert_eq!(out["S1"].summary.count, 3);
@@ -542,16 +723,30 @@ mod tests {
         let mut book = TwoBook::default();
         book.columns.0[0] = vec![0., 1.];
         book.columns.0[1] = vec![1.];
-        assert!(book.model(0).is_err());
+        assert!(
+            book.model(
+                0,
+                &ppl_vm::SessionContext::default().snapshot(),
+                &Arc::new(AtomicBool::new(false))
+            )
+            .is_err()
+        );
         book.columns.0[1].push(3.);
         book.analyses[0].frequency = Some(2);
         book.columns.0[2] = vec![1., 0.5];
-        assert!(book.model(0).is_err());
+        assert!(
+            book.model(
+                0,
+                &ppl_vm::SessionContext::default().snapshot(),
+                &Arc::new(AtomicBool::new(false))
+            )
+            .is_err()
+        );
         book.analyses[0].frequency = None;
         assert!(
             book.calculate(
                 &ppl_vm::SessionContext::default().snapshot(),
-                &AtomicBool::new(true)
+                &Arc::new(AtomicBool::new(true))
             )
             .is_err()
         );
@@ -559,7 +754,7 @@ mod tests {
         assert!(
             book.calculate(
                 &ppl_vm::SessionContext::default().snapshot(),
-                &AtomicBool::new(false)
+                &Arc::new(AtomicBool::new(false))
             )
             .is_err()
         );
@@ -580,7 +775,9 @@ mod tests {
             "L".into(),
             ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(10)),
         );
-        let fit = book.fit(0, &snapshot, &AtomicBool::new(false)).unwrap();
+        let fit = book
+            .fit(0, &snapshot, &Arc::new(AtomicBool::new(false)))
+            .unwrap();
         assert_eq!(fit.coefficients[0], 10.);
         assert!((fit.predict(2.).unwrap() - book.columns.0[1][2]).abs() < 1e-8);
         snapshot.globals.insert(
@@ -588,7 +785,7 @@ mod tests {
             ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(-1)),
         );
         assert!(
-            book.fit(0, &snapshot, &AtomicBool::new(false))
+            book.fit(0, &snapshot, &Arc::new(AtomicBool::new(false)))
                 .unwrap_err()
                 .contains("L must be zero or positive")
         );
@@ -609,8 +806,180 @@ mod tests {
         book.columns.0[1] = vec![0., 0.5, 1.];
         book.analyses[0].fit = FitKind::UserDefined;
         book.analyses[0].user_expression = "SIN(X)".into();
-        let fit = book.fit(0, &snapshot, &AtomicBool::new(false)).unwrap();
+        let fit = book
+            .fit(0, &snapshot, &Arc::new(AtomicBool::new(false)))
+            .unwrap();
         assert!((fit.predict(30.).unwrap() - 0.5).abs() < 1e-12);
         assert_eq!(snapshot.settings.angle, ppl_math::AngleMode::Radians);
+    }
+    fn median_median_original_frequency_cases(observations: usize) {
+        let controls: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/native-statistics-two-reference-controls.json"
+        ))
+        .unwrap();
+        let snapshot = ppl_vm::SessionContext::default().snapshot();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut exercised = 0;
+        for case in controls["median_median_cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|case| case["observations"].as_u64() == Some(observations as u64))
+        {
+            let mut book = TwoBook::default();
+            book.columns.0[0] = case["x"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect();
+            book.columns.0[1] = case["y"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect();
+            book.analyses[0].fit = FitKind::MedianMedian;
+            if case["frequency"]["kind"] == "scalar" {
+                book.analyses[0].frequency_source =
+                    Some(case["frequency"]["source"].as_str().unwrap().to_owned());
+            } else if case["frequency"]["kind"] == "column" {
+                book.columns.0[2] = case["frequency"]["values"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect();
+                book.analyses[0].frequency = Some(2);
+            }
+            assert!(
+                book.validate().is_ok(),
+                "Definitions remain editable before calculation"
+            );
+            if case["expected_success"].as_bool().unwrap() {
+                let results = book.calculate(&snapshot, &cancel).unwrap();
+                assert_eq!(results["S1"].summary.count, observations);
+                assert!((results["S1"].regression.predict(2.).unwrap() - 5.).abs() < 1e-10);
+                assert!(plots::two(&book, &snapshot, &cancel).is_ok());
+            } else {
+                for error in [
+                    book.fit(0, &snapshot, &cancel).unwrap_err(),
+                    book.calculate(&snapshot, &cancel).unwrap_err(),
+                    plots::two(&book, &snapshot, &cancel).unwrap_err(),
+                ] {
+                    assert!(
+                        error.contains("empty Frequency"),
+                        "{}: {error}",
+                        case["case"]
+                    );
+                }
+            }
+            exercised += 1;
+        }
+        assert_eq!(exercised, if observations == 3 { 5 } else { 4 });
+    }
+    #[test]
+    fn original_median_median_n3_accepts_blank_and_rejects_unit_and_nonunit_columns() {
+        median_median_original_frequency_cases(3);
+    }
+    #[test]
+    fn original_median_median_n4_accepts_blank_and_rejects_unit_column() {
+        median_median_original_frequency_cases(4);
+    }
+    #[test]
+    fn original_median_median_n5_accepts_blank_and_rejects_unit_column() {
+        median_median_original_frequency_cases(5);
+    }
+    #[test]
+    fn original_median_median_n6_accepts_blank_and_rejects_unit_column() {
+        median_median_original_frequency_cases(6);
+    }
+    #[test]
+    fn original_invalid_five_analysis_workflow_requires_only_median_frequency_correction() {
+        let controls: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/native-statistics-two-reference-controls.json"
+        ))
+        .unwrap();
+        let original = &controls["invalid_five"];
+        let mut book = TwoBook::default();
+        for (column, key) in [(0, "x"), (1, "y"), (2, "frequency_values")] {
+            book.columns.0[column] = original[key]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|n| n.as_f64().unwrap())
+                .collect();
+        }
+        for (analysis, fit) in book.analyses.iter_mut().zip([
+            FitKind::Linear,
+            FitKind::Power,
+            FitKind::Inverse,
+            FitKind::MedianMedian,
+            FitKind::Linear,
+        ]) {
+            *analysis = TwoAnalysis {
+                enabled: true,
+                x: Some(0),
+                y: Some(1),
+                frequency: Some(2),
+                fit,
+                ..Default::default()
+            };
+        }
+        let mut snapshot = ppl_vm::SessionContext::default().snapshot();
+        snapshot.active_app = "Statistics 2Var".into();
+        for (name, value) in ["Xmin", "Xmax", "Ymin", "Ymax"].into_iter().zip(
+            controls["valid_five_s4_blank"]["after_startview_1_1"]
+                .as_array()
+                .unwrap(),
+        ) {
+            snapshot.globals.insert(
+                name.into(),
+                ppl_vm::PortableValue::Real(
+                    ppl_math::Real::from_f64(value.as_f64().unwrap()).unwrap(),
+                ),
+            );
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        let before = serde_json::to_value(&book).unwrap();
+        let error = book.calculate(&snapshot, &cancel).unwrap_err();
+        assert!(
+            error.starts_with("S4:") && error.contains("empty Frequency"),
+            "{error}"
+        );
+        assert!(
+            plots::two(&book, &snapshot, &cancel)
+                .unwrap_err()
+                .contains("empty Frequency")
+        );
+        assert_eq!(serde_json::to_value(&book).unwrap(), before);
+        book.analyses[3].frequency = None;
+        let results = book.calculate(&snapshot, &cancel).unwrap();
+        for (index, count) in controls["valid_five_s4_blank"]["counts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+        {
+            assert_eq!(
+                results[&format!("S{}", index + 1)].summary.count,
+                count.as_u64().unwrap() as usize
+            );
+        }
+        let plot = plots::two(&book, &snapshot, &cancel).unwrap();
+        let inverse = plot
+            .labels
+            .iter()
+            .zip(&plot.curves)
+            .filter(|(label, _)| label.starts_with("S3 ") && label.ends_with("fit"))
+            .map(|(_, curve)| curve)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            inverse.len(),
+            2,
+            "The genuine preserved window straddles the inverse pole"
+        );
+        assert!(inverse.iter().any(|curve| curve.iter().all(|p| p[0] < 0.)));
+        assert!(inverse.iter().any(|curve| curve.iter().all(|p| p[0] > 0.)));
     }
 }

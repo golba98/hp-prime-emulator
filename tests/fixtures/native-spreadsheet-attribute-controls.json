@@ -1,0 +1,588 @@
+{
+  "provenance": "Self-authored PPL executed on isolated original virtual HP Prime G1 revision15751. Only accepted completed controls are curated here; rejected syntax/loader/UI-context probes remain private. Actual matrix Textbook rendering and color behavior were inspected in original framebuffers; no proprietary image or font bytes are distributed.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "firmware_elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "format_bounds": [
+    {
+      "field": 3,
+      "maximum": 5
+    },
+    {
+      "field": 4,
+      "maximum": 11
+    },
+    {
+      "field": 5,
+      "maximum": 6
+    },
+    {
+      "field": 8,
+      "maximum": 2
+    },
+    {
+      "field": 9,
+      "maximum": 2
+    },
+    {
+      "field": 10,
+      "maximum": 1
+    },
+    {
+      "field": 11,
+      "maximum": 1
+    }
+  ],
+  "colors": [
+    {
+      "raw": 0,
+      "getter": 0
+    },
+    {
+      "raw": 255,
+      "getter": 255
+    },
+    {
+      "raw": 32768,
+      "getter": 32768
+    },
+    {
+      "raw": 65535,
+      "getter": 65535
+    },
+    {
+      "raw": 16711680,
+      "getter": 16711680
+    },
+    {
+      "raw": 16777215,
+      "getter": 16777215
+    },
+    {
+      "raw": 16777216,
+      "getter": 16777216
+    },
+    {
+      "raw": 16777217,
+      "getter": 16777217
+    },
+    {
+      "raw": 2147483648,
+      "getter": 2147483648
+    },
+    {
+      "raw": 2147483903,
+      "getter": 2147483903
+    },
+    {
+      "raw": 4261413119,
+      "getter": 4261413119
+    },
+    {
+      "raw": 4278190080,
+      "getter": -1
+    },
+    {
+      "raw": 4278190081,
+      "getter": -1
+    },
+    {
+      "raw": 4278190335,
+      "getter": -1
+    },
+    {
+      "raw": 4294901760,
+      "getter": -1
+    },
+    {
+      "raw": 4294967295,
+      "getter": -1
+    }
+  ],
+  "prefix_cases": [
+    {
+      "name": "empty_name_clears_and_continues",
+      "baseline": [
+        7,
+        "TEST",
+        1,
+        2,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "prefix": [
+        8,
+        "",
+        2,
+        4
+      ],
+      "expected": [
+        8,
+        "",
+        2,
+        4,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "control": "prefix_empty_name_on_named_cell"
+    },
+    {
+      "name": "minus_one_name_clears_and_continues",
+      "baseline": [
+        7,
+        "TEST2",
+        1,
+        2,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "prefix": [
+        8,
+        -1,
+        2,
+        4
+      ],
+      "expected": [
+        8,
+        "",
+        2,
+        4,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "control": "prefix_minus_one_name_on_named_cell"
+    },
+    {
+      "name": "invalid_name_stops_after_content",
+      "baseline": [
+        9,
+        "",
+        1,
+        2,
+        2,
+        16711680,
+        255,
+        2,
+        2,
+        0,
+        1
+      ],
+      "prefix": [
+        11,
+        123,
+        2,
+        3,
+        999,
+        -2,
+        255,
+        0,
+        1,
+        1,
+        0
+      ],
+      "expected": [
+        11,
+        "",
+        1,
+        2,
+        2,
+        16711680,
+        255,
+        2,
+        2,
+        0,
+        1
+      ],
+      "control": "whole_attribute_prefix_ignores_invalid_fields"
+    },
+    {
+      "name": "invalid_font_stops_after_number_and_digits",
+      "baseline": [
+        12,
+        "",
+        1,
+        4,
+        1,
+        255,
+        16711680,
+        1,
+        2,
+        0,
+        1
+      ],
+      "prefix": [
+        14,
+        "",
+        2,
+        3,
+        999,
+        16711680,
+        255,
+        0,
+        0,
+        1,
+        0
+      ],
+      "expected": [
+        14,
+        "",
+        2,
+        3,
+        1,
+        255,
+        16711680,
+        1,
+        2,
+        0,
+        1
+      ],
+      "control": "whole_attribute_prefix_stops_at_invalid_font"
+    }
+  ],
+  "rendering": {
+    "textbook_codes": {
+      "-1": "inherit",
+      "0": "two dimensional objects",
+      "1": "algebraic objects"
+    },
+    "matrix": [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ]
+    ],
+    "scalar_result": "All measured ordinary numeric1/3 and retained formula1/3 results stay decimal0.333333333333 in each Textbook mode.",
+    "auto": "Follows worksheet default: initiallyNo; switching sheetdefaultYes affects inherited cells while explicitNo remains algebraic.",
+    "argb": "Highbytes belowFF preserve rawvalues and affect compositing. Repeated redraws can accumulate; do not infer a single-blend formula or fixed finalpixel from a settled frame. FFhighbyte samples canonicalize toinherit. Raw0x01000000 is legitimate black, notAuto.",
+    "sizing": "Requested row50 and column100 produced51/101pixel gridsteps in measured frames."
+  },
+  "controls": [
+    {
+      "case": "attribute_empty_defaults",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,k; FOR k FROM 0 TO 12 DO IFERR v:=Spreadsheet.A1(k); THEN v:=\"ERR\"; END; r:=CONCAT(r,{v}); END; RETURN STRING(r); END;",
+      "source_sha256": "ddbe9ee1169e3ed87b216270c0a00eeb734af802dbec0fabd110aaef899416d4",
+      "result": "{0,−1,−1,−1,−1,−1,−1,−1,−1,−1,−1,−1,−1}"
+    },
+    {
+      "case": "attribute_entered_defaults",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,k; Spreadsheet.A1:=1.23456789; FOR k FROM 0 TO 12 DO IFERR v:=Spreadsheet.A1(k); THEN v:=\"ERR\"; END; r:=CONCAT(r,{v}); END; RETURN STRING(r); END;",
+      "source_sha256": "80f71d0d65e69431abdf7687d6c287188d4a090a328ba3dc7bb96ab2eab2161e",
+      "result": "{1.23456789,1.23456789,\"\",−1,−1,−1,−1,−1,−1,−1,−1,−1,0}"
+    },
+    {
+      "case": "attribute_3_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,3,4,5,6,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(3):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(3)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "8edfdcf4d059557328a19dcd4b7f046a3c4fb02f259ed5df4e63528803c0278e",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,2},{3,1,3},{4,1,4},{5,1,5},{6,1,5},{1.5,1,5}}"
+    },
+    {
+      "case": "attribute_4_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,6,11,12,20,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(4):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(4)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "32be2c4cce23b0252fa32310c3dda57349393d374371ebb226fc0919652b81ee",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{6,1,6},{11,1,11},{12,1,11},{20,1,11},{1.5,1,11}}"
+    },
+    {
+      "case": "attribute_5_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,6,7,10,14,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(5):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(5)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "ba9906d393024d889d748e8191971689c072dc28eef4a7343046ba1f0a614014",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,2},{6,1,6},{7,1,6},{10,1,6},{14,1,6},{1.5,1,6}}"
+    },
+    {
+      "case": "attribute_8_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,3,4,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(8):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(8)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "cde3c2aedd50a1c057f661c3bb490159238daf70f857940d1a77ffe7d9257706",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,2},{3,1,2},{4,1,2},{1.5,1,2}}"
+    },
+    {
+      "case": "attribute_9_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,3,4,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(9):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(9)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "267617ddec191e9ddc4896dbe14c41268ec5333ebf0cc6f27e98930fc5caf909",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,2},{3,1,2},{4,1,2},{1.5,1,2}}"
+    },
+    {
+      "case": "attribute_10_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,3,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(10):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(10)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "b732496a9739c91f6a1dfa03efc206cedb4176870b6d067e51a9a45ab7c441d4",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,1},{3,1,1},{1.5,1,1}}"
+    },
+    {
+      "case": "attribute_11_bounds",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,1,2,3,1.5},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(11):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(11)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "af2ec76b7fd22c0274e7bbe70b854064009f37961c39e21707632864387494d7",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{1,1,1},{2,1,1},{3,1,1},{1.5,1,1}}"
+    },
+    {
+      "case": "attribute_6_color_values",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,255,32768,65535,16711680,16777215,16777216,16777217,1.5,\"bad\",#FF0000:24h},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(6):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(6)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "5a40dfaf7dfe68f15e4e301154963bde69402386546153c8f5d84328ac663a6b",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{255,1,255},{32768,1,32768},{65535,1,65535},{16711680,1,16711680},{16777215,1,16777215},{16777216,1,16777216},{16777217,1,16777217},{1.5,1,16777217},{\"bad\",1,16777217},{#FF0000:24h,1,16711680}}"
+    },
+    {
+      "case": "attribute_7_color_values",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-2,-1,0,255,32768,65535,16711680,16777215,16777216,16777217,1.5,\"bad\",#FF0000:24h},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(7):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(7)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "583b3ff87bfd7265b1f13bd032996960624f6f449b1cd1a5b8ff3f8f4e1bef2b",
+      "result": "{{−2,1,−1},{−1,1,−1},{0,1,0},{255,1,255},{32768,1,32768},{65535,1,65535},{16711680,1,16711680},{16777215,1,16777215},{16777216,1,16777216},{16777217,1,16777217},{1.5,1,16777217},{\"bad\",1,16777217},{#FF0000:24h,1,16711680}}"
+    },
+    {
+      "case": "attribute_3_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(3):=1; Spreadsheet.A1(3):=-2; r:={Spreadsheet.A1(3)}; Spreadsheet.A1(3):=-1; r:=CONCAT(r,{Spreadsheet.A1(3)}); Spreadsheet.A1(3):=1; ok:=1; IFERR Spreadsheet.A1(3):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(3),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "0a210936c36d494d1e685ec087e305cc187a9c492ca5078f6041b71b65c1efeb",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_4_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(4):=1; Spreadsheet.A1(4):=-2; r:={Spreadsheet.A1(4)}; Spreadsheet.A1(4):=-1; r:=CONCAT(r,{Spreadsheet.A1(4)}); Spreadsheet.A1(4):=1; ok:=1; IFERR Spreadsheet.A1(4):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(4),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "bd1e8096d30638e3cccf088f161d7678c423d264573bdb4c291486e4c1c0a99f",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_5_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(5):=1; Spreadsheet.A1(5):=-2; r:={Spreadsheet.A1(5)}; Spreadsheet.A1(5):=-1; r:=CONCAT(r,{Spreadsheet.A1(5)}); Spreadsheet.A1(5):=1; ok:=1; IFERR Spreadsheet.A1(5):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(5),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "2c24ddddb1eecf004653a90418bcf9bfbb48331755530d409ae15f12248d9155",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_8_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(8):=1; Spreadsheet.A1(8):=-2; r:={Spreadsheet.A1(8)}; Spreadsheet.A1(8):=-1; r:=CONCAT(r,{Spreadsheet.A1(8)}); Spreadsheet.A1(8):=1; ok:=1; IFERR Spreadsheet.A1(8):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(8),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "1fcea99f124858ac34acef07514150ef262da534067babafddafdaaf87409667",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_9_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(9):=1; Spreadsheet.A1(9):=-2; r:={Spreadsheet.A1(9)}; Spreadsheet.A1(9):=-1; r:=CONCAT(r,{Spreadsheet.A1(9)}); Spreadsheet.A1(9):=1; ok:=1; IFERR Spreadsheet.A1(9):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(9),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "143c7e479fdb8f6698c9873742129e27be8bfbcd14db016216e73ce05149b436",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_10_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(10):=1; Spreadsheet.A1(10):=-2; r:={Spreadsheet.A1(10)}; Spreadsheet.A1(10):=-1; r:=CONCAT(r,{Spreadsheet.A1(10)}); Spreadsheet.A1(10):=1; ok:=1; IFERR Spreadsheet.A1(10):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(10),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "736334a8aef7cdafef82c22d63f1600522e3da270a86de04f45c24300ff5041b",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_11_reset_and_invalid_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,ok; Spreadsheet.A1(11):=1; Spreadsheet.A1(11):=-2; r:={Spreadsheet.A1(11)}; Spreadsheet.A1(11):=-1; r:=CONCAT(r,{Spreadsheet.A1(11)}); Spreadsheet.A1(11):=1; ok:=1; IFERR Spreadsheet.A1(11):=\"bad\"; THEN ok:=0; END; r:=CONCAT(r,{ok,Spreadsheet.A1(11),Spreadsheet.A1}); RETURN STRING(r); END;",
+      "source_sha256": "2c6eab4c3da1b13d637d7810144d8794a303a90bd602164cfcdf0289134fbb93",
+      "result": "{1,−1,1,1,1.23456789}"
+    },
+    {
+      "case": "attribute_6_large_color_values",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-1,2147483647,2147483648,4294967295,4294967296,1E20},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(6):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(6)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "4c491db950b1cda60ec8a00c508ac814408ee1e3941e61eaed9c7cf5f7e09b5f",
+      "result": "{{−1,1,−1},{2147483647,1,2147483647},{2147483648,1,2147483648},{4294967295,1,−1},{4294967296,1,−1},{1ᴇ20,1,−1}}"
+    },
+    {
+      "case": "attribute_7_large_color_values",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-1,2147483647,2147483648,4294967295,4294967296,1E20},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A1(7):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A1(7)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "1c033f0012e6f9ed5bb7a0890b705126c4cd160c525a8450012d1a665acaf899",
+      "result": "{{−1,1,−1},{2147483647,1,2147483647},{2147483648,1,2147483648},{4294967295,1,−1},{4294967296,1,−1},{1ᴇ20,1,−1}}"
+    },
+    {
+      "case": "format_only_cell_defaults",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},v,k; Spreadsheet.C2(5):=2; FOR k FROM 0 TO 12 DO IFERR v:=Spreadsheet.C2(k); THEN v:=\"ERR\"; END; r:=CONCAT(r,{v}); END; RETURN STRING(r); END;",
+      "source_sha256": "ed291a5528a3f6720b81a593edf285d37b2ab4be709f62b4f9fc3d9b3316bf2d",
+      "result": "{0,0,\"\",−1,−1,2,−1,−1,−1,−1,−1,−1,0}"
+    },
+    {
+      "case": "color_overflow_and_reset_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={}; Spreadsheet.C2(6):=255; Spreadsheet.C2(6):=4294967296; r:={Spreadsheet.C2(6)}; Spreadsheet.C2(6):=-2; r:=CONCAT(r,{Spreadsheet.C2(6)}); Spreadsheet.C2(6):=-1; r:=CONCAT(r,{Spreadsheet.C2(6)}); RETURN STRING(r); END;",
+      "source_sha256": "dba4b906c900eff1ed85a3ffdb593188b9fd4378782a269b268d76062ab854a2",
+      "result": "{255,255,−1}"
+    },
+    {
+      "case": "worksheet_attribute_formula_read",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D2(1):='B1(5)'; RETURN STRING({Spreadsheet.D2(1),Spreadsheet.D2}); END;",
+      "source_sha256": "8b311379522ce02d92a1493ac662a4f880cf7bc5b1153e8fa783b1684d121ac8",
+      "result": "{B1(5),−1}"
+    },
+    {
+      "case": "worksheet_attribute_reactivity",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r; Spreadsheet.B1(5):=2; r:={Spreadsheet.D2}; Spreadsheet.B1(5):=-1; RETURN STRING({r,Spreadsheet.D2,Spreadsheet.D2(1)}); END;",
+      "source_sha256": "f9e3766767ba2fd6d69cc0c5dbf9a30a9df7ef22356c0017579c577b2015a306",
+      "result": "{{2},−1,B1(5)}"
+    },
+    {
+      "case": "attribute_word_scalar_formats",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.A3(5):=#2:24h;Spreadsheet.A3(8):=#1:24h;Spreadsheet.A3(10):=#0:24h; RETURN STRING({Spreadsheet.A3(5),Spreadsheet.A3(8),Spreadsheet.A3(10)}); END;",
+      "source_sha256": "2146f50ecf05c28a7d160b0b0aa29d89da14b9b757a361b49135a495b331f794",
+      "result": "{2,1,0}"
+    },
+    {
+      "case": "attribute_invalid_index_fractional",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL ok:=1; IFERR Spreadsheet.C2(3.5):=1; THEN ok:=0; END; RETURN STRING({ok,Spreadsheet.C2}); END;",
+      "source_sha256": "fa2ebe7143cca2c84423a7703a2820b49bcc82409686f0de5ec05e195620a0c2",
+      "result": "{0,1}"
+    },
+    {
+      "case": "invalid_setter_empty_cell_materialization_valid_cells",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.E3(5):=99; Spreadsheet.F3(5):=\"bad\"; Spreadsheet.C4(5):=-1; RETURN STRING({{Spreadsheet.E3(1),Spreadsheet.E3(2),Spreadsheet.E3(5)},{Spreadsheet.F3(1),Spreadsheet.F3(2),Spreadsheet.F3(5)},{Spreadsheet.C4(1),Spreadsheet.C4(2),Spreadsheet.C4(5)}}); END;",
+      "source_sha256": "26d101ca9c9057711a33aadc19798dc15c0dbca350b8159973c30cf7c60f704d",
+      "result": "{{0,\"\",−1},{0,\"\",−1},{0,\"\",−1}}"
+    },
+    {
+      "case": "unknown_attribute_store_caught",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL ok:=1; Spreadsheet.C5:=7; IFERR Spreadsheet.C5(99):=9; THEN ok:=0; END; RETURN STRING({ok,Spreadsheet.C5,Spreadsheet.C5(3)}); END;",
+      "source_sha256": "99ada53c27e7350b7ea2c18f08da83eceb63072e509d0ff1cbd9f573f885d986",
+      "result": "{0,7,−1}"
+    },
+    {
+      "case": "scalar_attribute_wrong_type_values",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={{1},(1,2),#2:64h},v,k,ok; Spreadsheet.C5(5):=1; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.C5(5):=v; THEN ok:=0; END; r:=CONCAT(r,{{ok,Spreadsheet.C5(5)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "4fdbb00edc95319fb41b233426510e05cd640c0bfe9565785f220ed8c0e567a5",
+      "result": "{{1,1},{1,1},{1,2}}"
+    },
+    {
+      "case": "whole_attribute_list_assignment",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D5(-1):={7,\"\",1,2,2,16711680,255,2,2,0,1}; RETURN STRING({Spreadsheet.D5,Spreadsheet.D5(-1)}); END;",
+      "source_sha256": "3444d2e59c5042ed0efec36f199e41f2f0298dc1f650035b511a7512f3582291",
+      "result": "{7,{7,\"\",1,2,2,16711680,255,2,2,0,1}}"
+    },
+    {
+      "case": "whole_attribute_malformed_list_assignment",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL ok:=1; IFERR Spreadsheet.D5(-1):={9}; THEN ok:=0; END; RETURN STRING({ok,Spreadsheet.D5,Spreadsheet.D5(-1)}); END;",
+      "source_sha256": "b0bdc24f13bd834570780073d212a348a1f9be6f8693e42ff8dc359808ccc03e",
+      "result": "{1,9,{9,\"\",1,2,2,16711680,255,2,2,0,1}}"
+    },
+    {
+      "case": "whole_attribute_prefix_ignores_invalid_fields",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL ok:=1; IFERR Spreadsheet.D5(-1):={11,123,2,3,999,-2,255,0,1,1,0}; THEN ok:=0; END; RETURN STRING({ok,Spreadsheet.D5(-1)}); END;",
+      "source_sha256": "9f3cbdd70bd135f704a1bf7c2f22da1ba00dca06b34aaecb7f5095a640660424",
+      "result": "{1,{11,\"\",1,2,2,16711680,255,2,2,0,1}}"
+    },
+    {
+      "case": "whole_attribute_prefix_empty_and_extra",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r,ok:=1; Spreadsheet.D5(-1):={}; r:=Spreadsheet.D5(-1); IFERR Spreadsheet.D5(-1):={12,\"\",1,4,1,255,16711680,1,2,0,1,123}; THEN ok:=0; END; RETURN STRING({r,ok,Spreadsheet.D5(-1),Spreadsheet.D5(12)}); END;",
+      "source_sha256": "e8e4b89e9a490c7d2e5784f677202c07d8f82fd8ea8bcf3b3dfb57b5d9e4f648",
+      "result": "{{11,\"\",1,2,2,16711680,255,2,2,0,1},1,{12,\"\",1,4,1,255,16711680,1,2,0,1},0}"
+    },
+    {
+      "case": "whole_attribute_prefix_stops_at_invalid_font",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D5(-1):={14,\"\",2,3,999,16711680,255,0,0,1,0}; RETURN STRING(Spreadsheet.D5(-1)); END;",
+      "source_sha256": "4ba89dc2602d624af78423c7451d5da3ec8c1d19abb7b94e9cdfc826efa1c207",
+      "result": "{14,\"\",2,3,1,255,16711680,1,2,0,1}"
+    },
+    {
+      "case": "unknown_attribute_invalid_empty_atomic",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL ok:=1; IFERR Spreadsheet.F4(99):=9; THEN ok:=0; END; RETURN STRING({ok,Spreadsheet.F4(-1),Spreadsheet.F4(1),Spreadsheet.F4(2)}); END;",
+      "source_sha256": "4eb55e1d7dfdb93d457d127706f71e18d15afdac9124c0db0c82cb8618d63638",
+      "result": "{0,−1,−1,−1}"
+    },
+    {
+      "case": "attribute_12_evaluation_flag",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={-1,0,1,2,3,99},v,k,ok; FOR k FROM 1 TO SIZE(a) DO v:=a(k);ok:=1; IFERR Spreadsheet.A3(12):=v; THEN ok:=0; END; r:=CONCAT(r,{{v,ok,Spreadsheet.A3(12)}}); END; RETURN STRING(r); END;",
+      "source_sha256": "2139e469aa523ee4d205b5811ab840aa752e0a2ba8ff8b31faff0280df012747",
+      "result": "{{−1,1,0},{0,1,0},{1,1,0},{2,1,0},{3,1,0},{99,1,0}}"
+    },
+    {
+      "case": "cell_name_spelling_and_length",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={\"foo\",\"Foo\",\"FOOBAR\",\"SHEET\",\"SHEETNAM\",\"SHEETNAME\",\"SHEETNAMED\",\"foo_bar\"},k,v; FOR k FROM 1 TO SIZE(a) DO v:=a(k); Spreadsheet.A4(2):=v;r:=CONCAT(r,{{v,Spreadsheet.A4(2)}});END;RETURN STRING(r);END;",
+      "source_sha256": "2842d7ee74aaf49aaee1c942b819952817367220cb8ce81c45c0807cf1e7958e",
+      "result": "{{\"foo\",\"foo\"},{\"Foo\",\"Foo\"},{\"FOOBAR\",\"FOOBAR\"},{\"SHEET\",\"SHEET\"},{\"SHEETNAM\",\"SHEETNAM\"},{\"SHEETNAME\",\"SHEETNAM\"},{\"SHEETNAMED\",\"SHEETNAM\"},{\"foo_bar\",\"foo_bar\"}}"
+    },
+    {
+      "case": "name_alias_create_separate_compile",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.A4:=23; Spreadsheet.A4(2):=\"FOO\"; RETURN STRING(Spreadsheet.A4(2)); END;",
+      "source_sha256": "280523af51f4d4cfb2bfbd7dc773f2d062023b9f24b9cb538aceb920cc8ebfd3",
+      "result": "\"FOO\""
+    },
+    {
+      "case": "name_alias_read_separate_compile",
+      "source": "EXPORT SHEETREF() BEGIN RETURN STRING({Spreadsheet.FOO,Spreadsheet.A4(2)}); END;",
+      "source_sha256": "056ab1ad9aba0b92703fd6f3b8abf234ced4f12264c4d6f05a17d84d58b2b144",
+      "result": "{23,\"FOO\"}"
+    },
+    {
+      "case": "metadata_only_whole_scalar_and_readonly_setters",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D6(-1):=9; Spreadsheet.E6(12):=1; RETURN STRING({Spreadsheet.D6(-1),Spreadsheet.E6(-1),Spreadsheet.E6(12)}); END;",
+      "source_sha256": "94c1c95480e3c2ce033858217e828daf915f516c9c5f7c96198cb949433b9311",
+      "result": "{{0,\"\",−1,−1,−1,−1,−1,−1,−1,−1,−1},{0,\"\",−1,−1,−1,−1,−1,−1,−1,−1,−1},0}"
+    },
+    {
+      "case": "render_data_and_modes_seed",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.A1:=CAS(\"1/3\");Spreadsheet.B1:=CAS(\"1/3\");Spreadsheet.C1:=CAS(\"1/3\");Spreadsheet.A2(1):='1/3';Spreadsheet.B2(1):='1/3';Spreadsheet.C2(1):='1/3';Spreadsheet.A3:=[[1,2],[3,4]];Spreadsheet.B3:=[[1,2],[3,4]];Spreadsheet.C3:=[[1,2],[3,4]];Spreadsheet.A4:=1/3;Spreadsheet.B4:=1/3;Spreadsheet.C4:=1/3;Spreadsheet.A1(11):=0;Spreadsheet.A2(11):=0;Spreadsheet.A3(11):=0;Spreadsheet.A4(11):=0;Spreadsheet.B1(11):=1;Spreadsheet.B2(11):=1;Spreadsheet.B3(11):=1;Spreadsheet.B4(11):=1;Spreadsheet.C1(11):=-1;Spreadsheet.C2(11):=-1;Spreadsheet.C3(11):=-1;Spreadsheet.C4(11):=-1;RETURN STRING({{TYPE(Spreadsheet.A1(1)),Spreadsheet.A1(1)},{TYPE(Spreadsheet.A2(1)),Spreadsheet.A2(1)},{TYPE(Spreadsheet.A4(1)),Spreadsheet.A4(1)}});END;",
+      "source_sha256": "1a99c7587861394d4fff9a6ba3d6210ca20bdd37d3cb779e1d657b6fa5ce5f15",
+      "result": "{{8,1/3},{8,1/3},{0,0.333333333333}}"
+    },
+    {
+      "case": "textbook_local_getters_and_argb_colors",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL modes:={Spreadsheet.A3(11),Spreadsheet.B3(11),Spreadsheet.C3(11)};Spreadsheet.A1:=\"Blue\";Spreadsheet.B1:=\"Blue\";Spreadsheet.C1:=\"Blue\";Spreadsheet.A1(6):=255;Spreadsheet.B1(6):=2147483903;Spreadsheet.C1(6):=4278190335;Spreadsheet.A1(7):=16777215;Spreadsheet.B1(7):=16777215;Spreadsheet.C1(7):=16777215;Spreadsheet.A2:=\"Fill\";Spreadsheet.B2:=\"Fill\";Spreadsheet.C2:=\"Fill\";Spreadsheet.A2(6):=0;Spreadsheet.B2(6):=0;Spreadsheet.C2(6):=0;Spreadsheet.A2(7):=255;Spreadsheet.B2(7):=2147483903;Spreadsheet.C2(7):=4278190335;RETURN STRING({modes,{Spreadsheet.A1(6),Spreadsheet.B1(6),Spreadsheet.C1(6)},{Spreadsheet.A2(7),Spreadsheet.B2(7),Spreadsheet.C2(7)}});END;",
+      "source_sha256": "7880628db81912549362f1ff34105dfced20bc18f681eba894f8aa50893c76df",
+      "result": "{{0,1,−1},{255,2147483903,−1},{255,2147483903,−1}}"
+    },
+    {
+      "case": "single_name_empty_after_prefix_baseline",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D5(-1):={7,\"ONE\",1,2};Spreadsheet.D5(2):=\"\";RETURN STRING(Spreadsheet.D5(-1));END;",
+      "source_sha256": "43bd8c873cde829484e6825d8357d5e4af86bf9b6e16f30fc9f37d20174d9a7b",
+      "result": "{7,\"ONE\",1,2,−1,−1,−1,−1,−1,−1,−1}"
+    },
+    {
+      "case": "single_name_empty_followup_getter",
+      "source": "EXPORT SHEETREF() BEGIN RETURN STRING(Spreadsheet.D5(-1));END;",
+      "source_sha256": "586563c509890979c885b6cda80fb1e1886f66d9b4423f5a9c8591ec57c97624",
+      "result": "{7,\"ONE\",1,2,−1,−1,−1,−1,−1,−1,−1}"
+    },
+    {
+      "case": "single_name_minus_one_control",
+      "source": "EXPORT SHEETREF() BEGIN Spreadsheet.D5(2):=\"ONE\";Spreadsheet.D5(2):=-1;RETURN STRING(Spreadsheet.D5(-1));END;",
+      "source_sha256": "e76eb93a2cc0879c4fbaef32c11b6c18a1ed0c6c246ef40379a3717afb29c6c9",
+      "result": "{7,\"\",1,2,−1,−1,−1,−1,−1,−1,−1}"
+    },
+    {
+      "case": "color_high_bytes_and_ff_sentinel",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL r:={},a:={4278190080,4278190081,4294901760},v,k;FOR k FROM 1 TO SIZE(a) DO v:=a(k);Spreadsheet.D6(6):=v;r:=CONCAT(r,{{v,Spreadsheet.D6(6)}});END;Spreadsheet.A1(6):=16777471;Spreadsheet.B1(6):=4261413119;Spreadsheet.C1(6):=4278190080;Spreadsheet.A2(6):=16777215;Spreadsheet.A2(7):=16777216;Spreadsheet.B2(7):=4261413119;Spreadsheet.C2(7):=4278190080;RETURN STRING({r,{Spreadsheet.A1(6),Spreadsheet.B1(6),Spreadsheet.C1(6)},{Spreadsheet.A2(7),Spreadsheet.B2(7),Spreadsheet.C2(7)}});END;",
+      "source_sha256": "a1bab84a391fc6fbe95248f0457c9113bae518129eebed07e0b5c0887170c2b9",
+      "result": "{{{4278190080,−1},{4278190081,−1},{4294901760,−1}},{16777471,4261413119,−1},{16777216,4261413119,−1}}"
+    },
+    {
+      "case": "prefix_empty_name_on_named_cell",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL before;Spreadsheet.D5(-1):={7,\"TEST\",1,2};before:=Spreadsheet.D5(-1);Spreadsheet.D5(-1):={8,\"\",2,4};RETURN STRING({before,Spreadsheet.D5(-1)});END;",
+      "source_sha256": "a0381bb63742c09c1fab4216de2db3115834f9c6db7efef5505ea8b1330d0f19",
+      "result": "{{7,\"TEST\",1,2,−1,−1,−1,−1,−1,−1,−1},{8,\"\",2,4,−1,−1,−1,−1,−1,−1,−1}}"
+    },
+    {
+      "case": "prefix_minus_one_name_on_named_cell",
+      "source": "EXPORT SHEETREF() BEGIN LOCAL before;Spreadsheet.E5(-1):={7,\"TEST2\",1,2};before:=Spreadsheet.E5(-1);Spreadsheet.E5(-1):={8,-1,2,4};RETURN STRING({before,Spreadsheet.E5(-1)});END;",
+      "source_sha256": "a4c2abeea6444f88e4449f89516762fb90eaa7c268f8945ea564bed0f4fabb9c",
+      "result": "{{7,\"TEST2\",1,2,−1,−1,−1,−1,−1,−1,−1},{8,\"\",2,4,−1,−1,−1,−1,−1,−1,−1}}"
+    }
+  ],
+  "name_controls": {
+    "accepted": [
+      "foo",
+      "Foo",
+      "FOOBAR",
+      "SHEET",
+      "SHEETNAM",
+      "foo_bar"
+    ],
+    "rejected_after_SHEETNAM": [
+      "SHEETNAME",
+      "SHEETNAMED"
+    ],
+    "maximum_ascii_length": 8,
+    "control": "cell_name_spelling_and_length"
+  }
+}

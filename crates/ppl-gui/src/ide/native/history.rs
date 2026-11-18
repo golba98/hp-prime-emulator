@@ -1,13 +1,18 @@
 //! Home/CAS history selection is independent of the entry document.
 //! HP Prime User Guide 813269-002 pp. 27–29, 48: Copy inserts at the cursor;
 //! Show inspects large results without replacing either the draft or Ans.
-use super::{NativeUiState, math_layout};
+use super::{NativeUiState, expression::ExpressionEditor, math_layout};
 use ppl_graphics::Grob;
+use ppl_vm::host::Touch;
+
+const SHOW_TOP: i64 = 24;
+const SHOW_BOTTOM: i64 = 220;
 
 #[derive(Debug, Clone, Default)]
 pub struct HistoryViewer {
     pub x: i64,
     pub y: i64,
+    drag_point: Option<Touch>,
 }
 pub struct HistoryRow {
     pub index: usize,
@@ -226,15 +231,41 @@ impl NativeUiState {
     pub fn history_text(&self) -> Option<&str> {
         let entry = self.history.get(self.history_position?)?;
         Some(if self.history_result {
-            entry
-                .typed_result
-                .as_ref()
-                .and_then(|v| v["recall"].as_str())
-                .unwrap_or(&entry.result)
+            entry.recall_result()
         } else {
             &entry.expression
         })
     }
+    pub fn cas_simplify_operand(&self) -> Option<String> {
+        let (entry, result) = if let Some(index) = self.history_position {
+            (self.history.get(index)?, self.history_result)
+        } else {
+            let latest = self
+                .history
+                .iter()
+                .rev()
+                .find(|entry| !entry.error && !entry.result_deleted)?;
+            (latest, true)
+        };
+        if entry.error {
+            return None;
+        }
+        if result && !entry.result_deleted {
+            let value = entry
+                .typed_result
+                .as_ref()
+                .and_then(|typed| serde_json::from_value::<ppl_cas::CasValue>(typed.clone()).ok())
+                .and_then(|value| value.try_expression().ok());
+            Some(value.unwrap_or_else(|| entry.result.clone()))
+        } else if !result && !entry.expression_deleted {
+            ExpressionEditor::from_text(&entry.expression)
+                .evaluation_text(true)
+                .ok()
+        } else {
+            None
+        }
+    }
+
     pub fn copy_history_to_entry(&mut self) {
         if let Some(text) = self.history_text().map(str::to_owned) {
             self.edit(|e| e.insert_source(&text));
@@ -259,19 +290,45 @@ impl NativeUiState {
             _ => math_layout::text(self.history_text().unwrap_or(""), 17.),
         }
     }
+    pub fn drag_history_viewer(&mut self, touch: Option<Touch>, pressed: bool) {
+        let Some(viewer) = &mut self.history_viewer else {
+            return;
+        };
+        if pressed {
+            viewer.drag_point = touch.filter(|p| (SHOW_TOP..SHOW_BOTTOM).contains(&p.y));
+        } else if let Some((previous, current)) = viewer.drag_point.take().zip(touch) {
+            viewer.drag_point = Some(current);
+            self.scroll_history_viewer(previous.x - current.x, previous.y - current.y);
+        }
+    }
     pub fn scroll_history_viewer(&mut self, dx: i64, dy: i64) {
+        if self.history_viewer.is_none() || (dx == 0 && dy == 0) {
+            return;
+        }
         let layout = self.history_layout();
         if let Some(v) = &mut self.history_viewer {
-            v.x = (v.x + dx).clamp(0, (layout.width - 300).max(0));
-            v.y = (v.y + dy).clamp(0, (layout.height - 184).max(0));
-            self.touch_view();
+            let x = v.x.saturating_add(dx).clamp(0, (layout.width - 300).max(0));
+            let y =
+                v.y.saturating_add(dy)
+                    .clamp(0, (layout.height - 184).max(0));
+            if (v.x, v.y) != (x, y) {
+                (v.x, v.y) = (x, y);
+                self.touch_view();
+            }
         }
     }
     pub fn paint_history_viewer(&self, screen: &mut Grob, viewer: &HistoryViewer) {
         let layout = self.history_layout();
-        let mut viewport = Grob::new(320, 196, 0xffffff);
+        let height = SHOW_BOTTOM - SHOW_TOP;
+        let mut viewport = Grob::new(320, height as usize, 0xffffff);
         layout.paint_static(&mut viewport, 10 - viewer.x, 6 - viewer.y, 0x111111);
-        screen.blit((0, 24, 320, 220), &viewport, (0, 0, 320, 196), None, 255);
+        screen.blit(
+            (0, SHOW_TOP, 320, SHOW_BOTTOM),
+            &viewport,
+            (0, 0, 320, height),
+            None,
+            255,
+        );
         paint_softkeys(screen, &["", "", "", "", "", "OK"]);
     }
 }
@@ -282,6 +339,37 @@ pub fn paint_softkeys(screen: &mut Grob, labels: &[&str; 6]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cas_simplify_reads_exact_result_by_default_and_honors_selected_source() {
+        let mut state = NativeUiState::default();
+        assert!(state.cas_simplify_operand().is_none());
+        state.add_history(
+            "1/3".into(),
+            "0.333".into(),
+            false,
+            Some(serde_json::json!({
+                "type": "rational", "value": {"numerator": "1", "denominator": "3"}
+            })),
+        );
+        state.add_history(
+            "2+2".into(),
+            "4".into(),
+            false,
+            Some(serde_json::json!({
+                "type": "integer", "value": "4"
+            })),
+        );
+        assert_eq!(state.cas_simplify_operand().as_deref(), Some("4"));
+        state.history_position = Some(0);
+        state.history_result = true;
+        assert_eq!(state.cas_simplify_operand().as_deref(), Some("(1)/(3)"));
+        state.history_result = false;
+        assert_eq!(state.cas_simplify_operand().as_deref(), Some("1/3"));
+        state.history[0].expression_deleted = true;
+        assert!(state.cas_simplify_operand().is_none());
+    }
+
     #[test]
     fn deleting_a_result_keeps_its_expression_draft_and_other_calculations() {
         let mut s = NativeUiState::default();

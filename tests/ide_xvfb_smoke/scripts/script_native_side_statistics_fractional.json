@@ -1,0 +1,206 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_fractional.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "FRACWEIGHTS",
+      "content": "EXPORT FRACWEIGHTS() BEGIN\n    STARTAPP(\"Statistics 1Var\");\n    D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};\n    SetSample(H1,D1);SetFreq(H1,D2);H1(3):=8;\n    Do1VStats(H1);RETURN {NbItem,Q₁,MedVal,Q₃,MeanX};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "FRACREAD",
+      "content": "EXPORT FRACREAD() BEGIN RETURN {NbItem,Q₁,MedVal,Q₃,MeanX}; END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "FRACWEIGHTS()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "ppl"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_fractional_ppl.png"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "numeric"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_fractional_numeric.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "STARTVIEW(9)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "dot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_fractional_dot.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "trace"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_fractional_trace.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

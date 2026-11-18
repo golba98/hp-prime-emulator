@@ -1,0 +1,561 @@
+{
+  "provenance": "Self-authored PPL controls executed on original virtual G1 15751 using legitimate installed firmware. The observations, weights, assignments and numeric results are calculator behavior evidence.",
+  "summary_cases": [
+    {
+      "case": "unequal_fractions",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "40bfe96412db72ee30b5c27fb6d0b0a433f9b16c29bb1bd99609c9cfd7478eaa",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0.5,1.25,2.25,1.5}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "5.5",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "4",
+        "Q₃": "8",
+        "MaxVal": "8",
+        "ΣX": "24",
+        "ΣX2": "137.5",
+        "MeanX": "4.36363636364",
+        "sX": "2.69867157743",
+        "σX": "2.44104028765",
+        "serrX": "1.15071742703",
+        "ssX": "32.7727272727"
+      }
+    },
+    {
+      "case": "fractional_entries_integer_total",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0.5,1.5,1.5,0.5};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "8eac740afdf12cb55309e645e62b900154e2b51ccb7e72e07fb29eddf500cf6f",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0.5,1.5,1.5,0.5}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "4",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "3",
+        "Q₃": "4",
+        "MaxVal": "8",
+        "ΣX": "13.5",
+        "ΣX2": "62.5",
+        "MeanX": "3.375",
+        "sX": "2.37609623823",
+        "σX": "2.05775970414",
+        "serrX": "1.18804811912",
+        "ssX": "16.9375"
+      }
+    },
+    {
+      "case": "four_half_weights",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0.5,0.5,0.5,0.5};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "db57ab7917e3d81a49a01f2637a99300f93521ed95110c5ded3844639eeade44",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0.5,0.5,0.5,0.5}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "2",
+        "MinVal": "1",
+        "Q₁": "1.5",
+        "MedVal": "3",
+        "Q₃": "6",
+        "MaxVal": "8",
+        "ΣX": "7.5",
+        "ΣX2": "42.5",
+        "MeanX": "3.75",
+        "sX": "3.79143772203",
+        "σX": "2.68095132369",
+        "serrX": "2.68095132369",
+        "ssX": "14.375"
+      }
+    },
+    {
+      "case": "one_weight_below_two",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4};D2:={0.25,0.25,1.1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "9b6b69aa6bf49899da421862a9880e2323f6838e6fa4901dae424e407eeb0d71",
+      "data": "{1,2,4}",
+      "frequencies": "{0.25,0.25,1.1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "1.6",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "4",
+        "Q₃": "4",
+        "MaxVal": "4",
+        "ΣX": "5.15",
+        "ΣX2": "18.85",
+        "MeanX": "3.21875",
+        "sX": "1.9465514378",
+        "σX": "1.19201444517",
+        "serrX": "1.53888403153",
+        "ssX": "2.2734375"
+      }
+    },
+    {
+      "case": "one_weight_below_one",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4};D2:={0.1,0.1,0.1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "8b32ebaa48a2b27ed3eba37178abe207425bb7677c911b48bcef99731ee50eb1",
+      "data": "{1,2,4}",
+      "frequencies": "{0.1,0.1,0.1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "0.3",
+        "MinVal": "1",
+        "Q₁": "1",
+        "MedVal": "2",
+        "Q₃": "4",
+        "MaxVal": "4",
+        "ΣX": "0.7",
+        "ΣX2": "2.1",
+        "MeanX": "2.33333333333",
+        "sX": null,
+        "σX": "1.24721912892",
+        "serrX": null,
+        "ssX": "0.466666666667"
+      }
+    },
+    {
+      "case": "zeros_fractional",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0,1.2,0,1.3};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "db71e46d4b422709b9abba3defbaecc764a4cda108f0a6ee3e1a4f3ebd27a395",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0,1.2,0,1.3}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "2.5",
+        "MinVal": "2",
+        "Q₁": "2",
+        "MedVal": "8",
+        "Q₃": "8",
+        "MaxVal": "8",
+        "ΣX": "12.8",
+        "ΣX2": "88",
+        "MeanX": "5.12",
+        "sX": "3.86988371918",
+        "σX": "2.99759903923",
+        "serrX": "2.44752936652",
+        "ssX": "22.464"
+      }
+    },
+    {
+      "case": "negative_fractional",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,-0.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "314ce8bccdf879d2fa6c909c77cf27df2d158f1a9c8c6a184ded489acaeacbeb",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0.5,1.25,-0.25,1.5}",
+      "frequency_source": "D2",
+      "results": null
+    },
+    {
+      "case": "scalar_literal_fraction",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={};SetSample(H1,D1);SetFreq(H1,0.75);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "f58e1e5cd16619b05cb2ea5b4015801f8763010ee725f1fbd428517bd559ab53",
+      "data": "{1,2,4,8}",
+      "frequencies": "{}",
+      "frequency_source": "0.75",
+      "results": {
+        "NbItem": "3",
+        "MinVal": "1",
+        "Q₁": "1.5",
+        "MedVal": "3",
+        "Q₃": "6",
+        "MaxVal": "8",
+        "ΣX": "11.25",
+        "ΣX2": "63.75",
+        "MeanX": "3.75",
+        "sX": "3.28348138414",
+        "σX": "2.68095132369",
+        "serrX": "1.89571886101",
+        "ssX": "21.5625"
+      }
+    },
+    {
+      "case": "scalar_expression_fraction",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={};SetSample(H1,D1);SetFreq(H1,1-0.3);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "581d65779be21f615d9156a40f55346d4855cddd67874ad4c5676dbf8b7cb65e",
+      "data": "{1,2,4,8}",
+      "frequencies": "{}",
+      "frequency_source": "1-0.3",
+      "results": null
+    },
+    {
+      "case": "single_weight_high",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0,0,2.25,0};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "94e7a7620064044f32697b0f45e16d31d0ff4639abfd4ea73b98d5bbb1185279",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0,0,2.25,0}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "2.25",
+        "MinVal": "4",
+        "Q₁": "4",
+        "MedVal": "4",
+        "Q₃": "4",
+        "MaxVal": "4",
+        "ΣX": "9",
+        "ΣX2": "36",
+        "MeanX": "4",
+        "sX": "0",
+        "σX": "0",
+        "serrX": "0",
+        "ssX": "0"
+      }
+    },
+    {
+      "case": "all_weights_zero",
+      "source": "EXPORT ZZT_FSTAT() BEGIN D1:={1,2,4,8};D2:={0,0,0,0};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "c2288df68d7b16dea964a80376cd08530758dbcce3baf0a69603a874000d1c71",
+      "data": "{1,2,4,8}",
+      "frequencies": "{0,0,0,0}",
+      "frequency_source": "D2",
+      "results": null
+    },
+    {
+      "case": "odd_integer",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5};D2:={1,1,1,1,1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX}); THEN RETURN \"error\"; END; END;",
+      "source_sha256": "e832ac94cd3740b546088c49e7c3e7d38a2a24c0bf3ba61c6c6d293da5c74edb",
+      "data": "{1,2,3,4,5}",
+      "frequencies": "{1,1,1,1,1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "5",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "3",
+        "Q₃": "4",
+        "MaxVal": "5",
+        "ΣX": "15",
+        "ΣX2": "55",
+        "MeanX": "3",
+        "sX": "1.58113883008",
+        "σX": "1.41421356237",
+        "serrX": "0.707106781187",
+        "ssX": "10"
+      }
+    },
+    {
+      "case": "odd_total_fractional_weights",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5,6};D2:={0.5,0.75,0.75,1,1,1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX}); THEN RETURN \"error\"; END; END;",
+      "source_sha256": "6dc6d8617303b98c39c94364812e0189a81af63d359011a1e34f400f2feb900b",
+      "data": "{1,2,3,4,5,6}",
+      "frequencies": "{0.5,0.75,0.75,1,1,1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "5",
+        "MinVal": "1",
+        "Q₁": "2.5",
+        "MedVal": "4",
+        "Q₃": "5",
+        "MaxVal": "6",
+        "ΣX": "19.25",
+        "ΣX2": "87.25",
+        "MeanX": "3.85",
+        "sX": "1.81228446994",
+        "σX": "1.62095650774",
+        "serrX": "0.810478253872",
+        "ssX": "13.1375"
+      }
+    },
+    {
+      "case": "odd_total_integer_with_unequal_rows",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4};D2:={2,1,1,1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX}); THEN RETURN \"error\"; END; END;",
+      "source_sha256": "1ae26ccd8bf4b9698f66994efaa4a5279728fdc9283c41a30781a0b8a68d0122",
+      "data": "{1,2,3,4}",
+      "frequencies": "{2,1,1,1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "5",
+        "MinVal": "1",
+        "Q₁": "1",
+        "MedVal": "2",
+        "Q₃": "3",
+        "MaxVal": "4",
+        "ΣX": "11",
+        "ΣX2": "31",
+        "MeanX": "2.2",
+        "sX": "1.30384048104",
+        "σX": "1.16619037897",
+        "serrX": "0.583095189485",
+        "ssX": "6.8"
+      }
+    },
+    {
+      "case": "weighted_zero_boundaries",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5,6};D2:={1,0,1,1,0,1};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX}); THEN RETURN \"error\"; END; END;",
+      "source_sha256": "101b14a21fcce87bbae3963c4ffca1dcb3fdca6f76a3801a283a65b2ffd68ffb",
+      "data": "{1,2,3,4,5,6}",
+      "frequencies": "{1,0,1,1,0,1}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "4",
+        "MinVal": "1",
+        "Q₁": "1.5",
+        "MedVal": "3.5",
+        "Q₃": "4.5",
+        "MaxVal": "6",
+        "ΣX": "14",
+        "ΣX2": "62",
+        "MeanX": "3.5",
+        "sX": "2.08166599947",
+        "σX": "1.80277563773",
+        "serrX": "1.04083299973",
+        "ssX": "13"
+      }
+    },
+    {
+      "case": "nearest_decimal_boundary",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4};D2:={0.1+0.2,0.6,0.1,0.2};SetSample(H1,D1);SetFreq(H1,D2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX}); THEN RETURN \"error\"; END; END;",
+      "source_sha256": "653278dbead6d48fbdecd03ca80db407d660313aac051f67ac807b71406e3afa",
+      "data": "{1,2,3,4}",
+      "frequencies": "{0.1+0.2,0.6,0.1,0.2}",
+      "frequency_source": "D2",
+      "results": {
+        "NbItem": "1.2",
+        "MinVal": "1",
+        "Q₁": "1.5",
+        "MedVal": "2",
+        "Q₃": "2.5",
+        "MaxVal": "4",
+        "ΣX": "2.6",
+        "ΣX2": "6.8",
+        "MeanX": "2.16666666667",
+        "sX": "2.4152294577",
+        "σX": "0.986013297183",
+        "serrX": "2.20479275922",
+        "ssX": "1.16666666667"
+      }
+    },
+    {
+      "case": "default_five",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5};SetSample(H1,D1);SetFreq(H1,1);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "de7987b28041f1e7780da6363dee199fa62b21cd2cbceb7a8e59a8c2d51e621f",
+      "data": "{1,2,3,4,5}",
+      "frequency_source": "",
+      "results": {
+        "NbItem": "5",
+        "MinVal": "1",
+        "Q₁": "1.5",
+        "MedVal": "3",
+        "Q₃": "4.5",
+        "MaxVal": "5",
+        "ΣX": "15",
+        "ΣX2": "55",
+        "MeanX": "3",
+        "sX": "1.58113883008",
+        "σX": "1.41421356237",
+        "serrX": "0.707106781187",
+        "ssX": "10"
+      }
+    },
+    {
+      "case": "literal_two_five",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5};SetSample(H1,D1);SetFreq(H1,2);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "5d5df78eb6c9fb9283895a91c9cba1c5c9a29eb2758cd7cec7b4657c32b75233",
+      "data": "{1,2,3,4,5}",
+      "frequency_source": "2",
+      "results": {
+        "NbItem": "10",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "3",
+        "Q₃": "4",
+        "MaxVal": "5",
+        "ΣX": "30",
+        "ΣX2": "110",
+        "MeanX": "3",
+        "sX": "1.490711985",
+        "σX": "1.41421356237",
+        "serrX": "0.471404520791",
+        "ssX": "20"
+      }
+    },
+    {
+      "case": "default_seven",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5,6,7};SetSample(H1,D1);SetFreq(H1,1);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "8e8cc9f937dbae2a3b0ba4c482c48b0167fe9c93362eedd4d1d627f5914323c7",
+      "data": "{1,2,3,4,5,6,7}",
+      "frequency_source": "",
+      "results": {
+        "NbItem": "7",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "4",
+        "Q₃": "6",
+        "MaxVal": "7",
+        "ΣX": "28",
+        "ΣX2": "140",
+        "MeanX": "4",
+        "sX": "2.16024689947",
+        "σX": "2",
+        "serrX": "0.816496580928",
+        "ssX": "28"
+      }
+    },
+    {
+      "case": "explicit_seven",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,3,4,5,6,7};SetSample(H1,D1);SetFreq(H1,{1,1,1,1,1,1,1});IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "e826a4b0d4872e7e5d02ef5282178b200c67a4e2ca111aba2fd51c9cc2e9bf7b",
+      "data": "{1,2,3,4,5,6,7}",
+      "frequency_source": "{1,1,1,1,1,1,1}",
+      "results": {
+        "NbItem": "7",
+        "MinVal": "1",
+        "Q₁": "2",
+        "MedVal": "4",
+        "Q₃": "6",
+        "MaxVal": "7",
+        "ΣX": "28",
+        "ΣX2": "140",
+        "MeanX": "4",
+        "sX": "2.16024689947",
+        "σX": "2",
+        "serrX": "0.816496580928",
+        "ssX": "28"
+      }
+    },
+    {
+      "case": "total_one_single",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={2};SetSample(H1,D1);SetFreq(H1,1);IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "4b135427c5caf27331f24aff6b66bca9abd7323d3e11a744c445b8c88a9a486b",
+      "data": "{2}",
+      "frequency_source": "",
+      "results": null
+    },
+    {
+      "case": "total_one_duplicate",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2};SetSample(H1,D1);SetFreq(H1,{0,1});IFERR Do1VStats(H1); RETURN STRING({NbItem,MinVal,Q₁,MedVal,Q₃,MaxVal,ΣX,ΣX2,MeanX,sX,σX,serrX,ssX});THEN RETURN \"error\";END; END;",
+      "source_sha256": "92ea3da5a0faee4973d239834d08416d99318577788389814b112a0677ac1dba",
+      "data": "{1,2}",
+      "frequency_source": "{0,1}",
+      "results": {
+        "MeanX": "2",
+        "sX": null,
+        "serrX": null
+      }
+    }
+  ],
+  "autoscale_cases": [
+    {
+      "case": "histogram",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=1; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "93da4e7d8cdaaeed3cc1f78be02607e5dd765f53f4b29863275f2f2059e42ae4",
+      "chart_code": 1,
+      "bounds": [
+        "-1.55862068966",
+        "11.6",
+        "-0.225",
+        "2.475"
+      ]
+    },
+    {
+      "case": "box",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=2; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "35b275c3feea40baf00921cd6768e315e34d5e4d453c125d57a579c70fea2ea0",
+      "chart_code": 2,
+      "bounds": [
+        "0.674137931034",
+        "8.35",
+        "-0.15",
+        "3.3"
+      ]
+    },
+    {
+      "case": "normal",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=3; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "f93aabb665e7a9911e593de2996322b2410deea3f2658b346ced5bfc3a41124b",
+      "chart_code": 3,
+      "bounds": [
+        "0.790073145246",
+        "8.23333333333",
+        "-1.22703933907",
+        "1.22703933907"
+      ]
+    },
+    {
+      "case": "line",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=4; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "40f5e84d7e2cd570bf7391f5fb7fdcea297081f486e6c55fd4a11c4092b27832",
+      "chart_code": 4,
+      "bounds": [
+        "-0.186206896552",
+        "4.2",
+        "-0.225",
+        "2.475"
+      ]
+    },
+    {
+      "case": "bar",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=5; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "8d415859384340d4a737bad77a3d1ae19470a6d795dd082522b5baf5387dc0ce",
+      "chart_code": 5,
+      "bounds": [
+        "-0.186206896552",
+        "4.2",
+        "-0.8",
+        "8.8"
+      ]
+    },
+    {
+      "case": "pareto",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=6; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "343e3ceab2a1f8bac4b53701554ad40786b8d92d1295e70f4abe010d72f9d54b",
+      "chart_code": 6,
+      "bounds": [
+        "-0.186206896552",
+        "4.2",
+        "-1.5",
+        "16.5"
+      ]
+    },
+    {
+      "case": "control",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=7; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "11876116252e4bc30cad49b6a28d9ec0feae716b64c383b9a07409d0342f7aee",
+      "chart_code": 7,
+      "bounds": [
+        "0.910031347962",
+        "4.1",
+        "-2.87044444444",
+        "10.3704444444"
+      ]
+    },
+    {
+      "case": "dot",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=8; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "3350647b9c56c99f2e29006ba5ee2daacae9db4533332c2fce59db4c9a101735",
+      "chart_code": 8,
+      "bounds": [
+        "0.260083594566",
+        "8.76666666666",
+        "-9.16666666666e-2",
+        "2.84166666666"
+      ]
+    },
+    {
+      "case": "stem",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=9; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "9e7f015bb83115f3e289fd2f8f3f1baee8b9376a8a329dd4e202a395190cb51d",
+      "chart_code": 9,
+      "bounds": [
+        "-2.11995820272",
+        "2.13333333333",
+        "-2.36666666666",
+        "9.36666666666"
+      ]
+    },
+    {
+      "case": "pie",
+      "source": "EXPORT ZZT_FS() BEGIN D1:={1,2,4,8};D2:={0.5,1.25,2.25,1.5};SetSample(H1,D1);SetFreq(H1,D2);H1(3):=10; Hwidth:=1; Xmin:=-10; Xmax:=21; Ymin:=-12; Ymax:=18;IFERR STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); THEN RETURN \"error\";END; END;",
+      "source_sha256": "437e3435fd9f72aefcb901a711bdf58441cdfe388e7a2825c134a1d61a5a0c4b",
+      "chart_code": 10,
+      "bounds": [
+        "-0.976895944444",
+        "6.37019372236",
+        "-1",
+        "6.37019372236"
+      ]
+    }
+  ]
+}

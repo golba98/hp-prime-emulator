@@ -1,0 +1,285 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_scale.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SCALE2REF"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2REF() BEGIN STARTAPP(\"Statistics 2Var\"); C1:={1,2,3};C2:={3,5,7};C3:={1,2,1};C4:={-5,0,10};C5:={-12,10,4};Xmin:=-20;Xmax:=20;Ymin:=-20;Ymax:=20;STARTVIEW(1,1); RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "wide_plot"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_wide_plot.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2REF() BEGIN STARTVIEW(9); RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "single"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_single.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "initial_definitions"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_initial_definitions.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 70,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 165,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 7,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "second_enabled"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_second_enabled.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2REF() BEGIN STARTVIEW(9); RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "two_analyses"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_two_analyses.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2REF() BEGIN Xmin:=-20;Xmax:=20;Ymin:=-20;Ymax:=20;STARTVIEW(1,1);RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "wide_again"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "interactive"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_interactive.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2REF() BEGIN RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "saved_bounds"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_saved_bounds.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

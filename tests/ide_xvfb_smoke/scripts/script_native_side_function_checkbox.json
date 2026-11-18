@@ -1,0 +1,159 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_function_checkbox.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Function"
+    },
+    {
+      "step": "new_program",
+      "name": "FCHECK"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN LOCAL rejected:=0;IFERR CHECK(1);THEN rejected:=1;END;RETURN {rejected,UNCHECK(0),ISCHECK(1),ISCHECK(0),TYPE(ISCHECK(1))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "empty"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN Function.F1:=\"X+1\";Function.F2:=\"X^2\";Function.F0:=\"3*X\";RETURN {ISCHECK(1),ISCHECK(2),ISCHECK(0)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "definitions"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN LOCAL a:=CHECK(1),b:=CHECK(#0:24h);STARTVIEW(0);RETURN {a,b,ISCHECK(1),ISCHECK(2),ISCHECK(0)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 7,
+      "y": 32
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "pointer"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN LOCAL a:=0,b:=0,c:=0,d:=0,e:=0;IFERR ISCHECK(10);THEN a:=1;END;IFERR UNCHECK(-1);THEN b:=1;END;IFERR CHECK(3);THEN c:=1;END;IFERR CHECK(1.5);THEN d:=1;END;IFERR ISCHECK(\"0\");THEN e:=1;END;RETURN {a,b,c,d,e,ISCHECK(1),ISCHECK(0)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "pointer_read"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN Function.F1:=\"1/X\";CHECK(1);NumStart:=0;NumStep:=1;RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "numeric_domain"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FCHECK() BEGIN UNCHECK(1);CHECK(2);Function.F2:=\"\";NumStart:=0;NumStep:=1;RETURN {STARTVIEW(2),ISCHECK(1),ISCHECK(2),ISCHECK(0)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "numeric"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_function_checkbox_numeric.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

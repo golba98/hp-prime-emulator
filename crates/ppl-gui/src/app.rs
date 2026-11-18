@@ -400,7 +400,11 @@ impl IdeDesktopApp {
         if self.state.firmware_backend {
             matches!(self.firmware_state, crate::ide::VmExecutionState::Running)
         } else {
-            self.controller.worker_alive() || self.native_compile.is_some() || self.native_stopping
+            // The operation owns its result until the UI applies the worker outcome.
+            self.controller.worker_alive()
+                || self.state.native.operation.is_some()
+                || self.native_compile.is_some()
+                || self.native_stopping
         }
     }
 

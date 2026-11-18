@@ -442,6 +442,9 @@ pub fn binary(
     a: &Value,
     b: &Value,
 ) -> RtResult<Value> {
+    if let Some(result) = crate::ops::infinity::binary(op, a, b) {
+        return result;
+    }
     if matches!(
         op,
         ppl_syntax::ast::BinOp::And | ppl_syntax::ast::BinOp::Or | ppl_syntax::ast::BinOp::Xor

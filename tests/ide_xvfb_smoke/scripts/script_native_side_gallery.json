@@ -125,6 +125,18 @@
     },
     {
       "step": "snapshot",
+      "label": "graph3d_highlighted"
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
       "label": "scrolled"
     },
     {

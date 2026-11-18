@@ -18,6 +18,8 @@ use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::settings::Settings;
 use crate::value::{Matrix, Value};
 
+pub(crate) mod infinity;
+
 fn bad_type(op: &str, a: &Value, b: &Value) -> RuntimeError {
     RuntimeError::new(
         ErrorKind::BadArgType,

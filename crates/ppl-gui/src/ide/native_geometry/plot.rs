@@ -11,21 +11,14 @@ pub fn build(
     cancel: Arc<AtomicBool>,
 ) -> Result<PlotData, String> {
     let scene = book.calculate(snapshot, cancel.clone())?;
-    let mut window = PlotWindow::default();
-    for (name, target) in [
-        ("Xmin", &mut window.xmin),
-        ("Xmax", &mut window.xmax),
-        ("Ymin", &mut window.ymin),
-        ("Ymax", &mut window.ymax),
-    ] {
-        if let Some(value) = snapshot
-            .globals
-            .get(name)
-            .and_then(|v| v.to_value().as_real())
-        {
-            *target = value.to_f64();
-        }
-    }
+    let [xmin, xmax, ymin, ymax] = snapshot.geometry_plot_settings().derived_bounds();
+    let window = PlotWindow {
+        xmin: xmin.to_f64(),
+        xmax: xmax.to_f64(),
+        ymin: ymin.to_f64(),
+        ymax: ymax.to_f64(),
+        ..Default::default()
+    };
     window.validate()?;
     if !(window.xmax - window.xmin).is_finite() || !(window.ymax - window.ymin).is_finite() {
         return Err("Geometry plot span exceeds numerical range".into());
@@ -55,6 +48,18 @@ pub fn build(
                 };
                 (PlotStyle::Line, vec![[a.x, a.y], [b.x, b.y]])
             }
+            Shape::Lines(lines) => {
+                for &[a, b] in lines {
+                    if let Some([a, b]) = clip(a, b, Extent::Line, &window) {
+                        data.push(
+                            format!("G{}", object.name),
+                            PlotStyle::Line,
+                            vec![[a.x, a.y], [b.x, b.y]],
+                        )?;
+                    }
+                }
+                continue;
+            }
             Shape::Circle { center, radius } => {
                 let points = (0..=192)
                     .map(|i| {
@@ -64,6 +69,14 @@ pub fn build(
                     .collect();
                 (PlotStyle::Line, points)
             }
+            Shape::Arc(arc) => (
+                PlotStyle::Line,
+                arc.vertices().map(|p| [p.x, p.y]).collect(),
+            ),
+            Shape::Ellipse(ellipse) => (
+                PlotStyle::Line,
+                ellipse.vertices().map(|p| [p.x, p.y]).collect(),
+            ),
             Shape::Polygon(points) => {
                 let mut points = points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>();
                 if let Some(p) = points.first().copied() {
@@ -71,7 +84,17 @@ pub fn build(
                 }
                 (PlotStyle::Line, points)
             }
-            Shape::Number { .. } => continue,
+            Shape::Function { paths, .. } => {
+                for path in paths {
+                    data.push(
+                        format!("G{}", object.name),
+                        PlotStyle::Line,
+                        path.iter().map(|p| [p.x, p.y]).collect(),
+                    )?;
+                }
+                continue;
+            }
+            Shape::Number { .. } | Shape::Undefined => continue,
         };
         data.push(format!("G{}", object.name), style, points)?;
     }

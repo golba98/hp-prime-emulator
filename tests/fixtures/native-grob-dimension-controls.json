@@ -1,0 +1,91 @@
+{
+  "provenance": "Self-authored PPL programs executed by original virtual G1 build 15751. Returned pixel and Cartesian dimensions and accepted argument forms.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "dimension_width",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN DIMGROB_P(G1,16,12,#113355h);RETURN GROBW(G1); END;",
+      "source_sha256": "524e85c0b72bfd65ca704e6d261d6f5ccec9f95a188f1e9c3960efea964f6f41",
+      "expected": 1.6,
+      "return_display": "1.6"
+    },
+    {
+      "name": "dimension_height",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN DIMGROB_P(G1,16,12,#113355h);RETURN GROBH(G1); END;",
+      "source_sha256": "8ef64a2ebb00182fd8df3bc07162b28f0545507e34e573bd47fc01f87ae6c0c8",
+      "expected": 1.2,
+      "return_display": "1.2"
+    },
+    {
+      "name": "dimension_both_directions",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN STARTAPP(\"Function\");Xmin:=-2;Xmax:=6;Ymin:=-3;Ymax:=4;DIMGROB_P(G1,16,12,#113355h);RETURN {GROBW(G1),GROBH(G1),GROBW(G0),GROBH(G0),GROBW_P(G1),GROBH_P(G1),Xmin,Xmax,Ymin,Ymax}; END;",
+      "source_sha256": "6c12e44a1338c323bc0abbb528c0c4a9fa115e651b1e131039803b053629202c",
+      "expected": [
+        0.40251572327,
+        0.385321100917,
+        8.05031446541,
+        7.70642201835,
+        16,
+        12,
+        -2,
+        6,
+        -3,
+        4
+      ],
+      "return_display": "{0.40251572327, 0.385321100917, 8.05031446541, 7.70642201835, 16, 12, -2, 6, -3, 4}"
+    },
+    {
+      "name": "dimension_pixel_noarg",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN RETURN {GROBW_P(),GROBH_P()}; END;",
+      "source_sha256": "7eece7555e9cbf160dd28c0c914b95f8a3bd96e6920f262a82f54de9a61b7f16",
+      "expected": [
+        320,
+        240
+      ],
+      "return_display": "{320, 240}"
+    },
+    {
+      "name": "dimension_wrong_kind",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN LOCAL ok:=1,w:=0,h:=0; IFERR w:=GROBW(5); THEN ok:=0; END; IFERR h:=GROBH_P(\"G0\"); THEN ok:=ok+10; END; RETURN {ok,w,h}; END;",
+      "source_sha256": "35bf478a05f4b0778a17368d182420a414ec294b4f31ec44ee1d282676b5e8ea",
+      "expected": [
+        10,
+        0,
+        0
+      ],
+      "return_display": "{10, 0, 0}"
+    },
+    {
+      "name": "dimension_missing_grob",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN LOCAL ok:=1,w:=0,h:=0; IFERR w:=GROBW(G8); THEN ok:=0; END; IFERR h:=GROBH_P(G8); THEN ok:=ok+10; END; RETURN {ok,w,h}; END;",
+      "source_sha256": "15e90b3e204991215e5ffc2cf0c9fbd8a01a4ffde8155569b7afe69bbde1deaf",
+      "expected": [
+        1,
+        0,
+        0
+      ],
+      "return_display": "{1, 0, 0}"
+    },
+    {
+      "name": "dimension_geometry_units",
+      "entry": "ZZT_GROBSIZE",
+      "source": "EXPORT ZZT_GROBSIZE() BEGIN STARTAPP(\"Geometry\");Geometry.PixSize:=0.5;DIMGROB_P(G1,16,12);RETURN {GROBW(G1),GROBH(G1),GROBW(),GROBH(),GROBW_P(G1),GROBH_P(G1)}; END;",
+      "source_sha256": "1176aa8e35f25d108c1d7058ae2ce5bfc2d58a83c4ff1bcdfe9b64ab4a9ad90d",
+      "expected": [
+        8.0251572327,
+        6.02752293578,
+        160.503144654,
+        120.550458716,
+        16,
+        12
+      ],
+      "return_display": "{8.0251572327, 6.02752293578, 160.503144654, 120.550458716, 16, 12}"
+    }
+  ]
+}

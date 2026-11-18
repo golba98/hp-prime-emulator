@@ -1,6 +1,9 @@
 //! Source-fenced app access on a worker. Nested calls use local cloned models,
 //! retaining the live caller namespace without reacquiring the GUI execution lease.
 mod definition;
+pub mod geometry;
+pub mod graph3d;
+pub mod statistics;
 use super::{native_app_models::spreadsheet::Spreadsheet, native_apps::GraphApp};
 use ppl_vm::{
     ErrorKind, HeadlessHost, Host, PortableValue, RuntimeError, SessionContext, SessionSnapshot,
@@ -23,10 +26,33 @@ fn invalid(message: impl Into<String>) -> RuntimeError {
 fn unsupported(message: &str) -> RuntimeError {
     RuntimeError::new(ErrorKind::Unsupported, message)
 }
+fn checkbox(
+    name: &str,
+    enabled: &mut bool,
+    defined: bool,
+) -> Result<(PortableValue, bool), RuntimeError> {
+    let next = match name {
+        "ISCHECK" => {
+            return Ok((
+                PortableValue::Real(ppl_math::Real::from_i64(i64::from(*enabled))),
+                false,
+            ));
+        }
+        "CHECK" if defined => true,
+        "CHECK" => return Err(invalid("No definition in Symbolic view")),
+        "UNCHECK" => false,
+        _ => return Err(invalid("Unknown Symbolic checkbox command")),
+    };
+    let changed = *enabled != next;
+    *enabled = next;
+    Ok((PortableValue::Real(ppl_math::Real::ONE), changed))
+}
+
 #[derive(Clone)]
 struct Resolver {
     sheet: Rc<Spreadsheet>,
     function: Rc<GraphApp>,
+    geometry: Option<Arc<super::native_geometry::Book>>,
     cancel: Arc<AtomicBool>,
     deadline: Instant,
     calls: Rc<Cell<usize>>,
@@ -38,25 +64,73 @@ pub struct AccessResult {
     pub value: PortableValue,
     pub sheet: Option<Spreadsheet>,
     pub function: Option<Vec<super::native_apps::Curve>>,
+    pub statistics1: Option<super::native_statistics::OneBook>,
+    pub statistics2: Option<statistics::TwoUpdate>,
+    pub geometry: Option<super::native_geometry::Book>,
+    pub graph3d: Option<super::native_graph3d::Definitions>,
 }
 pub fn access(
     sheet: Spreadsheet,
     function: GraphApp,
+    geometry: Option<Arc<super::native_geometry::Book>>,
     request: &AppVariableRequest,
     snapshot: &SessionSnapshot,
     cancel: Arc<AtomicBool>,
 ) -> Result<AccessResult, RuntimeError> {
     if request.app == "Spreadsheet" {
         return sheet
-            .access(request, snapshot, cancel)
+            .access_with_geometry(request, snapshot, cancel, geometry)
             .map(|result| AccessResult {
                 value: result.value,
                 sheet: result.sheet,
                 function: None,
+                statistics1: None,
+                statistics2: None,
+                geometry: None,
+                graph3d: None,
             });
     }
     if cancel.load(Ordering::Acquire) {
         return Err(RuntimeError::kind(ErrorKind::Interrupted));
+    }
+    if request.app == "Function" && matches!(request.name.as_str(), "CHECK" | "UNCHECK" | "ISCHECK")
+    {
+        let ([position], None) = (request.indices.as_slice(), &request.value) else {
+            return Err(invalid("A Function checkbox command requires one index"));
+        };
+        let position = position
+            .to_value()
+            .expect_real("Function definition index")?;
+        let digit = position
+            .is_integer()
+            .then(|| position.to_i64())
+            .flatten()
+            .filter(|digit| (0..=9).contains(digit))
+            .ok_or_else(|| invalid("Function definition index must be 0 through 9"))?;
+        // F0 is the tenth Symbolic row even though its PPL index is zero.
+        let index = function_index(&format!("F{digit}")).expect("validated Function index");
+        let mut curves = function.curves;
+        let row = curves.get_mut(index);
+        let defined = row
+            .as_ref()
+            .is_some_and(|curve| !curve.expression.trim().is_empty());
+        let mut enabled = row.as_ref().is_some_and(|curve| defined && curve.enabled);
+        let (value, changed) = checkbox(&request.name, &mut enabled, defined)?;
+        if changed && let Some(row) = row {
+            row.enabled = enabled;
+        }
+        if cancel.load(Ordering::Acquire) {
+            return Err(RuntimeError::kind(ErrorKind::Interrupted));
+        }
+        return Ok(AccessResult {
+            value,
+            sheet: None,
+            function: changed.then_some(curves),
+            statistics1: None,
+            statistics2: None,
+            geometry: None,
+            graph3d: None,
+        });
     }
     if request.app == "Function"
         && let Some(value) = &request.value
@@ -119,11 +193,16 @@ pub fn access(
             value: result,
             sheet: None,
             function: Some(function.curves),
+            statistics1: None,
+            statistics2: None,
+            geometry: None,
+            graph3d: None,
         });
     }
     let resolver = Resolver {
         sheet: Rc::new(sheet),
         function: Rc::new(function),
+        geometry,
         cancel,
         deadline: Instant::now() + Duration::from_secs(4),
         calls: Rc::new(Cell::new(0)),
@@ -134,18 +213,24 @@ pub fn access(
         value: resolver.read(request.clone(), snapshot.clone())?,
         sheet: None,
         function: None,
+        statistics1: None,
+        statistics2: None,
+        geometry: None,
+        graph3d: None,
     })
 }
 pub fn evaluate_expression(
     source: &str,
     sheet: Spreadsheet,
     function: GraphApp,
+    geometry: Option<Arc<super::native_geometry::Book>>,
     snapshot: &SessionSnapshot,
     cancel: Arc<AtomicBool>,
 ) -> Result<Value, RuntimeError> {
     Resolver {
         sheet: Rc::new(sheet),
         function: Rc::new(function),
+        geometry,
         cancel,
         deadline: Instant::now() + Duration::from_secs(4),
         calls: Rc::new(Cell::new(0)),
@@ -160,6 +245,7 @@ pub type NumericRows = Vec<Vec<Option<PortableValue>>>;
 pub fn evaluate_numeric_rows(
     sheet: Spreadsheet,
     function: GraphApp,
+    geometry: Option<Arc<super::native_geometry::Book>>,
     snapshot: &SessionSnapshot,
     values: Vec<ppl_math::Real>,
     cancel: Arc<AtomicBool>,
@@ -170,6 +256,7 @@ pub fn evaluate_numeric_rows(
     let resolver = Resolver {
         sheet: Rc::new(sheet),
         function: Rc::new(function),
+        geometry,
         cancel,
         deadline: Instant::now() + Duration::from_secs(4),
         calls: Rc::new(Cell::new(0)),
@@ -256,8 +343,20 @@ impl Resolver {
             }
             return Ok(self
                 .sheet
-                .access(&request, &snapshot, self.cancel.clone())?
+                .access_with_geometry(
+                    &request,
+                    &snapshot,
+                    self.cancel.clone(),
+                    self.geometry.clone(),
+                )?
                 .value);
+        }
+        if request.app == "Geometry" {
+            let book = self
+                .geometry
+                .as_ref()
+                .ok_or_else(|| invalid("Geometry is not initialized"))?;
+            return geometry::read_only(book, &request, &snapshot, self.cancel.clone());
         }
         if request.app != "Function" {
             return Err(unsupported(
@@ -353,10 +452,15 @@ impl Resolver {
         context.active_app = snapshot.active_app.clone();
         context.app_settings = snapshot.app_settings.clone();
         context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+        context.app_plot_settings = snapshot.app_plot_settings.clone();
+        context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
         context.app_files = snapshot.app_files.clone();
         context.cas = snapshot.cas.clone();
         for (name, value) in &snapshot.globals {
-            if name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit() {
+            if (name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit())
+                || (context.active_app == "Geometry"
+                    && ppl_vm::GeometryPlotSettings::recognizes(name))
+            {
                 continue;
             }
             context.set_variable(name, value.clone())?;
@@ -368,6 +472,8 @@ impl Resolver {
         context.settings = settings;
         context.app_settings = snapshot.app_settings.clone();
         context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+        context.app_plot_settings = snapshot.app_plot_settings.clone();
+        context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
         for (name, source) in &snapshot.programs {
             context.store_program(name, source.clone())?;
         }
@@ -557,6 +663,7 @@ mod tests {
             let result = access(
                 Spreadsheet::default(),
                 function,
+                None,
                 &request,
                 &context.snapshot(),
                 Arc::new(AtomicBool::new(false)),
@@ -589,6 +696,7 @@ mod tests {
             let result = access(
                 Spreadsheet::default(),
                 function,
+                None,
                 &request,
                 &snapshot,
                 Arc::new(AtomicBool::new(false)),

@@ -1,0 +1,3651 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_one_definition.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "{4,1,2}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "D1+1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 230,
+      "y": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_1"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_1.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_2"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_2.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_3"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_3.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_4"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_4.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_5"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_5.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_6"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_6.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_7"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_7.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_8"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_8.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_9"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_9.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "caption_10"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_caption_10.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "D1+2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 230,
+      "y": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 139
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 5,
+      "y": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_pair_definitions"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_pair_definitions.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_initial"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_initial.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_right"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_right.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_again"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_again.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_h2"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_h2.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_h1"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_h1.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 75,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_trace_off"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_trace_off.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 75,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_defn_trace_on"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_defn_trace_on.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_before_home"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_before_home.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "line_after_home"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_after_home.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 5,
+      "y": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "D1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "control_defn_0"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_control_defn_0.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "control_defn_right"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_control_defn_right.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "control_defn_again"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_control_defn_again.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "control_after_home"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_control_after_home.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "numeric"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "{1,2,3,4,5,6,7,100}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 230,
+      "y": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 100,
+      "y": 85
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_definitions"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_definitions.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowLeft"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_0"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_0.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_1"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_1.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_2"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_2.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_3"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_3.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_4"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_4.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_5"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_5.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_clamped"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_clamped.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "outlier_definition"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_one_definition_outlier_definition.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

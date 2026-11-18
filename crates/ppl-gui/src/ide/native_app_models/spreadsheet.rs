@@ -2,8 +2,18 @@
 //! operations use the VM's BCD values, never floating-point text substitution.
 //! HP Prime User Guide 813269-002, pp.211–226 and 388–389.
 mod access;
+#[cfg(test)]
+mod attribute_tests;
+mod attributes;
+mod choose;
+mod clipboard;
 pub mod format;
+mod sort;
+pub(crate) mod worksheet_cas;
+use crate::ide::native_geometry::Book;
 pub use access::AccessResult;
+pub use choose::CellChoiceMenu;
+pub use clipboard::{ClipboardBlock, PasteMode};
 use ppl_math::{Real, RealPresentation};
 use ppl_vm::{PortableValue, SessionContext, SessionSnapshot, Settings, Value};
 use serde::{Deserialize, Serialize};
@@ -17,9 +27,15 @@ use std::{
 
 pub const MAX_ROWS: usize = 10_000;
 pub const MAX_COLUMNS: usize = 676;
+const MAX_POPULATED_CELLS: usize = 10_000;
+const MAX_FORMAT_RULES: usize = 1024;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Spreadsheet {
     pub cells: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    row_entries: BTreeMap<usize, HeaderEntry>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    column_entries: BTreeMap<usize, HeaderEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub formats: Vec<format::FormatRule>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -30,6 +46,15 @@ pub struct Spreadsheet {
     pub names: BTreeMap<String, format::Block>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     entered_values: BTreeMap<String, serde_json::Value>,
+    /// Format-only cells remain visually blank but have a calculator record.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    metadata_cells: BTreeSet<String>,
+    /// 0 retains the legacy Native Auto-color interpretation until a write.
+    #[serde(default, skip_serializing_if = "is_legacy_format")]
+    format_encoding: u8,
+}
+fn is_legacy_format(value: &u8) -> bool {
+    *value == 0
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CellValue {
@@ -41,6 +66,14 @@ pub enum CellValue {
     },
 }
 impl CellValue {
+    /// Recover a typed matrix/list/object for display without reparsing its label.
+    pub fn portable_value(&self) -> Option<PortableValue> {
+        match self {
+            Self::Number(value) => Real::from_f64(*value).ok().map(PortableValue::Real),
+            Self::Text(value) => Some(PortableValue::String(value.clone())),
+            Self::Object { typed, .. } => crate::ide::native::home_format::recover_value(typed),
+        }
+    }
     fn from_value(value: &Value, settings: &Settings) -> Self {
         match value {
             Value::Real(n)
@@ -108,6 +141,68 @@ pub fn cell_name(mut col: usize, row: usize) -> String {
     letters.reverse();
     format!("{}{row}", letters.into_iter().collect::<String>())
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Header {
+    Row(usize),
+    Column(usize),
+}
+impl Header {
+    pub(crate) fn parse(name: &str) -> Option<Self> {
+        if let Some(col) = column(name) {
+            return Some(Self::Column(col));
+        }
+        if !name.is_empty() && name.bytes().all(|byte| byte.is_ascii_digit()) {
+            let row = name.parse().ok()?;
+            if (1..=MAX_ROWS).contains(&row) {
+                return Some(Self::Row(row));
+            }
+        }
+        None
+    }
+    pub(crate) fn name(self) -> String {
+        match self {
+            Self::Row(row) => row.to_string(),
+            Self::Column(col) => cell_name(col, 1).trim_end_matches('1').into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum HeaderEntry {
+    Formula(String),
+    Value {
+        source: String,
+        typed: serde_json::Value,
+    },
+}
+impl HeaderEntry {
+    fn source(&self) -> &str {
+        match self {
+            Self::Formula(source) | Self::Value { source, .. } => source,
+        }
+    }
+    fn validate(&self) -> Result<(), String> {
+        if self.source().trim().is_empty() || self.source().len() > 65536 {
+            return Err("Enter a row or column formula or value of up to 64KiB".into());
+        }
+        match self {
+            Self::Formula(source) => {
+                if source
+                    .strip_prefix('=')
+                    .is_none_or(|formula| formula.trim().is_empty())
+                {
+                    return Err("Enter a formula after =".into());
+                }
+            }
+            Self::Value { typed, .. } => {
+                ppl_vm::session::decode_value(typed)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy)]
 struct Range {
     left: usize,
@@ -126,20 +221,12 @@ impl Range {
                 top: a.row.min(b.row),
                 bottom: a.row.max(b.row),
             })
-        } else if let Some(a) = Address::parse(source) {
-            Some(Self {
+        } else {
+            Address::parse(source).map(|a| Self {
                 left: a.col,
                 right: a.col,
                 top: a.row,
                 bottom: a.row,
-            })
-        } else {
-            let col = column(source)?;
-            Some(Self {
-                left: col,
-                right: col,
-                top: 1,
-                bottom: MAX_ROWS,
             })
         }
     }
@@ -170,14 +257,35 @@ impl Spreadsheet {
         self.names.insert(name.into(), block);
         Ok(())
     }
-    pub fn format(&self, col: usize, row: usize) -> format::CellFormat {
+    /// The local record, before row/column/sheet defaults. Auto is retained.
+    pub fn local_format(&self, col: usize, row: usize) -> format::CellFormat {
+        self.scoped_format(col, row, 3)
+    }
+    fn scoped_format(&self, col: usize, row: usize, scope: usize) -> format::CellFormat {
         let mut result = format::CellFormat::default();
         for rule in &self.formats {
-            if rule.block.contains(col, row) {
-                result.overlay(&rule.style);
+            if rule.block.scope() == scope && rule.block.contains(col, row) {
+                result.overlay(&rule.style.decoded(self.format_encoding));
             }
         }
         result
+    }
+    /// Resolve local overrides over column, row and sheet defaults. A later
+    /// Auto clears that scope's override rather than hiding its inherited value.
+    pub fn format(&self, col: usize, row: usize) -> format::CellFormat {
+        let mut result = format::CellFormat::defaults();
+        for scope in 0..=3 {
+            result.overlay_explicit(&self.scoped_format(col, row, scope));
+        }
+        result
+    }
+    fn upgrade_format_encoding(&mut self) {
+        if self.format_encoding == 0 {
+            for rule in &mut self.formats {
+                rule.style = rule.style.decoded(0);
+            }
+            self.format_encoding = format::CURRENT_ENCODING;
+        }
     }
     pub fn apply_format(
         &mut self,
@@ -186,13 +294,105 @@ impl Spreadsheet {
     ) -> Result<(), String> {
         block.validate()?;
         style.validate()?;
-        if self.formats.len() >= 1024 {
+        let style = style.decoded(format::CURRENT_ENCODING);
+        let coalesces = self.formats.last().is_some_and(|last| last.block == block);
+        if self.formats.len() >= MAX_FORMAT_RULES && !coalesces {
             return Err("Spreadsheet format limit reached".into());
+        }
+        // Upgrade only old rules, before appending the new raw ARGB value.
+        // Reading/serializing a legacy profile never rewrites its old colors.
+        self.upgrade_format_encoding();
+        if let Some(last) = self.formats.last_mut().filter(|last| last.block == block) {
+            last.style.overlay(&style);
+            return Ok(());
         }
         self.formats.push(format::FormatRule { block, style });
         Ok(())
     }
+    pub(crate) fn has_header_entries(&self) -> bool {
+        !self.row_entries.is_empty() || !self.column_entries.is_empty()
+    }
+    pub(crate) fn editor_source(&self, target: &str) -> Option<&str> {
+        match Header::parse(target) {
+            Some(Header::Row(row)) => self.row_entries.get(&row).map(HeaderEntry::source),
+            Some(Header::Column(col)) => self.column_entries.get(&col).map(HeaderEntry::source),
+            None => self.cells.get(target).map(String::as_str),
+        }
+    }
+    fn inherited_entry(&self, address: Address) -> Option<&HeaderEntry> {
+        self.column_entries
+            .get(&address.col)
+            .or_else(|| self.row_entries.get(&address.row))
+    }
+    pub(crate) fn has_value(&self, col: usize, row: usize) -> bool {
+        self.cells.contains_key(&cell_name(col, row))
+            || self.inherited_entry(Address { col, row }).is_some()
+    }
+    pub(crate) fn clear_header(&mut self, header: Header) {
+        let (index, entries) = self.header_entries_mut(header);
+        entries.remove(&index);
+    }
+    fn header_entries_mut(&mut self, header: Header) -> (usize, &mut BTreeMap<usize, HeaderEntry>) {
+        match header {
+            Header::Row(row) => (row, &mut self.row_entries),
+            Header::Column(col) => (col, &mut self.column_entries),
+        }
+    }
+    fn used_extent(&self) -> (usize, usize) {
+        let columns = self
+            .column_entries
+            .last_key_value()
+            .map_or(0, |(&col, _)| col);
+        let rows = self.row_entries.last_key_value().map_or(0, |(&row, _)| row);
+        let cell_corners = self
+            .formats
+            .iter()
+            .filter(|rule| rule.block.scope() == 3)
+            .map(|rule| Address {
+                col: rule.block.right,
+                row: rule.block.bottom,
+            });
+        self.cells
+            .keys()
+            .chain(&self.metadata_cells)
+            .filter_map(|name| Address::parse(name))
+            .chain(cell_corners)
+            .fold((columns, rows), |(last_col, last_row), cell| {
+                (last_col.max(cell.col), last_row.max(cell.row))
+            })
+    }
+    fn inherited_addresses(
+        &self,
+        block: Range,
+        addresses: &mut BTreeSet<String>,
+    ) -> Result<(), String> {
+        if block.left > block.right || block.top > block.bottom {
+            return Ok(());
+        }
+        let mut add = |col, row| -> Result<(), String> {
+            addresses.insert(cell_name(col, row));
+            if addresses.len() > MAX_POPULATED_CELLS {
+                return Err("Spreadsheet range exceeds 10000 populated cells".into());
+            }
+            Ok(())
+        };
+        for (&row, _) in self.row_entries.range(block.top..=block.bottom) {
+            for col in block.left..=block.right {
+                add(col, row)?;
+            }
+        }
+        for (&col, _) in self.column_entries.range(block.left..=block.right) {
+            for row in block.top..=block.bottom {
+                add(col, row)?;
+            }
+        }
+        Ok(())
+    }
     pub fn clear_block(&mut self, block: format::Block) {
+        self.metadata_cells.retain(|name| {
+            !self.cells.contains_key(name)
+                || !Address::parse(name).is_some_and(|a| block.contains(a.col, a.row))
+        });
         self.cells
             .retain(|n, _| !Address::parse(n).is_some_and(|a| block.contains(a.col, a.row)));
         self.entered_values
@@ -202,13 +402,38 @@ impl Spreadsheet {
         let name = Address::parse(name).ok_or("Invalid cell address")?.name();
         self.entered_values.remove(&name);
         if source.is_empty() {
-            self.cells.remove(&name);
+            if self.cells.remove(&name).is_some() {
+                self.metadata_cells.remove(&name);
+            }
         } else {
             self.cells.insert(name, source.into());
         }
         Ok(())
     }
+    fn set_typed(&mut self, name: &str, value: &PortableValue) -> Result<(), String> {
+        let encoded = ppl_vm::session::encode_value(value);
+        ppl_vm::session::decode_value(&encoded)?;
+        self.cells.insert(
+            name.into(),
+            value
+                .to_value()
+                .string_form(ppl_vm::value::default_format()),
+        );
+        self.entered_values.insert(name.into(), encoded);
+        Ok(())
+    }
     pub fn validate(&self) -> Result<(), String> {
+        if self.format_encoding > format::CURRENT_ENCODING {
+            return Err("Unknown spreadsheet format encoding".into());
+        }
+        if self.metadata_cells.len() > 10_000
+            || self
+                .metadata_cells
+                .iter()
+                .any(|name| Address::parse(name).is_none_or(|address| address.name() != *name))
+        {
+            return Err("Invalid spreadsheet metadata cells".into());
+        }
         if self.names.len() > 1024 {
             return Err("Spreadsheet name limit exceeded".into());
         }
@@ -216,7 +441,7 @@ impl Spreadsheet {
             validate_name(name)?;
             block.validate()?;
         }
-        if self.formats.len() > 1024 {
+        if self.formats.len() > MAX_FORMAT_RULES {
             return Err("Spreadsheet format limit exceeded".into());
         }
         for rule in &self.formats {
@@ -234,7 +459,18 @@ impl Spreadsheet {
         {
             return Err("Invalid spreadsheet cell dimensions".into());
         }
-        if self.cells.len() > 10_000 {
+        for (entries, limit) in [
+            (&self.row_entries, MAX_ROWS),
+            (&self.column_entries, MAX_COLUMNS),
+        ] {
+            for (&index, entry) in entries {
+                if !(1..=limit).contains(&index) {
+                    return Err("Invalid spreadsheet formula header".into());
+                }
+                entry.validate()?;
+            }
+        }
+        if self.cells.len() > MAX_POPULATED_CELLS {
             return Err("Spreadsheet exceeds populated-cell limit".into());
         }
         for name in self.cells.keys() {
@@ -265,11 +501,21 @@ impl Spreadsheet {
         snapshot: &SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<CellValue, String> {
-        let name = Address::parse(name).ok_or("Invalid cell address")?.name();
-        if !self.cells.contains_key(&name) {
+        self.evaluate_in_with_geometry(name, snapshot, cancel, None)
+    }
+    pub fn evaluate_in_with_geometry(
+        &self,
+        name: &str,
+        snapshot: &SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
+    ) -> Result<CellValue, String> {
+        let address = Address::parse(name).ok_or("Invalid cell address")?;
+        let name = address.name();
+        if !self.cells.contains_key(&name) && self.inherited_entry(address).is_none() {
             return Err(format!("Cell {name} is empty"));
         }
-        let mut eval = Evaluator::new(self, snapshot, cancel)?;
+        let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
         let value = eval.cell(&name)?;
         Ok(CellValue::from_value(&value, &eval.context.settings))
     }
@@ -278,18 +524,51 @@ impl Spreadsheet {
         snapshot: &SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<serde_json::Value, String> {
-        let mut evaluator = Evaluator::new(self, snapshot, cancel)?;
+        self.calculate_with_geometry(snapshot, cancel, None)
+    }
+    pub fn calculate_with_geometry(
+        &self,
+        snapshot: &SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
+    ) -> Result<serde_json::Value, String> {
+        self.calculate_for_view(snapshot, cancel, geometry, None)
+    }
+    pub(crate) fn calculate_for_view(
+        &self,
+        snapshot: &SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
+        viewport: Option<format::Block>,
+    ) -> Result<serde_json::Value, String> {
+        let mut evaluator = Evaluator::new(self, snapshot, cancel, geometry)?;
+        let mut addresses = BTreeSet::new();
+        if let Some(block) = viewport {
+            self.inherited_addresses(
+                Range {
+                    left: block.left,
+                    right: block.right,
+                    top: block.top,
+                    bottom: block.bottom,
+                },
+                &mut addresses,
+            )?;
+        }
+        addresses.extend(self.cells.keys().cloned());
         let mut values = serde_json::Map::new();
-        for name in self.cells.keys() {
+        for name in addresses {
             evaluator.check()?;
-            let cell = match evaluator.cell(name) {
+            let mut cell = match evaluator.cell(&name) {
                 Ok(value) => {
                     serde_json::to_value(CellValue::from_value(&value, &evaluator.context.settings))
                         .map_err(|e| e.to_string())?
                 }
                 Err(error) => serde_json::json!({"Error":error}),
             };
-            values.insert(name.clone(), cell);
+            if evaluator.unselected_choices.contains(&name) {
+                cell["UnselectedChoice"] = serde_json::Value::Bool(true);
+            }
+            values.insert(name, cell);
         }
         Ok(serde_json::Value::Object(values))
     }
@@ -302,9 +581,47 @@ impl Spreadsheet {
         snapshot: &SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        self.enter_with_geometry(name, source, snapshot, cancel, None)
+    }
+    pub fn enter_with_geometry(
+        &self,
+        name: &str,
+        source: &str,
+        snapshot: &SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
+    ) -> Result<Self, String> {
+        let mut next = self.clone();
+        if let Some(header) = Header::parse(name) {
+            let source = source.trim();
+            if source.is_empty() {
+                next.clear_header(header);
+                return Ok(next);
+            }
+            if source.len() > 65536 {
+                return Err("Enter a row or column formula or value of up to 64KiB".into());
+            }
+            let entry = if source.starts_with('=') {
+                HeaderEntry::Formula(source.into())
+            } else {
+                let address = match header {
+                    Header::Row(row) => Address { col: 0, row },
+                    Header::Column(col) => Address { col, row: 0 },
+                };
+                let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
+                let value = eval.expression(source, address, 0)?;
+                HeaderEntry::Value {
+                    source: value.string_form(ppl_vm::value::default_format()),
+                    typed: ppl_vm::session::encode_value(&PortableValue::from(&value)),
+                }
+            };
+            entry.validate()?;
+            let (index, entries) = next.header_entries_mut(header);
+            entries.insert(index, entry);
+            return Ok(next);
+        }
         let address = Address::parse(name).ok_or("Invalid cell address")?;
         let name = address.name();
-        let mut next = self.clone();
         if source.trim().is_empty() {
             next.set(&name, "")?;
             return Ok(next);
@@ -313,8 +630,14 @@ impl Spreadsheet {
             next.set(&name, source)?;
             return Ok(next);
         }
-        let mut eval = Evaluator::new(self, snapshot, cancel)?;
+        let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
         let value = eval.expression(source, address, 0)?;
+        if worksheet_cas::body(source).is_some()
+            && let Some(formula) = eval.cas_frozen_formula(&value, address)?
+        {
+            next.set(&name, &format!("={formula}"))?;
+            return Ok(next);
+        }
         next.cells.insert(
             name.clone(),
             value.string_form(ppl_vm::value::default_format()),
@@ -332,22 +655,31 @@ struct Evaluator<'a> {
     context: SessionContext,
     home_settings: Settings,
     cancel: Arc<AtomicBool>,
+    geometry: Option<Arc<Book>>,
     visiting: BTreeSet<String>,
     cache: BTreeMap<String, Result<Value, String>>,
+    unselected_choices: BTreeSet<String>,
     prefix: String,
     slots: usize,
+    used_extent: (usize, usize),
 }
 impl<'a> Evaluator<'a> {
     fn new(
         sheet: &'a Spreadsheet,
         snapshot: &SessionSnapshot,
         cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
     ) -> Result<Self, String> {
+        if let Some(book) = &geometry {
+            book.validate()?;
+        }
         let settings = snapshot.settings.clone();
         let mut context = SessionContext::new(settings.clone(), 0x5348454554);
         context.active_app = "Spreadsheet".into();
         context.app_settings = snapshot.app_settings.clone();
         context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+        context.app_plot_settings = snapshot.app_plot_settings.clone();
+        context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
         context.app_files = snapshot.app_files.clone();
         context.cas = snapshot.cas.clone();
         for (name, value) in &snapshot.globals {
@@ -363,6 +695,8 @@ impl<'a> Evaluator<'a> {
         context.settings = settings;
         context.app_settings = snapshot.app_settings.clone();
         context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+        context.app_plot_settings = snapshot.app_plot_settings.clone();
+        context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
         for (name, source) in &snapshot.programs {
             context
                 .store_program(name, source.clone())
@@ -376,7 +710,10 @@ impl<'a> Evaluator<'a> {
             || snapshot
                 .programs
                 .values()
-                .chain(sheet.cells.values())
+                .map(String::as_str)
+                .chain(sheet.cells.values().map(String::as_str))
+                .chain(sheet.row_entries.values().map(HeaderEntry::source))
+                .chain(sheet.column_entries.values().map(HeaderEntry::source))
                 .any(|source| source.contains(&prefix))
         {
             prefix.push('X');
@@ -387,10 +724,13 @@ impl<'a> Evaluator<'a> {
             context,
             home_settings: snapshot.settings.clone(),
             cancel,
+            geometry,
             visiting: BTreeSet::new(),
             cache: BTreeMap::new(),
+            unselected_choices: BTreeSet::new(),
             prefix,
             slots: 0,
+            used_extent: sheet.used_extent(),
         })
     }
     fn check(&self) -> Result<(), String> {
@@ -419,12 +759,29 @@ impl<'a> Evaluator<'a> {
             if let Some(value) = self.sheet.entered_values.get(&name) {
                 return Ok(ppl_vm::session::decode_value(value)?.to_value());
             }
-            let Some(source) = self.sheet.cells.get(&name) else {
-                return Ok(Value::Real(Real::ZERO));
-            };
-            let source = source.clone();
+            let source = if let Some(source) = self.sheet.cells.get(&name) {
+                source
+            } else {
+                match self.sheet.inherited_entry(address) {
+                    Some(HeaderEntry::Formula(source)) => source,
+                    Some(HeaderEntry::Value { typed, .. }) => {
+                        return Ok(ppl_vm::session::decode_value(typed)?.to_value());
+                    }
+                    None => return Ok(Value::Real(Real::ZERO)),
+                }
+            }
+            .to_owned();
             let text = source.trim();
-            if let Some(formula) = text.strip_prefix('=') {
+            if let Some(body) = choose::body(text) {
+                let choice = self.choose_definition(body, address)?;
+                let current = choice.current(self)?;
+                if let Some(index) = current {
+                    Ok(choice.items[index - 1].clone())
+                } else {
+                    self.unselected_choices.insert(name.clone());
+                    Ok(Value::zero())
+                }
+            } else if let Some(formula) = text.strip_prefix('=') {
                 self.expression(formula, address, 0)
             } else if let Some(real) = Real::parse(text) {
                 Ok(Value::Real(real))
@@ -446,6 +803,39 @@ impl<'a> Evaluator<'a> {
             .map_err(|e| e.to_string())?;
         Ok(name)
     }
+    fn named_range(&self, block: format::Block) -> Range {
+        let (columns, rows) = self.used_extent;
+        Range {
+            left: block.left,
+            right: if block.scope() == 1 {
+                columns
+            } else {
+                block.right
+            },
+            top: block.top,
+            bottom: if block.scope() == 2 {
+                rows
+            } else {
+                block.bottom
+            },
+        }
+    }
+    fn named_value(&mut self, block: format::Block) -> Result<Value, String> {
+        if block.left == block.right && block.top == block.bottom {
+            return self.cell(&cell_name(block.left, block.top));
+        }
+        match block.scope() {
+            1 if block.top == block.bottom => {}
+            2 if block.left == block.right => {}
+            _ => return Err("Use a named block inside a spreadsheet aggregate".into()),
+        }
+        let range = self.named_range(block);
+        let values = (range.top..=range.bottom)
+            .flat_map(|row| (range.left..=range.right).map(move |col| (col, row)))
+            .map(|(col, row)| self.cell(&cell_name(col, row)))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Value::list(values))
+    }
     fn aggregate(
         &mut self,
         name: &str,
@@ -454,23 +844,24 @@ impl<'a> Evaluator<'a> {
         depth: usize,
     ) -> Result<Value, String> {
         let mut values = Vec::new();
-        let named = self.sheet.names.get(body.trim()).map(|b| Range {
-            left: b.left,
-            right: b.right,
-            top: b.top,
-            bottom: b.bottom,
-        });
+        let named = self
+            .sheet
+            .names
+            .get(body.trim())
+            .map(|&block| self.named_range(block));
         if let Some(range) = named.or_else(|| Range::parse(body.trim())) {
             // Empty range members do not contribute to either sum or count.
             // Iterate sparse occupied cells, including the current cell so a
             // self-reference is detected rather than silently omitted.
-            let mut names = self
+            let mut addresses = self
                 .sheet
                 .cells
                 .keys()
                 .filter(|name| Address::parse(name).is_some_and(|a| range.contains(a)))
                 .cloned()
-                .collect::<Vec<_>>();
+                .collect::<BTreeSet<_>>();
+            self.sheet.inherited_addresses(range, &mut addresses)?;
+            let mut names = addresses.into_iter().collect::<Vec<_>>();
             names.sort_by_key(|name| {
                 let a = Address::parse(name).unwrap();
                 (a.row, a.col)
@@ -523,20 +914,7 @@ impl<'a> Evaluator<'a> {
                 || (ch == '.' && source[pos + 1..].starts_with(|c: char| c.is_ascii_digit()))
             {
                 let start = pos;
-                while pos < source.len()
-                    && (source.as_bytes()[pos].is_ascii_digit() || source.as_bytes()[pos] == b'.')
-                {
-                    pos += 1;
-                }
-                if pos < source.len() && matches!(source.as_bytes()[pos], b'E' | b'e') {
-                    pos += 1;
-                    if pos < source.len() && matches!(source.as_bytes()[pos], b'+' | b'-') {
-                        pos += 1;
-                    }
-                    while pos < source.len() && source.as_bytes()[pos].is_ascii_digit() {
-                        pos += 1;
-                    }
-                }
+                pos = number_end(source, start);
                 out.push_str(&source[start..pos]);
                 continue;
             }
@@ -548,17 +926,13 @@ impl<'a> Evaluator<'a> {
             }
             if ch.is_alphabetic() || matches!(ch, '_' | '$') {
                 let start = pos;
-                pos += ch.len_utf8();
-                while pos < source.len() {
-                    let c = source[pos..].chars().next().unwrap();
-                    if !(c.is_alphanumeric() || matches!(c, '_' | '$')) {
-                        break;
-                    }
-                    pos += c.len_utf8();
-                }
+                pos = identifier_end(source, start);
                 let token = &source[start..pos];
                 let next = source[pos..].trim_start();
-                if (token.eq_ignore_ascii_case("SUM") || token.eq_ignore_ascii_case("AVERAGE"))
+                if source[pos..].starts_with('.') || source[..start].ends_with('.') {
+                    out.push_str(token);
+                } else if (token.eq_ignore_ascii_case("SUM")
+                    || token.eq_ignore_ascii_case("AVERAGE"))
                     && next.starts_with('(')
                 {
                     let open = source.len() - next.len();
@@ -567,15 +941,23 @@ impl<'a> Evaluator<'a> {
                         self.aggregate(token, &source[open + 1..end - 1], address, depth)?;
                     out.push_str(&self.slot(value)?);
                     pos = end;
-                } else if !next.starts_with('(') && !source[..start].ends_with('.') {
+                } else if next.starts_with('(')
+                    && let Some(cell) = self.sheet.address(token)
+                {
+                    let open = source.len() - next.len();
+                    let end = call_end(source, open)?;
+                    let value = self.expression(&source[open + 1..end - 1], address, depth + 1)?;
+                    let field = attributes::index(&PortableValue::from(&value))
+                        .map_err(|error| error.to_string())?;
+                    let value = self.attribute(cell, field)?;
+                    out.push_str(&self.slot(value)?);
+                    pos = end;
+                } else if !next.starts_with('(') {
                     if let Some(cell) = Address::parse(token) {
                         let value = self.cell(&cell.name())?;
                         out.push_str(&self.slot(value)?);
                     } else if let Some(block) = self.sheet.names.get(token).copied() {
-                        if block.left != block.right || block.top != block.bottom {
-                            return Err("Use a named block inside a spreadsheet aggregate".into());
-                        }
-                        let value = self.cell(&cell_name(block.left, block.top))?;
+                        let value = self.named_value(block)?;
                         out.push_str(&self.slot(value)?);
                     } else if let Some(value) = self.home_setting(token) {
                         out.push_str(&value.to_string());
@@ -638,6 +1020,9 @@ impl<'a> Evaluator<'a> {
         if depth > 64 {
             return Err("Spreadsheet formula nesting exceeded".into());
         }
+        if let Some(body) = worksheet_cas::body(source) {
+            return self.cas_expression(&body, address, depth);
+        }
         let expression = self.expand(source, address, depth)?;
         let (ast, diagnostics) = ppl_syntax::parse_expression(&expression);
         if diagnostics.has_errors() {
@@ -652,10 +1037,12 @@ impl<'a> Evaluator<'a> {
             .context
             .evaluate_home(
                 &expression,
-                Box::new(ppl_vm::HeadlessHost {
-                    interrupt: Some(self.cancel.clone()),
-                    ..Default::default()
-                }),
+                crate::ide::native_application_access::geometry::read_only_host(
+                    self.geometry.clone(),
+                    self.cancel.clone(),
+                    self.deadline,
+                    "Spreadsheet calculation timed out",
+                ),
                 ppl_vm::Limits {
                     max_steps: Some(1_000_000),
                     max_time: Some(std::time::Duration::from_secs(2)),
@@ -677,17 +1064,27 @@ impl<'a> Evaluator<'a> {
             || before.active_app != after.active_app
             || before.app_settings != after.app_settings
             || before.app_numeric_settings != after.app_numeric_settings
+            || before.app_plot_settings != after.app_plot_settings
+            || before.geometry_plot_settings != after.geometry_plot_settings
             || before.app_files != after.app_files
             || before.notes != after.notes
             || before.programs != after.programs
             || before.cas.bindings != after.cas.bindings;
         if wrote {
-            self.context = Evaluator::new(self.sheet, &before, self.cancel.clone())?.context;
+            self.context = Evaluator::new(
+                self.sheet,
+                &before,
+                self.cancel.clone(),
+                self.geometry.clone(),
+            )?
+            .context;
             return Err("Spreadsheet function attempted to change calculator memory".into());
         }
         self.context.settings = before.settings.clone();
         self.context.app_settings = before.app_settings.clone();
         self.context.app_numeric_settings = before.app_numeric_settings.clone();
+        self.context.app_plot_settings = before.app_plot_settings.clone();
+        self.context.geometry_plot_settings = before.geometry_plot_settings.clone();
         self.context.app_files = before.app_files.clone();
         self.context.cas = before.cas.clone();
         for name in after
@@ -767,6 +1164,34 @@ fn validate_text_addition(
     };
     Ok(kind)
 }
+fn number_end(source: &str, mut pos: usize) -> usize {
+    while pos < source.len()
+        && (source.as_bytes()[pos].is_ascii_digit() || source.as_bytes()[pos] == b'.')
+    {
+        pos += 1;
+    }
+    if pos < source.len() && matches!(source.as_bytes()[pos], b'E' | b'e') {
+        pos += 1;
+        if pos < source.len() && matches!(source.as_bytes()[pos], b'+' | b'-') {
+            pos += 1;
+        }
+        while pos < source.len() && source.as_bytes()[pos].is_ascii_digit() {
+            pos += 1;
+        }
+    }
+    pos
+}
+fn identifier_end(source: &str, mut pos: usize) -> usize {
+    pos += source[pos..].chars().next().unwrap().len_utf8();
+    while pos < source.len() {
+        let c = source[pos..].chars().next().unwrap();
+        if !(c.is_alphanumeric() || matches!(c, '_' | '$')) {
+            break;
+        }
+        pos += c.len_utf8();
+    }
+    pos
+}
 fn quoted_end(source: &str, start: usize) -> Result<usize, String> {
     let mut escaped = false;
     for (offset, ch) in source[start + 1..].char_indices() {
@@ -830,6 +1255,420 @@ mod tests {
             other => panic!("Expected numeric cell: {other:?}"),
         }
     }
+    fn triangle(snapshot: &SessionSnapshot) -> Arc<Book> {
+        use crate::ide::native_geometry::Object;
+        let mut book = Book {
+            objects: [
+                ("A", "point(0,0)"),
+                ("B", "point(4,0)"),
+                ("C", "point(0,3)"),
+                ("D", "triangle(GA,GB,GC)"),
+                ("E", "distance(GB,GC)"),
+            ]
+            .into_iter()
+            .map(|(name, source)| Object {
+                name: name.into(),
+                source: source.into(),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        };
+        book.refresh_values(snapshot, no_cancel()).unwrap();
+        Arc::new(book)
+    }
+
+    #[test]
+    fn stored_geometry_formulas_follow_redraw_and_entered_values_stay_fixed() {
+        use ppl_vm::host::AppVariableRequest;
+
+        let mut memory = snapshot();
+        memory
+            .globals
+            .insert("GE".into(), PortableValue::Real(Real::from_i64(99)));
+        let geometry = triangle(&memory);
+        let mut request = AppVariableRequest {
+            app: "Spreadsheet".into(),
+            name: "A1".into(),
+            indices: vec![PortableValue::Real(Real::ONE)],
+            value: Some(PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(
+                "Geometry.GE+2".into(),
+            ))),
+        };
+        let mut sheet = Spreadsheet::default()
+            .access_with_geometry(&request, &memory, no_cancel(), Some(geometry.clone()))
+            .unwrap()
+            .sheet
+            .unwrap();
+        request.value = None;
+        assert!(matches!(
+            sheet
+                .access_with_geometry(&request, &memory, no_cancel(), Some(geometry.clone()))
+                .unwrap()
+                .value,
+            PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) if source == "Geometry.GE+2"
+        ));
+        request.indices.clear();
+        assert_eq!(
+            sheet
+                .access_with_geometry(&request, &memory, no_cancel(), Some(geometry.clone()))
+                .unwrap()
+                .value,
+            PortableValue::Real(Real::from_i64(7))
+        );
+
+        sheet.set("D1", "21").unwrap();
+        sheet
+            .set_name("Geometry", format::Block::cell(4, 1))
+            .unwrap();
+        sheet
+            .set("C1", "=distance(Geometry.GB,Geometry.GC)")
+            .unwrap();
+        sheet.set("E1", "=GE+Geometry").unwrap();
+        sheet = sheet
+            .enter_with_geometry(
+                "B1",
+                "Geometry.GE+2",
+                &memory,
+                no_cancel(),
+                Some(geometry.clone()),
+            )
+            .unwrap();
+
+        let mut redrawn = geometry.clone();
+        let book = Arc::make_mut(&mut redrawn);
+        book.objects[2].source = "point(4,6)".into();
+        book.refresh_values(&memory, no_cancel()).unwrap();
+        let first = sheet
+            .calculate_with_geometry(&memory, no_cancel(), Some(geometry))
+            .unwrap();
+        let second = sheet
+            .calculate_with_geometry(&memory, no_cancel(), Some(redrawn))
+            .unwrap();
+        assert_eq!(
+            first,
+            serde_json::json!({"A1":{"Number":7.0}, "B1":{"Number":7.0}, "C1":{"Number":5.0},
+                "D1":{"Number":21.0}, "E1":{"Number":120.0}})
+        );
+        assert_eq!(
+            second,
+            serde_json::json!({"A1":{"Number":8.0}, "B1":{"Number":7.0}, "C1":{"Number":6.0},
+                "D1":{"Number":21.0}, "E1":{"Number":120.0}})
+        );
+    }
+
+    #[test]
+    fn worksheet_geometry_bridge_denies_setters_and_no_value_deletion() {
+        let mut context = SessionContext::default();
+        context
+            .store_program(
+                "GWRITE",
+                "EXPORT GWRITE() BEGIN Geometry.GE:=9; RETURN 1; END;".into(),
+            )
+            .unwrap();
+        let memory = context.snapshot();
+        let geometry = triangle(&memory);
+        let fingerprint = geometry.access_fingerprint();
+        let mut sheet = Spreadsheet::default();
+        for (cell, source) in [("A1", "=GWRITE()"), ("B1", "=Geometry.DelInstruction()")] {
+            sheet.set(cell, source).unwrap();
+            let error = sheet
+                .evaluate_in_with_geometry(cell, &memory, no_cancel(), Some(geometry.clone()))
+                .unwrap_err();
+            assert!(
+                error.contains("cannot change Geometry objects or instructions"),
+                "{error}"
+            );
+        }
+        sheet.set("C1", "=Geometry.GE").unwrap();
+        assert_eq!(
+            sheet
+                .evaluate_in_with_geometry("C1", &memory, no_cancel(), Some(geometry.clone()))
+                .unwrap(),
+            CellValue::Number(5.)
+        );
+        assert_eq!(geometry.access_fingerprint(), fingerprint);
+    }
+
+    #[test]
+    fn bare_column_letter_in_aggregate_reads_home_with_inherited_entries() {
+        let mut memory = snapshot();
+        memory
+            .globals
+            .insert("B".into(), PortableValue::Real(Real::from_i64(91)));
+        let sheet = Spreadsheet::default()
+            .enter("B", "=10+Row", &memory, no_cancel())
+            .unwrap();
+        let mut sheet = sheet.enter("3", "=20+Col", &memory, no_cancel()).unwrap();
+        sheet.set("B2", "777").unwrap();
+        sheet.set("C1", "12").unwrap();
+        sheet.set("E2", "=SUM(B)").unwrap();
+        sheet.set("E4", "=SUM(B1:B5)").unwrap();
+        sheet.set("E5", "=AVERAGE(C1:C3)").unwrap();
+        assert_eq!(number(&sheet, "E2", &memory), 91.);
+        assert_eq!(number(&sheet, "E4", &memory), 830.);
+        assert_eq!(number(&sheet, "E5", &memory), 17.5);
+    }
+
+    #[test]
+    fn named_header_ranges_follow_the_used_sheet_extent() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default()
+            .enter("B", "=10+Row", &memory, no_cancel())
+            .unwrap();
+        sheet.set("A1", "10").unwrap();
+        sheet.set("B2", "777").unwrap();
+        sheet.set("C1", "12").unwrap();
+        sheet.set("D6", "=InputCol").unwrap();
+        sheet.set("D7", "=SUM(InputCol)").unwrap();
+        sheet
+            .set_name(
+                "InputCol",
+                format::Block {
+                    left: 2,
+                    right: 2,
+                    top: 1,
+                    bottom: MAX_ROWS,
+                },
+            )
+            .unwrap();
+        assert_eq!(number(&sheet, "D7", &memory), 863.);
+        let list = |sheet: &Spreadsheet, cell: &str| {
+            sheet
+                .evaluate_in(cell, &memory, no_cancel())
+                .unwrap()
+                .portable_value()
+                .unwrap()
+        };
+        let numbers = |contents: &[i64]| {
+            PortableValue::List(
+                contents
+                    .iter()
+                    .map(|&n| PortableValue::Real(Real::from_i64(n)))
+                    .collect(),
+            )
+        };
+        assert_eq!(list(&sheet, "D6"), numbers(&[11, 777, 13, 14, 15, 16, 17]));
+        sheet.set("C8", "=TopLine").unwrap();
+        sheet.set("C9", "=SUM(TopLine)").unwrap();
+        sheet
+            .set_name(
+                "TopLine",
+                format::Block {
+                    left: 1,
+                    right: MAX_COLUMNS,
+                    top: 1,
+                    bottom: 1,
+                },
+            )
+            .unwrap();
+        assert_eq!(list(&sheet, "C8"), numbers(&[10, 11, 12, 0]));
+        assert_eq!(
+            sheet
+                .read_attribute("TopLine", 0, &memory, no_cancel())
+                .unwrap(),
+            list(&sheet, "C8")
+        );
+        assert_eq!(number(&sheet, "C9", &memory), 33.);
+        assert_eq!(number(&sheet, "D7", &memory), 900.);
+        sheet.set("A15", "17").unwrap();
+        assert_eq!(number(&sheet, "D7", &memory), 1035.);
+        assert_eq!(
+            list(&sheet, "D6"),
+            numbers(&[11, 777, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
+        );
+        let mut sheet = sheet
+            .write_attribute("A25", 5, &PortableValue::Real(Real::from_i64(2)))
+            .unwrap();
+        sheet = sheet
+            .write_attribute("F4", 5, &PortableValue::Real(Real::from_i64(2)))
+            .unwrap();
+        assert_eq!(list(&sheet, "C8"), numbers(&[10, 11, 12, 0, 0, 0]));
+        assert_eq!(number(&sheet, "C9", &memory), 33.);
+        let PortableValue::List(column) = list(&sheet, "D6") else {
+            panic!("Expected column list")
+        };
+        assert_eq!(column.len(), 25);
+        assert_eq!(column[24], PortableValue::Real(Real::from_i64(35)));
+        assert_eq!(
+            sheet
+                .read_attribute("InputCol", 0, &memory, no_cancel())
+                .unwrap(),
+            PortableValue::List(column)
+        );
+    }
+
+    #[test]
+    fn used_extent_includes_persisted_bounded_formats_without_counting_header_defaults() {
+        let sheet: Spreadsheet = serde_json::from_value(serde_json::json!({
+            "cells": {"A1": "10"},
+            "formats": [
+                {"block": {"left": 2, "right": 4, "top": 6, "bottom": 8}, "style": {"font": 14}},
+                {"block": {"left": 10, "right": 10, "top": 1, "bottom": MAX_ROWS}, "style": {"font": 16}},
+                {"block": {"left": 1, "right": MAX_COLUMNS, "top": 30, "bottom": 30}, "style": {"font": 16}},
+            ]
+        })).unwrap();
+        sheet.validate().unwrap();
+        assert_eq!(sheet.used_extent(), (4, 8));
+        assert!(!sheet.has_value(4, 8));
+    }
+
+    #[test]
+    fn header_formulas_inherit_by_destination_and_preserve_local_records() {
+        use ppl_vm::host::AppVariableRequest;
+
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        for (name, source) in [
+            ("A1", "10"),
+            ("A2", "20"),
+            ("A3", "30"),
+            ("C1", "100"),
+            ("C3", "300"),
+        ] {
+            sheet.set(name, source).unwrap();
+        }
+        sheet = sheet
+            .write_attribute("B2", 0, &PortableValue::Real(Real::from_i64(777)))
+            .unwrap();
+        sheet = sheet.enter("B", "=A1+Row", &memory, no_cancel()).unwrap();
+        sheet = sheet.enter("3", "=A2+Col", &memory, no_cancel()).unwrap();
+        assert_eq!(sheet.cells.len(), 6);
+        for (address, expected) in [
+            ("A3", 30.),
+            ("B1", 11.),
+            ("B2", 777.),
+            ("B3", 13.),
+            ("B100", 110.),
+            ("C3", 300.),
+            ("D3", 24.),
+            ("AZ3", 72.),
+        ] {
+            assert_eq!(number(&sheet, address, &memory), expected, "{address}");
+        }
+        let request = |address: &str| AppVariableRequest {
+            app: "Spreadsheet".into(),
+            name: address.into(),
+            indices: Vec::new(),
+            value: None,
+        };
+        assert_eq!(
+            sheet
+                .access(&request("B100"), &memory, no_cancel())
+                .unwrap()
+                .value,
+            PortableValue::Real(Real::from_i64(110))
+        );
+        assert_eq!(
+            sheet.read_attribute("B1", 1, &memory, no_cancel()).unwrap(),
+            PortableValue::Real(Real::from_i64(-1))
+        );
+        sheet = sheet
+            .write_attribute("B4", 5, &PortableValue::Real(Real::from_i64(2)))
+            .unwrap();
+        assert_eq!(
+            sheet.read_attribute("B4", 1, &memory, no_cancel()).unwrap(),
+            PortableValue::Real(Real::ZERO)
+        );
+        assert_eq!(number(&sheet, "B4", &memory), 14.);
+        sheet = sheet
+            .write_attribute("B5", 0, &PortableValue::String(String::new()))
+            .unwrap();
+        assert_eq!(
+            sheet
+                .access(&request("B5"), &memory, no_cancel())
+                .unwrap()
+                .value,
+            PortableValue::String(String::new())
+        );
+
+        sheet.clear_block(format::Block::cell(2, 2));
+        assert_eq!(number(&sheet, "B2", &memory), 12.);
+        assert_eq!(
+            sheet.read_attribute("B2", 1, &memory, no_cancel()).unwrap(),
+            PortableValue::Real(Real::from_i64(-1))
+        );
+        sheet.set("C6", "=SUM(B1:B4)").unwrap();
+        assert_eq!(number(&sheet, "C6", &memory), 50.);
+        sheet.set("A1", "50").unwrap();
+        let restored: Spreadsheet =
+            serde_json::from_value(serde_json::to_value(sheet).unwrap()).unwrap();
+        restored.validate().unwrap();
+        assert_eq!(restored.editor_source("B"), Some("=A1+Row"));
+        assert_eq!(restored.editor_source("3"), Some("=A2+Col"));
+        assert_eq!(restored.editor_source("B2"), None);
+        assert_eq!(number(&restored, "B2", &memory), 52.);
+        assert_eq!(number(&restored, "C6", &memory), 210.);
+    }
+
+    #[test]
+    fn non_formula_header_entry_freezes_at_header_coordinates() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        sheet.set("A1", "50").unwrap();
+        sheet.set("D4", "444").unwrap();
+        sheet = sheet.enter("3", "=A1+Col", &memory, no_cancel()).unwrap();
+        sheet = sheet.enter("D", "A1+2", &memory, no_cancel()).unwrap();
+        sheet = sheet
+            .enter("4", "Row*10+Col", &memory, no_cancel())
+            .unwrap();
+        sheet = sheet
+            .enter("E", "Row*10+Col", &memory, no_cancel())
+            .unwrap();
+        sheet.set("A1", "60").unwrap();
+
+        let mut restored: Spreadsheet =
+            serde_json::from_value(serde_json::to_value(sheet).unwrap()).unwrap();
+        restored.validate().unwrap();
+        for (address, expected) in [
+            ("D1", 52.),
+            ("D3", 52.),
+            ("D4", 444.),
+            ("A4", 40.),
+            ("E1", 5.),
+        ] {
+            assert_eq!(number(&restored, address, &memory), expected, "{address}");
+        }
+        assert_eq!(restored.editor_source("D"), Some("52"));
+        restored.clear_header(Header::Column(4));
+        assert_eq!(number(&restored, "D3", &memory), 64.);
+        assert_eq!(number(&restored, "D4", &memory), 444.);
+        assert!(restored.editor_source("D").is_none());
+    }
+
+    #[test]
+    fn viewport_recalculation_does_not_expand_whole_formula_columns() {
+        let memory = snapshot();
+        let sheet = Spreadsheet::default()
+            .enter("B", "=Row+1", &memory, no_cancel())
+            .unwrap()
+            .enter("E", "=E1+1", &memory, no_cancel())
+            .unwrap();
+        let values = sheet
+            .calculate_for_view(
+                &memory,
+                no_cancel(),
+                None,
+                Some(format::Block {
+                    left: 1,
+                    right: 5,
+                    top: 9000,
+                    bottom: 9001,
+                }),
+            )
+            .unwrap();
+        assert_eq!(values.as_object().unwrap().len(), 4);
+        assert_eq!(values["B9000"]["Number"], 9001.);
+        assert_eq!(values["B9001"]["Number"], 9002.);
+        assert!(
+            values["E9000"]["Error"]
+                .as_str()
+                .unwrap()
+                .contains("Circular spreadsheet reference")
+        );
+        assert_eq!(sheet.editor_source("E"), Some("=E1+1"));
+    }
+
     #[test]
     fn retained_formulas_and_entered_values_are_independent_after_recalculation_and_reopen() {
         let mut sheet = Spreadsheet::default();
@@ -993,7 +1832,7 @@ mod tests {
                 .unwrap();
         }
         let memory = snapshot();
-        let mut eval = Evaluator::new(&sheet, &memory, no_cancel()).unwrap();
+        let mut eval = Evaluator::new(&sheet, &memory, no_cancel(), None).unwrap();
         let Value::Real(value) = eval.cell("A100").unwrap() else {
             panic!("expected BCD value");
         };
@@ -1120,7 +1959,8 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&sheet).unwrap()).unwrap();
         restored.validate().unwrap();
         assert_eq!(number(&restored, "B1", &snapshot()), 8.);
-        assert_eq!(restored.format(1, 1).number, Some(-1));
+        assert_eq!(restored.local_format(1, 1).number, Some(-1));
+        assert_eq!(restored.format(1, 1).number, Some(1));
         assert_eq!(restored.format(1, 1).color, Some(0x0000ff));
         assert_eq!(restored.format(2, 1).color, Some(0xff0000));
         let mut cleared = restored.clone();
