@@ -350,6 +350,26 @@ const CURVES: &[Command] = &[
         function: "plotseq",
         needs: &[],
     },
+    Command {
+        label: "Implicit",
+        function: "plotimplicit",
+        needs: &[],
+    },
+    Command {
+        label: "Slopefield",
+        function: "plotfield",
+        needs: &[],
+    },
+    Command {
+        label: "ODE",
+        function: "plotode",
+        needs: &[],
+    },
+    Command {
+        label: "List",
+        function: "plotlist",
+        needs: &[],
+    },
 ];
 const TRANSFORMS: &[Command] = &[
     Command {
@@ -930,7 +950,15 @@ impl NativeTools {
         if self.page == Some(Page::Plot)
             && matches!(
                 command.function,
-                "plotfunc" | "conic" | "plotparam" | "plotpolar" | "plotseq"
+                "plotfunc"
+                    | "conic"
+                    | "plotparam"
+                    | "plotpolar"
+                    | "plotseq"
+                    | "plotimplicit"
+                    | "plotfield"
+                    | "plotode"
+                    | "plotlist"
             )
         {
             self.geometry_panel.tool = None;

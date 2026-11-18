@@ -167,6 +167,7 @@ fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
         Shape::Hyperbola(_) => "Hyperbola".into(),
         Shape::Parabola(_) => "Parabola".into(),
         Shape::Ellipse(_) => "Ellipse".into(),
+        Shape::Polyline(_) => "Polyline".into(),
         Shape::Polygon(_) => "Polygon".into(),
         Shape::Points(p) => format!(
             "[{}]",
@@ -282,6 +283,11 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 segment(g, a, b, geo::Extent::Segment, w, color);
             }
         }
+        Shape::Polyline(points) => {
+            for pair in points.windows(2) {
+                segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
+            }
+        }
         Shape::Polygon(points) => {
             for i in 0..points.len() {
                 segment(
@@ -385,6 +391,10 @@ fn hit_distance(shape: &Shape, p: [f64; 2], w: &PlotWindow) -> f64 {
             .edges()
             .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
             .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Polyline(points) => points
+            .windows(2)
+            .map(|s| distance_segment(p, project(s[0], w), project(s[1], w)))
             .fold(f64::INFINITY, f64::min),
         Shape::Polygon(points) => (0..points.len())
             .map(|i| {

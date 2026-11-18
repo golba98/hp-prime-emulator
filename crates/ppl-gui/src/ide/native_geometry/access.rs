@@ -86,6 +86,15 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
                 point_source(b)
             ))
         }
+        Shape::Polyline(points) => symbolic(format!(
+            "polygon({})",
+            points
+                .iter()
+                .copied()
+                .map(point_source)
+                .collect::<Vec<_>>()
+                .join(",")
+        )),
         Shape::Polygon(points) => {
             let mut points = points.iter().copied().map(point_source).collect::<Vec<_>>();
             if let Some(first) = points.first().cloned() {
@@ -163,6 +172,8 @@ impl Book {
                 Ok(
                     shape @ (Shape::Parametric(_)
                     | Shape::Sequence(_)
+                    | Shape::Objects(_)
+                    | Shape::Polyline(_)
                     | Shape::Hyperbola(_)
                     | Shape::Parabola(_)
                     | Shape::Ellipse(_)

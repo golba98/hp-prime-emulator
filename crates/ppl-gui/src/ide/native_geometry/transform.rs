@@ -49,6 +49,12 @@ impl Transform {
             Shape::Number { re, im } => Shape::Point(self.point(Point2 { x: re, y: im })?),
             Shape::Line { a, b, extent } => g::line(self.point(a)?, self.point(b)?, extent)?,
             Shape::Circle { center, radius } => g::circle(self.point(center)?, radius * scale)?,
+            Shape::Polyline(vertices) => Shape::Polyline(
+                vertices
+                    .into_iter()
+                    .map(|p| self.point(p))
+                    .collect::<Result<_, _>>()?,
+            ),
             Shape::Polygon(vertices) => g::polygon(
                 vertices
                     .into_iter()

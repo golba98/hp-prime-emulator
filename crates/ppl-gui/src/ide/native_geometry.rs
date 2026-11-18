@@ -127,6 +127,7 @@ pub enum Shape {
     Parametric(Parametric),
     Sequence(SequencePlot),
     Polygon(Vec<Point2>),
+    Polyline(Vec<Point2>),
     Points(Vec<Point2>),
     Function {
         expression: String,
@@ -429,6 +430,104 @@ mod tests {
                 })
                 .collect(),
             ..Default::default()
+        }
+    }
+
+    #[test]
+    fn geometry_plane_plots_match_virtual_g1_controls_and_solve_the_ode() {
+        let result = scene(&book(&[
+            ("A", "plotimplicit(x^2+y^2-4)"),
+            ("B", "plotimplicit(y-x^3,[x=-2..2,y=-2..2])"),
+            (
+                "C",
+                "plotfield(x+y,[x=-1..1,y=-1..1],xstep=1,ystep=1,normalize)",
+            ),
+            ("D", "plotfield(x+y,[x=-1..1,y=-1..1],xstep=1,ystep=1)"),
+            ("E", "plotode(x,[x=-2..2,y],[0,1])"),
+            ("F", "plotlist([[1,4],[2,8],[3,12]])"),
+            ("G", "plotlist([1,4,9])"),
+            ("H", "plotfield(1,[x=-1..1,y=-1..1],xstep=0,ystep=1)"),
+        ]));
+        assert!(matches!(
+            shape(&result, "A"),
+            Shape::Circle { radius: 2., .. }
+        ));
+        let Shape::Parametric(c) = shape(&result, "B") else {
+            panic!("expected cubic")
+        };
+        assert_eq!(c.bounds(), [-2., 2.]);
+        assert!(
+            c.paths
+                .iter()
+                .flatten()
+                .all(|p| (p.x.powi(3) - p.y).abs() < 1e-9)
+        );
+        for (name, x, y) in [("C", -1.11180339887, -0.77639320225), ("D", -1., -1.)] {
+            let Shape::Objects(field) = shape(&result, name) else {
+                panic!("field")
+            };
+            assert_eq!(field.len(), 9);
+            let Shape::Polyline(v) = &field[0] else {
+                panic!("field segment")
+            };
+            assert!(v[0].distance(Point2 { x, y }).unwrap() < 1e-9);
+            assert!(((v[1].y - v[0].y) / (v[1].x - v[0].x) + 2.).abs() < 1e-12);
+        }
+        let Shape::Polyline(ode) = shape(&result, "E") else {
+            panic!("solution curve")
+        };
+        assert_eq!((ode.first().unwrap().x, ode.last().unwrap().x), (-2., 2.));
+        assert!(
+            ode.iter()
+                .all(|p| (p.y - (1. + p.x * p.x / 2.)).abs() < 1e-9)
+        );
+        for (name, x, y) in [("F", 3., 12.), ("G", 2., 9.)] {
+            let Shape::Polyline(path) = shape(&result, name) else {
+                panic!("list plot")
+            };
+            assert_eq!(path.len(), 3);
+            assert_eq!(path[2], Point2 { x, y });
+        }
+        assert!(result.objects.last().unwrap().value.is_err());
+    }
+
+    #[test]
+    fn implicit_contours_join_and_recompute_on_geometry_dependency_changes() {
+        let mut b = book(&[
+            ("A", "point(1,0)"),
+            ("B", "plotimplicit(x^4+y^4-abscissa(GA),[x=-2..2,y=-2..2])"),
+        ]);
+        for (definition, target) in [("point(1,0)", 1.), ("point(3,0)", 3.)] {
+            b.objects[0].source = definition.into();
+            let r = scene(&b);
+            let Shape::Objects(parts) = shape(&r, "B") else {
+                panic!("expected contour list")
+            };
+            let [Shape::Polyline(path)] = parts.as_slice() else {
+                panic!(
+                    "expected one closed curve, endpoints {:?}",
+                    parts
+                        .iter()
+                        .filter_map(|s| if let Shape::Polyline(p) = s {
+                            Some((p.len(), p[0], p[p.len() - 1]))
+                        } else {
+                            None
+                        })
+                        .collect::<Vec<_>>()
+                )
+            };
+            assert!(path.len() > 100);
+            assert!(
+                path.first()
+                    .unwrap()
+                    .distance(*path.last().unwrap())
+                    .unwrap()
+                    < 1e-8
+            );
+            assert!(
+                path.iter()
+                    .all(|p| (p.x.powi(4) + p.y.powi(4) - target).abs() < 0.015)
+            );
         }
     }
 

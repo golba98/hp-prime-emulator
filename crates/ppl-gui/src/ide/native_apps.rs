@@ -1529,6 +1529,18 @@ fn region_runs(
     }
     Ok(segments)
 }
+pub(super) fn geometry_contours(
+    expression: &str,
+    window: &PlotWindow,
+    snapshot: &ppl_vm::SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<CurveSamples, String> {
+    let mut relation = ImplicitRelation::new(expression, snapshot, cancel.clone())?;
+    if !matches!(relation.relation, Relation::Equal) {
+        return Err("Implicit plot needs an equation".into());
+    }
+    contours(&mut relation, window, 72, 72, &cancel)
+}
 fn contours(
     relation: &mut ImplicitRelation,
     window: &PlotWindow,
@@ -1562,9 +1574,13 @@ fn contours(
             let values = [a, b, c, d];
             let x = window.xmin + col as f64 * dx;
             let y = window.ymin + row as f64 * dy;
-            let points = [[x, y], [x + dx, y], [x + dx, y + dy], [x, y + dy]];
+            // Use the same grid coordinates and interpolation direction in
+            // adjoining cells so their contour endpoints coincide exactly.
+            let right = window.xmin + (col + 1) as f64 * dx;
+            let top = window.ymin + (row + 1) as f64 * dy;
+            let points = [[x, y], [right, y], [right, top], [x, top]];
             let mut crossings = Vec::new();
-            for (a, b) in [(0, 1), (1, 2), (2, 3), (3, 0)] {
+            for (a, b) in [(0, 1), (1, 2), (3, 2), (0, 3)] {
                 let (va, vb) = (values[a], values[b]);
                 if va.sign == 0 && vb.sign == 0 {
                     output.extend([Some(points[a]), Some(points[b]), None]);
@@ -1581,10 +1597,14 @@ fn contours(
                 } else {
                     (va.number / scale) / ((va.number / scale) - (vb.number / scale))
                 };
-                let point = [
-                    points[a][0] + (points[b][0] - points[a][0]) * t,
-                    points[a][1] + (points[b][1] - points[a][1]) * t,
-                ];
+                let point = if t == 1. {
+                    points[b]
+                } else {
+                    [
+                        points[a][0] + (points[b][0] - points[a][0]) * t,
+                        points[a][1] + (points[b][1] - points[a][1]) * t,
+                    ]
+                };
                 // A sign jump across a pole is not a zero contour. Check the
                 // interpolated crossing before joining the cell's segments.
                 if va.sign != 0 && vb.sign != 0 {

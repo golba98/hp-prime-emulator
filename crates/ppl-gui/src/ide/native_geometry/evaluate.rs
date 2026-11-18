@@ -1,4 +1,5 @@
 mod locus;
+mod plots;
 use super::{primitives as g, *};
 use ppl_syntax::ast::{Expr, ExprKind};
 use ppl_vm::Value;
@@ -428,6 +429,9 @@ impl Evaluator<'_> {
             "conic" => {
                 arity(1)?;
                 super::conic::build(&args[0], source, |arg| self.real(arg, source))
+            }
+            "plotimplicit" | "plotfield" | "plotode" | "plotlist" => {
+                self.plane_plot(&name, args, source)
             }
             "plotseq" => {
                 let [expr, var, range, count] = args.as_slice() else {
@@ -1270,6 +1274,10 @@ fn known(name: &str) -> bool {
             | "element"
             | "locus"
             | "conic"
+            | "plotimplicit"
+            | "plotfield"
+            | "plotode"
+            | "plotlist"
             | "plotseq"
             | "plotparam"
             | "plotpolar"

@@ -194,7 +194,7 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
         return Cow::Borrowed(source);
     }
     let mut output = source.as_bytes().to_vec();
-    let mut stack = Vec::new();
+    let mut stack: Vec<(bool, usize, usize)> = Vec::new();
     let mut quoted = false;
     for (i, ch) in source.char_indices() {
         match ch {
@@ -206,9 +206,18 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
                     .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
                     .next()
                     .unwrap_or("");
+                let plane_group = ch == '[' && stack.last().is_some_and(|s| s.0);
                 stack.push((
-                    ch == '('
-                        && ["plotparam", "plotpolar", "plotseq"]
+                    plane_group
+                        || ch == '('
+                            && [
+                                "plotparam",
+                                "plotpolar",
+                                "plotseq",
+                                "plotimplicit",
+                                "plotfield",
+                                "plotode",
+                            ]
                             .iter()
                             .any(|s| s.eq_ignore_ascii_case(name)),
                     0usize,
@@ -222,7 +231,7 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
                         if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
                         {
                             let eq = *start + key.len();
-                            if *n == 1 {
+                            if *n == 1 || (name == "x" || name == "y") && value.contains("..") {
                                 if let Some(pos) = value.find("..") {
                                     output[eq] = b',';
                                     output[eq + 1 + pos] = b',';
@@ -230,7 +239,11 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
                                 } else if value.trim_start().starts_with('{') {
                                     output[eq] = b',';
                                 }
-                            } else if *n >= 2 && name.eq_ignore_ascii_case("tstep") {
+                            } else if *n >= 2
+                                && ["tstep", "xstep", "ystep"]
+                                    .iter()
+                                    .any(|s| name.eq_ignore_ascii_case(s))
+                            {
                                 output[*start..=eq].fill(b' ');
                             }
                         }

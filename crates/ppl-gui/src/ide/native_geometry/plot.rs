@@ -108,6 +108,7 @@ fn add_shape(
             PlotStyle::Line,
             ellipse.vertices().map(|p| [p.x, p.y]).collect(),
         ),
+        Shape::Polyline(points) => (PlotStyle::Line, points.iter().map(|p| [p.x, p.y]).collect()),
         Shape::Polygon(points) => {
             let mut points = points.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>();
             if let Some(p) = points.first().copied() {
