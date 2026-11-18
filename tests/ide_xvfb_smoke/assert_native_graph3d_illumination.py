@@ -24,7 +24,19 @@ for snapshot in report["snapshots"]:
     assert state["page"] == "Plot" and state["error"] is None, state["error"]
     bottom, target, tolerance = expected[label]
     with Image.open(root / f"graph3d_light_{label}.png") as image:
-        raster = image.convert("RGB").crop((4, 45, 312, 206))
+        image = image.convert("RGB")
+        # Virtual G1 frame bounds (inclusive). Ignore the thin mesh outline
+        # when locating the solid face. Native and G1 differ by up to 3 pixels.
+        bounds = {"flat": (46,91,272,126), "back": (49,59,269,158),
+                  "front": (48,50,270,167)}
+        if label in bounds:
+            face = (0, target if bottom else 0, target)
+            pixels = [(x,y) for y in range(44,212) for x in range(320)
+                      if image.getpixel((x,y)) == face]
+            xs, ys = zip(*pixels)
+            actual = (min(xs),min(ys),max(xs),max(ys))
+            assert all(abs(a-b) <= 3 for a,b in zip(actual,bounds[label])), (label,actual)
+        raster = image.crop((4, 45, 312, 206))
         colors = Counter({rgb: count for count, rgb in raster.getcolors(raster.width * raster.height)})
     surface = [(n, b) for (r, g, b), n in colors.items()
                if r == 0 and b > 0 and g == (b if bottom else 0)]
