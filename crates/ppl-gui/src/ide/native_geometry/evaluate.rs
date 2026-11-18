@@ -1058,11 +1058,7 @@ impl Evaluator<'_> {
                         arity(2)?;
                         match self.value(&args[0], source)? {
                             Shape::Line { a, b, .. } => Transform::Mirror { a, b },
-                            center => Transform::About {
-                                center: as_point(center)?,
-                                scale: -1.,
-                                radians: 0.,
-                            },
+                            center => Transform::PointMirror(as_point(center)?),
                         }
                     }
                     _ => {

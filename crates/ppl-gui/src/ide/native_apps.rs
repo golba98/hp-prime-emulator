@@ -439,7 +439,7 @@ pub(super) struct Evaluator {
     entry: String,
     sequence_append: Option<String>,
     sequence_reset: Option<String>,
-    implicit: bool,
+    coordinate_count: usize,
 }
 impl Evaluator {
     fn new(
@@ -464,6 +464,26 @@ impl Evaluator {
             None,
             None,
             None,
+        )
+    }
+    pub(super) fn geometry_plane(
+        expression: &str,
+        x: &str,
+        y: &str,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        if x == y || !valid_name(x) || !valid_name(y) {
+            return Err("Use distinct plane coordinate names".into());
+        }
+        Self::build(
+            GraphKind::Implicit,
+            expression,
+            snapshot,
+            cancel,
+            None,
+            None,
+            Some(&format!("{x},{y}")),
         )
     }
     pub(super) fn geometry_function(
@@ -649,7 +669,13 @@ impl Evaluator {
             entry,
             sequence_append,
             sequence_reset,
-            implicit,
+            coordinate_count: if !implicit {
+                1
+            } else if independent.is_some() {
+                2
+            } else {
+                4
+            },
         })
     }
     fn at_value(&mut self, x: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
@@ -657,7 +683,7 @@ impl Evaluator {
     }
     pub(super) fn at_xy_value(&mut self, x: f64, y: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
         let x = ppl_vm::Value::Real(ppl_math::Real::from_f64(x)?);
-        if self.implicit {
+        if self.coordinate_count > 1 {
             let y = ppl_vm::Value::Real(ppl_math::Real::from_f64(y)?);
             self.at_coordinates(x, y)
         } else {
@@ -670,8 +696,12 @@ impl Evaluator {
         x: ppl_vm::Value,
         y: ppl_vm::Value,
     ) -> ppl_vm::RtResult<ppl_vm::Value> {
-        self.machine
-            .call_function(&self.entry, vec![x.clone(), y.clone(), x, y])
+        let args = if self.coordinate_count == 2 {
+            vec![x, y]
+        } else {
+            vec![x.clone(), y.clone(), x, y]
+        };
+        self.machine.call_function(&self.entry, args)
     }
 
     pub(super) fn at(&mut self, x: f64) -> Result<Option<f64>, String> {

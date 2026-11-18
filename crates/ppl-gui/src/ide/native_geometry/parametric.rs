@@ -231,7 +231,7 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
                         if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
                         {
                             let eq = *start + key.len();
-                            if *n == 1 || (name == "x" || name == "y") && value.contains("..") {
+                            if *n == 1 || value.contains("..") {
                                 if let Some(pos) = value.find("..") {
                                     output[eq] = b',';
                                     output[eq + 1 + pos] = b',';

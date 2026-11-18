@@ -1,5 +1,6 @@
 //! Geometry's LCD forms and interactive construction state.
 mod view;
+mod wizard;
 use super::{MathTarget, NativeTools, Page, Request};
 use crate::ide::{
     native::expression::EditCommand as E,
@@ -32,6 +33,8 @@ pub(super) struct Panel {
     plot_minified: bool,
     texture: Option<egui::TextureHandle>,
     menu: Option<Menu>,
+    wizard: Option<wizard::Slopefield>,
+    field_solution: Option<(String, String, String)>,
     tool: Option<Command>,
     command_text: CommandText,
     args: Vec<String>,
@@ -371,6 +374,49 @@ const CURVES: &[Command] = &[
         needs: &[],
     },
 ];
+const PLOT_CATEGORY: usize = 9;
+const PLOTS: &[Command] = &[
+    Command {
+        label: "Function",
+        function: "plotfunc",
+        needs: &[],
+    },
+    Command {
+        label: "Parametric",
+        function: "plotparam",
+        needs: &[],
+    },
+    Command {
+        label: "Polar",
+        function: "plotpolar",
+        needs: &[],
+    },
+    Command {
+        label: "Sequence",
+        function: "plotseq",
+        needs: &[],
+    },
+    Command {
+        label: "Implicit",
+        function: "plotimplicit",
+        needs: &[],
+    },
+    Command {
+        label: "Slopefield",
+        function: "plotfield",
+        needs: &[],
+    },
+    Command {
+        label: "ODE",
+        function: "plotode",
+        needs: &[],
+    },
+    Command {
+        label: "List",
+        function: "plotlist",
+        needs: &[],
+    },
+];
 const TRANSFORMS: &[Command] = &[
     Command {
         label: "Reflection",
@@ -472,6 +518,7 @@ fn commands(category: usize) -> &'static [Command] {
         4 => CURVES,
         5 => TRANSFORMS,
         6 => MEASURES,
+        PLOT_CATEGORY => PLOTS,
         _ => &[],
     }
 }
@@ -783,6 +830,17 @@ impl NativeTools {
         }
     }
     pub fn geometry_text(&mut self, text: &str) -> Option<Vec<Request>> {
+        if self.is_geometry_page()
+            && let Some(wizard) = &self.geometry_panel.wizard
+        {
+            return Some(vec![
+                Request::EditMath(MathTarget::Slopefield {
+                    index: wizard.selected,
+                    clear: true,
+                }),
+                Request::TypeText(text.into()),
+            ]);
+        }
         if self.is_geometry_page() && self.page == Some(Page::PlotSetup) {
             if self.geometry_panel.busy {
                 return Some(vec![]);
@@ -817,9 +875,9 @@ impl NativeTools {
     }
     fn geometry_categories(&self) -> Vec<usize> {
         match self.page {
-            Some(Page::Symbolic) => (1..=5).collect(),
+            Some(Page::Symbolic) => vec![1, 2, 3, 4, PLOT_CATEGORY, 5],
             Some(Page::Numeric) => (1..=6).collect(),
-            _ => (0..=6).collect(),
+            _ => vec![0, 1, 2, 3, 4, PLOT_CATEGORY, 5, 6],
         }
     }
     fn trace_selected(&self, scene: Option<&Scene>) -> bool {
@@ -833,7 +891,14 @@ impl NativeTools {
             None => self
                 .geometry_categories()
                 .into_iter()
-                .map(|c| CATEGORIES[c].into())
+                .map(|c| {
+                    if c == PLOT_CATEGORY {
+                        "Plot"
+                    } else {
+                        CATEGORIES[c]
+                    }
+                    .into()
+                })
                 .collect(),
             Some(7) => [
                 "Hide / Show",
@@ -941,6 +1006,13 @@ impl NativeTools {
                 _ => self.geometry_queue_configuration(ppl_vm::GeometryPlotSettings::default()),
             }
             self.geometry_panel.refresh = true;
+            self.dirty();
+            return vec![];
+        }
+        self.geometry_panel.field_solution = None;
+        if category == PLOT_CATEGORY && menu.index == 5 && self.page == Some(Page::Plot) {
+            self.geometry_panel.tool = None;
+            self.geometry_panel.wizard = Some(wizard::Slopefield::new(&self.trace_window()));
             self.dirty();
             return vec![];
         }
@@ -1076,6 +1148,15 @@ impl NativeTools {
         self.geometry_command_source(command, &args, p, scene).ok()
     }
     fn geometry_confirm(&mut self) -> Vec<Request> {
+        if let Some((expr, x, y)) = &self.geometry_panel.field_solution {
+            let p = self.construction_pointer();
+            let source = format!(
+                "plotode({expr},[{x},{y}],[{},{}])",
+                geo::canonical(p.x),
+                geo::canonical(p.y)
+            );
+            return self.create_wizard_object(source);
+        }
         let p = self.construction_pointer();
         if let Some(command) = self.geometry_panel.tool {
             if command.function == "point" {
@@ -1211,6 +1292,14 @@ impl NativeTools {
             return Some(vec![]);
         }
         if self.geometry_panel.busy {
+            return Some(vec![]);
+        }
+        if self.geometry_panel.wizard.is_some() {
+            return self.slopefield_action(action);
+        }
+        if self.geometry_panel.field_solution.is_some() && action == A::Back {
+            self.geometry_panel.field_solution = None;
+            self.dirty();
             return Some(vec![]);
         }
         if action == A::Tool(crate::ide::native::keys::Tool::Menu) {

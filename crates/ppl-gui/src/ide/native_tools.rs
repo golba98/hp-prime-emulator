@@ -250,6 +250,10 @@ pub enum MathTarget {
     },
     StatisticsPlotX,
     GeometryPlotField(String),
+    Slopefield {
+        index: usize,
+        clear: bool,
+    },
     GeometryObject {
         name: String,
         preset: Option<String>,
@@ -722,6 +726,9 @@ impl NativeTools {
         supports(&self.memory.selected_app, view)
     }
     pub fn open(&mut self, page: Page) {
+        if page != Page::Plot {
+            self.close_geometry_wizard();
+        }
         if page == Page::NumericSetup {
             self.graph3d_panel.reset_numeric_draft();
         }
@@ -770,6 +777,7 @@ impl NativeTools {
         self.generation = self.generation.wrapping_add(1);
     }
     pub fn close(&mut self) {
+        self.close_geometry_wizard();
         self.statistics_reset_popups();
         self.statistics_plot_setup = None;
         self.function_numeric_close();

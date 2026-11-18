@@ -29,7 +29,7 @@
   {"step": "wait_ms", "ms": 140},
   {"step": "click_lcd", "x": 24, "y": 229},
   {"step": "wait_ms", "ms": 140},
-  {"step": "click_lcd", "x": 60, "y": 158},
+  {"step": "click_lcd", "x": 60, "y": 179},
   {"step": "wait_ms", "ms": 140},
   {"step": "key", "key": "Down"},
   {"step": "wait_ms", "ms": 70},

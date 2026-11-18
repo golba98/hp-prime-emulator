@@ -24,6 +24,10 @@ pub struct Ellipse {
     minor: f64,
     #[serde(default)]
     pub(super) equation_phase: Option<f64>,
+    #[serde(default)]
+    orientation_reversed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) element_reference: Option<Box<Ellipse>>,
 }
 
 impl Ellipse {
@@ -54,6 +58,8 @@ impl Ellipse {
         };
         Ok(Self {
             equation_phase: None,
+            orientation_reversed: false,
+            element_reference: None,
             foci,
             size,
             center: midpoint(a, b)?,
@@ -61,6 +67,29 @@ impl Ellipse {
             major: number(major)?,
             minor: number(minor)?,
         })
+    }
+
+    pub(super) fn reflected(
+        &self,
+        reflect: impl Fn(Point2) -> Result<Point2, String>,
+        about_line: bool,
+    ) -> Result<Self, String> {
+        let [a, b] = self.foci;
+        let size = match self.size {
+            Size::Witness(p) => Size::Witness(reflect(p)?),
+            size @ Size::SemiMajor(_) => size,
+        };
+        let mut result = Self::new([reflect(a)?, reflect(b)?], size)?;
+        result.major = self.major;
+        result.minor = self.minor;
+        result.orientation_reversed = self.orientation_reversed ^ about_line;
+        result.element_reference = Some(
+            self.element_reference
+                .clone()
+                .unwrap_or_else(|| Box::new(self.clone())),
+        );
+        result.equation_phase = self.equation_phase;
+        Ok(result)
     }
 
     fn world(&self, x: f64, y: f64) -> Point2 {
@@ -133,9 +162,14 @@ impl Ellipse {
 
     pub(super) fn area(&self) -> f64 {
         let area = PI * (self.major * self.minor);
-        match self.size {
+        let signed = match self.size {
             Size::SemiMajor(signed) => area.copysign(signed),
             Size::Witness(_) => area,
+        };
+        if self.orientation_reversed {
+            -signed
+        } else {
+            signed
         }
     }
 
@@ -143,17 +177,25 @@ impl Ellipse {
         if self.minor == 0. {
             return 4. * self.major;
         }
-        // Integrate the speed of the parametric curve over one quadrant.
-        const SLICES: usize = 256;
-        let step = FRAC_PI_2 / SLICES as f64;
         let ratio = self.minor / self.major;
-        let mut sum = 1. + ratio;
-        for i in 1..SLICES {
-            let (sin, cos) = (i as f64 * step).sin_cos();
-            let weight = if i % 2 == 0 { 2. } else { 4. };
-            sum += weight * sin.hypot(ratio * cos);
+        if ratio == 0. {
+            return 4. * self.major;
         }
-        self.major * ((4. * step / 3.) * sum)
+        // The complete elliptic integral of the second kind converges through
+        // arithmetic and geometric means even when the ellipse is nearly flat.
+        let (mut arithmetic, mut geometric) = (1., ratio);
+        let mut correction = (1. - ratio) * (1. + ratio) / 2.;
+        let mut weight = 1.;
+        while (arithmetic - geometric).abs() > f64::EPSILON * arithmetic {
+            let difference = (arithmetic - geometric) / 2.;
+            correction += weight * difference * difference;
+            (arithmetic, geometric) = (
+                (arithmetic + geometric) / 2.,
+                (arithmetic * geometric).sqrt(),
+            );
+            weight *= 2.;
+        }
+        self.major * (TAU * (1. - correction) / arithmetic)
     }
 
     pub(super) fn locus_source(&self, t: &str) -> String {
@@ -196,6 +238,9 @@ impl Ellipse {
         )
     }
     pub(super) fn element(&self, slope: f64) -> Result<Point2, String> {
+        if let Some(reference) = &self.element_reference {
+            return reference.element(slope);
+        }
         if let Some(phase) = self.equation_phase {
             return point(self.at(2. * slope.atan() + phase));
         }
@@ -257,6 +302,9 @@ impl Ellipse {
     }
 
     pub(super) fn parameter(&self, cursor: Point2) -> Result<f64, String> {
+        if let Some(reference) = &self.element_reference {
+            return reference.parameter(cursor);
+        }
         if self.minor == 0. {
             return Ok(0.);
         }
@@ -296,5 +344,31 @@ impl Ellipse {
         // A vertical chord is the limit of real slopes.
         let min_dx = 1e-15 * dx.hypot(dy);
         number(dy / dx.abs().max(min_dx).copysign(dx))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn highly_eccentric_perimeters_match_the_original_virtual_measurements() {
+        let horizontal = [Point2 { x: -2., y: 0. }, Point2 { x: 2., y: 0. }];
+        let vertical = [Point2 { x: 0., y: -3. }, Point2 { x: 0., y: 3. }];
+        for (foci, radius, original) in [
+            (horizontal, 2.0000062, 8.00019546817),
+            (horizontal, -2.00000001, 8.00000044386),
+            (horizontal, 2.00000000001, 8.00000000027),
+            (vertical, 3.0005, 12.0117794679),
+        ] {
+            let ellipse = Ellipse::new(foci, Size::SemiMajor(radius)).unwrap();
+            let perimeter = ellipse.perimeter();
+            assert!(
+                (perimeter - original).abs() < 4e-10,
+                "{radius}: {perimeter}"
+            );
+        }
+        let segment = Ellipse::new(horizontal, Size::SemiMajor(2.)).unwrap();
+        assert_eq!(segment.perimeter(), 8.);
     }
 }

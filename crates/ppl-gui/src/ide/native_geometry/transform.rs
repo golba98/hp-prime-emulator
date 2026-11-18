@@ -10,6 +10,7 @@ pub(super) enum Transform {
         scale: f64,
         radians: f64,
     },
+    PointMirror(Point2),
     Mirror {
         a: Point2,
         b: Point2,
@@ -19,6 +20,10 @@ pub(super) enum Transform {
 impl Transform {
     fn point(&self, p: Point2) -> Result<Point2, String> {
         match *self {
+            Self::PointMirror(c) => point(Point2 {
+                x: c.x + (c.x - p.x),
+                y: c.y + (c.y - p.y),
+            }),
             Self::Translate(d) => point(Point2 {
                 x: p.x + d.x,
                 y: p.y + d.y,
@@ -99,6 +104,13 @@ impl Transform {
                 transformed.equation = curve.equation;
                 Shape::Hyperbola(transformed)
             }
+            Shape::Ellipse(ellipse)
+                if matches!(self, Self::Mirror { .. } | Self::PointMirror(_)) =>
+            {
+                Shape::Ellipse(
+                    ellipse.reflected(|p| self.point(p), matches!(self, Self::Mirror { .. }))?,
+                )
+            }
             Shape::Ellipse(ellipse) => {
                 let [a, b] = ellipse.foci;
                 let size = match ellipse.size {
@@ -110,10 +122,10 @@ impl Transform {
                 Shape::Ellipse(transformed)
             }
             Shape::Arc(arc) => {
-                // A reflection reverses the boundary orientation. Swap endpoints
-                // so the renderer follows the reflected portion of the circle.
+                // G1 preserves the angles for a point mirror and negates
+                // both for a line mirror, including oblique lines.
                 let (start, end) = match *self {
-                    Self::Translate(_) => (arc.start, arc.end),
+                    Self::Translate(_) | Self::PointMirror(_) => (arc.start, arc.end),
                     Self::About { scale, radians, .. } => {
                         let angle = if scale < 0. {
                             radians + std::f64::consts::PI
@@ -122,11 +134,7 @@ impl Transform {
                         };
                         (arc.start + angle, arc.end + angle)
                     }
-                    Self::Mirror { a, b } => {
-                        let axis = g::delta(a, b);
-                        let twice_angle = 2. * axis.y.atan2(axis.x);
-                        (twice_angle - arc.end, twice_angle - arc.start)
-                    }
+                    Self::Mirror { .. } => (-arc.start, -arc.end),
                 };
                 Shape::Arc(CircularArc::new(
                     self.point(arc.center)?,

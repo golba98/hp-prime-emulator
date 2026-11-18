@@ -434,6 +434,64 @@ mod tests {
     }
 
     #[test]
+    fn reflected_ellipses_preserve_their_source_secants_and_signed_area() {
+        let setup = book(&[
+            ("A", "line(point(0,-5),point(0,5))"),
+            ("B", "ellipse(point(0,2),point(4,2),point(2,5))"),
+            ("C", "reflection(GA,GB)"),
+            ("D", "reflection(point(0,0),GB)"),
+            ("E", "reflection(GA,GC)"),
+        ]);
+        let scene = scene(&setup);
+        let ellipse = |index: usize| match &scene.objects[index].value {
+            Ok(Shape::Ellipse(ellipse)) => ellipse,
+            value => panic!("Expected an ellipse, got {value:?}"),
+        };
+        let source = ellipse(1);
+        let cursor = Point2 { x: -2., y: 5. };
+        for (index, sign) in [(2, -1.), (3, 1.), (4, 1.)] {
+            let image = ellipse(index);
+            assert_eq!(image.area(), sign * source.area());
+            assert_eq!(image.perimeter(), source.perimeter());
+            assert_eq!(image.element(0.).unwrap(), Point2 { x: 2., y: 5. });
+            assert_eq!(
+                image.parameter(cursor).unwrap(),
+                source.parameter(cursor).unwrap()
+            );
+        }
+        let left = ellipse(2)
+            .vertices()
+            .map(|p| p.x)
+            .fold(f64::INFINITY, f64::min);
+        assert!(left < -5.6 && left > -5.61);
+    }
+    #[test]
+    fn reflected_arcs_keep_the_measured_angles_and_signed_sweeps() {
+        let construction = book(&[
+            ("A", "line(point(0,0),point(4,4))"),
+            ("B", "circle(point(1,5),point(5,5),π/4,3*π/4)"),
+            ("C", "reflection(GA,GB)"),
+            ("D", "reflection(point(0,0),GB)"),
+        ]);
+        let scene = scene(&construction);
+        let arc = |index: usize| match &scene.objects[index].value {
+            Ok(Shape::Arc(arc)) => *arc,
+            value => panic!("Expected a circular arc, got {value:?}"),
+        };
+        let original = arc(1);
+        let mirror = arc(2);
+        let middle = arc(3);
+        assert!(mirror.center.distance(Point2 { x: 5., y: 3. }).unwrap() < 1e-12);
+        assert_eq!(middle.center, Point2 { x: -3., y: -5. });
+        assert_eq!((mirror.start, mirror.end), (-original.start, -original.end));
+        assert_eq!((middle.start, middle.end), (original.start, original.end));
+        assert_eq!(mirror.radius, original.radius);
+        assert_eq!(middle.radius, original.radius);
+        assert_eq!(mirror.perimeter(), -original.perimeter());
+        assert_eq!(middle.area(), original.area());
+        assert!(mirror.vertices().all(|point| point.y > 1.5));
+    }
+    #[test]
     fn geometry_plane_plots_match_virtual_g1_controls_and_solve_the_ode() {
         let result = scene(&book(&[
             ("A", "plotimplicit(x^2+y^2-4)"),

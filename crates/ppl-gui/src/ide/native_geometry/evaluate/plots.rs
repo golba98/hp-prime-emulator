@@ -23,8 +23,8 @@ impl Evaluator<'_> {
             let [x, a, b, y, c, d] = vector(ranges)? else {
                 return Err("Expected x and y intervals".into());
             };
-            if !ident(x, "x") || !ident(y, "y") {
-                return Err("Expected x and y intervals".into());
+            if !matches!((&x.kind,&y.kind),(ExprKind::Ident(a),ExprKind::Ident(b)) if a!=b) {
+                return Err("Expected two distinct plane variables".into());
             }
             [xmin, xmax, ymin, ymax] = [
                 self.real(a, source)?,
@@ -107,7 +107,16 @@ impl Evaluator<'_> {
                 paths.into_iter().map(Shape::Polyline).collect(),
             ));
         }
-        let mut plane = Plane::implicit(&expression, self.snapshot, self.cancel.clone())?;
+        let axes = vector(rest.first().ok_or("Missing coordinate variables")?)?;
+        let (x, y) = match axes {
+            [x, y] | [x, _, _, y] | [x, _, _, y, _, _] => (&x.kind, &y.kind),
+            _ => return Err("Invalid plot coordinates".into()),
+        };
+        let (ExprKind::Ident(x), ExprKind::Ident(y)) = (x, y) else {
+            return Err("Expected coordinate names".into());
+        };
+        let mut plane =
+            Plane::geometry_plane(&expression, x, y, self.snapshot, self.cancel.clone())?;
         let mut eval = |x, y| numeric(plane.at_xy_value(x, y));
         if name == "plotode" {
             let [vars, initial] = rest else {
@@ -115,8 +124,8 @@ impl Evaluator<'_> {
             };
             let mut window = self.plot_window(None, source)?;
             match vector(vars)? {
-                [x, y] if ident(x, "x") && ident(y, "y") => {}
-                [x, lo, hi, y] if ident(x, "x") && ident(y, "y") => {
+                [_, _] => {}
+                [_, lo, hi, _] => {
                     window.xmin = self.real(lo, source)?;
                     window.xmax = self.real(hi, source)?;
                     window.validate()?;

@@ -172,6 +172,7 @@ impl Book {
                 Ok(
                     shape @ (Shape::Parametric(_)
                     | Shape::Sequence(_)
+                    | Shape::Arc(_)
                     | Shape::Objects(_)
                     | Shape::Polyline(_)
                     | Shape::Hyperbola(_)

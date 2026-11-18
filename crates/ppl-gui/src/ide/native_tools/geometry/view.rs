@@ -780,6 +780,10 @@ impl NativeTools {
         snapshot: &ppl_vm::SessionSnapshot,
         requests: &mut Vec<Request>,
     ) {
+        if self.geometry_panel.wizard.is_some() {
+            self.show_slopefield(ctx, lcd, scale, requests);
+            return;
+        }
         if self.page == Some(Page::PlotSetup) {
             self.show_geometry_plot_setup(ctx, lcd, scale, requests);
             return;
