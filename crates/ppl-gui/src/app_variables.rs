@@ -1561,6 +1561,7 @@ mod tests {
     fn refreshing_the_statistics_grid_during_a_definition_write_preserves_both() {
         let (mut app, ctx) = fixture();
         app.handle_native_tool_request(Request::SelectApp("Statistics 1Var".into()), &ctx);
+        let history_len = app.state.native.history.len();
         start(&mut app, &ctx, "SetSample(H1,D1+1)");
         wait(&mut app, &ctx, |a| a.app_variable_task.is_some());
         let book = app
@@ -1571,7 +1572,9 @@ mod tests {
             .get_or_insert_with(Default::default);
         book.columns.0[0] = vec![7.];
         wait(&mut app, &ctx, |a| {
-            !a.controller.worker_alive() && a.app_variable_task.is_none()
+            a.state.native.history.len() > history_len
+                && !a.controller.worker_alive()
+                && a.app_variable_task.is_none()
         });
         assert!(!app.state.native.history.back().unwrap().error);
         let book = app
