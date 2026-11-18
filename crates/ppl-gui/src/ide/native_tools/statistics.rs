@@ -63,8 +63,13 @@ pub(super) struct Panel {
     busy: bool,
     report: bool,
     report_row: usize,
+    report_row_offset: i64,
     report_first: usize,
+    report_show_last: bool,
     report_selection: [usize; 2],
+    report_anchor: Option<[usize; 2]>,
+    report_include_headers: bool,
+    report_copy_pending: bool,
     equation: Option<String>,
     plot_controls: bool,
     plot_definition: bool,
@@ -75,6 +80,15 @@ pub(super) struct Panel {
     menu: Option<Menu>,
     texture: Option<egui::TextureHandle>,
     pixels: Vec<u32>,
+}
+impl Panel {
+    fn reveal_report_column(&mut self) {
+        match self.report_selection[1] {
+            0 | 1 => self.report_show_last = false,
+            model::ANALYSIS_COUNT => self.report_show_last = true,
+            _ => {}
+        }
+    }
 }
 pub fn app(two: bool) -> &'static str {
     if two {
@@ -107,16 +121,139 @@ fn stats_two_reference(field: Field) -> Option<usize> {
 }
 
 impl NativeTools {
-    fn statistics_move_report_selection(&mut self, rows: isize, columns: isize) {
-        let available = self
+    pub(crate) fn statistics_one_summary_open(&self) -> bool {
+        self.page == Some(super::Page::Numeric)
+            && mode(&self.memory.selected_app) == Some(false)
+            && self.statistics_panel.report
+    }
+
+    pub(crate) fn statistics_summary_clipboard(
+        &self,
+        snapshot: &SessionSnapshot,
+    ) -> Option<String> {
+        if !self.statistics_one_summary_open() || self.statistics_panel.busy {
+            return None;
+        }
+        let analyses = self
             .memory
+            .models
+            .results
+            .get(app(false))?
+            .as_object()?
+            .keys()
+            .filter(|name| name.starts_with('H'))
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        if analyses.is_empty() {
+            return None;
+        }
+        let settings = snapshot.app_settings.get(app(false)).map_or_else(
+            || snapshot.settings.clone(),
+            |app| app.effective(&snapshot.settings),
+        );
+        let [row, column] = self.statistics_panel.report_selection;
+        let include_headers = self.statistics_panel.report_include_headers;
+        let Some(([first_row, first_column], [last_row, last_column])) = self
+            .statistics_report_range()
+            .filter(|(first, last)| include_headers || first != last)
+        else {
+            return self.statistics_report_clipboard_cell(row, column, &analyses, &settings);
+        };
+        let separator = if settings.digit_grouping.decimal() == ',' {
+            ";"
+        } else {
+            ","
+        };
+        let mut columns = (first_column..=last_column)
+            .map(|column| {
+                let mut cells = (first_row..=last_row)
+                    .map(|row| {
+                        self.statistics_report_clipboard_cell(row, column, &analyses, &settings)
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                if include_headers {
+                    let heading = if column == 0 {
+                        ""
+                    } else {
+                        analyses[column - 1]
+                    };
+                    cells.insert(0, format!("\"{heading}\""));
+                }
+                Some(format!("{{{}}}", cells.join(separator)))
+            })
+            .collect::<Option<Vec<_>>>()?;
+        if columns.len() == 1 {
+            columns.pop()
+        } else {
+            Some(format!("{{{}}}", columns.join(separator)))
+        }
+    }
+
+    fn statistics_report_clipboard_cell(
+        &self,
+        row: usize,
+        column: usize,
+        analyses: &[&str],
+        settings: &ppl_vm::Settings,
+    ) -> Option<String> {
+        let (label, path, _) = view::ONE_REPORT_ROWS.get(row)?;
+        if column == 0 {
+            return Some(format!("\"{label}\""));
+        }
+        let analysis = analyses.get(column - 1)?;
+        let (_, variable) = model::one_data::DISPLAY_FIELDS
+            .iter()
+            .find(|(field, _)| field == path)?;
+        let encoded = self
+            .memory
+            .models
+            .statistics1_book
+            .as_ref()?
+            .result_values
+            .get(*analysis)?
+            .get(*variable)?;
+        match ppl_vm::session::decode_value(encoded).ok()? {
+            PortableValue::Real(value) => {
+                let text = value.format(ppl_math::FormatOptions {
+                    digit_grouping: None,
+                    ..settings.home_format()
+                });
+                Some(if settings.digit_grouping.decimal() == ',' {
+                    text.replace('.', ",")
+                } else {
+                    text
+                })
+            }
+            PortableValue::Symbolic(ppl_cas::CasValue::Undefined) => Some("NaN".into()),
+            PortableValue::Symbolic(ppl_cas::CasValue::Infinity(
+                ppl_cas::InfinitySign::Positive,
+            )) => Some("+Inf".into()),
+            _ => None,
+        }
+    }
+
+    fn statistics_report_range(&self) -> Option<([usize; 2], [usize; 2])> {
+        let [row, column] = self.statistics_panel.report_selection;
+        let [anchor_row, anchor_column] = self.statistics_panel.report_anchor?;
+        Some((
+            [row.min(anchor_row), column.min(anchor_column)],
+            [row.max(anchor_row), column.max(anchor_column)],
+        ))
+    }
+
+    fn statistics_report_analysis_count(&self) -> usize {
+        self.memory
             .models
             .results
             .get(app(false))
             .and_then(serde_json::Value::as_object)
             .map_or(0, |result| {
                 result.keys().filter(|name| name.starts_with('H')).count()
-            });
+            })
+    }
+
+    fn statistics_move_report_selection(&mut self, rows: isize, columns: isize) {
+        let available = self.statistics_report_analysis_count();
         let panel = &mut self.statistics_panel;
         let [row, column] = panel.report_selection;
         let row = row
@@ -127,12 +264,10 @@ impl NativeTools {
         panel.report_row = panel
             .report_row
             .clamp(row.saturating_sub(view::REPORT_VISIBLE_ROWS - 1), row);
-        if column > 0 {
-            panel.report_first = panel.report_first.clamp(
-                column.saturating_sub(view::REPORT_VISIBLE_ANALYSES),
-                column - 1,
-            );
+        if row == panel.report_row {
+            panel.report_row_offset = 0;
         }
+        panel.reveal_report_column();
     }
     pub fn statistics_seed_columns(
         &mut self,
@@ -349,12 +484,28 @@ enum MenuKind {
     Color,
     More,
     Sort,
+    ReportMore,
+    ReportSelect,
+}
+impl MenuKind {
+    fn report(self) -> bool {
+        matches!(self, Self::ReportMore | Self::ReportSelect)
+    }
 }
 #[derive(Clone, Copy)]
 struct Menu {
     kind: MenuKind,
     index: usize,
     first: usize,
+}
+impl Menu {
+    fn report_select() -> Self {
+        Self {
+            kind: MenuKind::ReportSelect,
+            index: 0,
+            first: 0,
+        }
+    }
 }
 impl NativeTools {
     pub fn is_statistics_page(&self) -> bool {
@@ -447,6 +598,10 @@ impl NativeTools {
     }
     fn statistics_menu_items(&self, two: bool, kind: MenuKind) -> Vec<String> {
         match kind {
+            MenuKind::ReportMore => ["Select", "Selection"].map(str::to_owned).to_vec(),
+            MenuKind::ReportSelect => ["Row", "Column", "Include Headers"]
+                .map(str::to_owned)
+                .to_vec(),
             MenuKind::Column(field) => std::iter::once(if field == Field::Frequency {
                 "1".into()
             } else {
@@ -493,6 +648,38 @@ impl NativeTools {
     fn statistics_choose(&mut self, two: bool, cursor: Cursor, menu: Menu) -> Vec<Request> {
         let mut requests = Vec::new();
         match menu.kind {
+            MenuKind::ReportMore => {
+                if menu.index == 0 {
+                    self.statistics_panel.menu = Some(Menu::report_select());
+                } else {
+                    let panel = &mut self.statistics_panel;
+                    panel.report_anchor = panel
+                        .report_anchor
+                        .is_none()
+                        .then_some(panel.report_selection);
+                }
+            }
+            MenuKind::ReportSelect => {
+                let [row, column] = self.statistics_panel.report_selection;
+                match menu.index {
+                    0 => {
+                        self.statistics_panel.report_anchor = Some([row, 0]);
+                        let last = self.statistics_report_analysis_count();
+                        self.statistics_move_report_selection(0, last as isize - column as isize);
+                    }
+                    1 => {
+                        self.statistics_panel.report_anchor = Some([0, column]);
+                        let last = view::ONE_REPORT_ROWS.len() - 1;
+                        self.statistics_move_report_selection(last as isize - row as isize, 0);
+                        self.statistics_panel.report_row_offset = view::REPORT_LAST_ROW_CLIP;
+                    }
+                    2 => {
+                        self.statistics_panel.report_include_headers =
+                            !self.statistics_panel.report_include_headers;
+                    }
+                    _ => {}
+                }
+            }
             MenuKind::Column(field) => {
                 let value = menu.index.checked_sub(1);
                 if two {
@@ -954,6 +1141,8 @@ impl NativeTools {
     pub fn statistics_reset_popups(&mut self) {
         self.statistics_panel.menu = None;
         self.statistics_panel.report = false;
+        self.statistics_panel.report_copy_pending = false;
+        self.statistics_panel.report_anchor = None;
         self.statistics_panel.equation = None;
         self.statistics_panel.plot_equation = None;
         self.statistics_panel.plot_zoom = None;
@@ -1050,6 +1239,18 @@ impl NativeTools {
         }
         if let Some(mut menu) = self.statistics_panel.menu {
             match action {
+                A::Edit(E::Right(_))
+                    if matches!(menu.kind, MenuKind::ReportMore) && menu.index == 0 =>
+                {
+                    self.statistics_panel.menu = Some(Menu::report_select());
+                }
+                A::Edit(E::Left(_)) | A::Back if matches!(menu.kind, MenuKind::ReportSelect) => {
+                    self.statistics_panel.menu = Some(Menu {
+                        kind: MenuKind::ReportMore,
+                        index: 0,
+                        first: 0,
+                    });
+                }
                 A::History(delta) => {
                     let count = self.statistics_menu_items(two, menu.kind).len();
                     menu.index = (menu.index as i64 + if delta < 0 { -1 } else { 1 })
@@ -1093,6 +1294,7 @@ impl NativeTools {
                 }
                 A::Edit(E::Left(_)) if !two => self.statistics_move_report_selection(0, -1),
                 A::Edit(E::Right(_)) if !two => self.statistics_move_report_selection(0, 1),
+                A::Copy if !two => self.statistics_panel.report_copy_pending = true,
                 A::History(delta) => {
                     self.statistics_panel.report_row =
                         (self.statistics_panel.report_row as i64 + delta as i64).clamp(0, 30)

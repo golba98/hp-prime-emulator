@@ -1021,6 +1021,7 @@ impl IdeDesktopApp {
             let copy_event = events
                 .iter()
                 .any(|event| matches!(event, egui::Event::Copy));
+            let statistics_summary = self.native_tools.statistics_one_summary_open();
             for (index, event) in events.iter().enumerate() {
                 if self.model_task.is_some() {
                     if matches!(
@@ -1051,6 +1052,9 @@ impl IdeDesktopApp {
                         if self.math_entry.is_none() && self.native_tools.is_spreadsheet_page() =>
                     {
                         self.native_tools.spreadsheet_action(KeyAction::Copy)
+                    }
+                    egui::Event::Copy if self.math_entry.is_none() && statistics_summary => {
+                        self.native_tools.statistics_action(KeyAction::Copy)
                     }
                     egui::Event::Text(text) | egui::Event::Paste(text) => {
                         if self.native_tools.graph_symbolic_menu() {
@@ -1120,7 +1124,8 @@ impl IdeDesktopApp {
                             egui::Key::C
                                 if modifiers.command
                                     && (!copy_event
-                                        || !self.native_tools.is_spreadsheet_page()) =>
+                                        || !(self.native_tools.is_spreadsheet_page()
+                                            || statistics_summary)) =>
                             {
                                 Some(KeyAction::Copy)
                             }

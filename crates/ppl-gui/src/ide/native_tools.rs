@@ -308,6 +308,7 @@ pub enum Request {
     SpreadsheetHistory(SpreadsheetHistory),
     TypeText(String),
     CopyText(String),
+    CopyStatisticsSummary,
     StatisticsCellValue {
         two: bool,
         column: usize,

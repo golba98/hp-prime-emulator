@@ -14,8 +14,22 @@ const INK: u32 = 0;
 const INACTIVE_FIELD: u32 = 0xe1e1e1;
 const INACTIVE_TEXT: u32 = 0x888888;
 const SELECTED: u32 = 0xadccff;
+const REPORT_HEADER_TOP: i64 = 20;
+const REPORT_BODY_TOP: i64 = 37;
+const REPORT_BODY_END: i64 = 203;
+const REPORT_ROW_HEIGHT: i64 = 17;
+const REPORT_LABEL_WIDTH: i64 = 65;
+const REPORT_POINTER_BOTTOM: i64 = 218;
 pub(super) const REPORT_VISIBLE_ROWS: usize = 10;
-pub(super) const REPORT_VISIBLE_ANALYSES: usize = 3;
+const REPORT_VISIBLE_TWO_VAR_ANALYSES: usize = 3;
+const REPORT_FIVE_ANALYSIS_WIDTH: i64 = 59;
+const REPORT_DATA_WIDTH: usize = 256;
+pub(super) const REPORT_LAST_ROW_CLIP: i64 =
+    REPORT_VISIBLE_ROWS as i64 * REPORT_ROW_HEIGHT - (REPORT_BODY_END - REPORT_BODY_TOP);
+const REPORT_MENU_MORE: [i64; 4] = [33, 174, 105, 215];
+const REPORT_MENU_SELECT: [i64; 4] = [106, 154, 234, 215];
+const REPORT_MENU_ROW: i64 = 21;
+const REPORT_RANGE_FILL: u32 = 0xc2defe;
 pub(super) const ONE_REPORT_ROWS: [(&str, &str, &str); 13] = [
     ("n", "count", "Number of items"),
     ("Min", "minimum", "Minimum value"),
@@ -78,12 +92,28 @@ fn rect(analysis: usize, field: Field, scroll: i64, two: bool) -> [i64; 4] {
 fn contains([x, y, r, b]: [i64; 4], point: (i64, i64)) -> bool {
     point.0 >= x && point.0 <= r && point.1 >= y && point.1 <= b
 }
+fn report_column_left(column: usize, count: usize, wide: bool, show_last: bool) -> i64 {
+    if !wide {
+        return REPORT_LABEL_WIDTH + (254 * column / count) as i64;
+    }
+    let offset = if count == model::ANALYSIS_COUNT {
+        let scroll = if show_last {
+            count as i64 * REPORT_FIVE_ANALYSIS_WIDTH - REPORT_DATA_WIDTH as i64
+        } else {
+            0
+        };
+        column as i64 * REPORT_FIVE_ANALYSIS_WIDTH - scroll
+    } else {
+        (REPORT_DATA_WIDTH * column).div_ceil(count) as i64
+    };
+    REPORT_LABEL_WIDTH - 1 + offset
+}
 fn tick(g: &mut Grob, x: i64, y: i64) {
     g.line(x + 2, y + 7, x + 5, y + 11, 0);
     g.line(x + 5, y + 11, x + 11, y + 1, 0);
 }
 fn clipped(g: &mut Grob, s: &str, bounds: [i64; 4], right: bool) {
-    clipped_with_colors(g, s, bounds, right, INK, 0xffffff);
+    clipped_with_colors(g, s, bounds, right, INK, 0xffffff, bounds[0]);
 }
 fn clipped_with_colors(
     g: &mut Grob,
@@ -92,7 +122,12 @@ fn clipped_with_colors(
     right: bool,
     ink: u32,
     paper: u32,
+    visible_left: i64,
 ) {
+    let first = x.max(visible_left);
+    if first > r {
+        return;
+    }
     let mut cell = Grob::new((r - x + 1) as usize, (b - y + 1) as usize, paper);
     let at = if right {
         r - x - measure(s, 14.) - 1
@@ -101,9 +136,9 @@ fn clipped_with_colors(
     };
     draw_text(&mut cell, s, at, 1, 14., ink, None, None);
     g.blit(
-        (x, y, r + 1, b + 1),
+        (first, y, r + 1, b + 1),
         &cell,
-        (0, 0, r - x + 1, b - y + 1),
+        (first - x, 0, r - x + 1, b - y + 1),
         None,
         255,
     );
@@ -307,6 +342,7 @@ impl NativeTools {
                     false,
                     ink,
                     paper,
+                    bounds[0] + 1,
                 );
             }
             if two {
@@ -395,6 +431,80 @@ impl NativeTools {
         // The form scrolls under the fixed header and entry strip.
         chrome::header(g, &format!("{} Symbolic View", app(two)));
     }
+    fn statistics_report_columns(
+        &self,
+        two: bool,
+    ) -> Option<impl Iterator<Item = (&String, &serde_json::Value)>> {
+        Some(
+            self.memory
+                .models
+                .results
+                .get(app(two))?
+                .as_object()?
+                .iter()
+                .filter(move |(name, _)| name.starts_with(if two { 'S' } else { 'H' }))
+                .skip(if two {
+                    self.statistics_panel.report_first
+                } else {
+                    0
+                })
+                .take(if two {
+                    REPORT_VISIBLE_TWO_VAR_ANALYSES
+                } else {
+                    model::ANALYSIS_COUNT
+                }),
+        )
+    }
+
+    fn statistics_report_select_cell(&mut self, p: (i64, i64)) {
+        if self.statistics_panel.busy
+            || !contains([0, REPORT_HEADER_TOP, 319, REPORT_POINTER_BOTTOM], p)
+        {
+            return;
+        }
+        let columns = self
+            .statistics_report_columns(false)
+            .map_or(0, Iterator::count);
+        if columns == 0 {
+            return;
+        }
+        let panel = &mut self.statistics_panel;
+        panel.report_anchor = None;
+        let column = if p.0 < REPORT_LABEL_WIDTH {
+            0
+        } else {
+            let index = (0..columns)
+                .find(|&index| {
+                    p.0 <= report_column_left(
+                        index + 1,
+                        columns,
+                        columns > 2,
+                        panel.report_show_last,
+                    )
+                })
+                .expect("report columns end at the right edge");
+            index + 1
+        };
+        panel.report_selection[1] = column;
+        panel.reveal_report_column();
+        if p.1 < REPORT_BODY_TOP {
+            panel.report_row = 0;
+            panel.report_row_offset = 0;
+            panel.report_selection[0] = 0;
+            return;
+        }
+        let first = panel.report_row.min(ONE_REPORT_ROWS.len() - 1);
+        let visible = REPORT_VISIBLE_ROWS.min(ONE_REPORT_ROWS.len() - first);
+        let row = ((p.1 - REPORT_BODY_TOP + panel.report_row_offset) / REPORT_ROW_HEIGHT) as usize;
+        let row = row.min(visible - 1);
+        if row == 0 {
+            panel.report_row_offset = 0;
+        } else if row == REPORT_VISIBLE_ROWS - 1 {
+            panel.report_row_offset = REPORT_LAST_ROW_CLIP;
+        }
+        panel.report_selection[0] = first + row;
+    }
+
     fn paint_statistics_report(
         &self,
         g: &mut Grob,
@@ -402,13 +512,7 @@ impl NativeTools {
         settings: &ppl_vm::Settings,
     ) -> Option<String> {
         g.fill_rect(0, 20, 319, 219, 0xffffff);
-        let Some(result) = self
-            .memory
-            .models
-            .results
-            .get(app(two))
-            .and_then(|v| v.as_object())
-        else {
+        let Some(columns) = self.statistics_report_columns(two) else {
             text(
                 g,
                 if self.statistics_panel.busy {
@@ -421,16 +525,20 @@ impl NativeTools {
             );
             return None;
         };
-        let columns = result
-            .iter()
-            .filter(|(name, _)| name.starts_with(if two { 'S' } else { 'H' }))
-            .skip(self.statistics_panel.report_first)
-            .take(REPORT_VISIBLE_ANALYSES)
-            .collect::<Vec<_>>();
+        let columns = columns.collect::<Vec<_>>();
         if columns.is_empty() {
             text(g, "No selected analysis in this view", 0, 40);
             return None;
         }
+        let wide = !two && columns.len() > 2;
+        let column_left = |column| {
+            report_column_left(
+                column,
+                columns.len(),
+                wide,
+                self.statistics_panel.report_show_last,
+            )
+        };
         let rows: &[(&str, &str, &str)] = if two {
             &[
                 ("n", "summary.count", ""),
@@ -450,30 +558,44 @@ impl NativeTools {
             &ONE_REPORT_ROWS
         };
         let [selected_row, selected_column] = self.statistics_panel.report_selection;
+        let range = if two {
+            None
+        } else {
+            self.statistics_report_range()
+        };
+        let in_range = |row, column| {
+            range.is_some_and(|([r0, c0], [r1, c1])| {
+                (r0..=r1).contains(&row) && (c0..=c1).contains(&column)
+            })
+        };
         let mut footer = (!two && selected_column == 0).then(|| rows[selected_row].2.to_owned());
         let first_row = self.statistics_panel.report_row.min(rows.len() - 1);
-        g.fill_rect(0, 20, 319, 36, PAPER);
-        g.line(0, 36, 319, 36, 0);
+        let offset = if two {
+            0
+        } else {
+            self.statistics_panel.report_row_offset
+        };
         for (column, (analysis_name, value)) in columns.iter().enumerate() {
-            let left = 65 + (254 * column / columns.len()) as i64;
-            let right = 65 + (254 * (column + 1) / columns.len()) as i64;
-            text(
-                g,
-                analysis_name,
-                left + (right - left - measure(analysis_name, 14.)) / 2,
-                20,
-            );
-            g.line(left, 20, left, 202, 0);
+            let left = column_left(column);
+            let right = column_left(column + 1);
+            if left >= REPORT_LABEL_WIDTH {
+                g.line(left, REPORT_BODY_TOP, left, REPORT_BODY_END - 1, 0);
+            }
             for (row, (label, path, _)) in rows
                 .iter()
                 .skip(first_row)
                 .take(REPORT_VISIBLE_ROWS)
                 .enumerate()
             {
-                let top = 37 + row as i64 * 17;
-                let row_selected = !two && first_row + row == selected_row;
-                let label_fill = if row_selected && selected_column == 0 {
+                let top = REPORT_BODY_TOP + row as i64 * REPORT_ROW_HEIGHT - offset;
+                let absolute_row = first_row + row;
+                let absolute_column = column + 1;
+                let row_selected = !two && absolute_row == selected_row;
+                let label_active = row_selected && selected_column == 0;
+                let label_fill = if label_active && range.is_none() {
                     SELECTED
+                } else if !label_active && in_range(absolute_row, 0) {
+                    REPORT_RANGE_FILL
                 } else {
                     PAPER
                 };
@@ -520,11 +642,14 @@ impl NativeTools {
                             },
                         )
                     });
-                let result_fill = if row_selected
-                    && selected_column == self.statistics_panel.report_first + column + 1
-                {
+                let result_active = row_selected && selected_column == absolute_column;
+                if result_active {
                     footer = Some(label.clone());
+                }
+                let result_fill = if result_active && range.is_none() {
                     SELECTED
+                } else if !result_active && in_range(absolute_row, absolute_column) {
+                    REPORT_RANGE_FILL
                 } else {
                     0xffffff
                 };
@@ -535,11 +660,129 @@ impl NativeTools {
                     false,
                     INK,
                     result_fill,
+                    REPORT_LABEL_WIDTH,
                 );
                 g.line(0, top + 16, 319, top + 16, 0xdcdcdc);
             }
         }
+        if wide {
+            let divider = REPORT_LABEL_WIDTH - 1;
+            g.line(divider, REPORT_BODY_TOP, divider, REPORT_BODY_END - 1, INK);
+        }
+        let mut heading_selection = None;
+        if let Some(([row_start, column_start], [row_end, column_end])) = range {
+            let left = if column_start == 0 {
+                0
+            } else {
+                column_left(column_start - 1).max(REPORT_LABEL_WIDTH - i64::from(wide))
+            };
+            let right = if column_end == 0 {
+                REPORT_LABEL_WIDTH - 1
+            } else {
+                column_left(column_end).min(319)
+            };
+            let top = REPORT_BODY_TOP + (row_start as i64 - first_row as i64) * REPORT_ROW_HEIGHT
+                - offset;
+            let bottom = REPORT_BODY_TOP
+                + (row_end as i64 - first_row as i64 + 1) * REPORT_ROW_HEIGHT
+                - offset
+                - 1;
+            if left <= right {
+                if self.statistics_panel.report_include_headers {
+                    heading_selection = Some([left, REPORT_HEADER_TOP, right, REPORT_BODY_TOP - 1]);
+                }
+                if top < REPORT_BODY_END && bottom >= REPORT_BODY_TOP {
+                    outline(
+                        g,
+                        [
+                            left,
+                            top.max(REPORT_BODY_TOP),
+                            right,
+                            bottom.min(REPORT_BODY_END - 1),
+                        ],
+                    );
+                }
+            }
+        }
+        g.fill_rect(0, REPORT_HEADER_TOP, 319, REPORT_BODY_TOP - 1, PAPER);
+        if let Some([left, top, right, bottom]) = heading_selection {
+            g.fill_rect(left, top, right, bottom, REPORT_RANGE_FILL);
+        }
+        g.line(0, REPORT_BODY_TOP - 1, 319, REPORT_BODY_TOP - 1, 0);
+        for (column, (name, _)) in columns.iter().enumerate() {
+            let left = column_left(column);
+            let right = column_left(column + 1);
+            if left >= REPORT_LABEL_WIDTH - i64::from(wide) {
+                text(
+                    g,
+                    name,
+                    left + (right - left - measure(name, 14.)) / 2,
+                    REPORT_HEADER_TOP,
+                );
+                g.line(left, REPORT_HEADER_TOP, left, REPORT_BODY_TOP - 1, INK);
+            }
+        }
+        if wide {
+            let divider = REPORT_LABEL_WIDTH - 1;
+            g.line(
+                divider,
+                REPORT_HEADER_TOP,
+                divider,
+                REPORT_BODY_TOP - 1,
+                INK,
+            );
+        }
+        if let Some(bounds) = heading_selection {
+            outline(g, bounds);
+        }
         footer
+    }
+    fn paint_statistics_report_menu(&self, image: &mut Grob, menu: Menu) {
+        let more = matches!(menu.kind, MenuKind::ReportMore);
+        image.rect(33, 154, 105, 215, INK, 0xffffff);
+        image.fill_rect(34, 155, 104, 173, 0x25589e);
+        draw_text(image, "More", 51, 155, 14., 0xffffff, None, None);
+        let selecting = if self.statistics_panel.report_anchor.is_some() {
+            "Selection•"
+        } else {
+            "Selection"
+        };
+        let headers = if self.statistics_panel.report_include_headers {
+            "• Include Headers"
+        } else {
+            "Include Headers"
+        };
+        for (bounds, selected, labels) in [
+            (
+                REPORT_MENU_MORE,
+                if more { menu.index } else { 0 },
+                ["Select ›", selecting].as_slice(),
+            ),
+            (
+                REPORT_MENU_SELECT,
+                menu.index,
+                ["Row", "Column", headers].as_slice(),
+            ),
+        ] {
+            if bounds == REPORT_MENU_SELECT && more {
+                break;
+            }
+            let [x, y, right, bottom] = bounds;
+            image.rect(x, y, right, bottom, INK, 0xffffff);
+            for (index, label) in labels.iter().enumerate() {
+                let top = y + index as i64 * REPORT_MENU_ROW;
+                if index == selected {
+                    image.fill_rect(
+                        x + 1,
+                        top + 1,
+                        right - 1,
+                        top + REPORT_MENU_ROW - 1,
+                        SELECTED,
+                    );
+                }
+                text(image, label, x + 3, top + 1);
+            }
+        }
     }
     pub(crate) fn show_statistics(
         &mut self,
@@ -626,27 +869,30 @@ impl NativeTools {
             0,
             203,
         );
-        let labels = if self.statistics_panel.report
-            || self.statistics_panel.equation.is_some()
-            || self.statistics_panel.sync_error.is_some()
-        {
-            ["", "", "", "", "", "OK"]
-        } else if numeric {
-            ["Edit", "More", "Go To", "Sort", "Make", "Stats"]
-        } else {
-            [
-                if matches!(cursor.field, Field::Fit | Field::Expression | Field::Color) {
-                    "Choose"
-                } else {
-                    "Edit"
-                },
-                "✓",
-                "Column",
-                if two { "Fit" } else { "" },
-                "Show",
-                "Eval",
-            ]
-        };
+        let labels =
+            if self.statistics_one_summary_open() && self.statistics_panel.sync_error.is_none() {
+                ["", "More", "", "", "", "OK"]
+            } else if self.statistics_panel.report
+                || self.statistics_panel.equation.is_some()
+                || self.statistics_panel.sync_error.is_some()
+            {
+                ["", "", "", "", "", "OK"]
+            } else if numeric {
+                ["Edit", "More", "Go To", "Sort", "Make", "Stats"]
+            } else {
+                [
+                    if matches!(cursor.field, Field::Fit | Field::Expression | Field::Color) {
+                        "Choose"
+                    } else {
+                        "Edit"
+                    },
+                    "✓",
+                    "Column",
+                    if two { "Fit" } else { "" },
+                    "Show",
+                    "Eval",
+                ]
+            };
         chrome::softkeys_with_menus(
             &mut image,
             &labels,
@@ -658,7 +904,9 @@ impl NativeTools {
                 &[]
             },
         );
-        if let Some(menu) = self.statistics_panel.menu {
+        if let Some(menu) = self.statistics_panel.menu.filter(|menu| menu.kind.report()) {
+            self.paint_statistics_report_menu(&mut image, menu);
+        } else if let Some(menu) = self.statistics_panel.menu {
             let items = self.statistics_menu_items(two, menu.kind);
             image.rect(44, 23, 275, 214, 0, 0xffffff);
             for (row, (item, label)) in items
@@ -764,6 +1012,12 @@ impl NativeTools {
                     ctx.request_repaint();
                 }
             });
+        // A completed click in the same input frame can change the cell to copy.
+        if std::mem::take(&mut self.statistics_panel.report_copy_pending)
+            && self.statistics_one_summary_open()
+        {
+            requests.push(Request::CopyStatisticsSummary);
+        }
         if changed {
             self.dirty();
         }
@@ -784,6 +1038,20 @@ impl NativeTools {
             return;
         }
         if let Some(mut menu) = self.statistics_panel.menu {
+            if menu.kind.report() {
+                let bounds = if matches!(menu.kind, MenuKind::ReportMore) {
+                    REPORT_MENU_MORE
+                } else {
+                    REPORT_MENU_SELECT
+                };
+                self.statistics_panel.menu = None;
+                if contains(bounds, p) {
+                    menu.index = ((p.1 - bounds[1]) / REPORT_MENU_ROW) as usize;
+                    requests.extend(self.statistics_choose(false, cursor, menu));
+                }
+                self.dirty();
+                return;
+            }
             let count = self.statistics_menu_items(two, menu.kind).len();
             if contains([261, 24, 274, 213], p) {
                 menu.first = (menu.first as i64 + if p.1 < 100 { -1 } else { 1 })
@@ -807,6 +1075,16 @@ impl NativeTools {
                 if key == 5 {
                     self.statistics_panel.report = false;
                     self.statistics_panel.equation = None;
+                } else if key == 1
+                    && self.statistics_one_summary_open()
+                    && !self.statistics_panel.busy
+                    && self.statistics_report_analysis_count() != 0
+                {
+                    self.statistics_panel.menu = Some(Menu {
+                        kind: MenuKind::ReportMore,
+                        index: 0,
+                        first: 0,
+                    });
                 }
                 self.dirty();
                 return;
@@ -839,8 +1117,12 @@ impl NativeTools {
                     5 => {
                         self.statistics_panel.report = true;
                         self.statistics_panel.report_row = 0;
+                        self.statistics_panel.report_row_offset = 0;
                         self.statistics_panel.report_first = 0;
+                        self.statistics_panel.report_show_last = false;
                         self.statistics_panel.report_selection = [0, 0];
+                        self.statistics_panel.report_anchor = None;
+                        self.statistics_panel.report_include_headers = false;
                         if let Some(calculation) =
                             crate::ide::native_app_ui::numeric(app(two), &self.memory.models)
                         {
@@ -886,6 +1168,8 @@ impl NativeTools {
                     _ => {}
                 }
             }
+        } else if self.statistics_one_summary_open() {
+            self.statistics_report_select_cell(p);
         } else if !self.statistics_panel.report
             && self.statistics_panel.equation.is_none()
             && self.statistics_panel.sync_error.is_none()
@@ -1191,6 +1475,278 @@ mod tests {
                 .paint_statistics_report(&mut image, false, &settings)
                 .as_deref(),
             Some("Sum of squared deviations of X")
+        );
+    }
+    #[test]
+    fn summary_pointer_respects_dividers_and_selects_within_the_scrolled_window() {
+        let mut tools = one_tools();
+        tools.open(Page::Numeric);
+        tools.statistics_panel.report = true;
+        tools
+            .memory
+            .models
+            .results
+            .insert(app(false).into(), serde_json::json!({ "H1": {}, "H2": {} }));
+        for (point, expected) in [
+            ((64, 54), [1, 0]),
+            ((65, 53), [0, 1]),
+            ((192, 54), [1, 1]),
+            ((193, 54), [1, 2]),
+            ((319, 54), [1, 2]),
+            ((125, 19), [1, 2]),
+            ((125, 219), [1, 2]),
+            ((125, 20), [0, 1]),
+        ] {
+            let mut requests = Vec::new();
+            tools.statistics_pointer(false, point, true, &mut requests);
+            assert!(requests.is_empty(), "{point:?}");
+            assert_eq!(
+                tools.statistics_panel.report_selection, expected,
+                "{point:?}"
+            );
+        }
+        tools.statistics_panel.report_row = 3;
+        tools.statistics_report_select_cell((240, 95));
+        assert_eq!(tools.statistics_panel.report_selection, [6, 2]);
+        assert_eq!(tools.statistics_panel.report_row, 3);
+        tools.statistics_report_select_cell((120, 218));
+        assert_eq!(tools.statistics_panel.report_selection, [12, 1]);
+        assert_eq!(tools.statistics_panel.report_row_offset, 4);
+        tools.statistics_report_select_cell((120, 28));
+        assert_eq!(tools.statistics_panel.report_selection, [0, 1]);
+        assert_eq!(tools.statistics_panel.report_row, 0);
+        assert_eq!(tools.statistics_panel.report_row_offset, 0);
+
+        use crate::ide::native::keys::KeyAction;
+        assert!(tools.statistics_action(KeyAction::Copy).unwrap().is_empty());
+        tools.statistics_report_select_cell((15, 62));
+        let context = egui::Context::default();
+        assert!(matches!(
+            frame(&mut tools, &context, Vec::new()).as_slice(),
+            [Request::CopyStatisticsSummary]
+        ));
+        assert_eq!(
+            tools
+                .statistics_summary_clipboard(&ppl_vm::SessionContext::default().snapshot())
+                .as_deref(),
+            Some("\"Min\"")
+        );
+        assert!(frame(&mut tools, &context, Vec::new()).is_empty());
+    }
+    #[test]
+    fn summary_five_analysis_viewport_scrolls_with_the_edge_cell_and_keeps_labels_fixed() {
+        use crate::ide::native::{expression::EditCommand, keys::KeyAction};
+
+        let mut tools = one_tools();
+        tools.open(Page::Numeric);
+        tools.statistics_panel.report = true;
+        tools.memory.models.results.insert(
+            app(false).into(),
+            serde_json::json!({
+                "H1": {"minimum": 11}, "H2": {"minimum": 21}, "H3": {"minimum": 31},
+                "H4": {"minimum": 41}, "H5": {"minimum": 51},
+            }),
+        );
+        let mut image = Grob::new(320, 240, PAPER);
+        let settings = ppl_vm::Settings::default();
+
+        tools.statistics_report_select_cell((300, 62));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 4]);
+        tools.paint_statistics_report(&mut image, false, &settings);
+        for divider in [64, 123, 182, 241, 300] {
+            assert_eq!(image.pixels()[34 * 320 + divider], INK);
+        }
+        tools.statistics_action(KeyAction::Edit(EditCommand::Right(false)));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 5]);
+        assert_eq!(
+            tools
+                .paint_statistics_report(&mut image, false, &settings)
+                .as_deref(),
+            Some("51")
+        );
+        for divider in [64, 84, 143, 202, 261] {
+            assert_eq!(image.pixels()[34 * 320 + divider], INK);
+        }
+        assert_eq!(image.pixels()[23 * 320 + 35], PAPER);
+        tools.statistics_report_select_cell((85, 62));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 2]);
+        assert!(tools.statistics_panel.report_show_last);
+        tools.statistics_report_select_cell((84, 62));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 1]);
+        assert!(!tools.statistics_panel.report_show_last);
+        tools.statistics_report_select_cell((301, 27));
+        assert_eq!(tools.statistics_panel.report_selection, [0, 5]);
+        assert!(tools.statistics_panel.report_show_last);
+        tools.statistics_report_select_cell((64, 62));
+        assert_eq!(tools.statistics_panel.report_selection, [1, 0]);
+        assert!(!tools.statistics_panel.report_show_last);
+    }
+    #[test]
+    fn summary_range_copy_uses_selected_columns_and_pointer_returns_to_one_cell() {
+        let mut tools = one_tools();
+        tools.open(Page::Numeric);
+        tools.statistics_panel.report = true;
+        tools.statistics_panel.report_selection = [3, 1];
+        tools
+            .memory
+            .models
+            .results
+            .insert(app(false).into(), serde_json::json!({ "H1": {}, "H2": {} }));
+        let book = tools.memory.models.statistics1_book.as_mut().unwrap();
+        for (name, start) in [("H1", 1), ("H2", 11)] {
+            let results = model::one_data::DISPLAY_FIELDS
+                .iter()
+                .enumerate()
+                .map(|(i, (_, variable))| {
+                    let value = PortableValue::Real(ppl_math::Real::from_i64(start + i as i64));
+                    ((*variable).into(), ppl_vm::session::encode_value(&value))
+                })
+                .collect();
+            book.result_values.insert(name.into(), results);
+        }
+        let snapshot = ppl_vm::SessionContext::default().snapshot();
+        tools.statistics_panel.report_anchor = Some([3, 1]);
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("4")
+        );
+        tools.statistics_choose(false, Cursor::default(), Menu::report_select());
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{{\"Med\"},{4},{14}}")
+        );
+        tools.statistics_move_report_selection(1, -1);
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{{\"Med\",\"Q3\"},{4,5}}")
+        );
+        tools.statistics_report_select_cell((246, 62));
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("12")
+        );
+        tools.statistics_choose(
+            false,
+            Cursor::default(),
+            Menu {
+                index: 1,
+                ..Menu::report_select()
+            },
+        );
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{11,12,13,14,15,16,17,18,19,20,21,22,23}")
+        );
+        let mut requests = Vec::new();
+        for point in [(76, 230), (66, 184), (166, 205)] {
+            tools.statistics_pointer(false, point, true, &mut requests);
+        }
+        assert!(requests.is_empty());
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{\"H2\",11,12,13,14,15,16,17,18,19,20,21,22,23}")
+        );
+        let mut image = Grob::new(320, 240, PAPER);
+        tools.paint_statistics_report(&mut image, false, &snapshot.settings);
+        assert_eq!(image.pixels()[23 * 320 + 196], REPORT_RANGE_FILL);
+        assert_eq!(image.pixels()[23 * 320 + 160], PAPER);
+
+        tools.statistics_report_select_cell((246, 29));
+        tools.statistics_report_select_cell((246, 62));
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("12")
+        );
+        tools.statistics_panel.report_anchor = Some(tools.statistics_panel.report_selection);
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{\"H2\",12}")
+        );
+        tools.statistics_panel.report_anchor = Some([1, 0]);
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{{\"\",\"Min\"},{\"H1\",2},{\"H2\",12}}")
+        );
+        for point in [(76, 230), (66, 184), (166, 205)] {
+            tools.statistics_pointer(false, point, true, &mut requests);
+        }
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("{{\"Min\"},{2},{12}}")
+        );
+        for point in [(76, 230), (66, 184), (166, 205), (290, 230), (290, 230)] {
+            tools.statistics_pointer(false, point, true, &mut requests);
+        }
+        assert!(!tools.statistics_panel.report_include_headers);
+    }
+    #[test]
+    fn summary_copy_uses_typed_result_and_app_precision_without_thousands_grouping() {
+        let mut tools = one_tools();
+        tools.open(Page::Numeric);
+        tools.statistics_panel.report = true;
+        tools.memory.models.results.insert(
+            app(false).into(),
+            serde_json::json!({"H2": {"minimum": 0, "_display": {"minimum": "stale"}}}),
+        );
+        let values = [
+            (
+                "MinVal",
+                PortableValue::Real(ppl_math::Real::parse("1234.567").unwrap()),
+            ),
+            ("sX", PortableValue::Symbolic(ppl_cas::CasValue::Undefined)),
+            (
+                "serrX",
+                PortableValue::Symbolic(ppl_cas::CasValue::Infinity(
+                    ppl_cas::InfinitySign::Positive,
+                )),
+            ),
+        ];
+        tools
+            .memory
+            .models
+            .statistics1_book
+            .as_mut()
+            .unwrap()
+            .result_values
+            .insert(
+                "H2".into(),
+                values
+                    .into_iter()
+                    .map(|(name, value)| (name.into(), ppl_vm::session::encode_value(&value)))
+                    .collect(),
+            );
+        let mut snapshot = ppl_vm::SessionContext::default().snapshot();
+        snapshot.app_settings.insert(
+            app(false).into(),
+            ppl_vm::AppSettings {
+                format: 2,
+                digits: 2,
+                ..Default::default()
+            },
+        );
+        for (selection, expected) in [
+            ([7, 0], "\"ΣX²\""),
+            ([1, 1], "1234.57"),
+            ([9, 1], "NaN"),
+            ([11, 1], "+Inf"),
+        ] {
+            tools.statistics_panel.report_selection = selection;
+            assert_eq!(
+                tools.statistics_summary_clipboard(&snapshot).as_deref(),
+                Some(expected)
+            );
+        }
+        snapshot.settings.set_separator(4).unwrap();
+        tools.statistics_panel.report_selection = [1, 1];
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("1234,57")
+        );
+        snapshot.settings.set_separator(0).unwrap();
+        snapshot.app_settings.get_mut(app(false)).unwrap().format = 3;
+        assert_eq!(
+            tools.statistics_summary_clipboard(&snapshot).as_deref(),
+            Some("1.23ᴇ3")
         );
     }
     #[test]

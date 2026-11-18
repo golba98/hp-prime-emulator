@@ -1580,6 +1580,15 @@ impl IdeDesktopApp {
                 ctx.copy_text(text);
                 Ok(())
             }
+            Request::CopyStatisticsSummary => {
+                if let Some(text) = self
+                    .native_tools
+                    .statistics_summary_clipboard(&self.controller.session_snapshot())
+                {
+                    ctx.copy_text(text);
+                }
+                Ok(())
+            }
             Request::MathCursor { position, extend } => {
                 if self.math_entry.is_some() {
                     self.state.native.edit(|e| e.set_cursor(position, extend));
