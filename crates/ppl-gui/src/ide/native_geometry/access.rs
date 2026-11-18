@@ -57,6 +57,11 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
             canonical(arc.start),
             canonical(arc.end)
         )),
+        Shape::Hyperbola(curve) => PortableValue::List(
+            [1., -1.]
+                .map(|sign| symbolic(curve.branch_source(sign)))
+                .to_vec(),
+        ),
         Shape::Parabola(curve) => {
             let [f, a, b] = curve.definition().map(point_source);
             symbolic(format!("parabola({f},line({a},{b}))"))
@@ -92,6 +97,7 @@ impl Book {
         serde_json::json!({
             "definitions": self,
             "point_curves": self.current_point_curves,
+            "hyperbolas": self.current_hyperbolas,
             "values": self.current_values.iter().map(|(name, value)|
                 (name.clone(), ppl_vm::session::encode_value(value))).collect::<std::collections::BTreeMap<_, _>>()
         })
@@ -140,6 +146,14 @@ impl Book {
             }
         }
         self.current_values = values;
+        self.current_hyperbolas = scene
+            .objects
+            .iter()
+            .filter_map(|obj| match &obj.value {
+                Ok(Shape::Hyperbola(curve)) => Some((obj.name.clone(), curve.clone())),
+                _ => None,
+            })
+            .collect();
         self.current_point_curves.clone_from(&scene.point_curves);
         Ok(())
     }

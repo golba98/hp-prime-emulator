@@ -75,6 +75,17 @@ impl Transform {
                     self.point(b)?,
                 )?)
             }
+            Shape::Hyperbola(curve) => {
+                let [a, b] = curve.foci;
+                let size = match curve.size {
+                    Size::Witness(w) => Size::Witness(self.point(w)?),
+                    Size::SemiMajor(r) => Size::SemiMajor(r * scale),
+                };
+                Shape::Hyperbola(super::Hyperbola::new(
+                    [self.point(a)?, self.point(b)?],
+                    size,
+                )?)
+            }
             Shape::Ellipse(ellipse) => {
                 let [a, b] = ellipse.foci;
                 let size = match ellipse.size {

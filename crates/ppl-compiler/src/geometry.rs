@@ -56,6 +56,7 @@ pub fn is_function(name: &str) -> bool {
             | "inter"
             | "single_inter"
             | "circle"
+            | "hyperbola"
             | "parabola"
             | "ellipse"
             | "circumcircle"

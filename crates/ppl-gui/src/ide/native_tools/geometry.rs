@@ -103,6 +103,7 @@ impl Need {
                         | Shape::Arc(_)
                         | Shape::Ellipse(_)
                         | Shape::Parabola(_)
+                        | Shape::Hyperbola(_)
                 ) || command.function == "element" && matches!(shape, Shape::Function { .. })
             }
             Self::Shape => matches!(
@@ -112,6 +113,7 @@ impl Need {
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
                     | Shape::Parabola(_)
+                    | Shape::Hyperbola(_)
                     | Shape::Polygon(_)
             ),
         }
@@ -311,6 +313,11 @@ const CURVES: &[Command] = &[
         label: "Parabola",
         function: "parabola",
         needs: &[Need::Point, Need::Line],
+    },
+    Command {
+        label: "Hyperbola",
+        function: "hyperbola",
+        needs: &[Need::Point, Need::Point, Need::Point],
     },
 ];
 const TRANSFORMS: &[Command] = &[

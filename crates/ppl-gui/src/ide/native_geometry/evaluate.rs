@@ -293,6 +293,10 @@ impl Evaluator<'_> {
                 .current_values
                 .get(name)
                 .ok_or("Geometry object has not been evaluated")?;
+            if let Some(curve) = self.book.current_hyperbolas.get(name) {
+                self.visiting.remove(name);
+                return Ok(Shape::Hyperbola(curve.clone()));
+            }
             match value {
                 ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) => {
                     source.clone()
@@ -368,6 +372,7 @@ impl Evaluator<'_> {
                 | Shape::Circle { .. }
                 | Shape::Arc(_)
                 | Shape::Ellipse(_)
+                | Shape::Hyperbola(_)
                 | Shape::Parabola(_)
         )
         .then_some(curve))
@@ -671,14 +676,18 @@ impl Evaluator<'_> {
                 };
                 Ok(Shape::Parabola(parabola))
             }
-            "ellipse" => {
+            "ellipse" | "hyperbola" => {
                 arity(3)?;
                 let foci = [self.pt(&args[0], source)?, self.pt(&args[1], source)?];
                 let size = match self.value(&args[2], source)? {
                     Shape::Number { re, im: 0. } => super::ellipse::Size::SemiMajor(re),
                     witness => super::ellipse::Size::Witness(as_point(witness)?),
                 };
-                Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
+                if name == "hyperbola" {
+                    Ok(Shape::Hyperbola(super::Hyperbola::new(foci, size)?))
+                } else {
+                    Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
+                }
             }
             "circumcircle" | "incircle" | "excircle" => {
                 arity(3)?;
@@ -840,6 +849,19 @@ impl Evaluator<'_> {
                             arc.area()
                         } else {
                             arc.perimeter()
+                        }
+                    }
+                    Shape::Hyperbola(curve) => {
+                        if name == "perimeter" {
+                            return Ok(Shape::Undefined);
+                        }
+                        // A stored hyperbola evaluates to a list of two plotparam objects.
+                        // G1 area on that list is zero; an inline conic integrates both branches.
+                        if matches!(&args[0].kind,ExprKind::Ident(id) if self.reference(id).is_some())
+                        {
+                            0.
+                        } else {
+                            curve.area()
                         }
                     }
                     Shape::Parabola(curve) => {
@@ -1145,6 +1167,7 @@ fn known(name: &str) -> bool {
             | "single_inter"
             | "circle"
             | "parabola"
+            | "hyperbola"
             | "ellipse"
             | "circumcircle"
             | "incircle"

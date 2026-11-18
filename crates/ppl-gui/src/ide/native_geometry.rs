@@ -5,6 +5,7 @@ mod arc;
 mod ellipse;
 mod evaluate;
 mod function;
+mod hyperbola;
 mod parabola;
 pub mod plot;
 pub mod primitives;
@@ -13,6 +14,7 @@ use super::native_app_models::Geometry;
 pub use super::native_app_models::Point2;
 pub use arc::CircularArc;
 pub use ellipse::Ellipse;
+pub use hyperbola::Hyperbola;
 pub use parabola::Parabola;
 use ppl_vm::SessionSnapshot;
 use serde::{Deserialize, Serialize};
@@ -79,6 +81,9 @@ pub struct Book {
     /// Snapshots of the curves that produced the current constrained points.
     #[serde(skip)]
     pub current_point_curves: BTreeMap<String, Shape>,
+    /// Multi-branch values expose a list to PPL. Keep their defining secant anchor for Point On.
+    #[serde(skip)]
+    pub current_hyperbolas: BTreeMap<String, Hyperbola>,
     /// Last evaluated positions of armed points; restart establishes a fresh baseline.
     #[serde(skip)]
     pub(crate) last_trace_positions: BTreeMap<String, Point2>,
@@ -109,6 +114,7 @@ pub enum Shape {
     },
     Arc(CircularArc),
     Ellipse(Ellipse),
+    Hyperbola(Hyperbola),
     Parabola(Parabola),
     Polygon(Vec<Point2>),
     Points(Vec<Point2>),
@@ -1269,6 +1275,45 @@ mod tests {
         let saved = serde_json::to_string(&b).unwrap();
         let restored: Book = serde_json::from_str(&saved).unwrap();
         pt(&scene(&restored), "C", Point2 { x: 4., y: 4. });
+    }
+    #[test]
+    fn hyperbola_retains_its_secant_witness_and_exposes_two_branches() {
+        let b = book(&[
+            ("A", "point(-2,0)"),
+            ("B", "point(2,0)"),
+            ("C", "point(1,0)"),
+            ("D", "hyperbola(GA,GB,GC)"),
+            ("E", "element(GD,1)"),
+            ("F", "element(GD,2)"),
+            ("G", "area(hyperbola(GA,GB,GC))"),
+            ("H", "perimeter(GD)"),
+            ("K", "area(GD)"),
+            ("L", "slope(tangent(GE))"),
+            ("I", "element(hyperbola(GA,GB,-1),1)"),
+            ("J", "element(hyperbola(GA,GB,point(2,3)),1)"),
+        ]);
+        let s = scene(&b);
+        for (name, p) in [
+            ("E", Point2 { x: -2., y: -3. }),
+            ("F", Point2 { x: 7., y: 12. }),
+            ("I", Point2 { x: 2., y: 3. }),
+            ("J", Point2 { x: -1., y: 0. }),
+        ] {
+            pt(&s, name, p);
+        }
+        let Shape::Number { re, .. } = shape(&s, "G") else {
+            panic!("missing area")
+        };
+        assert!((re + 338.985132275).abs() < 1e-9);
+        assert!(matches!(shape(&s, "H"), Shape::Undefined));
+        for (name, expected) in [("K", 0.), ("L", 2.)] {
+            let Shape::Number { re, .. } = shape(&s, name) else {
+                panic!("missing scalar")
+            };
+            assert!((re - expected).abs() < 1e-10);
+        }
+        let v = access::shape_value(&shape(&s, "D")).unwrap();
+        assert!(matches!(v,ppl_vm::PortableValue::List(items) if items.len()==2));
     }
     #[test]
     fn focal_parabola_matches_parameters_measurements_and_intersections() {

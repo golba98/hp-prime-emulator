@@ -73,6 +73,16 @@ pub fn build(
                 PlotStyle::Line,
                 arc.vertices().map(|p| [p.x, p.y]).collect(),
             ),
+            Shape::Hyperbola(curve) => {
+                for sign in [1., -1.] {
+                    data.push(
+                        format!("G{}", object.name),
+                        PlotStyle::Line,
+                        curve.branch(sign).map(|p| [p.x, p.y]).collect(),
+                    )?;
+                }
+                continue;
+            }
             Shape::Parabola(curve) => (
                 PlotStyle::Line,
                 curve.vertices().map(|p| [p.x, p.y]).collect(),

@@ -198,6 +198,7 @@ pub fn element(curve: &Shape, t: f64) -> Result<Point2, String> {
         Shape::Line { a, b, extent } => line_element(a, b, extent, t),
         Shape::Circle { center, radius } => point(circle_element(center, radius, t)),
         Shape::Arc(arc) => point(circle_element(arc.center, arc.radius, t)),
+        Shape::Hyperbola(ref curve) => curve.element(t),
         Shape::Parabola(ref curve) => point(curve.at(t)),
         Shape::Ellipse(ref ellipse) => ellipse.element(t),
         Shape::Point(p) => point(p),
@@ -209,6 +210,7 @@ pub(super) fn tangent_at(curve: &Shape, p: Point2) -> Result<Shape, String> {
         Shape::Line { .. } => return Ok(curve.clone()),
         Shape::Circle { center, radius }
         | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Hyperbola(ref curve) => return curve.tangent_at(p),
         Shape::Parabola(ref curve) => return curve.tangent(p, true),
         Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, true),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
@@ -284,6 +286,7 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
             Ok(d.y.atan2(d.x))
         }
         Shape::Function { ref paths, .. } => function_projection(paths, cursor).map(|p| p.x),
+        Shape::Hyperbola(ref curve) => curve.parameter(cursor),
         Shape::Parabola(ref curve) => curve.parameter(cursor),
         Shape::Ellipse(ref ellipse) => ellipse.parameter(cursor),
         _ => {

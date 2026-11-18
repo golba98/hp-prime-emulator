@@ -153,6 +153,7 @@ fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
         Shape::Circle { .. } => "Circle".into(),
         Shape::Arc(_) => "Arc".into(),
         Shape::Function { .. } => "Function Graph".into(),
+        Shape::Hyperbola(_) => "Hyperbola".into(),
         Shape::Parabola(_) => "Parabola".into(),
         Shape::Ellipse(_) => "Ellipse".into(),
         Shape::Polygon(_) => "Polygon".into(),
@@ -250,6 +251,11 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 segment(g, a, b, geo::Extent::Segment, w, color);
             }
         }
+        Shape::Hyperbola(curve) => {
+            for [a, b] in curve.edges() {
+                segment(g, a, b, geo::Extent::Segment, w, color);
+            }
+        }
         Shape::Parabola(curve) => {
             for [a, b] in curve.edges() {
                 segment(g, a, b, geo::Extent::Segment, w, color);
@@ -317,6 +323,7 @@ pub(super) fn hit(
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
                     | Shape::Parabola(_)
+                    | Shape::Hyperbola(_)
             ),
             Some(Need::Point) => matches!(shape, Shape::Point(_)),
             Some(Need::PointOnCurve) => scene.is_point_on_curve(&object.name),
@@ -360,6 +367,11 @@ pub(super) fn hit(
                 })
                 .fold(f64::INFINITY, f64::min),
             Shape::Arc(arc) => arc
+                .edges()
+                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+                .fold(f64::INFINITY, f64::min),
+            Shape::Hyperbola(curve) => curve
                 .edges()
                 .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
                 .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
