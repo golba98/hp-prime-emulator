@@ -13,12 +13,13 @@ pub(super) enum Report {
     Two,
     Regression,
     Amortization,
+    Inference(&'static str),
 }
 
 pub(super) fn body(source: &str) -> Option<(Report, &str)> {
     let source = source.trim().strip_prefix('=')?.trim_start();
-    let (name, rest) = source.split_at_checked(5)?;
-    let call = rest.trim_start();
+    let (name, call) = source.split_at(source.find('(')?);
+    let name = name.trim_end();
     let kind = if name.eq_ignore_ascii_case("STAT1") {
         Report::One
     } else if name.eq_ignore_ascii_case("STAT2") {
@@ -27,6 +28,11 @@ pub(super) fn body(source: &str) -> Option<(Report, &str)> {
         Report::Regression
     } else if name.eq_ignore_ascii_case("AMORT") {
         Report::Amortization
+    } else if let Some(&name) = super::inference_report::NAMES
+        .iter()
+        .find(|n| n.eq_ignore_ascii_case(name))
+    {
+        Report::Inference(name)
     } else {
         return None;
     };
@@ -116,6 +122,22 @@ impl Evaluator<'_> {
         address: Address,
     ) -> Result<Vec<Vec<Value>>, String> {
         let args = formula_arguments(body)?;
+        if let Report::Inference(name) = kind {
+            let mut values = Vec::new();
+            let mut config = String::new();
+            for (i, expr) in args.iter().enumerate() {
+                let value = self.expression(expr, address, 1)?;
+                if value.is_string() && i + 1 == args.len() {
+                    config = value
+                        .expect_str(name)
+                        .map_err(|e| e.to_string())?
+                        .to_string();
+                } else {
+                    values.push(value.expect_real(name).map_err(|e| e.to_string())?.to_f64());
+                }
+            }
+            return super::inference_report::table(name, &values, &config, &self.cancel);
+        }
         let (input, options) = args
             .split_first()
             .ok_or("Worksheet statistics need an input range or list")?;

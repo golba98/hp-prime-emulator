@@ -9,6 +9,7 @@ mod attributes;
 mod choose;
 mod clipboard;
 pub mod format;
+mod inference_report;
 mod regression_report;
 mod reports;
 mod sort;
