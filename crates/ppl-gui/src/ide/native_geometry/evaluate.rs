@@ -1160,8 +1160,16 @@ impl Evaluator<'_> {
         source: &str,
         function: Option<&str>,
     ) -> Result<String, String> {
+        self.plane_expression(e, source, function.as_slice())
+    }
+    fn plane_expression(
+        &mut self,
+        e: &Expr,
+        source: &str,
+        variables: &[&str],
+    ) -> Result<String, String> {
         let mut replacements = Vec::new();
-        self.rewrite(e, source, &mut replacements, function)?;
+        self.rewrite(e, source, &mut replacements, variables)?;
         let mut expression = source
             .get(e.span.start as usize..e.span.end as usize)
             .ok_or("Invalid geometry expression span")?
@@ -1201,17 +1209,17 @@ impl Evaluator<'_> {
         e: &Expr,
         source: &str,
         out: &mut Vec<(usize, usize, String)>,
-        function: Option<&str>,
+        variables: &[&str],
     ) -> Result<(), String> {
         if let ExprKind::Assign(..) | ExprKind::Store(..) = &e.kind {
             return Err("Geometry expressions cannot assign calculator variables".into());
         }
         let replacement = match &e.kind {
-            ExprKind::Ident(name) if function == Some(name.as_str()) => None,
+            ExprKind::Ident(name) if variables.contains(&name.as_str()) => None,
             ExprKind::Ident(name) => {
                 if let Some(name) = self.reference(name) {
                     Some(self.resolve(&name))
-                } else if function.is_some()
+                } else if !variables.is_empty()
                     && let Some(ppl_vm::PortableValue::Real(value)) =
                         self.snapshot.globals.get(name)
                 {
@@ -1222,7 +1230,10 @@ impl Evaluator<'_> {
             }
             ExprKind::Call(callee, _) if matches!(&callee.kind,ExprKind::Ident(name)if known(name)) =>
             {
-                if function.is_some_and(|v| super::function::reads_variable(e, v)) {
+                if variables
+                    .iter()
+                    .any(|v| super::function::reads_variable(e, v))
+                {
                     return Err("Function graphs require fixed Geometry arguments".into());
                 }
                 Some(self.value(e, source))
@@ -1231,7 +1242,7 @@ impl Evaluator<'_> {
         };
         if let Some(value) = replacement {
             let p = as_point(value?)?;
-            let text = if function.is_some() && p.y == 0. {
+            let text = if !variables.is_empty() && p.y == 0. {
                 format!("({})", canonical(p.x))
             } else {
                 format!("(({})+({})*i)", canonical(p.x), canonical(p.y))
@@ -1241,21 +1252,21 @@ impl Evaluator<'_> {
         }
         match &e.kind {
             ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
-                self.rewrite(a, source, out, function)?
+                self.rewrite(a, source, out, variables)?
             }
             ExprKind::Binary(_, a, b) | ExprKind::ComplexPair(a, b) => {
-                self.rewrite(a, source, out, function)?;
-                self.rewrite(b, source, out, function)?;
+                self.rewrite(a, source, out, variables)?;
+                self.rewrite(b, source, out, variables)?;
             }
             ExprKind::Index(callee, args) => {
-                self.rewrite(callee, source, out, function)?;
+                self.rewrite(callee, source, out, variables)?;
                 for a in args {
-                    self.rewrite(a, source, out, function)?;
+                    self.rewrite(a, source, out, variables)?;
                 }
             }
             ExprKind::Call(_, args) | ExprKind::List(args) | ExprKind::Bracket(args) => {
                 for a in args {
-                    self.rewrite(a, source, out, function)?;
+                    self.rewrite(a, source, out, variables)?;
                 }
             }
             _ => {}

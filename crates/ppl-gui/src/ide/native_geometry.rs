@@ -502,6 +502,76 @@ mod tests {
     }
 
     #[test]
+    fn implicit_plot_solves_named_coordinate_equations_and_keeps_discontinuities() {
+        let mut snapshot = SessionContext::default().snapshot();
+        for key in ["u", "v"] {
+            snapshot
+                .globals
+                .insert(key.into(), access::scalar(100.).unwrap());
+        }
+        let defs = book(&[
+            ("A", "plotimplicit(u*v,[u=-3..3,v=-3..3])"),
+            ("B", "plotimplicit(u-1,[u=-3..3,v=-3..3])"),
+            ("C", "plotimplicit(v-2*u-4,[u=-3..3,v=-3..3])"),
+            ("D", "plotimplicit((u-1)*(v-2),[u=-3..3,v=-3..3])"),
+            ("E", "plotimplicit(u*v-1,[u=-3..3,v=-3..3])"),
+            ("F", "plotimplicit((v-1)*(v+1),[u=-3..3,v=-3..3])"),
+            ("G", "plotimplicit(0,[u=-3..3,v=-3..3])"),
+            ("H", "plotimplicit(1,[u=-3..3,v=-3..3])"),
+            ("J", "plotimplicit(u^4+v^4-1,[u=-2..2,v=-2..2])"),
+        ]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let scene = defs.calculate(&snapshot, cancel.clone()).unwrap();
+        for (name, from, to) in [
+            ("A", [-3., 0.], [3., 0.]),
+            ("B", [1., -3.], [1., 3.]),
+            ("C", [-3., -2.], [3., 10.]),
+        ] {
+            let Shape::Line {
+                a,
+                b,
+                extent: Extent::Segment,
+            } = shape(&scene, name)
+            else {
+                panic!("Expected segment {name}")
+            };
+            assert_eq!([a.x, a.y], from);
+            assert_eq!([b.x, b.y], to);
+        }
+        let Shape::Parametric(curve) = shape(&scene, "D") else {
+            panic!("Expected rational curve")
+        };
+        assert!(curve.at(1., &snapshot, cancel.clone()).is_err());
+        assert_eq!(
+            curve.at(2., &snapshot, cancel.clone()).unwrap(),
+            Point2 { x: 2., y: 2. }
+        );
+        let Shape::Objects(branches) = shape(&scene, "E") else {
+            panic!("Expected two branches")
+        };
+        assert_eq!(branches.len(), 2);
+        for (branch, range) in branches.iter().zip([[-3., 0.], [0., 3.]]) {
+            let Shape::Parametric(curve) = branch else {
+                panic!("Expected branch")
+            };
+            assert_eq!(curve.bounds(), range);
+        }
+        assert!(matches!(shape(&scene,"F"),Shape::Lines(lines) if lines.len()==2));
+        for name in ["G", "H"] {
+            assert_eq!(shape(&scene, name), Shape::Objects(vec![]));
+        }
+        let Shape::Objects(paths) = shape(&scene, "J") else {
+            panic!("Expected contour")
+        };
+        assert_eq!(paths.len(), 1);
+        let Shape::Polyline(loop_points) = &paths[0] else {
+            panic!("Expected closed contour")
+        };
+        assert!(loop_points.len() > 40);
+        assert_eq!(loop_points.first(), loop_points.last());
+    }
+
+    #[test]
     fn interval_parameters_preserve_symbolic_types_and_update_dependent_coordinates() {
         let definitions = book(&[
             ("A", "element(0..5)"),

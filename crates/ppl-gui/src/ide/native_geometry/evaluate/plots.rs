@@ -44,6 +44,97 @@ impl Evaluator<'_> {
         Ok(w)
     }
 
+    fn implicit_polynomial(
+        &mut self,
+        [k, dx, dy, xx, xy, yy]: [f64; 6],
+        x: &str,
+        w: &PlotWindow,
+    ) -> Result<Option<Shape>, String> {
+        if [k, dx, dy, xx, xy, yy].iter().any(|v| !v.is_finite()) {
+            return Err("Implicit coefficients must be finite".into());
+        }
+        let segment = |ax, ay, bx, by| {
+            g::line(
+                point(Point2 { x: ax, y: ay })?,
+                point(Point2 { x: bx, y: by })?,
+                Extent::Segment,
+            )
+        };
+        if xx == 0. && xy == 0. && yy == 0. {
+            if dy != 0. {
+                return Ok(Some(segment(
+                    w.xmin,
+                    -(dx * w.xmin + k) / dy,
+                    w.xmax,
+                    -(dx * w.xmax + k) / dy,
+                )?));
+            }
+            if dx != 0. {
+                return Ok(Some(segment(-k / dx, w.ymin, -k / dx, w.ymax)?));
+            }
+            return Ok(Some(Shape::Objects(vec![])));
+        }
+        if yy != 0. && xx == 0. && xy == 0. && dx == 0. {
+            let discriminant = dy * dy - 4. * yy * k;
+            if discriminant > 0. {
+                let roots = [
+                    (-dy + discriminant.sqrt()) / (2. * yy),
+                    (-dy - discriminant.sqrt()) / (2. * yy),
+                ];
+                return Ok(Some(Shape::Lines(
+                    roots
+                        .into_iter()
+                        .map(|y| [Point2 { x: 0., y }, Point2 { x: 1., y }])
+                        .collect(),
+                )));
+            }
+        }
+        if yy != 0. || (xy == 0. && dy == 0.) {
+            return Ok(None);
+        }
+        if k == 0. && dx == 0. && xx == 0. {
+            return Ok(Some(segment(w.xmin, 0., w.xmax, 0.)?));
+        }
+        // Keep common factors intact. They can be undefined at an isolated parameter.
+        let poly = |a: f64, b: f64, c: f64| {
+            format!(
+                "(({}*{x}+{})*{x}+{})",
+                canonical(a),
+                canonical(b),
+                canonical(c)
+            )
+        };
+        let rhs = format!(
+            "({})/({}*{x}+{})",
+            poly(-xx, -dx, -k),
+            canonical(xy),
+            canonical(dy)
+        );
+        let mut bounds = vec![[w.xmin, w.xmax]];
+        if xy != 0. {
+            let pole = -dy / xy;
+            let residual = (xx * pole + dx) * pole + k;
+            if pole > w.xmin
+                && pole < w.xmax
+                && residual.abs()
+                    > 8. * f64::EPSILON * (k.abs() + (dx * pole).abs() + (xx * pole * pole).abs())
+            {
+                bounds = vec![[w.xmin, pole], [pole, w.xmax]];
+            }
+        }
+        let mut curves = vec![];
+        for range in bounds {
+            let mut curve = Parametric::new(format!("{x}+i*({rhs})"), x.into(), range, None)?;
+            curve.trace(self.snapshot, self.cancel.clone())?;
+            curves.push(Shape::Parametric(curve));
+        }
+        Ok(Some(if curves.len() == 1 {
+            curves.pop().unwrap()
+        } else {
+            Shape::Objects(curves)
+        }))
+    }
+
     pub(super) fn plane_plot(
         &mut self,
         name: &str,
@@ -71,7 +162,21 @@ impl Evaluator<'_> {
             }
             return Ok(Shape::Polyline(points));
         }
-        let expression = self.expression_text(expr, source, Some("x"))?;
+        let (x, y) = if let Some(spec) = rest.first() {
+            let (x, y) = match vector(spec)? {
+                [x, y] | [x, _, _, y] | [x, _, _, y, _, _] => (&x.kind, &y.kind),
+                _ => return Err("Invalid plot coordinates".into()),
+            };
+            let (ExprKind::Ident(x), ExprKind::Ident(y)) = (x, y) else {
+                return Err("Expected coordinate names".into());
+            };
+            (x.as_str(), y.as_str())
+        } else if name == "plotimplicit" {
+            ("x", "y")
+        } else {
+            return Err("Missing coordinate variables".into());
+        };
+        let expression = self.plane_expression(expr, source, &[x, y])?;
         if name == "plotimplicit" {
             if rest.len() > 1 {
                 return Err("Implicit plot expects an equation and optional plane bounds".into());
@@ -82,14 +187,19 @@ impl Evaluator<'_> {
             {
                 return Ok(shape);
             }
-            if let ExprKind::Binary(BinOp::Sub | BinOp::Eq, left, right) = &expr.kind
-                && ident(left, "y")
-                && !function::reads_variable(right, "y")
+            if let Ok(coefficients) = conic::terms(expr, [x, y], &mut |e| self.real(e, source))
+                && let Some(shape) = self.implicit_polynomial(coefficients, x, &window)?
             {
-                let rhs = self.expression_text(right, source, Some("x"))?;
+                return Ok(shape);
+            }
+            if let ExprKind::Binary(BinOp::Sub | BinOp::Eq, left, right) = &expr.kind
+                && ident(left, y)
+                && !function::reads_variable(right, y)
+            {
+                let rhs = self.expression_text(right, source, Some(x))?;
                 let mut curve = Parametric::new(
-                    format!("x+i*({rhs})"),
-                    "x".into(),
+                    format!("{x}+i*({rhs})"),
+                    x.into(),
                     [window.xmin, window.xmax],
                     None,
                 )?;
@@ -98,6 +208,7 @@ impl Evaluator<'_> {
             }
             let samples = native_apps::geometry_contours(
                 &expression,
+                [x, y],
                 &window,
                 self.snapshot,
                 self.cancel.clone(),
@@ -107,14 +218,6 @@ impl Evaluator<'_> {
                 paths.into_iter().map(Shape::Polyline).collect(),
             ));
         }
-        let axes = vector(rest.first().ok_or("Missing coordinate variables")?)?;
-        let (x, y) = match axes {
-            [x, y] | [x, _, _, y] | [x, _, _, y, _, _] => (&x.kind, &y.kind),
-            _ => return Err("Invalid plot coordinates".into()),
-        };
-        let (ExprKind::Ident(x), ExprKind::Ident(y)) = (x, y) else {
-            return Err("Expected coordinate names".into());
-        };
         let mut plane =
             Plane::geometry_plane(&expression, x, y, self.snapshot, self.cancel.clone())?;
         let mut eval = |x, y| numeric(plane.at_xy_value(x, y));

@@ -1362,6 +1362,13 @@ impl ImplicitRelation {
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        let (relation, source) = Self::parse(expression)?;
+        Ok(Self {
+            evaluator: Evaluator::implicit(&source, snapshot, cancel)?,
+            relation,
+        })
+    }
+    fn parse(expression: &str) -> Result<(Relation, String), String> {
         use ppl_syntax::ast::{BinOp as B, ExprKind as E};
         let (ast, diags) = ppl_syntax::parse_expression(expression);
         if diags.has_errors() {
@@ -1388,10 +1395,7 @@ impl ImplicitRelation {
             }
             _ => (Relation::Equal, expression.to_string()),
         };
-        Ok(Self {
-            evaluator: Evaluator::implicit(&source, snapshot, cancel)?,
-            relation,
-        })
+        Ok((relation, source))
     }
     fn value(&mut self, x: f64, y: f64) -> Result<Option<SurfaceValue>, String> {
         let result = self.evaluator.at_xy_value(x, y);
@@ -1561,11 +1565,16 @@ fn region_runs(
 }
 pub(super) fn geometry_contours(
     expression: &str,
+    axes: [&str; 2],
     window: &PlotWindow,
     snapshot: &ppl_vm::SessionSnapshot,
     cancel: Arc<AtomicBool>,
 ) -> Result<CurveSamples, String> {
-    let mut relation = ImplicitRelation::new(expression, snapshot, cancel.clone())?;
+    let (relation, source) = ImplicitRelation::parse(expression)?;
+    let mut relation = ImplicitRelation {
+        relation,
+        evaluator: Evaluator::geometry_plane(&source, axes[0], axes[1], snapshot, cancel.clone())?,
+    };
     if !matches!(relation.relation, Relation::Equal) {
         return Err("Implicit plot needs an equation".into());
     }

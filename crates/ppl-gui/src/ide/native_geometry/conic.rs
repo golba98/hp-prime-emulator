@@ -21,30 +21,34 @@ fn product(a: Terms, b: Terms) -> Result<Terms, String> {
     Ok(result)
 }
 
-fn contains_coordinate(e: &Expr) -> bool {
+fn contains_coordinate(e: &Expr, axes: [&str; 2]) -> bool {
     use ExprKind as E;
     match &e.kind {
-        E::Ident(n) => matches!(n.as_str(), "x" | "y"),
-        E::Unary(_, a) | E::Quoted(a) | E::Postfix(_, a) => contains_coordinate(a),
+        E::Ident(n) => axes.contains(&n.as_str()),
+        E::Unary(_, a) | E::Quoted(a) | E::Postfix(_, a) => contains_coordinate(a, axes),
         E::Binary(_, a, b) | E::ComplexPair(a, b) | E::Assign(a, b) | E::Store(a, b) => {
-            contains_coordinate(a) || contains_coordinate(b)
+            contains_coordinate(a, axes) || contains_coordinate(b, axes)
         }
         E::Index(a, args) | E::Call(a, args) => {
-            contains_coordinate(a) || args.iter().any(contains_coordinate)
+            contains_coordinate(a, axes) || args.iter().any(|arg| contains_coordinate(arg, axes))
         }
-        E::List(args) | E::Bracket(args) => args.iter().any(contains_coordinate),
+        E::List(args) | E::Bracket(args) => args.iter().any(|arg| contains_coordinate(arg, axes)),
         _ => false,
     }
 }
-fn terms(e: &Expr, real: &mut impl FnMut(&Expr) -> Result<f64, String>) -> Result<Terms, String> {
+pub(super) fn terms(
+    e: &Expr,
+    axes: [&str; 2],
+    real: &mut impl FnMut(&Expr) -> Result<f64, String>,
+) -> Result<Terms, String> {
     use ExprKind as E;
     match &e.kind {
-        E::Ident(n) if n == "x" => Ok([0., 1., 0., 0., 0., 0.]),
-        E::Ident(n) if n == "y" => Ok([0., 0., 1., 0., 0., 0.]),
-        E::Quoted(a) => terms(a, real),
-        E::Unary(UnOp::Neg, a) => Ok(terms(a, real)?.map(|n| -n)),
+        E::Ident(n) if n == axes[0] => Ok([0., 1., 0., 0., 0., 0.]),
+        E::Ident(n) if n == axes[1] => Ok([0., 0., 1., 0., 0., 0.]),
+        E::Quoted(a) => terms(a, axes, real),
+        E::Unary(UnOp::Neg, a) => Ok(terms(a, axes, real)?.map(|n| -n)),
         E::Binary(op @ (BinOp::Add | BinOp::Sub | BinOp::Eq), a, b) => {
-            let (a, b) = (terms(a, real)?, terms(b, real)?);
+            let (a, b) = (terms(a, axes, real)?, terms(b, axes, real)?);
             Ok(std::array::from_fn(|i| {
                 if *op == BinOp::Add {
                     a[i] + b[i]
@@ -53,20 +57,20 @@ fn terms(e: &Expr, real: &mut impl FnMut(&Expr) -> Result<f64, String>) -> Resul
                 }
             }))
         }
-        E::Binary(BinOp::Mul, a, b) => product(terms(a, real)?, terms(b, real)?),
+        E::Binary(BinOp::Mul, a, b) => product(terms(a, axes, real)?, terms(b, axes, real)?),
         E::Binary(BinOp::Div, a, b) => {
-            let n = terms(b, real)?;
+            let n = terms(b, axes, real)?;
             if n[0] == 0. || n[1..].iter().any(|v| *v != 0.) {
                 return Err("A conic requires a nonzero constant divisor".into());
             }
-            Ok(terms(a, real)?.map(|v| v / n[0]))
+            Ok(terms(a, axes, real)?.map(|v| v / n[0]))
         }
         E::Binary(BinOp::Pow, a, b) => {
-            let p = terms(a, real)?;
+            let p = terms(a, axes, real)?;
             if p[1..].iter().all(|v| *v == 0.) {
                 return Ok([real(e)?, 0., 0., 0., 0., 0.]);
             }
-            if contains_coordinate(b) {
+            if contains_coordinate(b, axes) {
                 return Err("A conic requires a constant exponent".into());
             }
             match real(b)? {
@@ -77,10 +81,10 @@ fn terms(e: &Expr, real: &mut impl FnMut(&Expr) -> Result<f64, String>) -> Resul
             }
         }
         E::Postfix(PostOp::Square, a) => {
-            let p = terms(a, real)?;
+            let p = terms(a, axes, real)?;
             product(p, p)
         }
-        _ if contains_coordinate(e) => Err("A conic requires a polynomial in x and y".into()),
+        _ if contains_coordinate(e, axes) => Err("A conic requires a polynomial in x and y".into()),
         _ => Ok([real(e)?, 0., 0., 0., 0., 0.]),
     }
 }
@@ -96,7 +100,7 @@ pub(super) fn build(
             &source[expression.span.start as usize..expression.span.end as usize]
         ))
     };
-    let coefficients = terms(expression, &mut real)?;
+    let coefficients = terms(expression, ["x", "y"], &mut real)?;
     if coefficients.iter().any(|n| !n.is_finite()) {
         return Err("Conic coefficients must be finite".into());
     }
