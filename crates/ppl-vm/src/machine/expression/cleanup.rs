@@ -24,13 +24,20 @@ impl Machine {
         // Only slots belonging to this expression can represent newly seen
         // Home names. Appended imported modules own independent private slots.
         for index in temporary.globals.clone() {
-            if !self.captured_globals.contains_key(&index) && self.setting_slots[index].is_none() {
+            if !self.captured_globals.contains_key(&index)
+                && self.setting_slots[index].is_none()
+                && self.retain_home_slot(index)
+            {
                 self.home_variables.insert(
                     self.prog.globals[index].name.clone(),
                     self.globals[index].clone(),
                 );
             }
         }
+        self.scoped_plot_slots
+            .retain(|index| !temporary.globals.contains(index));
+        self.legacy_plot_writes
+            .retain(|index| !temporary.globals.contains(index));
         self.captured_globals
             .retain(|index, _| !temporary.globals.contains(index));
         self.expression_scopes

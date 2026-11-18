@@ -121,6 +121,7 @@ fn gui_column_edits_are_seen_by_ppl_and_survive_memory_restore_without_eager_def
                 .unwrap();
         }
     }
+    assert_eq!(session.snapshot().statistics2_columns_revision, 10);
     let value = execute(
         &mut session,
         "column write",
@@ -128,6 +129,7 @@ fn gui_column_edits_are_seen_by_ppl_and_survive_memory_restore_without_eager_def
         "COL",
     );
     assert_eq!(json(&value), serde_json::json!([[0], [19], [9]]));
+    assert_eq!(session.snapshot().statistics2_columns_revision, 11);
     let saved = session.memory_json();
     let mut restored = SessionContext::default();
     restored.restore_memory(&saved).unwrap();
@@ -147,12 +149,18 @@ fn gui_column_edits_are_seen_by_ppl_and_survive_memory_restore_without_eager_def
         restored.snapshot().globals["C1"],
         PortableValue::List(vec![])
     );
+    assert_eq!(restored.snapshot().statistics2_columns_revision, 1);
+    restored
+        .set_variable("C1", PortableValue::List(vec![]))
+        .unwrap();
+    assert_eq!(restored.snapshot().statistics2_columns_revision, 2);
     let before = restored.memory_json();
     assert!(
         restored
             .set_variable("C1", PortableValue::String("bad".into()))
             .is_err()
     );
+    assert_eq!(restored.snapshot().statistics2_columns_revision, 2);
     assert_eq!(restored.memory_json(), before);
     let mut broken = before.clone();
     broken["globals"]["C1"] =

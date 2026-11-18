@@ -519,6 +519,13 @@ impl ExecutionController {
     ) -> Result<(), String> {
         self.session.mutate(change)
     }
+    pub fn mutate_memory_and_ui(
+        &self,
+        change: impl FnOnce(&mut ppl_vm::SessionContext) -> Result<serde_json::Value, String>,
+    ) -> Result<(), String> {
+        self.session
+            .mutate_with_ui(|memory| change(memory).map(Some))
+    }
     pub fn reserve_native_operation(&self) -> Result<super::worker::SessionLease, String> {
         self.session.reserve()
     }

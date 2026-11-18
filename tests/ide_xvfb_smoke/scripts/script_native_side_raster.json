@@ -71,6 +71,124 @@
       "path": "/tmp/ppl-ide-e2e/native_raster_clipped.png"
     },
     {
+      "step": "set_content",
+      "content": "EXPORT RASTERCONTROL() BEGIN\n  Base:=3; Bits:=32; Signed:=0;\n  RECT_P(0,0,319,239,#FFFFFFh,#FFFFFFh);\n  LOCAL x,y,out:={};\n  FOR y FROM 0 TO 3 DO\n    FOR x FROM 0 TO 4 DO\n      PIXON_P(x,y,RGB(10*x+1,20*y+3,31*(x+y)));\n    END;\n  END;\n  BLIT_P(G0,1,1,5,4,G0,0,0,3,3,RGB(11,23,62),160);\n  FOR y FROM 0 TO 3 DO\n    FOR x FROM 0 TO 4 DO\n      out:=CONCAT(out,{B→R(GETPIX_P(G0,x,y))});\n    END;\n  END;\n  RETURN out;\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "blit_alias"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_blit_alias.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_EMPTY() BEGIN LOCAL r,out:={};\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,2,1,2,3,G2); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G2),GROBH_P(G2)}});\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,1,2,3,2,G2); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G2),GROBH_P(G2)}});\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,3,3,G2); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G2),GROBH_P(G2)}});\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,2,1,1,3,G2); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G2),GROBH_P(G2)}});\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,0,0,0,2,G1); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G1),GROBH_P(G1)}});\nDIMGROB_P(G1,3,3,#FF0000h);DIMGROB_P(G2,5,2,#C00000h);\nr:=1; IFERR SUBGROB_P(G1,3,3,G2);DIMGROB_P(G2,1,1,#A00000h); THEN r:=0; END;\nout:=CONCAT(out,{{r,GROBW_P(G2),GROBH_P(G2)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "subgrob_empty"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_MESHPT"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_MESHPT() BEGIN\nRECT_P(#020406h);\nLOCAL ok,typ,r,x,y,out,zz;\nok:=1; typ:=-1; out:={};\nzz:=TRIANGLE_P();\nIFERR\nr:=LINE_P([[(0,4),(20,8935920)],[(7,4),(20,8935920)]],{{1,2}},{-1},zz);\ntyp:=TYPE(r);\nTHEN ok:=0; END;\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 8 DO\n out:=CONCAT(out,{B→R(GETPIX_P(x,y))});\nEND; END;\nRETURN {ok,typ,out,ASC(MID(zz,641,5))};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "mesh_packed_points"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_mesh_packed_points.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_DEPTHSCREEN"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_DEPTHSCREEN() BEGIN\nRECT_P(#020406h);\nLOCAL zz,tmp,x,y,out,accepted,old;\nzz:=TRIANGLE_P(); old:=zz;\naccepted:=1; out:={};\nIFERR\ntmp:=LINE_P({{0,2,32},{7,2,32}},{{1,2,#3355EEh}},{-1},zz);\ntmp:=LINE_P({{0,2,0},{7,2,80}},{{1,2,#FE7420h}},{-1},zz);\nTHEN accepted:=0; END;\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 8 DO\n out:=CONCAT(out,{B→R(GETPIX_P(x,y))});\nEND; END;\nRETURN {accepted,TYPE(tmp),out,ASC(MID(zz,321,5)),ASC(LEFT(old,1))};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "line_depth"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_line_depth.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_NDEPTHSCREEN"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_NDEPTHSCREEN() BEGIN\nRECT_P(#020406h);\nLOCAL zz,r,accepted,x,y,pixels,kind;\nzz:=TRIANGLE_P(); accepted:=1; kind:=-1; pixels:={};\nIFERR\n r:=LINE_P({{0,2,70},{7,2,70}},{{1,2,#3355EEh}},{-1},zz);\nr:=LINE_P({{0,2,-3},{7,2,37}},{{1,2,#FE7420h}},{-1,\"N\"},zz);\n kind:=TYPE(r);\nTHEN accepted:=0; END;\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 8 DO\n pixels:=CONCAT(pixels,{B→R(GETPIX_P(x,y))});\nEND; END;\nRETURN {accepted,kind,pixels,ASC(MID(zz,321,9))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "line_normalized_depth"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_line_normalized_depth.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_GROBSIZE() BEGIN STARTAPP(\"Function\");Xmin:=-2;Xmax:=6;Ymin:=-3;Ymax:=4;DIMGROB_P(G1,16,12,#113355h);RETURN {GROBW(G1),GROBH(G1),GROBW(G0),GROBH(G0),GROBW_P(G1),GROBH_P(G1),Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "grob_dimensions"
+    },
+    {
       "step": "exit"
     }
   ]

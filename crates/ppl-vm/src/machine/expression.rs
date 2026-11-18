@@ -8,6 +8,22 @@ mod cleanup;
 mod locale;
 
 impl Machine {
+    /// Geometry source executes against the live lexical frame, including
+    /// shadowing locals. These bindings are private to this worker request.
+    pub(crate) fn app_expression_snapshot(&self) -> crate::SessionSnapshot {
+        let mut snapshot = self.presentation_snapshot();
+        for (name, binding) in self.expression_bindings() {
+            let value = match binding {
+                Binding::Local(index) => self.stack[index].clone(),
+                Binding::Global(index) => self.load_global(index),
+                Binding::Home => self.home_variables[&name].clone(),
+            };
+            snapshot
+                .globals
+                .insert(name, crate::PortableValue::from(&value));
+        }
+        snapshot
+    }
     /// Visible globals in shadowing order, followed by the caller's locals.
     fn expression_bindings(&self) -> BTreeMap<String, Binding> {
         let mut bindings = self
@@ -245,6 +261,9 @@ impl Machine {
                     Op::Const(index) => Op::Const(constant_count as u32 + index),
                     Op::LoadGlobal(index) => Op::LoadGlobal(slots[index as usize]),
                     Op::StoreGlobal(index) => Op::StoreGlobal(slots[index as usize]),
+                    Op::GeometryAssignmentResult(index) => {
+                        Op::GeometryAssignmentResult(slots[index as usize])
+                    }
                     Op::StoreIndexGlobal { slot, n } => Op::StoreIndexGlobal {
                         slot: slots[slot as usize],
                         n,

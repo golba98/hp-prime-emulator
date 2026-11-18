@@ -1,0 +1,161 @@
+{
+  "provenance": "Self-authored PPL controls executed by the original virtual G1, retaining typed real, complex and zero-total signed-list STDDEV results.",
+  "cases": [
+    {
+      "name": "numeric_real_lists",
+      "entry": "ZZT_SIGNED",
+      "source": "EXPORT ZZT_SIGNED() BEGIN LOCAL R, out:={};\nR:=stddev({-1,0,1},{1.5,-.5,1.5}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({-1,0,1},{-1.5,.5,-1.5}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({-1,0,1},{2,-3,2}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({-1.25,0,1.25},{2,-3,2}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({0,1,3},{2,-.5,1}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({3,3,3},{1.5,-.5,1.5}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({1,3},{-1,-1}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({1,3},{-.5,-1.5}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({3},{-.5}); out:=CONCAT(out,{{TYPE(R),R}});\nR:=stddev({0,0},{-1.5,.5}); out:=CONCAT(out,{{TYPE(R),R}});\nRETURN out; END;",
+      "source_sha256": "ca619fb0fc79784b3aca01df8ebf5b3aa712f743bfa5121191a85048b3510090",
+      "expected": [
+        [
+          0,
+          1.09544511501
+        ],
+        [
+          0,
+          1.09544511501
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          2.5
+        ],
+        [
+          0,
+          1.54919333848
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          0.866025403784
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "numeric_complex_lists",
+      "entry": "ZZT_SIGNED",
+      "source": "EXPORT ZZT_SIGNED() BEGIN LOCAL R, out:={};\nR:=stddev({1,3},{-.5,1.5}); out:=CONCAT(out,{{TYPE(R),RE(R),IM(R)}});\nR:=stddev({-1,0,1},{1.5,-.5,0}); out:=CONCAT(out,{{TYPE(R),RE(R),IM(R)}});\nR:=stddev({0,3},{-1,4}); out:=CONCAT(out,{{TYPE(R),RE(R),IM(R)}});\nR:=stddev({1,3},{-1/3,4/3}); out:=CONCAT(out,{{TYPE(R),RE(R),IM(R)}});\nRETURN out; END;",
+      "source_sha256": "d8a3e998d25d8da7659f1887e18dda316766b9a42aa671d25c277c9e44f41792",
+      "expected": [
+        [
+          3,
+          0,
+          1.73205080757
+        ],
+        [
+          3,
+          0,
+          0.866025403784
+        ],
+        [
+          3,
+          0,
+          2
+        ],
+        [
+          3,
+          0,
+          1.33333333333
+        ]
+      ]
+    },
+    {
+      "name": "zero_total_lists",
+      "entry": "ZZT_SIGNED",
+      "source": "EXPORT ZZT_SIGNED() BEGIN LOCAL R, out:={};\nR:=stddev({1,3},{-.5,.5}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({3,3},{-.5,.5}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1.5,2.5},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({0,0},{-.5,.5}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1,3},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({3,3},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({-1,0,1},{1,-2,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1,3},{-1.0,1.0}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;",
+      "source_sha256": "f1af3f35754eeec4b8527c3bb74077d8772114fe7532aaed02005ce5a5120bc1",
+      "expected": [
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "desktop_signed",
+      "entry": "ZZT_SIGNED",
+      "source": "EXPORT ZZT_SIGNED() BEGIN\nLOCAL r:=stddev({-1,0,1},{1.5,-.5,1.5}), z:=stddev({1,3},{-.5,1.5}), u:=stddev({1,3},{-1,1}), w:=stddev({1,3},{-.5,.5});\nRETURN {TYPE(r),r,ROUND(r,10),TYPE(approx(r)),TYPE(z),RE(z),IM(z),ROUND(IM(z),10),TYPE(u),STRING(u),TYPE(w),w};\nEND;",
+      "source_sha256": "3160c7985b4b3ac37120376191f08931f29cb8454c4e3725b1e8fed8bf9ce2e8",
+      "expected": [
+        0,
+        1.09544511501,
+        1.095445115,
+        0,
+        3,
+        0,
+        1.73205080757,
+        1.7320508076,
+        8,
+        "undef",
+        2,
+        "Undefined"
+      ]
+    },
+    {
+      "name": "complex_mode",
+      "entry": "ZZT_STDMODE",
+      "source": "EXPORT ZZT_STDMODE() BEGIN\nLOCAL mode, v, results:={};\nFOR mode FROM 0 TO 1 DO\n HComplex:=10+mode;\n IFERR v:=stddev({1,3},{-.5,1.5});\n  results:=CONCAT(results,{{HComplex,TYPE(v),RE(v),IM(v)}});\n THEN results:=CONCAT(results,{{HComplex,\"error\"}}); END;\nEND;\nRETURN results;\nEND;",
+      "source_sha256": "615fd9524a645c6497a853b0bd5f8c22d3bc3c27b87d341596ad8bc9f9c4a492",
+      "expected": [
+        [
+          10,
+          3,
+          0,
+          1.73205080757
+        ],
+        [
+          11,
+          3,
+          0,
+          1.73205080757
+        ]
+      ]
+    }
+  ]
+}

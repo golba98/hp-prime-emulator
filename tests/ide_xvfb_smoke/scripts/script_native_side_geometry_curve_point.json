@@ -1,0 +1,378 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_curve_point.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOCURVES",
+      "content": "EXPORT GEOCURVES() BEGIN\n STARTAPP(\"Geometry\");Geometry.DelInstruction();\n Geometry.Instruction(0):=\"point(0,0)\";\n Geometry.Instruction(0):=\"point(4,0)\";\n Geometry.Instruction(0):=\"segment(GA,GB)\";\n Geometry.Instruction(0):=\"circle(point(6,4),2)\";\n STARTVIEW(1,1);\n RETURN {abscissa(element(Geometry.GC,1/4)),EXPR(\"ordinate(element(Geometry.GD,π/2))\")};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOCURVEEDIT",
+      "content": "EXPORT GEOCURVEEDIT() BEGIN STARTAPP(\"Geometry\");Geometry.Instruction(2):=\"point(8,0)\";STARTVIEW(1,1);RETURN {abscissa(Geometry.GE),ordinate(Geometry.GE),abscissa(Geometry.GF),ordinate(Geometry.GF),Geometry.Instruction(5),Geometry.Instruction(6)};END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOCURVERESTORE",
+      "content": "EXPORT GEOCURVERESTORE() BEGIN STARTAPP(\"Geometry\");RETURN {abscissa(Geometry.GE),ordinate(Geometry.GE),abscissa(Geometry.GF),ordinate(Geometry.GF),Geometry.Instruction(5),Geometry.Instruction(6)};END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOCURVES()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "prepared"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_curve_point_prepared.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 65,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 181,
+      "y": 109
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "segment_point"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_curve_point_segment_point.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 181,
+      "y": 109
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 181,
+      "from_y": 109,
+      "to_x": 190,
+      "to_y": 102
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "dragged_on_segment"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_curve_point_dragged_on_segment.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 65,
+      "y": 71
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 69
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "circle_point"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_curve_point_circle_point.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOCURVEEDIT()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "dependency_redraw"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/geometry_curve_point_dependency_redraw.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -1,0 +1,864 @@
+{
+  "provenance": "Self-authored PPL executed on isolated original virtual HP Prime G1 revision15751. Source checksums and returned strings are genuine controls; modal error text and displayed fit equations were inspected in actual original framebuffers. No physical device and no proprietary image/font bytes. Native curve segment counts are not firmware-returned counts.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "firmware_elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "initial_profile_window": [
+    -1.8,
+    30,
+    -1.8,
+    20
+  ],
+  "first_linear": {
+    "x": [
+      1,
+      2,
+      3
+    ],
+    "y": [
+      3,
+      5,
+      7
+    ],
+    "frequency": "blank",
+    "before_plot": [
+      -1.8,
+      30,
+      -1.8,
+      20
+    ],
+    "after_startview_1_1": [
+      -1.8,
+      30,
+      -1.8,
+      20
+    ],
+    "after_autoscale": [
+      0.940020898642,
+      3.06666666666,
+      2.86666666666,
+      7.13333333333
+    ]
+  },
+  "median_median_cases": [
+    {
+      "case": "median_fresh_blank_n3_do2",
+      "observations": 3,
+      "x": [
+        1,
+        2,
+        3
+      ],
+      "y": [
+        3,
+        5,
+        7
+      ],
+      "frequency": {
+        "kind": "blank"
+      },
+      "expected_success": true,
+      "control": "median_fresh_blank_n3_do2"
+    },
+    {
+      "case": "median_fresh_column_ones_n3_do2",
+      "observations": 3,
+      "x": [
+        1,
+        2,
+        3
+      ],
+      "y": [
+        3,
+        5,
+        7
+      ],
+      "frequency": {
+        "kind": "column",
+        "values": [
+          1,
+          1,
+          1
+        ]
+      },
+      "expected_success": false,
+      "control": "median_fresh_column_ones_n3_do2"
+    },
+    {
+      "case": "median_original_weight_column_n3",
+      "observations": 3,
+      "x": [
+        1,
+        2,
+        3
+      ],
+      "y": [
+        3,
+        5,
+        7
+      ],
+      "frequency": {
+        "kind": "column",
+        "values": [
+          1,
+          2,
+          1
+        ]
+      },
+      "expected_success": false,
+      "control": "median_original_weight_column_n3"
+    },
+    {
+      "case": "median_scalar_one_n3",
+      "observations": 3,
+      "x": [
+        1,
+        2,
+        3
+      ],
+      "y": [
+        3,
+        5,
+        7
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "1"
+      },
+      "expected_success": false,
+      "control": "median_scalar_one_n3"
+    },
+    {
+      "case": "median_scalar_two_n3",
+      "observations": 3,
+      "x": [
+        1,
+        2,
+        3
+      ],
+      "y": [
+        3,
+        5,
+        7
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "2"
+      },
+      "expected_success": false,
+      "control": "median_scalar_two_n3"
+    },
+    {
+      "case": "median_n4_blank",
+      "observations": 4,
+      "x": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "frequency": {
+        "kind": "blank"
+      },
+      "expected_success": true,
+      "control": "median_n4_blank"
+    },
+    {
+      "case": "median_n4_column",
+      "observations": 4,
+      "x": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "frequency": {
+        "kind": "column",
+        "values": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "expected_success": false,
+      "control": "median_n4_column"
+    },
+    {
+      "case": "median_n4_scalar1",
+      "observations": 4,
+      "x": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "1"
+      },
+      "expected_success": false,
+      "control": "median_n4_scalar1"
+    },
+    {
+      "case": "median_n4_scalar2",
+      "observations": 4,
+      "x": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "2"
+      },
+      "expected_success": false,
+      "control": "median_n4_scalar2"
+    },
+    {
+      "case": "median_n5_blank",
+      "observations": 5,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "frequency": {
+        "kind": "blank"
+      },
+      "expected_success": true,
+      "control": "median_n5_blank"
+    },
+    {
+      "case": "median_n5_column",
+      "observations": 5,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "frequency": {
+        "kind": "column",
+        "values": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "expected_success": false,
+      "control": "median_n5_column"
+    },
+    {
+      "case": "median_n5_scalar1",
+      "observations": 5,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "1"
+      },
+      "expected_success": false,
+      "control": "median_n5_scalar1"
+    },
+    {
+      "case": "median_n5_scalar2",
+      "observations": 5,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "2"
+      },
+      "expected_success": false,
+      "control": "median_n5_scalar2"
+    },
+    {
+      "case": "median_n6_blank",
+      "observations": 6,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13
+      ],
+      "frequency": {
+        "kind": "blank"
+      },
+      "expected_success": true,
+      "control": "median_n6_blank"
+    },
+    {
+      "case": "median_n6_column",
+      "observations": 6,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13
+      ],
+      "frequency": {
+        "kind": "column",
+        "values": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "expected_success": false,
+      "control": "median_n6_column"
+    },
+    {
+      "case": "median_n6_scalar1",
+      "observations": 6,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "1"
+      },
+      "expected_success": false,
+      "control": "median_n6_scalar1"
+    },
+    {
+      "case": "median_n6_scalar2",
+      "observations": 6,
+      "x": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "y": [
+        3,
+        5,
+        7,
+        9,
+        11,
+        13
+      ],
+      "frequency": {
+        "kind": "scalar",
+        "source": "2"
+      },
+      "expected_success": false,
+      "control": "median_n6_scalar2"
+    }
+  ],
+  "invalid_five": {
+    "x": [
+      1,
+      2,
+      3
+    ],
+    "y": [
+      3,
+      5,
+      7
+    ],
+    "frequency_values": [
+      1,
+      2,
+      1
+    ],
+    "fits": [
+      "Linear",
+      "Power",
+      "Inverse",
+      "MedianMedian",
+      "Linear"
+    ],
+    "frequency_columns": [
+      "C3",
+      "C3",
+      "C3",
+      "C3",
+      "C3"
+    ],
+    "error_analysis": 4,
+    "actual_plot_modal": "S4 - Error: Invalid input",
+    "setup_control": "five_analyses_before_plot",
+    "plot_control": "five_analyses_startview_plot",
+    "autoscale_result_valid": false
+  },
+  "valid_five_s4_blank": {
+    "x": [
+      1,
+      2,
+      3
+    ],
+    "y": [
+      3,
+      5,
+      7
+    ],
+    "frequency_values": [
+      1,
+      2,
+      1
+    ],
+    "fits": [
+      "Linear",
+      "Power",
+      "Inverse",
+      "MedianMedian",
+      "Linear"
+    ],
+    "frequency_columns": [
+      "C3",
+      "C3",
+      "C3",
+      null,
+      "C3"
+    ],
+    "counts": [
+      4,
+      4,
+      4,
+      3,
+      4
+    ],
+    "fit_equations": [
+      "2*X+1",
+      "2.97467245314*X^0.765768215133",
+      "-5.33333333333/X+8.11111111111",
+      "2*X+1",
+      "2*X+1"
+    ],
+    "after_startview_1_1": [
+      -1.8,
+      30,
+      -1.8,
+      20
+    ],
+    "after_autoscale": [
+      0.62781648619,
+      3.38084082304,
+      2.2383183539,
+      7.76168164609
+    ],
+    "setup_control": "corrected_five_s4_blank_before_plot",
+    "plot_control": "corrected_five_s4_blank_startview_plot",
+    "autoscale_control": "corrected_five_s4_blank_autoscale",
+    "intentional_correction": "Only S4 frequency is cleared; the original invalid all-five-weighted case remains independently recorded."
+  },
+  "controls": [
+    {
+      "case": "start_two_fresh",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN STARTAPP(\"Statistics 2Var\"); RETURN 1; END;",
+      "source_sha256": "e605b57bbbaf7a625cc115193896508da136fa1a1435ba18972cc5c371b65a1e",
+      "accepted": true,
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "fresh_two_window_definitions",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1,S2,S3,S4,S5}); END;",
+      "source_sha256": "f4cf737303f6421d1a925c6658a40aca658d7207997f01057db8f7e802a9fb44",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",1,\"\",#FF:24h,1,#FF:24h},{\"\",\"\",\"\",1,\"\",#FF0000:24h,2,#FF0000:24h},{\"\",\"\",\"\",1,\"\",#8000:24h,3,#8000:24h},{\"\",\"\",\"\",1,\"\",#FFA500:24h,4,#FFA500:24h},{\"\",\"\",\"\",1,\"\",#800080:24h,5,#800080:24h}}"
+    },
+    {
+      "case": "first_two_dataset_before_plot",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN C1:={1,2,3}; C2:={3,5,7}; C3:={1,2,1}; RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1}); END;",
+      "source_sha256": "f2e1fc043d7f4e6b2a52069840b89a8e0d56f3c4089780b7173c986c65831c30",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",1,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "first_two_startview_plot",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN STARTVIEW(1,1); RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1}); END;",
+      "source_sha256": "22b977a17a52fadd3c8c9d2f51833d053294238c48033147de07aaf0c9ef974a",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",1,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "first_two_explicit_autoscale",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN STARTVIEW(9); RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1}); END;",
+      "source_sha256": "4fdf8a3d0399f3c9bb4587122c8eefa28655433676ab4cb829d2383e850e0bff",
+      "accepted": true,
+      "success": true,
+      "result": "{0.940020898642,3.06666666666,2.86666666666,7.13333333333,{'C1','C2',\"\",1,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "five_analyses_before_plot",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN S1:={'C1','C2','C3',1}; S2:={'C1','C2','C3',4}; S3:={'C1','C2','C3',6}; S4:={'C1','C2','C3',12}; S5:={'C1','C2','C3',1}; CHECK(1);CHECK(2);CHECK(3);CHECK(4);CHECK(5);Xmin:=-1.8;Xmax:=30;Ymin:=-1.8;Ymax:=20; RETURN STRING({Xmin,Xmax,Ymin,Ymax,{ISCHECK(1),ISCHECK(2),ISCHECK(3),ISCHECK(4),ISCHECK(5)},S1,S2,S3,S4,S5}); END;",
+      "source_sha256": "50d5b65d7eca0934e68874b97058228a934efd470022ca88a6c9dba7834bdc7d",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{1,1,1,1,1},{'C1','C2','C3',1,\"\",#FF:24h,1,#FF:24h},{'C1','C2','C3',4,\"\",#FF0000:24h,2,#FF0000:24h},{'C1','C2','C3',6,\"\",#8000:24h,3,#8000:24h},{'C1','C2','C3',12,\"\",#FFA500:24h,4,#FFA500:24h},{'C1','C2','C3',1,\"\",#800080:24h,5,#800080:24h}}"
+    },
+    {
+      "case": "five_analyses_startview_plot",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN STARTVIEW(1,1); RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1(5),S2(5),S3(5),S4(5),S5(5)}); END;",
+      "source_sha256": "fe64c1f0bdf0f139dc5a121efce25f2d78627cd26f33a0730f084b4bad6ab318",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,'2*X+1','2.97467245314*X^0.765768215133','-5.33333333333/X+8.11111111111',\"\",\"\"}"
+    },
+    {
+      "case": "median_median_blank_frequency_control",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN UNCHECK(1);UNCHECK(2);UNCHECK(3);UNCHECK(5); S4(3):=\"\";CHECK(4); STARTVIEW(1,1); RETURN STRING({Xmin,Xmax,Ymin,Ymax,S4}); END;",
+      "source_sha256": "239f4260a0e07344930911f796ce0c627095752c171ee2f94aefce047cbcc6b9",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",12,'2*X+1',#FFA500:24h,4,#FFA500:24h}}"
+    },
+    {
+      "case": "median_median_unit_column_frequency",
+      "session": "window",
+      "source": "EXPORT STATREF() BEGIN C3:={1,1,1};S4(3):='C3';CHECK(4); STARTVIEW(1,1); RETURN STRING({S4,Xmin,Xmax,Ymin,Ymax}); END;",
+      "source_sha256": "b7368dbda324ca2cf09a04ace9fca06a39d9d1c81990988feb1eb79a616f3c2d",
+      "accepted": true,
+      "success": true,
+      "result": "{{'C1','C2','C3',12,'2*X+1',#FFA500:24h,4,#FFA500:24h},−1.8,30,−1.8,20}"
+    },
+    {
+      "case": "median_fresh_app",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN STARTAPP(\"Statistics 2Var\"); RETURN 1; END;",
+      "source_sha256": "e605b57bbbaf7a625cc115193896508da136fa1a1435ba18972cc5c371b65a1e",
+      "accepted": true,
+      "success": true,
+      "result": "1"
+    },
+    {
+      "case": "median_fresh_blank_n3_do2",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3};C2:={3,5,7};S1(4):=12;S1(3):=\"\";CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "e00c8f97ca3d924163353b439da3732f964adbf84158eb6ddf32359b3b5a85f3",
+      "accepted": true,
+      "success": true,
+      "result": "{1,{'C1','C2',\"\",12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_fresh_column_ones_n3_do2",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1; C3:={1,1,1};S1(3):='C3';CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "c4ecfcd5fca832335600ed8201a192c687ae037ca4a99236a49bc4662a6666d0",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','C3',12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_scalar_one_n3",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1; C1:={1,2,3};C2:={3,5,7};C3:={1,2,1};S1(3):=1;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "b0f37ace9c86495f0ae0dd156a53f32d1ade3c704c970e89c4454d49e050506a",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','1',12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_scalar_two_n3",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1; C1:={1,2,3};C2:={3,5,7};C3:={1,2,1};S1(3):=2;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "9622280eee8b021265781f95a2e38240092e27c46715a67e1b90feac64f42340",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','2',12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_original_weight_column_n3",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1; C1:={1,2,3};C2:={3,5,7};C3:={1,2,1};S1(3):='C3';CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "02d14bb6747c65fc6d453d1f410bf977b4abd2889c8449fddf84e8e4c97ca24d",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','C3',12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_blank_reset_n3",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;S1(3):=\"\";CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "4f1a11c920fec27803f974140afc49ffb918c66cce53bd10feaae1998f4a0e18",
+      "accepted": true,
+      "success": true,
+      "result": "{1,{'C1','C2',\"\",12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n4_blank",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4};C2:={3,5,7,9};C3:={1,1,1,1};S1(4):=12;S1(3):=\"\";CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "c68aaa9726916cf717b644cb5fdfeb7a7650bb82463e8618a22952e2190e0758",
+      "accepted": true,
+      "success": true,
+      "result": "{1,{'C1','C2',\"\",12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n4_scalar1",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4};C2:={3,5,7,9};C3:={1,1,1,1};S1(4):=12;S1(3):=1;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "036cadd08a24941e6a2cf1f95b3829d5e9ccfdb2cbf75346ce4b5e98070cce04",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','1',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n4_scalar2",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4};C2:={3,5,7,9};C3:={1,1,1,1};S1(4):=12;S1(3):=2;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "6fd3e0f6f296c052d4826b0dcecba3bdd4ad8a85cceddb6ceb4e39fa6d95760a",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','2',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n4_column",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4};C2:={3,5,7,9};C3:={1,1,1,1};S1(4):=12;S1(3):='C3';CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "3405b39162ab67566e60761ae778cf562c8fb5afefb34963fae46d9a9102a1fa",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','C3',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n5_blank",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5};C2:={3,5,7,9,11};C3:={1,1,1,1,1};S1(4):=12;S1(3):=\"\";CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "4af38b2741548606e849ff3cd71c4f2886a7d5d3f08d3871c7e29e5fcf04d498",
+      "accepted": true,
+      "success": true,
+      "result": "{1,{'C1','C2',\"\",12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n5_scalar1",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5};C2:={3,5,7,9,11};C3:={1,1,1,1,1};S1(4):=12;S1(3):=1;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "73ed3b9ab6197d33421498e8d0f458f51a1fb00820085f65e97ca8d440ecb807",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','1',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n5_scalar2",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5};C2:={3,5,7,9,11};C3:={1,1,1,1,1};S1(4):=12;S1(3):=2;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "7e1eb7b3a481031961758bfcd76b9a0a0a4c383e046a340b73eb2ad50cef3ff7",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','2',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n5_column",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5};C2:={3,5,7,9,11};C3:={1,1,1,1,1};S1(4):=12;S1(3):='C3';CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "b08e1f4f3d548795eb984554431d4897e031e25f69c523f165814b4743e78bb1",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','C3',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n6_blank",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5,6};C2:={3,5,7,9,11,13};C3:={1,1,1,1,1,1};S1(4):=12;S1(3):=\"\";CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "cdcc001369361acb501cf05f5fbfab1c5cbfac62c5f99219531c89be10ead5d5",
+      "accepted": true,
+      "success": true,
+      "result": "{1,{'C1','C2',\"\",12,'2*X+1',#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n6_scalar1",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5,6};C2:={3,5,7,9,11,13};C3:={1,1,1,1,1,1};S1(4):=12;S1(3):=1;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "833401be0ca17dee6c6a537d27f438ad790248ec4b6942beb950de92f88cfd99",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','1',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n6_scalar2",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5,6};C2:={3,5,7,9,11,13};C3:={1,1,1,1,1,1};S1(4):=12;S1(3):=2;CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "dd0c0b01d64d8eab3f1ac0304f05e37cc8427d60408513dc00bca164e26b5317",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','2',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "median_n6_column",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN LOCAL ok:=1;C1:={1,2,3,4,5,6};C2:={3,5,7,9,11,13};C3:={1,1,1,1,1,1};S1(4):=12;S1(3):='C3';CHECK(1);IFERR Do2VStats(S1);THEN ok:=0;END;RETURN STRING({ok,S1});END;",
+      "source_sha256": "a57ae34660ee256ee941a46500a60890575c6c80e96da45759b9e27174637612",
+      "accepted": true,
+      "success": true,
+      "result": "{0,{'C1','C2','C3',12,\"\",#FF:24h,1,#FF:24h}}"
+    },
+    {
+      "case": "corrected_five_s4_blank_before_plot",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN C1:={1,2,3};C2:={3,5,7};C3:={1,2,1};S1:={'C1','C2','C3',1};S2:={'C1','C2','C3',4};S3:={'C1','C2','C3',6};S4:={'C1','C2',\"\",12};S5:={'C1','C2','C3',1};CHECK(1);CHECK(2);CHECK(3);CHECK(4);CHECK(5);Xmin:=-1.8;Xmax:=30;Ymin:=-1.8;Ymax:=20;RETURN STRING({Xmin,Xmax,Ymin,Ymax,S4});END;",
+      "source_sha256": "121d91b96a07db7a37daf16009dfee991e8032042f7fbdbc158354efba05bcba",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",12,\"\",#FFA500:24h,4,#FFA500:24h}}"
+    },
+    {
+      "case": "corrected_five_s4_blank_startview_plot",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN STARTVIEW(1,1);RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1(5),S2(5),S3(5),S4(5),S5(5)});END;",
+      "source_sha256": "007cce9faa2d3f2360235b2aa09c4f491bc16a18142a04442088a5f2c6b76400",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,'2*X+1','2.97467245314*X^0.765768215133','-5.33333333333/X+8.11111111111','2*X+1','2*X+1'}"
+    },
+    {
+      "case": "corrected_five_s4_blank_autoscale",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN STARTVIEW(9);RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1(5),S2(5),S3(5),S4(5),S5(5)});END;",
+      "source_sha256": "04221ee336bf2f5a50d24b93a98ea2c8b1fe79936047285260ebace57e2eff63",
+      "accepted": true,
+      "success": true,
+      "result": "{0.62781648619,3.38084082304,2.23831835390,7.76168164609,'2*X+1','2.97467245314*X^0.765768215133','-5.33333333333/X+8.11111111111','2*X+1','2*X+1'}"
+    },
+    {
+      "case": "corrected_five_restore_wide_window",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN Xmin:=-1.8;Xmax:=30;Ymin:=-1.8;Ymax:=20;STARTVIEW(1,1);RETURN STRING({Xmin,Xmax,Ymin,Ymax});END;",
+      "source_sha256": "0b3aa25f55da1e5a779064651db875f787cd4f6628379b2eaaf833f55eb079de",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20}"
+    },
+    {
+      "case": "two_factory_app_reset_window",
+      "session": "median",
+      "source": "EXPORT STATREF() BEGIN STARTAPP(\"Statistics 2Var\");RETURN STRING({Xmin,Xmax,Ymin,Ymax,S1,SIZE(C1),SIZE(C2)});END;",
+      "source_sha256": "f803b9c74e9545c0b6d7dab45a858aaccb6270722c7bba1ada50b8628cfee592",
+      "accepted": true,
+      "success": true,
+      "result": "{−1.8,30,−1.8,20,{'C1','C2',\"\",1,\"\",#FF:24h,1,#FF:24h},0,0}"
+    }
+  ],
+  "factory_reset_window": [
+    -1.8,
+    30,
+    -1.8,
+    20
+  ],
+  "factory_reset_control": "two_factory_app_reset_window",
+  "factory_reset_ui": "Application Library: selected Statistics2Var, Reset, Yes; then STARTAPP and getter control",
+  "limits": [
+    "The five analyses with all Frequency fieldsC3 produce a genuine S4 Invalidinput modal; no Autoscale bounds are claimed for that invalid configuration.",
+    "The corrected five analysis control intentionally changes only S4 Frequency toblank; all XY observations and other frequencies remain unchanged.",
+    "Scalar frequencies are original reference cases only; current Native TwoAnalysis represents only blank or column frequency.",
+    "Weighted median regression remains available in the general math library; the measured restriction belongs to the Statistics application."
+  ]
+}

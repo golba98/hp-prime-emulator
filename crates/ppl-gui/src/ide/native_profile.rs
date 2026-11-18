@@ -95,7 +95,18 @@ impl NativeProfile {
         Ok((Self { inner }, state))
     }
     pub fn update(&self, key: &str, value: Value) {
-        self.inner.pending.lock().unwrap_or_else(|e| e.into_inner())[key] = value;
+        self.update_fields([(key, value)]);
+    }
+    pub(super) fn update_memory_and_ui(&self, memory: Value, ui: Value) {
+        self.update_fields([("memory", memory), ("ui", ui)]);
+    }
+    fn update_fields<'a>(&self, fields: impl IntoIterator<Item = (&'a str, Value)>) {
+        {
+            let mut pending = self.inner.pending.lock().unwrap_or_else(|e| e.into_inner());
+            for (key, value) in fields {
+                pending[key] = value;
+            }
+        }
         let _ = self.inner.tx.try_send(Message::Changed);
     }
     pub fn error(&self) -> Option<String> {

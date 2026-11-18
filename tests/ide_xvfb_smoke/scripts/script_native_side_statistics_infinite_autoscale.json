@@ -1,0 +1,243 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_infinite_autoscale.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "new_program",
+      "name": "STATSBOUND"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN STARTAPP(\"Statistics 1Var\"); D1:={1,2,4}; D2:={100,200,400}; SetSample(H1,D1); SetSample(H2,D2); SetFreq(H1,2); SetFreq(H2,2); H1(3):=1; H2(3):=1; RETURN 1; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "data_set"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 5,
+      "y": 110
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "both_checked"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "initial_plot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/initial_plot_finite.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 20,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 50,
+      "y": 141
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "interactive_autoscale"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/interactive_autoscale_error.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN STARTVIEW(9); RETURN {Xmin,Xmax,STRING(Ymin),STRING(Ymax),TYPE(Ymin),TYPE(Ymax),Hmin,Hmax,Hwidth}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "programmatic_autoscale"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/programmatic_autoscale_range.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "infinite_setup"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/infinite_setup_shown.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 58,
+      "y": 185
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "-3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 188,
+      "from_y": 172,
+      "to_x": 188,
+      "to_y": 236
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 225
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "setup_applied"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN RETURN {Xmin,Xmax,STRING(Ymin),STRING(Ymax),TYPE(Ymin),TYPE(Ymax),Hmin,Hmax,Hwidth}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "one_bound_edited"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

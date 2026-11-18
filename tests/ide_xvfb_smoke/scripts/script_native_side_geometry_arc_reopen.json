@@ -1,0 +1,25 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_arc_reopen.json",
+  "steps": [
+    {"step":"backend","engine":"native"},
+    {"step":"layout","mode":"calculator"},
+    {"step":"calculator_mode","mode":"screen"},
+    {"step":"native_home"},
+    {"step":"calc_focus"},
+    {"step":"wait_ms","ms":140},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":140},
+    {"step":"native_home"},
+    {"step":"calc_focus"},
+    {"step":"key","key":"A","command":true},
+    {"step":"wait_ms","ms":100},
+    {"step":"type","text":"GEOARCVALUES()"},
+    {"step":"key","key":"Enter"},
+    {"step":"wait_ms","ms":140},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":140},
+    {"step":"snapshot","label":"reopened"},
+    {"step":"window_screenshot","path":"/tmp/ppl-ide-e2e/geometry_arc_reopened.png"},
+    {"step":"exit"}
+  ]
+}

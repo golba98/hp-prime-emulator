@@ -22,28 +22,126 @@ use crate::builtins::{self, Builtin, Status};
 use crate::bytecode::*;
 use crate::catalog::{self, CatalogKind};
 
+fn stddev_numeric_entry(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Number(_) => true,
+        ExprKind::Unary(UnOp::Neg, operand) => stddev_numeric_entry(operand),
+        ExprKind::Binary(BinOp::Add | BinOp::Sub, left, right) => {
+            stddev_numeric_entry(left) && stddev_numeric_entry(right)
+        }
+        _ => false,
+    }
+}
+
+fn stddev_matrix_cells(rows: &[Expr]) -> Option<(usize, Vec<&Expr>)> {
+    let (first, remaining) = rows.split_first()?;
+    let ExprKind::Bracket(first) = &first.kind else {
+        return None;
+    };
+    let cols = first.len();
+    let mut cells = Vec::from_iter(first);
+    for row in remaining {
+        let ExprKind::Bracket(row) = &row.kind else {
+            return None;
+        };
+        if row.len() != cols {
+            return None;
+        }
+        cells.extend(row);
+    }
+    Some((cols, cells))
+}
+
+fn stddev_literal_weight(expr: &Expr) -> Option<Real> {
+    match &expr.kind {
+        ExprKind::Number(source) => Real::parse(source),
+        ExprKind::Unary(UnOp::Neg, operand) => match &operand.kind {
+            ExprKind::Number(source) => Some(Real::parse(source)?.neg()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 fn is_app_variable(name: &str) -> bool {
     // App qualifiers are case sensitive. Additional app namespaces require
     // their own verified variable contract; ordinary dotted functions and CAS
     // continue through the existing resolution paths.
-    name.strip_prefix("Spreadsheet.")
-        .is_some_and(|field| !field.is_empty() && !field.contains('.'))
+    name.strip_prefix("Geometry.")
+        .is_some_and(crate::geometry::is_variable)
+        || name
+            .strip_prefix("Spreadsheet.")
+            .is_some_and(|field| !field.is_empty() && !field.contains('.'))
         || name.strip_prefix("Function.").is_some_and(is_function_slot)
+        || name.strip_prefix("Graph_3D.").is_some_and(is_graph3d_slot)
+        || [
+            "Function.",
+            "Parametric.",
+            "Polar.",
+            "Sequence.",
+            "Statistics_1Var.",
+            "Statistics_2Var.",
+        ]
+        .iter()
+        .any(|prefix| name.strip_prefix(prefix).is_some_and(is_plot_variable))
         || name
             .strip_prefix("Statistics_1Var.")
-            .is_some_and(is_statistics_slot)
+            .is_some_and(|field| is_statistics_slot(field) || is_statistics_column(field))
+}
+
+fn is_plot_variable(name: &str) -> bool {
+    matches!(
+        name,
+        "Xmin"
+            | "Xmax"
+            | "Ymin"
+            | "Ymax"
+            | "Xtick"
+            | "Ytick"
+            | "Axes"
+            | "GridDots"
+            | "GridLines"
+            | "Labels"
+            | "Hmin"
+            | "Hmax"
+            | "Hwidth"
+    )
+}
+
+fn is_statistics_column(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'D' && bytes[1].is_ascii_digit()
 }
 
 fn app_access_name(name: &str) -> String {
-    name.strip_prefix("Statistics_1Var.").map_or_else(
-        || name.to_owned(),
-        |field| format!("Statistics 1Var.{field}"),
-    )
+    if is_graph3d_slot(name) {
+        return format!("Graph 3D.{name}");
+    }
+    for (prefix, app) in [
+        ("Graph_3D.", "Graph 3D"),
+        ("Statistics_1Var.", "Statistics 1Var"),
+        ("Statistics_2Var.", "Statistics 2Var"),
+    ] {
+        if let Some(field) = name.strip_prefix(prefix) {
+            return format!("{app}.{field}");
+        }
+    }
+    name.to_owned()
 }
 
 fn is_function_slot(name: &str) -> bool {
     let bytes = name.as_bytes();
     bytes.len() == 2 && bytes[0] == b'F' && bytes[1].is_ascii_digit()
+}
+
+fn is_graph3d_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 3 && bytes.starts_with(b"FZ") && bytes[2].is_ascii_digit()
+}
+
+fn is_statistics_two_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'S' && (b'1'..=b'5').contains(&bytes[1])
 }
 
 fn is_statistics_slot(name: &str) -> bool {
@@ -94,7 +192,15 @@ impl Default for CompileOptions {
 }
 
 pub fn compile(program: &Program, opts: &CompileOptions) -> (Option<CompiledProgram>, Diagnostics) {
-    let mut c = Compiler::new(opts.clone(), &program.punctuation);
+    compile_with_source(program, opts, None)
+}
+
+pub(crate) fn compile_with_source(
+    program: &Program,
+    opts: &CompileOptions,
+    source: Option<&str>,
+) -> (Option<CompiledProgram>, Diagnostics) {
+    let mut c = Compiler::new(opts.clone(), &program.punctuation, source);
     c.collect(program);
     c.compile_items(program);
     let has_errors = c.diags.has_errors();
@@ -148,6 +254,7 @@ struct LocalInfo {
 struct Compiler<'a> {
     opts: CompileOptions,
     punctuation: &'a [Punctuation],
+    source: Option<&'a str>,
     diags: Diagnostics,
     consts: Vec<Const>,
     globals: Vec<GlobalSlot>,
@@ -198,6 +305,9 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
     let plot_default = match name.to_ascii_lowercase().as_str() {
         "xmin" | "ymin" => Some("-10"),
         "xmax" | "ymax" => Some("10"),
+        "xtick" | "ytick" | "hwidth" => Some("1"),
+        "hmin" | "axes" | "griddots" | "gridlines" | "labels" => Some("0"),
+        "hmax" => Some("24"),
         "tmin" => Some("0"),
         "nmin" => Some("1"),
         "nmax" => Some("100"),
@@ -252,6 +362,15 @@ fn canonical_system_name(name: &str) -> String {
         "xmax" => "Xmax".into(),
         "ymin" => "Ymin".into(),
         "ymax" => "Ymax".into(),
+        "xtick" => "Xtick".into(),
+        "ytick" => "Ytick".into(),
+        "axes" => "Axes".into(),
+        "griddots" => "GridDots".into(),
+        "gridlines" => "GridLines".into(),
+        "labels" => "Labels".into(),
+        "hmin" => "Hmin".into(),
+        "hmax" => "Hmax".into(),
+        "hwidth" => "Hwidth".into(),
         "numstart" => "NumStart".into(),
         "numstep" => "NumStep".into(),
         "numzoom" => "NumZoom".into(),
@@ -280,10 +399,11 @@ fn canonical_system_name(name: &str) -> String {
 }
 
 impl<'a> Compiler<'a> {
-    fn new(opts: CompileOptions, punctuation: &'a [Punctuation]) -> Self {
+    fn new(opts: CompileOptions, punctuation: &'a [Punctuation], source: Option<&'a str>) -> Self {
         Compiler {
             opts,
             punctuation,
+            source,
             diags: Diagnostics::default(),
             consts: Vec::new(),
             globals: Vec::new(),
@@ -1046,6 +1166,12 @@ impl<'a> Compiler<'a> {
                     self.cur.emit(Op::Dup, span);
                 }
                 self.store(v, target.span);
+                if want_value
+                    && crate::geometry::is_plot_field(name)
+                    && let VarRef::Global(slot) = v
+                {
+                    self.cur.emit(Op::GeometryAssignmentResult(slot), span);
+                }
             }
             ExprKind::Call(base, idx) | ExprKind::Index(base, idx) => {
                 let ExprKind::Ident(name) = &base.kind else {
@@ -1357,7 +1483,13 @@ impl<'a> Compiler<'a> {
     /// Their app is selected at execution, including in a qualified outer call.
     fn is_app_access(&self, name: &str) -> bool {
         is_app_variable(name)
-            || ((is_function_slot(name) || is_statistics_slot(name))
+            || ((is_function_slot(name)
+                || is_graph3d_slot(name)
+                || is_statistics_slot(name)
+                || is_statistics_two_slot(name)
+                || (crate::geometry::is_variable(name)
+                    && system_global(name).is_none()
+                    && builtins::lookup_case_insensitive(name).is_none()))
                 && !self.scopes.iter().any(|scope| scope.contains_key(name))
                 && !self.global_map.contains_key(name)
                 && !self.fn_map.contains_key(name)
@@ -1553,6 +1685,64 @@ impl<'a> Compiler<'a> {
         None
     }
 
+    fn geometry_argument(&mut self, expression: &Expr, captures: &mut u8) -> Expr {
+        use ExprKind as E;
+        let mut result = expression.clone();
+        if let E::Call(callee, args) | E::Index(callee, args) = &expression.kind {
+            let native = matches!(&callee.kind, E::Ident(name) if crate::geometry::is_function_call(name, args.len())
+                && !self.fn_map.contains_key(name) && !self.opts.external_functions.contains_key(name)
+                && !self.scopes.iter().any(|scope| scope.contains_key(name)));
+            if !native {
+                if *captures >= 250 {
+                    self.error(
+                        "invalid-geometry-expression",
+                        expression.span,
+                        "Too many Geometry argument calls",
+                    );
+                    return result;
+                }
+                let name = format!("__GeometryArgument{}", *captures);
+                *captures += 1;
+                self.constant(Const::Str(name.clone()), expression.span);
+                self.expr(expression);
+                self.cur.emit(Op::MakeList(2), expression.span);
+                result.kind = E::Ident(name);
+                return result;
+            }
+        }
+        match &mut result.kind {
+            E::Call(_, args) | E::Index(_, args) | E::List(args) | E::Bracket(args) => {
+                for arg in args {
+                    *arg = self.geometry_argument(arg, captures);
+                }
+            }
+            E::Unary(_, e) | E::Postfix(_, e) | E::Quoted(e) => {
+                **e = self.geometry_argument(e, captures)
+            }
+            E::Binary(_, a, b) | E::ComplexPair(a, b) => {
+                **a = self.geometry_argument(a, captures);
+                **b = self.geometry_argument(b, captures);
+            }
+            E::Assign(..) | E::Store(..) => {
+                if *captures >= 250 {
+                    self.error(
+                        "invalid-geometry-expression",
+                        expression.span,
+                        "Too many Geometry argument calls",
+                    );
+                    return result;
+                }
+                let name = format!("__GeometryArgument{}", *captures);
+                *captures += 1;
+                self.constant(Const::Str(name.clone()), expression.span);
+                self.expr(expression);
+                self.cur.emit(Op::MakeList(2), expression.span);
+                result.kind = E::Ident(name);
+            }
+            _ => {}
+        }
+        result
+    }
     fn call(&mut self, callee: &Expr, args: &[Expr], span: Span) {
         let ExprKind::Ident(name) = &callee.kind else {
             // `L(1)(2)`: index the result.
@@ -1636,6 +1826,26 @@ impl<'a> Compiler<'a> {
                 },
                 span,
             );
+            return;
+        }
+        if crate::geometry::is_function_call(name, args.len()) {
+            let mut captures = 0;
+            let args = args
+                .iter()
+                .map(|arg| self.geometry_argument(arg, &mut captures))
+                .collect();
+            let expression = Expr {
+                kind: ExprKind::Call(Box::new(callee.clone()), args),
+                span,
+            };
+            match crate::ppl_expression_source(&expression) {
+                Ok(source) => self.constant(Const::Symbolic(source), span),
+                Err(error) => {
+                    self.error("invalid-geometry-expression", span, error.to_string());
+                    self.cur.emit(Op::Zero, span);
+                }
+            }
+            self.app_variable("Geometry.__Expression", captures + 1, false, span);
             return;
         }
         if let Some(function) = name.strip_prefix("CAS.") {
@@ -1784,12 +1994,24 @@ impl<'a> Compiler<'a> {
             }.into());
         }
         match spec.builtin {
-            Builtin::Do1VStats | Builtin::SetSample | Builtin::SetFreq
+            Builtin::Do1VStats | Builtin::Do2VStats | Builtin::SetSample | Builtin::SetFreq
                 if spec.accepts(args.len()) => {
                 // Firmware stores the argument syntax, including local names,
                 // without evaluating its list arithmetic or scalar frequency.
-                for argument in args {
-                    match crate::ppl_expression_source(argument) {
+                for (index, argument) in args.iter().enumerate() {
+                    let captured = crate::ppl_expression_source(argument).map(|canonical| {
+                        // Parentheses distinguish a scalar frequency expression from
+                        // a literal on the original calculator. AST printing erases them.
+                        if spec.builtin == Builtin::SetFreq && index == 1 {
+                            self.source
+                                .and_then(|source| source.get(argument.span.start as usize..argument.span.end as usize))
+                                .map(str::to_owned)
+                                .unwrap_or(canonical)
+                        } else {
+                            canonical
+                        }
+                    });
+                    match captured {
                         Ok(source) => self.constant(Const::Symbolic(source), argument.span),
                         Err(error) => {
                             self.error("invalid-app-expression", argument.span, error.to_string());
@@ -1841,6 +2063,11 @@ impl<'a> Compiler<'a> {
                 self.cur.emit(Op::CasCall { assignment, source }, span);
             }
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
+            Builtin::Stddev if name == "stddev" => {
+                if !self.signed_collection_stddev(args, span) {
+                    self.builtin(spec.builtin, args, span);
+                }
+            }
             // Firmware EDITMAT writes back bare M0–M9 names, even when
             // locally declared. Other local names are value expressions.
             Builtin::Editmat | Builtin::Editlist
@@ -1872,6 +2099,103 @@ impl<'a> Compiler<'a> {
             },
             span,
         );
+    }
+
+    fn signed_collection_stddev(&mut self, args: &[Expr], span: Span) -> bool {
+        let [data, weights] = args else {
+            return false;
+        };
+        let ExprKind::Bracket(data_entries) = &data.kind else {
+            return false;
+        };
+        let weights_kind = &weights.kind;
+        let (observations, weight_entries, shape) =
+            if let Some((cols, observations)) = stddev_matrix_cells(data_entries) {
+                let ExprKind::Bracket(weight_rows) = weights_kind else {
+                    return false;
+                };
+                let Some((weight_cols, weight_entries)) = stddev_matrix_cells(weight_rows) else {
+                    return false;
+                };
+                if (data_entries.len(), cols) != (weight_rows.len(), weight_cols)
+                    || observations
+                        .iter()
+                        .all(|entry| matches!(entry.kind, ExprKind::Number(_)))
+                {
+                    return false;
+                }
+                (
+                    observations,
+                    weight_entries,
+                    Some([1, data_entries.len(), cols]),
+                )
+            } else {
+                let encoded = data_entries
+                    .iter()
+                    .any(|entry| !matches!(entry.kind, ExprKind::Number(_)));
+                let weight_entries = match weights_kind {
+                    ExprKind::List(entries) if !encoded => entries,
+                    ExprKind::Bracket(entries) if encoded => entries,
+                    _ => return false,
+                };
+                (
+                    data_entries.iter().collect(),
+                    weight_entries.iter().collect(),
+                    encoded.then_some([0, 1, data_entries.len()]),
+                )
+            };
+        if observations.len() != weight_entries.len()
+            || !observations.iter().all(|entry| stddev_numeric_entry(entry))
+        {
+            return false;
+        }
+        let Some(frequencies) = weight_entries
+            .iter()
+            .map(|entry| stddev_literal_weight(entry))
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        if !frequencies.iter().any(|value| value.is_negative()) {
+            return false;
+        }
+
+        // The original uses its weighted list calculation for these inputs.
+        // Encoded vectors and matrices include their shape before their cells.
+        // Integral, nonzero totals can yield symbolic values and stay outside
+        // this numeric path.
+        let shape_weight = shape.map_or(0, |shape| shape.into_iter().sum::<usize>());
+        let fractional = frequencies.iter().any(|value| !value.is_integer());
+        let zero_total = frequencies
+            .iter()
+            .try_fold(shape_weight as i128, |total, value| {
+                total.checked_add(value.to_i128()?)
+            })
+            == Some(0);
+        if !fractional && !zero_total {
+            return false;
+        }
+
+        for (operand, entries) in [(data, observations), (weights, weight_entries)] {
+            if let Some(shape) = shape {
+                for dimension in shape {
+                    self.constant(Const::Real(Real::from_u64(dimension as u64)), operand.span);
+                }
+            }
+            let count = entries.len() + shape.map_or(0, |fields| fields.len());
+            for entry in entries {
+                self.expr(entry);
+            }
+            self.cur.emit(Op::MakeList(count as u32), operand.span);
+        }
+        self.cur.emit(
+            Op::Builtin {
+                id: Builtin::Stddev,
+                argc: 2,
+            },
+            span,
+        );
+        true
     }
 
     fn unsupported(&mut self, name: &str, argc: usize, span: Span) {

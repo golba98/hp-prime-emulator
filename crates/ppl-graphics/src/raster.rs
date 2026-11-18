@@ -170,6 +170,56 @@ pub(crate) fn span(grob: &mut Grob, x1: i128, x2: i128, y: i128, color: Color) {
     }
 }
 
+/// Pair integer-row crossings with half-open edges and spans.
+pub(crate) fn polygon(
+    grob: &mut Grob,
+    vertices: &[(i64, i64)],
+    color: Color,
+    mut cancelled: impl FnMut() -> bool,
+) -> bool {
+    if vertices.len() < 3 || color >> 24 == 255 || grob.width() == 0 {
+        return true;
+    }
+    let top = vertices.iter().map(|vertex| vertex.1).min().unwrap().max(0);
+    let bottom = vertices
+        .iter()
+        .map(|vertex| vertex.1)
+        .max()
+        .unwrap()
+        .min(grob.height() as i64);
+    let edges: Vec<_> = vertices
+        .iter()
+        .copied()
+        .zip(vertices.iter().copied().cycle().skip(1))
+        .filter(|(a, b)| a.1 != b.1)
+        .map(|(a, b)| if a.1 < b.1 { (a, b) } else { (b, a) })
+        .collect();
+    let mut crossings = Vec::with_capacity(edges.len());
+    for y in top..bottom {
+        if cancelled() {
+            return false;
+        }
+        crossings.clear();
+        let y = i128::from(y);
+        for &((x0, y0), (x1, y1)) in &edges {
+            let (y0, y1) = (i128::from(y0), i128::from(y1));
+            if y0 <= y && y < y1 {
+                let height = y1 - y0;
+                // The coefficients sum to the edge height. The full weighted
+                // numerator therefore fits in i128 even for i64 coordinates.
+                let x = i128::from(x0) * (y1 - y) + i128::from(x1) * (y - y0);
+                let ceiling = x.div_euclid(height) + i128::from(x.rem_euclid(height) != 0);
+                crossings.push(ceiling);
+            }
+        }
+        crossings.sort_unstable();
+        for pair in crossings.chunks_exact(2) {
+            span(grob, pair[0], pair[1] - 1, y, color);
+        }
+    }
+    true
+}
+
 /// Rectangle borders and interior are disjoint: transparency is applied once
 /// per pixel, including corners and degenerate rows/columns. Clip the work,
 /// retaining original border coordinates so clipping never creates an edge.
@@ -186,5 +236,25 @@ pub(crate) fn rectangle(grob: &mut Grob, a: (i64, i64), b: (i64, i64), edge: Col
                 line_point(grob, right, y, edge);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod polygon_tests {
+    use super::*;
+
+    #[test]
+    fn polygon_clips_full_i64_edges_and_stops_at_a_visible_row() {
+        let lo = i64::MIN;
+        let hi = i64::MAX;
+        let points = [(lo, lo), (hi, lo), (hi, hi), (lo, hi)];
+        let mut grob = Grob::new(3, 3, crate::WHITE);
+        let mut scanned = 0;
+        assert!(!grob.calculator_polygon(&points, crate::BLACK, || {
+            scanned += 1;
+            scanned == 2
+        }));
+        assert_eq!(&grob.pixels()[..3], &[crate::BLACK; 3]);
+        assert_eq!(&grob.pixels()[3..], &[crate::WHITE; 6]);
     }
 }

@@ -7,6 +7,9 @@ use crate::ide::{
     native_geometry::{self as geo, Book, Object, Point2, Scene, Shape},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+
+const TRACE_MENU: usize = 8;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Cursor {
@@ -26,19 +29,43 @@ pub struct Draft {
 #[derive(Default)]
 pub(super) struct Panel {
     pixels: Vec<u32>,
+    plot_minified: bool,
     texture: Option<egui::TextureHandle>,
     menu: Option<Menu>,
     tool: Option<Command>,
+    command_text: CommandText,
     args: Vec<String>,
     selected: Option<String>,
     hover: Option<String>,
     pub(super) refresh: bool,
     busy: bool,
     drag: Option<String>,
+    drag_trace: VecDeque<Point2>,
     angle_turn: f64,
     pub(super) memory_revision: Option<u64>,
     pub(super) scene_generation: Option<u64>,
     pub(super) live_context: Option<(u64, ppl_vm::SessionSnapshot)>,
+    settings: Option<ppl_vm::GeometryPlotSettings>,
+    setup_index: usize,
+}
+#[derive(Default)]
+struct CommandText {
+    source: Option<String>,
+    automatic: bool,
+    started: f64,
+    offset: f32,
+}
+impl CommandText {
+    fn update(&mut self, source: Option<String>, automatic: bool, now: f64) {
+        if self.source != source || self.automatic != automatic {
+            *self = Self {
+                source,
+                automatic,
+                started: now,
+                offset: 0.,
+            };
+        }
+    }
 }
 #[derive(Clone, Copy)]
 struct Menu {
@@ -49,10 +76,34 @@ struct Menu {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Need {
     Point,
+    PointOnCurve,
     Line,
     Circle,
     Shape,
     Curve,
+}
+impl Need {
+    fn accepts(self, command: Command, shape: &Shape) -> bool {
+        match self {
+            Self::Point | Self::PointOnCurve => matches!(shape, Shape::Point(_)),
+            Self::Line => matches!(shape, Shape::Line { .. }),
+            Self::Circle => matches!(shape, Shape::Circle { .. } | Shape::Arc(_)),
+            Self::Curve => {
+                matches!(
+                    shape,
+                    Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
+                ) || command.function == "element" && matches!(shape, Shape::Function { .. })
+            }
+            Self::Shape => matches!(
+                shape,
+                Shape::Line { .. }
+                    | Shape::Circle { .. }
+                    | Shape::Arc(_)
+                    | Shape::Ellipse(_)
+                    | Shape::Polygon(_)
+            ),
+        }
+    }
 }
 #[derive(Debug, Clone, Copy)]
 struct Command {
@@ -60,11 +111,25 @@ struct Command {
     function: &'static str,
     needs: &'static [Need],
 }
+impl Command {
+    fn pick_filter(self) -> Option<Need> {
+        match self.function {
+            "element" => Some(Need::Curve),
+            "tangent" => Some(Need::PointOnCurve),
+            _ => None,
+        }
+    }
+}
 const POINTS: &[Command] = &[
     Command {
         label: "Point",
         function: "point",
         needs: &[],
+    },
+    Command {
+        label: "Point On",
+        function: "element",
+        needs: &[Need::Curve],
     },
     Command {
         label: "Midpoint",
@@ -109,6 +174,11 @@ const LINES: &[Command] = &[
         needs: &[Need::Point, Need::Line],
     },
     Command {
+        label: "Tangent",
+        function: "tangent",
+        needs: &[Need::PointOnCurve],
+    },
+    Command {
         label: "Perpendicular bisector",
         function: "perpen_bisector",
         needs: &[Need::Point, Need::Point],
@@ -148,6 +218,16 @@ const CURVES: &[Command] = &[
     Command {
         label: "Incircle",
         function: "incircle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Function Graph",
+        function: "plotfunc",
+        needs: &[],
+    },
+    Command {
+        label: "Ellipse",
+        function: "ellipse",
         needs: &[Need::Point, Need::Point, Need::Point],
     },
 ];
@@ -230,10 +310,151 @@ fn commands(category: usize) -> &'static [Command] {
         _ => &[],
     }
 }
+const SETUP_FIELDS: [&str; 10] = [
+    "Xmin",
+    "Ymin",
+    "PixSize",
+    "Xtick",
+    "Ytick",
+    "Axes",
+    "Labels",
+    "GridDots",
+    "GridLines",
+    "ScrollText",
+];
+fn point_source(p: Point2) -> String {
+    format!("point({},{})", geo::canonical(p.x), geo::canonical(p.y))
+}
 impl NativeTools {
+    pub fn geometry_settings_for_legacy_window(
+        window: &crate::ide::native_apps::PlotWindow,
+    ) -> Result<ppl_vm::GeometryPlotSettings, String> {
+        window.validate()?;
+        let pixel = ((window.xmax - window.xmin) / 318.).max((window.ymax - window.ymin) / 218.);
+        if !pixel.is_finite() || pixel <= 0.001 || pixel > 10000. {
+            return Err(
+                "Saved Geometry window has an unsupported pixel scale; original window retained"
+                    .into(),
+            );
+        }
+        let cx = window.xmin / 2. + window.xmax / 2.;
+        let cy = window.ymin / 2. + window.ymax / 2.;
+        let mut settings = ppl_vm::GeometryPlotSettings {
+            axes: !window.axes,
+            ..Default::default()
+        };
+        for (name, value) in [
+            ("Xmin", cx - 160. * pixel),
+            ("Ymin", cy - 110. * pixel),
+            ("PixSize", pixel),
+        ] {
+            let value = ppl_math::Real::from_f64(value).map_err(|e| e.to_string())?;
+            // Migration must preserve the old camera, rather than silently
+            // clamping its minima to a different location.
+            if name != "PixSize" && value.abs() > ppl_math::Real::from_i64(10000) {
+                return Err("Saved Geometry window is outside the scoped camera range; original window retained".into());
+            }
+            settings
+                .set(name, &ppl_vm::Value::Real(value))
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(settings)
+    }
+    pub fn geometry_settings_changed(&mut self, settings: &ppl_vm::GeometryPlotSettings) {
+        if self.geometry_panel.settings.as_ref() == Some(settings) {
+            return;
+        }
+        let bounds = settings.derived_bounds();
+        let axes = !settings.axes;
+        self.memory.model_windows.insert(
+            "Geometry".into(),
+            crate::ide::native_apps::PlotWindow {
+                xmin: bounds[0].to_f64(),
+                xmax: bounds[1].to_f64(),
+                ymin: bounds[2].to_f64(),
+                ymax: bounds[3].to_f64(),
+                axes,
+                ..Default::default()
+            },
+        );
+        self.geometry_panel.settings = Some(settings.clone());
+        self.geometry_panel.refresh = true;
+        if self
+            .model_job
+            .as_ref()
+            .is_some_and(|job| job.name == "Geometry")
+        {
+            self.model_job = None;
+        }
+        self.memory.models.results.remove("Geometry:plot");
+        self.dirty();
+    }
+    pub fn geometry_plot_configuration(&self) -> Option<ppl_vm::GeometryPlotSettings> {
+        self.geometry_panel.settings.clone()
+    }
+    pub fn geometry_plot_field_source(&self, name: &str) -> String {
+        self.geometry_panel
+            .settings
+            .clone()
+            .unwrap_or_default()
+            .get(name)
+            .map(|v| v.string_form(ppl_vm::value::default_format()))
+            .unwrap_or_default()
+    }
+    fn geometry_setup_activate(&mut self) -> Vec<Request> {
+        let index = self.geometry_panel.setup_index;
+        let name = SETUP_FIELDS[index];
+        if index < 5 {
+            return vec![Request::EditMath(MathTarget::GeometryPlotField(
+                name.into(),
+            ))];
+        }
+        let mut settings = self.geometry_panel.settings.clone().unwrap_or_default();
+        let value = settings.get(name).unwrap().expect_real(name).unwrap();
+        if let Err(error) = settings.set(name, &ppl_vm::Value::from_bool(value.is_zero())) {
+            self.error = Some(error.to_string());
+            return vec![];
+        }
+        self.geometry_queue_configuration(settings);
+        vec![]
+    }
+    fn geometry_queue_configuration(&mut self, settings: ppl_vm::GeometryPlotSettings) {
+        self.geometry_settings_changed(&settings);
+        self.pending_actions
+            .retain(|request| !matches!(request, Request::GeometryPlotConfiguration(_)));
+        self.pending_actions
+            .push(Request::GeometryPlotConfiguration(settings));
+    }
+    fn geometry_zoom(&mut self, factor: f64) {
+        let settings = self.geometry_panel.settings.clone().unwrap_or_default();
+        let result = (|| {
+            let cursor = self
+                .memory
+                .geometry_cursor
+                .pointer
+                .map(ppl_math::Real::from_f64);
+            let cursor = [
+                cursor[0].map_err(|e| e.to_string())?,
+                cursor[1].map_err(|e| e.to_string())?,
+            ];
+            settings
+                .zoom(
+                    cursor,
+                    ppl_math::Real::from_f64(factor).map_err(|e| e.to_string())?,
+                )
+                .map_err(|e| e.to_string())
+        })();
+        match result {
+            Ok(settings) => self.geometry_queue_configuration(settings),
+            Err(error) => self.error = Some(error),
+        }
+    }
     pub fn is_geometry_page(&self) -> bool {
         self.memory.selected_app == "Geometry"
-            && matches!(self.page, Some(Page::Plot | Page::Symbolic | Page::Numeric))
+            && matches!(
+                self.page,
+                Some(Page::Plot | Page::PlotSetup | Page::Symbolic | Page::Numeric)
+            )
     }
     pub fn geometry_apply_context(&mut self, context: &ppl_vm::SessionSnapshot, committed: u64) {
         if context.active_app != "Geometry" {
@@ -246,7 +467,7 @@ impl NativeTools {
         self.memory.models.results.remove("Geometry:plot");
         self.geometry_panel.refresh = true;
     }
-    fn geometry_context(&mut self, snapshot: &ppl_vm::SessionSnapshot) -> ppl_vm::SessionSnapshot {
+    pub(super) fn geometry_sync_context(&mut self, snapshot: &ppl_vm::SessionSnapshot) {
         if self.geometry_panel.memory_revision != Some(snapshot.generation) {
             self.geometry_panel.memory_revision = Some(snapshot.generation);
             self.geometry_panel.live_context = None;
@@ -255,6 +476,9 @@ impl NativeTools {
             self.memory.models.results.remove("Geometry:plot");
             self.geometry_panel.refresh = true;
         }
+    }
+    fn geometry_context(&mut self, snapshot: &ppl_vm::SessionSnapshot) -> ppl_vm::SessionSnapshot {
+        self.geometry_sync_context(snapshot);
         self.geometry_panel
             .live_context
             .as_ref()
@@ -262,7 +486,32 @@ impl NativeTools {
             .map_or_else(|| snapshot.clone(), |(_, context)| context.clone())
     }
     pub fn geometry_busy(&mut self, busy: bool) {
+        if busy
+            && !self.geometry_panel.busy
+            && self
+                .model_job
+                .as_ref()
+                .is_some_and(|job| job.name == "Geometry")
+        {
+            // A view refresh started before PPL owns the session must not
+            // replace current values between two app-access requests. Explicit
+            // STARTAPP/STARTVIEW redraws start after this transition and are
+            // awaited by their caller.
+            self.model_job = None;
+            self.geometry_panel.refresh = true;
+        }
         self.geometry_panel.busy = busy;
+    }
+    pub fn reset_geometry(&mut self, settings: &ppl_vm::GeometryPlotSettings) {
+        self.memory.models.geometry = Default::default();
+        self.memory.models.geometry_book = Some(Book::default());
+        self.memory.geometry_cursor = Default::default();
+        self.memory.geometry_legacy_window = None;
+        self.geometry_panel = Default::default();
+        self.pending_actions
+            .retain(|request| !matches!(request, Request::GeometryPlotConfiguration(_)));
+        self.geometry_settings_changed(settings);
+        self.geometry_changed();
     }
     pub fn geometry_changed(&mut self) {
         self.memory.geometry_draft = None;
@@ -369,6 +618,20 @@ impl NativeTools {
         }
     }
     pub fn geometry_text(&mut self, text: &str) -> Option<Vec<Request>> {
+        if self.is_geometry_page() && self.page == Some(Page::PlotSetup) {
+            if self.geometry_panel.busy {
+                return Some(vec![]);
+            }
+            if self.geometry_panel.setup_index < 5 {
+                return Some(vec![
+                    Request::EditMath(MathTarget::GeometryPlotField(
+                        SETUP_FIELDS[self.geometry_panel.setup_index].into(),
+                    )),
+                    Request::TypeText(text.into()),
+                ]);
+            }
+            return Some(vec![]);
+        }
         if !self.is_geometry_page() {
             return None;
         }
@@ -394,6 +657,11 @@ impl NativeTools {
             _ => (0..=6).collect(),
         }
     }
+    fn trace_selected(&self, book: &Book, scene: Option<&Scene>) -> bool {
+        self.geometry_panel.selected.as_deref().is_some_and(|name| {
+            book.can_move_point(name) && scene.is_some_and(|scene| scene.is_point(name))
+        })
+    }
     fn geometry_menu_items(&self, category: Option<usize>) -> Vec<String> {
         match category {
             None => self
@@ -413,6 +681,27 @@ impl NativeTools {
             ]
             .map(str::to_owned)
             .to_vec(),
+            Some(TRACE_MENU) => {
+                let object = self.memory.models.geometry_book.as_ref().and_then(|book| {
+                    book.objects.iter().find(|object| {
+                        self.geometry_panel.selected.as_deref() == Some(&object.name)
+                    })
+                });
+                let mut items = vec!["Start Trace".into()];
+                if let Some(object) = object.filter(|object| object.traced) {
+                    items[0] = "Stop Trace".into();
+                    items.push(
+                        if object.trace_connected {
+                            "Show Trace Dots"
+                        } else {
+                            "Connect Trace"
+                        }
+                        .into(),
+                    );
+                }
+                items.push("Clear Trace".into());
+                items
+            }
             Some(0) => ["In", "Out", "Auto Scale", "Decimal"]
                 .map(str::to_owned)
                 .to_vec(),
@@ -430,6 +719,25 @@ impl NativeTools {
         }
         let category = menu.category.unwrap();
         self.geometry_panel.menu = None;
+        if category == TRACE_MENU {
+            if let Some(name) = self.geometry_panel.selected.as_deref()
+                && let Some(object) = self
+                    .memory
+                    .models
+                    .geometry_book
+                    .as_mut()
+                    .and_then(|book| book.objects.iter_mut().find(|object| object.name == name))
+            {
+                match menu.index {
+                    0 => object.traced = !object.traced,
+                    1 if object.traced => object.trace_connected = !object.trace_connected,
+                    1 | 2 => object.trace_samples.clear(),
+                    _ => {}
+                }
+                self.geometry_changed();
+            }
+            return vec![];
+        }
         if category == 7 {
             let book = self.memory.models.geometry_book.as_mut().unwrap();
             if let Some(index) = book
@@ -455,19 +763,17 @@ impl NativeTools {
             return vec![];
         }
         if category == 0 {
-            let mut w = self.trace_window();
             match menu.index {
-                0 => w.zoom(0.5),
-                1 => w.zoom(2.),
+                0 => self.geometry_zoom(0.5),
+                1 => self.geometry_zoom(2.),
                 2 => {
                     self.geometry_panel.refresh = true;
                     self.auto_scale_pending = true;
                     self.dirty();
                     return vec![];
                 }
-                _ => w = geo::default_window(),
+                _ => self.geometry_queue_configuration(ppl_vm::GeometryPlotSettings::default()),
             }
-            self.memory.model_windows.insert("Geometry".into(), w);
             self.geometry_panel.refresh = true;
             self.dirty();
             return vec![];
@@ -475,6 +781,23 @@ impl NativeTools {
         let Some(command) = commands(category).get(menu.index).copied() else {
             return vec![];
         };
+        if self.page == Some(Page::Plot) && command.function == "plotfunc" {
+            self.geometry_panel.tool = None;
+            self.geometry_panel.args.clear();
+            let name = self
+                .memory
+                .models
+                .geometry_book
+                .as_ref()
+                .unwrap()
+                .next_name();
+            self.dirty();
+            return vec![Request::EditMath(MathTarget::GeometryObject {
+                name,
+                preset: Some("plotfunc()".into()),
+                insert: None,
+            })];
+        }
         if self.page == Some(Page::Plot) && category != 6 {
             self.geometry_panel.tool = Some(command);
             self.geometry_panel.args.clear();
@@ -486,11 +809,82 @@ impl NativeTools {
         self.dirty();
         vec![]
     }
-    fn geometry_confirm(&mut self) -> Vec<Request> {
-        let p = Point2 {
+    fn construction_pointer(&self) -> Point2 {
+        Point2 {
             x: self.memory.geometry_cursor.pointer[0],
             y: self.memory.geometry_cursor.pointer[1],
-        };
+        }
+    }
+    fn geometry_hovered_operand<'a>(
+        &self,
+        command: Command,
+        p: Point2,
+        scene: Option<&'a Scene>,
+    ) -> Option<(String, &'a Shape)> {
+        let scene = scene?;
+        let hit = if let Some(filter) = command.pick_filter() {
+            let w = self.trace_window();
+            view::hit(
+                scene,
+                self.memory.models.geometry_book.as_ref()?,
+                view::project(p, &w),
+                &w,
+                Some(filter),
+            )
+        } else {
+            self.geometry_panel.hover.clone()
+        }?;
+        let object = scene.objects.iter().find(|object| object.name == hit)?;
+        Some((hit, object.value.as_ref().ok()?))
+    }
+    fn geometry_command_source(
+        &self,
+        command: Command,
+        args: &[String],
+        p: Point2,
+        scene: Option<&Scene>,
+    ) -> Result<String, String> {
+        Ok(match (command.function, args) {
+            ("point", _) => point_source(p),
+            ("element", [curve]) => {
+                return scene.ok_or("Select a curve")?.point_on_source(curve, p);
+            }
+            ("single_inter", [a, b]) => format!("single_inter({a},{b},{})", point_source(p)),
+            ("circle", [center, edge]) => format!("circle({center},{edge}-{center})"),
+            ("rotation", [shape, center]) => {
+                let angle = match self.geometry_panel.angle_turn {
+                    360. => "90",
+                    400. => "100",
+                    _ => "π/2",
+                };
+                format!("rotation({shape},{angle},{center})")
+            }
+            ("homothety", [shape, center]) => format!("homothety({shape},2,{center})"),
+            (name, _) => format!("{name}({})", args.join(",")),
+        })
+    }
+    fn geometry_command_preview(&self, scene: Option<&Scene>) -> Option<String> {
+        let command = self.geometry_panel.tool?;
+        let p = self.construction_pointer();
+        let mut args: Vec<_> = self
+            .geometry_panel
+            .args
+            .iter()
+            .map(|n| format!("G{n}"))
+            .collect();
+        if let Some(need) = command.needs.get(args.len()) {
+            if let Some((name, shape)) = self.geometry_hovered_operand(command, p, scene)
+                && need.accepts(command, shape)
+            {
+                args.push(format!("G{name}"));
+            } else if *need == Need::Point {
+                args.push(point_source(p));
+            }
+        }
+        self.geometry_command_source(command, &args, p, scene).ok()
+    }
+    fn geometry_confirm(&mut self) -> Vec<Request> {
+        let p = self.construction_pointer();
         if let Some(command) = self.geometry_panel.tool {
             if command.function == "point" {
                 self.geometry_add_point(p);
@@ -502,26 +896,14 @@ impl NativeTools {
                 return vec![];
             };
             let scene = self.geometry_scene();
-            let hovered = self.geometry_panel.hover.clone().and_then(|name| {
-                scene
-                    .as_ref()?
-                    .objects
-                    .iter()
-                    .find(|o| o.name == name)
-                    .map(|o| (name.clone(), o.value.clone()))
-            });
-            let name = if let Some((name, Ok(shape))) = hovered {
-                let matches = match need {
-                    Need::Point => matches!(shape, Shape::Point(_)),
-                    Need::Line => matches!(shape, Shape::Line { .. }),
-                    Need::Circle => matches!(shape, Shape::Circle { .. }),
-                    Need::Curve => matches!(shape, Shape::Line { .. } | Shape::Circle { .. }),
-                    Need::Shape => matches!(
-                        shape,
-                        Shape::Line { .. } | Shape::Circle { .. } | Shape::Polygon(_)
-                    ),
-                };
-                if !matches {
+            let hovered = self.geometry_hovered_operand(command, p, scene.as_ref());
+            if *need == Need::PointOnCurve && hovered.is_none() {
+                self.error = Some("Select a point on a curve".into());
+                self.dirty();
+                return vec![];
+            }
+            let name = if let Some((name, shape)) = hovered {
+                if !need.accepts(command, shape) {
                     self.error = Some(format!("Select a {need:?}"));
                     return vec![];
                 }
@@ -543,33 +925,16 @@ impl NativeTools {
                     .iter()
                     .map(|n| format!("G{n}"))
                     .collect::<Vec<_>>();
-                let source = if command.function == "single_inter" {
-                    format!(
-                        "single_inter({},{},point({},{}))",
-                        args[0],
-                        args[1],
-                        geo::canonical(p.x),
-                        geo::canonical(p.y)
-                    )
-                } else if command.function == "circle" {
-                    format!("circle({},{}-{})", args[0], args[1], args[0])
-                } else if command.function == "rotation" {
-                    format!(
-                        "rotation({},{},{})",
-                        args[0],
-                        match self.geometry_panel.angle_turn {
-                            360. => "90",
-                            400. => "100",
-                            _ => "π/2",
-                        },
-                        args[1]
-                    )
-                } else if command.function == "homothety" {
-                    format!("homothety({},2,{})", args[0], args[1])
-                } else {
-                    format!("{}({})", command.function, args.join(","))
-                };
+                let source = self.geometry_command_source(command, &args, p, scene.as_ref());
                 self.geometry_panel.args.clear();
+                let source = match source {
+                    Ok(source) => source,
+                    Err(error) => {
+                        self.error = Some(error);
+                        self.dirty();
+                        return vec![];
+                    }
+                };
                 let name = self
                     .memory
                     .models
@@ -609,7 +974,7 @@ impl NativeTools {
         let name = book.next_name();
         book.objects.push(Object {
             name: name.clone(),
-            source: format!("point({},{})", geo::canonical(p.x), geo::canonical(p.y)),
+            source: point_source(p),
             ..Default::default()
         });
         self.geometry_changed();
@@ -642,6 +1007,29 @@ impl NativeTools {
         if matches!(action, A::Home | A::Tool(_)) {
             return None;
         }
+        if self.page == Some(Page::PlotSetup) {
+            match action {
+                A::History(d) => {
+                    self.geometry_panel.setup_index =
+                        (self.geometry_panel.setup_index as i64 + i64::from(d))
+                            .rem_euclid(SETUP_FIELDS.len() as i64) as usize
+                }
+                A::Edit(E::Left(_)) => {
+                    self.geometry_panel.setup_index =
+                        (self.geometry_panel.setup_index + SETUP_FIELDS.len() - 1)
+                            % SETUP_FIELDS.len()
+                }
+                A::Edit(E::Right(_)) => {
+                    self.geometry_panel.setup_index =
+                        (self.geometry_panel.setup_index + 1) % SETUP_FIELDS.len()
+                }
+                A::Evaluate => return Some(self.geometry_setup_activate()),
+                A::Back | A::On => self.close(),
+                _ => {}
+            }
+            self.dirty();
+            return Some(vec![]);
+        }
         if let Some(mut menu) = self.geometry_panel.menu {
             match action {
                 A::History(d) => {
@@ -673,23 +1061,21 @@ impl NativeTools {
         }
         if self.page == Some(Page::Plot) {
             let w = self.trace_window();
+            let old_pointer = self.memory.geometry_cursor.pointer;
             match action {
                 A::Evaluate => return Some(self.geometry_confirm()),
                 A::History(d) => {
                     self.memory.geometry_cursor.pointer[1] -=
-                        f64::from(d) * (w.ymax - w.ymin) / 218.
+                        f64::from(d) * (w.ymax - w.ymin) / 219.
                 }
                 A::Edit(E::Left(_)) => {
-                    self.memory.geometry_cursor.pointer[0] -= (w.xmax - w.xmin) / 318.
+                    self.memory.geometry_cursor.pointer[0] -= (w.xmax - w.xmin) / 319.
                 }
                 A::Edit(E::Right(_)) => {
-                    self.memory.geometry_cursor.pointer[0] += (w.xmax - w.xmin) / 318.
+                    self.memory.geometry_cursor.pointer[0] += (w.xmax - w.xmin) / 319.
                 }
                 A::Insert("+" | "-") => {
-                    let mut w = w;
-                    w.zoom(if action == A::Insert("+") { 0.5 } else { 2. });
-                    self.memory.model_windows.insert("Geometry".into(), w);
-                    self.geometry_panel.refresh = true;
+                    self.geometry_zoom(if action == A::Insert("+") { 0.5 } else { 2. });
                 }
                 A::Back | A::On => {
                     self.geometry_panel.tool = None;
@@ -697,6 +1083,20 @@ impl NativeTools {
                     self.geometry_panel.selected = None;
                 }
                 _ => {}
+            }
+            if self.memory.geometry_cursor.pointer != old_pointer
+                && let Some(command) = self.geometry_panel.tool
+            {
+                let p = view::project(self.construction_pointer(), &w);
+                self.geometry_panel.hover = self.geometry_scene().and_then(|scene| {
+                    view::hit(
+                        &scene,
+                        self.memory.models.geometry_book.as_ref()?,
+                        p,
+                        &w,
+                        command.pick_filter(),
+                    )
+                });
             }
             self.dirty();
             return Some(vec![]);

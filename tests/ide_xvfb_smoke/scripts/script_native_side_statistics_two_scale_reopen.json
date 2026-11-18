@@ -1,0 +1,47 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_scale_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SCALE2CHK"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SCALE2CHK() BEGIN STARTVIEW(1,1);RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 12000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/stats_two_scale_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

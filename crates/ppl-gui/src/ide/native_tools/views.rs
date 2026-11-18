@@ -10,6 +10,11 @@ impl NativeTools {
         snapshot: &SessionSnapshot,
         requests: &mut Vec<Request>,
     ) {
+        if self.memory.selected_app == super::super::native_graph3d::NAME
+            && self.show_graph3d(ui, page, lcd, scale, snapshot)
+        {
+            return;
+        }
         let mut app_snapshot = snapshot.clone();
         app_snapshot.active_app = self.memory.selected_app.clone();
         let app_settings = app_snapshot.effective_app_settings();
@@ -553,6 +558,15 @@ impl NativeTools {
             }
 
             Page::PlotSetup | Page::NumericSetup => {
+                if page == Page::PlotSetup
+                    && self.statistics_unbounded_plot()
+                    && self.statistics_plot_setup.is_none()
+                    && let Some(settings) = self.plot_settings_cache.get("Statistics 1Var")
+                {
+                    self.statistics_plot_setup = Some(Self::settings_window(settings));
+                }
+                let editing_unbounded =
+                    page == Page::PlotSetup && self.statistics_plot_setup.is_some();
                 if let Some(app) = self.memory.graphs.get_mut(&self.memory.selected_app) {
                     if page == Page::NumericSetup {
                         if app.kind == GraphKind::Implicit {
@@ -625,11 +639,14 @@ impl NativeTools {
                             }
                         }
                     }
-                    let window = self
-                        .memory
-                        .model_windows
-                        .entry(self.memory.selected_app.clone())
-                        .or_default();
+                    let window = if editing_unbounded {
+                        self.statistics_plot_setup.as_mut().unwrap()
+                    } else {
+                        self.memory
+                            .model_windows
+                            .entry(self.memory.selected_app.clone())
+                            .or_default()
+                    };
                     for (label, value) in [
                         ("Xmin", &mut window.xmin),
                         ("Xmax", &mut window.xmax),
@@ -638,18 +655,100 @@ impl NativeTools {
                     ] {
                         ui.horizontal(|ui| {
                             ui.label(label);
-                            ui.add(egui::DragValue::new(value));
+                            let control = egui::DragValue::new(value);
+                            ui.add(if editing_unbounded && matches!(label, "Ymin" | "Ymax") {
+                                control.custom_formatter(|number, _| match number {
+                                    f64::NEG_INFINITY => "-Inf".into(),
+                                    f64::INFINITY => "+Inf".into(),
+                                    value => value.to_string(),
+                                })
+                            } else {
+                                control
+                            });
                         });
+                    }
+                    if page == Page::PlotSetup {
+                        ui.checkbox(&mut window.axes, "Axes");
                     }
                 }
                 if ui.button("Apply").clicked() {
+                    let mut next_snapshot = snapshot.clone();
+                    if page == Page::PlotSetup {
+                        let name = self.memory.selected_app.clone();
+                        let mut settings = snapshot.plot_settings_for(&name);
+                        if editing_unbounded {
+                            settings = self.plot_settings_cache.get(&name).cloned();
+                        }
+                        if let Some(mut settings) = settings {
+                            let window = self
+                                .statistics_plot_setup
+                                .clone()
+                                .filter(|_| editing_unbounded)
+                                .unwrap_or_else(|| self.trace_window());
+                            let admissible = if editing_unbounded
+                                && (window.ymin.is_infinite() || window.ymax.is_infinite())
+                            {
+                                let mut finite = window.clone();
+                                finite.ymin = 0.;
+                                finite.ymax = 1.;
+                                finite.validate()
+                            } else {
+                                window.validate()
+                            };
+                            let result = admissible.and_then(|()| {
+                                for (field, number) in [
+                                    ("Xmin", window.xmin),
+                                    ("Xmax", window.xmax),
+                                    ("Ymin", window.ymin),
+                                    ("Ymax", window.ymax),
+                                    ("Axes", if window.axes { 1. } else { 0. }),
+                                ] {
+                                    let value = match number {
+                                        f64::NEG_INFINITY => {
+                                            ppl_vm::PlotBound::NegativeInfinity.to_value()
+                                        }
+                                        f64::INFINITY => {
+                                            ppl_vm::PlotBound::PositiveInfinity.to_value()
+                                        }
+                                        finite => ppl_vm::Value::Real(
+                                            ppl_math::Real::from_f64(finite)
+                                                .map_err(|e| e.to_string())?,
+                                        ),
+                                    };
+                                    settings.set(field, &value).map_err(|e| e.to_string())?;
+                                }
+                                if name == "Statistics 1Var"
+                                    && let Some(spec) = self.memory.models.histogram
+                                {
+                                    Self::set_histogram_settings(&mut settings, spec)?;
+                                }
+                                settings.validate_for(&name)
+                            });
+                            if let Err(error) = result {
+                                self.error = Some(error);
+                                return;
+                            }
+                            if editing_unbounded {
+                                if !settings.has_infinite_y() {
+                                    self.memory.model_windows.insert(name.clone(), window);
+                                }
+                                self.plot_settings_cache
+                                    .insert(name.clone(), settings.clone());
+                                next_snapshot
+                                    .app_plot_settings
+                                    .insert(name.clone(), settings.clone());
+                                self.statistics_plot_setup = None;
+                            }
+                            requests.push(Request::PlotConfiguration(name, settings));
+                        }
+                    }
                     self.dirty();
                     if page == Page::NumericSetup {
                         self.page = Some(Page::Numeric);
                         self.table(snapshot);
                     } else {
                         self.page = Some(Page::Plot);
-                        self.plot(snapshot.clone());
+                        self.plot(next_snapshot);
                     }
                 }
             }
@@ -745,6 +844,11 @@ impl NativeTools {
                         self.memory.name = name.clone();
                         self.memory.original_name = name.clone();
                         self.memory.content = text.clone();
+                        if page == Page::Notes {
+                            self.load_note_bullets(ui.ctx(), snapshot.note_bullets.get(name));
+                        } else {
+                            self.clear_note_bullets();
+                        }
                     }
                 }
                 ui.horizontal(|ui| {
@@ -752,6 +856,11 @@ impl NativeTools {
                         self.memory.name.clear();
                         self.memory.original_name.clear();
                         self.memory.content.clear();
+                        if page == Page::Notes {
+                            self.load_note_bullets(ui.ctx(), None);
+                        } else {
+                            self.clear_note_bullets();
+                        }
                     }
                     ui.label("Name");
                     ui.text_edit_singleline(&mut self.memory.name);
@@ -766,13 +875,25 @@ impl NativeTools {
                         program: page == Page::Programs,
                     });
                 }
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.memory.content)
-                        .id(egui::Id::new("native_catalog_content"))
-                        .desired_rows(4)
-                        .desired_width(300. * scale)
-                        .font(egui::TextStyle::Monospace),
-                );
+                if page == Page::Notes {
+                    let bullets = self.note_bullets.get_or_insert_with(|| {
+                        let name = &self.memory.original_name;
+                        if snapshot.notes.get(name) == Some(&self.memory.content) {
+                            snapshot.note_bullets.get(name).cloned().unwrap_or_default()
+                        } else {
+                            Default::default()
+                        }
+                    });
+                    super::notes::show(ui, scale, &mut self.memory.content, bullets);
+                } else {
+                    ui.add(
+                        egui::TextEdit::multiline(&mut self.memory.content)
+                            .id(egui::Id::new("native_catalog_content"))
+                            .desired_rows(4)
+                            .desired_width(300. * scale)
+                            .font(egui::TextStyle::Monospace),
+                    );
+                }
                 if page == Page::Programs {
                     ui.horizontal(|ui| {
                         ui.label("Entry");
@@ -799,7 +920,11 @@ impl NativeTools {
                                 self.memory.content.clone(),
                             )
                         } else {
-                            Request::SaveNote(self.memory.name.clone(), self.memory.content.clone())
+                            Request::SaveBulletedNote(
+                                self.memory.name.clone(),
+                                self.memory.content.clone(),
+                                self.note_bullets.clone().unwrap_or_default(),
+                            )
                         });
                     }
                     if ui.button("Delete").clicked() {
@@ -942,62 +1067,7 @@ impl NativeTools {
                         .desired_rows(8),
                 );
             }
-            Page::Help => {
-                ui.label("Arrow keys edit; Shift selects. Alpha enters letters. ON interrupts. Apps share Plot and Numeric definitions.");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.memory.help_query)
-                        .hint_text("Find command"),
-                );
-                if !self.memory.help_topic.is_empty() {
-                    if let Some(spec) =
-                        ppl_compiler::builtins::lookup_case_insensitive(&self.memory.help_topic)
-                    {
-                        ui.strong(spec.name);
-                        ui.label(format!(
-                            "Arguments: {} · {}",
-                            spec.arity_text(),
-                            spec.category.as_str()
-                        ));
-                        ui.label(match spec.status {
-                            ppl_compiler::builtins::Status::Implemented => {
-                                "Native implementation available"
-                            }
-                            ppl_compiler::builtins::Status::Approximate => {
-                                "Native implementation has documented compatibility limits"
-                            }
-                            ppl_compiler::builtins::Status::Unsupported => {
-                                "Requires an implementation in this backend"
-                            }
-                        });
-                        if ui.button("Insert command").clicked() {
-                            if spec.min == 0 {
-                                requests.push(Request::Insert(spec.name.into()));
-                            } else {
-                                requests.push(Request::InsertTemplate(
-                                    crate::ide::native::expression::TemplateKind::Function(
-                                        spec.name,
-                                    ),
-                                ));
-                            }
-                        }
-                    }
-                }
-                ui.hyperlink_to(
-                    "HP Prime User Guide",
-                    "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
-                );
-                let query = self.memory.help_query.to_ascii_lowercase();
-                for spec in ppl_compiler::builtins::BUILTINS.iter().filter(|spec| {
-                    !query.is_empty() && spec.name.to_ascii_lowercase().contains(&query)
-                }) {
-                    if ui
-                        .selectable_label(self.memory.help_topic == spec.name, spec.name)
-                        .clicked()
-                    {
-                        self.memory.help_topic = spec.name.into();
-                    }
-                }
-            }
+            Page::Help => self.show_help(ui, lcd, scale, requests),
         }
     }
 }

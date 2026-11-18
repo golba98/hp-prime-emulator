@@ -794,8 +794,7 @@ impl CpuThread {
             std::thread::sleep(std::time::Duration::from_millis(1));
             return Ok(RunSliceOutcome::Progress);
         }
-        let Some(scheduled) = self._shared.scheduler.try_enter(self.thread_id, false) else {
-            std::thread::sleep(std::time::Duration::from_millis(1));
+        let Some(scheduled) = self._shared.scheduler.enter_slice(self.thread_id) else {
             return Ok(RunSliceOutcome::Progress);
         };
         if self.hooks.pending.lock().unwrap().is_some() {

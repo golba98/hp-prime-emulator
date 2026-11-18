@@ -26,6 +26,7 @@ pub mod native_apps;
 pub(crate) mod native_equations;
 pub mod native_fonts;
 pub mod native_geometry;
+pub(crate) mod native_graph3d;
 pub mod native_graph_context;
 pub mod native_inference;
 pub mod native_inference_plots;

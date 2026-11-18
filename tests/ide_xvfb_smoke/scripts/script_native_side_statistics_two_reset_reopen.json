@@ -1,0 +1,66 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_reset_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "STAT2RST"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STAT2RST() BEGIN RETURN {S1,S2,C1,C2,C3,C0,Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,AAngle,AFormat,ADigits,AComplex,ISCHECK(1),ISCHECK(2),A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STAT2RST() BEGIN STARTAPP(\"Statistics 1Var\");RETURN {D1,D2,H1,A}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_other"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

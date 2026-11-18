@@ -1185,20 +1185,8 @@
       "ms": 100
     },
     {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
+      "step": "snapshot",
+      "label": "blank_analysis_kept_unchecked"
     },
     {
       "step": "key",
@@ -1242,39 +1230,7 @@
     },
     {
       "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
       "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
     },
     {
       "step": "wait_ms",
@@ -1351,6 +1307,63 @@
     {
       "step": "wait_ms",
       "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
     },
     {
       "step": "snapshot",
@@ -1567,6 +1580,15 @@
     {
       "step": "wait_ms",
       "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
     },
     {
       "step": "snapshot",
@@ -1833,6 +1855,15 @@
       "ms": 100
     },
     {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
       "step": "snapshot",
       "label": "analysis_4"
     },
@@ -2009,12 +2040,119 @@
       "ms": 100
     },
     {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
       "step": "snapshot",
       "label": "analysis_5"
     },
     {
       "step": "window_screenshot",
       "path": "/tmp/ppl-ide-e2e/statistics_analysis_5.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "numeric"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "five_weighted_error"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_five_weighted_error.png"
+    },
+    {
+      "step": "native_tool",
+      "name": "symbolic"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 86
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "five_recovery_definitions"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_five_recovery_definitions.png"
     },
     {
       "step": "native_tool",

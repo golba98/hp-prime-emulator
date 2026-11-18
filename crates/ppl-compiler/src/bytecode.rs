@@ -29,6 +29,9 @@ pub enum Op {
     StoreLocal(u16),
     LoadGlobal(u32),
     StoreGlobal(u32),
+    /// Replace the retained RHS with Geometry's canonical stored setting;
+    /// other apps and declared variables retain their normal assignment value.
+    GeometryAssignmentResult(u32),
     /// Explicit CAS namespace access; the name indexes `CompiledProgram.names`.
     CasVariable {
         name: u32,
@@ -310,7 +313,7 @@ impl CompiledProgram {
             for (i, op) in c.code.iter().enumerate() {
                 let detail = match op {
                     Op::Const(k) => format!("    ; {:?}", self.consts[*k as usize]),
-                    Op::LoadGlobal(g) | Op::StoreGlobal(g) => {
+                    Op::LoadGlobal(g) | Op::StoreGlobal(g) | Op::GeometryAssignmentResult(g) => {
                         format!("    ; {}", self.globals[*g as usize].name)
                     }
                     Op::LoadLocal(l) | Op::StoreLocal(l) => {

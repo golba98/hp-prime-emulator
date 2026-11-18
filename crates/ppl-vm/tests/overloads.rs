@@ -30,10 +30,40 @@ fn population_stddev_supports_real_weights_vectors_and_matrix_columns() {
     assert_eq!(run("RETURN STDDEV({1,3},{1E100,1E100});").unwrap(), "1");
     assert_eq!(run("RETURN STDDEV({1E-400,3E-400});").unwrap(), "1E-400");
     assert_eq!(run("RETURN STDDEV({1E400,3E400});").unwrap(), "1E400");
-    for weights in ["{1}", "{1,-1}", "{0,0}"] {
-        assert!(run(&format!("RETURN STDDEV({{1,2}},{weights});")).is_err());
+    assert!(run("RETURN STDDEV({1,2},{1});").is_err());
+    assert!(run("RETURN STDDEV([1,2],[1,-1]);").is_err());
+    assert!(run("RETURN STDDEV([[1,2],[3,4]],[[1,-1],[1,1]]);").is_err());
+}
+#[test]
+fn scalar_undefined_and_matrix_stddev_match_original_g1_controls() {
+    assert_eq!(
+        run("RETURN {TYPE(STDDEV(3)),STDDEV(3),STDDEV(1+i)};").unwrap(),
+        "{0,0,0}"
+    );
+    for expression in ["STDDEV({})", "STDDEV({},{})", "STDDEV({1,3},{0,0})"] {
+        assert_eq!(
+            run(&format!(
+                "LOCAL R:={expression}; RETURN {{TYPE(R),STRING(R)}};"
+            ))
+            .unwrap(),
+            "{8,\"undef\"}",
+        );
+    }
+    assert_eq!(
+        run("LOCAL V:=STDDEV([[1,10],[3,18],[9,38]],[[1,1],[0,3],[0,0]]); RETURN {TYPE(V),V};")
+            .unwrap(),
+        "{4,[0,3.46410161514]}"
+    );
+    assert_eq!(
+        run("LOCAL V:=STDDEV([[1,10],[3,18],[9,38]],[[1,0],[3,0],[0,0]]); RETURN {TYPE(V),V};")
+            .unwrap(),
+        "{6,{undef}}"
+    );
+    for weights in ["[1,3]", "{1,3}", "[[1,1],[0,3]]"] {
+        assert!(run(&format!("RETURN STDDEV([[1,10],[3,18],[9,38]],{weights});")).is_err());
     }
 }
+
 #[test]
 fn string_separator_symbols_and_dotzero_follow_firmware_controls() {
     assert_eq!(
@@ -103,10 +133,10 @@ fn dimgrob_dimension_pair_and_depth_string_match_local_firmware() {
 }
 #[test]
 fn triangle_vertex_lists_gradient_and_alpha_have_actual_pixels() {
-    assert_eq!(run("RECT_P(0); TRIANGLE_P({0,0,#FF0000h},{10,0,#00FF00h},{0,10,#0000FFh}); RETURN GETPIX_P(1,1);").unwrap(),"#B32626h");
+    assert_eq!(run("RECT_P(0); TRIANGLE_P({0,0,#FF0000h},{10,0,#00FF00h},{0,10,#0000FFh}); RETURN GETPIX_P(1,1);").unwrap(),"#C81C19h");
     assert_eq!(
         run("RECT_P(0); TRIANGLE_P(0,0,10,0,0,10,#FF0000h,128); RETURN GETPIX_P(1,1);").unwrap(),
-        "#800000h"
+        "#7F0000h"
     );
 }
 #[test]

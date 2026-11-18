@@ -1,0 +1,629 @@
+{
+  "provenance": "Self-authored PPL on an isolated original virtual G1 revision15751, unsorted observations and scalarfrequency2. Samples/labels are transcribed from actual successive Right-arrow framebuffer footers. Coordinates follow inspected curve and cursor positions; finite numeric plot geometry is separately checked. No physical device or proprietary image bytes published. Footer spacing is normalized; display_places record observed percentage precision.",
+  "firmware_elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "data": [
+    "4",
+    "1",
+    "2"
+  ],
+  "frequency": "2",
+  "cases": [
+    {
+      "name": "histogram",
+      "chart": 1,
+      "option": 0,
+      "samples": [
+        {
+          "x": 1.5,
+          "y": 2,
+          "value": "1",
+          "auxiliary": "2",
+          "frequency": 2,
+          "label": ")"
+        },
+        {
+          "x": 2.5,
+          "y": 2,
+          "value": "2",
+          "auxiliary": "3",
+          "frequency": 2,
+          "label": ")"
+        },
+        {
+          "x": 3.5,
+          "y": 0,
+          "value": "3",
+          "auxiliary": "4",
+          "frequency": 0,
+          "label": ")"
+        },
+        {
+          "x": 4.5,
+          "y": 2,
+          "value": "4",
+          "auxiliary": "5",
+          "frequency": 2,
+          "label": "]"
+        }
+      ],
+      "footers": [
+        "H1[1...2) F:2",
+        "H1[2...3) F:2",
+        "H1[3...4) F:0",
+        "H1[4...5] F:2"
+      ],
+      "note": "All four bins observed. Left six clamps at first; Right beyond last clamps at fourth. The last displayed upper bracket is closed, unlike earlier bins.",
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=1; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "8c5acf8aa2ffdc5d3202d49d4dde67b47cee310ee1179f94f52f04d05783bfac",
+      "raw_result": "{{'D1','2',1,0,#FF:24h},{4,1,2},−3.55862068966,9.6,−0.2,2.2,1,5,1}"
+    },
+    {
+      "name": "box",
+      "chart": 2,
+      "option": 1,
+      "samples": [
+        {
+          "x": 1,
+          "y": 1.5,
+          "value": "1",
+          "label": "Min"
+        },
+        {
+          "x": 1,
+          "y": 1.5,
+          "value": "1",
+          "label": "Q1"
+        },
+        {
+          "x": 2,
+          "y": 1.5,
+          "value": "2",
+          "label": "Med"
+        },
+        {
+          "x": 4,
+          "y": 1.5,
+          "value": "4",
+          "label": "Q3"
+        },
+        {
+          "x": 4,
+          "y": 1.5,
+          "value": "4",
+          "label": "Max"
+        }
+      ],
+      "footers": [
+        "H1[Min]:1",
+        "H1[Q1]:1",
+        "H1[Med]:2",
+        "H1[Q3]:4",
+        "H1[Max]:4"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=2; H1(4):=1; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "b2e501a17b3062a5387a39f44ff2619bcf5444d30d38053eafa725a742013f3a",
+      "raw_result": "{{'D1','2',2,1,#FF:24h},{4,1,2},0.860344827586,4.15,−0.15,3.3,1,5,1}"
+    },
+    {
+      "name": "normal",
+      "chart": 3,
+      "option": 0,
+      "samples": [
+        {
+          "x": 1,
+          "y": -0.9674215661,
+          "value": "1",
+          "auxiliary": "-0.9674215661"
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "value": "2",
+          "auxiliary": "0"
+        },
+        {
+          "x": 4,
+          "y": 0.9674215661,
+          "value": "4",
+          "auxiliary": "0.9674215661"
+        }
+      ],
+      "footers": [
+        "H1: X:1 Y:-0.9674215661",
+        "H1: X:2 Y:0",
+        "H1: X:4 Y:0.9674215661"
+      ],
+      "tolerance": 1e-09,
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=3; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "0791bbfce1184ae0d1ba960936f90e2ceb403f64cc98833ba2d0ed8f264d6f56",
+      "raw_result": "{{'D1','2',3,0,#FF:24h},{4,1,2},0.910031347962,4.1,−1.03191633717,1.03191633717,1,5,1}"
+    },
+    {
+      "name": "line",
+      "chart": 4,
+      "option": 0,
+      "samples": [
+        {
+          "x": 4,
+          "y": 2,
+          "value": "4",
+          "frequency": 2,
+          "row": 1
+        },
+        {
+          "x": 1,
+          "y": 2,
+          "value": "1",
+          "frequency": 2,
+          "row": 2
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "value": "2",
+          "frequency": 2,
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1[1]:4 F:2",
+        "H1[2]:1 F:2",
+        "H1[3]:2 F:2"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=4; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "1946ffbe40868a4a8fabf61b4cae9ade6d592a7852c7d2a5319ceb106d01dbea",
+      "raw_result": "{{'D1','2',4,0,#FF:24h},{4,1,2},0.708620689655,3.99827586207,−0.2,2.2,1,5,1}"
+    },
+    {
+      "name": "bar",
+      "chart": 5,
+      "option": 0,
+      "samples": [
+        {
+          "x": 0.5,
+          "y": 4,
+          "value": "4",
+          "row": 1
+        },
+        {
+          "x": 1.5,
+          "y": 1,
+          "value": "1",
+          "row": 2
+        },
+        {
+          "x": 2.5,
+          "y": 2,
+          "value": "2",
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1[1]:4",
+        "H1[2]:1",
+        "H1[3]:2"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=5; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "23aac35156e4cb7a50a447c5af1338376672b5c5bc9cb3abea98067f2194c803",
+      "raw_result": "{{'D1','2',5,0,#FF:24h},{4,1,2},−0.139655172414,3.15,−0.4,4.4,1,5,1}"
+    },
+    {
+      "name": "pareto",
+      "chart": 6,
+      "option": 0,
+      "samples": [
+        {
+          "x": 0.5,
+          "y": 4,
+          "value": "4",
+          "auxiliary": "57.14"
+        },
+        {
+          "x": 1.5,
+          "y": 2,
+          "value": "2",
+          "auxiliary": "28.57"
+        },
+        {
+          "x": 2.5,
+          "y": 1,
+          "value": "1",
+          "auxiliary": "14.29"
+        }
+      ],
+      "footers": [
+        "H1:4 % of Total 57.14",
+        "H1:2 % of Total 28.57",
+        "H1:1 % of Total 14.29"
+      ],
+      "auxiliary_display_places": 2,
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=6; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "8c168162a61873c25102ef2bf8639eca2d00c95df85beb3ebb8cf7f7cb9f1dd0",
+      "raw_result": "{{'D1','2',6,0,#FF:24h},{4,1,2},−0.139655172414,3.15,−0.7,7.7,1,5,1}"
+    },
+    {
+      "name": "control",
+      "chart": 7,
+      "option": 1,
+      "samples": [
+        {
+          "x": 1,
+          "y": 4,
+          "value": "4",
+          "row": 1
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "value": "1",
+          "row": 2
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "value": "2",
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1[1]:4",
+        "H1[2]:1",
+        "H1[3]:2"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=7; H1(4):=1; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "55412b04ef20098c6bf4988159a64d627e518b549cb455d743e2131cd22fc91e",
+      "raw_result": "{{'D1','2',7,1,#FF:24h},{4,1,2},0.940020898642,3.06666666666,−3.34133333333,8.00799999999,1,5,1}"
+    },
+    {
+      "name": "dot",
+      "chart": 8,
+      "option": 0,
+      "samples": [
+        {
+          "x": 1,
+          "y": 2,
+          "value": "1",
+          "frequency": 2
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "value": "2",
+          "frequency": 2
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "value": "4",
+          "frequency": 2
+        }
+      ],
+      "footers": [
+        "H1: X:1 F:2",
+        "H1: X:2 F:2",
+        "H1: X:4 F:2"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=8; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "ff39aa07b9d811c1f2c64cb06612692aa7755c17717a8a5ad121a4c1a733682e",
+      "raw_result": "{{'D1','2',8,0,#FF:24h},{4,1,2},0.380041797283,4.63333333333,−8.33333333333ᴇ−2,2.58333333333,1,5,1}"
+    },
+    {
+      "name": "stem",
+      "chart": 9,
+      "option": 1,
+      "samples": [
+        {
+          "x": 0.5,
+          "y": 3.5,
+          "value": "1",
+          "row": 1
+        },
+        {
+          "x": 0.5,
+          "y": 2.5,
+          "value": "2",
+          "row": 2
+        },
+        {
+          "x": 0.5,
+          "y": 0.5,
+          "value": "4",
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1[1]:1",
+        "H1[2]:2",
+        "H1[3]:4"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=9; H1(4):=1; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "3844e98d7e76b4eec8753a7ed984ad6b34f6bc0acfaf5040128f4db0f634c8b2",
+      "raw_result": "{{'D1','2',9,1,#FF:24h},{4,1,2},−2.11995820272,2.13333333333,−2.23333333333,5.23333333333,1,5,1}"
+    },
+    {
+      "name": "pie",
+      "chart": 10,
+      "option": 0,
+      "samples": [
+        {
+          "value": "4",
+          "auxiliary": "57.14286",
+          "row": 1
+        },
+        {
+          "value": "1",
+          "auxiliary": "14.28571",
+          "row": 2
+        },
+        {
+          "value": "2",
+          "auxiliary": "28.57143",
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1: [1]:4 % of Total 57.14286",
+        "H1: [2]:1 % of Total 14.28571",
+        "H1: [3]:2 % of Total 28.57143"
+      ],
+      "auxiliary_display_places": 5,
+      "note": "Selection lies at the midpoint of the sector outer arc. Coordinate rule follows the independently verified pie area/radius controls.",
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetFreq(H1,2); H1(3):=10; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "059529bed60bd7cb0a59534ad5a5f0f4d356e26a65f6e6c4bfe32035e9c44069",
+      "raw_result": "{{'D1','2',10,0,#FF:24h},{4,1,2},−0.981236957176,4.98541066072,−1,4.98541066072,1,5,1}"
+    },
+    {
+      "name": "moving_range",
+      "chart": 7,
+      "option": 2,
+      "samples": [
+        {
+          "x": 1,
+          "y": null,
+          "value": null,
+          "row": 1
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "value": "3",
+          "row": 2
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "value": "1",
+          "row": 3
+        }
+      ],
+      "footers": [
+        "H1[1]:NaN",
+        "H1[2]:3",
+        "H1[3]:1"
+      ],
+      "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetSample(H1,D1); SetFreq(H1,2); H1(3):=7; H1(4):=2; STARTVIEW(9); RETURN STRING({H1,D1,Xmin,Xmax,Ymin,Ymax,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "a255c8ef820608161d7af38e762701dca93404777f659df7705bd5ca8f4186db",
+      "raw_result": "{{'D1','2',7,2,#FF:24h},{4,1,2},0.940020898642,3.06666666666,−0.2178,6.7518,1,5,1}"
+    }
+  ],
+  "trace_toggle_observation": {
+    "chart": 7,
+    "option": 2,
+    "steps": "Right twice to H1[3]:1, Menu, Trace off, Trace on",
+    "result": "Retains H1[3]:1; enabling trace closes the control menu."
+  },
+  "stem_duplicate_observations": {
+    "data": [
+      "3",
+      "1",
+      "3"
+    ],
+    "frequency": "2",
+    "values": [
+      "1",
+      "3",
+      "3"
+    ],
+    "rows": [
+      1,
+      2,
+      3
+    ],
+    "note": "Rendered table collapses duplicate leaves; trace retains all sorted observations. Right beyond third clamps."
+  },
+  "extra_controls": [
+    {
+      "name": "histogram_manual_upper_edge_source",
+      "source": "EXPORT STATREF() BEGIN D1:={1,2,5}; H1(3):=1; Hmin:=1; Hmax:=5; Hwidth:=1; RETURN STRING({H1,D1,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "5ac03e4e973e88b135dde988f8e4504dbc0ba46cea0ce7c6665bd8da0e317c73",
+      "raw_result": "{{'D1','2',1,0,#FF:24h},{1,2,5},1,5,1}"
+    },
+    {
+      "name": "stem_duplicates_trace_source",
+      "source": "EXPORT STATREF() BEGIN D1:={3,1,3}; H1(3):=9; H1(4):=1; STARTVIEW(9); RETURN STRING({H1,D1}); END;",
+      "source_sha256": "542f294db962876c5c5a673e10ae17d008a018e967e1101362a89c4b9206d132",
+      "raw_result": "{{'D1','2',9,1,#FF:24h},{3,1,3}}"
+    },
+    {
+      "name": "pie_whole_percentage_source",
+      "source": "EXPORT STATREF() BEGIN D1:={1,1}; SetFreq(H1,1); H1(3):=10; STARTVIEW(9); RETURN STRING({H1,D1}); END;",
+      "source_sha256": "051ade8cd06bcd39cdf026d87e2d46ff908ffc289062397b6fbd42b8bd60af25",
+      "raw_result": "{{'D1',\"\",10,0,#FF:24h},{1,1}}"
+    },
+    {
+      "name": "pareto_whole_percentage_source",
+      "source": "EXPORT STATREF() BEGIN H1(3):=6; STARTVIEW(9); RETURN STRING({H1,D1}); END;",
+      "source_sha256": "7bba8649c748ea8c8ab256257817752cb223edb99752d00b2868c4d54ec20331",
+      "raw_result": "{{'D1',\"\",6,0,#FF:24h},{1,1}}"
+    }
+  ],
+  "histogram_upper_edge_observations": {
+    "data": [
+      "1",
+      "2",
+      "5"
+    ],
+    "frequency": "2",
+    "histogram": [
+      1,
+      5,
+      1
+    ],
+    "last_footer": "H1[4...5] F:2",
+    "frequencies": [
+      2,
+      2,
+      0,
+      2
+    ],
+    "note": "Manual Plot key used, without Autoscale changing Hmax. Last bin includes Hmax; values above it remain excluded."
+  },
+  "whole_percentage_observations": {
+    "data": [
+      "1",
+      "1"
+    ],
+    "pie_footer": "H1: [1]:1 % of Total 50",
+    "pareto_footer": "H1:1 % of Total 50",
+    "note": "Observed2/5decimal percentage rounding strips trailing zeroes."
+  },
+  "box_outlier_control": {
+    "data": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "100"
+    ],
+    "frequency": "1",
+    "chart": 2,
+    "option": 2,
+    "source": "EXPORT STATREF() BEGIN D1:={1,2,3,4,5,6,7,100}; SetSample(H1,D1); SetFreq(H1,1); H1(3):=2; H1(4):=2; STARTVIEW(9); RETURN STRING({H1,D1}); END;",
+    "source_sha256": "d5f3021a714069da02a8e7b18957b347948b4fec655b0d28ad9750e70eb8bb98",
+    "samples": [
+      {
+        "value": "1",
+        "label": "Min",
+        "footer": "H1[Min]: 1"
+      },
+      {
+        "value": "2.5",
+        "label": "Q1",
+        "footer": "H1[Q1]: 2.5"
+      },
+      {
+        "value": "4.5",
+        "label": "Med",
+        "footer": "H1[Med]: 4.5"
+      },
+      {
+        "value": "6.5",
+        "label": "Q3",
+        "footer": "H1[Q3]: 6.5"
+      },
+      {
+        "value": "7",
+        "label": "Max",
+        "footer": "H1[Max]: 7"
+      },
+      {
+        "value": "100",
+        "label": "Outlier",
+        "footer": "H1[Outlier]: 100"
+      }
+    ],
+    "last_clamps": true
+  },
+  "definition_controls": {
+    "data": [
+      "4",
+      "1",
+      "2"
+    ],
+    "data_source": "D1+1",
+    "frequency": "2",
+    "captions": {
+      "1": "H1: D1+1,2",
+      "2": "H1: D1+1,2",
+      "3": "H1: D1+1",
+      "4": "H1: D1+1,2",
+      "5": "H1: D1+1",
+      "6": "H1: D1+1",
+      "7": "H1: D1+1",
+      "8": "H1: D1+1,2",
+      "9": "H1: D1+1",
+      "10": "H1: D1+1"
+    },
+    "right_preserves": true,
+    "defn_again_preserves": true,
+    "trace_off_on_resets": true,
+    "home_plot_resets": true,
+    "sources": [
+      {
+        "case": "defn_base_again",
+        "source": "EXPORT STATREF() BEGIN D1:={4,1,2}; SetSample(H1,D1+1); SetFreq(H1,2); RETURN 1; END;",
+        "source_sha256": "85789b4bf92ccb58d033de8c2980604ebd7d734ef3946ae41aa71a20b4fac6ce"
+      },
+      {
+        "case": "defn_chart_1_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=1;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "1059144892657b7887f0df37c7f1b575946c5704c793723ff4cd26289dac5333"
+      },
+      {
+        "case": "defn_chart_2_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=2; H1(4):=1; STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "1c4d7848081ee35feb3e217a4604c31432baf160b62f00657c65ed5f1be1c8d2"
+      },
+      {
+        "case": "defn_chart_3_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=3;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "e28ac6445eff8e6774a9e8f47233f40e806d4ae29caccf48d4743658df3a64e7"
+      },
+      {
+        "case": "defn_chart_4_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=4;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "6caf10177470b9f9ede248b334ff4b8ced0e093271a8a3616a1af7dbe55d2e2f"
+      },
+      {
+        "case": "defn_chart_5_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=5;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "487545404334138a31117aa3fe17775f8d849e78db3e1b345ed79067700340d4"
+      },
+      {
+        "case": "defn_chart_6_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=6;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "8f851a458d04a33cff563d5fd5539a6ace821a7b959118571b2a818568ed747e"
+      },
+      {
+        "case": "defn_chart_7_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=7; H1(4):=2; STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "c45946c7d66a327284665a8befa5ddc37043a703a1e6797f684d16278cd7d823"
+      },
+      {
+        "case": "defn_chart_8_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=8;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "e3b708562f4541297974ce4189058b6655f9db53520dd5e6ef0e389f8696ff27"
+      },
+      {
+        "case": "defn_chart_9_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=9; H1(4):=1; STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "9fb504c5694d13744553e95919709f7f8e2e8ace40681252ea2ea9e6332fffda"
+      },
+      {
+        "case": "defn_chart_10_source",
+        "source": "EXPORT STATREF() BEGIN H1(3):=10;  STARTVIEW(9); RETURN 1; END;",
+        "source_sha256": "d101ac0b4b4058044739cce79da1baff178645e5bf14c7b229176174e2e89d19"
+      }
+    ],
+    "analysis_switch": {
+      "source": "EXPORT STATREF() BEGIN D2:={2,3,5}; SetSample(H2,D2); SetFreq(H2,3); H2(3):=4; H1(3):=4; RETURN STRING({H1,H2}); END;",
+      "source_sha256": "b221d8aead74b3618a75493c46d7bf1255c58d29fb1179f4e0fd58dbfb2ba6ec",
+      "checkbox_h2_enabled_by_symbolic_touch": true,
+      "down_caption": "H2: D2,3",
+      "up_caption": "H1: D1+1,2"
+    }
+  }
+}

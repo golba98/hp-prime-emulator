@@ -83,10 +83,14 @@ pub(super) fn evaluate_qualified_cas(
     context.active_app = snapshot.active_app.clone();
     context.app_settings = snapshot.app_settings.clone();
     context.app_numeric_settings = snapshot.app_numeric_settings.clone();
+    context.app_plot_settings = snapshot.app_plot_settings.clone();
+    context.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
     context.app_files = snapshot.app_files.clone();
     context.cas = snapshot.cas.clone();
     for (name, value) in &snapshot.globals {
-        if name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit() {
+        if (name.len() == 2 && name.starts_with('G') && name.as_bytes()[1].is_ascii_digit())
+            || (context.active_app == "Geometry" && ppl_vm::GeometryPlotSettings::recognizes(name))
+        {
             continue;
         }
         context.set_variable(name, value.clone()).map_err(failure)?;
@@ -125,8 +129,25 @@ pub(super) fn evaluate_qualified_cas(
     ))
 }
 impl IdeDesktopApp {
-    fn app_access_source(&self) -> serde_json::Value {
-        serde_json::json!({"sheet": &self.native_tools.memory.models.spreadsheet, "function": &self.native_tools.memory.graphs["Function"].curves})
+    fn app_access_source(&self, app: &str) -> serde_json::Value {
+        if app == crate::ide::native_graph3d::NAME {
+            return serde_json::json!(self.native_tools.memory.graph3d.definitions);
+        }
+        if app == "Statistics 2Var" {
+            return serde_json::json!(
+                self.native_tools
+                    .memory
+                    .models
+                    .statistics2_book
+                    .as_ref()
+                    .map(|book| (
+                        &book.analyses,
+                        &book.fit_equations,
+                        &book.fit_columns_revisions
+                    ))
+            );
+        }
+        serde_json::json!({"sheet": &self.native_tools.memory.models.spreadsheet, "function": &self.native_tools.memory.graphs["Function"].curves, "statistics1": &self.native_tools.memory.models.statistics1_book, "geometry": self.native_tools.memory.models.geometry_book.as_ref().map(|book| book.access_fingerprint())})
     }
     pub(super) fn reject_qualified_cas(
         &mut self,
@@ -164,7 +185,7 @@ impl IdeDesktopApp {
             };
             if let Some(result) = received {
                 let task = self.app_variable_task.take().unwrap();
-                let current = self.app_access_source();
+                let current = self.app_access_source(&task.message.request.app);
                 let result = if task.message.epoch
                     != self
                         .controller
@@ -180,13 +201,77 @@ impl IdeDesktopApp {
                         "Application definitions changed during application access",
                     ))
                 } else {
-                    result.map(|result| {
+                    result.and_then(|result| {
+                        if let Some(book) = result.geometry {
+                            self.native_tools.memory.models.geometry_book = Some(book);
+                            self.native_tools.geometry_changed();
+                        }
+                        if let Some(book) = result.statistics1 {
+                            self.native_tools.memory.models.statistics1_book = Some(book);
+                            self.native_tools
+                                .memory
+                                .models
+                                .results
+                                .retain(|name, _| !name.starts_with("Statistics 1Var"));
+                            self.native_tools.dirty();
+                        }
+                        if let Some(update) = result.statistics2 {
+                            use crate::ide::native_application_access::statistics::TwoUpdate;
+                            let models = &mut self.native_tools.memory.models;
+                            let book = models.statistics2_book.get_or_insert_with(Default::default);
+                            match update {
+                                TwoUpdate::Checkbox(analysis, enabled) => {
+                                    book.analyses[analysis].enabled = enabled;
+                                    models
+                                        .results
+                                        .retain(|name, _| !name.starts_with("Statistics 2Var"));
+                                }
+                                TwoUpdate::Definition {
+                                    index,
+                                    analysis,
+                                    equation,
+                                    columns_revision,
+                                    error,
+                                } => {
+                                    book.analyses[index] = *analysis;
+                                    book.fit_equations[index] = equation;
+                                    book.fit_columns_revisions[index] = columns_revision;
+                                    self.native_tools.statistics_invalidate(true);
+                                    if let Some(error) = error {
+                                        return Err(error);
+                                    }
+                                }
+                                TwoUpdate::Fits {
+                                    results,
+                                    equations,
+                                    columns_revisions,
+                                    disabled_target,
+                                } => {
+                                    book.fit_equations = equations;
+                                    book.fit_columns_revisions = columns_revisions;
+                                    models.results.insert("Statistics 2Var".into(), results);
+                                    if disabled_target {
+                                        self.native_tools.dirty();
+                                        return Err(RuntimeError::new(
+                                            ErrorKind::InvalidInput,
+                                            "Insufficient statistics data",
+                                        ));
+                                    }
+                                }
+                            }
+                            self.native_tools.dirty();
+                        }
                         if let Some(sheet) = result.sheet {
                             let models = &mut self.native_tools.memory.models;
                             models.spreadsheet = sheet;
                             let cell = models.selected_cell.clone();
                             models.select_cell(&cell);
                             self.native_tools.spreadsheet_changed(false);
+                        }
+                        if let Some(definitions) = result.graph3d {
+                            self.native_tools.memory.graph3d.definitions = definitions;
+                            self.native_tools
+                                .graph3d_definitions_changed(&task.message.context);
                         }
                         if let Some(curves) = result.function {
                             // Numeric/plot projection changes need not cancel a
@@ -200,7 +285,7 @@ impl IdeDesktopApp {
                             self.native_tools
                                 .function_definitions_changed(&task.message.context);
                         }
-                        result.value
+                        Ok(result.value)
                     })
                 };
                 let _ = task.message.reply.send(result);
@@ -224,7 +309,33 @@ impl IdeDesktopApp {
                 }
                 let sheet = self.native_tools.memory.models.spreadsheet.clone();
                 let function = self.native_tools.memory.graphs["Function"].clone();
-                let source = self.app_access_source();
+                let statistics1 = self.native_tools.memory.models.statistics1_book.clone();
+                let graph3d = (message.request.app == crate::ide::native_graph3d::NAME)
+                    .then(|| self.native_tools.memory.graph3d.definitions.clone());
+                let statistics2 = (message.request.app == "Statistics 2Var").then(|| {
+                    use crate::ide::native_statistics::TwoBook;
+                    self.native_tools
+                        .memory
+                        .models
+                        .statistics2_book
+                        .as_ref()
+                        .map_or_else(TwoBook::default, |book| TwoBook {
+                            analyses: book.analyses.clone(),
+                            fit_equations: book.fit_equations.clone(),
+                            fit_columns_revisions: book.fit_columns_revisions,
+                            ..TwoBook::default()
+                        })
+                });
+                if message.request.app == "Geometry"
+                    && let Err(error) = self.native_tools.memory.models.ensure_geometry_book()
+                {
+                    let _ = message
+                        .reply
+                        .send(Err(RuntimeError::new(ErrorKind::InvalidInput, error)));
+                    continue;
+                }
+                let geometry = self.native_tools.memory.models.geometry_book.clone();
+                let source = self.app_access_source(&message.request.app);
                 let request = message.request.clone();
                 let context = message.context.clone();
                 let cancel = message.cancelled.clone();
@@ -232,9 +343,76 @@ impl IdeDesktopApp {
                 let (tx, rx) = mpsc::channel();
                 let repaint = ctx.clone();
                 std::thread::spawn(move || {
-                    let _ = tx.send(crate::ide::native_application_access::access(
-                        sheet, function, &request, &context, flag,
-                    ));
+                    let result = if request.app == "Statistics 1Var" {
+                        crate::ide::native_application_access::statistics::access_with_geometry(
+                            statistics1.unwrap_or_default(),
+                            &request,
+                            &context,
+                            flag,
+                            geometry.map(Arc::new),
+                        )
+                        .map(|(value, statistics1)| {
+                            crate::ide::native_application_access::AccessResult {
+                                value,
+                                statistics1,
+                                statistics2: None,
+                                sheet: None,
+                                function: None,
+                                geometry: None,
+                                graph3d: None,
+                            }
+                        })
+                    } else if let Some(book) = statistics2 {
+                        crate::ide::native_application_access::statistics::access_two(
+                            book, &request, &context, flag,
+                        )
+                        .map(|(value, statistics2)| {
+                            crate::ide::native_application_access::AccessResult {
+                                value,
+                                statistics1: None,
+                                statistics2,
+                                sheet: None,
+                                function: None,
+                                geometry: None,
+                                graph3d: None,
+                            }
+                        })
+                    } else if let Some(definitions) = graph3d {
+                        crate::ide::native_application_access::graph3d::access(
+                            definitions,
+                            &request,
+                            &context,
+                            flag,
+                        )
+                    } else if request.app == "Geometry" {
+                        crate::ide::native_application_access::geometry::access(
+                            geometry.unwrap_or_default(),
+                            &request,
+                            &context,
+                            flag,
+                        )
+                        .map(|(value, geometry)| {
+                            crate::ide::native_application_access::AccessResult {
+                                value,
+                                geometry,
+                                graph3d: None,
+                                statistics1: None,
+                                statistics2: None,
+                                sheet: None,
+                                function: None,
+                            }
+                        })
+                    } else {
+                        crate::ide::native_application_access::access(
+                            sheet,
+                            function,
+                            geometry.map(Arc::new),
+                            &request,
+                            &context,
+                            flag,
+                        )
+                    };
+                    let _ = tx.send(result);
                     repaint.request_repaint();
                 });
                 self.app_variable_task = Some(AppVariableTask {
@@ -312,7 +490,7 @@ mod tests {
         });
         assert!(
             !app.state.native.history.back().unwrap().error,
-            "{}",
+            "{source}: {}",
             app.state.native.history.back().unwrap().result
         );
         app.controller.session_snapshot().last_value.unwrap()
@@ -1160,5 +1338,418 @@ mod tests {
             "77"
         );
         assert!(app.native_tools.error.is_none());
+    }
+    #[test]
+    fn statistics_ppl_computes_against_live_columns_and_commits_typed_results() {
+        let mut app = IdeDesktopApp::default();
+        let ctx = egui::Context::default();
+        app.native_tools.memory.selected_app = "Statistics 1Var".into();
+        app.native_tools
+            .memory
+            .models
+            .ensure_statistics_book(false)
+            .unwrap();
+        app.controller.mutate_memory(|memory| {
+            memory.active_app = "Statistics 1Var".into();
+            memory.settings.numeric_version = ppl_math::NumericVersion::Current15751;
+            memory.store_program("STATBRIDGE", "EXPORT STATBRIDGE() BEGIN D1:={1,2,4}; SetFreq(H1,3); Do1VStats(H1); RETURN {NbItem,MeanX,MeanX*3}; END;".into()).map_err(|e|e.to_string())
+        }).unwrap();
+        let value = home(&mut app, &ctx, "STATBRIDGE()");
+        let PortableValue::List(values) = value else {
+            panic!("expected statistics results")
+        };
+        assert_eq!(
+            values[0].to_value().expect_real("count").unwrap(),
+            ppl_math::Real::from_i64(9)
+        );
+        assert_eq!(values[1].display(&Settings::default()), "2.33333333333");
+        assert_eq!(values[2].display(&Settings::default()), "6.99999999999");
+        let book = app
+            .native_tools
+            .memory
+            .models
+            .statistics1_book
+            .as_ref()
+            .unwrap();
+        assert_eq!(book.analyses[0].frequency_expression(), "3");
+        assert_eq!(book.result_values["H1"].len(), 13);
+        let restored: crate::ide::native_statistics::OneBook =
+            serde_json::from_value(serde_json::to_value(book).unwrap()).unwrap();
+        restored.validate().unwrap();
+        assert_eq!(restored.result_values, book.result_values);
+        assert_eq!(
+            app.controller.session_snapshot().globals["D1"]
+                .to_value()
+                .string_form(Default::default()),
+            "{1,2,4}"
+        );
+        let cached = restored.result_values.clone();
+        home(&mut app, &ctx, "SetFreq(H1,-1)");
+        start(&mut app, &ctx, "Do1VStats(H1)");
+        wait(&mut app, &ctx, |a| {
+            !a.controller.worker_alive()
+                && a.state
+                    .native
+                    .history
+                    .back()
+                    .is_some_and(|h| h.expression == "Do1VStats(H1)")
+        });
+        assert!(app.state.native.history.back().unwrap().error);
+        assert_eq!(
+            app.native_tools
+                .memory
+                .models
+                .statistics1_book
+                .as_ref()
+                .unwrap()
+                .result_values,
+            cached
+        );
+    }
+    #[test]
+    fn statistics_geometry_definitions_drive_ppl_summary_and_plot_after_redraw() {
+        use crate::ide::{
+            native_app_ui::numeric, native_model_plots::PlotData, native_tools::Page,
+        };
+        let (mut app, ctx) = fixture();
+        for (name, program) in [
+            (
+                "GEOSTATSSEED",
+                r#"EXPORT GEOSTATSSEED() BEGIN
+                STARTAPP("Geometry");Geometry.DelInstruction();
+                Geometry.Instruction(0):="point(0,0)";
+                Geometry.Instruction(0):="point(3,4)";
+                Geometry.Instruction(0):="distance(GA,GB)";
+                STARTVIEW(0,1);RETURN Geometry.GC;
+            END;"#,
+            ),
+            (
+                "GEOSTATSSAMPLE",
+                r#"EXPORT GEOSTATSSAMPLE() BEGIN
+                D1:={1,2,4};SetSample(H1,D1*Geometry.GC);SetFreq(H1,1);
+                Do1VStats(H1);RETURN MeanX;
+            END;"#,
+            ),
+            (
+                "GEOSTATSFREQ",
+                r#"EXPORT GEOSTATSFREQ() BEGIN
+                SetSample(H1,D1);SetFreq(H1,Geometry.GC*{1,1,2});H1(3):=4;
+                Do1VStats(H1);RETURN {NbItem,MeanX};
+            END;"#,
+            ),
+        ] {
+            app.handle_native_tool_request(Request::SaveProgram(name.into(), program.into()), &ctx);
+        }
+        let settings = Settings::default();
+        assert_eq!(
+            home(&mut app, &ctx, "GEOSTATSSEED()").display(&settings),
+            "5"
+        );
+        let statistics = "Statistics 1Var";
+        app.handle_native_tool_request(Request::SelectApp(statistics.into()), &ctx);
+        assert_eq!(
+            home(&mut app, &ctx, "GEOSTATSSAMPLE()").display(&settings),
+            "11.6666666667"
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEOSTATSFREQ()").display(&settings),
+            "{20,2.75}"
+        );
+
+        home(&mut app, &ctx, r#"Geometry.Instruction(2):="point(6,8)""#);
+        assert_eq!(
+            home(&mut app, &ctx, "GEOSTATSFREQ()").display(&settings),
+            "{20,2.75}"
+        );
+        assert_eq!(
+            home(&mut app, &ctx, r#"STARTAPP("Geometry")"#).display(&settings),
+            "1"
+        );
+        app.handle_native_tool_request(Request::SelectApp(statistics.into()), &ctx);
+
+        app.native_tools.open(Page::Numeric);
+        let model = &app.native_tools.memory.models;
+        let calculation = numeric(statistics, model).unwrap();
+        app.handle_native_tool_request(Request::Calculate(calculation), &ctx);
+        wait(&mut app, &ctx, |app| app.model_task.is_none());
+        let report = &app.native_tools.memory.models.results[statistics]["H1"];
+        assert_eq!(report["count"], 40.);
+        assert_eq!(report["mean"], 2.75);
+
+        app.native_tools.open(Page::Plot);
+        app.native_tools
+            .autoscale(app.controller.session_snapshot());
+        wait(&mut app, &ctx, |app| !app.native_tools.calculating());
+        let plot: PlotData = serde_json::from_value(
+            app.native_tools.memory.models.results["Statistics 1Var:plot"].clone(),
+        )
+        .unwrap();
+        let crate::ide::native_model_plots::PlotScaleBounds::Finite([xmin, xmax, ymin, ymax]) =
+            plot.scale.unwrap().bounds.unwrap()
+        else {
+            panic!("Expected finite Autoscale bounds");
+        };
+        assert!(xmin < 1. && xmax >= 3. && ymin < 0. && ymax > 20.);
+        assert_eq!(plot.curves, vec![vec![[1., 10.], [2., 10.], [4., 20.]]]);
+        let trace = &plot.statistics_traces[0].samples;
+        assert_eq!(trace[2].frequency, Some(20));
+        assert_eq!(trace[2].row, Some(3));
+        assert_eq!(trace[2].y, Some(20.));
+
+        // The original virtual G1 retains fractional frequency from a distance
+        // of sqrt(73), including its decimal arithmetic on the resulting list.
+        home(&mut app, &ctx, r#"Geometry.Instruction(2):="point(8,3)""#);
+        home(&mut app, &ctx, r#"STARTAPP("Geometry")"#);
+        app.handle_native_tool_request(Request::SelectApp(statistics.into()), &ctx);
+        assert_eq!(
+            home(&mut app, &ctx, "GEOSTATSFREQ()").display(&settings),
+            "{34.1760149812,2.75}"
+        );
+
+        // A failed definition must neither modify Geometry nor replace prior results.
+        let before = app
+            .native_tools
+            .memory
+            .models
+            .statistics1_book
+            .as_ref()
+            .unwrap()
+            .result_values
+            .clone();
+        let geometry = app
+            .native_tools
+            .memory
+            .models
+            .geometry_book
+            .as_ref()
+            .unwrap()
+            .access_fingerprint();
+        home(&mut app, &ctx, "SetSample(H1,Geometry.DelInstruction())");
+        start(&mut app, &ctx, "Do1VStats(H1)");
+        wait(&mut app, &ctx, |a| {
+            !a.controller.worker_alive()
+                && a.state
+                    .native
+                    .history
+                    .back()
+                    .is_some_and(|h| h.expression == "Do1VStats(H1)")
+        });
+        let result = app.state.native.history.back().unwrap();
+        assert!(
+            result.error
+                && result
+                    .result
+                    .contains("Read-only expressions cannot change Geometry"),
+            "{}",
+            result.result
+        );
+        assert_eq!(
+            app.native_tools
+                .memory
+                .models
+                .statistics1_book
+                .as_ref()
+                .unwrap()
+                .result_values,
+            before
+        );
+        assert_eq!(
+            app.native_tools
+                .memory
+                .models
+                .geometry_book
+                .as_ref()
+                .unwrap()
+                .access_fingerprint(),
+            geometry
+        );
+    }
+    #[test]
+    fn geometry_ppl_symbolic_redraw_completes_before_measurements_and_restores_definitions() {
+        let (mut app, ctx) = fixture();
+        let source = r#"EXPORT GEOBRIDGE() BEGIN
+            STARTAPP("Geometry"); Geometry.DelInstruction();
+            Geometry.Instruction(0):="point(0,0)";
+            Geometry.Instruction(0):="point(4,0)";
+            Geometry.Instruction(0):="point(0,3)";
+            Geometry.Instruction(0):="triangle(GA,GB,GC)";
+            Geometry.Instruction(0):="distance(GB,GC)";
+            STARTVIEW(0,1);
+            RETURN {Geometry.GE,area(Geometry.GD),perimeter(Geometry.GD)};
+        END;"#;
+        app.handle_native_tool_request(
+            Request::SaveProgram("GEOBRIDGE".into(), source.into()),
+            &ctx,
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEOBRIDGE()").display(&Settings::default()),
+            "{5,6,12}"
+        );
+        let original = app
+            .native_tools
+            .memory
+            .models
+            .geometry_book
+            .as_ref()
+            .unwrap();
+        assert_eq!(original.objects.len(), 5);
+        assert!(!original.current_values.is_empty());
+        let saved = serde_json::to_value(&app.native_tools.memory).unwrap();
+        let restored: crate::ide::native_tools::ToolMemory = serde_json::from_value(saved).unwrap();
+        restored.validate().unwrap();
+        let book = restored.models.geometry_book.as_ref().unwrap();
+        assert_eq!(book.objects.len(), 5);
+        assert!(
+            book.current_values.is_empty(),
+            "A fresh process must restore definitions without a computed-value cache"
+        );
+        app.native_tools.memory = restored;
+        let source = r#"EXPORT GEORESTORE() BEGIN
+            STARTAPP("Geometry"); STARTVIEW(1,1);
+            RETURN {Geometry.GE,area(Geometry.GD),perimeter(Geometry.GD)};
+        END;"#;
+        app.handle_native_tool_request(
+            Request::SaveProgram("GEORESTORE".into(), source.into()),
+            &ctx,
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEORESTORE()").display(&Settings::default()),
+            "{5,6,12}"
+        );
+        wait(&mut app, &ctx, |app| {
+            !app.native_tools.calculating()
+                && app
+                    .native_tools
+                    .memory
+                    .models
+                    .results
+                    .contains_key("Geometry:plot")
+        });
+        let source = r#"EXPORT GEODRAWZERO() BEGIN
+            Geometry.Instruction(2):="point(8,0)";
+            LOCAL before:=Geometry.GE;
+            STARTVIEW(0,0);
+            RETURN {before,Geometry.GE};
+        END;"#;
+        app.handle_native_tool_request(
+            Request::SaveProgram("GEODRAWZERO".into(), source.into()),
+            &ctx,
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEODRAWZERO()").display(&Settings::default()),
+            "{5,8.54400374532}"
+        );
+    }
+    #[test]
+    fn worksheet_and_function_read_the_current_geometry_value_via_ppl() {
+        let (mut app, ctx) = fixture();
+        let source = r#"EXPORT GEOFORMULAS() BEGIN
+            STARTAPP("Geometry");Geometry.DelInstruction();
+            Geometry.Instruction(0):="point(0,0)";
+            Geometry.Instruction(0):="point(3,4)";
+            Geometry.Instruction(0):="distance(GA,GB)";STARTVIEW(0,1);
+            STARTAPP("Spreadsheet");Spreadsheet.A1(1):='Geometry.GC+2';
+            STARTAPP("Function");Function.F1:="Geometry.GC+X";
+            RETURN {TYPE(Spreadsheet.A1(1)),Spreadsheet.A1,F1(2)};
+        END;"#;
+        app.handle_native_tool_request(
+            Request::SaveProgram("GEOFORMULAS".into(), source.into()),
+            &ctx,
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEOFORMULAS()").display(&Settings::default()),
+            "{8,7,7}"
+        );
+        assert!(!app.controller.session_snapshot().globals.contains_key("GC"));
+        let worksheet = &app.native_tools.memory.models.spreadsheet;
+        assert!(worksheet.cells["A1"].starts_with('='));
+        assert!(worksheet.cells["A1"].contains("Geometry.GC"));
+        assert_eq!(
+            app.native_tools.memory.graphs["Function"].curves[0].expression,
+            "Geometry.GC+X"
+        );
+
+        let source = r#"EXPORT GEORECALC() BEGIN
+            Geometry.Instruction(2):="point(6,8)";
+            LOCAL prior:=Spreadsheet.A1;
+            STARTAPP("Geometry");STARTVIEW(0,1);
+            RETURN {prior,Spreadsheet.A1,Function.F1(2)};
+        END;"#;
+        app.handle_native_tool_request(
+            Request::SaveProgram("GEORECALC".into(), source.into()),
+            &ctx,
+        );
+        assert_eq!(
+            home(&mut app, &ctx, "GEORECALC()").display(&Settings::default()),
+            "{7,12,12}"
+        );
+
+        use crate::ide::native_tools::Page;
+        app.handle_native_tool_request(Request::SelectApp("Function".into()), &ctx);
+        app.native_tools
+            .memory
+            .graphs
+            .get_mut("Function")
+            .unwrap()
+            .curves[0]
+            .enabled = true;
+        app.native_tools.open(Page::Plot);
+        app.native_tools.plot(app.controller.session_snapshot());
+        wait(&mut app, &ctx, |app| !app.native_tools.calculating());
+        let samples = &app.native_tools.plot_samples()[0];
+        assert!(samples.len() > 100);
+        for [x, y] in samples
+            .iter()
+            .map(|point| point.expect("finite linear graph"))
+        {
+            assert!((y - x - 10.).abs() < 1e-8);
+        }
+        app.native_tools.open(Page::Numeric);
+        app.native_tools.table(&app.controller.session_snapshot());
+        wait(&mut app, &ctx, |app| !app.native_tools.calculating());
+        let table = app.native_tools.numeric_typed_table();
+        assert!(table.len() > 30);
+        assert_eq!(
+            table[0][0].as_ref().unwrap().display(&Settings::default()),
+            "0"
+        );
+        assert_eq!(
+            table[0][1].as_ref().unwrap().display(&Settings::default()),
+            "10"
+        );
+
+        // Restoring tool memory keeps definitions but discards the rendered
+        // Geometry cache. STARTAPP must rebuild it before executing a read.
+        let restored = serde_json::to_value(&app.native_tools.memory).unwrap();
+        let (mut reopened, ctx) = fixture();
+        reopened.native_tools.memory = serde_json::from_value(restored).unwrap();
+        let book = reopened
+            .native_tools
+            .memory
+            .models
+            .geometry_book
+            .as_ref()
+            .unwrap();
+        assert!(book.current_values.is_empty());
+        reopened.handle_native_tool_request(
+            Request::SaveProgram(
+                "GEOREAD".into(),
+                r#"EXPORT GEOREAD() BEGIN
+                    STARTAPP("Geometry");
+                    RETURN {TYPE(Spreadsheet.A1(1)),Spreadsheet.A1,Function.F1(2)};
+                END;"#
+                    .into(),
+            ),
+            &ctx,
+        );
+        assert_eq!(
+            reopened.controller.session_snapshot().active_app,
+            "Function"
+        );
+        assert_ne!(reopened.controller.session_snapshot().generation, 0);
+        assert_eq!(
+            home(&mut reopened, &ctx, "GEOREAD()").display(&Settings::default()),
+            "{8,12,12}"
+        );
     }
 }

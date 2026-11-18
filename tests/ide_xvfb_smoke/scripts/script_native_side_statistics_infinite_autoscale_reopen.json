@@ -1,0 +1,105 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_infinite_autoscale_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "new_program",
+      "name": "STATSBOUND"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN RETURN {Xmin,Xmax,STRING(Ymin),STRING(Ymax),TYPE(Ymin),TYPE(Ymax),Hmin,Hmax,Hwidth}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_one_infinite"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "partial_setup"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/partial_setup_shown.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN Ymax:=15; RETURN {Xmin,Xmax,STRING(Ymin),STRING(Ymax),TYPE(Ymin),TYPE(Ymax),Hmin,Hmax,Hwidth}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "both_bounds_edited"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STATSBOUND() BEGIN H1(3):=5; H2(3):=5; STARTVIEW(9); RETURN {Xmin,Xmax,STRING(Ymin),STRING(Ymax),TYPE(Ymin),TYPE(Ymax),Hmin,Hmax,Hwidth}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "finite_autoscale_recovery"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

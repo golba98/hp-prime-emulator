@@ -568,6 +568,13 @@ fn terminated(mut units: Vec<u16>) -> Vec<u16> {
     units
 }
 
+/// Formats a value as the one-argument STRING command in the supplied settings.
+pub fn default_string_units(value: &Value, settings: &Settings) -> Vec<u16> {
+    let format = Format::from_args(settings, std::slice::from_ref(value))
+        .expect("one-argument STRING has no format arguments to validate");
+    format.units(value)
+}
+
 pub(super) fn string(machine: &Machine, args: &[Value]) -> RtResult<Value> {
     let format = Format::from_args(&machine.settings, args)?;
     Ok(Value::from_utf16(format.units(&args[0])))

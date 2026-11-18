@@ -125,6 +125,47 @@ pub struct PairedSummary {
     pub correlation: Option<f64>,
 }
 impl Regression {
+    pub(crate) fn equation(&self) -> String {
+        let c = self
+            .coefficients
+            .iter()
+            .map(|&n| {
+                let number = ppl_math::Real::from_f64(n)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|_| n.to_string());
+                format!("({number})")
+            })
+            .collect::<Vec<_>>();
+        match self.kind {
+            FitKind::UserDefined => self.user_expression.clone().unwrap_or_default(),
+            FitKind::Logistic if c.len() == 3 => format!("{}/(1+{}*EXP(-{}*X))", c[0], c[1], c[2]),
+            FitKind::Trigonometric if c.len() == 4 => {
+                let angle = format!("{}*X+{}", c[1], c[2]);
+                let angle = match self.angle_code {
+                    1 => format!("({angle})*180/π"),
+                    2 => format!("({angle})*200/π"),
+                    _ => angle,
+                };
+                format!("{}*SIN({angle})+{}", c[0], c[3])
+            }
+            FitKind::Logarithmic if c.len() == 2 => format!("{}*LN(X)+{}", c[1], c[0]),
+            FitKind::Power if c.len() == 2 => format!("{}*X^{}", c[0], c[1]),
+            FitKind::Exponential if c.len() == 2 => format!("{}*EXP({}*X)", c[0], c[1]),
+            FitKind::Exponent if c.len() == 2 => format!("{}*{}^X", c[0], c[1]),
+            FitKind::Inverse if c.len() == 2 => format!("{}/X+{}", c[1], c[0]),
+            _ => c
+                .iter()
+                .enumerate()
+                .rev()
+                .map(|(power, c)| match power {
+                    0 => c.clone(),
+                    1 => format!("{c}*X"),
+                    _ => format!("{c}*X^{power}"),
+                })
+                .collect::<Vec<_>>()
+                .join("+"),
+        }
+    }
     pub fn predict(&self, x: f64) -> Result<f64, String> {
         use FitKind::*;
         let c = &self.coefficients;

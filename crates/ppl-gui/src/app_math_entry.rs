@@ -1,12 +1,15 @@
 //! Reuse the calculator's structured expression editor for tool math fields.
 use super::*;
+use crate::ide::native_app_models::{cell_coordinates, spreadsheet::worksheet_cas};
 use crate::ide::native_tools::{MathTarget, Page};
+use std::sync::Arc;
 pub(super) struct MathEntry {
     target: MathTarget,
     editor: crate::ide::native::expression::ExpressionEditor,
     home_input: String,
     lower: bool,
     previous_page: Page,
+    spreadsheet_cas: Option<bool>,
 }
 impl IdeDesktopApp {
     pub(super) fn graph_math_entry(&self) -> bool {
@@ -46,6 +49,22 @@ impl IdeDesktopApp {
             )
         })
     }
+    pub(super) fn spreadsheet_cas_mode(&self) -> Option<bool> {
+        self.math_entry.as_ref()?.spreadsheet_cas
+    }
+
+    pub(super) fn toggle_spreadsheet_cas(&mut self) {
+        if let Some(mode) = self
+            .math_entry
+            .as_mut()
+            .and_then(|entry| entry.spreadsheet_cas.as_mut())
+        {
+            *mode = !*mode;
+            self.native_tools.memory.spreadsheet_cas_mode = *mode;
+            self.state.native.alpha_default_lower = *mode;
+        }
+    }
+
     pub(super) fn spreadsheet_form(&self) -> Option<crate::ide::native_tools::spreadsheet::Form> {
         use crate::ide::native_tools::spreadsheet::Form;
         match &self.math_entry.as_ref()?.target {
@@ -69,6 +88,7 @@ impl IdeDesktopApp {
                 return;
             }
         }
+        let mut spreadsheet_cas = None;
         let text = match &target {
             MathTarget::FunctionNumeric { field, clear } => {
                 if *clear {
@@ -77,8 +97,33 @@ impl IdeDesktopApp {
                     self.native_tools.function_numeric_source(*field)
                 }
             }
-            MathTarget::SpreadsheetCell { address, clear } => {
-                self.native_tools.spreadsheet_source(address, *clear)
+            MathTarget::SpreadsheetCell {
+                address,
+                clear,
+                history,
+            } => {
+                let draft = self.native_tools.spreadsheet_source(address, *clear);
+                if cell_coordinates(address).is_some() {
+                    let expression = draft.trim_start();
+                    let body = expression.strip_prefix('=').unwrap_or(expression);
+                    if let Some(source) = worksheet_cas::body(body) {
+                        spreadsheet_cas = Some(true);
+                        if expression.starts_with('=') {
+                            format!("={source}")
+                        } else {
+                            source
+                        }
+                    } else {
+                        spreadsheet_cas = Some(
+                            *clear
+                                && history.is_none()
+                                && self.native_tools.memory.spreadsheet_cas_mode,
+                        );
+                        draft
+                    }
+                } else {
+                    draft
+                }
             }
             MathTarget::SpreadsheetGoto => String::new(),
             MathTarget::SpreadsheetName { block } => self
@@ -149,6 +194,9 @@ impl IdeDesktopApp {
             MathTarget::StatisticsColumn { two, .. } => {
                 self.native_tools.memory.statistics_make_source[usize::from(*two)].clone()
             }
+            MathTarget::GeometryPlotField(name) => {
+                self.native_tools.geometry_plot_field_source(name)
+            }
             MathTarget::GeometryObject { name, preset, .. } => {
                 self.native_tools.geometry_object_source(name, preset)
             }
@@ -169,6 +217,48 @@ impl IdeDesktopApp {
             MathTarget::StatisticsGoto { two } => {
                 (self.native_tools.memory.statistics_cursor[usize::from(*two)].row + 1).to_string()
             }
+            MathTarget::StatisticsDefinition {
+                analysis,
+                frequency,
+                clear,
+            } => {
+                if *clear {
+                    String::new()
+                } else {
+                    self.native_tools
+                        .memory
+                        .models
+                        .statistics1_book
+                        .as_ref()
+                        .and_then(|book| book.analyses.get(*analysis))
+                        .map(|definition| {
+                            if *frequency {
+                                definition.frequency_expression()
+                            } else {
+                                definition.data_expression()
+                            }
+                        })
+                        .unwrap_or_default()
+                }
+            }
+            MathTarget::StatisticsTwoReference {
+                analysis,
+                field,
+                clear,
+            } => {
+                if *clear {
+                    String::new()
+                } else {
+                    self.native_tools
+                        .memory
+                        .models
+                        .statistics2_book
+                        .as_ref()
+                        .and_then(|book| book.analyses.get(*analysis))
+                        .map(|analysis| analysis.reference(*field))
+                        .unwrap_or_default()
+                }
+            }
             MathTarget::StatisticsFit { analysis } => self
                 .native_tools
                 .memory
@@ -187,6 +277,7 @@ impl IdeDesktopApp {
             home_input: self.state.native.home_input.clone(),
             lower: self.state.native.alpha_default_lower,
             previous_page: self.native_tools.page.unwrap_or(Page::Symbolic),
+            spreadsheet_cas,
         });
         if matches!(
             &self.math_entry.as_ref().unwrap().target,
@@ -215,13 +306,20 @@ impl IdeDesktopApp {
         }
 
         self.state.native.edit_title = Some("Edit expression · Enter: OK · Esc: cancel".into());
-        self.state.native.alpha_default_lower = matches!(
-            self.math_entry.as_ref().map(|entry| entry.previous_page),
-            Some(Page::CasVariables)
-        );
+        self.state.native.alpha_default_lower = spreadsheet_cas == Some(true)
+            || matches!(
+                self.math_entry.as_ref().map(|entry| entry.previous_page),
+                Some(Page::CasVariables)
+            );
         self.set_native_view(NativeView::Home, ctx);
         self.restore_inline_page();
     }
+    pub(super) fn geometry_plot_edit_matches(&self, name: &str, source: &str) -> bool {
+        matches!(self.math_entry.as_ref().map(|entry| &entry.target),
+            Some(MathTarget::GeometryPlotField(field)) if field == name)
+            && self.state.native.home_input == source
+    }
+
     pub(super) fn finish_math_entry(&mut self, commit: bool, ctx: &egui::Context) -> bool {
         if let Some(field) = self.function_numeric_math_entry() {
             if commit {
@@ -234,6 +332,23 @@ impl IdeDesktopApp {
                 return true;
             }
             self.native_tools.function_numeric_cancel();
+        }
+        if commit
+            && let Some(MathTarget::GeometryPlotField(name)) =
+                self.math_entry.as_ref().map(|entry| &entry.target)
+        {
+            if self.model_task.is_none() {
+                self.handle_native_tool_request(
+                    crate::ide::native_tools::Request::Calculate(
+                        crate::ide::native_app_ui::Calculation::GeometryPlotField {
+                            name: name.clone(),
+                            source: self.state.native.home_input.clone(),
+                        },
+                    ),
+                    ctx,
+                );
+            }
+            return true;
         }
         if commit && self.spreadsheet_form().is_some() {
             let source = self.state.native.home_input.clone();
@@ -283,19 +398,42 @@ impl IdeDesktopApp {
             let source = self.state.native.home_input.clone();
             match entry.target {
                 MathTarget::FunctionNumeric { .. } => {}
-                MathTarget::SpreadsheetCell { address, .. } => {
+                MathTarget::SpreadsheetCell {
+                    address, history, ..
+                } => {
+                    let source = if entry.spreadsheet_cas == Some(true) && !source.trim().is_empty()
+                    {
+                        if let Some(formula) = source.trim_start().strip_prefix('=') {
+                            format!("={}", worksheet_cas::wrap(formula))
+                        } else {
+                            worksheet_cas::wrap(&source)
+                        }
+                    } else {
+                        source
+                    };
                     self.native_tools.memory.spreadsheet_draft =
                         Some(crate::ide::native_tools::spreadsheet::Draft {
                             address: address.clone(),
                             source: source.clone(),
                         });
-                    pending = Some(crate::ide::native_tools::Request::Calculate(
-                        crate::ide::native_app_ui::Calculation::SpreadsheetEntry(
-                            self.native_tools.memory.models.spreadsheet.clone(),
-                            address,
-                            source,
-                        ),
-                    ));
+                    use crate::ide::{native_app_models, native_app_ui::Calculation};
+                    let models = &self.native_tools.memory.models;
+                    let sheet = models.spreadsheet.clone();
+                    let geometry = models.geometry_book.clone().map(Arc::new);
+                    let calculation = if history.is_some()
+                        && native_app_models::Spreadsheet::is_clipboard_collection(&source)
+                        && let Some((col, row)) = native_app_models::cell_coordinates(&address)
+                    {
+                        Calculation::SpreadsheetPasteCollection {
+                            sheet,
+                            text: source,
+                            destination: [col, row],
+                            geometry,
+                        }
+                    } else {
+                        Calculation::SpreadsheetEntry(sheet, address, source, geometry)
+                    };
+                    pending = Some(crate::ide::native_tools::Request::Calculate(calculation));
                 }
                 MathTarget::SpreadsheetGoto => {
                     if let Err(e) = self.native_tools.spreadsheet_goto(&source) {
@@ -406,6 +544,9 @@ impl IdeDesktopApp {
                         ));
                     }
                 }
+                MathTarget::GeometryPlotField(_) => {
+                    unreachable!("Geometry Plot Setup uses the worker")
+                }
                 MathTarget::GeometryObject { name, insert, .. } => {
                     if let Some(book) = self.native_tools.memory.models.geometry_book.clone() {
                         self.native_tools.memory.geometry_draft =
@@ -497,16 +638,59 @@ impl IdeDesktopApp {
                         _ => self.native_tools.error = Some(format!("Choose row1 through{limit}")),
                     }
                 }
-                MathTarget::StatisticsFit { analysis } => {
-                    if let Some(analysis) = self
+                MathTarget::StatisticsDefinition {
+                    analysis,
+                    frequency,
+                    ..
+                } => {
+                    let result = self
+                        .native_tools
+                        .memory
+                        .models
+                        .statistics1_book
+                        .as_mut()
+                        .and_then(|book| book.analyses.get_mut(analysis))
+                        .ok_or_else(|| "Missing statistics definition".to_owned())
+                        .and_then(|definition| {
+                            definition.assign_field(
+                                if frequency { 2 } else { 1 },
+                                &ppl_vm::PortableValue::String(source),
+                            )
+                        });
+                    match result {
+                        Ok(_) => {
+                            self.native_tools
+                                .memory
+                                .models
+                                .results
+                                .retain(|name, _| !name.starts_with("Statistics 1Var"));
+                        }
+                        Err(error) => self.native_tools.error = Some(error),
+                    }
+                }
+                MathTarget::StatisticsFit { analysis }
+                | MathTarget::StatisticsTwoReference { analysis, .. } => {
+                    let field = match entry.target {
+                        MathTarget::StatisticsTwoReference { field, .. } => field,
+                        _ => 5,
+                    };
+                    let result = self
                         .native_tools
                         .memory
                         .models
                         .statistics2_book
                         .as_mut()
-                        .and_then(|book| book.analyses.get_mut(analysis))
-                    {
-                        analysis.user_expression = source;
+                        .ok_or_else(|| "Missing statistics definition".to_owned())
+                        .and_then(|book| {
+                            book.assign_field(
+                                analysis,
+                                field,
+                                &ppl_vm::PortableValue::String(source),
+                            )
+                        });
+                    match result {
+                        Ok(()) => self.native_tools.statistics_invalidate(true),
+                        Err(error) => self.native_tools.error = Some(error),
                     }
                 }
                 MathTarget::Object => self.native_tools.memory.content = source,
@@ -517,7 +701,13 @@ impl IdeDesktopApp {
         self.state.native.home_input = entry.home_input;
         self.state.native.alpha_default_lower = entry.lower;
         self.state.native.edit_title = None;
+        // Returning from an editor is not a new Plot visit. In particular,
+        // Go To has just chosen a trace sample that opening Plot must retain.
+        let plot_trace = (entry.previous_page == Page::Plot).then_some(self.native_tools.trace);
         self.native_tools.open(entry.previous_page);
+        if let Some(trace) = plot_trace {
+            self.native_tools.trace = trace;
+        }
         self.release_native_input();
         if let Some(request) = pending {
             self.handle_native_tool_request(request, ctx);

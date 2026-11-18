@@ -1,0 +1,209 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_writes.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SWRITE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN LOCAL rejected:=0; C1:={1,2,3}; C2:={5,9,13}; S1(3):=2.5; IFERR Do2VStats(S1); THEN rejected:=1; END; LOCAL weight:=S1(3); S1(3):='C3'; RETURN {rejected,weight,ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "scalar_rejected"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN C1:={1,2,3};C2:={10,15,20};C3:={1,2,3};L1:={2,4,6};S1:={'L1','C2','C3',1,\"\",#0090F0h,9,#D01070h};CHECK(1);Do2VStats(S1);X:=8;STARTVIEW(0);RETURN {S1,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "weighted_read"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_writes_weighted.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN LOCAL rejected:=0;IFERR S2:={'C2','C1',\"\",14};THEN rejected:=1;END;RETURN {rejected,S2,ISCHECK(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "invalid_prefix"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN S1(4):=13;S1(5):='X^2';X:=3;STARTVIEW(0);RETURN {TYPE(S1(1)),S1,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "custom_setup"
+    },
+    {
+      "step": "click_lcd",
+      "x": 180,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 80,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 25,
+      "y": 231
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "C1*2"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "edit_axis"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_writes_symbolic.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN X:=3;STARTVIEW(9);RETURN {TYPE(S1(1)),S1,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 130
+    },
+    {
+      "step": "click_lcd",
+      "x": 185,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_skin"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_writes_plot.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

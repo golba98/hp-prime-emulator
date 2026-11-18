@@ -13,6 +13,73 @@ const MAX_BINS: usize = 512;
 pub enum PlotStyle {
     Line,
     Scatter,
+    PointLine,
+    CrossLine,
+    TraceOnly,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlotAnnotation {
+    pub point: [f64; 2],
+    pub text: String,
+    pub color: u32,
+    #[serde(default = "annotation_font_size")]
+    pub font_size: f32,
+    #[serde(default)]
+    pub right_aligned: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub analysis: Option<usize>,
+}
+fn annotation_font_size() -> f32 {
+    12.
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlotFill {
+    pub points: Vec<[f64; 2]>,
+    pub color: u32,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DotColumn {
+    pub x: f64,
+    pub count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fraction: Option<f64>,
+    /// Actual pale fill; the original disk boundary is black.
+    pub color: u32,
+    pub analysis: usize,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum PlotScaleBounds {
+    Finite([f64; 4]),
+    UnboundedY { x: [f64; 2] },
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlotScale {
+    pub bounds: Option<PlotScaleBounds>,
+    pub histogram: Option<HistogramSpec>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StatisticsTraceSample {
+    pub x: f64,
+    pub y: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auxiliary: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frequency: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fractional_frequency: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub row: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StatisticsTraceSeries {
+    pub analysis: usize,
+    pub chart: super::native_statistics::one::Chart,
+    pub samples: Vec<StatisticsTraceSample>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlotData {
@@ -21,6 +88,20 @@ pub struct PlotData {
     pub styles: Vec<PlotStyle>,
     pub x_label: String,
     pub y_label: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub colors: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<PlotAnnotation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fills: Vec<PlotFill>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dots: Vec<DotColumn>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub statistics_traces: Vec<StatisticsTraceSeries>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<PlotScale>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub statistics_two_fits: Vec<(usize, String, u64)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub geometry: Option<Box<super::native_geometry::Scene>>,
 }
@@ -33,6 +114,13 @@ impl PlotData {
             x_label: x_label.into(),
             y_label: y_label.into(),
             geometry: None,
+            colors: Vec::new(),
+            annotations: Vec::new(),
+            fills: Vec::new(),
+            dots: Vec::new(),
+            statistics_traces: Vec::new(),
+            scale: None,
+            statistics_two_fits: Vec::new(),
         }
     }
     pub(super) fn push(
@@ -71,7 +159,7 @@ fn bounded(count: usize) -> Result<(), String> {
         Ok(())
     }
 }
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct HistogramSpec {
     pub minimum: f64,
     pub maximum: f64,
@@ -83,28 +171,41 @@ impl HistogramSpec {
     pub fn for_data(model: &Statistics1) -> Result<Self, String> {
         bounded(model.samples.len())?;
         let summary = model.calculate()?;
-        let span = summary.maximum - summary.minimum;
+        Self::for_observations(
+            model.samples.len(),
+            summary.minimum,
+            summary.maximum,
+            summary.count as f64,
+        )
+    }
+
+    pub(super) fn for_observations(
+        rows: usize,
+        minimum: f64,
+        maximum: f64,
+        count: f64,
+    ) -> Result<Self, String> {
+        bounded(rows)?;
+        finite([count, minimum, maximum])?;
+        let span = maximum - minimum;
         if !span.is_finite() {
             return Err("Histogram data span exceeds numerical range".into());
         }
-        let bins = (summary.count as f64)
-            .sqrt()
-            .ceil()
-            .clamp(1., (MAX_BINS - 1) as f64);
+        let bins = count.sqrt().ceil().clamp(1., (MAX_BINS - 1) as f64);
         let width = if span == 0. {
-            summary.maximum.abs().max(1.) * 0.1
+            maximum.abs().max(1.) * 0.1
         } else {
             span / bins
         };
         // The upper edge is exclusive, so include a maximum on a bin boundary
         // by reserving one additional bin rather than changing bin membership.
-        let maximum = summary.maximum + width;
+        let maximum = maximum + width;
         finite([width, maximum])?;
-        if width <= 0. || maximum <= summary.minimum {
+        if width <= 0. || maximum <= minimum {
             return Err("Histogram bin width is below numerical precision".into());
         }
         Ok(Self {
-            minimum: summary.minimum,
+            minimum,
             maximum,
             width,
         })
@@ -134,10 +235,25 @@ pub fn histogram(
     } else {
         ratio.ceil()
     };
-    if !bins.is_finite() || !(1. ..=MAX_BINS as f64).contains(&bins) {
-        return Err(format!("Histogram needs between 1 and {MAX_BINS} bins"));
+    if !bins.is_finite() || bins < 1. || bins >= usize::MAX as f64 {
+        return Err("Histogram bin count exceeds its addressable range".into());
     }
-    let mut frequencies = vec![0u64; bins as usize];
+    let bins = bins as usize;
+    // Native emits five contour vertices, a fill polygon and a typed trace
+    // record per bin. Reserve a conservative 1 KiB per bin across those
+    // structures. This is a host rendering budget, not a firmware bin limit;
+    // check before zero-filling to avoid Linux virtual-memory overcommit OOM.
+    const RENDER_BUDGET_BYTES: usize = 64 * 1024 * 1024;
+    const BYTES_PER_RENDERED_BIN: usize = 1024;
+    if bins > RENDER_BUDGET_BYTES / BYTES_PER_RENDERED_BIN {
+        return Err("Histogram geometry exceeds the 64 MiB Native rendering budget".into());
+    }
+    check(cancel)?;
+    let mut frequencies = Vec::new();
+    frequencies
+        .try_reserve_exact(bins)
+        .map_err(|_| "Insufficient memory for histogram bins")?;
+    frequencies.resize(bins, 0u64);
     for (i, &value) in model.samples.iter().enumerate() {
         check(cancel)?;
         if value < spec.minimum || value >= spec.maximum {
@@ -152,7 +268,13 @@ pub fn histogram(
                 .ok_or("Histogram frequency overflow")?;
         }
     }
-    let mut bars = Vec::with_capacity(frequencies.len() * 5);
+    let points = frequencies
+        .len()
+        .checked_mul(5)
+        .ok_or("Histogram point count overflow")?;
+    let mut bars = Vec::new();
+    bars.try_reserve_exact(points)
+        .map_err(|_| "Insufficient memory for histogram geometry")?;
     for (bin, frequency) in frequencies.into_iter().enumerate() {
         check(cancel)?;
         let left = spec.minimum + bin as f64 * spec.width;

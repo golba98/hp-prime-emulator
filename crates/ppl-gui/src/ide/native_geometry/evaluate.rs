@@ -11,8 +11,10 @@ struct Evaluator<'a> {
     snapshot: &'a SessionSnapshot,
     cancel: Arc<AtomicBool>,
     cache: BTreeMap<String, Result<Shape, String>>,
+    point_curves: BTreeMap<String, Shape>,
     visiting: BTreeSet<String>,
     started: Instant,
+    current: bool,
 }
 pub(super) fn scene(
     book: &Book,
@@ -26,6 +28,8 @@ pub(super) fn scene(
         cache: BTreeMap::new(),
         visiting: BTreeSet::new(),
         started: Instant::now(),
+        point_curves: BTreeMap::new(),
+        current: false,
     };
     let mut scene = Scene::default();
     for object in &book.objects {
@@ -40,7 +44,213 @@ pub(super) fn scene(
         scene.measurements.push(e.expression(&m.source));
     }
     e.check()?;
+    scene.point_curves = e.point_curves;
     Ok(scene)
+}
+pub(super) fn current_expression(
+    book: &Book,
+    source: &str,
+    snapshot: &SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<ppl_vm::PortableValue, String> {
+    super::source(source)?;
+    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    if diagnostics.has_errors() {
+        return Err(diagnostics.errors().next().unwrap().message.clone());
+    }
+    fn references(
+        expression: &Expr,
+        book: &Book,
+        snapshot: &SessionSnapshot,
+    ) -> Result<(), String> {
+        match &expression.kind {
+            ExprKind::Ident(name) => {
+                let qualified = name.strip_prefix("Geometry.");
+                let bare = qualified.unwrap_or(name);
+                if ppl_compiler::geometry::is_object(bare)
+                    && (qualified.is_some() || !snapshot.globals.contains_key(name))
+                    && !book.objects.iter().any(|o| bare == format!("G{}", o.name))
+                {
+                    return Err(format!("Unknown Geometry object {name}"));
+                }
+            }
+            ExprKind::Call(_, args)
+            | ExprKind::Index(_, args)
+            | ExprKind::List(args)
+            | ExprKind::Bracket(args) => {
+                for a in args {
+                    references(a, book, snapshot)?;
+                }
+            }
+            ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
+                references(a, book, snapshot)?
+            }
+            ExprKind::Binary(_, a, b) | ExprKind::ComplexPair(a, b) => {
+                references(a, book, snapshot)?;
+                references(b, book, snapshot)?;
+            }
+            ExprKind::Assign(..) | ExprKind::Store(..) => {
+                return Err("Geometry expressions cannot assign calculator variables".into());
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    references(&ast, book, snapshot)?;
+    let mut evaluator = Evaluator {
+        book,
+        snapshot,
+        cancel,
+        cache: BTreeMap::new(),
+        visiting: BTreeSet::new(),
+        started: Instant::now(),
+        point_curves: BTreeMap::new(),
+        current: true,
+    };
+    evaluator.check()?;
+    if let ExprKind::Call(callee, args) = &ast.kind
+        && matches!(&callee.kind, ExprKind::Ident(name) if name.strip_prefix("Geometry.").unwrap_or(name).eq_ignore_ascii_case("coordinates"))
+    {
+        if args.len() != 1 {
+            return Err("coordinates expects one point or vector".into());
+        }
+        if let Ok(shape) = evaluator.value(&args[0], source) {
+            let points = match shape {
+                Shape::Point(p) => vec![p],
+                Shape::Points(p) => p,
+                _ => return Err("coordinates needs a point or vector".into()),
+            };
+            return Ok(ppl_vm::PortableValue::Matrix {
+                rows: points.len(),
+                cols: 2,
+                vector: points.len() == 1,
+                data: points
+                    .iter()
+                    .flat_map(|p| [super::access::scalar(p.x), super::access::scalar(p.y)])
+                    .collect::<Result<_, _>>()?,
+            });
+        }
+    } else {
+        match evaluator.value(&ast, source) {
+            Ok(shape) => return super::access::shape_value(&shape),
+            Err(_)
+                if matches!(&ast.kind, ExprKind::Call(callee, args)
+                    if matches!(&callee.kind, ExprKind::Ident(name) if name == "circle")
+                        && args.len() != 2) =>
+            {
+                evaluator.check()?;
+                let options = ppl_cas::Options {
+                    timeout: Duration::from_secs(4),
+                    ..Default::default()
+                };
+                return algebra_overload(source, snapshot, &evaluator.cancel, &options);
+            }
+            Err(_) if call_arguments(&ast, "tangent").is_some() => {
+                evaluator.check()?;
+                return Ok(ppl_vm::PortableValue::String(format!(
+                    "{source} \n Error: Bad Argument Value"
+                )));
+            }
+            Err(_) => {}
+        }
+    }
+    evaluator.check()?;
+    symbolic_value(&ast, book, snapshot)
+}
+fn algebra_overload(
+    source: &str,
+    snapshot: &SessionSnapshot,
+    cancel: &AtomicBool,
+    options: &ppl_cas::Options,
+) -> Result<ppl_vm::PortableValue, String> {
+    let home = snapshot
+        .globals
+        .iter()
+        .filter_map(|(name, value)| {
+            ppl_vm::cas::to_cas(&value.to_value()).map(|value| (name.clone(), value))
+        })
+        .collect();
+    let mut session = snapshot.cas.clone();
+    let result = session
+        .evaluate_with_home(source, &home, options, cancel)
+        .map_err(|e| e.to_string())?;
+    Ok(ppl_vm::PortableValue::from(&ppl_vm::cas::from_cas(
+        result.value,
+    )))
+}
+// Symbolic point data is intentionally different from a live object reference.
+// A copied point stays algebraic; only the named cache is a construction.
+fn symbolic_value(
+    expression: &Expr,
+    book: &Book,
+    snapshot: &SessionSnapshot,
+) -> Result<ppl_vm::PortableValue, String> {
+    use ExprKind as E;
+    fn source(e: &Expr, book: &Book, snapshot: &SessionSnapshot) -> Result<String, String> {
+        if let E::Ident(name) = &e.kind {
+            let qualified = name.strip_prefix("Geometry.");
+            if qualified.is_none()
+                && let Some(value) = snapshot.globals.get(name)
+            {
+                return ppl_vm::cas::expression(&value.to_value()).map_err(|e| e.to_string());
+            }
+            if let Some(name) = qualified.unwrap_or(name).strip_prefix('G')
+                && let Some(object) = book.objects.iter().find(|o| o.name == name)
+            {
+                return match book.current_values.get(name) {
+                    Some(value) => {
+                        ppl_vm::cas::expression(&value.to_value()).map_err(|e| e.to_string())
+                    }
+                    None => Ok(object.source.clone()),
+                };
+            }
+        }
+        if let E::Call(callee, args) = &e.kind
+            && let E::Ident(name) = &callee.kind
+        {
+            let name = name.strip_prefix("Geometry.").unwrap_or(name);
+            let args = args
+                .iter()
+                .map(|arg| source(arg, book, snapshot))
+                .collect::<Result<Vec<_>, _>>()?;
+            return Ok(
+                match (name.to_ascii_lowercase().as_str(), args.as_slice()) {
+                    ("abscissa", [a]) => format!("re({a})"),
+                    ("ordinate", [a]) => format!("im({a})"),
+                    ("affix", [a]) => a.clone(),
+                    ("distance", [a, b]) => {
+                        format!("sqrt((re({a})-re({b}))^2+(im({a})-im({b}))^2)")
+                    }
+                    _ => format!("{name}({})", args.join(",")),
+                },
+            );
+        }
+        ppl_compiler::ppl_expression_source(e).map_err(|e| e.to_string())
+    }
+    if let E::Call(callee, args) = &expression.kind
+        && matches!(&callee.kind, E::Ident(name) if name.strip_prefix("Geometry.").unwrap_or(name).eq_ignore_ascii_case("coordinates"))
+        && let [argument] = args.as_slice()
+    {
+        let data = source(argument, book, snapshot)?;
+        let (data, diagnostics) = ppl_syntax::parse_expression(&data);
+        if !diagnostics.has_errors()
+            && let E::Call(callee, components) = &data.kind
+            && matches!(&callee.kind, E::Ident(name) if name == "point")
+            && let [x, y] = components.as_slice()
+        {
+            return Ok(ppl_vm::PortableValue::List(
+                [x, y]
+                    .iter()
+                    .map(|e| {
+                        ppl_compiler::ppl_expression_source(e)
+                            .map(|s| super::access::symbolic(format!("point({s},0)")))
+                            .map_err(|e| e.to_string())
+                    })
+                    .collect::<Result<_, _>>()?,
+            ));
+        }
+    }
+    Ok(super::access::symbolic(source(expression, book, snapshot)?))
 }
 impl Evaluator<'_> {
     fn check(&self) -> Result<(), String> {
@@ -53,6 +263,12 @@ impl Evaluator<'_> {
         }
     }
     fn reference(&self, name: &str) -> Option<String> {
+        let (name, qualified) = name
+            .strip_prefix("Geometry.")
+            .map_or((name, false), |n| (n, true));
+        if self.current && !qualified && self.snapshot.globals.contains_key(name) {
+            return None;
+        }
         let n = name.strip_prefix('G')?;
         self.book
             .objects
@@ -71,33 +287,93 @@ impl Evaluator<'_> {
         if !self.visiting.insert(name.into()) {
             return Err(format!("Circular geometry definition G{name}"));
         }
-        let source = self
-            .book
-            .objects
-            .iter()
-            .find(|o| o.name == name)
-            .ok_or_else(|| format!("Unknown geometry object G{name}"))?
-            .source
-            .clone();
-        let value = self.expression(&source);
+        let source = if self.current {
+            let value = self
+                .book
+                .current_values
+                .get(name)
+                .ok_or("Geometry object has not been evaluated")?;
+            match value {
+                ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) => {
+                    source.clone()
+                }
+                ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Undefined) => {
+                    self.visiting.remove(name);
+                    return Ok(Shape::Undefined);
+                }
+                ppl_vm::PortableValue::Real(v) => {
+                    self.visiting.remove(name);
+                    return scalar(real_number(*v)?);
+                }
+                ppl_vm::PortableValue::Complex(v) => {
+                    self.visiting.remove(name);
+                    return Ok(Shape::Number {
+                        re: real_number(v.re)?,
+                        im: real_number(v.im)?,
+                    });
+                }
+                _ => return Err("Geometry value is not a constructed object".into()),
+            }
+        } else {
+            self.book
+                .objects
+                .iter()
+                .find(|o| o.name == name)
+                .ok_or_else(|| format!("Unknown geometry object G{name}"))?
+                .source
+                .clone()
+        };
+        let value = (|| {
+            let ast = parse(&source)?;
+            let shape = self.value(&ast, &source)?;
+            if !self.current
+                && matches!(shape, Shape::Point(_))
+                && let Some(curve) = self.point_curve(&ast, &source)?
+            {
+                self.point_curves.insert(name.to_owned(), curve);
+            }
+            Ok(shape)
+        })();
         self.visiting.remove(name);
         self.cache.insert(name.into(), value.clone());
         value
     }
     fn expression(&mut self, source: &str) -> Result<Shape, String> {
-        super::source(source)?;
-        let (ast, diags) = ppl_syntax::parse_expression(source);
-        if diags.has_errors() {
-            return Err(diags.errors().next().unwrap().message.clone());
+        self.value(&parse(source)?, source)
+    }
+    fn point_curve(&mut self, point: &Expr, source: &str) -> Result<Option<Shape>, String> {
+        if let ExprKind::Ident(name) = &point.kind
+            && let Some(name) = self.reference(name)
+        {
+            return Ok(if self.current {
+                self.book.current_point_curves.get(&name)
+            } else {
+                self.point_curves.get(&name)
+            }
+            .cloned());
         }
-        self.value(&ast, source)
+        let Some([curve, ..]) = call_arguments(point, "element") else {
+            return Ok(None);
+        };
+        let curve = self.value(curve, source)?;
+        Ok(matches!(
+            curve,
+            Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
+        )
+        .then_some(curve))
     }
     fn value(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
         self.check()?;
-        if let ExprKind::Ident(name) = &e.kind
-            && let Some(name) = self.reference(name)
-        {
-            return self.resolve(&name);
+        if let ExprKind::Ident(name) = &e.kind {
+            if let Some(name) = self.reference(name) {
+                return self.resolve(&name);
+            }
+            if let Some(ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(arc))) =
+                self.snapshot.globals.get(name)
+                && let Some(ast) = replayable_arc(arc)
+            {
+                return self.value(&ast, arc);
+            }
         }
         if let ExprKind::Assign(..) | ExprKind::Store(..) = &e.kind {
             return Err("Geometry expressions cannot assign calculator variables".into());
@@ -108,7 +384,10 @@ impl Evaluator<'_> {
         let ExprKind::Ident(name) = &callee.kind else {
             return self.numeric(e, source);
         };
-        let name = name.to_ascii_lowercase();
+        let name = name
+            .strip_prefix("Geometry.")
+            .unwrap_or(name)
+            .to_ascii_lowercase();
         let arity = |n: usize| {
             if args.len() == n {
                 Ok(())
@@ -124,6 +403,64 @@ impl Evaluator<'_> {
                     y: self.real(&args[1], source)?,
                 })?)),
                 _ => Err("point expects one affix or two coordinates".into()),
+            },
+            "plotfunc" => {
+                arity(1)?;
+                let expression = self.expression_text(&args[0], source, true)?;
+                super::function::build(
+                    expression,
+                    self.snapshot,
+                    self.cancel.clone(),
+                    !self.current,
+                )
+            }
+            "element" => {
+                let [curve, rest @ ..] = args.as_slice() else {
+                    return Err("element expects a curve and an optional real parameter".into());
+                };
+                let parameter = match rest {
+                    [] => 0.5,
+                    [t] => self.real(t, source)?,
+                    _ => {
+                        return Err("element expects a curve and an optional real parameter".into());
+                    }
+                };
+                let curve = self.value(curve, source)?;
+                let p = match curve {
+                    Shape::Function { expression, .. } => super::function::element(
+                        &expression,
+                        parameter,
+                        self.snapshot,
+                        self.cancel.clone(),
+                    )?,
+                    _ => g::element(&curve, parameter)?,
+                };
+                Ok(Shape::Point(p))
+            }
+            "tangent" => match args.as_slice() {
+                [point] => {
+                    let location = self.value(point, source)?;
+                    let curve = self
+                        .point_curve(point, source)?
+                        .ok_or("A one-argument tangent needs a point on a curve")?;
+                    g::tangent_at(&curve, as_point(location)?)
+                }
+                [curve, location] => {
+                    let curve = self.value(curve, source)?;
+                    let at = self.value(location, source)?;
+                    if let Shape::Point(p) = at
+                        && let Some(constraint) = self.point_curve(location, source)?
+                        && super::access::shape_value(&curve)?
+                            == super::access::shape_value(&constraint)?
+                    {
+                        return g::tangent_at(&curve, p);
+                    }
+                    g::tangent(curve, at)
+                }
+                _ => Err(
+                    "tangent expects a point on a curve, or a curve and a point or parameter"
+                        .into(),
+                ),
             },
             "segment" | "line" | "half_line" => {
                 arity(2)?;
@@ -235,33 +572,66 @@ impl Evaluator<'_> {
                 if name == "inter" {
                     Ok(Shape::Points(points))
                 } else {
-                    let near = if args.len() == 3 {
-                        self.pt(&args[2], source)?
+                    let line_on_curve = matches!(
+                        (&a, &b),
+                        (Shape::Line { .. }, Shape::Arc(_) | Shape::Ellipse(_))
+                            | (Shape::Arc(_) | Shape::Ellipse(_), Shape::Line { .. })
+                    );
+                    let p = if args.len() == 2 && line_on_curve {
+                        points.first().copied()
                     } else {
-                        Point2 { x: 0., y: 0. }
-                    };
-                    let p = points
-                        .into_iter()
-                        .min_by(|a, b| {
+                        let near = if args.len() == 3 {
+                            self.pt(&args[2], source)?
+                        } else {
+                            Point2 { x: 0., y: 0. }
+                        };
+                        points.into_iter().min_by(|a, b| {
                             (a.x - near.x)
                                 .hypot(a.y - near.y)
                                 .total_cmp(&(b.x - near.x).hypot(b.y - near.y))
                         })
-                        .ok_or("The geometric objects do not intersect")?;
-                    Ok(Shape::Point(p))
+                    };
+                    match p {
+                        Some(p) => Ok(Shape::Point(p)),
+                        None if line_on_curve => Ok(Shape::Undefined),
+                        None => Err("The geometric objects do not intersect".into()),
+                    }
                 }
             }
             "circle" => {
-                arity(2)?;
-                let a = self.pt(&args[0], source)?;
-                match self.value(&args[1], source)? {
-                    Shape::Point(b) => {
-                        let c = g::midpoint(a, b)?;
-                        g::circle(c, c.distance(a)?)
-                    }
-                    Shape::Number { re, im } => g::circle(a, re.hypot(im)),
-                    _ => Err("circle needs a point or radius after its center".into()),
+                if !matches!(args.len(), 2 | 4) {
+                    return Err(
+                        "circle expects two arguments and optional start and end angles".into(),
+                    );
                 }
+                let a = self.pt(&args[0], source)?;
+                let (center, radius) = match self.value(&args[1], source)? {
+                    Shape::Point(b) => {
+                        let center = g::midpoint(a, b)?;
+                        (center, center.distance(a)?)
+                    }
+                    Shape::Number { re, im } => (a, re.hypot(im)),
+                    _ => return Err("circle needs a point or radius after its center".into()),
+                };
+                if let [start, end] = &args[2..] {
+                    Ok(Shape::Arc(CircularArc::new(
+                        center,
+                        radius,
+                        self.real(start, source)?,
+                        self.real(end, source)?,
+                    )?))
+                } else {
+                    g::circle(center, radius)
+                }
+            }
+            "ellipse" => {
+                arity(3)?;
+                let foci = [self.pt(&args[0], source)?, self.pt(&args[1], source)?];
+                let size = match self.value(&args[2], source)? {
+                    Shape::Number { re, im: 0. } => super::ellipse::Size::SemiMajor(re),
+                    witness => super::ellipse::Size::Witness(as_point(witness)?),
+                };
+                Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
             }
             "circumcircle" | "incircle" => {
                 arity(3)?;
@@ -303,6 +673,7 @@ impl Evaluator<'_> {
                 arity(1)?;
                 match self.value(&args[0], source)? {
                     Shape::Circle { center, .. } => Ok(Shape::Point(center)),
+                    Shape::Arc(arc) => Ok(Shape::Point(arc.center)),
                     _ => Err("center needs a circle".into()),
                 }
             }
@@ -310,6 +681,8 @@ impl Evaluator<'_> {
                 arity(1)?;
                 match self.value(&args[0], source)? {
                     Shape::Circle { radius, .. } => scalar(radius),
+                    Shape::Arc(arc) => scalar(arc.radius),
+                    Shape::Ellipse(_) => scalar(0.),
                     _ => Err("radius needs a circle".into()),
                 }
             }
@@ -345,9 +718,30 @@ impl Evaluator<'_> {
                             std::f64::consts::TAU * radius
                         }
                     }
+                    Shape::Arc(arc) => {
+                        if name == "area" {
+                            arc.area()
+                        } else {
+                            arc.perimeter()
+                        }
+                    }
+                    Shape::Ellipse(ellipse) => {
+                        if name == "area" {
+                            ellipse.area()
+                        } else {
+                            ellipse.perimeter()
+                        }
+                    }
                     Shape::Polygon(points) => {
                         if name == "area" {
-                            crate::ide::native_app_models::Geometry::polygon_area(&points)?
+                            // Firmware preserves orientation for polygon area.
+                            let mut twice_area = 0.;
+                            for i in 0..points.len() {
+                                let a = points[i];
+                                let b = points[(i + 1) % points.len()];
+                                twice_area += a.x * b.y - b.x * a.y;
+                            }
+                            number(twice_area / 2.)?
                         } else {
                             let mut total = 0.;
                             for i in 0..points.len() {
@@ -356,7 +750,7 @@ impl Evaluator<'_> {
                             total
                         }
                     }
-                    _ => return Err(format!("{name} needs a circle or polygon")),
+                    _ => return Err(format!("{name} needs a circle, ellipse or polygon")),
                 };
                 scalar(value)
             }
@@ -444,9 +838,14 @@ impl Evaluator<'_> {
             _ => Err("A line, ray or segment is required".into()),
         }
     }
-    fn numeric(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
+    fn expression_text(
+        &mut self,
+        e: &Expr,
+        source: &str,
+        function: bool,
+    ) -> Result<String, String> {
         let mut replacements = Vec::new();
-        self.rewrite(e, source, &mut replacements)?;
+        self.rewrite(e, source, &mut replacements, function)?;
         let mut expression = source
             .get(e.span.start as usize..e.span.end as usize)
             .ok_or("Invalid geometry expression span")?
@@ -458,6 +857,10 @@ impl Evaluator<'_> {
                 &text,
             );
         }
+        Ok(expression)
+    }
+    fn numeric(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
+        let expression = self.expression_text(e, source, false)?;
         let result = super::super::native_readonly::evaluate(
             &expression,
             "Geometry",
@@ -482,40 +885,61 @@ impl Evaluator<'_> {
         e: &Expr,
         source: &str,
         out: &mut Vec<(usize, usize, String)>,
+        function: bool,
     ) -> Result<(), String> {
         if let ExprKind::Assign(..) | ExprKind::Store(..) = &e.kind {
             return Err("Geometry expressions cannot assign calculator variables".into());
         }
         let replacement = match &e.kind {
-            ExprKind::Ident(name) => self.reference(name).map(|name| self.resolve(&name)),
-            ExprKind::Call(callee, _) if matches!(&callee.kind,ExprKind::Ident(name)if known(name)) => {
+            ExprKind::Ident(name) if function && name == "x" => None,
+            ExprKind::Ident(name) => {
+                if let Some(name) = self.reference(name) {
+                    Some(self.resolve(&name))
+                } else if function
+                    && let Some(ppl_vm::PortableValue::Real(value)) =
+                        self.snapshot.globals.get(name)
+                {
+                    Some(real_number(*value).and_then(scalar))
+                } else {
+                    None
+                }
+            }
+            ExprKind::Call(callee, _) if matches!(&callee.kind,ExprKind::Ident(name)if known(name)) =>
+            {
+                if function && super::function::reads_x(e) {
+                    return Err("Function graphs require fixed Geometry arguments".into());
+                }
                 Some(self.value(e, source))
             }
             _ => None,
         };
         if let Some(value) = replacement {
             let p = as_point(value?)?;
-            let text = format!("(({})+({})*i)", canonical(p.x), canonical(p.y));
+            let text = if function && p.y == 0. {
+                format!("({})", canonical(p.x))
+            } else {
+                format!("(({})+({})*i)", canonical(p.x), canonical(p.y))
+            };
             out.push((e.span.start as usize, e.span.end as usize, text));
             return Ok(());
         }
         match &e.kind {
             ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
-                self.rewrite(a, source, out)?
+                self.rewrite(a, source, out, function)?
             }
             ExprKind::Binary(_, a, b) | ExprKind::ComplexPair(a, b) => {
-                self.rewrite(a, source, out)?;
-                self.rewrite(b, source, out)?;
+                self.rewrite(a, source, out, function)?;
+                self.rewrite(b, source, out, function)?;
             }
             ExprKind::Index(callee, args) => {
-                self.rewrite(callee, source, out)?;
+                self.rewrite(callee, source, out, function)?;
                 for a in args {
-                    self.rewrite(a, source, out)?;
+                    self.rewrite(a, source, out, function)?;
                 }
             }
             ExprKind::Call(_, args) | ExprKind::List(args) | ExprKind::Bracket(args) => {
                 for a in args {
-                    self.rewrite(a, source, out)?;
+                    self.rewrite(a, source, out, function)?;
                 }
             }
             _ => {}
@@ -523,10 +947,55 @@ impl Evaluator<'_> {
         Ok(())
     }
 }
+fn parse(source: &str) -> Result<Expr, String> {
+    super::source(source)?;
+    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    if let Some(error) = diagnostics.errors().next() {
+        return Err(error.message.clone());
+    }
+    Ok(ast)
+}
+fn call_arguments<'a>(e: &'a Expr, function: &str) -> Option<&'a [Expr]> {
+    let ExprKind::Call(callee, args) = &e.kind else {
+        return None;
+    };
+    let ExprKind::Ident(name) = &callee.kind else {
+        return None;
+    };
+    name.strip_prefix("Geometry.")
+        .unwrap_or(name)
+        .eq_ignore_ascii_case(function)
+        .then_some(args.as_slice())
+}
+// A stored PPL argument can replay the literal construction exported by
+// shape_value. Keep arbitrary symbolic bindings out of recursive evaluation.
+fn replayable_arc(source: &str) -> Option<Expr> {
+    source.strip_prefix("circle(point(")?;
+    let arc = parse(source).ok()?;
+    let [center, radius, start, end] = call_arguments(&arc, "circle")? else {
+        return None;
+    };
+    let [x, y] = call_arguments(center, "point")? else {
+        return None;
+    };
+    fn literal(e: &Expr) -> bool {
+        match &e.kind {
+            ExprKind::Number(_) => true,
+            ExprKind::Unary(_, arg) => literal(arg),
+            _ => false,
+        }
+    }
+    let literal_parameters = [x, y, radius, start, end].into_iter().all(literal);
+    literal_parameters.then_some(arc)
+}
 fn known(name: &str) -> bool {
+    let name = name.strip_prefix("Geometry.").unwrap_or(name);
     matches!(
         name.to_ascii_lowercase().as_str(),
         "point"
+            | "element"
+            | "plotfunc"
+            | "tangent"
             | "segment"
             | "line"
             | "half_line"
@@ -540,6 +1009,7 @@ fn known(name: &str) -> bool {
             | "inter"
             | "single_inter"
             | "circle"
+            | "ellipse"
             | "circumcircle"
             | "incircle"
             | "triangle"
@@ -573,7 +1043,11 @@ fn as_point(shape: Shape) -> Result<Point2, String> {
         _ => Err("A point or numeric affix is required".into()),
     }
 }
-pub(super) fn free_point(source: &str) -> bool {
+pub(super) enum PointMovement {
+    Free,
+    OnCurve(String),
+}
+pub(super) fn point_movement(source: &str) -> Option<PointMovement> {
     fn literal(e: &Expr) -> bool {
         match &e.kind {
             ExprKind::Number(_) => true,
@@ -583,9 +1057,31 @@ pub(super) fn free_point(source: &str) -> bool {
             _ => false,
         }
     }
-    let (e, d) = ppl_syntax::parse_expression(source);
-    !d.has_errors()
-        && matches!(&e.kind,ExprKind::Call(c,args)if matches!(&c.kind,ExprKind::Ident(n)if n.eq_ignore_ascii_case("point"))&&args.iter().all(literal))
+    let (e, diagnostics) = ppl_syntax::parse_expression(source);
+    if diagnostics.has_errors() {
+        return None;
+    }
+    let ExprKind::Call(callee, args) = e.kind else {
+        return None;
+    };
+    let ExprKind::Ident(function) = callee.kind else {
+        return None;
+    };
+    let name = function.strip_prefix("Geometry.").unwrap_or(&function);
+    if name.eq_ignore_ascii_case("point") && args.iter().all(literal) {
+        return Some(PointMovement::Free);
+    }
+    if name.eq_ignore_ascii_case("element")
+        && let [curve, rest @ ..] = args.as_slice()
+        && (rest.is_empty() || matches!(rest, [parameter] if literal(parameter)))
+        && let ExprKind::Ident(reference) = &curve.kind
+        && ppl_compiler::geometry::is_object(
+            reference.strip_prefix("Geometry.").unwrap_or(reference),
+        )
+    {
+        return Some(PointMovement::OnCurve(reference.clone()));
+    }
+    None
 }
 
 fn real_number(n: ppl_math::Real) -> Result<f64, String> {
@@ -594,5 +1090,59 @@ fn real_number(n: ppl_math::Real) -> Result<f64, String> {
         Err("Geometry value exceeds numerical range".into())
     } else {
         Ok(v)
+    }
+}
+#[cfg(test)]
+mod algebra_tests {
+    use super::*;
+    #[test]
+    fn circle_overloads_fail_explicitly_without_the_algebra_helper() {
+        let options = ppl_cas::Options {
+            helper: std::env::temp_dir()
+                .join("prime-nonexistent-geometry-helper")
+                .join("ppl-giac-helper"),
+            ..Default::default()
+        };
+        let result = algebra_overload(
+            "circle(0,0,1)",
+            &ppl_vm::SessionContext::default().snapshot(),
+            &AtomicBool::new(false),
+            &options,
+        );
+        assert!(result.unwrap_err().contains("CAS helper unavailable"));
+    }
+    #[test]
+    fn installed_algebra_helper_computes_circle_parameter_overloads() {
+        let Some(helper) = std::env::var_os("PPL_CAS_HELPER") else {
+            eprintln!("No explicit CAS helper; installed-resource control omitted");
+            return;
+        };
+        let options = ppl_cas::Options {
+            helper: helper.into(),
+            ..Default::default()
+        };
+        let snapshot = ppl_vm::SessionContext::default().snapshot();
+        let value = algebra_overload(
+            "circle(0,0,1)",
+            &snapshot,
+            &AtomicBool::new(false),
+            &options,
+        )
+        .unwrap();
+        assert_eq!(
+            value,
+            ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Undefined)
+        );
+        let value = algebra_overload(
+            "circle(0,1,0,1)",
+            &snapshot,
+            &AtomicBool::new(false),
+            &options,
+        )
+        .unwrap();
+        assert!(
+            matches!(value,ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) if source.contains("circle")),
+            "Circle overload must return actual symbolic geometry"
+        );
     }
 }

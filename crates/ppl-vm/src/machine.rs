@@ -19,6 +19,7 @@ use crate::rng::Rng;
 use crate::settings::{AngleMode, Settings};
 use crate::value::{Matrix, Value};
 
+mod app_variables;
 mod expression;
 
 /// Host-side protections. These are **not** calculator limits; they stop
@@ -85,6 +86,9 @@ pub struct Machine {
     pub active_app: String,
     pub app_settings: std::collections::BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: std::collections::BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: std::collections::BTreeMap<String, crate::AppPlotSettings>,
+    pub geometry_plot_settings: Option<crate::GeometryPlotSettings>,
+    pub(crate) statistics2_columns_revision: u64,
     pub app_files: std::collections::BTreeMap<
         String,
         std::collections::BTreeMap<String, crate::PortableValue>,
@@ -102,6 +106,8 @@ pub struct Machine {
     setting_slots: Vec<Option<Setting>>,
     /// Temporary expression slots which refer to a suspended caller's locals.
     captured_globals: std::collections::BTreeMap<usize, usize>,
+    scoped_plot_slots: std::collections::BTreeSet<usize>,
+    legacy_plot_writes: std::collections::BTreeSet<usize>,
     expression_scopes: std::collections::BTreeMap<usize, expression::Scope>,
     stack: Vec<Value>,
     frames: Vec<Frame>,
@@ -183,6 +189,21 @@ impl Machine {
         home
     }
     pub fn store_home_value(&mut self, name: &str, value: Value) -> RtResult<()> {
+        if self.active_app == "Geometry" && crate::GeometryPlotSettings::recognizes(name) {
+            let mut next = self.geometry_plot_settings();
+            next.set(name, &value)?;
+            self.geometry_plot_settings = Some(next);
+            return Ok(());
+        }
+        if crate::AppPlotSettings::for_app(&self.active_app).is_some()
+            && crate::AppPlotSettings::canonical_name(name).is_some()
+        {
+            crate::AppPlotSettings::check_field(&self.active_app, name)?;
+            let mut next = self.plot_settings(&self.active_app)?;
+            next.set_for(&self.active_app, name, &value)?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            return Ok(());
+        }
         if let Some(setting) = crate::AppNumericSettings::setting(name) {
             let mut next = self.numeric_settings();
             next.set(setting, &value)?;
@@ -207,6 +228,8 @@ impl Machine {
             })
         {
             self.store_global(slot, value.clone())?;
+        } else if crate::statistics_columns::is_two_variable_column(name) {
+            self.statistics2_columns_revision = self.statistics2_columns_revision.wrapping_add(1);
         }
         self.home_variables.insert(name.into(), value);
         Ok(())
@@ -225,7 +248,7 @@ impl Machine {
                 .map_or(!slot.program_var, |(image, _)| {
                     image.global_owners[i].is_none()
                 });
-            if shared {
+            if shared && !self.is_plot_slot(i) {
                 globals.insert(
                     slot.name.clone(),
                     crate::PortableValue::from(&self.load_global(i)),
@@ -236,6 +259,9 @@ impl Machine {
             active_app: self.active_app.clone(),
             app_settings: self.app_settings.clone(),
             app_numeric_settings: self.app_numeric_settings.clone(),
+            app_plot_settings: self.app_plot_settings.clone(),
+            geometry_plot_settings: self.geometry_plot_settings.clone(),
+            statistics2_columns_revision: self.statistics2_columns_revision,
             app_files: self.app_files.clone(),
             cas: self.cas_context.clone(),
             settings: self.settings.clone(),
@@ -243,6 +269,7 @@ impl Machine {
             generation: 0,
             last_value: None,
             notes: self.notes.clone(),
+            note_bullets: Default::default(),
             programs: self.programs.clone(),
         }
     }
@@ -250,8 +277,17 @@ impl Machine {
         self.prog
             .globals
             .iter()
-            .position(|slot| slot.name == name)
-            .map(|slot| &self.globals[slot])
+            .enumerate()
+            .find_map(|(index, slot)| {
+                let home = self
+                    .linked
+                    .as_ref()
+                    .map_or(!slot.program_var, |(image, _)| {
+                        image.global_owners[index].is_none()
+                    });
+                (home && slot.name == name && !self.captured_globals.contains_key(&index))
+                    .then_some(&self.globals[index])
+            })
             .or_else(|| self.home_variables.get(name))
     }
     pub fn new(
@@ -286,6 +322,9 @@ impl Machine {
             active_app: "Function".into(),
             app_settings: Default::default(),
             app_numeric_settings: Default::default(),
+            app_plot_settings: Default::default(),
+            geometry_plot_settings: None,
+            statistics2_columns_revision: 0,
             app_files: Default::default(),
             home_variables: Default::default(),
             legacy_type_cache: Default::default(),
@@ -296,6 +335,8 @@ impl Machine {
             globals,
             setting_slots,
             captured_globals: Default::default(),
+            scoped_plot_slots: Default::default(),
+            legacy_plot_writes: Default::default(),
             expression_scopes: Default::default(),
             stack: Vec::with_capacity(256),
             frames: Vec::new(),
@@ -757,6 +798,16 @@ impl Machine {
     }
 
     fn prepare_global(&mut self, slot: usize) -> RtResult<()> {
+        if self.is_plot_slot(slot) {
+            self.scoped_plot_slots.insert(slot);
+        }
+        if self.is_geometry_plot_slot(slot) {
+            self.geometry_plot_settings()
+                .get(&self.prog.globals[slot].name)?;
+        } else if self.is_plot_slot(slot) {
+            crate::AppPlotSettings::check_field(&self.active_app, &self.prog.globals[slot].name)?;
+            self.plot_settings(&self.active_app)?;
+        }
         if self.prog.globals[slot].external {
             return Err(RuntimeError::new(
                 ErrorKind::Undefined,
@@ -786,6 +837,55 @@ impl Machine {
         Ok(())
     }
 
+    pub fn geometry_plot_settings(&self) -> crate::GeometryPlotSettings {
+        self.geometry_plot_settings.clone().unwrap_or_default()
+    }
+    fn is_geometry_plot_slot(&self, slot: usize) -> bool {
+        self.active_app == "Geometry"
+            && self.is_home_slot(slot)
+            && crate::GeometryPlotSettings::recognizes(&self.prog.globals[slot].name)
+    }
+    pub(crate) fn retain_home_slot(&self, slot: usize) -> bool {
+        self.legacy_plot_writes.contains(&slot)
+            || (!self.scoped_plot_slots.contains(&slot) && !self.is_plot_slot(slot))
+    }
+    fn is_home_slot(&self, slot: usize) -> bool {
+        !self.captured_globals.contains_key(&slot)
+            && self
+                .linked
+                .as_ref()
+                .map_or(!self.prog.globals[slot].program_var, |(image, _)| {
+                    image.global_owners[slot].is_none()
+                })
+    }
+    pub fn plot_settings(&self, app: &str) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!("Plot Setup defaults are not established for {app}"),
+                )
+            })
+    }
+    fn is_plot_slot(&self, slot: usize) -> bool {
+        if self.captured_globals.contains_key(&slot) {
+            return false;
+        }
+        let global = &self.prog.globals[slot];
+        let home = self
+            .linked
+            .as_ref()
+            .map_or(!global.program_var, |(image, _)| {
+                image.global_owners[slot].is_none()
+            });
+        self.is_geometry_plot_slot(slot)
+            || home
+                && crate::AppPlotSettings::for_app(&self.active_app).is_some()
+                && crate::AppPlotSettings::canonical_name(&global.name).is_some()
+    }
     fn numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -795,6 +895,17 @@ impl Machine {
     fn load_global(&self, slot: usize) -> Value {
         if let Some(&local) = self.captured_globals.get(&slot) {
             return self.stack[local].clone();
+        }
+        if self.is_geometry_plot_slot(slot) {
+            return self
+                .geometry_plot_settings()
+                .get(&self.prog.globals[slot].name)
+                .unwrap_or_else(|_| Value::zero());
+        }
+        if self.is_plot_slot(slot)
+            && let Ok(settings) = self.plot_settings(&self.active_app)
+        {
+            return settings.get(&self.prog.globals[slot].name).unwrap();
         }
         match self.setting_slots.get(slot).copied().flatten() {
             Some(
@@ -861,6 +972,19 @@ impl Machine {
                 .insert(self.active_app.clone(), next);
             return Ok(());
         }
+        if self.is_geometry_plot_slot(slot) {
+            let mut next = self.geometry_plot_settings();
+            next.set(&self.prog.globals[slot].name, &v)?;
+            self.geometry_plot_settings = Some(next);
+            return Ok(());
+        }
+        if self.is_plot_slot(slot) {
+            crate::AppPlotSettings::check_field(&self.active_app, &self.prog.globals[slot].name)?;
+            let mut next = self.plot_settings(&self.active_app)?;
+            next.set_for(&self.active_app, &self.prog.globals[slot].name, &v)?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            return Ok(());
+        }
         let name = &self.prog.globals[slot].name;
         let home_owned = self
             .linked
@@ -873,6 +997,15 @@ impl Machine {
         } else {
             v
         };
+        if home_owned
+            && (crate::AppPlotSettings::canonical_name(name).is_some()
+                || crate::GeometryPlotSettings::recognizes(name))
+        {
+            self.legacy_plot_writes.insert(slot);
+        }
+        if home_owned && crate::statistics_columns::is_two_variable_column(name) {
+            self.statistics2_columns_revision = self.statistics2_columns_revision.wrapping_add(1);
+        }
         if home_owned && self.home_variables.contains_key(name) {
             self.home_variables.insert(name.clone(), v.clone());
         }
@@ -969,6 +1102,13 @@ impl Machine {
                 let v = self.pop();
                 self.store_global(g as usize, v)?;
             }
+            Op::GeometryAssignmentResult(slot) => {
+                if self.is_geometry_plot_slot(slot as usize) {
+                    self.pop();
+                    let value = self.load_global(slot as usize);
+                    self.stack.push(value);
+                }
+            }
             Op::Pop => {
                 self.pop();
             }
@@ -982,18 +1122,63 @@ impl Machine {
                     .unwrap_or((&self.active_app, qualified));
                 let (app, name) = (app.to_owned(), name.to_owned());
                 let value = store.then(|| crate::PortableValue::from(&self.pop()));
-                let indices = self
+                let indices: Vec<_> = self
                     .pop_n(argc as usize)
                     .iter()
                     .map(crate::PortableValue::from)
                     .collect();
+                if app == "Geometry" && crate::GeometryPlotSettings::recognizes(&name) {
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::InvalidInput,
+                            "Geometry Plot Setup values are scalar",
+                        ));
+                    }
+                    let mut settings = self.geometry_plot_settings();
+                    if let Some(value) = value {
+                        settings.set(&name, &value.to_value())?;
+                        self.geometry_plot_settings = Some(settings.clone());
+                    }
+                    self.stack.push(settings.get(&name)?);
+                    return Ok(Flow::Next);
+                }
+                if crate::AppPlotSettings::for_app(&app).is_some()
+                    && crate::AppPlotSettings::canonical_name(&name).is_some()
+                {
+                    crate::AppPlotSettings::check_field(&app, &name)?;
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "Plot Setup variables are scalar",
+                        ));
+                    }
+                    let mut settings = self.plot_settings(&app)?;
+                    if let Some(value) = value {
+                        settings.set_for(&app, &name, &value.to_value())?;
+                        self.app_plot_settings.insert(app, settings.clone());
+                    }
+                    self.stack.push(settings.get(&name).unwrap());
+                    return Ok(Flow::Next);
+                }
+                if app == "Statistics 1Var"
+                    && name.starts_with('D')
+                    && crate::statistics_columns::is_column(&name)
+                {
+                    let result = self.statistics_column(&name, &indices, value)?;
+                    self.stack.push(result);
+                    return Ok(Flow::Next);
+                }
                 let request = crate::host::AppVariableRequest {
                     app,
                     name,
                     indices,
                     value,
                 };
-                let context = self.presentation_snapshot();
+                let context = if request.app == "Geometry" && request.name == "__Expression" {
+                    self.app_expression_snapshot()
+                } else {
+                    self.presentation_snapshot()
+                };
                 let result = self.host.app_variable_with_context(request, context)?;
                 self.stack.push(result.to_value());
             }
@@ -1034,7 +1219,13 @@ impl Machine {
             Op::Neg => {
                 let v = self.pop();
                 let value = if matches!(v, Value::Symbolic(_)) {
-                    crate::cas::evaluate(self, &format!("-({})", crate::cas::expression(&v)?))?
+                    match ops::infinity::negate(&v) {
+                        Some(value) => value,
+                        None => crate::cas::evaluate(
+                            self,
+                            &format!("-({})", crate::cas::expression(&v)?),
+                        )?,
+                    }
                 } else {
                     ops::negate(&v)?
                 };
@@ -1050,7 +1241,13 @@ impl Machine {
             Op::Sqrt => {
                 let v = self.pop();
                 let r = if matches!(v, Value::Symbolic(_)) {
-                    crate::cas::evaluate(self, &format!("sqrt({})", crate::cas::expression(&v)?))?
+                    match ops::infinity::sqrt(&v) {
+                        Some(result) => result?,
+                        None => crate::cas::evaluate(
+                            self,
+                            &format!("sqrt({})", crate::cas::expression(&v)?),
+                        )?,
+                    }
                 } else {
                     builtins::math::sqrt(self, &v)?
                 };
@@ -1072,12 +1269,11 @@ impl Machine {
             Op::Square | Op::Cube => {
                 let v = self.pop();
                 let e = Value::from_i64(if op == Op::Square { 2 } else { 3 });
-                let r = ops::binary(
-                    ppl_syntax::ast::BinOp::Pow,
-                    &v,
-                    &e,
-                    &self.arithmetic_settings(),
-                )?;
+                let operation = ppl_syntax::ast::BinOp::Pow;
+                let r = match ops::infinity::binary(operation, &v, &e) {
+                    Some(result) => result?,
+                    None => ops::binary(operation, &v, &e, &self.arithmetic_settings())?,
+                };
                 self.stack.push(r);
             }
             Op::Jump(t) => self.frames.last_mut().unwrap().ip = t as usize,

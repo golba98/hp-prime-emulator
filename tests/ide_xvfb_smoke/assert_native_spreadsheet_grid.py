@@ -32,7 +32,8 @@ for state in [final,restored]:
     assert sheet['names']['TOTAL']==dict(left=1,right=1,top=1,bottom=1)
     assert sheet['column_widths']=={'2':80} and sheet['row_heights']=={'2':25}
     styles=[r['style'] for r in sheet['formats']]
-    assert any(s['number']==1 and s['digits']==6 for s in styles)
+    # Choosing Fixed leaves the cell's digit setting inherited.
+    assert any(s['number']==1 and s['digits'] is None for s in styles)
     assert any(s['color']==255 for s in styles)
     assert any(s['fill']==0xffff00 for s in styles)
     values=state['native_model_results']['Spreadsheet']

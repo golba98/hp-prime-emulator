@@ -17,7 +17,9 @@ pub fn show(
     scale: f32,
     trace: Option<[f64; 2]>,
 ) -> PlotInteraction {
-    show_impl(ui, window, curves, styles, size, scale, trace, false, None)
+    show_impl(
+        ui, window, curves, styles, size, scale, trace, false, None, None,
+    )
 }
 /// Graph definitions keep their chosen colors in every plotted curve.
 pub fn show_graph(
@@ -39,6 +41,7 @@ pub fn show_graph(
         trace,
         false,
         Some(colors),
+        None,
     )
 }
 /// Full-screen Statistics plot, with the Prime grid and observation markers.
@@ -51,7 +54,111 @@ pub fn show_prime(
     scale: f32,
     trace: Option<[f64; 2]>,
 ) -> PlotInteraction {
-    show_impl(ui, window, curves, styles, size, scale, trace, true, None)
+    show_impl(
+        ui, window, curves, styles, size, scale, trace, true, None, None,
+    )
+}
+/// Statistics chart geometry includes chosen colors, filled sectors and labels.
+#[allow(clippy::too_many_arguments)]
+pub fn show_prime_data(
+    ui: &mut egui::Ui,
+    window: &mut PlotWindow,
+    curves: &[CurveSamples],
+    data: &super::native_model_plots::PlotData,
+    size: egui::Vec2,
+    scale: f32,
+    trace: Option<[f64; 2]>,
+) -> PlotInteraction {
+    let colors = data.colors.iter().copied().map(rgb).collect::<Vec<_>>();
+    show_impl(
+        ui,
+        window,
+        curves,
+        &data.styles,
+        size,
+        scale,
+        trace,
+        true,
+        Some(&colors),
+        Some(data),
+    )
+}
+fn rgb(color: u32) -> egui::Color32 {
+    egui::Color32::from_rgb((color >> 16) as u8, (color >> 8) as u8, color as u8)
+}
+fn paint_dots(
+    painter: &egui::Painter,
+    window: &PlotWindow,
+    rect: egui::Rect,
+    columns: &[super::native_model_plots::DotColumn],
+    scale: f32,
+) {
+    let diameter = egui::vec2(
+        (f64::from(rect.width()) / (window.xmax - window.xmin)) as f32,
+        (f64::from(rect.height()) / (window.ymax - window.ymin)) as f32,
+    );
+    // The original rasterizer rounds these subpixel disks away. Keep their
+    // full counts and exact grouped trace even when the overview has no ink.
+    if diameter.x < scale || diameter.y < scale {
+        return;
+    }
+    for column in columns {
+        let rows = column
+            .count
+            .saturating_add(u64::from(column.fraction.is_some()));
+        if rows == 0
+            || column.x + 0.5 < window.xmin
+            || column.x - 0.5 > window.xmax
+            || window.ymax < 0.
+            || window.ymin > rows as f64
+        {
+            continue;
+        }
+        let first = (window.ymin - 1.).ceil().max(0.) as u64;
+        let last = (window.ymax.floor().max(0.) as u64).min(rows - 1);
+        if first > last {
+            continue;
+        }
+        let x = rect.left()
+            + ((column.x - window.xmin) / (window.xmax - window.xmin)) as f32 * rect.width();
+        // At least one pixel per disk bounds this loop by the visible LCD
+        // height, independently of the frequency total stored in memory.
+        for row in first..=last {
+            let y = rect.bottom()
+                - ((row as f64 + 0.5 - window.ymin) / (window.ymax - window.ymin)) as f32
+                    * rect.height();
+            let center = egui::pos2(x, y);
+            let radius = diameter * 0.5;
+            let segments = (radius.x.max(radius.y) * std::f32::consts::PI / 4.)
+                .ceil()
+                .clamp(16., 96.) as usize;
+            let fraction = column.fraction.filter(|_| row == column.count);
+            let sweep = fraction.unwrap_or(1.) as f32;
+            let ring = (0..segments + usize::from(fraction.is_some()))
+                .map(|index| {
+                    let angle = std::f32::consts::TAU * sweep * index as f32 / segments as f32;
+                    center + egui::vec2(radius.x * angle.cos(), radius.y * angle.sin())
+                })
+                .collect::<Vec<_>>();
+            let mut mesh = egui::Mesh::default();
+            mesh.colored_vertex(center, rgb(column.color));
+            for &point in &ring {
+                mesh.colored_vertex(point, rgb(column.color));
+            }
+            for index in 0..segments {
+                mesh.add_triangle(0, index as u32 + 1, ((index + 1) % ring.len()) as u32 + 1);
+            }
+            painter.add(egui::Shape::mesh(mesh));
+            let mut outline = ring;
+            if fraction.is_some() {
+                outline.push(center);
+            }
+            painter.add(egui::Shape::closed_line(
+                outline,
+                egui::Stroke::new(scale.max(0.5), egui::Color32::BLACK),
+            ));
+        }
+    }
 }
 #[allow(clippy::too_many_arguments)]
 fn show_impl(
@@ -64,6 +171,7 @@ fn show_impl(
     trace: Option<[f64; 2]>,
     prime: bool,
     colors: Option<&[egui::Color32]>,
+    data: Option<&super::native_model_plots::PlotData>,
 ) -> PlotInteraction {
     if let Err(error) = window.validate() {
         ui.colored_label(egui::Color32::DARK_RED, error);
@@ -130,9 +238,29 @@ fn show_impl(
             );
         }
     }
+    if let Some(data) = data {
+        paint_dots(&painter, window, rect, &data.dots, scale);
+        for fill in &data.fills {
+            if fill.points.len() >= 3 {
+                // Tessellate the whole fan as one mesh: separately antialiased
+                // triangles leave visible seams inside disks and pie sectors.
+                let mut mesh = egui::Mesh::default();
+                for &point in &fill.points {
+                    mesh.colored_vertex(project(point), rgb(fill.color));
+                }
+                for index in 1..fill.points.len() - 1 {
+                    mesh.add_triangle(0, index as u32, (index + 1) as u32);
+                }
+                painter.add(egui::Shape::mesh(mesh));
+            }
+        }
+    }
     let mut prime_color = 0;
     let mut scatter_seen = false;
     for (index, curve) in curves.iter().enumerate() {
+        if styles.get(index) == Some(&PlotStyle::TraceOnly) {
+            continue;
+        }
         if prime && styles.get(index) == Some(&PlotStyle::Scatter) {
             if scatter_seen {
                 prime_color += 1;
@@ -178,14 +306,69 @@ fn show_impl(
                     );
                 }
             }
+            if matches!(
+                styles.get(index),
+                Some(PlotStyle::PointLine | PlotStyle::CrossLine)
+            ) {
+                for point in curve.iter().flatten() {
+                    let point = project(*point);
+                    if styles.get(index) == Some(&PlotStyle::PointLine) {
+                        painter.circle_stroke(point, 2.5 * scale, egui::Stroke::new(scale, color));
+                    } else {
+                        let delta = egui::vec2(2.5 * scale, 2.5 * scale);
+                        painter.line_segment(
+                            [point - delta, point + delta],
+                            egui::Stroke::new(scale, color),
+                        );
+                        let delta = egui::vec2(delta.x, -delta.y);
+                        painter.line_segment(
+                            [point - delta, point + delta],
+                            egui::Stroke::new(scale, color),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    if let Some(data) = data {
+        for annotation in &data.annotations {
+            painter.text(
+                project(annotation.point),
+                if annotation.right_aligned {
+                    egui::Align2::RIGHT_CENTER
+                } else {
+                    egui::Align2::LEFT_CENTER
+                },
+                &annotation.text,
+                crate::ide::native_fonts::font_id(
+                    ui,
+                    egui::TextStyle::Monospace,
+                    annotation.font_size * scale,
+                ),
+                rgb(annotation.color),
+            );
         }
     }
     if let Some(point) = trace {
-        painter.circle_stroke(
-            project(point),
-            3. * scale,
-            egui::Stroke::new(scale.max(0.5), egui::Color32::BLACK),
-        );
+        if prime {
+            let center = project(point);
+            let radius = 3. * scale;
+            painter.add(egui::Shape::closed_line(
+                vec![
+                    center + egui::vec2(0., -radius),
+                    center + egui::vec2(radius, 0.),
+                    center + egui::vec2(0., radius),
+                    center + egui::vec2(-radius, 0.),
+                ],
+                egui::Stroke::new(scale.max(0.5), egui::Color32::BLUE),
+            ));
+        } else {
+            painter.circle_stroke(
+                project(point),
+                3. * scale,
+                egui::Stroke::new(scale.max(0.5), egui::Color32::BLACK),
+            );
+        }
         if !prime {
             painter.text(
                 rect.left_bottom() + egui::vec2(3., -3.),

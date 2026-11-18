@@ -493,8 +493,10 @@ fn real_arm_sleep_deadline_stops_during_power_and_inspection_pauses() {
     .unwrap();
     cpu.set_entry(0x10000200, 0x10008000, 50).unwrap();
     cpu.set_lr(0x1000020c).unwrap();
+    let starting = env.2.clock.freeze(None);
     cpu.run_slice(16).unwrap();
     env.2.enter_sleep();
+    drop(starting);
     let remaining = cpu.pending_service_image().unwrap().remaining_timeout_ns;
     std::thread::sleep(Duration::from_millis(80));
     cpu.run_slice(16).unwrap();
@@ -502,6 +504,7 @@ fn real_arm_sleep_deadline_stops_during_power_and_inspection_pauses() {
         cpu.pending_service_image().unwrap().remaining_timeout_ns,
         remaining
     );
+    let waking = env.2.clock.freeze(None);
     env.2.push_key_press(prime_emulator::services::ON_KEY_CODE);
     assert!(env.2.take_wake());
     cpu.run_slice(1).unwrap();
@@ -512,27 +515,36 @@ fn real_arm_sleep_deadline_stops_during_power_and_inspection_pauses() {
     // No CPU boundary is needed to prove the shared inspection clock lease.
     // The sleeping CPU remains registered, so coordinate its owner explicitly.
     let points = env.2.safe_points.clone();
+    let clock = env.2.clock.clone();
     let (ready, rx) = mpsc::channel();
     let pause_thread = std::thread::spawn(move || {
         let lease = points.pause(Duration::from_secs(1)).unwrap();
-        ready.send(()).unwrap();
+        drop(waking);
+        let paused_at = clock.now();
         std::thread::sleep(Duration::from_millis(80));
+        assert_eq!(clock.now(), paused_at);
+        // Hold time at the end of inspection until the CPU owner has
+        // observed the still-pending service. Host scheduling can delay
+        // that observation beyond the entire guest sleep interval.
+        let inspected = clock.freeze(None);
         drop(lease);
+        ready.send(inspected).unwrap();
     });
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
-    loop {
+    let inspected = loop {
         match rx.try_recv() {
-            Ok(()) => break,
+            Ok(inspected) => break inspected,
             Err(mpsc::TryRecvError::Empty) => {
                 assert!(std::time::Instant::now() < deadline);
                 cpu.run_slice(1).unwrap();
             }
             Err(mpsc::TryRecvError::Disconnected) => panic!("inspection owner failed"),
         }
-    }
+    };
     pause_thread.join().unwrap();
     cpu.run_slice(1).unwrap();
     assert!(cpu.pending_service_image().is_some());
+    drop(inspected);
     std::thread::sleep(Duration::from_millis(60));
     cpu.run_slice(1).unwrap();
     assert!(cpu.pending_service_image().is_none());

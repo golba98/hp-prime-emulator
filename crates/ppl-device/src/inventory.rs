@@ -143,6 +143,11 @@ impl Prime {
                 Err(e) => break e.to_string(),
             }
         };
+        if !decoder.terminal_observed {
+            // A late backup continuation cannot be treated as a response to
+            // a subsequent command, even after the bounded drain ends.
+            self.retired = Some(reason.clone());
+        }
         Ok(Inventory {
             records: decoder.records,
             terminal_observed: decoder.terminal_observed,
@@ -222,6 +227,64 @@ mod tests {
         assert!(decoder.records.is_empty());
         assert!(!decoder.terminal_observed);
     }
+    #[test]
+    fn incomplete_backup_retires_connection_before_any_subsequent_command() {
+        use std::sync::{Arc, Mutex};
+        struct Interrupted {
+            writes: Arc<Mutex<usize>>,
+            delivered: bool,
+        }
+        impl crate::Transport for Interrupted {
+            fn write(&mut self, report: &[u8]) -> Result<usize> {
+                *self.writes.lock().unwrap() += 1;
+                Ok(report.len())
+            }
+            fn read_timeout(&mut self, output: &mut [u8], _: i32) -> Result<usize> {
+                if *self.writes.lock().unwrap() == 0 {
+                    return Ok(0);
+                }
+                if !self.delivered {
+                    self.delivered = true;
+                    output[..7].copy_from_slice(&[0, 0xf7, 1, 0, 0, 0, 20]);
+                    return Ok(7);
+                }
+                Err(DeviceError::Hid("backup interrupted".into()))
+            }
+        }
+        let writes = Arc::new(Mutex::new(0));
+        let detected = crate::Detected {
+            vendor_id: 0x03f0,
+            product_id: 0x1541,
+            model: "offline",
+            path: "offline:backup".into(),
+            manufacturer: None,
+            product: None,
+            serial: None,
+            release: 0,
+            interface: 0,
+        };
+        let mut prime = Prime::with_transport(
+            detected,
+            Box::new(Interrupted {
+                writes: writes.clone(),
+                delivered: false,
+            }),
+        );
+        let inventory = prime.receive_inventory().unwrap();
+        assert!(!inventory.terminal_observed);
+        assert!(inventory.records.is_empty());
+        assert!(inventory.reason.contains("interrupted"));
+        assert!(matches!(
+            prime.check_ready(),
+            Err(DeviceError::Inconclusive(_))
+        ));
+        assert_eq!(
+            *writes.lock().unwrap(),
+            1,
+            "never interleave a new command with a late F9 stream"
+        );
+    }
+
     #[test]
     fn backup_request_is_exactly_one_documented_byte_and_never_a_restore() {
         use std::collections::VecDeque;

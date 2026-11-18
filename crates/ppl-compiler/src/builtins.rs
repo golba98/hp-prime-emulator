@@ -257,11 +257,14 @@ builtins! {
     SubgrobP "SUBGROB_P" 2..=6 Graphics Implemented;
     Subgrob "SUBGROB" 2..=6 Graphics Approximate;
     InvertP "INVERT_P" 0..=5 Graphics Implemented;
-    FillpolyP "FILLPOLY_P" 2..=4 Graphics Implemented;
+    FillpolyP "FILLPOLY_P" 1..=4 Graphics Implemented;
+    Fillpoly "FILLPOLY" 1..=4 Graphics Implemented;
     TriangleP "TRIANGLE_P" 0..=15 Graphics Approximate;
     Triangle "TRIANGLE" 0..=15 Graphics Approximate;
-    GrobwP "GROBW_P" 1..=1 Graphics Implemented;
-    GrobhP "GROBH_P" 1..=1 Graphics Implemented;
+    GrobwP "GROBW_P" 0..=1 Graphics Implemented;
+    GrobhP "GROBH_P" 0..=1 Graphics Implemented;
+    Grobw "GROBW" 0..=1 Graphics Implemented;
+    Grobh "GROBH" 0..=1 Graphics Implemented;
     Rgb "RGB" 3..=4 Graphics Implemented;
     // ---- input / output ----
     Print "PRINT" 0..=1 Io Implemented;
@@ -295,6 +298,16 @@ builtins! {
     Hvars "HVARS" 0..=2 System Approximate;
     // ---- CAS (supervised external algebra service) ----
     CasCall "CAS" 1..=1 Cas Approximate;
+    // Append-only IDs: measured one-list coordinate conversion commands.
+    CtoPx "C→PX" 1..=2 Graphics Approximate;
+    PxToC "PX→C" 1..=2 Graphics Approximate;
+    // Application-specific checkbox controls.
+    Check "CHECK" 1..=1 System Approximate;
+    Uncheck "UNCHECK" 1..=1 System Approximate;
+    Ischeck "ISCHECK" 1..=1 System Approximate;
+    PredX "PredX" 3..=7 Math Approximate;
+    PredY "PredY" 3..=7 Math Approximate;
+    Do2VStats "Do2VStats" 1..=1 System Approximate;
 }
 
 pub fn spec(b: Builtin) -> &'static BuiltinSpec {

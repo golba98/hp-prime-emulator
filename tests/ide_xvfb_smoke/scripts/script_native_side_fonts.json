@@ -10,6 +10,15 @@
       "mode": "calculator"
     },
     {
+      "step": "resize",
+      "width": 1279,
+      "height": 984
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
       "step": "native_home"
     },
     {
@@ -70,6 +79,10 @@
     {
       "step": "click_calculator_key",
       "code": 41
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
     },
     {
       "step": "click_calculator_key",
