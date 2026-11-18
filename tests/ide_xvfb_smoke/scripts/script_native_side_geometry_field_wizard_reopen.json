@@ -15,6 +15,7 @@
   {"step": "wait_ms", "ms": 140},
   {"step": "wait_idle", "timeout_ms": 15000},
   {"step": "wait_ms", "ms": 140},
+  {"step": "wait_model_result", "model": "Geometry:plot", "timeout_ms": 15000},
   {"step": "snapshot", "label": "ppl"},
   {"step": "exit"}
 ]}

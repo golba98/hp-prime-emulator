@@ -190,11 +190,11 @@ impl Parametric {
 /// intact so edits, stored instructions and substitutions refer to the user's text.
 pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
     use std::borrow::Cow;
-    if !source.contains('=') {
+    if !source.contains('=') && !source.contains("..") {
         return Cow::Borrowed(source);
     }
     let mut output = source.as_bytes().to_vec();
-    let mut stack: Vec<(bool, usize, usize)> = Vec::new();
+    let mut stack: Vec<(bool, usize, usize, bool)> = Vec::new();
     let mut quoted = false;
     for (i, ch) in source.char_indices() {
         match ch {
@@ -222,10 +222,17 @@ pub(crate) fn plot_syntax(source: &str) -> std::borrow::Cow<'_, str> {
                             .any(|s| s.eq_ignore_ascii_case(name)),
                     0usize,
                     i + 1,
+                    ch == '(' && name.eq_ignore_ascii_case("element"),
                 ));
             }
+            '.' if stack.last().is_some_and(|s| s.3 && s.1 == 0)
+                && source[i..].starts_with("..") =>
+            {
+                output[i] = b',';
+                output[i + 1] = b' ';
+            }
             ',' | ')' | ']' | '}' => {
-                if let Some((active, n, start)) = stack.last_mut() {
+                if let Some((active, n, start, _)) = stack.last_mut() {
                     if *active && let Some((key, value)) = source[*start..i].split_once('=') {
                         let name = key.trim();
                         if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')

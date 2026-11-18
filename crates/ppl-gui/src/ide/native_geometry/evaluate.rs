@@ -493,6 +493,47 @@ impl Evaluator<'_> {
                 )
             }
             "element" => {
+                if let [lo, hi, rest @ ..] = args.as_slice() {
+                    let separator = &source[lo.span.end as usize..hi.span.start as usize];
+                    let interval = separator.trim() == "..";
+                    if interval || rest.len() == 1 {
+                        let low = self.real(lo, source)?;
+                        let high = self.real(hi, source)?;
+                        let (value, symbolic) = match rest {
+                            [] if interval => (
+                                (low + high) / 2.,
+                                Some(format!(
+                                    "parameter({} .. {})",
+                                    canonical(low),
+                                    canonical(high)
+                                )),
+                            ),
+                            [t] if interval => {
+                                let n = self.real(t, source)?;
+                                (
+                                    n,
+                                    Some(format!(
+                                        "parameter({},{},{})",
+                                        canonical(low),
+                                        canonical(high),
+                                        canonical(n)
+                                    )),
+                                )
+                            }
+                            [t] | [_, t] => (self.real(t, source)?, None),
+                            _ => return Err("Invalid slider arguments".into()),
+                        };
+                        let input = |e: &Expr| {
+                            source[e.span.start as usize..e.span.end as usize].to_owned()
+                        };
+                        return Ok(Shape::Parameter(Parameter {
+                            limits: [low, high],
+                            value: number(value)?,
+                            symbolic,
+                            bounds_source: [input(lo), input(hi)],
+                        }));
+                    }
+                }
                 let [curve, rest @ ..] = args.as_slice() else {
                     return Err("element expects a curve and an optional real parameter".into());
                 };
@@ -1102,6 +1143,7 @@ impl Evaluator<'_> {
     }
     fn real(&mut self, e: &Expr, source: &str) -> Result<f64, String> {
         match self.value(e, source)? {
+            Shape::Parameter(p) => Ok(p.value),
             Shape::Number { re, im: 0. } => number(re),
             _ => Err("A real numeric expression is required".into()),
         }
@@ -1337,6 +1379,7 @@ fn scalar(n: f64) -> Result<Shape, String> {
 }
 pub(super) fn as_point(shape: Shape) -> Result<Point2, String> {
     match shape {
+        Shape::Parameter(p) => point(Point2 { x: p.value, y: 0. }),
         Shape::Point(p) => point(p),
         Shape::Number { re, im } => point(Point2 { x: re, y: im }),
         _ => Err("A point or numeric affix is required".into()),

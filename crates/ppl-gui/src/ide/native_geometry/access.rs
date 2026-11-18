@@ -31,6 +31,10 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         ))
     }
     Ok(match shape {
+        Shape::Parameter(p) => match &p.symbolic {
+            Some(s) => symbolic(s.clone()),
+            None => scalar(p.value)?,
+        },
         Shape::Undefined => undefined(),
         Shape::EmptyConic(s) => symbolic(s.clone()),
         Shape::Number { re, im } if *im == 0. => scalar(*re)?,

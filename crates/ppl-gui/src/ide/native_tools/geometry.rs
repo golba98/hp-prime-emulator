@@ -1,4 +1,5 @@
 //! Geometry's LCD forms and interactive construction state.
+mod slider;
 mod view;
 mod wizard;
 use super::{MathTarget, NativeTools, Page, Request};
@@ -34,6 +35,7 @@ pub(super) struct Panel {
     texture: Option<egui::TextureHandle>,
     menu: Option<Menu>,
     wizard: Option<wizard::Slopefield>,
+    sliders: slider::Controls,
     field_solution: Option<(String, String, String)>,
     tool: Option<Command>,
     command_text: CommandText,
@@ -414,6 +416,11 @@ const PLOTS: &[Command] = &[
     Command {
         label: "List",
         function: "plotlist",
+        needs: &[],
+    },
+    Command {
+        label: "Slider",
+        function: "parameter",
         needs: &[],
     },
 ];
@@ -1010,6 +1017,11 @@ impl NativeTools {
             return vec![];
         }
         self.geometry_panel.field_solution = None;
+        if category == PLOT_CATEGORY && menu.index == 8 && self.page == Some(Page::Plot) {
+            self.geometry_new_slider();
+            self.dirty();
+            return vec![];
+        }
         if category == PLOT_CATEGORY && menu.index == 5 && self.page == Some(Page::Plot) {
             self.geometry_panel.tool = None;
             self.geometry_panel.wizard = Some(wizard::Slopefield::new(&self.trace_window()));
@@ -1293,6 +1305,9 @@ impl NativeTools {
         }
         if self.geometry_panel.busy {
             return Some(vec![]);
+        }
+        if let Some(result) = self.slider_key(action) {
+            return Some(result);
         }
         if self.geometry_panel.wizard.is_some() {
             return self.slopefield_action(action);

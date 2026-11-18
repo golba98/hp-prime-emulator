@@ -57,6 +57,7 @@ pub enum AutoStep {
     },
     /// Wait until the VM is idle (finished/failed) with a timeout in ms.
     WaitIdle(u64),
+    WaitModelResult(String, u64),
     WaitDialog(String, u64),
     /// Wait until the debugger is paused, with a timeout in ms.
     WaitPaused(u64),
@@ -257,6 +258,9 @@ impl Automation {
                         args: get_str("args"),
                     },
                     "wait_dialog" => AutoStep::WaitDialog(get_str("kind"), get_ms("timeout_ms")),
+                    "wait_model_result" => {
+                        AutoStep::WaitModelResult(get_str("model"), get_ms("timeout_ms"))
+                    }
                     "wait_idle" => AutoStep::WaitIdle(get_ms("timeout_ms")),
                     "wait_paused" => AutoStep::WaitPaused(get_ms("timeout_ms")),
                     "wait_running" => AutoStep::WaitRunning(get_ms("timeout_ms")),
@@ -512,6 +516,7 @@ impl Automation {
             }
             match step {
                 AutoStep::WaitIdle(_)
+                | AutoStep::WaitModelResult(..)
                 | AutoStep::WaitDialog(..)
                 | AutoStep::WaitPaused(_)
                 | AutoStep::WaitCheck(_)
@@ -527,6 +532,12 @@ impl Automation {
                             *ms,
                             app.native_input_snapshot()["active_dialog"]["kind"].as_str()
                                 == Some(kind),
+                        ),
+                        AutoStep::WaitModelResult(model, ms) => (
+                            *ms,
+                            !app.execution_busy()
+                                && !app.native_tools.calculating()
+                                && app.native_tools.memory.models.results.contains_key(model),
                         ),
                         AutoStep::WaitIdle(ms) => (
                             *ms,
@@ -664,6 +675,7 @@ impl Automation {
                 app.handle_action(IdeAction::RunProgram, ctx);
             }
             AutoStep::WaitIdle(_)
+            | AutoStep::WaitModelResult(..)
             | AutoStep::WaitDialog(..)
             | AutoStep::WaitPaused(_)
             | AutoStep::WaitCheck(_)

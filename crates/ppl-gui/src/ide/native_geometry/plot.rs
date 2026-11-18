@@ -146,7 +146,9 @@ fn add_shape(
             }
             return Ok(());
         }
-        Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => return Ok(()),
+        Shape::Parameter(_) | Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {
+            return Ok(());
+        }
     };
     data.push(format!("G{name}"), style, points)?;
     Ok(())

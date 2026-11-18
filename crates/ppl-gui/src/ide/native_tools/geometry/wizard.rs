@@ -14,7 +14,8 @@ impl Slopefield {
                 "x".into(),
                 "y".into(),
                 geo::canonical(w.xmin),
-                geo::canonical(w.xmax),
+                // The form uses the right edge of the last pixel column.
+                geo::canonical(w.xmax + (w.xmax - w.xmin) / 319.),
                 geo::canonical(w.ymin),
                 geo::canonical(w.ymax),
                 "2.5".into(),
@@ -42,6 +43,7 @@ impl Slopefield {
 }
 impl NativeTools {
     pub(in crate::ide::native_tools) fn close_geometry_wizard(&mut self) {
+        self.geometry_panel.sliders = Default::default();
         self.geometry_panel.wizard = None;
         self.geometry_panel.field_solution = None;
     }

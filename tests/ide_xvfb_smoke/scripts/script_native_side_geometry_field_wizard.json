@@ -98,11 +98,13 @@
   {"step": "click_lcd", "x": 292, "y": 230},
   {"step": "wait_ms", "ms": 300},
   {"step": "wait_idle", "timeout_ms": 15000},
+  {"step": "wait_model_result", "model": "Geometry:plot", "timeout_ms": 15000},
   {"step": "snapshot", "label": "field"},
   {"step": "click_lcd", "x": 160, "y": 109},
   {"step": "key", "key": "Enter"},
   {"step": "wait_ms", "ms": 300},
   {"step": "wait_idle", "timeout_ms": 15000},
+  {"step": "wait_model_result", "model": "Geometry:plot", "timeout_ms": 15000},
   {"step": "snapshot", "label": "solution"},
   {"step": "native_home"},
   {"step": "calc_focus"},
@@ -112,6 +114,7 @@
   {"step": "wait_ms", "ms": 140},
   {"step": "wait_idle", "timeout_ms": 15000},
   {"step": "wait_ms", "ms": 140},
+  {"step": "wait_model_result", "model": "Geometry:plot", "timeout_ms": 15000},
   {"step": "snapshot", "label": "ppl"},
   {"step": "exit"}
 ]}

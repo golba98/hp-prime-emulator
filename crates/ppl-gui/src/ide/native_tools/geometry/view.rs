@@ -140,6 +140,7 @@ fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
+        Shape::Parameter(p) => display(p.value, s),
         Shape::Undefined => "undef".into(),
         Shape::EmptyConic(s) => s.clone(),
         Shape::Number { re, im: 0. } => {
@@ -319,7 +320,7 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
             }
         }
-        Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {}
+        Shape::Parameter(_) | Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {}
     }
 }
 fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
@@ -413,7 +414,9 @@ fn hit_distance(shape: &Shape, p: [f64; 2], w: &PlotWindow) -> f64 {
             .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
             .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
             .fold(f64::INFINITY, f64::min),
-        Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => f64::INFINITY,
+        Shape::Parameter(_) | Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {
+            f64::INFINITY
+        }
     }
 }
 pub(super) fn hit(
@@ -780,6 +783,10 @@ impl NativeTools {
         snapshot: &ppl_vm::SessionSnapshot,
         requests: &mut Vec<Request>,
     ) {
+        if self.geometry_panel.sliders.form.is_some() {
+            self.show_slider_form(ctx, lcd, scale, requests);
+            return;
+        }
         if self.geometry_panel.wizard.is_some() {
             self.show_slopefield(ctx, lcd, scale, requests);
             return;
@@ -1214,6 +1221,9 @@ impl NativeTools {
                     }
                 }
             });
+        if plot && self.geometry_panel.menu.is_none() && !self.geometry_panel.busy {
+            self.show_slider_controls(ctx, lcd, scale, &book, scene.as_ref(), requests);
+        }
     }
     fn geometry_pointer(
         &mut self,

@@ -30,6 +30,49 @@ use std::{
 };
 pub const MAX_OBJECTS: usize = 3000;
 pub(super) const TRACE_SAMPLE_LIMIT: usize = 1024;
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct SliderOptions {
+    pub step: f64,
+    pub motion: SliderMotion,
+    pub seconds: f64,
+    pub pause: f64,
+    pub position: [f32; 2],
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SliderMotion {
+    #[default]
+    None,
+    Forward,
+    Backward,
+    Alternate,
+}
+impl Default for SliderOptions {
+    fn default() -> Self {
+        Self {
+            step: 0.1,
+            motion: Default::default(),
+            seconds: 1.,
+            pause: 0.,
+            position: [0., 0.],
+        }
+    }
+}
+impl SliderOptions {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.step.is_finite()
+            && self.step > 0.
+            && self.seconds.is_finite()
+            && self.seconds > 0.
+            && self.pause.is_finite()
+            && self.pause >= 0.
+            && self.position.iter().all(|x| x.is_finite())
+        {
+            Ok(())
+        } else {
+            Err("Invalid slider step, timing or position".into())
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Object {
@@ -42,6 +85,8 @@ pub struct Object {
     pub traced: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub trace_connected: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slider: Option<SliderOptions>,
     #[serde(skip_serializing_if = "VecDeque::is_empty")]
     pub trace_samples: VecDeque<Point2>,
 }
@@ -53,6 +98,7 @@ impl Default for Object {
             visible: true,
             label: true,
             color: 0x000000,
+            slider: None,
             traced: false,
             trace_connected: false,
             trace_samples: VecDeque::new(),
@@ -101,7 +147,26 @@ pub enum Extent {
     Line,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Parameter {
+    pub limits: [f64; 2],
+    pub value: f64,
+    pub symbolic: Option<String>,
+    pub bounds_source: [String; 2],
+}
+impl Parameter {
+    pub fn updated(&self, value: f64) -> String {
+        format!(
+            "element({},{},{})",
+            self.bounds_source[0],
+            self.bounds_source[1],
+            canonical(value)
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
+    Parameter(Parameter),
     EmptyConic(String),
     Undefined,
     Point(Point2),
@@ -215,6 +280,9 @@ impl Book {
                 return Err("Geometry object needs a unique letter-led name".into());
             }
             source(&o.source)?;
+            if let Some(s) = o.slider {
+                s.validate()?;
+            }
             if o.trace_samples.len() > TRACE_SAMPLE_LIMIT {
                 return Err("Geometry trace exceeds the sample limit".into());
             }
@@ -431,6 +499,57 @@ mod tests {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn interval_parameters_preserve_symbolic_types_and_update_dependent_coordinates() {
+        let definitions = book(&[
+            ("A", "element(0..5)"),
+            ("B", "element(0..5,4)"),
+            ("C", "element(0..5,4,0.5)"),
+            ("D", "element(0, 2*GC, 0.8)"),
+            ("E", "point(GC,GD)"),
+        ]);
+        let calculated = scene(&definitions);
+        for (name, expected) in [("A", "parameter(0 .. 5)"), ("B", "parameter(0,5,4)")] {
+            assert_eq!(
+                access::shape_value(&shape(&calculated, name)).unwrap(),
+                access::symbolic(expected)
+            );
+        }
+        assert_eq!(
+            access::shape_value(&shape(&calculated, "C")).unwrap(),
+            access::scalar(0.5).unwrap()
+        );
+        let Shape::Parameter(p) = shape(&calculated, "D") else {
+            panic!("expected a slider")
+        };
+        assert_eq!(p.updated(0.6), "element(0,2*GC,0.6)");
+        let (changed, evaluated) = definitions
+            .enter(
+                "D",
+                &p.updated(0.6),
+                &SessionContext::default().snapshot(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(
+            shape(&evaluated, "E"),
+            Shape::Point(Point2 { x: 0.5, y: 0.6 })
+        );
+        let saved = serde_json::to_vec(&changed).unwrap();
+        let restored: Book = serde_json::from_slice(&saved).unwrap();
+        assert_eq!(scene(&restored), evaluated);
+        assert!(
+            restored
+                .enter(
+                    "D",
+                    "element(0,1,1/0)",
+                    &SessionContext::default().snapshot(),
+                    Arc::new(AtomicBool::new(false))
+                )
+                .is_err()
+        );
     }
 
     #[test]
