@@ -61,8 +61,8 @@ impl Spreadsheet {
             let mut evaluator =
                 Evaluator::new(self, snapshot, cancel, geometry).map_err(invalid)?;
             evaluator.visiting.insert(address.name());
-            let table = evaluator.report_table(body, address).map_err(invalid)?;
-            let value = PortableValue::from(&table[0][0]);
+            let table = evaluator.report(body, address).map_err(invalid)?;
+            let value = PortableValue::from(&table.anchor);
             let mut next = self.clone();
             let changed = next.store_report(address, table, true).map_err(invalid)?;
             return Ok(AccessResult {

@@ -57,6 +57,10 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
             canonical(arc.start),
             canonical(arc.end)
         )),
+        Shape::Parabola(curve) => {
+            let [f, a, b] = curve.definition().map(point_source);
+            symbolic(format!("parabola({f},line({a},{b}))"))
+        }
         Shape::Ellipse(ellipse) => {
             let [a, b] = ellipse.foci;
             let size = match ellipse.size {

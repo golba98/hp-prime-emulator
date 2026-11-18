@@ -2,6 +2,7 @@
 //! operations use the VM's BCD values, never floating-point text substitution.
 //! HP Prime User Guide 813269-002, pp.211–226 and 388–389.
 mod access;
+mod amortization;
 #[cfg(test)]
 mod attribute_tests;
 mod attributes;
@@ -92,7 +93,7 @@ impl CellValue {
         }
     }
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Address {
     col: usize,
     row: usize,
@@ -647,7 +648,7 @@ impl Spreadsheet {
         }
         let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
         if let Some(body) = reports::body(&format!("={source}")) {
-            let table = eval.report_table(body, address)?;
+            let table = eval.report(body, address)?;
             next.store_report(address, table, false)?;
             return Ok(next);
         }
@@ -793,11 +794,7 @@ impl<'a> Evaluator<'a> {
             .to_owned();
             let text = source.trim();
             if let Some(body) = reports::body(text) {
-                self.report_table(body, address)?
-                    .into_iter()
-                    .next()
-                    .and_then(|row| row.into_iter().next())
-                    .ok_or_else(|| "Worksheet report has no output".into())
+                Ok(self.report(body, address)?.anchor)
             } else if let Some(body) = choose::body(text) {
                 let choice = self.choose_definition(body, address)?;
                 let current = choice.current(self)?;
@@ -1908,6 +1905,71 @@ mod tests {
                 "{invalid}"
             );
         }
+    }
+
+    #[test]
+    fn amortization_uses_a_separate_destination_and_returns_the_top_left_at_the_formula() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        sheet.set("A1", "100").unwrap();
+        sheet.set("Q1", "987").unwrap();
+        sheet = sheet
+            .enter("J1", "=AMORT(Q1,4,12,A1,-26)", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("J1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("Amortization".into())
+        );
+        assert_eq!(number(&sheet, "Q1", &memory), 987.);
+        assert_eq!(number(&sheet, "R2", &memory), 1.);
+        assert_eq!(number(&sheet, "S2", &memory), 4.);
+        assert!((number(&sheet, "T2", &memory) + 1.510025).abs() < 1e-10);
+        assert!((number(&sheet, "V2", &memory) + 2.489975).abs() < 1e-10);
+        sheet = sheet.enter("A1", "120", &memory, no_cancel()).unwrap();
+        assert!((number(&sheet, "T2", &memory) - 19.3020552).abs() < 1e-9);
+        sheet = sheet
+            .enter(
+                "J1",
+                "AMORT(Q1,4,12,100,-26,1,12,12,0,2)",
+                &memory,
+                no_cancel(),
+            )
+            .unwrap();
+        assert_eq!(number(&sheet, "T2", &memory), 86.68);
+        for (config, first) in [
+            ("HhP", "Amortization"),
+            ("HP", "Principal"),
+            ("h H P", "Period"),
+        ] {
+            sheet = sheet
+                .enter(
+                    "J1",
+                    &format!("AMORT(Q1,4,0,100,-25,1,\"{config}\")"),
+                    &memory,
+                    no_cancel(),
+                )
+                .unwrap();
+            assert_eq!(
+                sheet.evaluate_in("J1", &memory, no_cancel()).unwrap(),
+                CellValue::Text(first.into())
+            );
+        }
+        assert!(
+            sheet
+                .enter(
+                    "J1",
+                    "AMORT(Q1,4,0,100,-25,1,\"H P\")",
+                    &memory,
+                    no_cancel()
+                )
+                .is_err()
+        );
+
+        assert!(
+            sheet
+                .enter("J1", "AMORT(Q1,4,12,100,-26,0)", &memory, no_cancel())
+                .is_err()
+        );
     }
 
     #[test]

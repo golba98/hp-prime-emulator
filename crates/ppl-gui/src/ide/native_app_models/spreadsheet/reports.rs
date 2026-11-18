@@ -12,6 +12,7 @@ pub(super) enum Report {
     One,
     Two,
     Regression,
+    Amortization,
 }
 
 pub(super) fn body(source: &str) -> Option<(Report, &str)> {
@@ -24,6 +25,8 @@ pub(super) fn body(source: &str) -> Option<(Report, &str)> {
         Report::Two
     } else if name.eq_ignore_ascii_case("REGRS") {
         Report::Regression
+    } else if name.eq_ignore_ascii_case("AMORT") {
+        Report::Amortization
     } else {
         return None;
     };
@@ -80,8 +83,34 @@ fn paired_field(token: &str) -> Option<&'static str> {
     })
 }
 
+pub(super) struct Output {
+    pub(super) anchor: Value,
+    pub(super) origin: Address,
+    pub(super) rows: Vec<Vec<Value>>,
+}
+
 impl Evaluator<'_> {
-    pub(super) fn report_table(
+    pub(super) fn report(
+        &mut self,
+        (kind, body): (Report, &str),
+        address: Address,
+    ) -> Result<Output, String> {
+        if kind == Report::Amortization {
+            return self.amortization_report(body, address);
+        }
+        let rows = self.report_table((kind, body), address)?;
+        let anchor = rows
+            .first()
+            .and_then(|r| r.first())
+            .ok_or("Worksheet report has no output")?
+            .clone();
+        Ok(Output {
+            anchor,
+            origin: address,
+            rows,
+        })
+    }
+    fn report_table(
         &mut self,
         (kind, body): (Report, &str),
         address: Address,
@@ -350,7 +379,7 @@ impl Spreadsheet {
         for (address, kind, source) in anchors {
             let mut evaluator = Evaluator::new(self, snapshot, cancel.clone(), geometry.clone())?;
             evaluator.visiting.insert(address.name());
-            let result = evaluator.report_table((kind, &source), address);
+            let result = evaluator.report((kind, &source), address);
             evaluator.check()?;
             // A live formula reports its own errors on read. Keep the last
             // ordinary values in adjacent cells until a fresh report succeeds.
@@ -364,21 +393,30 @@ impl Spreadsheet {
     pub(super) fn store_report(
         &mut self,
         address: Address,
-        table: Vec<Vec<Value>>,
+        output: Output,
         keep_anchor: bool,
     ) -> Result<bool, String> {
+        let Output {
+            anchor,
+            origin,
+            rows: table,
+        } = output;
         let mut changed = false;
-        if address.row + table.len() - 1 > MAX_ROWS
+        if origin.row + table.len() - 1 > MAX_ROWS
             || table
                 .iter()
-                .any(|row| address.col + row.len() - 1 > MAX_COLUMNS)
+                .any(|row| origin.col + row.len() - 1 > MAX_COLUMNS)
         {
             return Err("Report output extends past the worksheet".into());
         }
         for (r, row) in table.into_iter().enumerate() {
             for (c, value) in row.into_iter().enumerate() {
-                if !keep_anchor || r != 0 || c != 0 {
-                    let name = cell_name(address.col + c, address.row + r);
+                let dest = Address {
+                    col: origin.col + c,
+                    row: origin.row + r,
+                };
+                if (r != 0 || c != 0) && dest != address {
+                    let name = dest.name();
                     let value = PortableValue::from(&value);
                     if self.entered_values.get(&name)
                         != Some(&ppl_vm::session::encode_value(&value))
@@ -388,6 +426,10 @@ impl Spreadsheet {
                     }
                 }
             }
+        }
+        if !keep_anchor {
+            self.set_typed(&address.name(), &PortableValue::from(&anchor))?;
+            changed = true;
         }
         self.validate()?;
         Ok(changed)

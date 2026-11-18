@@ -61,7 +61,7 @@ pub(super) fn table(
         11 => FitKind::Quartic,
         _ => return Err("Invalid REGRS model".into()),
     };
-    if labels.is_empty() || !labels.len().is_multiple_of(2) {
+    if labels.is_empty() || labels.len() % 2 != 0 {
         return Err("REGRS needs pairs of input columns".into());
     }
     let mut series = Vec::new();

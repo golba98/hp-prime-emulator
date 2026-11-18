@@ -67,6 +67,14 @@ impl Transform {
                     .map(|[a, b]| Ok([self.point(a)?, self.point(b)?]))
                     .collect::<Result<_, String>>()?,
             ),
+            Shape::Parabola(curve) => {
+                let [f, a, b] = curve.definition();
+                Shape::Parabola(super::Parabola::from_focus(
+                    self.point(f)?,
+                    self.point(a)?,
+                    self.point(b)?,
+                )?)
+            }
             Shape::Ellipse(ellipse) => {
                 let [a, b] = ellipse.foci;
                 let size = match ellipse.size {

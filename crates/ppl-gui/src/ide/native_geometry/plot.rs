@@ -73,6 +73,10 @@ pub fn build(
                 PlotStyle::Line,
                 arc.vertices().map(|p| [p.x, p.y]).collect(),
             ),
+            Shape::Parabola(curve) => (
+                PlotStyle::Line,
+                curve.vertices().map(|p| [p.x, p.y]).collect(),
+            ),
             Shape::Ellipse(ellipse) => (
                 PlotStyle::Line,
                 ellipse.vertices().map(|p| [p.x, p.y]).collect(),

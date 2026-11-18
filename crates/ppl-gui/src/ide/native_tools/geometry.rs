@@ -98,7 +98,11 @@ impl Need {
             Self::Curve => {
                 matches!(
                     shape,
-                    Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
+                    Shape::Line { .. }
+                        | Shape::Circle { .. }
+                        | Shape::Arc(_)
+                        | Shape::Ellipse(_)
+                        | Shape::Parabola(_)
                 ) || command.function == "element" && matches!(shape, Shape::Function { .. })
             }
             Self::Shape => matches!(
@@ -107,6 +111,7 @@ impl Need {
                     | Shape::Circle { .. }
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
+                    | Shape::Parabola(_)
                     | Shape::Polygon(_)
             ),
         }
@@ -301,6 +306,11 @@ const CURVES: &[Command] = &[
         label: "Excircle",
         function: "excircle",
         needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Parabola",
+        function: "parabola",
+        needs: &[Need::Point, Need::Line],
     },
 ];
 const TRANSFORMS: &[Command] = &[

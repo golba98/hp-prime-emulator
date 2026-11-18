@@ -5,6 +5,7 @@ mod arc;
 mod ellipse;
 mod evaluate;
 mod function;
+mod parabola;
 pub mod plot;
 pub mod primitives;
 mod transform;
@@ -12,6 +13,7 @@ use super::native_app_models::Geometry;
 pub use super::native_app_models::Point2;
 pub use arc::CircularArc;
 pub use ellipse::Ellipse;
+pub use parabola::Parabola;
 use ppl_vm::SessionSnapshot;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -107,6 +109,7 @@ pub enum Shape {
     },
     Arc(CircularArc),
     Ellipse(Ellipse),
+    Parabola(Parabola),
     Polygon(Vec<Point2>),
     Points(Vec<Point2>),
     Function {
@@ -1266,6 +1269,39 @@ mod tests {
         let saved = serde_json::to_string(&b).unwrap();
         let restored: Book = serde_json::from_str(&saved).unwrap();
         pt(&scene(&restored), "C", Point2 { x: 4., y: 4. });
+    }
+    #[test]
+    fn focal_parabola_matches_parameters_measurements_and_intersections() {
+        let b = book(&[
+            ("A", "point(0,1)"),
+            ("B", "point(-1,-1)"),
+            ("C", "point(1,-1)"),
+            ("D", "line(GB,GC)"),
+            ("E", "parabola(GA,GD)"),
+            ("F", "element(GE,2)"),
+            ("G", "slope(tangent(GE,GF))"),
+            ("H", "area(GE)"),
+            ("I", "perimeter(GE)"),
+            ("J", "element(parabola(point(2,3),-2),2)"),
+        ]);
+        let s = scene(&b);
+        pt(&s, "F", Point2 { x: 2., y: 1. });
+        pt(&s, "J", Point2 { x: 4., y: 2.5 });
+        for (name, value) in [("G", 1.), ("H", -288.), ("I", 77.9767100689)] {
+            let Shape::Number { re, .. } = shape(&s, name) else {
+                panic!("missing measurement")
+            };
+            assert!((re - value).abs() < 1e-9);
+        }
+        let Shape::Parabola(curve) = shape(&s, "E") else {
+            panic!("missing curve")
+        };
+        let mut hits = curve
+            .crossings(Point2 { x: 0., y: 1. }, Point2 { x: 1., y: 1. })
+            .unwrap();
+        hits.sort_by(|a, b| a.x.total_cmp(&b.x));
+        assert_eq!(hits, [Point2 { x: -2., y: 1. }, Point2 { x: 2., y: 1. }]);
+        assert!(Parabola::vertical(Point2 { x: 0., y: 0. }, 0.).is_err());
     }
     #[test]
     fn triangle_excircles_use_the_first_vertex_to_choose_the_opposite_side() {

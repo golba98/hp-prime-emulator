@@ -364,7 +364,11 @@ impl Evaluator<'_> {
         }
         Ok(matches!(
             curve,
-            Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
+            Shape::Line { .. }
+                | Shape::Circle { .. }
+                | Shape::Arc(_)
+                | Shape::Ellipse(_)
+                | Shape::Parabola(_)
         )
         .then_some(curve))
     }
@@ -602,8 +606,13 @@ impl Evaluator<'_> {
                 } else {
                     let line_on_curve = matches!(
                         (&a, &b),
-                        (Shape::Line { .. }, Shape::Arc(_) | Shape::Ellipse(_))
-                            | (Shape::Arc(_) | Shape::Ellipse(_), Shape::Line { .. })
+                        (
+                            Shape::Line { .. },
+                            Shape::Arc(_) | Shape::Ellipse(_) | Shape::Parabola(_)
+                        ) | (
+                            Shape::Arc(_) | Shape::Ellipse(_) | Shape::Parabola(_),
+                            Shape::Line { .. }
+                        )
                     );
                     let p = if args.len() == 2 && line_on_curve {
                         points.first().copied()
@@ -651,6 +660,16 @@ impl Evaluator<'_> {
                 } else {
                     g::circle(center, radius)
                 }
+            }
+            "parabola" => {
+                arity(2)?;
+                let first = self.pt(&args[0], source)?;
+                let parabola = match self.value(&args[1], source)? {
+                    Shape::Number { re, im: 0. } => super::Parabola::vertical(first, re)?,
+                    Shape::Line { a, b, .. } => super::Parabola::from_focus(first, a, b)?,
+                    _ => return Err("A parabola needs a directrix or focal length".into()),
+                };
+                Ok(Shape::Parabola(parabola))
             }
             "ellipse" => {
                 arity(3)?;
@@ -821,6 +840,13 @@ impl Evaluator<'_> {
                             arc.area()
                         } else {
                             arc.perimeter()
+                        }
+                    }
+                    Shape::Parabola(curve) => {
+                        if name == "area" {
+                            curve.area()
+                        } else {
+                            curve.perimeter()
                         }
                     }
                     Shape::Ellipse(ellipse) => {
@@ -1118,6 +1144,7 @@ fn known(name: &str) -> bool {
             | "inter"
             | "single_inter"
             | "circle"
+            | "parabola"
             | "ellipse"
             | "circumcircle"
             | "incircle"

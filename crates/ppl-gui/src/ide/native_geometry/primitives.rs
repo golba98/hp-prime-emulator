@@ -198,6 +198,7 @@ pub fn element(curve: &Shape, t: f64) -> Result<Point2, String> {
         Shape::Line { a, b, extent } => line_element(a, b, extent, t),
         Shape::Circle { center, radius } => point(circle_element(center, radius, t)),
         Shape::Arc(arc) => point(circle_element(arc.center, arc.radius, t)),
+        Shape::Parabola(ref curve) => point(curve.at(t)),
         Shape::Ellipse(ref ellipse) => ellipse.element(t),
         Shape::Point(p) => point(p),
         _ => Err("Point On requires a line, ray, segment, circle or ellipse".into()),
@@ -208,6 +209,7 @@ pub(super) fn tangent_at(curve: &Shape, p: Point2) -> Result<Shape, String> {
         Shape::Line { .. } => return Ok(curve.clone()),
         Shape::Circle { center, radius }
         | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Parabola(ref curve) => return curve.tangent(p, true),
         Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, true),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
@@ -234,6 +236,7 @@ pub(super) fn tangent(curve: Shape, location: Shape) -> Result<Shape, String> {
         Shape::Line { .. } => return Ok(curve),
         Shape::Circle { center, radius }
         | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Parabola(ref curve) => return curve.tangent(p, false),
         Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, false),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
@@ -281,6 +284,7 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
             Ok(d.y.atan2(d.x))
         }
         Shape::Function { ref paths, .. } => function_projection(paths, cursor).map(|p| p.x),
+        Shape::Parabola(ref curve) => curve.parameter(cursor),
         Shape::Ellipse(ref ellipse) => ellipse.parameter(cursor),
         _ => {
             Err("Point On requires a line, ray, segment, circle, ellipse or function graph".into())
@@ -339,6 +343,12 @@ pub fn intersections(a: &Shape, b: &Shape) -> Result<Vec<Point2>, String> {
         | (Shape::Arc(arc), Shape::Line { a, b, extent }) => {
             let mut points = line_circle_intersections(*a, *b, *extent, arc.center, arc.radius)?;
             points.retain(|p| arc.contains_intersection(*p));
+            Ok(order_curve_intersections(points, *a, *b))
+        }
+        (Shape::Line { a, b, extent }, Shape::Parabola(curve))
+        | (Shape::Parabola(curve), Shape::Line { a, b, extent }) => {
+            let mut points = curve.crossings(*a, *b)?;
+            points.retain(|&p| within(p, *a, *b, *extent));
             Ok(order_curve_intersections(points, *a, *b))
         }
         (Shape::Line { a, b, extent }, Shape::Ellipse(ellipse))
