@@ -8,6 +8,7 @@ mod attributes;
 mod choose;
 mod clipboard;
 pub mod format;
+mod regression_report;
 mod reports;
 mod sort;
 pub(crate) mod worksheet_cas;
@@ -1849,6 +1850,64 @@ mod tests {
                 .enter("J1", "STAT2(A1:C3,1)", &memory, no_cancel())
                 .is_err()
         );
+    }
+
+    #[test]
+    fn regression_report_uses_model_specific_coordinates_and_preserves_multi_pair_order() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        for (row, [x, y]) in [[1, 2], [3, 4], [5, 8], [6, 11], [8, 17], [11, 25]]
+            .iter()
+            .enumerate()
+        {
+            for (c, value) in [*x, *y, *x, 2 * y].into_iter().enumerate() {
+                sheet
+                    .set(&cell_name(c + 1, row + 1), &value.to_string())
+                    .unwrap();
+            }
+        }
+        sheet = sheet
+            .enter(
+                "J1",
+                "=REGRS(A1:D6,2,\"H h sl int cor cd sCov pCov\")",
+                &memory,
+                no_cancel(),
+            )
+            .unwrap();
+        for (row, expected) in [
+            8.77577255445,
+            -1.96356595644,
+            0.870658779777,
+            0.758046710803,
+            6.4064784461,
+            5.33873203841,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert!((number(&sheet, &cell_name(11, row + 2), &memory) - expected).abs() < 1e-9);
+        }
+        assert!((number(&sheet, "L2", &memory) - 17.5515451089).abs() < 1e-9);
+        sheet = sheet
+            .enter("N1", "REGRS(A1:B6,9,\"h a b c cd\")", &memory, no_cancel())
+            .unwrap();
+        for (row, expected) in [0.271691665085, 1.1400860705, 0.103933295361, 0.994499949869]
+            .into_iter()
+            .enumerate()
+        {
+            assert!((number(&sheet, &cell_name(15, row + 1), &memory) - expected).abs() < 1e-8);
+        }
+        for invalid in [
+            "REGRS(A1:C6)",
+            "REGRS(A1:B6,12)",
+            "REGRS(A1:B6,2.5)",
+            "REGRS(A1:B6,9,\"sl\")",
+        ] {
+            assert!(
+                sheet.enter("N1", invalid, &memory, no_cancel()).is_err(),
+                "{invalid}"
+            );
+        }
     }
 
     #[test]

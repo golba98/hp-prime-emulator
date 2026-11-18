@@ -59,6 +59,7 @@ pub fn is_function(name: &str) -> bool {
             | "ellipse"
             | "circumcircle"
             | "incircle"
+            | "excircle"
             | "quadrilateral"
             | "equilateral_triangle"
             | "square"

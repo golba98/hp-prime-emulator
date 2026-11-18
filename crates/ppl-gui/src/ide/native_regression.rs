@@ -62,6 +62,27 @@ impl FitKind {
             Self::UserDefined => "User Defined",
         }
     }
+    pub(crate) fn transformed_pair(self, a: f64, b: f64) -> Result<[f64; 2], String> {
+        use FitKind::*;
+        if !a.is_finite() || !b.is_finite() {
+            return Err("Values must be finite real numbers".into());
+        }
+        let x = match self {
+            Logarithmic | Power if a > 0. => a.ln(),
+            Logarithmic | Power => return Err("This fit requires positive x values".into()),
+            Inverse if a != 0. => 1. / a,
+            Inverse => return Err("Inverse fit requires nonzero x values".into()),
+            _ => a,
+        };
+        let y = match self {
+            Exponential | Exponent | Power if b > 0. => b.ln(),
+            Exponential | Exponent | Power => {
+                return Err("This fit requires positive y values".into());
+            }
+            _ => b,
+        };
+        Ok([x, y])
+    }
     fn degree(self) -> usize {
         match self {
             Self::Quadratic => 2,
@@ -299,23 +320,9 @@ impl Statistics2 {
         let mut x = Vec::new();
         let mut y = Vec::new();
         for &(a, b, _) in &points {
-            if !a.is_finite() || !b.is_finite() {
-                return Err("Values must be finite real numbers".into());
-            }
-            x.push(match self.fit_kind {
-                Logarithmic | Power if a > 0. => a.ln(),
-                Logarithmic | Power => return Err("This fit requires positive x values".into()),
-                Inverse if a != 0. => 1. / a,
-                Inverse => return Err("Inverse fit requires nonzero x values".into()),
-                _ => a,
-            });
-            y.push(match self.fit_kind {
-                Exponential | Exponent | Power if b > 0. => b.ln(),
-                Exponential | Exponent | Power => {
-                    return Err("This fit requires positive y values".into());
-                }
-                _ => b,
-            });
+            let [a, b] = self.fit_kind.transformed_pair(a, b)?;
+            x.push(a);
+            y.push(b);
         }
         let weights: Vec<_> = points.iter().map(|p| p.2).collect();
         let mut coefficients = match self.fit_kind {

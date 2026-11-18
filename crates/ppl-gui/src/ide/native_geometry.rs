@@ -1268,6 +1268,36 @@ mod tests {
         pt(&scene(&restored), "C", Point2 { x: 4., y: 4. });
     }
     #[test]
+    fn triangle_excircles_use_the_first_vertex_to_choose_the_opposite_side() {
+        let b = book(&[
+            ("A", "point(0,0)"),
+            ("B", "point(4,0)"),
+            ("C", "point(0,3)"),
+            ("D", "excircle(GA,GB,GC)"),
+            ("E", "excircle(GB,GC,GA)"),
+            ("F", "excircle(GA,GB,GA)"),
+        ]);
+        let s = scene(&b);
+        for (name, expected, r) in [
+            ("D", Point2 { x: 6., y: 6. }, 6.),
+            ("E", Point2 { x: -2., y: 2. }, 2.),
+        ] {
+            let Shape::Circle { center, radius } = shape(&s, name) else {
+                panic!("missing excircle")
+            };
+            assert!(center.distance(expected).unwrap() < 1e-10);
+            assert!((radius - r).abs() < 1e-10);
+        }
+        assert!(
+            s.objects
+                .iter()
+                .find(|o| o.name == "F")
+                .unwrap()
+                .value
+                .is_err()
+        );
+    }
+    #[test]
     fn circles_polygons_and_intersections_have_real_geometry() {
         let b = book(&[
             ("A", "point(0,0)"),

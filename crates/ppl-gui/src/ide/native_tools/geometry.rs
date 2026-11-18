@@ -297,6 +297,11 @@ const CURVES: &[Command] = &[
         function: "ellipse",
         needs: &[Need::Point, Need::Point, Need::Point],
     },
+    Command {
+        label: "Excircle",
+        function: "excircle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
 ];
 const TRANSFORMS: &[Command] = &[
     Command {

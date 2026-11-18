@@ -661,7 +661,7 @@ impl Evaluator<'_> {
                 };
                 Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
             }
-            "circumcircle" | "incircle" => {
+            "circumcircle" | "incircle" | "excircle" => {
                 arity(3)?;
                 let a = self.pt(&args[0], source)?;
                 let b = self.pt(&args[1], source)?;
@@ -670,11 +670,16 @@ impl Evaluator<'_> {
                     g::circumcircle(a, b, c)
                 } else {
                     let ab = a.distance(b)?;
-                    let bc = b.distance(c)?;
+                    let opposite = b.distance(c)?;
+                    let bc = if name == "excircle" {
+                        -opposite
+                    } else {
+                        opposite
+                    };
                     let ca = c.distance(a)?;
                     let sum = ab + bc + ca;
-                    if sum == 0. {
-                        return Err("An incircle needs a nondegenerate triangle".into());
+                    if sum <= 0. {
+                        return Err(format!("{name} needs a nondegenerate triangle"));
                     }
                     let center = point(Point2 {
                         x: (bc / sum) * a.x + (ca / sum) * b.x + (ab / sum) * c.x,
@@ -1116,6 +1121,7 @@ fn known(name: &str) -> bool {
             | "ellipse"
             | "circumcircle"
             | "incircle"
+            | "excircle"
             | "quadrilateral"
             | "equilateral_triangle"
             | "square"

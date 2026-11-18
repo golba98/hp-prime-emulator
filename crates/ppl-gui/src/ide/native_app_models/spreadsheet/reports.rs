@@ -11,6 +11,7 @@ const PAIRED_FIELDS: &str =
 pub(super) enum Report {
     One,
     Two,
+    Regression,
 }
 
 pub(super) fn body(source: &str) -> Option<(Report, &str)> {
@@ -21,6 +22,8 @@ pub(super) fn body(source: &str) -> Option<(Report, &str)> {
         Report::One
     } else if name.eq_ignore_ascii_case("STAT2") {
         Report::Two
+    } else if name.eq_ignore_ascii_case("REGRS") {
+        Report::Regression
     } else {
         return None;
     };
@@ -101,13 +104,14 @@ impl Evaluator<'_> {
                 let n = v
                     .expect_real("Worksheet statistics mode")
                     .map_err(|e| e.to_string())?;
-                mode = Some(if n == Real::ONE {
-                    1
-                } else if n == Real::from_i64(2) {
-                    2
-                } else {
-                    return Err("Worksheet statistics mode must be 1 or 2".into());
-                });
+                let maximum = if kind == Report::Regression { 11 } else { 2 };
+                let code = n
+                    .to_i64()
+                    .filter(|&i| (1..=maximum).contains(&i) && Real::from_i64(i) == n)
+                    .ok_or_else(|| {
+                        format!("Worksheet report mode must be an integer from 1 to {maximum}")
+                    })?;
+                mode = Some(code as usize);
             } else {
                 return Err("Invalid worksheet statistics options".into());
             }
@@ -157,6 +161,16 @@ impl Evaluator<'_> {
                 _ => return Err("Worksheet statistics need an input range or list".into()),
             }
         };
+        if kind == Report::Regression {
+            return super::regression_report::table(
+                &labels,
+                &rows,
+                mode.unwrap_or(1),
+                config.as_deref(),
+                &self.context.settings,
+                &self.cancel,
+            );
+        }
         let (labels, rows) = if kind == Report::One && rows.len() == 1 && labels.len() > 1 {
             (
                 vec![labels[0].clone()],
