@@ -332,7 +332,21 @@ impl NativeTools {
                     174.
                 };
                 let size = vec2((lcd.width() - 4. * scale).max(1.), height * scale);
-                let (response, painter) = ui.allocate_painter(size, egui::Sense::drag());
+                // Keep the raster on the same LCD rows after a toolbar interaction
+                // and a cold Plot entry. Legacy profiles retain their saved framing.
+                let (response, painter) =
+                    if self.memory.graph3d.camera == crate::ide::native_graph3d::CameraModel::G1 {
+                        let rect = egui::Rect::from_min_size(
+                            egui::pos2(ui.cursor().left(), lcd.top() + 44. * scale),
+                            size,
+                        );
+                        (
+                            ui.allocate_rect(rect, egui::Sense::drag()),
+                            ui.painter_at(rect),
+                        )
+                    } else {
+                        ui.allocate_painter(size, egui::Sense::drag())
+                    };
                 if response.drag_started() {
                     self.graph3d_panel.drag_origin = ui
                         .input(|i| i.pointer.press_origin())
