@@ -8,8 +8,8 @@ mod attributes;
 mod choose;
 mod clipboard;
 pub mod format;
+mod reports;
 mod sort;
-mod stat1;
 pub(crate) mod worksheet_cas;
 use crate::ide::native_geometry::Book;
 pub use access::AccessResult;
@@ -594,7 +594,7 @@ impl Spreadsheet {
     ) -> Result<Self, String> {
         let mut sheet =
             self.enter_cell(name, source, snapshot, cancel.clone(), geometry.clone())?;
-        sheet.refresh_stat1(snapshot, cancel, geometry)?;
+        sheet.refresh_reports(snapshot, cancel, geometry)?;
         Ok(sheet)
     }
     fn enter_cell(
@@ -645,9 +645,9 @@ impl Spreadsheet {
             return Ok(next);
         }
         let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
-        if let Some(body) = stat1::body(&format!("={source}")) {
-            let table = eval.stat1_table(body, address)?;
-            next.store_stat1(address, table, false)?;
+        if let Some(body) = reports::body(&format!("={source}")) {
+            let table = eval.report_table(body, address)?;
+            next.store_report(address, table, false)?;
             return Ok(next);
         }
         let value = eval.expression(source, address, 0)?;
@@ -791,12 +791,12 @@ impl<'a> Evaluator<'a> {
             }
             .to_owned();
             let text = source.trim();
-            if let Some(body) = stat1::body(text) {
-                self.stat1_table(body, address)?
+            if let Some(body) = reports::body(text) {
+                self.report_table(body, address)?
                     .into_iter()
                     .next()
                     .and_then(|row| row.into_iter().next())
-                    .ok_or_else(|| "STAT1 has no output".into())
+                    .ok_or_else(|| "Worksheet report has no output".into())
             } else if let Some(body) = choose::body(text) {
                 let choice = self.choose_definition(body, address)?;
                 let current = choice.current(self)?;
@@ -1802,6 +1802,51 @@ mod tests {
         assert!(
             sheet
                 .enter("ZZ10000", "STAT1({1,3,5})", &memory, no_cancel())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn stat2_recalculates_paired_columns_and_uses_case_sensitive_configuration() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        for (name, value) in [
+            ("A1", "1"),
+            ("A2", "3"),
+            ("A3", "5"),
+            ("B1", "2"),
+            ("B2", "4"),
+            ("B3", "8"),
+            ("C1", "1"),
+            ("C2", "2"),
+            ("C3", "4"),
+        ] {
+            sheet.set(name, value).unwrap();
+        }
+        sheet = sheet
+            .enter("E1", "=STAT2(A1:C3)", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("F1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("A:B:C".into())
+        );
+        assert_eq!(number(&sheet, "F11", &memory), 7.);
+        assert_eq!(number(&sheet, "F21", &memory), 186.);
+        sheet = sheet.enter("A1", "20", &memory, no_cancel()).unwrap();
+        assert_eq!(number(&sheet, "F21", &memory), 224.);
+        sheet = sheet
+            .enter("J1", "STAT2(A1:B3,\"h n σy\")", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(number(&sheet, "K1", &memory), 3.);
+        assert!((number(&sheet, "K2", &memory) - 2.49443825785).abs() < 1e-10);
+        assert!(
+            sheet
+                .enter("J1", "STAT2(A1:B3,\"h σY\")", &memory, no_cancel())
+                .is_err()
+        );
+        assert!(
+            sheet
+                .enter("J1", "STAT2(A1:C3,1)", &memory, no_cancel())
                 .is_err()
         );
     }

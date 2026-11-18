@@ -311,6 +311,7 @@ pub(super) fn hit(
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
             ),
+            Some(Need::Point) => matches!(shape, Shape::Point(_)),
             Some(Need::PointOnCurve) => scene.is_point_on_curve(&object.name),
             _ => true,
         };
@@ -783,6 +784,7 @@ impl NativeTools {
             let label = if let Some(command) = self.geometry_panel.tool {
                 match (command.function, self.geometry_panel.args.len()) {
                     ("ellipse", 0) => "Ellipse · First focus".into(),
+                    ("polygon", 3..) => "Polygon · Select first vertex to close".into(),
                     ("ellipse", 1) => "Ellipse · Second focus".into(),
                     ("ellipse", _) => "Ellipse · Point on curve".into(),
                     _ => match command.needs.get(self.geometry_panel.args.len()) {

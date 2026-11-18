@@ -13,6 +13,12 @@ assert objects[-1]['source'] == 'parallelogram(GA,GB,GC)', objects
 shapes = state['native_model_results']['Geometry:plot']['geometry']['objects']
 points = shapes[-1]['value']['Ok']['Polygon']
 assert [(p['x'], p['y']) for p in points] == [(-2, 0), (2, 0), (0, 3), (-4, 3)]
+closed = states['closed']
+objects = closed['native_tools']['memory']['models']['geometry_book']['objects']
+assert objects[-1]['source'] == 'polygon(GA,GB,GC,GE)', objects
+shapes = closed['native_model_results']['Geometry:plot']['geometry']['objects']
+vertices = shapes[-1]['value']['Ok']['Polygon']
+assert [(p['x'], p['y']) for p in vertices] == [(-2, 0), (2, 0), (0, 3), (-5, 3)]
 outcome = states['values']['native_session']['last_outcome']
 assert outcome['status'] == 'success', outcome
 assert [float(v['value']) for v in outcome['typed_result']['value']] == [12, 12, 16, 12, 48, 12]

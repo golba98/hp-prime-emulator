@@ -52,16 +52,19 @@ impl Spreadsheet {
         }
         if field == 0
             && let Some(address) = self.address(&request.name)
-            && let Some(body) = self.cells.get(&address.name()).and_then(|s| stat1::body(s))
+            && let Some(body) = self
+                .cells
+                .get(&address.name())
+                .and_then(|s| reports::body(s))
         {
             let invalid = |e: String| RuntimeError::new(ErrorKind::InvalidInput, e);
             let mut evaluator =
                 Evaluator::new(self, snapshot, cancel, geometry).map_err(invalid)?;
             evaluator.visiting.insert(address.name());
-            let table = evaluator.stat1_table(body, address).map_err(invalid)?;
+            let table = evaluator.report_table(body, address).map_err(invalid)?;
             let value = PortableValue::from(&table[0][0]);
             let mut next = self.clone();
-            let changed = next.store_stat1(address, table, true).map_err(invalid)?;
+            let changed = next.store_report(address, table, true).map_err(invalid)?;
             return Ok(AccessResult {
                 value,
                 sheet: changed.then_some(next),

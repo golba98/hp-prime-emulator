@@ -1056,7 +1056,8 @@ impl NativeTools {
             std::thread::spawn(move || {
                 let result = (|| {
                     let mut sheet = sheet;
-                    let changed = sheet.refresh_stat1(&snapshot, flag.clone(), geometry.clone())?;
+                    let changed =
+                        sheet.refresh_reports(&snapshot, flag.clone(), geometry.clone())?;
                     let values = sheet.calculate_for_view(&snapshot, flag, geometry, viewport)?;
                     Ok(WorksheetFrame {
                         values,

@@ -119,10 +119,18 @@ struct Command {
     needs: &'static [Need],
 }
 impl Command {
+    fn operand(self, index: usize) -> Option<&'static Need> {
+        if self.function == "polygon" {
+            Some(&Need::Point)
+        } else {
+            self.needs.get(index)
+        }
+    }
     fn pick_filter(self) -> Option<Need> {
         match self.function {
             "element" => Some(Need::Curve),
             "tangent" => Some(Need::PointOnCurve),
+            "polygon" => Some(Need::Point),
             _ => None,
         }
     }
@@ -246,6 +254,11 @@ const POLYGONS: &[Command] = &[
         label: "Rectangle",
         function: "rectangle",
         needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Polygon",
+        function: "polygon",
+        needs: &[],
     },
     Command {
         label: "Regular Polygon",
@@ -949,7 +962,7 @@ impl NativeTools {
             .iter()
             .map(|n| format!("G{n}"))
             .collect();
-        if let Some(need) = command.needs.get(args.len()) {
+        if let Some(need) = command.operand(args.len()) {
             if let Some((name, shape)) = self.geometry_hovered_operand(command, p, scene)
                 && need.accepts(command, shape)
             {
@@ -969,7 +982,7 @@ impl NativeTools {
                 return vec![];
             }
             let index = self.geometry_panel.args.len();
-            let Some(need) = command.needs.get(index) else {
+            let Some(need) = command.operand(index) else {
                 return vec![];
             };
             let scene = self.geometry_scene();
@@ -994,8 +1007,28 @@ impl NativeTools {
                 self.error = Some(format!("Select a {need:?}"));
                 return vec![];
             };
-            self.geometry_panel.args.push(name);
-            if self.geometry_panel.args.len() == command.needs.len() {
+            let finish = if command.function == "polygon" {
+                let vertices = &mut self.geometry_panel.args;
+                if vertices.first() == Some(&name) {
+                    if vertices.len() < 3 {
+                        self.error = Some(
+                            "Select at least three vertices before closing the polygon".into(),
+                        );
+                        self.dirty();
+                        return vec![];
+                    }
+                    true
+                } else {
+                    if vertices.last() != Some(&name) {
+                        vertices.push(name);
+                    }
+                    false
+                }
+            } else {
+                self.geometry_panel.args.push(name);
+                self.geometry_panel.args.len() == command.needs.len()
+            };
+            if finish {
                 let args = self
                     .geometry_panel
                     .args
