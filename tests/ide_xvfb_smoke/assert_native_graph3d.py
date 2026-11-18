@@ -39,7 +39,15 @@ def check_images(root):
     )
     for image in (plot, rotated, dragged, reopened):
         pixels = {rgb: count for count, rgb in image.getcolors(image.width * image.height)}
-        assert pixels.get((0, 0, 215), 0) + pixels.get((0, 215, 215), 0) > 100
+        # The saddle has changing normals on both sides. Check coverage and
+        # shading separately so a flat-colored mesh cannot satisfy this test.
+        distinct = 0
+        for lower in (False, True):
+            shades = {b: count for (r, g, b), count in pixels.items()
+                      if r == 0 and b > 32 and g == (b if lower else 0)}
+            assert sum(shades.values()) > 100 and len(shades) > 1, shades
+            distinct += len(shades)
+        assert distinct > 20, distinct
     assert ImageChops.difference(plot, rotated).getbbox()
     assert ImageChops.difference(rotated, dragged).getbbox()
     assert ImageChops.difference(dragged, reopened).getbbox() is None

@@ -428,7 +428,7 @@ mod tests {
     fn quadratic_constructions_follow_original_geometry_parameters_and_signed_areas() {
         let cases = [
             ("x^2+y^2-81", 254.469004941, None),
-            ("x^2+4*y^2-4", 6.28318530718, Some((0., 1.))),
+            ("x^2+4*y^2-4", std::f64::consts::TAU, Some((0., 1.))),
             (
                 "2*x^2+2*x*y+2*y^2-6",
                 10.8827961854,

@@ -135,31 +135,68 @@ fn normalize(value: f64, [low, high]: [f64; 2]) -> f64 {
 struct Projection {
     center: [f64; 2],
     scale: f64,
-    yaw: (f64, f64),
-    pitch: (f64, f64),
+    axes: [Point; 3],
 }
-
+fn dot(a: Point, b: Point) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+fn cross(a: Point, b: Point) -> Point {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
 impl Projection {
     fn new(height: usize, [yaw, pitch]: [f64; 2]) -> Self {
+        // Derive the initial orientation from the three projected unit vectors
+        // on G1 plots of z=0, +1 and -1. The profile stores relative rotations.
+        let (sy, cy) = (32.67 - (yaw + 45.)).to_radians().sin_cos();
+        let (sp, cp) = (9.51 + pitch - 25.).to_radians().sin_cos();
+        let (sr, cr) = (-3.22_f64).to_radians().sin_cos();
+        let flat = [cy, sy, 0.];
+        let up = [-sy * sp, cy * sp, cp];
+        let right = std::array::from_fn(|i| cr * flat[i] + sr * up[i]);
+        let vertical = std::array::from_fn(|i| cr * up[i] - sr * flat[i]);
         Self {
             center: [WIDTH as f64 * 0.5, height as f64 * 0.5],
-            scale: WIDTH.min(height) as f64 * 0.25,
-            yaw: yaw.to_radians().sin_cos(),
-            pitch: pitch.to_radians().sin_cos(),
+            scale: WIDTH.min(height) as f64 * 0.378,
+            axes: [right, vertical, cross(right, vertical)],
         }
     }
 
-    fn project(&self, [x, y, z]: Point) -> Point {
-        let (sin_yaw, cos_yaw) = self.yaw;
-        let (sin_pitch, cos_pitch) = self.pitch;
-        let depth = sin_yaw * x + cos_yaw * y;
-        let u = cos_yaw * x - sin_yaw * y;
-        let v = cos_pitch * z - sin_pitch * depth;
+    fn project(&self, point: Point) -> Point {
+        let [u, v, d] = self.axes.map(|axis| dot(axis, point));
         [
             self.center[0] + self.scale * u,
             self.center[1] - self.scale * v,
-            cos_pitch * depth + sin_pitch * z,
+            d,
         ]
+    }
+
+    fn face_colors(
+        &self,
+        [a, b, c]: [Point; 3],
+        [low, high]: [f64; 2],
+        colors: [u32; 2],
+    ) -> [Color32; 2] {
+        let edge = |p: Point| {
+            [
+                p[0] - a[0],
+                p[1] - a[1],
+                2. * ((p[2] - a[2]) / (high - low)),
+            ]
+        };
+        let normal = cross(edge(b), edge(c));
+        let length = normal[0].hypot(normal[1]).hypot(normal[2]);
+        let eye = self.axes.map(|axis| dot(axis, normal) / length);
+        // A directional term plus ambient intensity. Coefficients are in
+        // camera space and were measured independently for the two faces.
+        let lighting = [
+            126.98 + dot(eye, [-72.15, 72.62, 74.28]),
+            128.06 + dot(eye, [0.55, 23.90, 1.11]),
+        ];
+        std::array::from_fn(|i| face_color(colors[i], lighting[i]))
     }
 }
 
@@ -182,7 +219,7 @@ impl Raster {
         let n = mesh.resolution;
         let axis = |index| 2. * (index as f64 / (n - 1) as f64) - 1.;
         for grid in &mesh.grids {
-            let colors = book.colors[grid.index].map(face_color);
+            let colors = book.colors[grid.index];
             let point = |x: usize, y: usize| grid.heights[y * n + x].map(|z| [axis(x), axis(y), z]);
             for y in 0..n - 1 {
                 for x in 0..n - 1 {
@@ -192,7 +229,9 @@ impl Raster {
                     let d = point(x, y + 1);
                     for [a, b, c] in [[a, b, c], [a, c, d]] {
                         if let [Some(a), Some(b), Some(c)] = [a, b, c] {
-                            self.clip_triangle(projection, book.bounds[2], [a, b, c], colors);
+                            let triangle = [a, b, c];
+                            let lit = projection.face_colors(triangle, book.bounds[2], colors);
+                            self.clip_triangle(projection, book.bounds[2], triangle, lit);
                         }
                     }
                 }
@@ -232,7 +271,7 @@ impl Raster {
         if area.abs() < 1e-9 {
             return;
         }
-        let color = face_colors[usize::from(area < 0.)];
+        let color = face_colors[usize::from(area > 0.)];
         let limits = |i: usize, end: usize| {
             let low = a[i].min(b[i]).min(c[i]).floor() as usize;
             let high = (a[i].max(b[i]).max(c[i]).ceil() as usize).min(end);
@@ -260,8 +299,9 @@ fn edge(from: Point, to: Point, point: Point) -> f64 {
     (to[0] - from[0]) * (point[1] - from[1]) - (to[1] - from[1]) * (point[0] - from[0])
 }
 
-fn face_color(color: u32) -> Color32 {
-    let [r, g, b] = rgb(color).map(|value| ((u16::from(value) * 215 + 127) / 255) as u8);
+fn face_color(color: u32, intensity: f64) -> Color32 {
+    let light = intensity.round().clamp(0., 255.) as u16;
+    let [r, g, b] = rgb(color).map(|v| ((u16::from(v) * light + 127) / 255) as u8);
     Color32::from_rgb(r, g, b)
 }
 
@@ -316,10 +356,51 @@ mod tests {
                 ],
             };
             raster.fill(&projection, &book, &mesh);
-            assert_eq!(raster.colors[87 * WIDTH + WIDTH / 2], face_color(expected));
+            assert_eq!(
+                raster.colors[87 * WIDTH + WIDTH / 2],
+                projection.face_colors(
+                    [[-1., -1., 0.], [1., -1., 0.], [1., 1., 0.]],
+                    book.bounds[2],
+                    [expected; 2]
+                )[usize::from(pitch < 0.)]
+            );
         }
     }
 
+    #[test]
+    fn tilted_planes_match_independent_virtual_g1_face_and_intensity_controls() {
+        let book = Book::default();
+        let p = Projection::new(174, book.rotation);
+        for (x, y, expected) in [
+            (0., 0., [0, 0, 215]),
+            (0.5, 0., [0, 149, 149]),
+            (-1., 0., [0, 0, 172]),
+            (0., 0.5, [0, 0, 245]),
+            (0., -0.5, [0, 151, 151]),
+            (0.2, 0.7, [0, 0, 252]),
+            (0.25, 0.5, [0, 0, 247]),
+        ] {
+            let mut raster = Raster::new(174);
+            let mesh = Mesh {
+                resolution: 2,
+                grids: vec![SurfaceGrid {
+                    index: 0,
+                    heights: [-x - y, x - y, -x + y, x + y]
+                        .map(|z| Some(z * 4.))
+                        .to_vec(),
+                }],
+            };
+            raster.fill(&p, &book, &mesh);
+            let pixel = raster.colors[WIDTH * 87 + WIDTH / 2];
+            let actual = [pixel.r(), pixel.g(), pixel.b()];
+            for (a, b) in actual.into_iter().zip(expected) {
+                assert!(
+                    u8::abs_diff(a, b) <= 1,
+                    "{x}, {y}: {actual:?} expected {expected:?}"
+                );
+            }
+        }
+    }
     #[test]
     fn triangles_clip_at_both_height_bounds() {
         let projection = Projection::new(174, [0., 30.]);
