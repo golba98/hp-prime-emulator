@@ -314,7 +314,9 @@ impl NativeTools {
                 }
                 ui.horizontal(|ui| {
                     if ui.small_button("Reset view").clicked() {
-                        self.memory.graph3d.rotation = Book::default().rotation;
+                        let fresh = Book::default();
+                        self.memory.graph3d.rotation = fresh.rotation;
+                        self.memory.graph3d.camera = fresh.camera;
                         self.dirty();
                     }
                     if ui.small_button("Setup").clicked() {

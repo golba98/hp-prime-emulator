@@ -54,13 +54,21 @@ pub struct Definition {
     pub literal: Option<(String, serde_json::Value)>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum CameraModel {
+    Legacy,
+    G1,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default = "Book::legacy_defaults")]
 pub struct Book {
     pub definitions: Definitions,
     pub bounds: [[f64; 2]; 3],
     pub ticks: [f64; 3],
     pub rotation: [f64; 2],
+    pub(super) camera: CameraModel,
     #[serde(skip_serializing_if = "default_colors")]
     pub colors: SurfaceColors,
 }
@@ -71,7 +79,8 @@ impl Default for Book {
             definitions: Default::default(),
             bounds: [[-4., 4.]; 3],
             ticks: [1.; 3],
-            rotation: [-45., 25.],
+            rotation: [-34., 10.],
+            camera: CameraModel::G1,
             colors: DEFAULT_COLORS,
         }
     }
@@ -108,6 +117,14 @@ pub struct Mesh {
 }
 
 impl Book {
+    fn legacy_defaults() -> Self {
+        Self {
+            rotation: [-45., 25.],
+            camera: CameraModel::Legacy,
+            ..Self::default()
+        }
+    }
+
     pub fn is_default(&self) -> bool {
         self == &Self::default()
     }

@@ -1,6 +1,6 @@
 //! Rasterize the evaluated surface triangles with a depth value for each pixel.
 use super::surface_colors::rgb;
-use crate::ide::native_graph3d::{Book, Mesh, SurfaceColors};
+use crate::ide::native_graph3d::{Book, CameraModel, Mesh, SurfaceColors};
 use egui::{Color32, ColorImage, Painter, Pos2, Rect, Stroke, TextureHandle, TextureOptions, pos2};
 
 const WIDTH: usize = 316;
@@ -16,6 +16,7 @@ pub(super) struct SurfaceLayer {
 struct Inputs {
     height: usize,
     rotation: [f64; 2],
+    camera: CameraModel,
     colors: SurfaceColors,
 }
 
@@ -37,7 +38,7 @@ impl SurfaceLayer {
         if book.validate_viewport().is_err() {
             return;
         }
-        let projection = Projection::new(height, book.rotation);
+        let projection = Projection::new(height, book.rotation, book.camera);
         let screen = |point: Point| {
             let normalized = std::array::from_fn(|i| normalize(point[i], book.bounds[i]));
             let [x, y, _] = projection.project(normalized);
@@ -52,6 +53,7 @@ impl SurfaceLayer {
         let inputs = Inputs {
             height,
             rotation: book.rotation,
+            camera: book.camera,
             colors: book.colors,
         };
         if self.inputs.as_ref() != Some(&inputs) {
@@ -135,68 +137,71 @@ fn normalize(value: f64, [low, high]: [f64; 2]) -> f64 {
 struct Projection {
     center: [f64; 2],
     scale: f64,
-    axes: [Point; 3],
+    yaw: (f64, f64),
+    pitch: (f64, f64),
+    camera: CameraModel,
 }
-fn dot(a: Point, b: Point) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-fn cross(a: Point, b: Point) -> Point {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
+
 impl Projection {
-    fn new(height: usize, [yaw, pitch]: [f64; 2]) -> Self {
-        // Derive the initial orientation from the three projected unit vectors
-        // on G1 plots of z=0, +1 and -1. The profile stores relative rotations.
-        let (sy, cy) = (32.67 - (yaw + 45.)).to_radians().sin_cos();
-        let (sp, cp) = (9.51 + pitch - 25.).to_radians().sin_cos();
-        let (sr, cr) = (-3.22_f64).to_radians().sin_cos();
-        let flat = [cy, sy, 0.];
-        let up = [-sy * sp, cy * sp, cp];
-        let right = std::array::from_fn(|i| cr * flat[i] + sr * up[i]);
-        let vertical = std::array::from_fn(|i| cr * up[i] - sr * flat[i]);
+    fn new(height: usize, [yaw, pitch]: [f64; 2], camera: CameraModel) -> Self {
         Self {
             center: [WIDTH as f64 * 0.5, height as f64 * 0.5],
-            scale: WIDTH.min(height) as f64 * 0.378,
-            axes: [right, vertical, cross(right, vertical)],
+            scale: WIDTH.min(height) as f64 * 0.25,
+            yaw: yaw.to_radians().sin_cos(),
+            pitch: pitch.to_radians().sin_cos(),
+            camera,
+        }
+    }
+
+    fn orient(&self, [x, y, z]: Point) -> Point {
+        let (sin_yaw, cos_yaw) = self.yaw;
+        let (sin_pitch, cos_pitch) = self.pitch;
+        let depth = sin_yaw * x + cos_yaw * y;
+        let u = cos_yaw * x - sin_yaw * y;
+        match self.camera {
+            CameraModel::Legacy => [
+                u,
+                cos_pitch * z - sin_pitch * depth,
+                cos_pitch * depth + sin_pitch * z,
+            ],
+            CameraModel::G1 => {
+                // The default G1 horizontal edge has a small screen roll.
+                let (sin_roll, cos_roll) = (-3_f64).to_radians().sin_cos();
+                let v = cos_pitch * z + sin_pitch * depth;
+                [
+                    cos_roll * u + sin_roll * v,
+                    cos_roll * v - sin_roll * u,
+                    sin_pitch * z - cos_pitch * depth,
+                ]
+            }
         }
     }
 
     fn project(&self, point: Point) -> Point {
-        let [u, v, d] = self.axes.map(|axis| dot(axis, point));
+        let [u, v, depth] = self.orient(point);
         [
             self.center[0] + self.scale * u,
             self.center[1] - self.scale * v,
-            d,
+            depth,
         ]
     }
 
-    fn face_colors(
-        &self,
-        [a, b, c]: [Point; 3],
-        [low, high]: [f64; 2],
-        colors: [u32; 2],
-    ) -> [Color32; 2] {
-        let edge = |p: Point| {
-            [
-                p[0] - a[0],
-                p[1] - a[1],
-                2. * ((p[2] - a[2]) / (high - low)),
-            ]
-        };
-        let normal = cross(edge(b), edge(c));
+    fn shade(&self, [a, b, c]: [Point; 3], colors: [u32; 2]) -> [Color32; 2] {
+        if self.camera == CameraModel::Legacy {
+            return colors.map(|color| face_color(color, 215));
+        }
+        let [ux, uy, uz] = std::array::from_fn(|axis| b[axis] - a[axis]);
+        let [vx, vy, vz] = std::array::from_fn(|axis| c[axis] - a[axis]);
+        let normal = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
         let length = normal[0].hypot(normal[1]).hypot(normal[2]);
-        let eye = self.axes.map(|axis| dot(axis, normal) / length);
-        // A directional term plus ambient intensity. Coefficients are in
-        // camera space and were measured independently for the two faces.
-        let lighting = [
-            126.98 + dot(eye, [-72.15, 72.62, 74.28]),
-            128.06 + dot(eye, [0.55, 23.90, 1.11]),
-        ];
-        std::array::from_fn(|i| face_color(colors[i], lighting[i]))
+        let [right, up, depth] =
+            self.orient(normal.map(|axis| axis / length.max(f64::MIN_POSITIVE)));
+        // Planar controls at the default and rotated G1 views follow
+        // separate camera-space light directions for the two face colors.
+        let front = light_level(0.99 * (-right + up + depth) / 3_f64.sqrt());
+        let back = light_level(0.196 * up);
+        // Positive screen Y points down, so the G1 front has negative area.
+        [face_color(colors[1], back), face_color(colors[0], front)]
     }
 }
 
@@ -229,9 +234,7 @@ impl Raster {
                     let d = point(x, y + 1);
                     for [a, b, c] in [[a, b, c], [a, c, d]] {
                         if let [Some(a), Some(b), Some(c)] = [a, b, c] {
-                            let triangle = [a, b, c];
-                            let lit = projection.face_colors(triangle, book.bounds[2], colors);
-                            self.clip_triangle(projection, book.bounds[2], triangle, lit);
+                            self.clip_triangle(projection, book.bounds[2], [a, b, c], colors);
                         }
                     }
                 }
@@ -244,16 +247,20 @@ impl Raster {
         projection: &Projection,
         bounds: [f64; 2],
         triangle: [Point; 3],
-        colors: [Color32; 2],
+        colors: [u32; 2],
     ) {
         let [lo, hi] = bounds;
         if triangle.iter().all(|point| point[2] < lo) || triangle.iter().all(|point| point[2] > hi)
         {
             return;
         }
-        let project = |[x, y, z]: Point| projection.project([x, y, normalize(z, bounds)]);
+        let project = |raster: &mut Self, triangle: [Point; 3]| {
+            let triangle = triangle.map(|[x, y, z]| [x, y, normalize(z, bounds)]);
+            let faces = projection.shade(triangle, colors);
+            raster.triangle(triangle.map(|point| projection.project(point)), faces);
+        };
         if triangle.iter().all(|point| (lo..=hi).contains(&point[2])) {
-            self.triangle(triangle.map(project), colors);
+            project(self, triangle);
             return;
         }
         let mut bottom = [[0.; 3]; 4];
@@ -262,7 +269,7 @@ impl Raster {
         let count = clip_z(&bottom[..count], &mut volume, hi, |z| z <= hi);
         for index in 1..count.saturating_sub(1) {
             let triangle = [volume[0], volume[index], volume[index + 1]];
-            self.triangle(triangle.map(project), colors);
+            project(self, triangle);
         }
     }
 
@@ -271,7 +278,7 @@ impl Raster {
         if area.abs() < 1e-9 {
             return;
         }
-        let color = face_colors[usize::from(area > 0.)];
+        let color = face_colors[usize::from(area < 0.)];
         let limits = |i: usize, end: usize| {
             let low = a[i].min(b[i]).min(c[i]).floor() as usize;
             let high = (a[i].max(b[i]).max(c[i]).ceil() as usize).min(end);
@@ -299,9 +306,13 @@ fn edge(from: Point, to: Point, point: Point) -> f64 {
     (to[0] - from[0]) * (point[1] - from[1]) - (to[1] - from[1]) * (point[0] - from[0])
 }
 
-fn face_color(color: u32, intensity: f64) -> Color32 {
-    let light = intensity.round().clamp(0., 255.) as u16;
-    let [r, g, b] = rgb(color).map(|v| ((u16::from(v) * light + 127) / 255) as u8);
+fn light_level(direction: f64) -> u8 {
+    (127.5 * (1. + direction)).clamp(0., 255.) as u8
+}
+
+fn face_color(color: u32, shade: u8) -> Color32 {
+    let [r, g, b] =
+        rgb(color).map(|value| ((u16::from(value) * u16::from(shade) + 127) / 255) as u8);
     Color32::from_rgb(r, g, b)
 }
 
@@ -340,7 +351,7 @@ mod tests {
     fn facing_and_depth_choose_the_visible_surface_color() {
         let book = Book::default();
         for (pitch, expected) in [(35., 0xff0000), (-35., 0x00ffff)] {
-            let projection = Projection::new(174, [0., pitch]);
+            let projection = Projection::new(174, [0., pitch], CameraModel::Legacy);
             let mut raster = Raster::new(174);
             let mesh = Mesh {
                 resolution: 2,
@@ -358,19 +369,63 @@ mod tests {
             raster.fill(&projection, &book, &mesh);
             assert_eq!(
                 raster.colors[87 * WIDTH + WIDTH / 2],
-                projection.face_colors(
-                    [[-1., -1., 0.], [1., -1., 0.], [1., 1., 0.]],
-                    book.bounds[2],
-                    [expected; 2]
-                )[usize::from(pitch < 0.)]
+                face_color(expected, 215)
             );
         }
     }
 
     #[test]
+    fn fresh_camera_matches_the_measured_plane_faces_and_lighting() {
+        let book = Book::default();
+        let projection = Projection::new(174, book.rotation, book.camera);
+        for (slope_x, slope_y, front, measured) in [
+            (0., 0., true, 215u8),
+            (0.5, 0., false, 149),
+            (-0.5, 0., true, 195),
+            (0., 0.5, true, 245),
+            (0., -0.5, false, 151),
+            (0.25, 0., true, 218),
+            (0., -0.25, false, 152),
+            (0.5, -0.5, false, 149),
+            (0.5, 0.25, true, 234),
+            (-0.5, -0.25, true, 174),
+        ] {
+            let mut raster = Raster::new(174);
+            let heights = [(-4., -4.), (4., -4.), (-4., 4.), (4., 4.)]
+                .map(|(x, y)| Some(slope_x * x + slope_y * y));
+            let mesh = Mesh {
+                resolution: 2,
+                grids: vec![SurfaceGrid {
+                    index: 0,
+                    heights: heights.to_vec(),
+                }],
+            };
+            raster.fill(&projection, &book, &mesh);
+            let color = raster.colors[87 * WIDTH + WIDTH / 2];
+            assert_eq!(color.r(), 0);
+            assert!(color.b().abs_diff(measured) <= 1, "{slope_x} {slope_y}");
+            assert_eq!(color.g(), if front { 0 } else { color.b() });
+        }
+    }
+
+    #[test]
+    fn old_persisted_views_keep_their_camera_and_color_convention() {
+        let saved = serde_json::json!({"rotation": [315., -35.]});
+        let book: Book = serde_json::from_value(saved).unwrap();
+        assert_eq!(book.camera, CameraModel::Legacy);
+        assert_eq!(book.rotation, [315., -35.]);
+        let saved = serde_json::to_value(&book).unwrap();
+        assert_eq!(serde_json::from_value::<Book>(saved).unwrap(), book);
+        let empty: Book = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(empty.camera, CameraModel::Legacy);
+        assert_eq!(empty.rotation, [-45., 25.]);
+        assert_eq!(Book::default().camera, CameraModel::G1);
+    }
+
+    #[test]
     fn tilted_planes_match_independent_virtual_g1_face_and_intensity_controls() {
         let book = Book::default();
-        let p = Projection::new(174, book.rotation);
+        let p = Projection::new(174, book.rotation, book.camera);
         for (x, y, expected) in [
             (0., 0., [0, 0, 215]),
             (0.5, 0., [0, 149, 149]),
@@ -403,11 +458,11 @@ mod tests {
     }
     #[test]
     fn triangles_clip_at_both_height_bounds() {
-        let projection = Projection::new(174, [0., 30.]);
+        let projection = Projection::new(174, [0., 30.], CameraModel::Legacy);
         let mut raster = Raster::new(174);
-        let emissive = [Color32::BLUE, Color32::RED];
+        let colors = [0x0000ff, 0xff0000];
         let triangle = [[-1., -1., -2.], [1., -1., 2.], [1., 1., 2.]];
-        raster.clip_triangle(&projection, [-0.25, 0.25], triangle, emissive);
+        raster.clip_triangle(&projection, [-0.25, 0.25], triangle, colors);
         let mut expected = Raster::new(174);
         let [a, b, c, d] = [
             [-0.125, -1., -1.],
@@ -416,8 +471,8 @@ mod tests {
             [-0.125, -0.125, -1.],
         ]
         .map(|point| projection.project(point));
-        expected.triangle([a, b, c], emissive);
-        expected.triangle([a, c, d], emissive);
+        expected.triangle([a, b, c], colors.map(|color| face_color(color, 215)));
+        expected.triangle([a, c, d], colors.map(|color| face_color(color, 215)));
         assert!(
             expected
                 .colors

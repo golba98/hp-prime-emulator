@@ -36,8 +36,8 @@ def main(root):
         reopened["reopened"], reopened["reopened_symbolic"]
     ]:
         assert book(state)["colors"][:2] == [[0x800080, 0xFF0000], [0xFF0000, 0xFF00FF]]
-    assert book(main_states["initial"])["rotation"] == [-45, 25]
-    assert book(main_states["lower"])["rotation"] == book(reopened["reopened"])["rotation"] == [315, -35]
+    assert book(main_states["initial"])["rotation"] == [-34, 10]
+    assert book(main_states["lower"])["rotation"] == book(reopened["reopened"])["rotation"] == [326, -50]
     assert main_states["symbolic"]["native_tools"]["page"] == reopened["reopened_symbolic"]["native_tools"]["page"] == "Symbolic"
 
     def plot(label):
@@ -55,7 +55,7 @@ def main(root):
     assert top_before[(0, 0, 215)] > 300 and top_before[(215, 0, 0)] > 300
     assert top_after[(108, 0, 108)] > 300 and (0, 0, 215) not in top_after
     # The underside uses the second color and a different directional light.
-    assert bottom[(142, 0, 0)] > 300 and bottom[(142, 0, 142)] > 300
+    assert bottom[(143, 0, 0)] > 300 and bottom[(143, 0, 143)] > 300
     assert ImageChops.difference(plot("lower"), plot("reopened")).getbbox() is None
     print("Graph 3D Plot recolors both filled faces and restores the typed surfaces and camera")
 
