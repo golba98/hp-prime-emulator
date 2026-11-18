@@ -69,11 +69,12 @@ impl Transform {
             ),
             Shape::Parabola(curve) => {
                 let [f, a, b] = curve.definition();
-                Shape::Parabola(super::Parabola::from_focus(
-                    self.point(f)?,
-                    self.point(a)?,
-                    self.point(b)?,
-                )?)
+                let mut transformed =
+                    super::Parabola::from_focus(self.point(f)?, self.point(a)?, self.point(b)?)?;
+                transformed.limit = curve.limit * scale;
+                transformed.offset = curve.offset * scale;
+                transformed.from_equation = curve.from_equation;
+                Shape::Parabola(transformed)
             }
             Shape::Hyperbola(curve) => {
                 let [a, b] = curve.foci;
@@ -81,10 +82,10 @@ impl Transform {
                     Size::Witness(w) => Size::Witness(self.point(w)?),
                     Size::SemiMajor(r) => Size::SemiMajor(r * scale),
                 };
-                Shape::Hyperbola(super::Hyperbola::new(
-                    [self.point(a)?, self.point(b)?],
-                    size,
-                )?)
+                let mut transformed =
+                    super::Hyperbola::new([self.point(a)?, self.point(b)?], size)?;
+                transformed.equation = curve.equation;
+                Shape::Hyperbola(transformed)
             }
             Shape::Ellipse(ellipse) => {
                 let [a, b] = ellipse.foci;
@@ -92,7 +93,9 @@ impl Transform {
                     Size::Witness(w) => Size::Witness(self.point(w)?),
                     Size::SemiMajor(r) => Size::SemiMajor(r * scale),
                 };
-                Shape::Ellipse(Ellipse::new([self.point(a)?, self.point(b)?], size)?)
+                let mut transformed = Ellipse::new([self.point(a)?, self.point(b)?], size)?;
+                transformed.equation_phase = ellipse.equation_phase;
+                Shape::Ellipse(transformed)
             }
             Shape::Arc(arc) => {
                 // A reflection reverses the boundary orientation. Swap endpoints
@@ -121,6 +124,7 @@ impl Transform {
                 )?)
             }
             Shape::Undefined => Shape::Undefined,
+            Shape::EmptyConic(_) => shape,
             Shape::Function { .. } => {
                 return Err("Transform requires a point, straight object, polygon or conic".into());
             }

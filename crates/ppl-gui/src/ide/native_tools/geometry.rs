@@ -90,7 +90,10 @@ impl Need {
             Self::Mirror => matches!(shape, Shape::Point(_) | Shape::Line { .. }),
             Self::Transformable => !matches!(
                 shape,
-                Shape::Undefined | Shape::Function { .. } | Shape::Number { .. }
+                Shape::Undefined
+                    | Shape::EmptyConic(_)
+                    | Shape::Function { .. }
+                    | Shape::Number { .. }
             ),
             Self::Point | Self::PointOnCurve => matches!(shape, Shape::Point(_)),
             Self::Line => matches!(shape, Shape::Line { .. }),
@@ -318,6 +321,11 @@ const CURVES: &[Command] = &[
         label: "Hyperbola",
         function: "hyperbola",
         needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Conic",
+        function: "conic",
+        needs: &[],
     },
 ];
 const TRANSFORMS: &[Command] = &[
@@ -881,7 +889,7 @@ impl NativeTools {
         let Some(command) = commands(category).get(menu.index).copied() else {
             return vec![];
         };
-        if self.page == Some(Page::Plot) && command.function == "plotfunc" {
+        if self.page == Some(Page::Plot) && matches!(command.function, "plotfunc" | "conic") {
             self.geometry_panel.tool = None;
             self.geometry_panel.args.clear();
             let name = self
@@ -894,7 +902,7 @@ impl NativeTools {
             self.dirty();
             return vec![Request::EditMath(MathTarget::GeometryObject {
                 name,
-                preset: Some("plotfunc()".into()),
+                preset: Some(format!("{}()", command.function)),
                 insert: None,
             })];
         }

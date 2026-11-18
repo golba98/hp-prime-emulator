@@ -293,9 +293,9 @@ impl Evaluator<'_> {
                 .current_values
                 .get(name)
                 .ok_or("Geometry object has not been evaluated")?;
-            if let Some(curve) = self.book.current_hyperbolas.get(name) {
+            if let Some(curve) = self.book.current_curves.get(name) {
                 self.visiting.remove(name);
-                return Ok(Shape::Hyperbola(curve.clone()));
+                return Ok(curve.clone());
             }
             match value {
                 ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) => {
@@ -419,6 +419,10 @@ impl Evaluator<'_> {
                 })?)),
                 _ => Err("point expects one affix or two coordinates".into()),
             },
+            "conic" => {
+                arity(1)?;
+                super::conic::build(&args[0], source, |arg| self.real(arg, source))
+            }
             "plotfunc" => {
                 arity(1)?;
                 let expression = self.expression_text(&args[0], source, true)?;
@@ -844,6 +848,8 @@ impl Evaluator<'_> {
                             std::f64::consts::TAU * radius
                         }
                     }
+                    Shape::EmptyConic(_) if name == "area" => 0.,
+                    Shape::Lines(_) => return Ok(Shape::Undefined),
                     Shape::Arc(arc) => {
                         if name == "area" {
                             arc.area()
@@ -857,7 +863,8 @@ impl Evaluator<'_> {
                         }
                         // A stored hyperbola evaluates to a list of two plotparam objects.
                         // G1 area on that list is zero; an inline conic integrates both branches.
-                        if matches!(&args[0].kind,ExprKind::Ident(id) if self.reference(id).is_some())
+                        if !curve.equation
+                            && matches!(&args[0].kind,ExprKind::Ident(id) if self.reference(id).is_some())
                         {
                             0.
                         } else {
@@ -1151,6 +1158,7 @@ fn known(name: &str) -> bool {
         name.to_ascii_lowercase().as_str(),
         "point"
             | "element"
+            | "conic"
             | "plotfunc"
             | "tangent"
             | "segment"

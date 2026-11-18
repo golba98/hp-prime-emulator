@@ -108,7 +108,7 @@ pub fn build(
                 }
                 continue;
             }
-            Shape::Number { .. } | Shape::Undefined => continue,
+            Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => continue,
         };
         data.push(format!("G{}", object.name), style, points)?;
     }

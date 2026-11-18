@@ -2,7 +2,9 @@
 use super::{Extent, Point2, Shape, number, point, primitives as g};
 use serde::{Deserialize, Serialize};
 
-const LIMIT: f64 = 12.;
+fn default_limit() -> f64 {
+    12.
+}
 const STEPS: usize = 192;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -10,6 +12,12 @@ pub struct Parabola {
     pub(super) vertex: Point2,
     axis: Point2,
     focal: f64,
+    #[serde(default = "default_limit")]
+    pub(super) limit: f64,
+    #[serde(default)]
+    pub(super) offset: f64,
+    #[serde(default)]
+    pub(super) from_equation: bool,
 }
 
 impl Parabola {
@@ -18,10 +26,21 @@ impl Parabola {
             return Err("A parabola needs nonzero focal length".into());
         }
         Ok(Self {
+            offset: 0.,
+            from_equation: false,
+            limit: default_limit(),
             vertex,
             axis: Point2 { x: 1., y: 0. },
             focal,
         })
+    }
+    pub(super) fn equation(vertex: Point2, axis: Point2, focal: f64) -> Result<Self, String> {
+        let mut curve = Self::vertical(vertex, focal)?;
+        curve.axis = axis;
+        curve.limit = 24.;
+        curve.from_equation = true;
+        curve.offset = vertex.x * axis.x + vertex.y * axis.y;
+        Ok(curve)
     }
     pub(super) fn from_focus(focus: Point2, a: Point2, b: Point2) -> Result<Self, String> {
         let foot = g::closest(focus, a, b, Extent::Line)?;
@@ -31,6 +50,9 @@ impl Parabola {
         }
         let d = g::delta(foot, focus);
         Ok(Self {
+            offset: 0.,
+            from_equation: false,
+            limit: default_limit(),
             vertex: g::midpoint(foot, focus)?,
             axis: Point2 {
                 x: d.y / distance,
@@ -38,6 +60,24 @@ impl Parabola {
             },
             focal: distance / 2.,
         })
+    }
+    pub(super) fn equation_source(&self) -> String {
+        use super::canonical;
+        let t = format!("(x-({}))", canonical(self.offset));
+        let component = |c: f64, a: f64, b: f64| {
+            format!(
+                "({}+({})*{t}+({})*{t}^2)",
+                canonical(c),
+                canonical(a),
+                canonical(b / (4. * self.focal))
+            )
+        };
+        format!(
+            "plotparam({}+i*{},x,-{lim},{lim})",
+            component(self.vertex.x, self.axis.x, -self.axis.y),
+            component(self.vertex.y, self.axis.y, self.axis.x),
+            lim = canonical(self.limit)
+        )
     }
     fn world(&self, x: f64, y: f64) -> Point2 {
         Point2 {
@@ -60,10 +100,13 @@ impl Parabola {
         ]
     }
     pub(super) fn at(&self, t: f64) -> Point2 {
+        self.at_local(t - self.offset)
+    }
+    fn at_local(&self, t: f64) -> Point2 {
         self.world(t, (t / self.focal) * t * 0.25)
     }
     pub(super) fn vertices(&self) -> impl Iterator<Item = Point2> + '_ {
-        (0..=STEPS).map(|i| self.at(-LIMIT + 2. * LIMIT * (i as f64 / STEPS as f64)))
+        (0..=STEPS).map(|i| self.at(-self.limit + 2. * self.limit * (i as f64 / STEPS as f64)))
     }
     pub(crate) fn edges(&self) -> impl Iterator<Item = [Point2; 2]> + '_ {
         self.vertices()
@@ -79,10 +122,10 @@ impl Parabola {
             })
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .ok_or("No visible parabola")?;
-        number(self.local(near).x)
+        number(self.local(near).x + self.offset)
     }
     fn tangent_at(&self, t: f64) -> Result<Shape, String> {
-        let p = point(self.at(t))?;
+        let p = point(self.at_local(t))?;
         let slope = t / (2. * self.focal);
         g::line(
             p,
@@ -115,7 +158,7 @@ impl Parabola {
         let d = g::delta(p, q);
         // Intersect the supporting line with (t, t²/(4f)).
         if d.x == 0. {
-            return Ok(vec![point(self.at(p.x))?]);
+            return Ok(vec![point(self.at_local(p.x))?]);
         }
         let k = 2. * self.focal * d.y / d.x;
         let c = 2. * k * p.x - 4. * self.focal * p.y;
@@ -125,22 +168,28 @@ impl Parabola {
             return Ok(vec![]);
         }
         if disc.abs() <= tol {
-            return Ok(vec![point(self.at(k))?]);
+            return Ok(vec![point(self.at_local(k))?]);
         }
         let far = k + disc.sqrt().copysign(k);
         [far, c / far]
             .into_iter()
-            .map(|t| point(self.at(t)))
+            .map(|t| point(self.at_local(t)))
             .collect()
     }
     pub(super) fn area(&self) -> f64 {
         // Signed -integral(y dx) along the displayed parameter interval.
         let (u, v) = (self.axis.x, self.axis.y);
-        -2. * LIMIT * self.vertex.y * u - (LIMIT.powi(3) / (6. * self.focal)) * (u * u - 2. * v * v)
+        let q = 0.25 / self.focal;
+        let integral = |s: f64| {
+            s * (self.vertex.y * u
+                + s * ((v * u - 2. * q * v * self.vertex.y) / 2.
+                    + s * (q * (u * u - 2. * v * v) / 3. - s * q * q * u * v / 2.)))
+        };
+        integral(-self.limit - self.offset) - integral(self.limit - self.offset)
     }
     pub(super) fn perimeter(&self) -> f64 {
         let scale = 2. * self.focal.abs();
-        let t = LIMIT / scale;
-        LIMIT * t.hypot(1.) + scale * t.asinh()
+        let primitive = |s: f64| (s * (s / scale).hypot(1.) + scale * (s / scale).asinh()) / 2.;
+        primitive(self.limit - self.offset) - primitive(-self.limit - self.offset)
     }
 }

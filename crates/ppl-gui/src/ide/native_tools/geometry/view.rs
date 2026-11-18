@@ -133,6 +133,7 @@ fn display(n: f64, s: &ppl_vm::Settings) -> String {
 fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
     match shape {
         Shape::Undefined => "undef".into(),
+        Shape::EmptyConic(s) => s.clone(),
         Shape::Number { re, im: 0. } => {
             let mut value = display(*re, s);
             let decimal = s.digit_grouping.decimal();
@@ -283,7 +284,7 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
             }
         }
-        Shape::Number { .. } | Shape::Undefined => {}
+        Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {}
     }
 }
 fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
@@ -401,7 +402,7 @@ pub(super) fn hit(
                 .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
                 .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
                 .fold(f64::INFINITY, f64::min),
-            Shape::Number { .. } | Shape::Undefined => continue,
+            Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => continue,
         };
         if distance <= 7. {
             candidates.push((

@@ -11,6 +11,8 @@ pub struct Hyperbola {
     axis: Point2,
     major: f64,
     minor: f64,
+    #[serde(default)]
+    pub(super) equation: bool,
 }
 
 impl Hyperbola {
@@ -32,6 +34,7 @@ impl Hyperbola {
         let minor =
             number(((focal - major.abs()) / focal * (1. + major.abs() / focal)).sqrt() * focal)?;
         Ok(Self {
+            equation: false,
             foci,
             size,
             center: g::midpoint(a, b)?,
@@ -57,8 +60,12 @@ impl Hyperbola {
     }
     pub(super) fn branch(&self, sign: f64) -> impl Iterator<Item = Point2> + '_ {
         (0..=120).map(move |i| {
-            let t = -3. + i as f64 / 20.;
-            self.world(sign * self.major * t.cosh(), sign * self.minor * t.sinh())
+            let limit = self.limit(sign);
+            let t = limit * (i as f64 / 60. - 1.);
+            self.world(
+                sign * self.major * t.cosh(),
+                self.branch_y(sign) * self.minor * t.sinh(),
+            )
         })
     }
     pub(crate) fn edges(&self) -> impl Iterator<Item = [Point2; 2]> + '_ {
@@ -68,6 +75,17 @@ impl Hyperbola {
                 .map(|(a, b)| [a, b])
         })
     }
+    fn limit(&self, sign: f64) -> f64 {
+        // Equation-defined G1 curves use the decimal endpoint 3.14 on the positive branch.
+        if self.equation && sign > 0. {
+            314. / 100.
+        } else {
+            3.
+        }
+    }
+    fn branch_y(&self, sign: f64) -> f64 {
+        if self.equation { 1. } else { sign }
+    }
     fn anchor(&self) -> Point2 {
         match self.size {
             Size::Witness(p) => p,
@@ -75,6 +93,16 @@ impl Hyperbola {
         }
     }
     pub(super) fn element(&self, t: f64) -> Result<Point2, String> {
+        if self.equation {
+            if t == 0. {
+                return Err("The hyperbola point at zero is at infinity".into());
+            }
+            let inverse = 1. / t;
+            return point(self.world(
+                self.major * (t * 0.5 + inverse * 0.5),
+                self.minor * (t * 0.5 - inverse * 0.5),
+            ));
+        }
         let anchor = self.anchor();
         if self.major == 0. || self.minor == 0. {
             return point(anchor);
@@ -103,6 +131,11 @@ impl Hyperbola {
             })
             .min_by(|a, b| a.0.total_cmp(&b.0))
             .ok_or("No visible hyperbola")?;
+        if self.equation {
+            let p = self.local_vector(g::delta(self.center, near));
+            let (x, y) = (p.x / self.major, p.y / self.minor);
+            return number(if x * y < 0. { 1. / (x - y) } else { x + y });
+        }
         let d = g::delta(self.anchor(), near);
         if d.x == 0. && d.y == 0. {
             let p = self.local_vector(g::delta(self.center, near));
@@ -136,6 +169,20 @@ impl Hyperbola {
         )
     }
     pub(super) fn area(&self) -> f64 {
+        if self.equation {
+            return [1., -1.]
+                .into_iter()
+                .map(|sign| {
+                    let t = self.limit(sign);
+                    let s = (2. * t).sinh() * 0.5;
+                    -sign
+                        * self.major
+                        * self.minor
+                        * (self.axis.x.powi(2) * (s - t) - self.axis.y.powi(2) * (s + t))
+                        + 2. * self.center.y * self.axis.y * self.minor * t.sinh()
+                })
+                .sum();
+        }
         let s = 6_f64.sinh();
         self.major * self.minor * (self.axis.y.powi(2) * (s + 6.) - self.axis.x.powi(2) * (s - 6.))
     }
@@ -146,13 +193,14 @@ impl Hyperbola {
                 "({}+({})*COSH(t)+({})*SINH(t))",
                 canonical(c),
                 canonical(a * sign),
-                canonical(b * sign)
+                canonical(b * self.branch_y(sign))
             )
         };
         format!(
-            "plotparam({}+i*{},t,-3,3)",
+            "plotparam({}+i*{},t,-{lim},{lim})",
             coordinate(self.center.x, self.major * u.x, -self.minor * u.y),
-            coordinate(self.center.y, self.major * u.y, self.minor * u.x)
+            coordinate(self.center.y, self.major * u.y, self.minor * u.x),
+            lim = canonical(self.limit(sign)),
         )
     }
 }

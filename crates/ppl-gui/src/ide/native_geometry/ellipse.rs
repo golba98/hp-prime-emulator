@@ -22,6 +22,8 @@ pub struct Ellipse {
     axis: Point2,
     major: f64,
     minor: f64,
+    #[serde(default)]
+    pub(super) equation_phase: Option<f64>,
 }
 
 impl Ellipse {
@@ -51,6 +53,7 @@ impl Ellipse {
             }
         };
         Ok(Self {
+            equation_phase: None,
             foci,
             size,
             center: midpoint(a, b)?,
@@ -153,7 +156,30 @@ impl Ellipse {
         self.major * ((4. * step / 3.) * sum)
     }
 
+    pub(super) fn equation_source(&self, phase: f64) -> String {
+        use super::canonical;
+        let (sin, cos) = phase.sin_cos();
+        let cos_term = self.world(self.major * cos, self.minor * sin);
+        let sin_term = self.world(-self.major * sin, self.minor * cos);
+        let component = |c: f64, a: f64, b: f64| {
+            format!(
+                "({}+({})*COS(x)+({})*SIN(x))",
+                canonical(c),
+                canonical(a - c),
+                canonical(b - c)
+            )
+        };
+        format!(
+            "plotparam({}+i*{},x,0,{})",
+            component(self.center.x, cos_term.x, sin_term.x),
+            component(self.center.y, cos_term.y, sin_term.y),
+            canonical(TAU)
+        )
+    }
     pub(super) fn element(&self, slope: f64) -> Result<Point2, String> {
+        if let Some(phase) = self.equation_phase {
+            return point(self.at(2. * slope.atan() + phase));
+        }
         let anchor = self.anchor();
         if self.minor == 0. {
             return point(anchor);
@@ -235,6 +261,9 @@ impl Ellipse {
             } else {
                 lo = left;
             }
+        }
+        if let Some(phase) = self.equation_phase {
+            return number((((lo + hi) / 2. - phase) / 2.).tan());
         }
         let a = self.local_vector(delta(self.center, self.anchor()));
         let anchor_angle = (a.y / self.minor).atan2(a.x / self.major);

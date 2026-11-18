@@ -2,6 +2,7 @@
 //! HP Prime User Guide chapter9: Symbolic objects and Numeric measurements.
 mod access;
 mod arc;
+mod conic;
 mod ellipse;
 mod evaluate;
 mod function;
@@ -81,9 +82,9 @@ pub struct Book {
     /// Snapshots of the curves that produced the current constrained points.
     #[serde(skip)]
     pub current_point_curves: BTreeMap<String, Shape>,
-    /// Multi-branch values expose a list to PPL. Keep their defining secant anchor for Point On.
+    /// Keep curve parameters alongside the evaluated PPL values until the next redraw.
     #[serde(skip)]
-    pub current_hyperbolas: BTreeMap<String, Hyperbola>,
+    pub current_curves: BTreeMap<String, Shape>,
     /// Last evaluated positions of armed points; restart establishes a fresh baseline.
     #[serde(skip)]
     pub(crate) last_trace_positions: BTreeMap<String, Point2>,
@@ -96,6 +97,7 @@ pub enum Extent {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
+    EmptyConic(String),
     Undefined,
     Point(Point2),
     Number {
@@ -422,6 +424,49 @@ mod tests {
         }
     }
 
+    #[test]
+    fn quadratic_constructions_follow_original_geometry_parameters_and_signed_areas() {
+        let cases = [
+            ("x^2+y^2-81", 254.469004941, None),
+            ("x^2+4*y^2-4", 6.28318530718, Some((0., 1.))),
+            (
+                "2*x^2+2*x*y+2*y^2-6",
+                10.8827961854,
+                Some((-3_f64.sqrt(), 3_f64.sqrt())),
+            ),
+            ("x^2-4*y", -2304., Some((1., 0.25))),
+            ("x^2+4*y", 2304., Some((1., -0.25))),
+            ("y^2-4*x", -4608., Some((0.25, 1.))),
+            ("(x-2)^2-4*(y-3)", -2496., Some((1., 3.25))),
+            ("x^2-y^2-1", -32.4501189211, Some((1., 0.))),
+            ("x^2+y^2+1", 0., None),
+            ("x^2+y^2", 0., Some((0., 0.))),
+        ];
+        for (expression, area, element) in cases {
+            let result = scene(&book(&[
+                ("A", &format!("conic({expression})")),
+                ("B", "area(GA)"),
+                ("C", "element(GA,1)"),
+            ]));
+            let Shape::Number { re, .. } = shape(&result, "B") else {
+                panic!("{expression}");
+            };
+            assert!((re - area).abs() < 1e-8, "{expression}: {re}");
+            if let Some((x, y)) = element {
+                pt(&result, "C", Point2 { x, y });
+            }
+        }
+        let result = scene(&book(&[
+            ("A", "conic(x^2-1)"),
+            ("B", "conic(x^2-y^2)"),
+            ("C", "conic(x^3-1)"),
+            ("D", "conic(SIN(x)+y)"),
+        ]));
+        for name in ["A", "B"] {
+            assert!(matches!(shape(&result,name),Shape::Lines(v) if v.len()==2));
+        }
+        assert!(result.objects[2..].iter().all(|o| o.value.is_err()));
+    }
     #[test]
     fn original_ellipse_and_arc_tangents_use_curve_parameters() {
         let construction = book(&[

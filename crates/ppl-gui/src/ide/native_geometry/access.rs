@@ -32,6 +32,7 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
     }
     Ok(match shape {
         Shape::Undefined => undefined(),
+        Shape::EmptyConic(s) => symbolic(s.clone()),
         Shape::Number { re, im } if *im == 0. => scalar(*re)?,
         Shape::Number { re, im } => PortableValue::Complex(ppl_math::Complex::new(
             ppl_math::Real::from_f64(*re).map_err(|e| e.to_string())?,
@@ -62,11 +63,15 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
                 .map(|sign| symbolic(curve.branch_source(sign)))
                 .to_vec(),
         ),
+        Shape::Parabola(curve) if curve.from_equation => symbolic(curve.equation_source()),
         Shape::Parabola(curve) => {
             let [f, a, b] = curve.definition().map(point_source);
             symbolic(format!("parabola({f},line({a},{b}))"))
         }
         Shape::Ellipse(ellipse) => {
+            if let Some(phase) = ellipse.equation_phase {
+                return Ok(symbolic(ellipse.equation_source(phase)));
+            }
             let [a, b] = ellipse.foci;
             let size = match ellipse.size {
                 super::ellipse::Size::Witness(p) => point_source(p),
@@ -97,7 +102,7 @@ impl Book {
         serde_json::json!({
             "definitions": self,
             "point_curves": self.current_point_curves,
-            "hyperbolas": self.current_hyperbolas,
+            "curves": self.current_curves,
             "values": self.current_values.iter().map(|(name, value)|
                 (name.clone(), ppl_vm::session::encode_value(value))).collect::<std::collections::BTreeMap<_, _>>()
         })
@@ -146,11 +151,18 @@ impl Book {
             }
         }
         self.current_values = values;
-        self.current_hyperbolas = scene
+        self.current_curves = scene
             .objects
             .iter()
             .filter_map(|obj| match &obj.value {
-                Ok(Shape::Hyperbola(curve)) => Some((obj.name.clone(), curve.clone())),
+                Ok(
+                    shape @ (Shape::Hyperbola(_)
+                    | Shape::Parabola(_)
+                    | Shape::Ellipse(_)
+                    | Shape::Circle { radius: 0., .. }
+                    | Shape::Lines(_)
+                    | Shape::EmptyConic(_)),
+                ) => Some((obj.name.clone(), shape.clone())),
                 _ => None,
             })
             .collect();
