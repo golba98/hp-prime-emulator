@@ -1126,6 +1126,27 @@ impl fmt::Display for Real {
 mod tests {
     use super::*;
 
+    #[test]
+    fn integer_quotient_uses_the_exact_operands() {
+        let numerator = Real::parse("999999999997").unwrap();
+        let divisor = Real::parse("499999999999").unwrap();
+        assert!(numerator.div(divisor).unwrap().is_integer());
+        assert!(numerator.quotient_if_integer(divisor).unwrap().is_none());
+
+        for version in [NumericVersion::Legacy15157, NumericVersion::Current15751] {
+            let numerator = Real::parse_versioned("-.5", version).unwrap();
+            let divisor = Real::parse_versioned(".25", version).unwrap();
+            assert_eq!(
+                numerator
+                    .quotient_if_integer(divisor)
+                    .unwrap()
+                    .unwrap()
+                    .to_i64(),
+                Some(-2),
+            );
+        }
+    }
+
     fn r(s: &str) -> Real {
         Real::parse(s).unwrap()
     }

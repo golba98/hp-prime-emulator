@@ -76,6 +76,28 @@ fn writable_files_cursors_append_mode_and_searches_resume_in_a_fresh_process() {
     assert!(String::from_utf8_lossy(&child.stdout).contains("writable-vfs-resumed"));
 }
 
+#[cfg(unix)]
+#[test]
+fn restored_directory_search_remains_within_a_symlinked_profile_root() {
+    let root = tempfile::tempdir().unwrap();
+    let memory = memory();
+    let source = storage(&root.path().join("source"));
+    let (find, directory, names, pattern) = source.find_first("C:/DATA/*.dat", 0x20).unwrap();
+    source.find_register(find, directory, names, pattern, 0x20);
+    let image = VfsImage::capture(&source, &memory, ID).unwrap();
+
+    let actual = root.path().join("actual");
+    storage(&actual);
+    let alias = root.path().join("alias");
+    std::os::unix::fs::symlink(actual, &alias).unwrap();
+    let mut target = Vfs::new(alias);
+    image.restore(&mut target, &memory, ID).unwrap();
+
+    let recaptured = VfsImage::capture(&target, &memory, ID).unwrap();
+    assert_eq!(recaptured.searches[0].directory, "C/DATA");
+    assert_eq!(target.find_next(find).as_deref(), Some("base.dat"));
+}
+
 #[test]
 fn restored_vfs_child() {
     let Some(root) = std::env::var_os("PRIME_VFS_RESTORE_CHILD") else {

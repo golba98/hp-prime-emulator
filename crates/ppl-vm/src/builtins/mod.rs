@@ -5,6 +5,7 @@ pub mod io;
 pub mod lists;
 pub mod math;
 pub mod matrices;
+pub(crate) mod stddev_exact;
 pub mod strings;
 
 use ppl_compiler::builtins::{Builtin, spec};
@@ -25,6 +26,9 @@ pub(crate) fn arg<'a>(args: &'a [Value], i: usize, cmd: &str) -> RtResult<&'a Va
 pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
     use Builtin as B;
     let name = spec(b).name;
+    if let Some(result) = stddev_exact::symbolic_math(b, &args) {
+        return result;
+    }
     if args.iter().any(|v| matches!(v, Value::Symbolic(_)))
         && spec(b).category == ppl_compiler::builtins::Category::Math
     {

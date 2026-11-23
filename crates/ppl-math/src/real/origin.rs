@@ -51,6 +51,26 @@ pub(super) enum Binary {
 }
 
 impl Real {
+    /// Divide only when the represented values have an integral quotient.
+    /// Decimal rounding alone can turn a fractional quotient into an integer.
+    pub fn quotient_if_integer(self, divisor: Self) -> Result<Option<Self>, MathError> {
+        if divisor.is_zero() || self.is_zero() {
+            return self.div(divisor).map(Some);
+        }
+        let exact_parts = |value: Self| {
+            value.coefficient().unwrap_or_else(|| {
+                let (numerator, denominator) = value.decimal_ratio();
+                (numerator, denominator, false)
+            })
+        };
+        let (a, b, a_pi) = exact_parts(self);
+        let (c, d, b_pi) = exact_parts(divisor);
+        if a_pi != b_pi || !(a * d).is_multiple_of(&(b * c)) {
+            return Ok(None);
+        }
+        self.div(divisor).map(Some)
+    }
+
     /// Typed CAS coefficients contain integer text, never executable source.
     pub fn from_fraction_strings(
         numerator: &str,

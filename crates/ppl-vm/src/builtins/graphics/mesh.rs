@@ -31,6 +31,7 @@ struct Transform {
     eye: Option<[f64; 3]>,
     clip: Option<[f64; 6]>,
     normalize: bool,
+    source_z_transform: Option<[f64; 4]>,
 }
 struct Depth {
     values: Vec<u8>,
@@ -220,9 +221,18 @@ fn transformation(value: Option<&Value>) -> RtResult<Transform> {
             transform.clip = Some(bounds);
         }
     }
+    transform.source_z_transform = match &transform.matrix {
+        None => Some([0.0, 0.0, 1.0, 0.0]),
+        Some(matrix) => match matrix.get(2).map(Vec::as_slice) {
+            Some([x, y, scale, rest @ ..]) if *scale != 0.0 => {
+                Some([*x, *y, *scale, rest.first().copied().unwrap_or(0.0)])
+            }
+            _ => None,
+        },
+    };
     Ok(transform)
 }
-fn transform(points: &mut [Point], options: &Transform) -> RtResult<()> {
+fn transform(points: &mut [Point], options: &Transform, flat_pixel_line: bool) -> RtResult<()> {
     for point in points.iter_mut() {
         if let Some(matrix) = &options.matrix {
             // Rectangular matrices multiply the matching prefix of [x,y,z,1].
@@ -231,6 +241,11 @@ fn transform(points: &mut [Point], options: &Transform) -> RtResult<()> {
             let mut out = point.xyz;
             for (axis, row) in matrix.iter().enumerate() {
                 out[axis] = row.iter().zip(input).map(|(a, b)| a * b).sum();
+            }
+            // A two-row pixel line transform keeps source-space clipping
+            // but projects onto depth zero when there is no eye projection.
+            if flat_pixel_line && matrix.len() == 2 {
+                out[2] = 0.0;
             }
             point.xyz = out;
         }
@@ -264,6 +279,15 @@ fn cache(points: &[Point], options: &Transform) -> Value {
     let mut payload = json!({"points":points.iter().map(|p|json!([p.xyz,p.original,p.depth,p.color])).collect::<Vec<_>>(),"eye":options.eye,"clip":options.clip});
     if options.normalize {
         payload["normalized"] = Json::Bool(true);
+        if clipped_source_z(points, options.clip).is_some()
+            && let Some(transform) = options.source_z_transform
+        {
+            match transform {
+                [0.0, 0.0, 1.0, 0.0] => payload["source_z_preserved"] = Json::Bool(true),
+                [0.0, 0.0, scale, offset] => payload["source_z_affine"] = json!([scale, offset]),
+                _ => payload["source_z_projection"] = json!(transform),
+            }
+        }
     }
     Value::str(format!("{CACHE}{payload}"))
 }
@@ -317,6 +341,32 @@ fn uncache(source: &str) -> RtResult<(Vec<Point>, Transform)> {
                 .ok_or_else(|| invalid("Invalid cached normalization flag"))?,
             // Older caches retained normalized depth separately from z.
             None => points.iter().any(|p| p.depth != p.xyz[2]),
+        },
+        source_z_transform: match (
+            json.get("source_z_projection"),
+            json.get("source_z_affine"),
+            json.get("source_z_preserved"),
+        ) {
+            (Some(value), None, None) => {
+                let transform = json_numbers::<4>(value)?;
+                if transform[2] == 0.0 {
+                    return Err(invalid("Invalid cached source z scale"));
+                }
+                Some(transform)
+            }
+            (None, Some(value), None) => {
+                let [scale, offset] = json_numbers::<2>(value)?;
+                if scale == 0.0 {
+                    return Err(invalid("Invalid cached source z scale"));
+                }
+                Some([0.0, 0.0, scale, offset])
+            }
+            (None, None, Some(value)) => value
+                .as_bool()
+                .ok_or_else(|| invalid("Invalid cached source z flag"))?
+                .then_some([0.0, 0.0, 1.0, 0.0]),
+            (None, None, None) => None,
+            _ => return Err(invalid("Conflicting cached source z transforms")),
         },
         eye: if json["eye"].is_null() {
             None
@@ -559,43 +609,181 @@ fn check_interrupt(flag: Option<&std::sync::atomic::AtomicBool>) -> RtResult<()>
         Ok(())
     }
 }
+const LINE_NORMALIZED_MAX_DEPTH: i64 = 253;
+
+fn line_depth_number(value: f64) -> Option<Real> {
+    if value.abs() < 1e12 && value.fract() == 0.0 {
+        // A small integral depth already fits the calculator's decimal
+        // precision. Avoid formatting and reparsing it on cached redraw.
+        Some(Real::from_i64(value as i64).decimal())
+    } else {
+        Real::from_f64(value).ok()
+    }
+}
+
+fn clipped_source_z(points: &[Point], clip: Option<[f64; 6]>) -> Option<[f64; 6]> {
+    let bounds = clip?;
+    points
+        .iter()
+        .any(|point| !(bounds[4]..=bounds[5]).contains(&point.original[2]))
+        .then_some(bounds)
+}
+
 struct LineNormalization {
     low: Real,
     scale: Real,
+    clipped_depth_maximum: Option<ClippedDepthMaximum>,
+}
+
+struct ClippedDepthMaximum {
+    source: Option<f64>,
+    transformed: f64,
+    reversed: bool,
 }
 
 impl LineNormalization {
-    fn new(points: &[Point], source_clip: Option<[f64; 6]>) -> Option<Self> {
-        // Source z clipping can change the original normalization range.
-        if source_clip.is_some_and(|bounds| {
-            points
-                .iter()
-                .any(|point| !(bounds[4]..=bounds[5]).contains(&point.original[2]))
-        }) {
-            return None;
-        }
+    fn new(points: &[Point], options: &Transform) -> Option<Self> {
         let first = points.first()?.xyz[2];
-        let (low, high) = points.iter().fold((first, first), |(low, high), point| {
+        let (mut low, mut high) = points.iter().fold((first, first), |(low, high), point| {
             (low.min(point.xyz[2]), high.max(point.xyz[2]))
         });
-        let low = Real::from_f64(low).ok()?;
-        let range = Real::from_f64(high).ok()?.sub(low).ok()?;
+        let mut clipped_depth_maximum = None;
+        if let Some(bounds) = clipped_source_z(points, options.clip) {
+            let transform = options.source_z_transform?;
+            let transform_z = |[x, y, z]: [f64; 3]| {
+                transform
+                    .into_iter()
+                    .zip([x, y, z, 1.0])
+                    .map(|(scale, coordinate)| scale * coordinate)
+                    .sum::<f64>()
+            };
+            let corner = |high: bool| {
+                std::array::from_fn(|axis| {
+                    let upper = (transform[axis] >= 0.0) == high;
+                    bounds[2 * axis + usize::from(upper)]
+                })
+            };
+            let lower_depth = transform_z(corner(false));
+            let upper_depth = transform_z(corner(true));
+            if bounds[4].fract() != 0.0
+                || bounds[5].fract() != 0.0
+                || [lower_depth, upper_depth]
+                    .into_iter()
+                    .any(|z| z.fract() != 0.0)
+                || points.iter().any(|point| {
+                    point.original[2].fract() != 0.0
+                        || point.xyz[2].fract() != 0.0
+                        || point.xyz[2] != transform_z(point.original)
+                })
+            {
+                return None;
+            }
+            // Transform the source clipping box to a depth interval. Clamp
+            // the original depth extrema, including unused vertices.
+            low = low.max(lower_depth);
+            high = high.min(upper_depth);
+            if low > high {
+                return None;
+            }
+            let reversed = transform[2] < 0.0;
+            let source =
+                (transform[..2] == [0.0, 0.0]).then_some(bounds[if reversed { 4 } else { 5 }]);
+            clipped_depth_maximum = Some(ClippedDepthMaximum {
+                source,
+                transformed: upper_depth,
+                reversed,
+            });
+        }
+        let low = line_depth_number(low)?;
+        let range = line_depth_number(high)?.sub(low).ok()?;
         let scale = if range.is_zero() {
             Real::ZERO
         } else {
-            Real::from_i64(253).div(range).ok()?
+            Real::from_i64(LINE_NORMALIZED_MAX_DEPTH).div(range).ok()?
         };
-        Some(Self { low, scale })
+        Some(Self {
+            low,
+            scale,
+            clipped_depth_maximum,
+        })
     }
 
-    fn depth(&self, point: Point) -> Option<i64> {
-        let z = Real::from_f64(point.xyz[2]).ok()?.sub(self.low).ok()?;
+    fn depth(&self, point: Point, original_z: f64) -> Option<i64> {
+        let z = line_depth_number(point.xyz[2])?;
+        if let Some(plane) = &self.clipped_depth_maximum {
+            if !z.is_integer() {
+                return None;
+            }
+            // A newly clipped endpoint on the maximum-depth plane receives
+            // the maximum word. An existing endpoint uses the decimal scale.
+            let outside = plane.source.is_some_and(|boundary| {
+                if plane.reversed {
+                    original_z < boundary
+                } else {
+                    original_z > boundary
+                }
+            });
+            if outside && z == line_depth_number(plane.transformed)? && !self.scale.is_zero() {
+                return Some(LINE_NORMALIZED_MAX_DEPTH);
+            }
+        }
+        let z = z.sub(self.low).ok()?;
         let depth = z.mul_trunc_to_i64(self.scale)?;
         (0..=255).contains(&depth).then_some(depth)
     }
 }
 
-const LINE_DEPTH_UNIT: i64 = 1 << 16;
+const LINE_FIXED_UNIT: i64 = 1 << 16;
+
+fn fixed_line_color(a: Color, b: Color, fraction: i64) -> Color {
+    (0..4).fold(0, |color, index| {
+        let shift = index * 8;
+        let a = i64::from((a >> shift) & 255);
+        let b = i64::from((b >> shift) & 255);
+        let channel = (a * LINE_FIXED_UNIT + (b - a) * fraction) / LINE_FIXED_UNIT;
+        color | (channel as u32) << shift
+    })
+}
+
+fn clipped_line_colors(
+    mut points: [Point; 2],
+    bounds: Option<[f64; 6]>,
+    reverse: bool,
+) -> [Color; 2] {
+    if let Some(bounds) = bounds {
+        // The color accumulator quantizes each clipped endpoint before
+        // clipping the next source plane.
+        for axis in 0..3 {
+            for side in 0..2 {
+                let [a, b] = points;
+                let bound = bounds[2 * axis + side];
+                let outside = |p: Point| {
+                    let coordinate = p.original[axis];
+                    if side == 0 {
+                        coordinate < bound
+                    } else {
+                        coordinate > bound
+                    }
+                };
+                let index = match (outside(a), outside(b)) {
+                    (true, false) => 0,
+                    (false, true) => 1,
+                    _ => continue,
+                };
+                let fraction = (bound - a.original[axis]) / (b.original[axis] - a.original[axis]);
+                let mut point = Point::between(a, b, fraction);
+                point.original[axis] = bound;
+                point.color =
+                    fixed_line_color(a.color, b.color, (fraction * LINE_FIXED_UNIT as f64) as i64);
+                points[index] = point;
+            }
+        }
+    }
+    if reverse {
+        points.reverse();
+    }
+    points.map(|p| p.color)
+}
 
 struct LineDepth {
     first: i64,
@@ -644,14 +832,42 @@ impl LineDepth {
             origin: if on_x { x1.min(x2) } else { y1.min(y2) },
             on_x,
             count,
-            reciprocal: LINE_DEPTH_UNIT / count,
+            reciprocal: LINE_FIXED_UNIT / count,
         })
     }
 
+    fn offset_at(&self, x: i64, y: i64) -> i64 {
+        (if self.on_x { x } else { y }) - self.origin
+    }
+
     fn at(&self, x: i64, y: i64) -> i64 {
-        let offset = (if self.on_x { x } else { y }) - self.origin;
-        let weighted = self.first * (self.count - offset) + self.second * offset;
-        weighted * self.reciprocal / LINE_DEPTH_UNIT
+        self.sample(self.first, self.second, self.offset_at(x, y))
+    }
+
+    fn sample(&self, first: i64, last: i64, offset: i64) -> i64 {
+        let weighted = first * (self.count - offset) + last * offset;
+        weighted * self.reciprocal / LINE_FIXED_UNIT
+    }
+
+    fn perspective_color(&self, first: Color, last: Color, offset: i64) -> Color {
+        if offset == 0 {
+            return first;
+        }
+        // Constant channels retain their value. A negative extrapolated
+        // channel borrows across bytes when the signed components are packed.
+        (0..4)
+            .map(|index| {
+                let shift = index * 8;
+                let a = i64::from((first >> shift) & 255);
+                let b = i64::from((last >> shift) & 255);
+                let channel = if a == b {
+                    a
+                } else {
+                    self.sample(a, b, offset).min(255)
+                };
+                channel << shift
+            })
+            .sum::<i64>() as Color
     }
 }
 
@@ -955,7 +1171,8 @@ pub(super) fn render(
                     .as_ref()
                     .is_some_and(|matrix| matrix.len() == 3);
             let mut points = load_points(arg(args, 0, "3D graphics")?, packed_vectors)?;
-            transform(&mut points, &options)?;
+            let flat_pixel_line = !triangles && !cart && options.eye.is_none();
+            transform(&mut points, &options, flat_pixel_line)?;
             (points, options)
         };
         let PrimitiveDefinitions { rows, color, alpha } = primitives(arg(args, 1, "3D graphics")?)?;
@@ -977,11 +1194,13 @@ pub(super) fn render(
         ));
     }
     let line_normalization = if !triangles && !cart && depth.is_some() && options.normalize {
-        LineNormalization::new(&points, options.clip)
+        LineNormalization::new(&points, &options)
     } else {
         None
     };
     let required = if triangles { 3 } else { 2 };
+    let clipped_pixel_line = !triangles && !cart && depth.is_some() && options.clip.is_some();
+    let clipped_pixel_depth = clipped_pixel_line && options.eye.is_none();
     let interrupt = machine.host.interrupt_flag();
     for primitive in rows {
         machine.check_limits()?;
@@ -992,20 +1211,32 @@ pub(super) fn render(
             .iter()
             .map(|v| vertex_index(v, points.len()))
             .collect::<RtResult<Vec<_>>>()?;
-        let color = primitive
+        let primitive_color = primitive
             .get(required)
             .filter(|v| !omitted(v))
             .map(color_of)
-            .transpose()?
-            .or(default_color);
-        let alpha = primitive
+            .transpose()?;
+        let color = primitive_color.or(default_color);
+        let primitive_alpha = primitive
             .get(required + 1)
             .map(|v| v.expect_i64("alpha"))
-            .transpose()?
-            .or(default_alpha);
-        if alpha.is_some_and(|a| !(0..=255).contains(&a)) {
+            .transpose()?;
+        let requested_alpha = primitive_alpha.or(default_alpha);
+        if requested_alpha.is_some_and(|a| !(0..=255).contains(&a)) {
             return Err(invalid("Alpha must be 0 through 255"));
         }
+        let alpha = if clipped_pixel_depth {
+            // Clipped buffered LINE_P uses a nonzero alpha on the row's
+            // explicit color. A header alpha does not set row opacity.
+            if (primitive_alpha.is_some() && primitive_color.is_none())
+                || (default_alpha.is_some() && color.is_none())
+            {
+                return Err(invalid("LINE_P alpha requires a color"));
+            }
+            primitive_alpha.filter(|value| *value != 0)
+        } else {
+            requested_alpha
+        };
         let selected = indices
             .iter()
             .map(|&i| {
@@ -1043,20 +1274,113 @@ pub(super) fn render(
                 None
             } else if options.normalize {
                 line_normalization.as_ref().and_then(|normalization| {
-                    Some([normalization.depth(a)?, normalization.depth(b)?])
+                    Some([
+                        normalization.depth(a, selected[0].original[2])?,
+                        normalization.depth(b, selected[1].original[2])?,
+                    ])
                 })
             } else {
                 Some([a.depth as i64, b.depth as i64])
             };
-            draw_line(
-                &mut target,
-                [a, b],
-                positions,
-                alpha,
-                &mut depth,
-                phase_depths,
-                interrupt.as_deref(),
-            )?;
+            let integral = positions.map(|(x, y)| (x.trunc(), y.trunc()));
+            // In the clipped pixel overload, perspective changes the
+            // endpoints but uses the same integer walk and depth phase.
+            let integer_raster = !cart
+                && options
+                    .eye
+                    .map_or(integral != positions, |_| options.clip.is_some());
+            let phase = if integer_raster {
+                let depths = if depth.is_some() {
+                    phase_depths
+                } else {
+                    Some([0, 0])
+                };
+                depths.and_then(|depths| LineDepth::new(depths, integral))
+            } else {
+                None
+            };
+            let gradient = selected[0].color != selected[1].color;
+            let perspective_transparency = if clipped_pixel_line && options.eye.is_some() {
+                // A row alpha with an explicit RGB color is transparency.
+                // A header alpha keeps the line opaque.
+                match (primitive_alpha, primitive_color, default_alpha) {
+                    (Some(a), Some(color), _) if color >> 24 == 0 => Some(a as u32),
+                    (None, _, Some(_)) if color.is_some_and(|color| color >> 24 == 0) => Some(0),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let buffered_alpha =
+                (clipped_pixel_depth && alpha.is_some()) || perspective_transparency.is_some();
+            let [(x1, y1), (x2, y2)] = integral;
+            let width = (x2 - x1).abs();
+            let height = (y2 - y1).abs();
+            let y_major_eye_gradient = gradient
+                && height > 0.0
+                && height >= width
+                && clipped_pixel_line
+                && options.eye.is_some()
+                && options.normalize
+                && alpha.is_none()
+                && (selected[0].color | selected[1].color) >> 24 == 0;
+            if let Some(phase) = phase
+                && (!gradient || phase.on_x || y_major_eye_gradient)
+                && (buffered_alpha
+                    || (opacity(a.color, alpha) | opacity(b.color, alpha)) >> 24 == 0)
+            {
+                if perspective_transparency == Some(255) {
+                    continue;
+                }
+                // Fractional projected endpoints are truncated before the
+                // integer walk. Depth and color advance on the same span.
+                let size = (target.width(), target.height());
+                let [a, b] = integral.map(|(x, y)| (x as i64, y as i64));
+                let [first, last] = if gradient {
+                    clipped_line_colors([selected[0], selected[1]], options.clip, a.0 > b.0)
+                } else {
+                    [selected[0].color, selected[0].color]
+                };
+                Grob::try_calculator_line_pixels(size, a, b, |x, y| -> RtResult<()> {
+                    check_interrupt(interrupt.as_deref())?;
+                    let index = y as usize * size.0 + x as usize;
+                    if depth
+                        .as_mut()
+                        .is_none_or(|z| z.accepts_line(index, phase.at(x, y)))
+                    {
+                        let color = if gradient {
+                            let offset = phase.offset_at(x, y);
+                            if options.eye.is_some() {
+                                phase.perspective_color(first, last, offset)
+                            } else {
+                                fixed_line_color(first, last, offset * phase.reciprocal)
+                            }
+                        } else {
+                            first
+                        };
+                        if y_major_eye_gradient {
+                            // The high byte of an opaque gradient sample is
+                            // observable through GETPIX_P even when it is 255.
+                            target.pixels_mut()[index] = color;
+                        } else if let Some(transparency) = perspective_transparency {
+                            target.set_calculator_line_pixel(x, y, color | (transparency << 24));
+                        } else {
+                            target.set(x, y, opacity(color, alpha));
+                        }
+                    }
+                    Ok(())
+                })?;
+            } else {
+                draw_line(
+                    &mut target,
+                    [a, b],
+                    positions,
+                    alpha,
+                    &mut depth,
+                    phase_depths,
+                    interrupt.as_deref(),
+                )?;
+            }
         }
     }
     let result = if is_cache {

@@ -134,3 +134,51 @@ fn linked_dependencies_resolve_cas_bindings_without_creating_home_shadows() {
     assert_eq!(session.cas.bindings["q"], "8");
     assert!(!session.snapshot().globals.contains_key("q"));
 }
+
+#[cfg(feature = "giac-integration")]
+#[test]
+fn repeated_home_cas_reads_follow_binding_and_home_changes() {
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    let cache = ppl_vm::session::HomeCasCache::default();
+    let mut session = SessionContext::default();
+    let evaluate = |session: &mut SessionContext, expression| {
+        session
+            .evaluate_home_with_cas_cache(
+                expression,
+                Box::new(HeadlessHost::new()),
+                Limits::default(),
+                &cache,
+            )
+            .result
+            .unwrap()
+            .expect_i64("result")
+            .unwrap()
+    };
+    session.cas.bindings.insert("q".into(), "7".into());
+    assert_eq!(evaluate(&mut session, "q+1"), 8);
+    assert_eq!(evaluate(&mut session, "q+2"), 9);
+    assert!(!session.snapshot().globals.contains_key("q"));
+
+    let host = HeadlessHost {
+        interrupt: Some(Arc::new(AtomicBool::new(true))),
+        ..Default::default()
+    };
+    let interrupted = session
+        .evaluate_home_with_cas_cache("q+1", Box::new(host), Limits::default(), &cache)
+        .result
+        .unwrap_err();
+    assert!(matches!(interrupted.kind, ppl_vm::ErrorKind::Interrupted));
+
+    session.cas.bindings.insert("q".into(), "10".into());
+    assert_eq!(evaluate(&mut session, "q+1"), 11);
+
+    session.cas.bindings.insert("q".into(), "1/2".into());
+    assert_eq!(evaluate(&mut session, "2*q"), 1);
+
+    session
+        .set_variable("q", PortableValue::Real(Real::from_i64(20)))
+        .unwrap();
+    assert_eq!(evaluate(&mut session, "q+1"), 21);
+    assert_eq!(session.cas.bindings["q"], "1/2");
+}

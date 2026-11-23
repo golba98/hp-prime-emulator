@@ -25,6 +25,14 @@ impl DigitGrouping {
             _ => None,
         }
     }
+    /// Group an unsigned, plain integer literal for painting without a
+    /// numeric conversion. Short fields and non-integer syntax keep their text.
+    pub fn grouped_integer_literal(self, digits: &str) -> Option<String> {
+        let (first, _, _) = self.grouping()?;
+        (digits.len() > first && digits.bytes().all(|digit| digit.is_ascii_digit()))
+            .then(|| self.display(digits, 'E'))
+    }
+
     pub(crate) fn display(self, raw: &str, exponent: char) -> String {
         let end = raw.find(exponent).unwrap_or(raw.len());
         let (mantissa, suffix) = raw.split_at(end);
