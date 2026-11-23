@@ -20,7 +20,7 @@
   },
   {
    "step": "open",
-   "path": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/tests/runtime/programs/FIREWORKS_G1.hpprgm"
+   "path": "tests/runtime/programs/FIREWORKS_G1.hpprgm"
   },
   {
    "step": "wait_ms",

@@ -7,9 +7,22 @@ export DISPLAY=:0
 export PPL_WINDOW_POS_X=7850
 export PPL_WINDOW_POS_Y=200
 
-BIN_PATH="/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/../.cache/prime-emulator-target/release/ppl"
-if [ ! -f "$BIN_PATH" ]; then
-    BIN_PATH="/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/target/release/ppl"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BIN_PATH="${PPL_BIN:-}"
+if [ -z "$BIN_PATH" ]; then
+    for candidate in \
+        "${CARGO_TARGET_DIR:-$REPO_ROOT/target}/release/ppl" \
+        "$REPO_ROOT/../.cache/prime-emulator-target/release/ppl" \
+        "$REPO_ROOT/../.cache/prime-emulator-target-compact/release/ppl"; do
+        if [ -f "$candidate" ]; then
+            BIN_PATH="$candidate"
+            break
+        fi
+    done
+fi
+if [ -z "$BIN_PATH" ] || [ ! -x "$BIN_PATH" ]; then
+    echo "Release ppl binary not found; build with scripts/emulator/run.sh build --release --bin ppl or set PPL_BIN." >&2
+    exit 1
 fi
 
 echo "Launching Native IDE onto ASUS monitor (HDMI-1 at x=7850)..."
