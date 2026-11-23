@@ -23,8 +23,13 @@ impl std::fmt::Display for SourceError {
 impl std::error::Error for SourceError {}
 
 pub fn ppl_expression_source(expression: &Expr) -> Result<String, SourceError> {
-    render(expression, 0, 0)
+    render(expression, 0, 0, false)
 }
+
+pub(crate) fn ppl_diagnostic_expression_source(expression: &Expr) -> Result<String, SourceError> {
+    render(expression, 0, 0, true)
+}
+
 fn precedence(op: BinOp) -> u8 {
     match op {
         BinOp::Or | BinOp::Xor => 2,
@@ -35,11 +40,16 @@ fn precedence(op: BinOp) -> u8 {
         BinOp::Pow => 9,
     }
 }
-fn render(expression: &Expr, parent: u8, depth: usize) -> Result<String, SourceError> {
+fn render(
+    expression: &Expr,
+    parent: u8,
+    depth: usize,
+    diagnostic: bool,
+) -> Result<String, SourceError> {
     if depth > 128 {
         return Err(SourceError::NestingLimit);
     }
-    let child = |e: &Expr, p| render(e, p, depth + 1);
+    let child = |e: &Expr, p| render(e, p, depth + 1, diagnostic);
     let list = |items: &[Expr]| -> Result<String, SourceError> {
         items
             .iter()
@@ -59,6 +69,16 @@ fn render(expression: &Expr, parent: u8, depth: usize) -> Result<String, SourceE
         ),
         E::List(items) => (format!("{{{}}}", list(items)?), 11),
         E::Bracket(items) => (format!("[{}]", list(items)?), 11),
+        E::ComplexPair(a, b) if diagnostic => {
+            let real = child(a, 6)?;
+            let imaginary = child(b, 8)?;
+            let imaginary = if imaginary.starts_with('-') {
+                format!("({imaginary})")
+            } else {
+                imaginary
+            };
+            (format!("{real}+{imaginary}*\u{e003}"), 6)
+        }
         E::ComplexPair(a, b) => (format!("({},{})", child(a, 0)?, child(b, 0)?), 11),
         E::Unary(UnOp::Neg, inner) => (format!("-{}", child(inner, 8)?), 8),
         E::Unary(UnOp::Not, inner) => (format!("NOT {}", child(inner, 4)?), 4),
@@ -78,13 +98,26 @@ fn render(expression: &Expr, parent: u8, depth: usize) -> Result<String, SourceE
             ),
             10,
         ),
+        E::Binary(BinOp::Div, numerator, denominator) if diagnostic => {
+            let quotient = child(denominator, 0)?;
+            let quotient = if matches!(denominator.kind, E::Number(_)) {
+                quotient
+            } else {
+                format!("({quotient})")
+            };
+            (format!("({})/{quotient}", child(numerator, 0)?), 8)
+        }
         E::Binary(op, a, b) => {
             let p = precedence(*op);
             let (left, right) = if *op == BinOp::Pow {
                 (p + 1, 8)
+            } else if diagnostic && matches!(op, BinOp::Add | BinOp::Mul) {
+                (p, p)
             } else {
                 (p, p + 1)
             };
+            let left = child(a, left)?;
+            let right = child(b, right)?;
             let symbol = if matches!(
                 op,
                 BinOp::And | BinOp::Or | BinOp::Xor | BinOp::Mod | BinOp::IntDiv
@@ -93,10 +126,12 @@ fn render(expression: &Expr, parent: u8, depth: usize) -> Result<String, SourceE
             } else {
                 op.symbol().into()
             };
-            (
-                format!("{}{symbol}{}", child(a, left)?, child(b, right)?),
-                p,
-            )
+            let text = match (op, diagnostic && right.starts_with('-')) {
+                (BinOp::Add, true) => format!("{left}{right}"),
+                (BinOp::Sub, true) => format!("{left}-({right})"),
+                _ => format!("{left}{symbol}{right}"),
+            };
+            (text, p)
         }
         E::Call(callee, args) => (format!("{}({})", child(callee, 10)?, list(args)?), 10),
         E::Index(callee, args) => (format!("{}[{}]", child(callee, 10)?, list(args)?), 10),

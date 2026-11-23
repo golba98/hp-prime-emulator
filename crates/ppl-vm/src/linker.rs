@@ -87,6 +87,7 @@ impl LinkedProgram {
                     Op::Jump(target) => positions.push(target as usize),
                     Op::JumpIfFalse(target)
                     | Op::TryBegin(target)
+                    | Op::TryStddevCell(target)
                     | Op::LogicJump { target, .. } => {
                         positions.push(target as usize);
                         positions.push(position + 1);

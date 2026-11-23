@@ -65,6 +65,14 @@ impl Grob {
         Grob::new(SCREEN_W, SCREEN_H, WHITE)
     }
 
+    /// Resizes the pixel buffer in row-major order, retaining its existing prefix.
+    /// New cells are initialized to white.
+    pub fn resize_preserving_pixels(&mut self, width: usize, height: usize) {
+        self.px.resize(width * height, WHITE);
+        self.w = width;
+        self.h = height;
+    }
+
     pub fn width(&self) -> usize {
         self.w
     }
@@ -191,6 +199,21 @@ impl Grob {
     /// error bias and clipped phase. Work is bounded by the visible major axis.
     pub fn calculator_line(&mut self, a: (i64, i64), b: (i64, i64), color: Color) {
         raster::line(self, a, b, color);
+    }
+
+    /// Write a single sample with calculator line transparency.
+    pub fn set_calculator_line_pixel(&mut self, x: i64, y: i64, color: Color) {
+        raster::line_point(self, i128::from(x), i128::from(y), color);
+    }
+
+    /// Visit the visible pixels of a calculator integer line in draw order.
+    pub fn try_calculator_line_pixels<E>(
+        size: (usize, usize),
+        a: (i64, i64),
+        b: (i64, i64),
+        visit: impl FnMut(i64, i64) -> Result<(), E>,
+    ) -> Result<(), E> {
+        raster::line_pixels(size, a, b, visit)
     }
 
     /// ARC's pixel-radius pair and optional edge/fill sector form.
@@ -336,21 +359,31 @@ impl Grob {
         if dw <= 0 || dh <= 0 || sw <= 0 || sh <= 0 {
             return;
         }
-        // Clip iteration, not the sampling origin. Wide unsigned products keep
-        // all i64-coordinate rectangles safe without walking off-screen pixels.
+        // Project the leading source clip onto the destination and round
+        // half up before sampling. At a half-pixel crossing this skips the
+        // destination pixel centered exactly on the start of the source.
+        let first = |dest_start: i64, dest_extent: i128, src_start: i64, src_span: i128| {
+            let clipped = -i128::from(src_start).min(0);
+            let offset = (clipped * dest_extent + src_span / 2) / src_span;
+            (i128::from(dest_start) + offset.min(dest_extent)) as i64
+        };
+        let first_x = first(dx1, dw, sx1, sw).max(0);
+        let first_y = first(dy1, dh, sy1, sh).max(0);
+        // Keep the original sampling origin after clipping. Wide unsigned
+        // products handle the entire i64 coordinate range.
         let sample = |position: i64, origin: i64, span: i128, extent: i128, start: i64| {
             let offset = (i128::from(position) - i128::from(origin)) as u128;
             let source = (offset * span as u128 + span as u128 / 2) / extent as u128;
             (i128::from(start) + source as i128) as i64
         };
-        for ty in dy1.max(0)..dy2.min(self.h as i64) {
+        for ty in first_y..dy2.min(self.h as i64) {
             let syy = sample(ty, dy1, sh, dh, sy1);
-            for tx in dx1.max(0)..dx2.min(self.w as i64) {
+            for tx in first_x..dx2.min(self.w as i64) {
                 let sxx = sample(tx, dx1, sw, dw, sx1);
                 let Some(p) = read(self, sxx, syy) else {
                     continue;
                 };
-                if transparent.is_some_and(|t| t & 0x00FF_FFFF == p) {
+                if transparent == Some(p) {
                     continue;
                 }
                 if alpha == 255 {
@@ -409,9 +442,23 @@ impl Grob {
 
     /// Decodes an 8-bit RGB/RGBA PNG (for device screenshots and fixtures).
     pub fn read_png(bytes: &[u8]) -> Result<Grob, String> {
+        Self::decode_png(bytes, None)
+    }
+
+    /// Decode a bounded PNG with the inverse alpha in each pixel's high byte.
+    pub fn read_png_with_transparency(bytes: &[u8], maximum: [u32; 2]) -> Result<Grob, String> {
+        Self::decode_png(bytes, Some(maximum))
+    }
+
+    fn decode_png(bytes: &[u8], maximum: Option<[u32; 2]>) -> Result<Grob, String> {
         let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
         dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
         let mut reader = dec.read_info().map_err(|e| e.to_string())?;
+        if let Some([width, height]) = maximum
+            && (reader.info().width > width || reader.info().height > height)
+        {
+            return Err("PNG exceeds the requested dimensions".into());
+        }
         let mut buf = vec![0; reader.output_buffer_size().ok_or("png too large")?];
         let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
         let (w, h) = (info.width as usize, info.height as usize);
@@ -422,6 +469,11 @@ impl Grob {
             png::ColorType::GrayscaleAlpha => 2,
             other => return Err(format!("unsupported PNG colour type {other:?}")),
         };
+        let keep_transparency = maximum.is_some()
+            && matches!(
+                info.color_type,
+                png::ColorType::Rgba | png::ColorType::GrayscaleAlpha
+            );
         let mut g = Grob::new(w, h, WHITE);
         for (i, p) in g.px.iter_mut().enumerate() {
             let o = i * step;
@@ -430,6 +482,9 @@ impl Grob {
             } else {
                 rgb(buf[o], buf[o], buf[o])
             };
+            if keep_transparency {
+                *p |= u32::from(255 - buf[o + step - 1]) << 24;
+            }
         }
         Ok(g)
     }
@@ -813,6 +868,24 @@ mod tests {
         assert_eq!(from_rgb565(0x0000), BLACK);
         assert_eq!(from_rgb565(0xF800), rgb(255, 0, 0));
         assert_eq!(to_rgb565(from_rgb565(0x630C)), 0x630C);
+    }
+
+    #[test]
+    fn bounded_png_preserves_transparency_without_changing_the_screenshot_reader() {
+        let mut bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut bytes, 2, 1);
+            encoder.set_color(png::ColorType::Rgba);
+            let mut image = encoder.write_header().unwrap();
+            image.write_image_data(&[1, 2, 3, 0, 4, 5, 6, 64]).unwrap();
+        }
+        assert!(Grob::read_png_with_transparency(&bytes, [1, 1]).is_err());
+        let with_alpha = Grob::read_png_with_transparency(&bytes, [2, 1]).unwrap();
+        assert_eq!(with_alpha.pixels(), &[0xff010203, 0xbf040506]);
+        assert_eq!(
+            Grob::read_png(&bytes).unwrap().pixels(),
+            &[0x010203, 0x040506]
+        );
     }
 
     #[test]

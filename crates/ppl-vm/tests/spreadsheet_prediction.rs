@@ -1,6 +1,6 @@
 //! Prediction controls from the original virtual G1 Spreadsheet app.
 
-use ppl_math::{AngleMode, Real};
+use ppl_math::{AngleMode, NumericVersion, Real};
 use ppl_vm::{ErrorKind, HeadlessHost, Limits, RuntimeError, SessionContext, Value};
 
 fn evaluate(context: &mut SessionContext, text: &str) -> Result<Value, RuntimeError> {
@@ -118,6 +118,103 @@ fn polynomial_inverse_matches_the_original_quadratic_selection() {
 }
 
 #[test]
+fn polynomial_inverse_matches_original_monotone_cubics() {
+    let mut context = spreadsheet();
+    for (source, expected) in [
+        ("PredX(10,10,0,1,0,1)", "2"),
+        ("PredX(10,-10,0,1,0,1)", "-2"),
+        ("PredX(10,8,0,0,0,1)", "2"),
+        ("PredX(10,-8,0,0,0,1)", "-2"),
+        ("PredX(10,17,1,2,1,1)", "2"),
+        ("PredX(10,-5,5,7,-2,1)", "-1"),
+        ("PredX(10,-17,-1,-2,-1,-1)", "2"),
+        ("PredX(10,-23,3,2,2,1)", "-3.52503661549"),
+        ("PredX(10,5,2,3,1,3)", "0.625251455106"),
+        ("PredX(10,7,0,0,0,1)", "1.91293118277"),
+        ("PredX(10,-7,0,0,0,1)", "-1.91293118277"),
+        ("PredX(10,10e50,0,1e50,0,1e50)", "2"),
+        ("PredX(10,-10e-50,0,1e-50,0,1e-50)", "-2"),
+        ("PredX(11,23,{3,2,2,1,0})", "2"),
+        ("PredX(11,10,0,1,0,1,0)", "2"),
+        ("PredX(10,10,0,1,0,1e-15)", "10"),
+        ("PredX(10,8e30,0,0,0,1)", "20000000000"),
+    ] {
+        expect_real(&mut context, source, expected);
+    }
+    let result = evaluate(&mut context, "PredX(10,0,1,3.0001,3,1)").unwrap();
+    let Value::Real(result) = result else {
+        panic!("expected a real result, got {result:?}");
+    };
+    // The measured roots differ by about 1e-12 near the flat region.
+    let expected = Real::parse("-0.95430219837").unwrap();
+    assert!((result.to_f64() - expected.to_f64()).abs() <= 2e-12);
+}
+
+#[test]
+fn polynomial_inverse_selects_the_unique_root_between_initial_guesses() {
+    let mut context = spreadsheet();
+    for (source, expected) in [
+        ("PredX(11,0,-3,20.75,24.875,8.875,1)", "0.125"),
+        ("PredX(11,0,-21,1.25,18.125,8.125,1)", "0.875"),
+        ("PredX(11,0,42,-122.5,-166.25,-61.25,-7)", "0.25"),
+        ("PredX(11,0,1056,-1609.6,388.4,-33.8,1)", "0.8"),
+        ("PredX(11,0.2,0,1,0,0,1)", "0.198449055888"),
+        ("PredX(11,1.9,0,1,0,0,1)", "0.979502686242"),
+        ("PredX(10,0,2.4,-4,-0.6,1)", "0.6"),
+        ("PredX(10,0,-0.070625,0.7525,-1.625,1)", "0.125"),
+        ("PredX(10,0,-0.16232,1.1716,-2,1)", "0.2"),
+        ("PredX(10,0,-0.125,0.85,-1.65,1)", "0.25"),
+        ("PredX(10,0,-0.287484375,1.422875,-2.125,1)", "0.375"),
+        ("PredX(10,0,-0.01953125,0.1875,-0.875,1)", "0.625"),
+        ("PredX(10,7,7.067265625,-0.733125,3.375,-3)", "0.875"),
+        ("PredX(10,0,-0.03328,0.3616,-1.2,1)", "0.8"),
+        ("PredX(10,0,-0.0075,0.1325,-0.8,1)", "0.6"),
+        ("PredX(10,0,-0.032708,0.3337,-1.1,1)", "0.68"),
+        ("PredX(10,0,-0.038175,0.450125,-1.22,1)", "0.12"),
+        ("PredX(10,7,12.771484375,-15.796875,12.375,-3)", "0.625"),
+        ("PredX(10,0,0.625,-2.6875,0.5,1)", "0.25"),
+        ("PredX(10,0,0.24,0.46,-1.75,1)", "0.8"),
+        ("PredX(10,0,0.1,0.05,-2.05,1)", "0.25"),
+        ("PredX(10,0,-0.24,-0.46,1.75,-1)", "0.8"),
+        ("PredX(11,0,{0.625,-2.6875,0.5,1,0})", "0.25"),
+    ] {
+        expect_real(&mut context, source, expected);
+    }
+    let result = evaluate(&mut context, "PredX(10,0.2,0,1,10,1)").unwrap();
+    let Value::Real(result) = result else {
+        panic!("expected a real result, got {result:?}");
+    };
+    // The original solver rounds this root one unit higher in its last digit.
+    let original = Real::parse("0.0996695959134").unwrap();
+    assert!((result.to_f64() - original.to_f64()).abs() <= 1.1e-13);
+
+    let source = "PredX(10,7,7.1494140625,-1.32421875,3.75,-3)";
+    let Value::Real(result) = evaluate(&mut context, source).unwrap() else {
+        panic!("expected a real result from {source}");
+    };
+    let original = Real::parse("0.749999999997").unwrap();
+    assert!((result.to_f64() - original.to_f64()).abs() <= 3.1e-12);
+}
+
+#[test]
+fn polynomial_inverse_returns_an_exact_first_secant_root_on_either_side() {
+    let mut context = spreadsheet();
+    let cases = [
+        ("PredX(10,0,-18,-9,2,1)", "-3"),
+        ("PredX(10,0,24,-2,-5,1)", "4"),
+        ("PredX(11,0,-0.9,1.95,4.85,-4.8,1)", "0.3"),
+        ("PredX(11,0,9,13.5,-10,-1.5,1)", "-3"),
+        ("PredX(11,0,-12,-11,21.5,-8.5,1)", "4"),
+    ];
+    for version in [NumericVersion::Legacy15157, NumericVersion::Current15751] {
+        context.settings.numeric_version = version;
+        for (source, expected) in cases {
+            expect_real(&mut context, source, expected);
+        }
+    }
+}
+
+#[test]
 fn polynomial_inverse_preserves_distinct_failure_cases() {
     let mut context = spreadsheet();
     for (source, kind, detail) in [
@@ -134,9 +231,34 @@ fn polynomial_inverse_preserves_distinct_failure_cases() {
             "Constant function",
         ),
         (
-            "PredX(10,0,24,-2,-5,1)",
+            "PredX(11,0,1,0,1,0,1)",
+            ErrorKind::Undefined,
+            "Extremum found",
+        ),
+        (
+            "PredX(11,2,1,0,-3,0,-2)",
+            ErrorKind::Undefined,
+            "Extremum found",
+        ),
+        (
+            "PredX(10,0,26,-1.5,-5.25,1)",
             ErrorKind::Unsupported,
-            "PredX root search beyond degree two is unavailable",
+            "PredX root selection for this polynomial is unavailable",
+        ),
+        (
+            "PredX(10,0,-0.03515625,0.421875,-1.25,1)",
+            ErrorKind::Unsupported,
+            "PredX root selection for this polynomial is unavailable",
+        ),
+        (
+            "PredX(10,0,0.24,0.5,-1.75,1)",
+            ErrorKind::Unsupported,
+            "PredX root selection for this polynomial is unavailable",
+        ),
+        (
+            "PredX(11,0,72,18,-17,-2,1)",
+            ErrorKind::Unsupported,
+            "PredX root selection for this polynomial is unavailable",
         ),
     ] {
         let error = evaluate(&mut context, source).unwrap_err();

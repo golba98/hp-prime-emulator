@@ -4,6 +4,9 @@ use crate::{ErrorKind, RtResult, RuntimeError, Value};
 use ppl_compiler::Setting;
 use ppl_math::Real;
 
+mod graph3d;
+pub use graph3d::Graph3dNumericSettings;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct AppNumericSettings {
     pub start: Real,
@@ -13,6 +16,7 @@ pub struct AppNumericSettings {
     pub kind: i64,
     /// NumIndep: custom independent-variable rows, in their entered order.
     pub independent: Vec<Real>,
+    pub graph3d: Option<Box<Graph3dNumericSettings>>,
 }
 impl AppNumericSettings {
     pub fn for_app(app: &str) -> Self {
@@ -30,6 +34,7 @@ impl AppNumericSettings {
             zoom: Real::from_i64(2),
             kind: 0,
             independent: Vec::new(),
+            graph3d: (app == "Graph 3D").then(|| Box::new(Graph3dNumericSettings::default())),
         }
     }
     pub fn validate(&self) -> Result<(), String> {
@@ -44,6 +49,9 @@ impl AppNumericSettings {
         }
         if self.independent.len() > 1_000_000 {
             return Err("Too many NumIndep rows".into());
+        }
+        if let Some(settings) = &self.graph3d {
+            settings.validate()?;
         }
         Ok(())
     }

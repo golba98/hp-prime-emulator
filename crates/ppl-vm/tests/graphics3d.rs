@@ -126,6 +126,7 @@ fn packed_points_and_line_depth_match_original_controls() {
         include_str!("../../../tests/fixtures/native-mesh-point-controls.json"),
         include_str!("../../../tests/fixtures/native-line-depth-controls.json"),
         include_str!("../../../tests/fixtures/native-line-normalization-controls.json"),
+        include_str!("../../../tests/fixtures/native-line-source-z-controls.json"),
     ] {
         let fixture: serde_json::Value = serde_json::from_str(fixture).unwrap();
         for case in fixture["cases"].as_array().unwrap() {
@@ -139,6 +140,36 @@ fn packed_points_and_line_depth_match_original_controls() {
             let actual = run.call(case["entry"].as_str().unwrap(), &[]).unwrap();
             assert_eq!(project(&actual), case["expected"], "{name}");
         }
+    }
+}
+
+#[test]
+fn clipped_perspective_line_blends_and_writes_the_opaque_depth() {
+    let depth = "{65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,255,65322,65535,65535,65535,65535,65535,65535,65535,65535,32340,53928,65535,65535,65535}";
+    let empty_depth = format!("{{{}}}", ["65535"; 26].join(","));
+    for (primitives, color, expected_depth) in [
+        ("{{1,2,#A452E9h}}", 0xA452E9, depth),
+        ("{{1,2,#A452E9h,0}}", 0xA452E9, depth),
+        ("{{1,2,#A452E9h,1}}", 0xA351E8, depth),
+        ("{{1,2,#A452E9h,64}}", 0x7B3EB0, depth),
+        ("{{1,2,#A452E9h,128}}", 0x532B77, depth),
+        ("{{1,2,#A452E9h,192}}", 0x2A173E, depth),
+        ("{{1,2,#A452E9h,254}}", 0x030407, depth),
+        ("{{1,2,#A452E9h,255}}", 0x020406, &empty_depth),
+        ("{#A452E9h,128,{1,2}}", 0xA452E9, depth),
+    ] {
+        let result = run(&format!(
+            "DIMGROB_P(G1,17,3,#020406h); LOCAL z:=TRIANGLE_P(G1),c;\n\
+             c:=LINE_P(G1,{{{{0.375,0.125,20}},{{12.625,2.25,80}}}},{primitives},\n\
+                 {{-1,\"N\",{{0,0,80}},{{0,16,0,3,30,65}}}},z);\n\
+             RETURN {{TYPE(c),B→R(GETPIX_P(G1,6,1)),B→R(GETPIX_P(G1,5,1)),ASC(z)}};"
+        ))
+        .unwrap();
+        assert_eq!(
+            result,
+            format!("{{2,{color},132102,{expected_depth}}}"),
+            "{primitives}"
+        );
     }
 }
 

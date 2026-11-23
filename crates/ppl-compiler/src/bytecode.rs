@@ -49,7 +49,13 @@ pub enum Op {
     /// Duplicate an existing stack value beneath `depth` newer values.
     DupFrom(u8),
     Bin(BinOp),
+    /// Arithmetic while materializing the expressions in encoded stddev cells.
+    StddevCellBin {
+        op: BinOp,
+        literal_zero_quotient: bool,
+    },
     Neg,
+    StddevCellNeg,
     Not,
     Sqrt,
     Sexagesimal,
@@ -95,6 +101,49 @@ pub enum Op {
         id: Builtin,
         argc: u8,
     },
+    /// Direct lowercase append with two evaluated operands and payload provenance.
+    AppendCollection {
+        literal_payload: bool,
+        callback_payload: bool,
+        encoded_base: bool,
+    },
+    /// Direct lowercase APPEND with an unquoted quotient as the payload.
+    /// Stack: base, numerator, denominator → appended collection.
+    AppendQuotient {
+        literal_operands: bool,
+        callback_operands: [bool; 2],
+        encoded_base: bool,
+    },
+    /// Evaluate a complete quotient argument of an immediate APPEND callback.
+    /// Stack: base, preceding operands, numerator, denominator → base, preceding operands, value.
+    AppendCallbackArgumentQuotient {
+        preceding: u16,
+    },
+    /// Direct lowercase stddev can produce exact series or weighted matrix results.
+    StddevExact {
+        argc: u8,
+        encoded_vector: bool,
+        evaluated_matrices: bool,
+        row_mismatch_diagnostic: bool,
+        /// Constant indices for identifiers, or `None` entries for literal lists.
+        list_sources: Option<[Option<u32>; 2]>,
+    },
+    /// Materialized numeric matrix operands with source-encoded complex pairs.
+    StddevEncodedComplexMatrix,
+    /// Two lists of evaluated cells, callback status and diagnostic source.
+    /// The shape fields are the kind, row count and column count.
+    StddevInlineCollection {
+        data: [u32; 3],
+        weights: [u32; 3],
+        encoded_weights: bool,
+    },
+    /// Two evaluated operands and a diagnostic string for mixed matrix source forms.
+    StddevMatrixDiagnostic,
+    /// Evaluated ordinary operand, encoded vector source, and ordinary source.
+    StddevMixedVectorDiagnostic {
+        encoded_first: bool,
+        evaluated_list: bool,
+    },
     /// Like `Builtin`, but pushes `refs` updated values for variable
     /// arguments after the result; the compiler stores them back.
     BuiltinRef {
@@ -115,6 +164,7 @@ pub enum Op {
         cols: u32,
     },
     MakeComplex,
+    StddevCellPair,
     /// Stack: base, i1..in → element.
     Index(u8),
     /// Stack: i1..in, value → stores into the local's element.
@@ -137,6 +187,15 @@ pub enum Op {
     StoreProgram,
     /// Registers an IFERR handler at the given address.
     TryBegin(u32),
+    /// Registers a handler for argument failures in source-encoded stddev cells.
+    TryStddevCell(u32),
+    /// Protects only the callback invocation. On a fault, jumps with the
+    /// placeholder operand and fault status already on the stack.
+    TryAppendCallback {
+        handler: u32,
+        argc: u8,
+        preceding: u8,
+    },
     TryEnd,
     /// Loop guard: stack: var, limit → pushes 1 to continue, 0 to stop.
     ForTest {
@@ -186,6 +245,8 @@ impl Chunk {
             Op::Jump(t)
             | Op::JumpIfFalse(t)
             | Op::TryBegin(t)
+            | Op::TryStddevCell(t)
+            | Op::TryAppendCallback { handler: t, .. }
             | Op::LogicJump { target: t, .. } => *t = target,
             other => panic!("patching non-jump {other:?}"),
         }

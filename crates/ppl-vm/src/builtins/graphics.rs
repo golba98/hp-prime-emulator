@@ -656,6 +656,7 @@ fn call_inner(
                 } else {
                     (grob_ref(m, &Value::Grob(0))?, &args[..args.len() - 1])
                 };
+            let dst = *dst as usize;
             let source = m.grobs[src].as_ref().unwrap();
             let sub = match coordinates.len() {
                 0 => source.clone(),
@@ -683,7 +684,23 @@ fn call_inner(
                     // Zero-area crops still carry dimensions, which must
                     // remain bounded even when the pixel count is zero.
                     m.check_len(cells.max(width).max(height))?;
-                    source.sub(x1, y1, x2, y2)
+
+                    // Uncovered cells retain the original destination buffer's
+                    // prefix, even when the row stride changes. Aliased crops
+                    // read live pixels only after resizing that buffer.
+                    let mut target = m.grobs[dst]
+                        .take()
+                        .unwrap_or_else(|| Grob::new(0, 0, WHITE));
+                    target.resize_preserving_pixels(width, height);
+                    let output = (0, 0, width as i64, height as i64);
+                    let input = (x1, y1, x2, y2);
+                    if src == dst {
+                        target.blit_in_place(output, input, None, 255);
+                    } else {
+                        let source = m.grobs[src].as_ref().unwrap();
+                        target.blit(output, source, input, None, 255);
+                    }
+                    target
                 }
                 _ => {
                     return Err(RuntimeError::new(
@@ -692,7 +709,7 @@ fn call_inner(
                     ));
                 }
             };
-            m.grobs[*dst as usize] = Some(sub);
+            m.grobs[dst] = Some(sub);
             Ok(Value::from_i64(1))
         }
         B::InvertP => {
@@ -1064,7 +1081,15 @@ fn blit(
                     "BLIT transparency color must be nonnegative",
                 ));
             }
-            color_of(value)
+            // Cartesian BLIT normalizes the key to RGB. BLIT_P compares an
+            // explicit key as a full pixel word, independently of opacity.
+            color_of(value).map(|color| {
+                if cartesian {
+                    color & 0x00FF_FFFF
+                } else {
+                    color
+                }
+            })
         })
         .transpose()?;
     let alpha = rest

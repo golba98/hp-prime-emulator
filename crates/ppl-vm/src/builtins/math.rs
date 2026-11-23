@@ -9,7 +9,7 @@ use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::machine::Machine;
 use crate::ops::{self, map_numeric, norm_complex};
 use crate::settings::{AngleMode, Settings};
-use crate::value::Value;
+use crate::value::{Matrix, Value};
 
 mod prediction;
 
@@ -260,9 +260,19 @@ fn numeric_series(value: &Value, name: &str) -> RtResult<Vec<Real>> {
         )),
     }
 }
-/// Population deviation, matching local firmware stddev(), without expanding
-/// weights or squaring huge/tiny unscaled decimal values. Signed weights in
-/// the list form can give a negative variance or cancel the total weight.
+fn nonnegative_stddev_weights() -> RuntimeError {
+    RuntimeError::new(ErrorKind::BadArgValue, "STDDEV weights must be nonnegative")
+}
+
+fn stddev_matrix_shape_error() -> RuntimeError {
+    RuntimeError::new(
+        ErrorKind::BadArgValue,
+        "A STDDEV weight matrix must match the data shape",
+    )
+}
+
+/// Population deviation without expanding weights or squaring huge or tiny
+/// unscaled values. Signed weights can cancel or give negative variance.
 fn weighted_deviation(
     values: &[Real],
     weights: Option<&[Real]>,
@@ -274,10 +284,7 @@ fn weighted_deviation(
     let weights = weights.map_or_else(|| vec![Real::ONE; values.len()], <[Real]>::to_vec);
     let signed = weights.iter().any(|v| v.is_negative());
     if signed && !allow_signed {
-        return Err(RuntimeError::new(
-            ErrorKind::BadArgValue,
-            "STDDEV weights must be nonnegative",
-        ));
+        return Err(nonnegative_stddev_weights());
     }
     let largest_weight = weights
         .iter()
@@ -330,6 +337,207 @@ fn weighted_deviation(
     } else {
         Value::Real(magnitude)
     }))
+}
+
+pub(super) fn evaluated_matrix_deviation(
+    machine: &mut Machine,
+    args: &[Value],
+) -> RtResult<Option<Value>> {
+    let [Value::Matrix(data), Value::Matrix(weights)] = args else {
+        return Ok(None);
+    };
+    if data.vector
+        || weights.vector
+        || data.rows != weights.rows
+        || data.rows == 0
+        || data.cols.min(weights.cols) == 0
+        || (data.cols == weights.cols
+            && !weights
+                .data
+                .iter()
+                .any(|value| value.as_real().is_some_and(Real::is_negative)))
+    {
+        return Ok(None);
+    }
+    matrix_deviation(machine, data, Some(weights), "STDDEV", true).map(Some)
+}
+
+fn matrix_deviation(
+    machine: &mut Machine,
+    matrix: &Matrix,
+    weights: Option<&Matrix>,
+    name: &str,
+    allow_signed: bool,
+) -> RtResult<Value> {
+    let differing_widths = weights.is_some_and(|weights| weights.cols != matrix.cols);
+    let column_count = weights.map_or(matrix.cols, |weights| matrix.cols.min(weights.cols));
+    let mut columns = Vec::with_capacity(column_count);
+    for col in 0..column_count {
+        machine.check_limits()?;
+        let column = |matrix: &Matrix| {
+            (0..matrix.rows)
+                .map(|row| matrix.get(row, col).expect_real(name))
+                .collect::<RtResult<Vec<_>>>()
+        };
+        let values = column(matrix)?;
+        let weights = weights.map(column).transpose()?;
+        match weighted_deviation(&values, weights.as_deref(), allow_signed)? {
+            // A fractional cancellation needs a numeric NaN cell, including
+            // the all-zero weights that take the None branch.
+            Some(Value::Str(_)) if differing_widths => return Err(stddev_matrix_shape_error()),
+            Some(Value::Str(_)) => return Err(nonnegative_stddev_weights()),
+            Some(deviation) => columns.push(deviation),
+            None if differing_widths && values.iter().any(|value| !value.is_integer()) => {
+                return Err(stddev_matrix_shape_error());
+            }
+            None => {
+                return Ok(Value::list(vec![crate::cas::from_cas(
+                    ppl_cas::CasValue::Undefined,
+                )]));
+            }
+        }
+    }
+    if columns
+        .iter()
+        .any(|value| matches!(value, Value::Complex(_)))
+    {
+        // A complex vector stores every cell as complex, including real columns.
+        for value in &mut columns {
+            if let Value::Real(real) = value {
+                *value = Value::Complex(Complex::new(*real, Real::ZERO));
+            }
+        }
+    }
+    Ok(Value::Matrix(std::rc::Rc::new(Matrix {
+        rows: 1,
+        cols: columns.len(),
+        vector: true,
+        data: columns,
+    })))
+}
+
+/// The calculator takes the principal square root of algebraic variance
+/// for complex lists. Conjugating the centered values would return a
+/// different, real-valued measure.
+pub(super) fn complex_list_deviation(
+    m: &mut Machine,
+    values: &[Value],
+    weight_arg: Option<&Value>,
+    name: &str,
+    encoded_vector: bool,
+) -> RtResult<Value> {
+    let values: Option<Vec<_>> = values
+        .iter()
+        .map(|value| match value {
+            Value::Complex(value) => Some(*value),
+            value => value.as_real().map(|re| Complex::new(re, Real::ZERO)),
+        })
+        .collect();
+    let Some(values) = values else {
+        return Ok(Value::str("Error: Bad Argument Value"));
+    };
+    if let Some(Value::List(weights)) = weight_arg
+        && weights
+            .iter()
+            .any(|value| matches!(value, Value::Str(_) | Value::RawString(_)))
+    {
+        return Ok(Value::str("Error: Bad Argument Value"));
+    }
+    let weights = weight_arg
+        .map(|arg| numeric_series(arg, name))
+        .transpose()?
+        .unwrap_or_else(|| vec![Real::ONE; values.len()]);
+    if weights.len() != values.len() {
+        return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
+    }
+    if !matches!(weight_arg, Some(Value::List(_))) && weights.iter().any(|v| v.is_negative()) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "STDDEV weights must be nonnegative",
+        ));
+    }
+    let undefined = || crate::cas::from_cas(ppl_cas::CasValue::Undefined);
+    let Some(weight_exp) = weights
+        .iter()
+        .filter(|value| !value.is_zero())
+        .map(|value| value.exp10())
+        .max()
+    else {
+        return Ok(undefined());
+    };
+    let value_exp = values
+        .iter()
+        .flat_map(|value| [value.re, value.im])
+        .filter(|value| !value.is_zero())
+        .map(Real::exp10)
+        .max()
+        .unwrap_or(0);
+
+    let scaled: RtResult<Vec<_>> = values
+        .iter()
+        .zip(&weights)
+        .map(|(value, weight)| {
+            Ok((
+                Complex::new(value.re.scale10(-value_exp)?, value.im.scale10(-value_exp)?),
+                weight.scale10(-weight_exp)?,
+            ))
+        })
+        .collect();
+    let scaled = scaled?;
+    let mut total = Real::ZERO;
+    let mut re = Real::ZERO;
+    let mut im = Real::ZERO;
+    for (value, weight) in &scaled {
+        m.check_limits()?;
+        total = total.add(*weight)?;
+        re = re.add(value.re.mul(*weight)?)?;
+        im = im.add(value.im.mul(*weight)?)?;
+    }
+    if total.is_zero() {
+        // A nonreal cell in an encoded vector only changes the cancellation
+        // type if its frequency contributes to the result.
+        let fractional = weights.iter().any(|weight| !weight.is_integer())
+            || values.iter().zip(&weights).any(|(value, weight)| {
+                let integral = value.re.is_integer() && value.im.is_integer();
+                let ignored_pair = encoded_vector && weight.is_zero() && !value.im.is_zero();
+                !(integral || ignored_pair)
+            });
+        return Ok(if fractional {
+            Value::str("Undefined")
+        } else {
+            undefined()
+        });
+    }
+    let mean = Complex::new(re.div(total)?, im.div(total)?);
+    let mut re = Real::ZERO;
+    let mut im = Real::ZERO;
+    for (value, weight) in scaled {
+        m.check_limits()?;
+        let delta = value.sub(mean)?;
+        let square = delta.mul(delta)?;
+        re = re.add(square.re.mul(weight)?)?;
+        im = im.add(square.im.mul(weight)?)?;
+    }
+    let variance = Complex::new(re.div(total)?, im.div(total)?);
+    let mut root = variance.sqrt()?;
+    if !variance.im.is_zero() {
+        // Recover the smaller component with 2 Re(root) Im(root) = Im(variance).
+        // Subtracting nearly equal terms in the complex square-root formula
+        // can erase a genuine imaginary part near either coordinate axis.
+        let two = Real::from_i64(2);
+        if variance.re.is_negative() {
+            root.re = variance.im.div(root.im.mul(two)?)?;
+        } else {
+            root.im = variance.im.div(root.re.mul(two)?)?;
+        }
+    }
+    let re = root.re.scale10(value_exp)?;
+    let im = root.im.scale10(value_exp)?;
+    if im.is_zero() {
+        Ok(Value::Real(re))
+    } else {
+        Ok(Value::Complex(Complex::new(re, im)))
+    }
 }
 
 pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult<Value> {
@@ -654,36 +862,18 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
                         if !weights.vector
                             && (matrix.rows, matrix.cols) == (weights.rows, weights.cols) =>
                     {
-                        Some(weights)
+                        Some(weights.as_ref())
                     }
-                    Some(_) => {
-                        return Err(RuntimeError::new(
-                            ErrorKind::BadArgValue,
-                            "A STDDEV weight matrix must match the data shape",
-                        ));
-                    }
+                    Some(_) => return Err(stddev_matrix_shape_error()),
                 };
-                let mut columns = Vec::with_capacity(matrix.cols);
-                for col in 0..matrix.cols {
-                    m.check_limits()?;
-                    let column = |matrix: &crate::value::Matrix| {
-                        (0..matrix.rows)
-                            .map(|row| matrix.get(row, col).expect_real(name))
-                            .collect::<RtResult<Vec<_>>>()
-                    };
-                    let values = column(matrix)?;
-                    let weights = weights.map(|matrix| column(matrix)).transpose()?;
-                    match weighted_deviation(&values, weights.as_deref(), false)? {
-                        Some(deviation) => columns.push(deviation),
-                        None => return Ok(Value::list(vec![undefined()])),
-                    }
-                }
-                return Ok(Value::Matrix(std::rc::Rc::new(crate::value::Matrix {
-                    rows: 1,
-                    cols: columns.len(),
-                    vector: true,
-                    data: columns,
-                })));
+                return matrix_deviation(m, matrix, weights, name, false);
+            }
+            if let Value::List(values) = data
+                && values
+                    .iter()
+                    .any(|value| matches!(value, Value::Complex(value) if !value.im.is_zero()))
+            {
+                return complex_list_deviation(m, values, args.get(1), name, false);
             }
             let values = numeric_series(data, name)?;
             let weights = args.get(1).map(|v| numeric_series(v, name)).transpose()?;

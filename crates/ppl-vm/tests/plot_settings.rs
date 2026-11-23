@@ -503,6 +503,105 @@ fn error_exit_retains_actual_scoped_writes_without_phantom_home_values() {
 }
 
 #[test]
+fn statistics_one_zoom_factors_share_app_scope_and_restore_older_profiles() {
+    let mut session = current("Statistics 1Var");
+    let read = |session: &mut SessionContext, source| {
+        home(session, source).expect_real("zoom factor").unwrap()
+    };
+    assert_eq!(read(&mut session, "Xzoom"), Real::from_i64(2));
+    assert_eq!(read(&mut session, "Yzoom"), Real::from_i64(2));
+    home(&mut session, "Xzoom:=3;Statistics_1Var.Yzoom:=4");
+    for source in ["Xzoom:=0", "Yzoom:=-1"] {
+        let result =
+            session.evaluate_home(source, Box::new(HeadlessHost::new()), Limits::default());
+        assert!(result.result.is_err(), "{source}");
+    }
+    assert_eq!(read(&mut session, "Xzoom"), Real::from_i64(3));
+    assert_eq!(read(&mut session, "Yzoom"), Real::from_i64(4));
+    let saved = session.memory_json();
+    assert!(!saved["globals"].as_object().unwrap().contains_key("Xzoom"));
+
+    let mut restored = current("Function");
+    restored.restore_memory(&saved).unwrap();
+    assert_eq!(read(&mut restored, "Xzoom"), Real::from_i64(3));
+    assert_eq!(read(&mut restored, "Yzoom"), Real::from_i64(4));
+    home(&mut restored, "STARTAPP(\"Function\");Xzoom:=9");
+    assert_eq!(read(&mut restored, "Xzoom"), Real::from_i64(9));
+    assert_eq!(
+        read(&mut restored, "Statistics_1Var.Xzoom"),
+        Real::from_i64(3)
+    );
+
+    let mut older = saved;
+    let fields = older["app_plot_settings"]["Statistics 1Var"]
+        .as_object_mut()
+        .unwrap();
+    assert!(fields.remove("Xzoom").is_some());
+    assert!(fields.remove("Yzoom").is_some());
+    restored.restore_memory(&older).unwrap();
+    assert_eq!(read(&mut restored, "Xzoom"), Real::from_i64(2));
+    assert_eq!(read(&mut restored, "Yzoom"), Real::from_i64(2));
+}
+
+#[test]
+fn statistics_one_zoom_recenter_is_scoped_and_restores_transactionally() {
+    let app = "Statistics 1Var";
+    let factors = [Real::from_i64(35), Real::from_i64(46)];
+    let mut session = current(app);
+    home(&mut session, "Xmin:=7;Xtick:=3;Hwidth:=5");
+    let mut settings = session.app_plot_settings().unwrap();
+    assert!(
+        settings
+            .set_statistics_zoom([Real::ONE, Real::ZERO], false)
+            .is_err()
+    );
+    assert_eq!(
+        settings.statistics_zoom(),
+        Some(([Real::from_i64(2); 2], true))
+    );
+    settings.set_statistics_zoom(factors, false).unwrap();
+    session
+        .set_app_plot_settings(app, settings.clone())
+        .unwrap();
+    let saved = session.memory_json();
+    assert_eq!(saved["app_plot_settings"][app]["zoom_recenter"], false);
+
+    let mut restored = current("Function");
+    restored.restore_memory(&saved).unwrap();
+    assert_eq!(restored.app_plot_settings().unwrap(), settings);
+    assert_eq!(
+        restored
+            .snapshot()
+            .plot_settings_for("Function")
+            .unwrap()
+            .statistics_zoom(),
+        None
+    );
+    assert_eq!(
+        home(&mut restored, "Xzoom")
+            .expect_real("zoom factor")
+            .unwrap(),
+        factors[0]
+    );
+
+    let mut invalid = saved.clone();
+    invalid["app_plot_settings"][app]["zoom_recenter"] = serde_json::json!(0);
+    assert!(restored.restore_memory(&invalid).is_err());
+    assert_eq!(restored.app_plot_settings().unwrap(), settings);
+
+    let mut older = saved;
+    older["app_plot_settings"][app]
+        .as_object_mut()
+        .unwrap()
+        .remove("zoom_recenter");
+    restored.restore_memory(&older).unwrap();
+    assert_eq!(
+        restored.app_plot_settings().unwrap().statistics_zoom(),
+        Some((factors, true))
+    );
+}
+
+#[test]
 fn snapshots_keep_home_names_separate_from_scoped_plot_values() {
     let mut session = current("Function");
     let before = session.snapshot().globals;
@@ -577,4 +676,118 @@ fn invalid_qualified_column_edits_are_atomic_in_the_live_vm() {
             .unwrap(),
         Real::from_i64(4)
     );
+}
+
+#[test]
+fn statistics_plot_cursor_is_typed_scoped_and_restores_older_memory() {
+    use ppl_vm::{ErrorKind, PlotCursorMode};
+
+    let app = "Statistics 1Var";
+    let mut session = current(app);
+    let read = |session: &mut SessionContext, source| PortableValue::from(&home(session, source));
+    let mode = |mode: PlotCursorMode| PortableValue::from(&mode.value());
+    assert_eq!(read(&mut session, "Cursor"), mode(PlotCursorMode::Standard));
+    assert_eq!(
+        read(
+            &mut session,
+            "Cursor:=2;Function.Cursor:=1;{Cursor,Function.Cursor}"
+        ),
+        PortableValue::List(vec![
+            mode(PlotCursorMode::Blinking),
+            mode(PlotCursorMode::Inverting)
+        ])
+    );
+    for (source, expected) in [
+        ("Cursor:=3", ErrorKind::BadArgValue),
+        ("Cursor:=-1", ErrorKind::BadArgValue),
+        ("Cursor:=1.7", ErrorKind::InvalidInput),
+    ] {
+        let error = session
+            .evaluate_home(
+                source,
+                Box::new(PlotHost(HeadlessHost::new())),
+                Limits::default(),
+            )
+            .result
+            .unwrap_err();
+        assert_eq!(error.kind, expected, "{source}: {error}");
+        assert_eq!(read(&mut session, "Cursor"), mode(PlotCursorMode::Blinking));
+    }
+    let saved = session.memory_json();
+    let mut reopened = current("Function");
+    reopened.restore_memory(&saved).unwrap();
+    assert_eq!(
+        read(&mut reopened, "Cursor"),
+        mode(PlotCursorMode::Blinking)
+    );
+    assert_eq!(
+        read(&mut reopened, "Function.Cursor"),
+        mode(PlotCursorMode::Inverting)
+    );
+    let mut older = saved;
+    older["app_plot_settings"][app]
+        .as_object_mut()
+        .unwrap()
+        .remove("Cursor");
+    reopened.restore_memory(&older).unwrap();
+    assert_eq!(
+        read(&mut reopened, "Cursor"),
+        mode(PlotCursorMode::Standard)
+    );
+    assert_eq!(
+        read(&mut reopened, "Function.Cursor"),
+        mode(PlotCursorMode::Inverting)
+    );
+}
+
+#[test]
+fn statistics_background_commits_and_restores_without_changing_numeric_viewport() {
+    use ppl_vm::{PlotBackgroundField as Field, PlotBackgroundPlacement as Placement};
+    let app = "Statistics 1Var";
+    let mut session = current(app);
+    let mut settings = session.app_plot_settings().unwrap();
+    let background = settings.statistics_background_mut().unwrap();
+    assert_eq!(background.opacity(), 75);
+    assert!(
+        background
+            .set(Field::Opacity, &Value::Real(Real::from_i64(101)))
+            .is_err()
+    );
+    assert_eq!(background.opacity(), 75);
+    background.placement = Placement::Range;
+    background.picture = Some(ppl_vm::PlotBackgroundPicture::BuiltIn(69));
+    background
+        .set(Field::Opacity, &Value::Real(Real::from_i64(50)))
+        .unwrap();
+    background
+        .set(Field::XMin, &Value::Real(Real::parse("-2.25").unwrap()))
+        .unwrap();
+    session
+        .set_app_plot_settings(app, settings.clone())
+        .unwrap();
+    assert_eq!(
+        session
+            .snapshot()
+            .plot_settings_for("Function")
+            .unwrap()
+            .statistics_background(),
+        None
+    );
+    let saved = session.memory_json();
+    let mut reopened = current("Function");
+    reopened.restore_memory(&saved).unwrap();
+    assert_eq!(reopened.app_plot_settings().unwrap(), settings);
+    let mut malformed = saved.clone();
+    malformed["app_plot_settings"][app]["background"]["opacity"] = serde_json::json!(101);
+    assert!(reopened.restore_memory(&malformed).is_err());
+    assert_eq!(reopened.app_plot_settings().unwrap(), settings);
+    let mut older = saved;
+    older["app_plot_settings"][app]
+        .as_object_mut()
+        .unwrap()
+        .remove("background");
+    reopened.restore_memory(&older).unwrap();
+    let old = reopened.app_plot_settings().unwrap();
+    assert_eq!(old.xmin, settings.xmin);
+    assert_eq!(old.statistics_background().unwrap(), &Default::default());
 }

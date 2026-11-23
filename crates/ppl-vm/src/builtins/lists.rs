@@ -1,14 +1,259 @@
-//! List commands. All return new lists; arguments are never modified.
+//! List commands and collection append. Collection operands are never modified.
+
+use std::rc::Rc;
 
 use ppl_compiler::builtins::Builtin;
 use ppl_math::Real;
 use ppl_syntax::ast::BinOp;
 
 use super::arg;
+use crate::cas;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
-use crate::machine::Machine;
+use crate::machine::{Machine, numeric_entry};
 use crate::ops;
-use crate::value::Value;
+use crate::value::{Matrix, Value};
+
+fn append_list(machine: &Machine, entries: &[Value], item: &Value) -> RtResult<Value> {
+    machine.check_len(entries.len() + 1)?;
+    let mut entries = entries.to_vec();
+    entries.push(item.clone());
+    Ok(Value::list(entries))
+}
+
+fn append_vector(machine: &Machine, vector: &Matrix, item: Value) -> RtResult<Value> {
+    machine.check_len(vector.data.len() + 1)?;
+    let mut vector = vector.clone();
+    vector.data.push(item);
+    vector.cols = vector.data.len();
+    Ok(Value::Matrix(Rc::new(vector)))
+}
+
+struct TextAssignment<'a> {
+    target: Option<&'a str>,
+    payload: Value,
+}
+
+pub(crate) fn append_collection(
+    machine: &mut Machine,
+    args: &[Value],
+    literal_payload: bool,
+    encoded_base: bool,
+) -> RtResult<Value> {
+    let Ok(args) = <&[Value; 2]>::try_from(args) else {
+        return call(machine, Builtin::Append, "APPEND", args);
+    };
+    let [base, item] = args;
+    if !literal_payload && matches!(item, Value::Str(_)) {
+        if encoded_base && let Value::Matrix(array) = base {
+            machine.check_len(array.data.len().saturating_add(4))?;
+            let entries = array
+                .encoding_prefix()
+                .into_iter()
+                .chain(array.data.iter().cloned())
+                .chain(std::iter::once(item.clone()));
+            return Ok(Value::list(entries.collect()));
+        }
+        return append_item(machine, args, Some(item));
+    }
+    let mut assignment = None;
+    let text_item = if literal_payload
+        && let Value::Str(text) = item
+        && matches!(base, Value::List(_) | Value::Matrix(_))
+    {
+        if let Some(result) = append_text_assignment(machine, text)? {
+            assignment = result.target.map(|target| (target, result.payload.clone()));
+            Some(result.payload)
+        } else {
+            append_text_payload(machine, text)?
+        }
+    } else {
+        None
+    };
+    let result = append_item(machine, args, text_item.as_ref())?;
+    if let Some((target, value)) = assignment {
+        machine.store_home_value(target, value)?;
+    }
+    Ok(result)
+}
+
+pub(crate) fn append_nonfinite_quotient(
+    machine: &mut Machine,
+    base: Value,
+    undefined: bool,
+) -> RtResult<Value> {
+    let value = if undefined {
+        ppl_cas::CasValue::Undefined
+    } else {
+        ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive)
+    };
+    let args = [base, cas::from_cas(value)];
+    append_item(machine, &args, Some(&args[1]))
+}
+
+pub(crate) fn append_callback_division_error(
+    machine: &mut Machine,
+    base: Value,
+    encoded_base: bool,
+) -> RtResult<Value> {
+    let encoded_matrix = encoded_base && matches!(&base, Value::Matrix(matrix) if !matrix.vector);
+    append_collection(
+        machine,
+        &[base, Value::str("Error: X/0")],
+        false,
+        encoded_matrix,
+    )
+}
+
+fn append_item(
+    machine: &mut Machine,
+    args: &[Value; 2],
+    text_item: Option<&Value>,
+) -> RtResult<Value> {
+    let [base, item] = args;
+    let item = text_item.unwrap_or(item);
+    let array = match base {
+        Value::List(entries) => return append_list(machine, entries, item),
+        Value::Matrix(array) => array,
+        _ => return call(machine, Builtin::Append, "APPEND", args),
+    };
+    let numeric = matches!(item, Value::Real(_) | Value::Int(_) | Value::Complex(_));
+    let vector_or_list =
+        matches!(item, Value::List(_)) || matches!(item, Value::Matrix(payload) if payload.vector);
+    if array.vector {
+        if numeric {
+            return append_vector(machine, array, numeric_entry(item.clone())?);
+        }
+        if vector_or_list || text_item.is_some() {
+            return append_list(machine, &array.data, item);
+        }
+    } else if let Value::Matrix(row) = item
+        && row.vector
+        && row.cols == array.cols
+    {
+        machine.check_len(array.data.len() + row.data.len())?;
+        let mut matrix = (**array).clone();
+        for cell in &row.data {
+            matrix.data.push(numeric_entry(cell.clone())?);
+        }
+        matrix.rows += 1;
+        return Ok(Value::Matrix(Rc::new(matrix)));
+    } else if text_item.is_some()
+        || (array.cols == 1
+            && (numeric
+                || matches!(item, Value::Matrix(column) if !column.vector && column.cols == 1)))
+    {
+        machine.check_len(array.rows + 1)?;
+        let mut rows = Vec::with_capacity(array.rows + 1);
+        for row in 0..array.rows {
+            rows.push(Value::Matrix(Rc::new(Matrix {
+                rows: 1,
+                cols: array.cols,
+                data: array.row(row).to_vec(),
+                vector: true,
+            })));
+        }
+        rows.push(item.clone());
+        return Ok(Value::list(rows));
+    }
+    call(machine, Builtin::Append, "APPEND", args)
+}
+
+fn append_text_assignment<'a>(
+    machine: &Machine,
+    text: &'a str,
+) -> RtResult<Option<TextAssignment<'a>>> {
+    let Some((target, expression)) = text.split_once(":=") else {
+        return Ok(None);
+    };
+    let target = target.trim();
+    if !matches!(target.as_bytes(), [b'A'..=b'Z']) {
+        return Ok(None);
+    }
+    if let Some((numerator, denominator)) = expression.split_once('/') {
+        let (Some(Value::Real(numerator)), Some(Value::Real(denominator))) = (
+            append_text_atom(machine, numerator.trim()),
+            append_text_atom(machine, denominator.trim()),
+        ) else {
+            return Ok(None);
+        };
+        let quotient = if denominator.is_zero() {
+            (!numerator.is_zero()).then(|| {
+                cas::from_cas(ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive))
+            })
+        } else {
+            numerator.quotient_if_integer(denominator)?.map(Value::Real)
+        };
+        let result = match quotient {
+            Some(payload) => TextAssignment {
+                target: Some(target),
+                payload,
+            },
+            None => TextAssignment {
+                target: None,
+                payload: Value::str(RuntimeError::kind(ErrorKind::BadArgType).to_string()),
+            },
+        };
+        return Ok(Some(result));
+    }
+    match append_text_payload(machine, expression)? {
+        Some(payload @ Value::Real(_)) => Ok(Some(TextAssignment {
+            target: Some(target),
+            payload,
+        })),
+        _ => Ok(None),
+    }
+}
+
+fn append_text_atom(machine: &Machine, text: &str) -> Option<Value> {
+    if let Some(number) = Real::parse_versioned(text, machine.settings.numeric_version) {
+        return Some(Value::Real(number));
+    }
+    if !cas::is_bare_identifier(text) {
+        return None;
+    }
+    Some(
+        machine
+            .calculator_global(text)
+            .and_then(Value::as_real)
+            .map_or_else(
+                || cas::from_cas(ppl_cas::CasValue::Symbolic(text.into())),
+                Value::Real,
+            ),
+    )
+}
+
+fn append_text_payload(machine: &Machine, text: &str) -> RtResult<Option<Value>> {
+    let content = text.trim();
+    if content.is_empty() {
+        return Ok(Some(cas::from_cas(ppl_cas::CasValue::Undefined)));
+    }
+    if content.len() >= 2 && content.starts_with('"') && content.ends_with('"') {
+        return Ok(Some(Value::str(text)));
+    }
+    if let Some(value) = append_text_atom(machine, content) {
+        return Ok(Some(value));
+    }
+    // Text conversion supports one addition of two atoms.
+    let Some((left, right)) = content.split_once('+') else {
+        return Ok(None);
+    };
+    let (left, right) = (left.trim(), right.trim());
+    let (Some(a), Some(b)) = (
+        append_text_atom(machine, left),
+        append_text_atom(machine, right),
+    ) else {
+        return Ok(None);
+    };
+    if let (Value::Real(a), Value::Real(b)) = (a, b) {
+        return Ok(Some(Value::Real(a.add(b)?)));
+    }
+    if !content.contains('_') {
+        return Ok(Some(cas::from_cas(ppl_cas::CasValue::Symbolic(format!(
+            "{left}+{right}"
+        )))));
+    }
+    Ok(None)
+}
 
 pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult<Value> {
     use Builtin as B;
@@ -161,7 +406,7 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             }
         },
         B::Append => {
-            let item = arg(args, 1, name)?.clone();
+            let item = arg(args, 1, name)?;
             match a0 {
                 Value::Matrix(vector) if vector.vector => {
                     if !matches!(item, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
@@ -170,18 +415,9 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
                             "APPEND to a vector requires a numeric element",
                         ));
                     }
-                    m.check_len(vector.data.len() + 1)?;
-                    let mut vector = (**vector).clone();
-                    vector.data.push(item);
-                    vector.cols = vector.data.len();
-                    Ok(Value::Matrix(std::rc::Rc::new(vector)))
+                    append_vector(m, vector, item.clone())
                 }
-                _ => {
-                    let mut items: Vec<Value> = a0.expect_list(name)?.iter().cloned().collect();
-                    m.check_len(items.len() + 1)?;
-                    items.push(item);
-                    Ok(Value::list(items))
-                }
+                _ => append_list(m, &a0.expect_list(name)?, item),
             }
         }
         other => Err(RuntimeError::new(

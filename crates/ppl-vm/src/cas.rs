@@ -19,7 +19,10 @@ pub fn expression(value: &Value) -> RtResult<String> {
 pub fn to_cas(value: &Value) -> Option<ppl_cas::CasValue> {
     use ppl_cas::CasValue as C;
     Some(match value {
-        Value::Symbolic(value) => (**value).clone(),
+        Value::Symbolic(value) => match value.as_ref() {
+            C::NativeExpression { source, .. } => C::Symbolic(source.clone()),
+            value => value.clone(),
+        },
         Value::Real(value) => match value.origin() {
             ppl_math::RealOrigin::Rational {
                 numerator,
@@ -75,7 +78,7 @@ pub fn type_code(machine: &mut Machine, value: &Value) -> RtResult<i64> {
     let ppl_cas::CasValue::Symbolic(source) = value.as_ref() else {
         return Ok(Value::Symbolic(value.clone()).type_code());
     };
-    if !source.contains('_') {
+    if !source.contains('_') || is_bare_identifier(source) {
         return Ok(crate::value::type_code::CAS);
     }
     if let Some(code) = machine.legacy_type_cache.get(source) {
@@ -620,6 +623,12 @@ fn valid_parameter(name: &str) -> bool {
         && name.chars().enumerate().all(|(index, ch)| {
             ch == '_' || ch.is_alphabetic() || (index > 0 && ch.is_ascii_digit())
         })
+}
+
+pub(crate) fn is_bare_identifier(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_alphabetic)
+        && name.is_ascii()
+        && valid_parameter(name)
 }
 pub fn with_parameters(value: &Value, parameters: &[Value]) -> RtResult<Value> {
     let names = parameters

@@ -6,7 +6,7 @@
 //! faithfully rather than silently replacing their content. No vendor data is
 //! bundled or downloaded.
 mod huffman;
-use std::{fmt, fs::File, io::Read, path::Path, sync::Arc};
+use std::{collections::BTreeMap, fmt, fs::File, io::Read, path::Path, sync::Arc};
 
 const MAX_ARCHIVE: usize = 32 * 1024 * 1024;
 const MAX_BOOK: usize = 4 * 1024 * 1024;
@@ -94,6 +94,8 @@ pub struct Book {
     pub language: Language,
     pub topics: Vec<Topic>,
     pub groups: Vec<StringGroup>,
+    /// Complete demos stored separately from the Help book's launcher references.
+    pub demo_programs: BTreeMap<String, String>,
 }
 
 fn bytes(data: &[u8], at: usize, len: usize) -> Result<&[u8]> {
@@ -166,7 +168,54 @@ impl Book {
         let start = BASE
             .checked_add(offset)
             .ok_or_else(|| Error::new("Help book offset overflow"))?;
-        Self::from_book(bytes(data, start, len)?, language)
+        let mut book = Self::from_book(bytes(data, start, len)?, language)?;
+        // A demo is an optional UTF-8 program in its own archive entry. The
+        // localized Help book only holds the reference used by its picker.
+        book.demo_programs = (0..directory_len / 8)
+            .filter_map(|index| {
+                let entry = BASE + index * 8;
+                let offset = word(data, entry).ok()?;
+                let len = word(data, entry + 4).ok()?;
+                if offset < directory_len || len > 64 * 1024 {
+                    return None;
+                }
+                let section = bytes(data, BASE.checked_add(offset)?, len).ok()?;
+                Self::decode_demo(section)
+            })
+            .collect();
+        Ok(book)
+    }
+
+    fn decode_demo(section: &[u8]) -> Option<(String, String)> {
+        let text = std::str::from_utf8(section).ok()?;
+        let name = text.lines().find_map(|line| {
+            let (name, _) = line.trim_start().strip_prefix("EXPORT ")?.split_once('(')?;
+            let suffix = name.strip_prefix("Demo_")?;
+            (!suffix.is_empty()
+                && suffix
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_'))
+            .then_some(name)
+        })?;
+        let source = ppl_syntax::source::decode_text(section).ok()?.text;
+        Some((name.into(), source))
+    }
+
+    pub fn topic_demo_programs(&self, topic: &Topic) -> Vec<(&str, &str)> {
+        let Some(examples) = topic.spans.get(2) else {
+            return Vec::new();
+        };
+        let Ok(examples) = String::from_utf16(examples) else {
+            return Vec::new();
+        };
+        examples
+            .lines()
+            .filter_map(|line| {
+                let name = line.trim().strip_prefix("__$")?;
+                let (name, source) = self.demo_programs.get_key_value(name)?;
+                Some((name.as_str(), source.as_str()))
+            })
+            .collect()
     }
 
     fn from_book(data: &[u8], language: Language) -> Result<Self> {
@@ -283,6 +332,7 @@ impl Book {
             language,
             topics,
             groups,
+            demo_programs: BTreeMap::new(),
         })
     }
 

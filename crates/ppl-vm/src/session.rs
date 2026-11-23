@@ -11,8 +11,10 @@ use ppl_compiler::CompiledProgram;
 use ppl_graphics::Grob;
 use ppl_math::{Complex, HpInt, Real};
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     rc::Rc,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -144,6 +146,28 @@ pub struct SessionContext {
     generation: u64,
     last_value: Option<PortableValue>,
 }
+/// Successful literal CAS reads local to one read-only application calculation.
+#[derive(Default)]
+pub struct HomeCasCache {
+    entry: RefCell<Option<CachedHomeCas>>,
+}
+
+struct CachedHomeCas {
+    cas: ppl_cas::CasSession,
+    numeric_version: ppl_math::NumericVersion,
+    reads: BTreeMap<Vec<String>, BTreeMap<String, PortableValue>>,
+}
+
+impl CachedHomeCas {
+    fn matches(&self, session: &SessionContext) -> bool {
+        self.numeric_version == session.settings.numeric_version
+            && self.cas.bindings == session.cas.bindings
+            && self.cas.settings == session.cas.settings
+            && self.cas.last_value == session.cas.last_value
+            && self.cas.helper_version == session.cas.helper_version
+    }
+}
+
 pub struct SessionRun {
     pub result: RtResult<Value>,
     pub steps: u64,
@@ -243,6 +267,14 @@ impl SessionContext {
             .or_else(|| crate::AppPlotSettings::for_app(app))
     }
     /// Store one app's Plot Setup without changing the selected application.
+    pub fn set_app_file(&mut self, app: &str, name: String, value: PortableValue) {
+        let files = self.app_files.entry(app.into()).or_default();
+        if files.get(&name) != Some(&value) {
+            files.insert(name, value);
+            self.generation += 1;
+        }
+    }
+
     pub fn set_app_plot_settings(
         &mut self,
         app: &str,
@@ -327,6 +359,27 @@ impl SessionContext {
         self.app_settings().effective(&self.settings)
     }
     /// Mutations from calculator catalogs share exactly the memory used by PPL.
+    pub fn set_graph3d_numeric_settings(
+        &mut self,
+        settings: crate::AppNumericSettings,
+    ) -> RtResult<()> {
+        if settings.graph3d.is_none() {
+            return Err(RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Graph 3D requires separate X and Y Numeric settings",
+            ));
+        }
+        settings
+            .validate()
+            .map_err(|message| RuntimeError::new(ErrorKind::InvalidInput, message))?;
+        if self.app_numeric_settings.get("Graph 3D") != Some(&settings) {
+            self.app_numeric_settings
+                .insert("Graph 3D".into(), settings);
+            self.generation += 1;
+        }
+        Ok(())
+    }
+
     pub fn set_variable(&mut self, name: &str, value: PortableValue) -> RtResult<()> {
         if name.is_empty()
             || !name
@@ -349,8 +402,8 @@ impl SessionContext {
             next.set(name, &value.to_value())?;
             return self.set_geometry_plot_settings(next);
         }
-        if crate::AppPlotSettings::for_app(&self.active_app).is_some()
-            && crate::AppPlotSettings::canonical_name(name).is_some()
+        if crate::AppPlotSettings::recognizes(&self.active_app, name)
+            && crate::AppPlotSettings::for_app(&self.active_app).is_some()
         {
             crate::AppPlotSettings::check_field(&self.active_app, name)?;
             let mut next = self.app_plot_settings()?;
@@ -914,6 +967,27 @@ impl SessionContext {
         host: Box<dyn Host>,
         limits: Limits,
     ) -> SessionRun {
+        self.evaluate_home_in_context(text, catalog, host, limits, None)
+    }
+
+    pub fn evaluate_home_with_cas_cache(
+        &mut self,
+        text: &str,
+        host: Box<dyn Host>,
+        limits: Limits,
+        cache: &HomeCasCache,
+    ) -> SessionRun {
+        self.evaluate_home_in_context(text, &BTreeMap::new(), host, limits, Some(cache))
+    }
+
+    fn evaluate_home_in_context(
+        &mut self,
+        text: &str,
+        catalog: &BTreeMap<String, crate::ModuleSource>,
+        host: Box<dyn Host>,
+        limits: Limits,
+        cache: Option<&HomeCasCache>,
+    ) -> SessionRun {
         match ppl_cas::units::translate_home(text) {
             Ok(Some(source)) => return self.evaluate_measurement(&source, host, limits, true),
             Ok(None) => {}
@@ -1027,16 +1101,17 @@ impl SessionContext {
                         .map(|slot| slot.name.clone())
                         .collect::<Vec<_>>();
                     let prepared = Instant::now();
-                    let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits) {
-                        Ok(remaining) => remaining,
-                        Err(error) => {
-                            return SessionRun {
-                                result: Err(error),
-                                steps: 0,
-                                elapsed: prepared.elapsed(),
-                            };
-                        }
-                    };
+                    let remaining =
+                        match self.prepare_home_cas(&names, host.as_ref(), limits, cache) {
+                            Ok(remaining) => remaining,
+                            Err(error) => {
+                                return SessionRun {
+                                    result: Err(error),
+                                    steps: 0,
+                                    elapsed: prepared.elapsed(),
+                                };
+                            }
+                        };
                     return self.run_linked(image, host, remaining, true, |machine| {
                         machine.call_function("__HOME", Vec::new())
                     });
@@ -1060,7 +1135,7 @@ impl SessionContext {
                     .map(|slot| slot.name.clone())
                     .collect::<Vec<_>>();
                 let prepared = Instant::now();
-                let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits) {
+                let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits, cache) {
                     Ok(remaining) => remaining,
                     Err(error) => {
                         return SessionRun {
@@ -1098,11 +1173,47 @@ impl SessionContext {
         names: &[String],
         host: &dyn Host,
         mut limits: Limits,
+        cache: Option<&HomeCasCache>,
     ) -> RtResult<Limits> {
         self.cas_home_values.clear();
         let started = Instant::now();
-        let mut resolver = self.cas.clone();
         let cancel = host.interrupt_flag();
+        // Only integer bindings are independent of other CAS values and Ans.
+        // Other bindings retain the ordinary ordered, supervised resolution.
+        let lookup = cache
+            .filter(|_| {
+                self.cas
+                    .bindings
+                    .values()
+                    .all(|text| text.parse::<i64>().is_ok())
+            })
+            .and_then(|cache| {
+                let names = names
+                    .iter()
+                    .filter(|name| {
+                        self.cas.bindings.contains_key(*name) && !self.globals.contains_key(*name)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                (!names.is_empty()).then_some((cache, names))
+            });
+        if let Some((cache, names)) = &lookup {
+            let entry = cache.entry.borrow();
+            if let Some(entry) = entry.as_ref()
+                && entry.matches(self)
+                && let Some(values) = entry.reads.get(names)
+                && cancel
+                    .as_ref()
+                    .is_none_or(|flag| !flag.load(Ordering::Acquire))
+            {
+                self.cas_home_values.clone_from(values);
+                limits.max_time = limits
+                    .max_time
+                    .map(|limit| limit.saturating_sub(started.elapsed()));
+                return Ok(limits);
+            }
+        }
+        let mut resolver = self.cas.clone();
         let fallback = std::sync::atomic::AtomicBool::new(false);
         for name in names {
             if self.cas.bindings.contains_key(name) && !self.globals.contains_key(name) {
@@ -1136,6 +1247,18 @@ impl SessionContext {
                     }
                 }
             }
+        }
+        if let Some((cache, names)) = lookup {
+            let mut entry = cache.entry.borrow_mut();
+            if entry.as_ref().is_some_and(|entry| !entry.matches(self)) {
+                *entry = None;
+            }
+            let entry = entry.get_or_insert_with(|| CachedHomeCas {
+                cas: self.cas.clone(),
+                numeric_version: self.settings.numeric_version,
+                reads: BTreeMap::new(),
+            });
+            entry.reads.insert(names, self.cas_home_values.clone());
         }
         let elapsed = started.elapsed();
         limits.max_time = limits.max_time.map(|limit| limit.saturating_sub(elapsed));
