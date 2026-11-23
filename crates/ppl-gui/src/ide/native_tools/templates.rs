@@ -4,7 +4,45 @@ use crate::ide::native::{
     expression::{EditCommand, palette::CELLS},
     keys::KeyAction,
 };
-use egui::{Color32, Rect, Stroke, StrokeKind};
+use egui::{Color32, Rect};
+
+// Draw structural geometry in LCD pixels. Egui vector strokes snap to host
+// pixels, so their apparent width changes at fractional LCD scales.
+fn grid_pixels(selected: usize) -> ppl_graphics::Grob {
+    let mut grid = ppl_graphics::Grob::new(230, 111, 0xe8f1f6);
+    let selected = selected.min(CELLS.len() - 1);
+    let row = selected / 6;
+    let column = selected % 6;
+    grid.fill_rect(
+        (column * 230 / 6) as i64,
+        (row * 37) as i64,
+        ((column + 1) * 230 / 6 - 1) as i64,
+        ((row + 1) * 37 - 1) as i64,
+        0xadccff,
+    );
+    for column in 1..6 {
+        let x = (column * 230 / 6) as i64;
+        for y in 0..111 {
+            grid.set(x, y, 0xdcdcdc);
+        }
+    }
+    for row in 1..3 {
+        let y = row * 37;
+        for x in 0..230 {
+            grid.set(x, y, 0xdcdcdc);
+        }
+    }
+    for x in 0..230 {
+        grid.set(x, 0, 0);
+        grid.set(x, 110, 0);
+    }
+    for y in 0..111 {
+        grid.set(0, y, 0);
+        grid.set(229, y, 0);
+    }
+    grid
+}
+
 impl NativeTools {
     fn template_index(&self) -> usize {
         CELLS
@@ -68,6 +106,21 @@ impl NativeTools {
             }
         }
         let selected = self.template_index();
+        if self.template_grid.as_ref().map(|(index, _)| *index) != Some(selected) {
+            let pixels = grid_pixels(selected)
+                .pixels()
+                .iter()
+                .map(|&c| Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8))
+                .collect();
+            self.template_grid = Some((
+                selected,
+                ctx.load_texture(
+                    "native_template_grid",
+                    egui::ColorImage::new([230, 111], pixels),
+                    egui::TextureOptions::NEAREST,
+                ),
+            ));
+        }
         let grid = Rect::from_min_max(
             lcd.min + egui::vec2(45., 65.) * scale,
             lcd.min + egui::vec2(275., 176.) * scale,
@@ -79,8 +132,14 @@ impl NativeTools {
             .show(ctx, |ui| {
                 ui.set_clip_rect(lcd);
                 ui.set_min_size(lcd.size());
-                ui.painter()
-                    .rect_filled(grid, 0., Color32::from_rgb(232, 241, 246));
+                if let Some((_, texture)) = &self.template_grid {
+                    ui.painter().image(
+                        texture.id(),
+                        grid,
+                        Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1., 1.)),
+                        Color32::WHITE,
+                    );
+                }
                 for (index, cell) in CELLS.iter().enumerate() {
                     let column = index % 6;
                     let row = index / 6;
@@ -90,10 +149,6 @@ impl NativeTools {
                             + egui::vec2((column + 1) as f32 * 230. / 6., (row + 1) as f32 * 37.)
                                 * scale,
                     );
-                    if index == selected {
-                        ui.painter()
-                            .rect_filled(rect, 0., Color32::from_rgb(173, 204, 255));
-                    }
                     let icon = Rect::from_center_size(rect.center(), egui::vec2(37., 35.) * scale);
                     ui.painter().image(
                         self.template_icons[index].id(),
@@ -110,27 +165,6 @@ impl NativeTools {
                         requests.push(Request::InsertTemplate(cell.kind));
                     }
                 }
-                // Thin separators and the outside frame match the G1 palette.
-                for column in 1..6 {
-                    let x = grid.left() + column as f32 * 230. / 6. * scale;
-                    ui.painter().line_segment(
-                        [egui::pos2(x, grid.top()), egui::pos2(x, grid.bottom())],
-                        Stroke::new(scale, Color32::from_gray(220)),
-                    );
-                }
-                for row in 1..3 {
-                    let y = grid.top() + row as f32 * 37. * scale;
-                    ui.painter().line_segment(
-                        [egui::pos2(grid.left(), y), egui::pos2(grid.right(), y)],
-                        Stroke::new(scale, Color32::from_gray(220)),
-                    );
-                }
-                ui.painter().rect_stroke(
-                    grid,
-                    0.,
-                    Stroke::new(scale, Color32::BLACK),
-                    StrokeKind::Inside,
-                );
                 if self.template_strip.is_none() {
                     let mut strip = ppl_graphics::Grob::new(320, 240, 0xffffff);
                     crate::ide::native::chrome::softkeys(&mut strip, &["", "", "", "", "", "OK"]);
@@ -169,5 +203,42 @@ impl NativeTools {
                     requests.push(Request::Dismiss);
                 }
             });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn grid_has_one_lcd_pixel_frame_and_exact_selection_and_separators() {
+        let grid = grid_pixels(0);
+        assert_eq!(grid.get(0, 0), Some(0x000000));
+        assert_eq!(grid.get(1, 1), Some(0xadccff));
+        assert_eq!(grid.get(228, 109), Some(0xe8f1f6));
+        assert_eq!(grid.get(55, 37), Some(0xdcdcdc));
+        for column in 1..6 {
+            assert_eq!(grid.get((column * 230 / 6) as i64, 15), Some(0xdcdcdc));
+        }
+        assert_eq!(grid.get(229, 109), Some(0x000000));
+        assert_eq!(grid.get(228, 110), Some(0x000000));
+    }
+    #[test]
+    fn every_selection_changes_only_its_cell_and_preserves_the_frame() {
+        for selected in 0..CELLS.len() {
+            let grid = grid_pixels(selected);
+            for index in 0..CELLS.len() {
+                let x = ((index % 6) * 230 / 6 + 3) as i64;
+                let y = ((index / 6) * 37 + 3) as i64;
+                assert_eq!(
+                    grid.get(x, y),
+                    Some(if index == selected {
+                        0xadccff
+                    } else {
+                        0xe8f1f6
+                    })
+                );
+            }
+            assert_eq!(grid.get(0, 0), Some(0));
+        }
     }
 }
