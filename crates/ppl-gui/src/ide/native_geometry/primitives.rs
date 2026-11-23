@@ -112,6 +112,49 @@ pub fn rectangle(a: Point2, b: Point2, control: &Shape) -> Result<Shape, String>
     })?;
     Ok(Shape::Polygon(vec![a, b, c, d]))
 }
+pub fn side_polygon(
+    a: Point2,
+    b: Point2,
+    offset: Point2,
+    four_sides: bool,
+) -> Result<Shape, String> {
+    let mut points = vec![a, b];
+    if four_sides {
+        points.push(Point2 {
+            x: b.x + offset.x,
+            y: b.y + offset.y,
+        });
+    }
+    points.push(Point2 {
+        x: a.x + offset.x,
+        y: a.y + offset.y,
+    });
+    polygon(points)
+}
+pub fn regular_polygon(a: Point2, b: Point2, count: f64) -> Result<Shape, String> {
+    if count.fract() != 0. || !(2. ..=super::MAX_OBJECTS as f64).contains(&count) {
+        return Err(format!(
+            "Expected an integer side count between 2 and {}",
+            super::MAX_OBJECTS
+        ));
+    }
+    if count == 2. {
+        return line(a, b, Extent::Segment);
+    }
+    let side = delta(a, b);
+    let mut vertices = vec![a, b];
+    let mut p = b;
+    let step = std::f64::consts::TAU / count;
+    for i in 1..count as usize - 1 {
+        let (sin, cos) = (i as f64 * step).sin_cos();
+        p = point(Point2 {
+            x: p.x + side.x * cos - side.y * sin,
+            y: p.y + side.y * cos + side.x * sin,
+        })?;
+        vertices.push(p);
+    }
+    polygon(vertices)
+}
 pub fn polygon(points: Vec<Point2>) -> Result<Shape, String> {
     if points.len() < 3 {
         return Err("A polygon needs at least three vertices".into());
@@ -194,6 +237,8 @@ pub fn element(curve: &Shape, t: f64) -> Result<Point2, String> {
         Shape::Line { a, b, extent } => line_element(a, b, extent, t),
         Shape::Circle { center, radius } => point(circle_element(center, radius, t)),
         Shape::Arc(arc) => point(circle_element(arc.center, arc.radius, t)),
+        Shape::Hyperbola(ref curve) => curve.element(t),
+        Shape::Parabola(ref curve) => point(curve.at(t)),
         Shape::Ellipse(ref ellipse) => ellipse.element(t),
         Shape::Point(p) => point(p),
         _ => Err("Point On requires a line, ray, segment, circle or ellipse".into()),
@@ -202,7 +247,11 @@ pub fn element(curve: &Shape, t: f64) -> Result<Point2, String> {
 pub(super) fn tangent_at(curve: &Shape, p: Point2) -> Result<Shape, String> {
     let (center, radius) = match *curve {
         Shape::Line { .. } => return Ok(curve.clone()),
-        Shape::Circle { center, radius } => (center, radius),
+        Shape::Circle { center, radius }
+        | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Hyperbola(ref curve) => return curve.tangent_at(p),
+        Shape::Parabola(ref curve) => return curve.tangent(p, true),
+        Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, true),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
     let radial = delta(center, p);
@@ -226,7 +275,10 @@ pub(super) fn tangent(curve: Shape, location: Shape) -> Result<Shape, String> {
     };
     let (center, radius) = match curve {
         Shape::Line { .. } => return Ok(curve),
-        Shape::Circle { center, radius } => (center, radius),
+        Shape::Circle { center, radius }
+        | Shape::Arc(super::CircularArc { center, radius, .. }) => (center, radius),
+        Shape::Parabola(ref curve) => return curve.tangent(p, false),
+        Shape::Ellipse(ref ellipse) => return ellipse.tangent(p, false),
         _ => return Err("Tangent requires a line, ray, segment, or circle".into()),
     };
     let radial = delta(center, p);
@@ -273,6 +325,9 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
             Ok(d.y.atan2(d.x))
         }
         Shape::Function { ref paths, .. } => function_projection(paths, cursor).map(|p| p.x),
+        Shape::Parametric(ref curve) => curve.nearest(cursor).map(|(t, _)| t),
+        Shape::Hyperbola(ref curve) => curve.parameter(cursor),
+        Shape::Parabola(ref curve) => curve.parameter(cursor),
         Shape::Ellipse(ref ellipse) => ellipse.parameter(cursor),
         _ => {
             Err("Point On requires a line, ray, segment, circle, ellipse or function graph".into())
@@ -280,6 +335,9 @@ pub fn element_parameter(curve: &Shape, cursor: Point2) -> Result<f64, String> {
     }
 }
 pub(super) fn curve_projection(curve: &Shape, cursor: Point2) -> Result<Point2, String> {
+    if let Shape::Parametric(p) = curve {
+        return p.nearest(cursor).map(|(_, p)| p);
+    }
     if let Shape::Function { paths, .. } = curve {
         return function_projection(paths, cursor);
     }
@@ -331,6 +389,12 @@ pub fn intersections(a: &Shape, b: &Shape) -> Result<Vec<Point2>, String> {
         | (Shape::Arc(arc), Shape::Line { a, b, extent }) => {
             let mut points = line_circle_intersections(*a, *b, *extent, arc.center, arc.radius)?;
             points.retain(|p| arc.contains_intersection(*p));
+            Ok(order_curve_intersections(points, a.x == b.x))
+        }
+        (Shape::Line { a, b, extent }, Shape::Parabola(curve))
+        | (Shape::Parabola(curve), Shape::Line { a, b, extent }) => {
+            let mut points = curve.crossings(*a, *b)?;
+            points.retain(|&p| within(p, *a, *b, *extent));
             Ok(order_curve_intersections(points, a.x == b.x))
         }
         (Shape::Line { a, b, extent }, Shape::Ellipse(ellipse))
@@ -445,4 +509,41 @@ fn order_curve_intersections(mut points: Vec<Point2>, vertical: bool) -> Vec<Poi
     let coordinate = |p: &Point2| if vertical { p.y } else { p.x };
     points.sort_by(|p, q| coordinate(q).total_cmp(&coordinate(p)));
     points
+}
+
+// Normalize before applying the factor so a large displacement does not need
+// to be squared. The center has no finite inverse.
+pub(super) fn inversion(center: Point2, factor: f64, p: Point2) -> Result<Shape, String> {
+    let d = delta(center, p);
+    let distance = number(d.x.hypot(d.y))?;
+    if distance == 0. {
+        return Ok(Shape::Undefined);
+    }
+    let length = factor / distance;
+    Ok(Shape::Point(point(Point2 {
+        x: center.x + length * (d.x / distance),
+        y: center.y + length * (d.y / distance),
+    })?))
+}
+
+pub(super) fn reciprocate(center: Point2, radius: f64, object: Shape) -> Result<Shape, String> {
+    let squared = number(radius * radius)?;
+    match object {
+        Shape::Line { a, b, .. } => inversion(center, squared, project(center, a, b)?),
+        other => {
+            let p = super::evaluate::as_point(other)?;
+            let Shape::Point(foot) = inversion(center, squared, p)? else {
+                return Err("Point at the center has no finite polar line".into());
+            };
+            let d = delta(center, p);
+            line(
+                foot,
+                point(Point2 {
+                    x: foot.x - d.y,
+                    y: foot.y + d.x,
+                })?,
+                Extent::Line,
+            )
+        }
+    }
 }

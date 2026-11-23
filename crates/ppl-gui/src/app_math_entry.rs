@@ -200,6 +200,13 @@ impl IdeDesktopApp {
             MathTarget::StatisticsColumn { two, .. } => {
                 self.native_tools.memory.statistics_make_source[usize::from(*two)].clone()
             }
+            MathTarget::Slopefield { index, clear } => {
+                if *clear {
+                    String::new()
+                } else {
+                    self.native_tools.slopefield_value(*index)
+                }
+            }
             MathTarget::GeometryPlotField(name) => {
                 self.native_tools.geometry_plot_field_source(name)
             }
@@ -290,7 +297,7 @@ impl IdeDesktopApp {
             spreadsheet_cas,
         });
         match &self.math_entry.as_ref().unwrap().target {
-            MathTarget::FunctionNumeric { .. } => {
+            MathTarget::FunctionNumeric { .. } | MathTarget::Slopefield { .. } => {
                 self.native_tools.cancel_calculations();
                 self.native_tools.page = None;
             }
@@ -583,6 +590,9 @@ impl IdeDesktopApp {
                             },
                         ));
                     }
+                }
+                MathTarget::Slopefield { index, .. } => {
+                    self.native_tools.slopefield_set(index, source)
                 }
                 MathTarget::GeometryPlotField(_) => {
                     unreachable!("Geometry Plot Setup uses the worker")

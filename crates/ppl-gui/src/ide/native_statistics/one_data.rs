@@ -226,6 +226,19 @@ impl Data {
             explicit_weights,
         )
     }
+    pub(crate) fn worksheet_summary(
+        values: Vec<Real>,
+        weights: &[Value],
+        version: NumericVersion,
+        cancel: &AtomicBool,
+    ) -> Result<Summary, String> {
+        let weights = weights
+            .iter()
+            .map(Frequency::from_value)
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::from_frequencies(values, weights, version, true)?.summary_for(cancel, 1)
+    }
+
     pub fn new(
         values: Vec<Real>,
         weights: Vec<u64>,
@@ -318,9 +331,12 @@ impl Data {
     }
 
     pub fn summary(&self, cancel: &AtomicBool) -> Result<Summary, String> {
+        self.summary_for(cancel, 2)
+    }
+    fn summary_for(&self, cancel: &AtomicBool, minimum: usize) -> Result<Summary, String> {
         check(cancel)?;
         let n = self.count.real();
-        if self.values.len() < 2 || n.is_zero() {
+        if self.values.len() < minimum || n.is_zero() {
             return Err("Insufficient statistics data".into());
         }
         // Statistics accumulators retain the exact stored observations through

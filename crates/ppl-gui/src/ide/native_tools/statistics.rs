@@ -166,7 +166,6 @@ impl NativeTools {
     pub(super) fn statistics_record_zoom(&mut self, previous: crate::ide::native_apps::PlotWindow) {
         self.statistics_panel.zoom_undo = Some(previous);
     }
-
     pub(crate) fn statistics_one_summary_open(&self) -> bool {
         self.page == Some(super::Page::Numeric)
             && mode(&self.memory.selected_app) == Some(false)

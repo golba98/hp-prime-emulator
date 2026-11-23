@@ -1,3 +1,5 @@
+mod locus;
+mod plots;
 use super::{primitives as g, *};
 use ppl_syntax::ast::{Expr, ExprKind};
 use ppl_vm::Value;
@@ -54,7 +56,7 @@ pub(super) fn current_expression(
     cancel: Arc<AtomicBool>,
 ) -> Result<ppl_vm::PortableValue, String> {
     super::source(source)?;
-    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    let (ast, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if diagnostics.has_errors() {
         return Err(diagnostics.errors().next().unwrap().message.clone());
     }
@@ -295,6 +297,10 @@ impl Evaluator<'_> {
             let Some(CachedObject::Portable(value)) = self.book.current_values.get(name) else {
                 return Err("Geometry object has not been evaluated".into());
             };
+            if let Some(curve) = self.book.current_curves.get(name) {
+                self.visiting.remove(name);
+                return Ok(curve.clone());
+            }
             match value {
                 ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) => {
                     source.clone()
@@ -358,20 +364,34 @@ impl Evaluator<'_> {
             return Ok(None);
         };
         let curve = self.value(curve, source)?;
-        Ok(match curve {
-            Shape::Function { expression, .. } => Some(Shape::Function {
+        if let Shape::Function { expression, .. } = curve {
+            return Ok(Some(Shape::Function {
                 expression,
                 paths: Vec::new(),
-            }),
-            Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_) => {
-                Some(curve)
-            }
-            _ => None,
-        })
+            }));
+        }
+        Ok(matches!(
+            curve,
+            Shape::Line { .. }
+                | Shape::Circle { .. }
+                | Shape::Arc(_)
+                | Shape::Ellipse(_)
+                | Shape::Parametric(_)
+                | Shape::Hyperbola(_)
+                | Shape::Parabola(_)
+        )
+        .then_some(curve))
     }
     fn tangent_at(&self, curve: &Shape, p: Point2) -> Result<Shape, String> {
         if let Shape::Function { expression, .. } = curve {
-            super::function::tangent_at(expression, p, self.snapshot, self.cancel.clone())
+            match super::function::tangent_at(expression, p, self.snapshot, self.cancel.clone()) {
+                Err(message)
+                    if message == "Tangent needs a polynomial or rational Function Graph" =>
+                {
+                    super::function::tangent(expression, p.x, self.snapshot, self.cancel.clone())
+                }
+                result => result,
+            }
         } else {
             g::tangent_at(curve, p)
         }
@@ -418,9 +438,69 @@ impl Evaluator<'_> {
                 })?)),
                 _ => Err("point expects one affix or two coordinates".into()),
             },
+            "locus" => {
+                arity(2)?;
+                self.locus(&args[0], &args[1], source)
+            }
+            "conic" => {
+                arity(1)?;
+                super::conic::build(&args[0], source, |arg| self.real(arg, source))
+            }
+            "plotimplicit" | "plotfield" | "plotode" | "plotlist" => {
+                self.plane_plot(&name, args, source)
+            }
+            "plotseq" => {
+                let [expr, var, range, count] = args.as_slice() else {
+                    return Err("Expected expression, variable, sequence interval and count".into());
+                };
+                let (ExprKind::Ident(var), ExprKind::List(range)) = (&var.kind, &range.kind) else {
+                    return Err("Invalid sequence variable or interval".into());
+                };
+                let [start, lo, hi] = range.as_slice() else {
+                    return Err("Sequence requires start, minimum and maximum".into());
+                };
+                let range = [
+                    self.real(start, source)?,
+                    self.real(lo, source)?,
+                    self.real(hi, source)?,
+                ];
+                let n = self.real(count, source)?;
+                if n.fract() != 0. {
+                    return Err("Sequence count must be an integer".into());
+                }
+                Ok(Shape::Sequence(SequencePlot::build(
+                    self.expression_text(expr, source, Some(var))?,
+                    var.clone(),
+                    range,
+                    n as i64,
+                    self.snapshot,
+                    self.cancel.clone(),
+                )?))
+            }
+            "plotparam" | "plotpolar" => {
+                if !matches!(args.len(), 4 | 5) {
+                    return Err(
+                        "A curve needs expression, variable, bounds and optional step".into(),
+                    );
+                }
+                let ExprKind::Ident(variable) = &args[1].kind else {
+                    return Err("Expected curve parameter name".into());
+                };
+                let mut expression = self.expression_text(&args[0], source, Some(variable))?;
+                if name == "plotpolar" {
+                    expression = format!("({expression})*(COS({variable})+i*SIN({variable}))");
+                }
+                let bounds = [self.real(&args[2], source)?, self.real(&args[3], source)?];
+                let step = args.get(4).map(|x| self.real(x, source)).transpose()?;
+                let mut curve = Parametric::new(expression, variable.clone(), bounds, step)?;
+                if !self.current {
+                    curve.trace(self.snapshot, self.cancel.clone())?;
+                }
+                Ok(Shape::Parametric(curve))
+            }
             "plotfunc" => {
                 arity(1)?;
-                let expression = self.expression_text(&args[0], source, true)?;
+                let expression = self.expression_text(&args[0], source, Some("x"))?;
                 super::function::build(
                     expression,
                     self.snapshot,
@@ -429,6 +509,47 @@ impl Evaluator<'_> {
                 )
             }
             "element" => {
+                if let [lo, hi, rest @ ..] = args.as_slice() {
+                    let separator = &source[lo.span.end as usize..hi.span.start as usize];
+                    let interval = separator.trim() == "..";
+                    if interval || rest.len() == 1 {
+                        let low = self.real(lo, source)?;
+                        let high = self.real(hi, source)?;
+                        let (value, symbolic) = match rest {
+                            [] if interval => (
+                                (low + high) / 2.,
+                                Some(format!(
+                                    "parameter({} .. {})",
+                                    canonical(low),
+                                    canonical(high)
+                                )),
+                            ),
+                            [t] if interval => {
+                                let n = self.real(t, source)?;
+                                (
+                                    n,
+                                    Some(format!(
+                                        "parameter({},{},{})",
+                                        canonical(low),
+                                        canonical(high),
+                                        canonical(n)
+                                    )),
+                                )
+                            }
+                            [t] | [_, t] => (self.real(t, source)?, None),
+                            _ => return Err("Invalid slider arguments".into()),
+                        };
+                        let input = |e: &Expr| {
+                            source[e.span.start as usize..e.span.end as usize].to_owned()
+                        };
+                        return Ok(Shape::Parameter(Parameter {
+                            limits: [low, high],
+                            value: number(value)?,
+                            symbolic,
+                            bounds_source: [input(lo), input(hi)],
+                        }));
+                    }
+                }
                 let [curve, rest @ ..] = args.as_slice() else {
                     return Err("element expects a curve and an optional real parameter".into());
                 };
@@ -440,7 +561,13 @@ impl Evaluator<'_> {
                     }
                 };
                 let curve = self.value(curve, source)?;
+                let curve = if let Shape::Sequence(seq) = curve {
+                    *seq.function
+                } else {
+                    curve
+                };
                 let p = match curve {
+                    Shape::Parametric(c) => c.at(parameter, self.snapshot, self.cancel.clone())?,
                     Shape::Function { expression, .. } => super::function::element(
                         &expression,
                         parameter,
@@ -457,27 +584,43 @@ impl Evaluator<'_> {
                     let curve = self
                         .point_curve(point, source)?
                         .ok_or("A one-argument tangent needs a point on a curve")?;
-                    self.tangent_at(&curve, as_point(location)?)
+                    let p = as_point(location)?;
+                    if let Shape::Parametric(c) = &curve {
+                        let t = c.nearest(p)?.0;
+                        return c.tangent(t, self.snapshot, self.cancel.clone());
+                    }
+                    self.tangent_at(&curve, p)
                 }
                 [curve, location] => {
                     let curve = self.value(curve, source)?;
                     let at = self.value(location, source)?;
+                    if let Shape::Parametric(c) = &curve {
+                        let t = match at {
+                            Shape::Number { re, im: 0. } => re,
+                            Shape::Point(p) => c.nearest(p)?.0,
+                            _ => return Err("Expected a point or parameter".into()),
+                        };
+                        return c.tangent(t, self.snapshot, self.cancel.clone());
+                    }
+                    if let Shape::Function { expression, .. } = &curve {
+                        let x = match at {
+                            Shape::Point(p) => p.x,
+                            Shape::Number { re, im: 0. } => re,
+                            _ => return Err("Select a function point or real abscissa".into()),
+                        };
+                        let p = super::function::element(
+                            expression,
+                            x,
+                            self.snapshot,
+                            self.cancel.clone(),
+                        )?;
+                        return self.tangent_at(&curve, p);
+                    }
                     if let Shape::Point(p) = at
                         && let Some(constraint) = self.point_curve(location, source)?
                         && super::access::shape_value(&curve)?
                             == super::access::shape_value(&constraint)?
                     {
-                        return self.tangent_at(&curve, p);
-                    }
-                    if let Shape::Function { expression, .. } = &curve
-                        && let Shape::Number { re, im: 0. } = at
-                    {
-                        let p = super::function::element(
-                            expression,
-                            re,
-                            self.snapshot,
-                            self.cancel.clone(),
-                        )?;
                         return self.tangent_at(&curve, p);
                     }
                     g::tangent(curve, at)
@@ -599,8 +742,13 @@ impl Evaluator<'_> {
                 } else {
                     let ordered_curve = matches!(
                         (&a, &b),
-                        (Shape::Line { .. }, Shape::Arc(_) | Shape::Ellipse(_))
-                            | (Shape::Arc(_) | Shape::Ellipse(_), Shape::Line { .. })
+                        (
+                            Shape::Line { .. },
+                            Shape::Arc(_) | Shape::Ellipse(_) | Shape::Parabola(_)
+                        ) | (
+                            Shape::Arc(_) | Shape::Ellipse(_) | Shape::Parabola(_),
+                            Shape::Line { .. }
+                        )
                     ) || a.forms_arc_intersection_pair(&b);
                     let p = if args.len() == 2 && ordered_curve {
                         points.first().copied()
@@ -649,16 +797,30 @@ impl Evaluator<'_> {
                     g::circle(center, radius)
                 }
             }
-            "ellipse" => {
+            "parabola" => {
+                arity(2)?;
+                let first = self.pt(&args[0], source)?;
+                let parabola = match self.value(&args[1], source)? {
+                    Shape::Number { re, im: 0. } => super::Parabola::vertical(first, re)?,
+                    Shape::Line { a, b, .. } => super::Parabola::from_focus(first, a, b)?,
+                    _ => return Err("A parabola needs a directrix or focal length".into()),
+                };
+                Ok(Shape::Parabola(parabola))
+            }
+            "ellipse" | "hyperbola" => {
                 arity(3)?;
                 let foci = [self.pt(&args[0], source)?, self.pt(&args[1], source)?];
                 let size = match self.value(&args[2], source)? {
                     Shape::Number { re, im: 0. } => super::ellipse::Size::SemiMajor(re),
                     witness => super::ellipse::Size::Witness(as_point(witness)?),
                 };
-                Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
+                if name == "hyperbola" {
+                    Ok(Shape::Hyperbola(super::Hyperbola::new(foci, size)?))
+                } else {
+                    Ok(Shape::Ellipse(super::Ellipse::new(foci, size)?))
+                }
             }
-            "circumcircle" | "incircle" => {
+            "circumcircle" | "incircle" | "excircle" => {
                 arity(3)?;
                 let a = self.pt(&args[0], source)?;
                 let b = self.pt(&args[1], source)?;
@@ -667,11 +829,16 @@ impl Evaluator<'_> {
                     g::circumcircle(a, b, c)
                 } else {
                     let ab = a.distance(b)?;
-                    let bc = b.distance(c)?;
+                    let opposite = b.distance(c)?;
+                    let bc = if name == "excircle" {
+                        -opposite
+                    } else {
+                        opposite
+                    };
                     let ca = c.distance(a)?;
                     let sum = ab + bc + ca;
-                    if sum == 0. {
-                        return Err("An incircle needs a nondegenerate triangle".into());
+                    if sum <= 0. {
+                        return Err(format!("{name} needs a nondegenerate triangle"));
                     }
                     let center = point(Point2 {
                         x: (bc / sum) * a.x + (ca / sum) * b.x + (ab / sum) * c.x,
@@ -697,6 +864,58 @@ impl Evaluator<'_> {
                 let b = self.pt(&args[1], source)?;
                 let control = self.value(&args[2], source)?;
                 g::rectangle(a, b, &control)
+            }
+            "equilateral_triangle"
+            | "square"
+            | "rhombus"
+            | "isosceles_triangle"
+            | "right_triangle"
+            | "isopolygon" => {
+                arity(
+                    if matches!(name.as_str(), "equilateral_triangle" | "square") {
+                        2
+                    } else {
+                        3
+                    },
+                )?;
+                let a = self.pt(&args[0], source)?;
+                let b = self.pt(&args[1], source)?;
+                let side = g::delta(a, b);
+                let offset = match name.as_str() {
+                    "isopolygon" => return g::regular_polygon(a, b, self.real(&args[2], source)?),
+                    "right_triangle" => {
+                        let scale = match self.value(&args[2], source)? {
+                            Shape::Number { re, im: 0. } => re,
+                            third => {
+                                let p = as_point(third)?;
+                                let foot = g::project(p, a, b)?;
+                                let offset = g::delta(foot, p);
+                                return g::side_polygon(a, b, offset, false);
+                            }
+                        };
+                        Point2 {
+                            x: -side.y * scale,
+                            y: side.x * scale,
+                        }
+                    }
+                    "square" => Point2 {
+                        x: -side.y,
+                        y: side.x,
+                    },
+                    _ => {
+                        let angle = if name == "equilateral_triangle" {
+                            std::f64::consts::FRAC_PI_3
+                        } else {
+                            self.real(&args[2], source)? * std::f64::consts::TAU / self.angle_turn()
+                        };
+                        let (sin, cos) = angle.sin_cos();
+                        Point2 {
+                            x: side.x * cos - side.y * sin,
+                            y: side.y * cos + side.x * sin,
+                        }
+                    }
+                };
+                g::side_polygon(a, b, offset, matches!(name.as_str(), "square" | "rhombus"))
             }
             "triangle" | "quadrilateral" | "polygon" => {
                 match name.as_str() {
@@ -786,11 +1005,37 @@ impl Evaluator<'_> {
                             std::f64::consts::TAU * radius
                         }
                     }
+                    Shape::Parametric(curve) => {
+                        curve.integral(name == "area", self.snapshot, self.cancel.clone())?
+                    }
+                    Shape::EmptyConic(_) if name == "area" => 0.,
+                    Shape::Lines(_) | Shape::Sequence(_) => return Ok(Shape::Undefined),
                     Shape::Arc(arc) => {
                         if name == "area" {
                             arc.area()
                         } else {
                             arc.perimeter()
+                        }
+                    }
+                    Shape::Hyperbola(curve) => {
+                        if name == "perimeter" {
+                            return Ok(Shape::Undefined);
+                        }
+                        // A stored hyperbola evaluates to a list of two plotparam objects.
+                        // G1 area on that list is zero; an inline conic integrates both branches.
+                        if !curve.equation
+                            && matches!(&args[0].kind,ExprKind::Ident(id) if self.reference(id).is_some())
+                        {
+                            0.
+                        } else {
+                            curve.area()
+                        }
+                    }
+                    Shape::Parabola(curve) => {
+                        if name == "area" {
+                            curve.area()
+                        } else {
+                            curve.perimeter()
                         }
                     }
                     Shape::Ellipse(ellipse) => {
@@ -839,157 +1084,94 @@ impl Evaluator<'_> {
             }
             "projection" => {
                 arity(2)?;
-                let (a, b, _) = self.ln(&args[0], source)?;
+                let curve = self.value(&args[0], source)?;
                 let p = self.pt(&args[1], source)?;
-                Ok(Shape::Point(g::project(p, a, b)?))
-            }
-            "translation" => {
-                arity(2)?;
-                let offset = match self.value(&args[0], source)? {
-                    Shape::Number { re, im } => Point2 { x: re, y: im },
-                    Shape::Line {
-                        a,
-                        b,
-                        extent: Extent::Segment,
-                    } => g::delta(a, b),
-                    _ => return Err("A translation needs a numeric displacement or segment".into()),
-                };
-                let translate = |p: Point2| {
-                    point(Point2 {
-                        x: p.x + offset.x,
-                        y: p.y + offset.y,
-                    })
-                };
-                match self.value(&args[1], source)? {
-                    Shape::Line { a, b, extent } => g::line(translate(a)?, translate(b)?, extent),
-                    Shape::Circle { center, radius } => Ok(Shape::Circle {
-                        center: translate(center)?,
-                        radius,
-                    }),
-                    Shape::Arc(mut arc) => {
-                        arc.center = translate(arc.center)?;
-                        Ok(Shape::Arc(arc))
+                let q = match curve {
+                    Shape::Line { a, b, .. } => g::project(p, a, b)?,
+                    Shape::Circle { center, radius }
+                    | Shape::Arc(CircularArc { center, radius, .. }) => {
+                        let d = g::delta(center, p);
+                        point(g::circle_element(center, radius, d.y.atan2(d.x)))?
                     }
-                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(ellipse.translated(translate)?)),
-                    Shape::Polygon(vertices) => Ok(Shape::Polygon(
-                        vertices
-                            .into_iter()
-                            .map(translate)
-                            .collect::<Result<_, _>>()?,
-                    )),
-                    target => Ok(Shape::Point(translate(as_point(target)?)?)),
+                    Shape::Parabola(curve) => curve.project(p)?,
+                    _ => g::curve_projection(&curve, p)?,
+                };
+                Ok(Shape::Point(q))
+            }
+            "inversion" => {
+                arity(3)?;
+                g::inversion(
+                    self.pt(&args[0], source)?,
+                    self.real(&args[1], source)?,
+                    self.pt(&args[2], source)?,
+                )
+            }
+            "reciprocation" => {
+                arity(2)?;
+                let Shape::Circle { center, radius } = self.value(&args[0], source)? else {
+                    return Err("Reciprocation needs a circle".into());
+                };
+                match &args[1].kind {
+                    ExprKind::Bracket(items) | ExprKind::List(items) => {
+                        let mut images = Vec::with_capacity(items.len());
+                        for e in items {
+                            images.push(g::reciprocate(center, radius, self.value(e, source)?)?);
+                        }
+                        Ok(Shape::Objects(images))
+                    }
+                    _ => g::reciprocate(center, radius, self.value(&args[1], source)?),
                 }
             }
-            "reflection" => {
-                arity(2)?;
-                let (origin, axis_end) = match self.value(&args[0], source)? {
-                    Shape::Line { a, b, .. } => (a, Some(b)),
-                    center => (as_point(center)?, None),
-                };
-                let reflect = |p: Point2| match axis_end {
-                    Some(end) => g::reflect(p, origin, end),
-                    None => point(Point2 {
-                        x: 2. * origin.x - p.x,
-                        y: 2. * origin.y - p.y,
-                    }),
-                };
-                match self.value(&args[1], source)? {
-                    Shape::Circle { center, radius } => Ok(Shape::Circle {
-                        center: reflect(center)?,
-                        radius,
-                    }),
-                    Shape::Arc(arc) => {
-                        // A line mirror negates both angles, including for oblique axes.
-                        // Point symmetry keeps the original angular bounds.
-                        let (start, end) = if axis_end.is_some() {
-                            (-arc.start, -arc.end)
-                        } else {
-                            (arc.start, arc.end)
+            "translation" | "reflection" | "rotation" | "homothety" | "similarity" => {
+                use super::transform::Transform;
+                let transform = match name.as_str() {
+                    "translation" => {
+                        arity(2)?;
+                        let offset = match self.value(&args[0], source)? {
+                            Shape::Number { re, im } => Point2 { x: re, y: im },
+                            Shape::Line {
+                                a,
+                                b,
+                                extent: Extent::Segment,
+                            } => g::delta(a, b),
+                            _ => {
+                                return Err(
+                                    "A translation needs a numeric displacement or segment".into(),
+                                );
+                            }
                         };
-                        Ok(Shape::Arc(CircularArc::new(
-                            reflect(arc.center)?,
-                            arc.radius,
-                            start,
-                            end,
-                        )?))
+                        Transform::Translate(offset)
                     }
-                    Shape::Line { a, b, extent } => Ok(Shape::Line {
-                        a: reflect(a)?,
-                        b: reflect(b)?,
-                        extent,
-                    }),
-                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(
-                        ellipse.reflected(reflect, axis_end.is_some())?,
-                    )),
-                    Shape::Polygon(vertices) => {
-                        let vertices = vertices
-                            .into_iter()
-                            .map(reflect)
-                            .collect::<Result<_, _>>()?;
-                        g::polygon(vertices)
+                    "reflection" => {
+                        arity(2)?;
+                        match self.value(&args[0], source)? {
+                            Shape::Line { a, b, .. } => Transform::Mirror { a, b },
+                            center => Transform::PointMirror(as_point(center)?),
+                        }
                     }
-                    target => Ok(Shape::Point(reflect(as_point(target)?)?)),
-                }
-            }
-            "rotation" => {
-                arity(3)?;
-                let center = self.pt(&args[0], source)?;
-                let angle = self.real(&args[1], source)?;
-                let degrees = angle * 360. / self.angle_turn();
-                let rotate = |p: Point2| p.rotate(center, degrees);
-                match self.value(&args[2], source)? {
-                    Shape::Line { a, b, extent } => g::line(rotate(a)?, rotate(b)?, extent),
-                    Shape::Circle { center, radius } => Ok(Shape::Circle {
-                        center: rotate(center)?,
-                        radius,
-                    }),
-                    Shape::Arc(mut arc) => {
-                        // Firmware moves the center and keeps the source angular bounds.
-                        arc.center = rotate(arc.center)?;
-                        Ok(Shape::Arc(arc))
+                    _ => {
+                        arity(if name == "similarity" { 4 } else { 3 })?;
+                        let center = self.pt(&args[0], source)?;
+                        let scale = if name == "rotation" {
+                            1.
+                        } else {
+                            self.real(&args[1], source)?
+                        };
+                        let radians = if name == "homothety" {
+                            0.
+                        } else {
+                            let angle = &args[if name == "rotation" { 1 } else { 2 }];
+                            self.real(angle, source)? * std::f64::consts::TAU / self.angle_turn()
+                        };
+                        Transform::About {
+                            center,
+                            scale,
+                            radians,
+                            preserve_arc_bounds: matches!(name.as_str(), "rotation" | "homothety"),
+                        }
                     }
-                    Shape::Ellipse(ellipse) => {
-                        Ok(Shape::Ellipse(ellipse.rotated(center, degrees)?))
-                    }
-                    Shape::Polygon(vertices) => {
-                        g::polygon(vertices.into_iter().map(rotate).collect::<Result<_, _>>()?)
-                    }
-                    target => Ok(Shape::Point(rotate(as_point(target)?)?)),
-                }
-            }
-            "homothety" => {
-                arity(3)?;
-                let center = self.pt(&args[0], source)?;
-                let factor = self.real(&args[1], source)?;
-                let scale = |p: Point2| {
-                    point(Point2 {
-                        x: center.x + factor * (p.x - center.x),
-                        y: center.y + factor * (p.y - center.y),
-                    })
                 };
-                match self.value(&args[2], source)? {
-                    Shape::Line { a, b, extent } => g::line(scale(a)?, scale(b)?, extent),
-                    Shape::Point(_) | Shape::Circle { .. } | Shape::Ellipse(_) if factor == 0. => {
-                        Ok(Shape::Point(center))
-                    }
-                    Shape::Circle { center, radius } => {
-                        g::circle(scale(center)?, factor.abs() * radius)
-                    }
-                    Shape::Arc(arc) if factor != 0. => Ok(Shape::Arc(CircularArc::new(
-                        scale(arc.center)?,
-                        factor.abs() * arc.radius,
-                        arc.start,
-                        arc.end,
-                    )?)),
-                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(ellipse.dilated(scale, factor)?)),
-                    Shape::Polygon(vertices) if factor == 0. => {
-                        Ok(Shape::Polygon(vec![center; vertices.len()]))
-                    }
-                    Shape::Polygon(vertices) => Ok(Shape::Polygon(
-                        vertices.into_iter().map(scale).collect::<Result<_, _>>()?,
-                    )),
-                    target => Ok(Shape::Point(scale(as_point(target)?)?)),
-                }
+                transform.apply(self.value(args.last().unwrap(), source)?)
             }
             _ => self.numeric(e, source),
         }
@@ -1009,6 +1191,7 @@ impl Evaluator<'_> {
     }
     fn real(&mut self, e: &Expr, source: &str) -> Result<f64, String> {
         match self.value(e, source)? {
+            Shape::Parameter(p) => Ok(p.value),
             Shape::Number { re, im: 0. } => number(re),
             _ => Err("A real numeric expression is required".into()),
         }
@@ -1023,10 +1206,18 @@ impl Evaluator<'_> {
         &mut self,
         e: &Expr,
         source: &str,
-        function: bool,
+        function: Option<&str>,
+    ) -> Result<String, String> {
+        self.plane_expression(e, source, function.as_slice())
+    }
+    fn plane_expression(
+        &mut self,
+        e: &Expr,
+        source: &str,
+        variables: &[&str],
     ) -> Result<String, String> {
         let mut replacements = Vec::new();
-        self.rewrite(e, source, &mut replacements, function)?;
+        self.rewrite(e, source, &mut replacements, variables)?;
         let mut expression = source
             .get(e.span.start as usize..e.span.end as usize)
             .ok_or("Invalid geometry expression span")?
@@ -1041,7 +1232,7 @@ impl Evaluator<'_> {
         Ok(expression)
     }
     fn numeric(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
-        let expression = self.expression_text(e, source, false)?;
+        let expression = self.expression_text(e, source, None)?;
         let result = super::super::native_readonly::evaluate(
             &expression,
             "Geometry",
@@ -1066,17 +1257,17 @@ impl Evaluator<'_> {
         e: &Expr,
         source: &str,
         out: &mut Vec<(usize, usize, String)>,
-        function: bool,
+        variables: &[&str],
     ) -> Result<(), String> {
         if let ExprKind::Assign(..) | ExprKind::Store(..) = &e.kind {
             return Err("Geometry expressions cannot assign calculator variables".into());
         }
         let replacement = match &e.kind {
-            ExprKind::Ident(name) if function && name == "x" => None,
+            ExprKind::Ident(name) if variables.contains(&name.as_str()) => None,
             ExprKind::Ident(name) => {
                 if let Some(name) = self.reference(name) {
                     Some(self.resolve(&name))
-                } else if function
+                } else if !variables.is_empty()
                     && let Some(ppl_vm::PortableValue::Real(value)) =
                         self.snapshot.globals.get(name)
                 {
@@ -1087,7 +1278,10 @@ impl Evaluator<'_> {
             }
             ExprKind::Call(callee, _) if matches!(&callee.kind,ExprKind::Ident(name)if known(name)) =>
             {
-                if function && super::function::reads_x(e) {
+                if variables
+                    .iter()
+                    .any(|v| super::function::reads_variable(e, v))
+                {
                     return Err("Function graphs require fixed Geometry arguments".into());
                 }
                 Some(self.value(e, source))
@@ -1096,7 +1290,7 @@ impl Evaluator<'_> {
         };
         if let Some(value) = replacement {
             let p = as_point(value?)?;
-            let text = if function && p.y == 0. {
+            let text = if !variables.is_empty() && p.y == 0. {
                 format!("({})", canonical(p.x))
             } else {
                 format!("(({})+({})*i)", canonical(p.x), canonical(p.y))
@@ -1106,21 +1300,21 @@ impl Evaluator<'_> {
         }
         match &e.kind {
             ExprKind::Unary(_, a) | ExprKind::Postfix(_, a) | ExprKind::Quoted(a) => {
-                self.rewrite(a, source, out, function)?
+                self.rewrite(a, source, out, variables)?
             }
             ExprKind::Binary(_, a, b) | ExprKind::ComplexPair(a, b) => {
-                self.rewrite(a, source, out, function)?;
-                self.rewrite(b, source, out, function)?;
+                self.rewrite(a, source, out, variables)?;
+                self.rewrite(b, source, out, variables)?;
             }
             ExprKind::Index(callee, args) => {
-                self.rewrite(callee, source, out, function)?;
+                self.rewrite(callee, source, out, variables)?;
                 for a in args {
-                    self.rewrite(a, source, out, function)?;
+                    self.rewrite(a, source, out, variables)?;
                 }
             }
             ExprKind::Call(_, args) | ExprKind::List(args) | ExprKind::Bracket(args) => {
                 for a in args {
-                    self.rewrite(a, source, out, function)?;
+                    self.rewrite(a, source, out, variables)?;
                 }
             }
             _ => {}
@@ -1130,7 +1324,7 @@ impl Evaluator<'_> {
 }
 fn parse(source: &str) -> Result<Expr, String> {
     super::source(source)?;
-    let (ast, diagnostics) = ppl_syntax::parse_expression(source);
+    let (ast, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if let Some(error) = diagnostics.errors().next() {
         return Err(error.message.clone());
     }
@@ -1186,6 +1380,15 @@ fn known(name: &str) -> bool {
         name.to_ascii_lowercase().as_str(),
         "point"
             | "element"
+            | "locus"
+            | "conic"
+            | "plotimplicit"
+            | "plotfield"
+            | "plotode"
+            | "plotlist"
+            | "plotseq"
+            | "plotparam"
+            | "plotpolar"
             | "plotfunc"
             | "tangent"
             | "segment"
@@ -1201,9 +1404,18 @@ fn known(name: &str) -> bool {
             | "inter"
             | "single_inter"
             | "circle"
+            | "parabola"
+            | "hyperbola"
             | "ellipse"
             | "circumcircle"
             | "incircle"
+            | "excircle"
+            | "equilateral_triangle"
+            | "square"
+            | "right_triangle"
+            | "rhombus"
+            | "isosceles_triangle"
+            | "isopolygon"
             | "triangle"
             | "quadrilateral"
             | "parallelogram"
@@ -1220,8 +1432,11 @@ fn known(name: &str) -> bool {
             | "perimeter"
             | "slope"
             | "angle"
+            | "inversion"
+            | "reciprocation"
             | "projection"
             | "translation"
+            | "similarity"
             | "reflection"
             | "rotation"
             | "homothety"
@@ -1233,8 +1448,9 @@ fn scalar(n: f64) -> Result<Shape, String> {
         im: 0.,
     })
 }
-fn as_point(shape: Shape) -> Result<Point2, String> {
+pub(super) fn as_point(shape: Shape) -> Result<Point2, String> {
     match shape {
+        Shape::Parameter(p) => point(Point2 { x: p.value, y: 0. }),
         Shape::Point(p) => point(p),
         Shape::Number { re, im } => point(Point2 { x: re, y: im }),
         _ => Err("A point or numeric affix is required".into()),
@@ -1254,7 +1470,7 @@ pub(super) fn point_movement(source: &str) -> Option<PointMovement> {
             _ => false,
         }
     }
-    let (e, diagnostics) = ppl_syntax::parse_expression(source);
+    let (e, diagnostics) = ppl_syntax::parse_expression(&super::plot_syntax(source));
     if diagnostics.has_errors() {
         return None;
     }

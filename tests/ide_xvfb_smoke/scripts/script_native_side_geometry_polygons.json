@@ -1,0 +1,399 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_geometry_polygons.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOPOLYSTART",
+      "content": "EXPORT GEOPOLYSTART() BEGIN\n STARTAPP(\"Geometry\");Geometry.DelInstruction();\n Geometry.Xmin:=-16;Geometry.Ymin:=-11;Geometry.PixSize:=0.1;\n Geometry.Instruction(0):=\"point(-2,0)\";\n Geometry.Instruction(0):=\"point(2,0)\";\n Geometry.Instruction(0):=\"point(0,3)\";\n STARTVIEW(1,1);RETURN Geometry.Instruction();\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "GEOPOLYREAD",
+      "content": "EXPORT GEOPOLYREAD() BEGIN STARTAPP(\"Geometry\"); STARTVIEW(1,1);RETURN {area(Geometry.GD),area(rectangle(Geometry.GA,Geometry.GB,Geometry.GC)),area(right_triangle(Geometry.GA,Geometry.GB,2)),area(parallelogram(Geometry.GA,Geometry.GB,Geometry.GC)),area(similarity(0,2,0,Geometry.GD)),area(translation(Geometry.GB-Geometry.GA,Geometry.GD))};END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOPOLYSTART()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "prepared"
+    },
+    {
+      "step": "calc_key",
+      "code": 6
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 24,
+      "y": 229
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 60,
+      "y": 119
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "key",
+      "key": "Down"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 70
+    },
+    {
+      "step": "key",
+      "key": "Down"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 70
+    },
+    {
+      "step": "key",
+      "key": "Down"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 70
+    },
+    {
+      "step": "key",
+      "key": "Down"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 70
+    },
+    {
+      "step": "key",
+      "key": "Down"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 70
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 140,
+      "y": 109
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "focus_one"
+    },
+    {
+      "step": "click_lcd",
+      "x": 180,
+      "y": 109
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "focus_two"
+    },
+    {
+      "step": "click_lcd",
+      "x": 160,
+      "y": 79
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "constructed"
+    },
+    {"step": "click_lcd", "x": 24, "y": 229},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 60, "y": 119},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Down"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 140, "y": 109},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 180, "y": 109},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 160, "y": 79},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 110, "y": 79},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 140, "y": 109},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "snapshot", "label": "closed"},
+    {"step": "click_lcd", "x": 24, "y": 229},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 60, "y": 135},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 65, "y": 150},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 140, "y": 109},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 180, "y": 109},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "click_lcd", "x": 160, "y": 79},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "key", "key": "Enter"},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "wait_idle", "timeout_ms": 15000},
+    {"step": "wait_ms", "ms": 120},
+    {"step": "snapshot", "label": "excircle"},
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 80
+    },
+    {
+      "step": "type",
+      "text": "GEOPOLYREAD()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "values"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

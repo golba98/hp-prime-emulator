@@ -132,7 +132,17 @@ fn display(n: f64, s: &ppl_vm::Settings) -> String {
 }
 fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
     match shape {
+        Shape::Objects(objects) => format!(
+            "[{}]",
+            objects
+                .iter()
+                .map(|o| value_text(o, s))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        Shape::Parameter(p) => display(p.value, s),
         Shape::Undefined => "undef".into(),
+        Shape::EmptyConic(s) => s.clone(),
         Shape::Number { re, im: 0. } => {
             let mut value = display(*re, s);
             let decimal = s.digit_grouping.decimal();
@@ -153,7 +163,12 @@ fn value_text(shape: &Shape, s: &ppl_vm::Settings) -> String {
         Shape::Circle { .. } => "Circle".into(),
         Shape::Arc(_) => "Arc".into(),
         Shape::Function { .. } => "Function Graph".into(),
+        Shape::Parametric(_) => "Parametric".into(),
+        Shape::Sequence(_) => "Sequence".into(),
+        Shape::Hyperbola(_) => "Hyperbola".into(),
+        Shape::Parabola(_) => "Parabola".into(),
         Shape::Ellipse(_) => "Ellipse".into(),
+        Shape::Polyline(_) => "Polyline".into(),
         Shape::Polygon(_) => "Polygon".into(),
         Shape::Points(p) => format!(
             "[{}]",
@@ -218,6 +233,11 @@ fn paint_trace(
 }
 fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
     match shape {
+        Shape::Objects(objects) => {
+            for o in objects {
+                paint_shape(g, o, w, color)
+            }
+        }
         Shape::Point(p) => point_marker(g, *p, w, color),
         Shape::Points(points) => {
             for p in points {
@@ -249,9 +269,24 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 segment(g, a, b, geo::Extent::Segment, w, color);
             }
         }
+        Shape::Hyperbola(curve) => {
+            for [a, b] in curve.edges() {
+                segment(g, a, b, geo::Extent::Segment, w, color);
+            }
+        }
+        Shape::Parabola(curve) => {
+            for [a, b] in curve.edges() {
+                segment(g, a, b, geo::Extent::Segment, w, color);
+            }
+        }
         Shape::Ellipse(ellipse) => {
             for [a, b] in ellipse.edges() {
                 segment(g, a, b, geo::Extent::Segment, w, color);
+            }
+        }
+        Shape::Polyline(points) => {
+            for pair in points.windows(2) {
+                segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
             }
         }
         Shape::Polygon(points) => {
@@ -266,12 +301,26 @@ fn paint_shape(g: &mut Grob, shape: &Shape, w: &PlotWindow, color: u32) {
                 );
             }
         }
-        Shape::Function { paths, .. } => {
+        Shape::Sequence(curve) => {
+            segment(
+                g,
+                Point2 { x: 0., y: 0. },
+                Point2 { x: 1., y: 1. },
+                geo::Extent::Line,
+                w,
+                color,
+            );
+            for pair in curve.paths.iter().flat_map(|p| p.windows(2)) {
+                segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
+            }
+        }
+        Shape::Function { paths, .. }
+        | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => {
             for pair in paths.iter().flat_map(|path| path.windows(2)) {
                 segment(g, pair[0], pair[1], geo::Extent::Segment, w, color);
             }
         }
-        Shape::Number { .. } | Shape::Undefined => {}
+        Shape::Parameter(_) | Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {}
     }
 }
 fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
@@ -284,6 +333,91 @@ fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
     }
     .clamp(0., 1.);
     (p[0] - a[0] - t * d[0]).hypot(p[1] - a[1] - t * d[1])
+}
+fn hit_distance(shape: &Shape, p: [f64; 2], w: &PlotWindow) -> f64 {
+    match shape {
+        Shape::Objects(objects) => objects
+            .iter()
+            .map(|o| hit_distance(o, p, w))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Point(a) => {
+            let a = project(*a, w);
+            (p[0] - a[0]).hypot(p[1] - a[1])
+        }
+        Shape::Points(points) => points
+            .iter()
+            .map(|a| {
+                let a = project(*a, w);
+                (p[0] - a[0]).hypot(p[1] - a[1])
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Line { a, b, extent } => geo::plot::clip(*a, *b, *extent, w)
+            .map_or(f64::INFINITY, |[a, b]| {
+                distance_segment(p, project(a, w), project(b, w))
+            }),
+        Shape::Lines(lines) => lines
+            .iter()
+            .filter_map(|&[a, b]| geo::plot::clip(a, b, geo::Extent::Line, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Circle { center, radius } => (0..96)
+            .map(|i| {
+                let a = std::f64::consts::TAU * i as f64 / 96.;
+                let q = project(
+                    Point2 {
+                        x: center.x + radius * a.cos(),
+                        y: center.y + radius * a.sin(),
+                    },
+                    w,
+                );
+                (p[0] - q[0]).hypot(p[1] - q[1])
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Arc(arc) => arc
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Hyperbola(curve) => curve
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Parabola(curve) => curve
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Ellipse(ellipse) => ellipse
+            .edges()
+            .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Polyline(points) => points
+            .windows(2)
+            .map(|s| distance_segment(p, project(s[0], w), project(s[1], w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Polygon(points) => (0..points.len())
+            .map(|i| {
+                distance_segment(
+                    p,
+                    project(points[i], w),
+                    project(points[(i + 1) % points.len()], w),
+                )
+            })
+            .fold(f64::INFINITY, f64::min),
+        Shape::Sequence(crate::ide::native_geometry::SequencePlot { paths, .. })
+        | Shape::Function { paths, .. }
+        | Shape::Parametric(crate::ide::native_geometry::Parametric { paths, .. }) => paths
+            .iter()
+            .flat_map(|path| path.windows(2))
+            .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
+            .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
+            .fold(f64::INFINITY, f64::min),
+        Shape::Parameter(_) | Shape::Number { .. } | Shape::EmptyConic(_) | Shape::Undefined => {
+            f64::INFINITY
+        }
+    }
 }
 fn hit_candidates<'a>(
     scene: &'a Scene,
@@ -307,10 +441,14 @@ fn hit_candidates<'a>(
                 shape,
                 Shape::Line { .. }
                     | Shape::Circle { .. }
+                    | Shape::Parametric(_)
                     | Shape::Function { .. }
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
+                    | Shape::Parabola(_)
+                    | Shape::Hyperbola(_)
             ),
+            Some(Need::Point) => matches!(shape, Shape::Point(_)),
             Some(Need::PointOnCurve) => scene.is_point_on_curve(&object.name),
             Some(need) => need.accepts(shape, false),
             None => true,
@@ -318,67 +456,7 @@ fn hit_candidates<'a>(
         if !eligible {
             continue;
         }
-        let distance = match shape {
-            Shape::Point(a) => {
-                let a = project(*a, w);
-                (p[0] - a[0]).hypot(p[1] - a[1])
-            }
-            Shape::Points(points) => points
-                .iter()
-                .map(|a| {
-                    let a = project(*a, w);
-                    (p[0] - a[0]).hypot(p[1] - a[1])
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Line { a, b, extent } => geo::plot::clip(*a, *b, *extent, w)
-                .map_or(f64::INFINITY, |[a, b]| {
-                    distance_segment(p, project(a, w), project(b, w))
-                }),
-            Shape::Lines(lines) => lines
-                .iter()
-                .filter_map(|&[a, b]| geo::plot::clip(a, b, geo::Extent::Line, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Circle { center, radius } => (0..96)
-                .map(|i| {
-                    let a = std::f64::consts::TAU * i as f64 / 96.;
-                    let q = project(
-                        Point2 {
-                            x: center.x + radius * a.cos(),
-                            y: center.y + radius * a.sin(),
-                        },
-                        w,
-                    );
-                    (p[0] - q[0]).hypot(p[1] - q[1])
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Arc(arc) => arc
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Ellipse(ellipse) => ellipse
-                .edges()
-                .filter_map(|[a, b]| geo::plot::clip(a, b, geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Polygon(points) => (0..points.len())
-                .map(|i| {
-                    distance_segment(
-                        p,
-                        project(points[i], w),
-                        project(points[(i + 1) % points.len()], w),
-                    )
-                })
-                .fold(f64::INFINITY, f64::min),
-            Shape::Function { paths, .. } => paths
-                .iter()
-                .flat_map(|path| path.windows(2))
-                .filter_map(|p| geo::plot::clip(p[0], p[1], geo::Extent::Segment, w))
-                .map(|[a, b]| distance_segment(p, project(a, w), project(b, w)))
-                .fold(f64::INFINITY, f64::min),
-            Shape::Number { .. } | Shape::Undefined => continue,
-        };
+        let distance = hit_distance(shape, p, w);
         if distance <= 7. {
             candidates.push((
                 !matches!(shape, Shape::Point(_)),
@@ -873,6 +951,14 @@ impl NativeTools {
         snapshot: &ppl_vm::SessionSnapshot,
         requests: &mut Vec<Request>,
     ) {
+        if self.geometry_panel.sliders.form.is_some() {
+            self.show_slider_form(ctx, lcd, scale, requests);
+            return;
+        }
+        if self.geometry_panel.wizard.is_some() {
+            self.show_slopefield(ctx, lcd, scale, requests);
+            return;
+        }
         if self.page == Some(Page::PlotSetup) {
             self.show_geometry_plot_setup(ctx, lcd, scale, requests);
             return;
@@ -916,7 +1002,7 @@ impl NativeTools {
             .command_text
             .update(preview, automatic, now);
         if plot {
-            let trace = self.trace_selected(&book, scene.as_ref());
+            let trace = self.trace_selected(scene.as_ref());
             self.paint_geometry_plot(&mut image, &book, scene.as_ref(), &window, &settings);
             image.fill_rect(0, 219, 319, 239, PAPER);
             chrome::softkeys(
@@ -1268,7 +1354,11 @@ impl NativeTools {
                 }
                 if plot && self.geometry_panel.menu.is_none() && !self.geometry_panel.busy {
                     if response.drag_started() {
-                        self.geometry_panel.drag = self.geometry_panel.selected.clone();
+                        self.geometry_panel.drag = self
+                            .geometry_panel
+                            .selected
+                            .clone()
+                            .filter(|name| book.can_move_point(name));
                         self.geometry_panel.drag_trace.clear();
                         if let Some(name) = self.geometry_panel.drag.as_deref()
                             && book.objects.iter().any(|o| o.name == name && o.traced)
@@ -1290,6 +1380,20 @@ impl NativeTools {
                             && let Some(p) = book.trace_position(name, p, scene.as_ref())
                         {
                             geo::push_trace(&mut self.geometry_panel.drag_trace, p);
+                        }
+                        // Redraw dependent traces through the normal plot worker. Keep
+                        // the last complete scene visible while the next sample evaluates.
+                        if let Some(name) = self.geometry_panel.drag.as_deref()
+                            && book
+                                .objects
+                                .iter()
+                                .any(|object| object.traced && object.name != name)
+                            && !self.calculating()
+                            && let Some(live) = self.memory.models.geometry_book.as_mut()
+                            && live.move_point(name, p, scene.as_ref()).is_ok()
+                        {
+                            self.memory.models.results.remove("Geometry");
+                            self.geometry_panel.refresh = true;
                         }
                         self.dirty();
                         ctx.request_repaint();
@@ -1320,6 +1424,9 @@ impl NativeTools {
                     }
                 }
             });
+        if plot && self.geometry_panel.menu.is_none() && !self.geometry_panel.busy {
+            self.show_slider_controls(ctx, lcd, scale, &book, scene.as_ref(), requests);
+        }
     }
     fn geometry_pointer(
         &mut self,
@@ -1384,7 +1491,7 @@ impl NativeTools {
                         index: self.memory.geometry_cursor.measurement,
                     }))
                 }
-                4 if self.page == Some(Page::Plot) && self.trace_selected(book, scene) => {
+                4 if self.page == Some(Page::Plot) && self.trace_selected(scene) => {
                     self.geometry_panel.menu = Some(Menu {
                         category: Some(TRACE_MENU),
                         index: 0,

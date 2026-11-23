@@ -308,6 +308,8 @@ builtins! {
     PredX "PredX" 3..=7 Math Approximate;
     PredY "PredY" 3..=7 Math Approximate;
     Do2VStats "Do2VStats" 1..=1 System Approximate;
+    SheetSum "SUM" 0..=N System Approximate;
+    SheetAverage "AVERAGE" 0..=N System Approximate;
 }
 
 pub fn spec(b: Builtin) -> &'static BuiltinSpec {

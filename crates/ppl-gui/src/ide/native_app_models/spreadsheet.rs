@@ -2,12 +2,16 @@
 //! operations use the VM's BCD values, never floating-point text substitution.
 //! HP Prime User Guide 813269-002, pp.211–226 and 388–389.
 mod access;
+mod amortization;
 #[cfg(test)]
 mod attribute_tests;
 mod attributes;
 mod choose;
 mod clipboard;
 pub mod format;
+mod inference_report;
+mod regression_report;
+mod reports;
 mod sort;
 pub(crate) mod worksheet_cas;
 use crate::ide::native_geometry::Book;
@@ -90,7 +94,7 @@ impl CellValue {
         }
     }
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Address {
     col: usize,
     row: usize,
@@ -591,6 +595,19 @@ impl Spreadsheet {
         cancel: Arc<AtomicBool>,
         geometry: Option<Arc<Book>>,
     ) -> Result<Self, String> {
+        let mut sheet =
+            self.enter_cell(name, source, snapshot, cancel.clone(), geometry.clone())?;
+        sheet.refresh_reports(snapshot, cancel, geometry)?;
+        Ok(sheet)
+    }
+    fn enter_cell(
+        &self,
+        name: &str,
+        source: &str,
+        snapshot: &SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<Book>>,
+    ) -> Result<Self, String> {
         let mut next = self.clone();
         if let Some(header) = Header::parse(name) {
             let source = source.trim();
@@ -631,6 +648,11 @@ impl Spreadsheet {
             return Ok(next);
         }
         let mut eval = Evaluator::new(self, snapshot, cancel, geometry)?;
+        if let Some(body) = reports::body(&format!("={source}")) {
+            let table = eval.report(body, address)?;
+            next.store_report(address, table, false)?;
+            return Ok(next);
+        }
         let value = eval.expression(source, address, 0)?;
         if worksheet_cas::body(source).is_some()
             && let Some(formula) = eval.cas_frozen_formula(&value, address)?
@@ -772,7 +794,9 @@ impl<'a> Evaluator<'a> {
             }
             .to_owned();
             let text = source.trim();
-            if let Some(body) = choose::body(text) {
+            if let Some(body) = reports::body(text) {
+                self.evaluate_report_anchor(body, address)
+            } else if let Some(body) = choose::body(text) {
                 let choice = self.choose_definition(body, address)?;
                 let current = choice.current(self)?;
                 if let Some(index) = current {
@@ -844,65 +868,53 @@ impl<'a> Evaluator<'a> {
         depth: usize,
     ) -> Result<Value, String> {
         let mut values = Vec::new();
-        let named = self
-            .sheet
-            .names
-            .get(body.trim())
-            .map(|&block| self.named_range(block));
-        if let Some(range) = named.or_else(|| Range::parse(body.trim())) {
-            // Empty range members do not contribute to either sum or count.
-            // Iterate sparse occupied cells, including the current cell so a
-            // self-reference is detected rather than silently omitted.
-            let mut addresses = self
+        let mut non_numeric_range = false;
+        for argument in formula_arguments(body)? {
+            let named = self
                 .sheet
-                .cells
-                .keys()
-                .filter(|name| Address::parse(name).is_some_and(|a| range.contains(a)))
-                .cloned()
-                .collect::<BTreeSet<_>>();
-            self.sheet.inherited_addresses(range, &mut addresses)?;
-            let mut names = addresses.into_iter().collect::<Vec<_>>();
-            names.sort_by_key(|name| {
-                let a = Address::parse(name).unwrap();
-                (a.row, a.col)
-            });
-            for cell in names {
-                values.push(self.cell(&cell)?);
-            }
-        } else {
-            match self.expression(body, address, depth + 1)? {
-                Value::List(items) => values.extend(items.iter().cloned()),
-                value => values.push(value),
+                .names
+                .get(argument)
+                .map(|&block| self.named_range(block));
+            if let Some(range) = named.or_else(|| Range::parse(argument)) {
+                // Empty range members do not contribute to either sum or count.
+                // Iterate sparse occupied cells, including the current cell so a
+                // self-reference is detected rather than silently omitted.
+                let mut addresses = self
+                    .sheet
+                    .cells
+                    .keys()
+                    .filter(|name| Address::parse(name).is_some_and(|a| range.contains(a)))
+                    .cloned()
+                    .collect::<BTreeSet<_>>();
+                self.sheet.inherited_addresses(range, &mut addresses)?;
+                let mut names = addresses.into_iter().collect::<Vec<_>>();
+                names.sort_by_key(|name| {
+                    let a = Address::parse(name).unwrap();
+                    (a.row, a.col)
+                });
+                for cell in names {
+                    let value = self.cell(&cell)?;
+                    if !matches!(value, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
+                        non_numeric_range = true;
+                    }
+                    values.push(value);
+                }
+            } else {
+                values.push(self.expression(argument, address, depth + 1)?);
             }
         }
-        let count = values.len();
-        let mut sum = Value::Real(Real::ZERO);
-        for value in values {
-            self.check()?;
-            if !matches!(value, Value::Real(_) | Value::Int(_) | Value::Complex(_)) {
-                return Err(format!("{name} range contains a non-numeric object"));
-            }
-            sum = ppl_vm::ops::binary(
-                ppl_syntax::ast::BinOp::Add,
-                &sum,
-                &value,
-                &self.context.settings,
-            )
-            .map_err(|e| e.to_string())?;
+        if non_numeric_range {
+            return Err(format!("{name} range contains a non-numeric object"));
         }
-        if name.eq_ignore_ascii_case("AVERAGE") {
-            if count == 0 {
-                return Err("AVERAGE has no numeric cells".into());
-            }
-            sum = ppl_vm::ops::binary(
-                ppl_syntax::ast::BinOp::Div,
-                &sum,
-                &Value::Real(Real::from_i64(count as i64)),
-                &self.context.settings,
-            )
-            .map_err(|e| e.to_string())?;
+        let average = name.eq_ignore_ascii_case("AVERAGE");
+        if values.is_empty() && average {
+            return Err("AVERAGE has no numeric cells".into());
         }
-        Ok(sum)
+        ppl_vm::builtins::math::sheet_aggregate(&values, &self.context.settings, average, || {
+            self.check()
+                .map_err(|e| ppl_vm::RuntimeError::new(ppl_vm::ErrorKind::Interrupted, e))
+        })
+        .map_err(|e| e.to_string())
     }
     fn expand(&mut self, source: &str, address: Address, depth: usize) -> Result<String, String> {
         let mut out = String::new();
@@ -1026,7 +1038,19 @@ impl<'a> Evaluator<'a> {
             return self.cas_expression(&body, address, depth);
         }
         let expression = self.expand(source, address, depth)?;
-        let (ast, diagnostics) = ppl_syntax::parse_expression(&expression);
+        self.evaluate_expanded(&expression)
+    }
+    #[inline(never)]
+    fn evaluate_report_anchor(
+        &mut self,
+        body: (reports::Report, &str),
+        address: Address,
+    ) -> Result<Value, String> {
+        Ok(self.report(body, address)?.anchor)
+    }
+    #[inline(never)]
+    fn evaluate_expanded(&mut self, expression: &str) -> Result<Value, String> {
+        let (ast, diagnostics) = ppl_syntax::parse_expression(expression);
         if diagnostics.has_errors() {
             return Err(diagnostics.errors().next().unwrap().message.clone());
         }
@@ -1038,7 +1062,7 @@ impl<'a> Evaluator<'a> {
         let result = self
             .context
             .evaluate_home(
-                &expression,
+                expression,
                 crate::ide::native_application_access::geometry::read_only_host(
                     self.geometry.clone(),
                     self.cancel.clone(),
@@ -1208,6 +1232,37 @@ fn quoted_end(source: &str, start: usize) -> Result<usize, String> {
         }
     }
     Err("Unclosed string in spreadsheet formula".into())
+}
+fn formula_arguments(source: &str) -> Result<Vec<&str>, String> {
+    let mut args = Vec::new();
+    if source.trim().is_empty() {
+        return Ok(args);
+    }
+    let mut depth = 0usize;
+    let mut pos = 0;
+    let mut start = 0;
+    while pos < source.len() {
+        let ch = source[pos..].chars().next().unwrap();
+        match ch {
+            '"' => {
+                pos = quoted_end(source, pos)?;
+                continue;
+            }
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.checked_sub(1).ok_or("Unmatched closing delimiter")?,
+            ',' if depth == 0 => {
+                args.push(source[start..pos].trim());
+                start = pos + 1;
+            }
+            _ => {}
+        }
+        pos += ch.len_utf8();
+    }
+    args.push(source[start..].trim());
+    if depth != 0 || args.contains(&"") {
+        return Err("Invalid worksheet function arguments".into());
+    }
+    Ok(args)
 }
 fn call_end(source: &str, open: usize) -> Result<usize, String> {
     let mut depth = 0;
@@ -1711,6 +1766,225 @@ mod tests {
         assert_eq!(number(&sheet, "A1", &memory), 131.);
         assert_eq!(memory.settings.angle, ppl_vm::AngleMode::Degrees);
     }
+    #[test]
+    fn stat1_writes_configured_headers_weighted_results_and_keeps_frozen_entries() {
+        let mut sheet = Spreadsheet::default();
+        let memory = snapshot();
+        for (name, source) in [
+            ("A1", "1"),
+            ("A2", "3"),
+            ("A3", "5"),
+            ("B1", "1"),
+            ("B2", "2"),
+            ("B3", "4"),
+        ] {
+            sheet.set(name, source).unwrap();
+        }
+        sheet = sheet
+            .enter("C1", "=STAT1(A1:B3,2,\"h n σ\")", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("C1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("n".into())
+        );
+        assert_eq!(number(&sheet, "D1", &memory), 7.);
+        assert!((number(&sheet, "D2", &memory) - 1.45686271817).abs() < 1e-10);
+        sheet = sheet
+            .enter("C1", "=STAT1(A1:B3,1,\"H h n σ\")", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("D1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("A".into())
+        );
+        assert_eq!(
+            sheet.evaluate_in("E1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("B".into())
+        );
+        assert_eq!(number(&sheet, "E2", &memory), 3.);
+        sheet = sheet
+            .enter("J1", "STAT1({1,3,5},\"h n σ\")", &memory, no_cancel())
+            .unwrap();
+        assert!(sheet.entered_values.contains_key("J1"));
+        assert!((number(&sheet, "K2", &memory) - 1.63299316186).abs() < 1e-10);
+        let stored = serde_json::to_vec(&sheet).unwrap();
+        let mut sheet: Spreadsheet = serde_json::from_slice(&stored).unwrap();
+        sheet = sheet.enter("C1", "17", &memory, no_cancel()).unwrap();
+        assert!((number(&sheet, "E3", &memory) - 1.24721912892).abs() < 1e-10);
+        assert!(
+            sheet
+                .enter("ZZ10000", "STAT1({1,3,5})", &memory, no_cancel())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn stat2_recalculates_paired_columns_and_uses_case_sensitive_configuration() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        for (name, value) in [
+            ("A1", "1"),
+            ("A2", "3"),
+            ("A3", "5"),
+            ("B1", "2"),
+            ("B2", "4"),
+            ("B3", "8"),
+            ("C1", "1"),
+            ("C2", "2"),
+            ("C3", "4"),
+        ] {
+            sheet.set(name, value).unwrap();
+        }
+        sheet = sheet
+            .enter("E1", "=STAT2(A1:C3)", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("F1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("A:B:C".into())
+        );
+        assert_eq!(number(&sheet, "F11", &memory), 7.);
+        assert_eq!(number(&sheet, "F21", &memory), 186.);
+        sheet = sheet.enter("A1", "20", &memory, no_cancel()).unwrap();
+        assert_eq!(number(&sheet, "F21", &memory), 224.);
+        sheet = sheet
+            .enter("J1", "STAT2(A1:B3,\"h n σy\")", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(number(&sheet, "K1", &memory), 3.);
+        assert!((number(&sheet, "K2", &memory) - 2.49443825785).abs() < 1e-10);
+        assert!(
+            sheet
+                .enter("J1", "STAT2(A1:B3,\"h σY\")", &memory, no_cancel())
+                .is_err()
+        );
+        assert!(
+            sheet
+                .enter("J1", "STAT2(A1:C3,1)", &memory, no_cancel())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn regression_report_uses_model_specific_coordinates_and_preserves_multi_pair_order() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        for (row, [x, y]) in [[1, 2], [3, 4], [5, 8], [6, 11], [8, 17], [11, 25]]
+            .iter()
+            .enumerate()
+        {
+            for (c, value) in [*x, *y, *x, 2 * y].into_iter().enumerate() {
+                sheet
+                    .set(&cell_name(c + 1, row + 1), &value.to_string())
+                    .unwrap();
+            }
+        }
+        sheet = sheet
+            .enter(
+                "J1",
+                "=REGRS(A1:D6,2,\"H h sl int cor cd sCov pCov\")",
+                &memory,
+                no_cancel(),
+            )
+            .unwrap();
+        for (row, expected) in [
+            8.77577255445,
+            -1.96356595644,
+            0.870658779777,
+            0.758046710803,
+            6.4064784461,
+            5.33873203841,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            assert!((number(&sheet, &cell_name(11, row + 2), &memory) - expected).abs() < 1e-9);
+        }
+        assert!((number(&sheet, "L2", &memory) - 17.5515451089).abs() < 1e-9);
+        sheet = sheet
+            .enter("N1", "REGRS(A1:B6,9,\"h a b c cd\")", &memory, no_cancel())
+            .unwrap();
+        for (row, expected) in [0.271691665085, 1.1400860705, 0.103933295361, 0.994499949869]
+            .into_iter()
+            .enumerate()
+        {
+            assert!((number(&sheet, &cell_name(15, row + 1), &memory) - expected).abs() < 1e-8);
+        }
+        for invalid in [
+            "REGRS(A1:C6)",
+            "REGRS(A1:B6,12)",
+            "REGRS(A1:B6,2.5)",
+            "REGRS(A1:B6,9,\"sl\")",
+        ] {
+            assert!(
+                sheet.enter("N1", invalid, &memory, no_cancel()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn amortization_uses_a_separate_destination_and_returns_the_top_left_at_the_formula() {
+        let memory = snapshot();
+        let mut sheet = Spreadsheet::default();
+        sheet.set("A1", "100").unwrap();
+        sheet.set("Q1", "987").unwrap();
+        sheet = sheet
+            .enter("J1", "=AMORT(Q1,4,12,A1,-26)", &memory, no_cancel())
+            .unwrap();
+        assert_eq!(
+            sheet.evaluate_in("J1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("Amortization".into())
+        );
+        assert_eq!(number(&sheet, "Q1", &memory), 987.);
+        assert_eq!(number(&sheet, "R2", &memory), 1.);
+        assert_eq!(number(&sheet, "S2", &memory), 4.);
+        assert!((number(&sheet, "T2", &memory) + 1.510025).abs() < 1e-10);
+        assert!((number(&sheet, "V2", &memory) + 2.489975).abs() < 1e-10);
+        sheet = sheet.enter("A1", "120", &memory, no_cancel()).unwrap();
+        assert!((number(&sheet, "T2", &memory) - 19.3020552).abs() < 1e-9);
+        sheet = sheet
+            .enter(
+                "J1",
+                "AMORT(Q1,4,12,100,-26,1,12,12,0,2)",
+                &memory,
+                no_cancel(),
+            )
+            .unwrap();
+        assert_eq!(number(&sheet, "T2", &memory), 86.68);
+        for (config, first) in [
+            ("HhP", "Amortization"),
+            ("HP", "Principal"),
+            ("h H P", "Period"),
+        ] {
+            sheet = sheet
+                .enter(
+                    "J1",
+                    &format!("AMORT(Q1,4,0,100,-25,1,\"{config}\")"),
+                    &memory,
+                    no_cancel(),
+                )
+                .unwrap();
+            assert_eq!(
+                sheet.evaluate_in("J1", &memory, no_cancel()).unwrap(),
+                CellValue::Text(first.into())
+            );
+        }
+        assert!(
+            sheet
+                .enter(
+                    "J1",
+                    "AMORT(Q1,4,0,100,-25,1,\"H P\")",
+                    &memory,
+                    no_cancel()
+                )
+                .is_err()
+        );
+
+        assert!(
+            sheet
+                .enter("J1", "AMORT(Q1,4,12,100,-26,0)", &memory, no_cancel())
+                .is_err()
+        );
+    }
+
     #[test]
     fn aggregates_ignore_empty_cells_accept_reversed_blocks_and_reject_text_and_cycles() {
         let mut sheet = Spreadsheet::default();

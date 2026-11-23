@@ -273,14 +273,32 @@ pub fn evaluate_numeric_rows(
         .iter()
         .enumerate()
         .filter(|(_, c)| c.enabled && !c.expression.trim().is_empty())
-        .map(|(i, _)| format!("F{}", if i == 9 { 0 } else { i + 1 }))
+        .map(|(i, curve)| {
+            let name = format!("F{}", if i == 9 { 0 } else { i + 1 });
+            // A Numeric frame evaluates the same immutable Home and CAS state
+            // at every X. Resolve referenced CAS values once, including those
+            // read inside an installed program. App-specific expressions that
+            // need the nested resolver still use its ordinary per-cell path.
+            let context = if snapshot.cas.bindings.is_empty() {
+                None
+            } else {
+                super::native_graph_context::resolve(
+                    snapshot,
+                    &[&curve.expression],
+                    &["X"],
+                    &resolver.cancel,
+                )
+                .ok()
+            };
+            (name, context)
+        })
         .collect::<Vec<_>>();
     let mut rows = Vec::with_capacity(values.len());
     let mut first_error = None;
     for x in values {
         resolver.check()?;
         let mut row = vec![Some(PortableValue::Real(x))];
-        for name in &enabled {
+        for (name, context) in &enabled {
             resolver.calls.set(0);
             let request = AppVariableRequest {
                 app: "Function".into(),
@@ -288,7 +306,7 @@ pub fn evaluate_numeric_rows(
                 indices: vec![PortableValue::Real(x)],
                 value: None,
             };
-            match resolver.read(request, snapshot.clone()) {
+            match resolver.read(request, context.as_ref().unwrap_or(snapshot).clone()) {
                 Ok(
                     value @ (PortableValue::Real(_)
                     | PortableValue::Integer(_)
