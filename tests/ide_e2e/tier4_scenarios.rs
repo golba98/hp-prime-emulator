@@ -1,6 +1,6 @@
 //! Tier 4: Real-World Application Workflows & Scenarios for HP Prime Desktop IDE.
 //!
-//! Covers 10 end-to-end user application workflows specified in TEST_INFRA.md:
+//! Covers 10 end-to-end user application workflows documented in the developer scripts guide:
 //! 1. Complete Scratchpad Development (`TEST`)
 //! 2. Fireworks Animation Simulation (`FIREWORKS`)
 //! 3. Interactive Input Quadratic Solver
