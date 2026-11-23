@@ -2,16 +2,27 @@
 //! HP Prime User Guide chapter9: Symbolic objects and Numeric measurements.
 mod access;
 mod arc;
+mod conic;
 mod ellipse;
 mod evaluate;
 mod function;
+mod hyperbola;
+mod parabola;
+mod parametric;
 pub mod plot;
 pub mod primitives;
+mod sequence;
+mod transform;
 use super::native_app_models::Geometry;
 pub use super::native_app_models::Point2;
 pub use arc::CircularArc;
 pub use ellipse::Ellipse;
+pub use hyperbola::Hyperbola;
+pub use parabola::Parabola;
+pub use parametric::Parametric;
+pub(crate) use parametric::plot_syntax;
 use ppl_vm::SessionSnapshot;
+pub use sequence::SequencePlot;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -19,6 +30,49 @@ use std::{
 };
 pub const MAX_OBJECTS: usize = 3000;
 pub(super) const TRACE_SAMPLE_LIMIT: usize = 1024;
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct SliderOptions {
+    pub step: f64,
+    pub motion: SliderMotion,
+    pub seconds: f64,
+    pub pause: f64,
+    pub position: [f32; 2],
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SliderMotion {
+    #[default]
+    None,
+    Forward,
+    Backward,
+    Alternate,
+}
+impl Default for SliderOptions {
+    fn default() -> Self {
+        Self {
+            step: 0.1,
+            motion: Default::default(),
+            seconds: 1.,
+            pause: 0.,
+            position: [0., 0.],
+        }
+    }
+}
+impl SliderOptions {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.step.is_finite()
+            && self.step > 0.
+            && self.seconds.is_finite()
+            && self.seconds > 0.
+            && self.pause.is_finite()
+            && self.pause >= 0.
+            && self.position.iter().all(|x| x.is_finite())
+        {
+            Ok(())
+        } else {
+            Err("Invalid slider step, timing or position".into())
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Object {
@@ -31,6 +85,8 @@ pub struct Object {
     pub traced: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub trace_connected: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slider: Option<SliderOptions>,
     #[serde(skip_serializing_if = "VecDeque::is_empty")]
     pub trace_samples: VecDeque<Point2>,
 }
@@ -42,6 +98,7 @@ impl Default for Object {
             visible: true,
             label: true,
             color: 0x000000,
+            slider: None,
             traced: false,
             trace_connected: false,
             trace_samples: VecDeque::new(),
@@ -76,6 +133,12 @@ pub struct Book {
     /// Snapshots of the curves that produced the current constrained points.
     #[serde(skip)]
     pub current_point_curves: BTreeMap<String, Shape>,
+    /// Keep curve parameters alongside the evaluated PPL values until the next redraw.
+    #[serde(skip)]
+    pub current_curves: BTreeMap<String, Shape>,
+    /// Last evaluated positions of armed points; restart establishes a fresh baseline.
+    #[serde(skip)]
+    pub(crate) last_trace_positions: BTreeMap<String, Point2>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CachedObject {
@@ -91,7 +154,27 @@ pub enum Extent {
     Line,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Parameter {
+    pub limits: [f64; 2],
+    pub value: f64,
+    pub symbolic: Option<String>,
+    pub bounds_source: [String; 2],
+}
+impl Parameter {
+    pub fn updated(&self, value: f64) -> String {
+        format!(
+            "element({},{},{})",
+            self.bounds_source[0],
+            self.bounds_source[1],
+            canonical(value)
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Shape {
+    Parameter(Parameter),
+    EmptyConic(String),
     Undefined,
     Point(Point2),
     Number {
@@ -104,13 +187,19 @@ pub enum Shape {
         extent: Extent,
     },
     Lines(Vec<[Point2; 2]>),
+    Objects(Vec<Shape>),
     Circle {
         center: Point2,
         radius: f64,
     },
     Arc(CircularArc),
     Ellipse(Ellipse),
+    Hyperbola(Hyperbola),
+    Parabola(Parabola),
+    Parametric(Parametric),
+    Sequence(SequencePlot),
     Polygon(Vec<Point2>),
+    Polyline(Vec<Point2>),
     Points(Vec<Point2>),
     Function {
         expression: String,
@@ -218,6 +307,9 @@ impl Book {
                 return Err("Geometry object needs a unique letter-led name".into());
             }
             source(&o.source)?;
+            if let Some(s) = o.slider {
+                s.validate()?;
+            }
             if o.trace_samples.len() > TRACE_SAMPLE_LIMIT {
                 return Err("Geometry trace exceeds the sample limit".into());
             }
@@ -1401,6 +1493,127 @@ mod tests {
     }
 
     #[test]
+    fn implicit_plot_solves_named_coordinate_equations_and_keeps_discontinuities() {
+        let mut snapshot = SessionContext::default().snapshot();
+        for key in ["u", "v"] {
+            snapshot
+                .globals
+                .insert(key.into(), access::scalar(100.).unwrap());
+        }
+        let defs = book(&[
+            ("A", "plotimplicit(u*v,[u=-3..3,v=-3..3])"),
+            ("B", "plotimplicit(u-1,[u=-3..3,v=-3..3])"),
+            ("C", "plotimplicit(v-2*u-4,[u=-3..3,v=-3..3])"),
+            ("D", "plotimplicit((u-1)*(v-2),[u=-3..3,v=-3..3])"),
+            ("E", "plotimplicit(u*v-1,[u=-3..3,v=-3..3])"),
+            ("F", "plotimplicit((v-1)*(v+1),[u=-3..3,v=-3..3])"),
+            ("G", "plotimplicit(0,[u=-3..3,v=-3..3])"),
+            ("H", "plotimplicit(1,[u=-3..3,v=-3..3])"),
+            ("J", "plotimplicit(u^4+v^4-1,[u=-2..2,v=-2..2])"),
+        ]);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let scene = defs.calculate(&snapshot, cancel.clone()).unwrap();
+        for (name, from, to) in [
+            ("A", [-3., 0.], [3., 0.]),
+            ("B", [1., -3.], [1., 3.]),
+            ("C", [-3., -2.], [3., 10.]),
+        ] {
+            let Shape::Line {
+                a,
+                b,
+                extent: Extent::Segment,
+            } = shape(&scene, name)
+            else {
+                panic!("Expected segment {name}")
+            };
+            assert_eq!([a.x, a.y], from);
+            assert_eq!([b.x, b.y], to);
+        }
+        let Shape::Parametric(curve) = shape(&scene, "D") else {
+            panic!("Expected rational curve")
+        };
+        assert!(curve.at(1., &snapshot, cancel.clone()).is_err());
+        assert_eq!(
+            curve.at(2., &snapshot, cancel.clone()).unwrap(),
+            Point2 { x: 2., y: 2. }
+        );
+        let Shape::Objects(branches) = shape(&scene, "E") else {
+            panic!("Expected two branches")
+        };
+        assert_eq!(branches.len(), 2);
+        for (branch, range) in branches.iter().zip([[-3., 0.], [0., 3.]]) {
+            let Shape::Parametric(curve) = branch else {
+                panic!("Expected branch")
+            };
+            assert_eq!(curve.bounds(), range);
+        }
+        assert!(matches!(shape(&scene,"F"),Shape::Lines(lines) if lines.len()==2));
+        for name in ["G", "H"] {
+            assert_eq!(shape(&scene, name), Shape::Objects(vec![]));
+        }
+        let Shape::Objects(paths) = shape(&scene, "J") else {
+            panic!("Expected contour")
+        };
+        assert_eq!(paths.len(), 1);
+        let Shape::Polyline(loop_points) = &paths[0] else {
+            panic!("Expected closed contour")
+        };
+        assert!(loop_points.len() > 40);
+        assert_eq!(loop_points.first(), loop_points.last());
+    }
+
+    #[test]
+    fn interval_parameters_preserve_symbolic_types_and_update_dependent_coordinates() {
+        let definitions = book(&[
+            ("A", "element(0..5)"),
+            ("B", "element(0..5,4)"),
+            ("C", "element(0..5,4,0.5)"),
+            ("D", "element(0, 2*GC, 0.8)"),
+            ("E", "point(GC,GD)"),
+        ]);
+        let calculated = scene(&definitions);
+        for (name, expected) in [("A", "parameter(0 .. 5)"), ("B", "parameter(0,5,4)")] {
+            assert_eq!(
+                access::shape_value(&shape(&calculated, name)).unwrap(),
+                access::symbolic(expected)
+            );
+        }
+        assert_eq!(
+            access::shape_value(&shape(&calculated, "C")).unwrap(),
+            access::scalar(0.5).unwrap()
+        );
+        let Shape::Parameter(p) = shape(&calculated, "D") else {
+            panic!("expected a slider")
+        };
+        assert_eq!(p.updated(0.6), "element(0,2*GC,0.6)");
+        let (changed, evaluated) = definitions
+            .enter(
+                "D",
+                &p.updated(0.6),
+                &SessionContext::default().snapshot(),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(
+            shape(&evaluated, "E"),
+            Shape::Point(Point2 { x: 0.5, y: 0.6 })
+        );
+        let saved = serde_json::to_vec(&changed).unwrap();
+        let restored: Book = serde_json::from_slice(&saved).unwrap();
+        assert_eq!(scene(&restored), evaluated);
+        assert!(
+            restored
+                .enter(
+                    "D",
+                    "element(0,1,1/0)",
+                    &SessionContext::default().snapshot(),
+                    Arc::new(AtomicBool::new(false))
+                )
+                .is_err()
+        );
+    }
+
+    #[test]
     fn reflected_ellipses_preserve_their_source_secants_and_signed_area() {
         let setup = book(&[
             ("A", "line(point(0,-5),point(0,5))"),
@@ -1431,6 +1644,459 @@ mod tests {
             .map(|p| p.x)
             .fold(f64::INFINITY, f64::min);
         assert!(left < -5.6 && left > -5.61);
+    }
+
+    #[test]
+    fn geometry_plane_plots_match_virtual_g1_controls_and_solve_the_ode() {
+        let result = scene(&book(&[
+            ("A", "plotimplicit(x^2+y^2-4)"),
+            ("B", "plotimplicit(y-x^3,[x=-2..2,y=-2..2])"),
+            (
+                "C",
+                "plotfield(x+y,[x=-1..1,y=-1..1],xstep=1,ystep=1,normalize)",
+            ),
+            ("D", "plotfield(x+y,[x=-1..1,y=-1..1],xstep=1,ystep=1)"),
+            ("E", "plotode(x,[x=-2..2,y],[0,1])"),
+            ("F", "plotlist([[1,4],[2,8],[3,12]])"),
+            ("G", "plotlist([1,4,9])"),
+            ("H", "plotfield(1,[x=-1..1,y=-1..1],xstep=0,ystep=1)"),
+        ]));
+        assert!(matches!(
+            shape(&result, "A"),
+            Shape::Circle { radius: 2., .. }
+        ));
+        let Shape::Parametric(c) = shape(&result, "B") else {
+            panic!("expected cubic")
+        };
+        assert_eq!(c.bounds(), [-2., 2.]);
+        assert!(
+            c.paths
+                .iter()
+                .flatten()
+                .all(|p| (p.x.powi(3) - p.y).abs() < 1e-9)
+        );
+        for (name, x, y) in [("C", -1.11180339887, -0.77639320225), ("D", -1., -1.)] {
+            let Shape::Objects(field) = shape(&result, name) else {
+                panic!("field")
+            };
+            assert_eq!(field.len(), 9);
+            let Shape::Polyline(v) = &field[0] else {
+                panic!("field segment")
+            };
+            assert!(v[0].distance(Point2 { x, y }).unwrap() < 1e-9);
+            assert!(((v[1].y - v[0].y) / (v[1].x - v[0].x) + 2.).abs() < 1e-12);
+        }
+        let Shape::Polyline(ode) = shape(&result, "E") else {
+            panic!("solution curve")
+        };
+        assert_eq!((ode.first().unwrap().x, ode.last().unwrap().x), (-2., 2.));
+        assert!(
+            ode.iter()
+                .all(|p| (p.y - (1. + p.x * p.x / 2.)).abs() < 1e-9)
+        );
+        for (name, x, y) in [("F", 3., 12.), ("G", 2., 9.)] {
+            let Shape::Polyline(path) = shape(&result, name) else {
+                panic!("list plot")
+            };
+            assert_eq!(path.len(), 3);
+            assert_eq!(path[2], Point2 { x, y });
+        }
+        assert!(result.objects.last().unwrap().value.is_err());
+    }
+
+    #[test]
+    fn implicit_contours_join_and_recompute_on_geometry_dependency_changes() {
+        let mut b = book(&[
+            ("A", "point(1,0)"),
+            ("B", "plotimplicit(x^4+y^4-abscissa(GA),[x=-2..2,y=-2..2])"),
+        ]);
+        for (definition, target) in [("point(1,0)", 1.), ("point(3,0)", 3.)] {
+            b.objects[0].source = definition.into();
+            let r = scene(&b);
+            let Shape::Objects(parts) = shape(&r, "B") else {
+                panic!("expected contour list")
+            };
+            let [Shape::Polyline(path)] = parts.as_slice() else {
+                panic!(
+                    "expected one closed curve, endpoints {:?}",
+                    parts
+                        .iter()
+                        .filter_map(|s| if let Shape::Polyline(p) = s {
+                            Some((p.len(), p[0], p[p.len() - 1]))
+                        } else {
+                            None
+                        })
+                        .collect::<Vec<_>>()
+                )
+            };
+            assert!(path.len() > 100);
+            assert!(
+                path.first()
+                    .unwrap()
+                    .distance(*path.last().unwrap())
+                    .unwrap()
+                    < 1e-8
+            );
+            assert!(
+                path.iter()
+                    .all(|p| (p.x.powi(4) + p.y.powi(4) - target).abs() < 0.015)
+            );
+        }
+    }
+
+    #[test]
+    fn geometry_polar_lines_poles_inversion_and_curve_projections() {
+        let construction = book(&[
+            ("A", "point(1,1)"),
+            ("B", "point(3,3)"),
+            ("C", "circle(0,1)"),
+            ("D", "inversion(GA,4,GB)"),
+            ("E", "inversion(0,-2,point(0,2))"),
+            ("F", "inversion(GA,1,GA)"),
+            ("G", "reciprocation(GC,line(GA,point(2,0)))"),
+            ("H", "reciprocation(GC,point(1,2))"),
+            ("J", "slope(GH)"),
+            ("K", "reciprocation(GC,[GH,GG])"),
+            ("L", "projection(circle(0,2),point(3,4))"),
+            ("M", "projection(circle(0,2),point(0,0))"),
+            ("N", "projection(segment(0,1),point(3,4))"),
+            ("O", "projection(parabola(point(0,0),1),point(2,1))"),
+            ("P", "projection(circle(0,2,0,1),point(-3,0))"),
+        ]);
+        let result = scene(&construction);
+        for (name, x, y) in [
+            ("D", 2., 2.),
+            ("E", 0., -1.),
+            ("G", 0.5, 0.5),
+            ("L", 1.2, 1.6),
+            ("M", 2., 0.),
+            ("N", 3., 0.),
+            ("O", 2., 1.),
+            ("P", -2., 0.),
+        ] {
+            pt(&result, name, Point2 { x, y });
+        }
+        assert_eq!(shape(&result, "F"), Shape::Undefined);
+        assert_eq!(shape(&result, "J"), Shape::Number { re: -0.5, im: 0. });
+        let Shape::Objects(images) = shape(&result, "K") else {
+            panic!("expected pole and polar")
+        };
+        let Shape::Point(p) = images[0] else {
+            panic!("expected pole")
+        };
+        assert!(p.distance(Point2 { x: 1., y: 2. }).unwrap() < 1e-10);
+        assert!(matches!(images[1], Shape::Line { .. }));
+    }
+    #[test]
+    fn geometry_plot_parameters_and_loci_match_virtual_g1_controls() {
+        for (def, x, y, area) in [
+            ("plotparam(t+i*t^2,t=-2..2)", 1., 1., -16. / 3.),
+            (
+                "plotpolar(2,t,0,2*π)",
+                2. * 1_f64.cos(),
+                2. * 1_f64.sin(),
+                4. * std::f64::consts::PI,
+            ),
+            (
+                "plotparam(COS(t)+i*SIN(t),t=0..2*π,tstep=π/3)",
+                1_f64.cos(),
+                1_f64.sin(),
+                std::f64::consts::PI,
+            ),
+        ] {
+            let result = scene(&book(&[
+                ("A", def),
+                ("B", "element(GA,1)"),
+                ("C", "area(GA)"),
+            ]));
+            pt(&result, "B", Point2 { x, y });
+            let Shape::Number { re, .. } = shape(&result, "C") else {
+                panic!()
+            };
+            assert!((re - area).abs() < 1e-8, "{def}: {re}");
+        }
+        let result = scene(&book(&[
+            ("A", "circle(point(0,0),2)"),
+            ("B", "element(GA,0.5)"),
+            ("C", "translation(1+2*i,GB)"),
+            ("D", "locus(GC,GB)"),
+            ("E", "point(abscissa(GB),ordinate(GB)^2)"),
+            ("F", "locus(GE,GB)"),
+            ("G", "element(GF,1)"),
+            ("H", "segment(point(0,0),point(4,0))"),
+            ("J", "element(GH,0.5)"),
+            ("K", "midpoint(GJ,point(0,4))"),
+            ("L", "locus(GK,GJ)"),
+            ("M", "element(GL,1)"),
+        ]));
+        assert_eq!(
+            shape(&result, "D"),
+            Shape::Circle {
+                center: Point2 { x: 1., y: 2. },
+                radius: 2.
+            }
+        );
+        pt(&result, "G", Point2 { x: 0., y: 4. });
+        pt(&result, "M", Point2 { x: 32., y: 2. });
+    }
+    #[test]
+    fn geometry_sequence_plot_contains_the_original_cobweb_and_terminal_segment() {
+        let result = scene(&book(&[
+            ("A", "plotseq(1-x/2,x={3,-1,6},5)"),
+            ("B", "element(GA,1)"),
+            ("C", "plotseq(x^2/3,x={1,-2,3},3)"),
+            ("D", "plotseq(1-x/2,x={3,-1,6},-1)"),
+        ]));
+        pt(&result, "B", Point2 { x: 6., y: -2. });
+        let Shape::Sequence(s) = shape(&result, "A") else {
+            panic!()
+        };
+        assert!(matches!(s.value().unwrap(),PortableValue::List(v) if v.len()==4));
+        assert_eq!(s.paths[1].len(), 11);
+        assert_eq!(
+            s.paths[2],
+            [
+                Point2 {
+                    x: 0.59375,
+                    y: 0.59375
+                },
+                Point2 { x: 0.59375, y: -1. }
+            ]
+        );
+        let Shape::Sequence(s) = shape(&result, "C") else {
+            panic!()
+        };
+        assert!(matches!(*s.function, Shape::Parametric(_)));
+        let Shape::Sequence(s) = shape(&result, "D") else {
+            panic!()
+        };
+        assert_eq!(s.paths[1].len(), 3);
+    }
+    #[test]
+    fn quadratic_constructions_follow_original_geometry_parameters_and_signed_areas() {
+        let cases = [
+            ("x^2+y^2-81", 254.469004941, None),
+            ("x^2+4*y^2-4", std::f64::consts::TAU, Some((0., 1.))),
+            (
+                "2*x^2+2*x*y+2*y^2-6",
+                10.8827961854,
+                Some((-3_f64.sqrt(), 3_f64.sqrt())),
+            ),
+            ("x^2-4*y", -2304., Some((1., 0.25))),
+            ("x^2+4*y", 2304., Some((1., -0.25))),
+            ("y^2-4*x", -4608., Some((0.25, 1.))),
+            ("(x-2)^2-4*(y-3)", -2496., Some((1., 3.25))),
+            ("x^2-y^2-1", -32.4501189211, Some((1., 0.))),
+            ("x^2+y^2+1", 0., None),
+            ("x^2+y^2", 0., Some((0., 0.))),
+        ];
+        for (expression, area, element) in cases {
+            let result = scene(&book(&[
+                ("A", &format!("conic({expression})")),
+                ("B", "area(GA)"),
+                ("C", "element(GA,1)"),
+            ]));
+            let Shape::Number { re, .. } = shape(&result, "B") else {
+                panic!("{expression}");
+            };
+            assert!((re - area).abs() < 1e-8, "{expression}: {re}");
+            if let Some((x, y)) = element {
+                pt(&result, "C", Point2 { x, y });
+            }
+        }
+        let result = scene(&book(&[
+            ("A", "conic(x^2-1)"),
+            ("B", "conic(x^2-y^2)"),
+            ("C", "conic(x^3-1)"),
+            ("D", "conic(SIN(x)+y)"),
+        ]));
+        for name in ["A", "B"] {
+            assert!(matches!(shape(&result,name),Shape::Lines(v) if v.len()==2));
+        }
+        assert!(result.objects[2..].iter().all(|o| o.value.is_err()));
+    }
+    #[test]
+    fn original_ellipse_and_arc_tangents_use_curve_parameters() {
+        let construction = book(&[
+            ("A", "ellipse(point(-2,0),point(2,0),3)"),
+            ("B", "circle(point(0,0),2,0,2)"),
+            ("C", "slope(tangent(GA,1))"),
+            ("D", "slope(tangent(GB,1))"),
+            ("E", "element(GA,1)"),
+            ("F", "slope(tangent(GE))"),
+        ]);
+        let scene = scene(&construction);
+        for (name, expected) in [("C", 2. / 9.), ("D", -1. / 1_f64.tan()), ("F", 2. / 9.)] {
+            let Shape::Number { re, .. } = shape(&scene, name) else {
+                panic!("{name}")
+            };
+            assert!((re - expected).abs() < 1e-10, "{name}: {re}");
+        }
+    }
+
+    #[test]
+    fn similarities_transform_whole_objects_and_reject_a_point_as_displacement() {
+        let construction = book(&[
+            ("A", "square(point(0,0),point(2,0))"),
+            ("B", "translation(1+2*i,GA)"),
+            ("C", "similarity(0,2,0,GA)"),
+            ("D", "reflection(line(point(0,0),point(1,0)),GA)"),
+            ("E", "translation(point(1,2),GA)"),
+            ("F", "rotation(point(0,0),0,segment(point(1,2),point(3,4)))"),
+            ("G", "homothety(point(1,1),2,circle(point(1,1),2))"),
+        ]);
+        let scene = scene(&construction);
+        for (name, last) in [("B", (1., 4.)), ("C", (0., 4.)), ("D", (0., -2.))] {
+            let Shape::Polygon(vertices) = shape(&scene, name) else {
+                panic!("{name}")
+            };
+            assert_eq!(
+                vertices[3],
+                Point2 {
+                    x: last.0,
+                    y: last.1
+                }
+            );
+        }
+        assert!(scene.objects[4].value.is_err());
+        assert!(matches!(
+            shape(&scene, "F"),
+            Shape::Line {
+                extent: Extent::Segment,
+                ..
+            }
+        ));
+        assert_eq!(
+            shape(&scene, "G"),
+            Shape::Circle {
+                center: Point2 { x: 1., y: 1. },
+                radius: 4.
+            }
+        );
+    }
+
+    #[test]
+    fn constructed_polygons_use_ordered_vertices_and_follow_their_parents() {
+        let mut construction = book(&[
+            ("A", "point(0,0)"),
+            ("B", "point(2,0)"),
+            ("C", "point(3,4)"),
+            ("D", "square(GA,GB)"),
+            ("E", "equilateral_triangle(GA,GB)"),
+            ("F", "parallelogram(GA,GB,GC)"),
+            ("G", "rectangle(GA,GB,GC)"),
+            ("H", "rectangle(GA,GB,2)"),
+            ("I", "right_triangle(GA,GB,2)"),
+            ("J", "quadrilateral(GA,GB,GC,point(0,4))"),
+            ("K", "isopolygon(GA,GB,6)"),
+            ("L", "isopolygon(GA,GB,2)"),
+            ("M", "isopolygon(GA,GB,2.5)"),
+            ("N", "isosceles_triangle(GA,GB,angle(GA,GB,point(0,1)))"),
+            ("O", "rhombus(GA,GB,angle(GA,GB,point(0,1)))"),
+        ]);
+        let initial = scene(&construction);
+        for (name, count, area) in [
+            ("D", 4, 4.),
+            ("E", 3, 3_f64.sqrt()),
+            ("F", 4, 8.),
+            ("G", 4, 8.),
+            ("H", 4, 8.),
+            ("I", 3, 4.),
+            ("J", 4, 10.),
+            ("K", 6, 6. * 3_f64.sqrt()),
+            ("N", 3, 2.),
+            ("O", 4, 4.),
+        ] {
+            let Shape::Polygon(vertices) = shape(&initial, name) else {
+                panic!("{name}")
+            };
+            assert_eq!(vertices.len(), count);
+            assert!(
+                (crate::ide::native_app_models::Geometry::polygon_area(&vertices).unwrap() - area)
+                    .abs()
+                    < 1e-10,
+                "{name}"
+            );
+        }
+        assert!(matches!(
+            shape(&initial, "L"),
+            Shape::Line {
+                extent: Extent::Segment,
+                ..
+            }
+        ));
+        assert!(initial.objects[12].value.is_err());
+        construction
+            .move_point("B", Point2 { x: 0., y: -2. }, Some(&initial))
+            .unwrap();
+        let Shape::Polygon(square) = shape(&scene(&construction), "D") else {
+            panic!()
+        };
+        assert_eq!(
+            square,
+            vec![
+                Point2 { x: 0., y: 0. },
+                Point2 { x: 0., y: -2. },
+                Point2 { x: 2., y: -2. },
+                Point2 { x: 2., y: 0. }
+            ]
+        );
+    }
+
+    #[test]
+    fn original_function_tangent_forms_use_the_evaluated_slope() {
+        let construction = book(&[
+            ("A", "plotfunc(x^2)"),
+            ("B", "element(GA,2)"),
+            ("C", "tangent(GB)"),
+            ("D", "tangent(GA,GB)"),
+            ("E", "tangent(GA,2)"),
+        ]);
+        let scene = scene(&construction);
+        for object in &scene.objects[2..] {
+            let Ok(Shape::Line {
+                a,
+                b,
+                extent: Extent::Line,
+            }) = object.value
+            else {
+                panic!("{object:?}");
+            };
+            assert_eq!(a, Point2 { x: 2., y: 4. });
+            assert_eq!((b.y - a.y) / (b.x - a.x), 4.);
+        }
+    }
+
+    #[test]
+    fn trace_records_evaluated_dependent_points_only_when_they_move() {
+        let mut construction = book(&[
+            ("A", "point(1,2)"),
+            ("B", "point(abscissa(GA)+3,ordinate(GA))"),
+            ("C", "point(8,9)"),
+        ]);
+        construction.objects[1].traced = true;
+        construction.objects[2].traced = true;
+        let initial = scene(&construction);
+        construction.cache_scene(&initial).unwrap();
+        assert!(!construction.can_move_point("B"));
+        construction
+            .move_point("A", Point2 { x: 2., y: 3. }, Some(&initial))
+            .unwrap();
+        let moved = scene(&construction);
+        construction.cache_scene(&moved).unwrap();
+        construction.cache_scene(&moved).unwrap();
+        assert_eq!(
+            construction.objects[1].trace_samples,
+            [Point2 { x: 4., y: 2. }, Point2 { x: 5., y: 3. }]
+        );
+        assert!(construction.objects[2].trace_samples.is_empty());
+        let restored: Book =
+            serde_json::from_value(serde_json::to_value(&construction).unwrap()).unwrap();
+        assert_eq!(
+            restored.objects[1].trace_samples,
+            construction.objects[1].trace_samples
+        );
+        assert!(restored.last_trace_positions.is_empty());
     }
 
     #[test]
@@ -2270,6 +2936,108 @@ mod tests {
         let saved = serde_json::to_string(&b).unwrap();
         let restored: Book = serde_json::from_str(&saved).unwrap();
         pt(&scene(&restored), "C", Point2 { x: 4., y: 4. });
+    }
+    #[test]
+    fn hyperbola_retains_its_secant_witness_and_exposes_two_branches() {
+        let b = book(&[
+            ("A", "point(-2,0)"),
+            ("B", "point(2,0)"),
+            ("C", "point(1,0)"),
+            ("D", "hyperbola(GA,GB,GC)"),
+            ("E", "element(GD,1)"),
+            ("F", "element(GD,2)"),
+            ("G", "area(hyperbola(GA,GB,GC))"),
+            ("H", "perimeter(GD)"),
+            ("K", "area(GD)"),
+            ("L", "slope(tangent(GE))"),
+            ("I", "element(hyperbola(GA,GB,-1),1)"),
+            ("J", "element(hyperbola(GA,GB,point(2,3)),1)"),
+        ]);
+        let s = scene(&b);
+        for (name, p) in [
+            ("E", Point2 { x: -2., y: -3. }),
+            ("F", Point2 { x: 7., y: 12. }),
+            ("I", Point2 { x: 2., y: 3. }),
+            ("J", Point2 { x: -1., y: 0. }),
+        ] {
+            pt(&s, name, p);
+        }
+        let Shape::Number { re, .. } = shape(&s, "G") else {
+            panic!("missing area")
+        };
+        assert!((re + 338.985132275).abs() < 1e-9);
+        assert!(matches!(shape(&s, "H"), Shape::Undefined));
+        for (name, expected) in [("K", 0.), ("L", 2.)] {
+            let Shape::Number { re, .. } = shape(&s, name) else {
+                panic!("missing scalar")
+            };
+            assert!((re - expected).abs() < 1e-10);
+        }
+        let v = access::shape_value(&shape(&s, "D")).unwrap();
+        assert!(matches!(v,ppl_vm::PortableValue::List(items) if items.len()==2));
+    }
+    #[test]
+    fn focal_parabola_matches_parameters_measurements_and_intersections() {
+        let b = book(&[
+            ("A", "point(0,1)"),
+            ("B", "point(-1,-1)"),
+            ("C", "point(1,-1)"),
+            ("D", "line(GB,GC)"),
+            ("E", "parabola(GA,GD)"),
+            ("F", "element(GE,2)"),
+            ("G", "slope(tangent(GE,GF))"),
+            ("H", "area(GE)"),
+            ("I", "perimeter(GE)"),
+            ("J", "element(parabola(point(2,3),-2),2)"),
+        ]);
+        let s = scene(&b);
+        pt(&s, "F", Point2 { x: 2., y: 1. });
+        pt(&s, "J", Point2 { x: 4., y: 2.5 });
+        for (name, value) in [("G", 1.), ("H", -288.), ("I", 77.9767100689)] {
+            let Shape::Number { re, .. } = shape(&s, name) else {
+                panic!("missing measurement")
+            };
+            assert!((re - value).abs() < 1e-9);
+        }
+        let Shape::Parabola(curve) = shape(&s, "E") else {
+            panic!("missing curve")
+        };
+        let mut hits = curve
+            .crossings(Point2 { x: 0., y: 1. }, Point2 { x: 1., y: 1. })
+            .unwrap();
+        hits.sort_by(|a, b| a.x.total_cmp(&b.x));
+        assert_eq!(hits, [Point2 { x: -2., y: 1. }, Point2 { x: 2., y: 1. }]);
+        assert!(Parabola::vertical(Point2 { x: 0., y: 0. }, 0.).is_err());
+    }
+    #[test]
+    fn triangle_excircles_use_the_first_vertex_to_choose_the_opposite_side() {
+        let b = book(&[
+            ("A", "point(0,0)"),
+            ("B", "point(4,0)"),
+            ("C", "point(0,3)"),
+            ("D", "excircle(GA,GB,GC)"),
+            ("E", "excircle(GB,GC,GA)"),
+            ("F", "excircle(GA,GB,GA)"),
+        ]);
+        let s = scene(&b);
+        for (name, expected, r) in [
+            ("D", Point2 { x: 6., y: 6. }, 6.),
+            ("E", Point2 { x: -2., y: 2. }, 2.),
+        ] {
+            let Shape::Circle { center, radius } = shape(&s, name) else {
+                panic!("missing excircle")
+            };
+            assert!(center.distance(expected).unwrap() < 1e-10);
+            assert!((radius - r).abs() < 1e-10);
+        }
+        assert!(
+            s.objects
+                .iter()
+                .find(|o| o.name == "F")
+                .unwrap()
+                .value
+                .is_err()
+        );
     }
     #[test]
     fn circles_polygons_and_intersections_have_real_geometry() {

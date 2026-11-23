@@ -255,6 +255,10 @@ pub enum MathTarget {
     },
     GeometryPlotField(String),
     GeometryTransformParameter(geometry::TransformParameter),
+    Slopefield {
+        index: usize,
+        clear: bool,
+    },
     GeometryObject {
         name: String,
         preset: Option<String>,
@@ -738,6 +742,9 @@ impl NativeTools {
         if page == Page::PlotSetup && self.page != Some(Page::PlotSetup) {
             self.statistics_reset_plot_setup();
         }
+        if page != Page::Plot {
+            self.close_geometry_wizard();
+        }
         if page == Page::NumericSetup {
             self.graph3d_panel.reset_numeric_draft();
         }
@@ -787,6 +794,7 @@ impl NativeTools {
     }
     pub fn close(&mut self) {
         self.help_panel.close_demo_menu();
+        self.close_geometry_wizard();
         self.statistics_reset_popups();
         self.function_numeric_close();
         self.page = None;

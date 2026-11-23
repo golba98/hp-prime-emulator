@@ -176,6 +176,35 @@ impl IdeDesktopApp {
         if app == crate::ide::native_graph3d::NAME {
             return serde_json::json!(self.native_tools.memory.graph3d.definitions);
         }
+        let geometry = || {
+            self.native_tools
+                .memory
+                .models
+                .geometry_book
+                .as_ref()
+                .map(|book| book.access_fingerprint())
+        };
+        if app == "Geometry" {
+            return serde_json::json!(geometry());
+        }
+        if app == "Statistics 1Var" {
+            // The VM owns D1–D9 and D0. Importing their current values into the
+            // grid can run between worker dispatch and the UI commit.
+            let models = &self.native_tools.memory.models;
+            let default;
+            let book = if let Some(book) = &models.statistics1_book {
+                book
+            } else {
+                default = Default::default();
+                &default
+            };
+            return serde_json::json!((
+                &book.analyses,
+                &book.result_values,
+                &book.result_analysis,
+                geometry()
+            ));
+        }
         if app == "Statistics 2Var" {
             return serde_json::json!(
                 self.native_tools
@@ -249,8 +278,12 @@ impl IdeDesktopApp {
                             self.native_tools.memory.models.geometry_book = Some(book);
                             self.native_tools.geometry_changed();
                         }
-                        if let Some(book) = result.statistics1 {
-                            self.native_tools.memory.models.statistics1_book = Some(book);
+                        if let Some(mut book) = result.statistics1 {
+                            let destination = &mut self.native_tools.memory.models.statistics1_book;
+                            if let Some(current) = destination {
+                                std::mem::swap(&mut current.columns, &mut book.columns);
+                            }
+                            *destination = Some(book);
                             self.native_tools
                                 .memory
                                 .models
@@ -1566,6 +1599,42 @@ mod tests {
         assert_eq!(book.analyses[0].data_source.as_deref(), Some("D1+1"));
         home(&mut app, &ctx, "Do1VStats(H1)");
         assert_eq!(home(&mut app, &ctx, "MeanX").display(&settings), "4");
+    }
+
+    #[test]
+    fn refreshing_the_statistics_grid_during_a_definition_write_preserves_both() {
+        let (mut app, ctx) = fixture();
+        app.handle_native_tool_request(Request::SelectApp("Statistics 1Var".into()), &ctx);
+        let history_len = app.state.native.history.len();
+        start(&mut app, &ctx, "SetSample(H1,D1+1)");
+        wait(&mut app, &ctx, |a| a.app_variable_task.is_some());
+        let book = app
+            .native_tools
+            .memory
+            .models
+            .statistics1_book
+            .get_or_insert_with(Default::default);
+        book.columns.0[0] = vec![7.];
+        wait(&mut app, &ctx, |a| {
+            a.state.native.history.len() > history_len
+                && !a.controller.worker_alive()
+                && a.app_variable_task.is_none()
+        });
+        assert!(!app.state.native.history.back().unwrap().error);
+        let book = app
+            .native_tools
+            .memory
+            .models
+            .statistics1_book
+            .as_ref()
+            .unwrap();
+        assert_eq!(book.columns.0[0], vec![7.]);
+        assert!(
+            book.analyses[0]
+                .data_source
+                .as_ref()
+                .is_some_and(|s| s.contains("D1"))
+        );
     }
 
     #[test]

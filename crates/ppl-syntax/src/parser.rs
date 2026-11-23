@@ -1335,7 +1335,7 @@ impl Parser {
                 ExprKind::Error
             }
             Tok::Quoted(text) => {
-                let (inner, d) = parse_expression(&text);
+                let (inner, d) = parse_expression_with(&text, crate::lexer::lex_quoted);
                 for mut x in d.items {
                     // Re-anchor at the quote: inner spans are relative.
                     x.span = span;
@@ -1428,8 +1428,14 @@ fn close_symbol(t: &Tok) -> &'static str {
 
 /// Parses a standalone expression (quoted expressions, `EXPR` strings).
 pub fn parse_expression(src: &str) -> (Expr, Diagnostics) {
+    parse_expression_with(src, lex)
+}
+fn parse_expression_with(
+    src: &str,
+    tokenize: fn(&str, &mut Diagnostics) -> Vec<Token>,
+) -> (Expr, Diagnostics) {
     let mut diags = Diagnostics::default();
-    let toks = lex(src, &mut diags);
+    let toks = tokenize(src, &mut diags);
     let mut p = Parser {
         toks,
         pos: 0,

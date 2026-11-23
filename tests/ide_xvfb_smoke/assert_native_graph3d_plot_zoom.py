@@ -68,8 +68,7 @@ def main(root):
         view = graph(label)
         rgb = view.tobytes()
         mask = Image.frombytes(
-            "L", view.size, bytes(255 if r == 0 and b >= 100 and g in (0, b) else 0
-                                  for r, g, b in zip(rgb[::3], rgb[1::3], rgb[2::3]))
+            "L", view.size, bytes(255 if color == (0, 0, 247) else 0 for color in zip(rgb[::3], rgb[1::3], rgb[2::3]))
         )
         bounds = mask.getbbox()
         assert bounds is not None

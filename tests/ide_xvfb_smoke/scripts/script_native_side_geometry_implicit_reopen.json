@@ -1,0 +1,21 @@
+{"dump": "/tmp/ppl-ide-e2e/native_side_geometry_implicit_reopen.json", "steps": [
+  {"step": "backend", "engine": "native"},
+  {"step": "layout", "mode": "calculator"},
+  {"step": "calculator_mode", "mode": "screen"},
+  {"step": "native_home"},
+  {"step": "calc_focus"},
+  {"step": "wait_ms", "ms": 140},
+  {"step": "wait_idle", "timeout_ms": 15000},
+  {"step": "wait_ms", "ms": 140},
+  {"step": "native_home"},
+  {"step": "calc_focus"},
+  {"step": "key", "key": "A", "command": true},
+  {"step": "type", "text": "PLNREAD()"},
+  {"step": "key", "key": "Enter"},
+  {"step": "wait_ms", "ms": 140},
+  {"step": "wait_idle", "timeout_ms": 15000},
+  {"step": "wait_ms", "ms": 140},
+  {"step": "wait_model_result", "model": "Geometry:plot", "timeout_ms": 15000},
+  {"step": "snapshot", "label": "ppl"},
+  {"step": "exit"}
+]}

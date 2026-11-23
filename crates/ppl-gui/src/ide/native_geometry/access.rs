@@ -31,7 +31,12 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         ))
     }
     Ok(match shape {
+        Shape::Parameter(p) => match &p.symbolic {
+            Some(s) => symbolic(s.clone()),
+            None => scalar(p.value)?,
+        },
         Shape::Undefined => undefined(),
+        Shape::EmptyConic(s) => symbolic(s.clone()),
         Shape::Number { re, im } if *im == 0. => scalar(*re)?,
         Shape::Number { re, im } => PortableValue::Complex(ppl_math::Complex::new(
             ppl_math::Real::from_f64(*re).map_err(|e| e.to_string())?,
@@ -39,6 +44,9 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         )),
         Shape::Point(p) => symbolic(point_source(*p)),
         Shape::Line { a, b, extent } => line_source(*a, *b, *extent),
+        Shape::Objects(objects) => {
+            PortableValue::List(objects.iter().map(shape_value).collect::<Result<_, _>>()?)
+        }
         Shape::Lines(lines) => PortableValue::List(
             lines
                 .iter()
@@ -57,7 +65,20 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
             canonical(arc.start),
             canonical(arc.end)
         )),
+        Shape::Hyperbola(curve) => PortableValue::List(
+            [1., -1.]
+                .map(|sign| symbolic(curve.branch_source(sign)))
+                .to_vec(),
+        ),
+        Shape::Parabola(curve) if curve.from_equation => symbolic(curve.equation_source()),
+        Shape::Parabola(curve) => {
+            let [f, a, b] = curve.definition().map(point_source);
+            symbolic(format!("parabola({f},line({a},{b}))"))
+        }
         Shape::Ellipse(ellipse) => {
+            if let Some(phase) = ellipse.equation_phase {
+                return Ok(symbolic(ellipse.equation_source(phase)));
+            }
             let [a, b] = ellipse.foci;
             let size = match ellipse.size {
                 super::ellipse::Size::Witness(p) => point_source(p),
@@ -69,6 +90,15 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
                 point_source(b)
             ))
         }
+        Shape::Polyline(points) => symbolic(format!(
+            "polygon({})",
+            points
+                .iter()
+                .copied()
+                .map(point_source)
+                .collect::<Vec<_>>()
+                .join(",")
+        )),
         Shape::Polygon(points) => {
             let mut points = points.iter().copied().map(point_source).collect::<Vec<_>>();
             if let Some(first) = points.first().cloned() {
@@ -79,6 +109,8 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         Shape::Points(points) => {
             PortableValue::List(points.iter().map(|p| symbolic(point_source(*p))).collect())
         }
+        Shape::Sequence(curve) => curve.value()?,
+        Shape::Parametric(curve) => symbolic(curve.source()),
         Shape::Function { expression, .. } => symbolic(format!("plotfunc({expression})")),
     })
 }
@@ -96,6 +128,7 @@ impl Book {
         serde_json::json!({
             "definitions": self,
             "point_curves": self.current_point_curves,
+            "curves": self.current_curves,
             "values": self.current_values.iter().map(|(name, value)|
                 (name.clone(), match value {
                     CachedObject::Portable(value) => ppl_vm::session::encode_value(value),
@@ -122,7 +155,57 @@ impl Book {
                 );
             }
         }
+        // Compare successive evaluated scenes. This includes constructed points that
+        // move because their inputs changed, without making their definitions draggable.
+        let positions: BTreeMap<_, _> = scene
+            .objects
+            .iter()
+            .filter_map(|object| {
+                if let Ok(Shape::Point(p)) = object.value {
+                    Some((object.name.as_str(), p))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let previous = std::mem::take(&mut self.last_trace_positions);
+        for object in self.objects.iter_mut().filter(|object| object.traced) {
+            if let Some(&position) = positions.get(object.name.as_str()) {
+                if let Some(&old) = previous.get(&object.name)
+                    && old != position
+                    && !object.trace_samples.back().is_some_and(|p| {
+                        canonical(p.x) == canonical(position.x)
+                            && canonical(p.y) == canonical(position.y)
+                    })
+                {
+                    push_trace(&mut object.trace_samples, old);
+                    push_trace(&mut object.trace_samples, position);
+                }
+                self.last_trace_positions
+                    .insert(object.name.clone(), position);
+            }
+        }
         self.current_values = values;
+        self.current_curves = scene
+            .objects
+            .iter()
+            .filter_map(|obj| match &obj.value {
+                Ok(
+                    shape @ (Shape::Parametric(_)
+                    | Shape::Sequence(_)
+                    | Shape::Arc(_)
+                    | Shape::Objects(_)
+                    | Shape::Polyline(_)
+                    | Shape::Hyperbola(_)
+                    | Shape::Parabola(_)
+                    | Shape::Ellipse(_)
+                    | Shape::Circle { radius: 0., .. }
+                    | Shape::Lines(_)
+                    | Shape::EmptyConic(_)),
+                ) => Some((obj.name.clone(), shape.clone())),
+                _ => None,
+            })
+            .collect();
         self.current_point_curves.clone_from(&scene.point_curves);
         Ok(())
     }

@@ -3,7 +3,7 @@
 use super::{inverse_trig, nth_root, trig};
 use crate::{ErrorKind, RuntimeError, Settings, Value, error::RtResult};
 use ppl_compiler::builtins::Builtin;
-use ppl_math::{NumericVersion, Real, RealOrigin};
+use ppl_math::Real;
 
 pub(super) fn call(
     builtin: Builtin,
@@ -45,7 +45,7 @@ pub(super) fn call(
     Ok(Value::Real(value))
 }
 
-fn invalid(name: &str, message: &str) -> RuntimeError {
+pub(super) fn invalid(name: &str, message: &str) -> RuntimeError {
     RuntimeError::new(ErrorKind::InvalidInput, format!("{name}: {message}"))
 }
 
@@ -147,129 +147,15 @@ fn polynomial_x(y: Real, coefficients: &[Real]) -> RtResult<Real> {
             {
                 return Ok(root);
             }
-            let polynomial = [
+            super::polynomial_roots::inverse(
+                &coefficients[..=degree],
+                y,
                 residual_at_zero,
-                coefficients[1],
-                coefficients[2],
-                coefficients[3],
-                coefficients.get(4).copied().unwrap_or(Real::ZERO),
-            ];
-            if let Some(root) = exact_first_secant(polynomial, residual_at_one) {
-                return Ok(root);
-            }
-            if let Some(root) = unique_initial_root(polynomial, residual_at_one)? {
-                return Ok(root);
-            }
-            Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                "PredX root selection for this polynomial is unavailable",
-            ))
+                residual_at_one,
+            )
         }
         _ => unreachable!("prediction models supply at most five coefficients"),
     }
-}
-
-fn exact_first_secant(polynomial: [Real; 5], residual_at_one: Real) -> Option<Real> {
-    let rational = |value: Real| matches!(value.origin(), RealOrigin::Rational { .. });
-    let mut coefficients = [Real::ZERO; 5];
-    for (input, coeff) in polynomial.into_iter().zip(&mut coefficients) {
-        *coeff = if rational(input) {
-            input
-        } else {
-            if matches!(input.origin(), RealOrigin::PiMultiple { .. }) {
-                return None;
-            }
-            Real::parse_versioned(&input.decimal().to_string(), NumericVersion::Current15751)
-                .filter(|value| rational(*value))?
-        };
-    }
-    let [constant, linear, tail @ ..] = coefficients;
-    let delta = tail.into_iter().try_fold(linear, |sum, term| {
-        sum.add(term).ok().filter(|value| rational(*value))
-    })?;
-    if constant.add(delta).ok()?.cmp_value(residual_at_one).is_ne() {
-        return None;
-    }
-    let root = constant
-        .neg()
-        .div(delta)
-        .ok()
-        .filter(|value| rational(*value))?;
-    let residual =
-        coefficients
-            .iter()
-            .rev()
-            .skip(1)
-            .try_fold(coefficients[4], |term, coefficient| {
-                let product = term.mul(root).ok().filter(|value| rational(*value))?;
-                product
-                    .add(*coefficient)
-                    .ok()
-                    .filter(|value| rational(*value))
-            })?;
-    residual.is_zero().then(|| root.decimal())
-}
-
-fn unique_initial_root(polynomial: [Real; 5], residual_at_one: Real) -> RtResult<Option<Real>> {
-    if polynomial[0].is_negative() == residual_at_one.is_negative() {
-        return Ok(None);
-    }
-    let Some([d, c, b, a, leading]) = normalized_polynomial(polynomial)? else {
-        return Ok(None);
-    };
-    let direction = -d.signum();
-    // Same-sign Bernstein coefficients certify the derivative on [0, 1].
-    // Degree elevation makes the same test valid for cubic residuals.
-    let derivative = [
-        c,
-        c + (2.0 / 3.0) * b,
-        c + (4.0 / 3.0) * b + a,
-        c + 2.0 * b + 3.0 * a + 4.0 * leading,
-    ];
-    let rounding =
-        8.0 * f64::EPSILON * (c.abs() + 2.0 * b.abs() + 3.0 * a.abs() + 4.0 * leading.abs());
-    let monotone = derivative
-        .into_iter()
-        .all(|value| direction * value > rounding);
-    // Opposite endpoint derivatives certify one stationary point for a cubic.
-    // Its two monotone pieces meet at an extremum, so only one can cross zero
-    // when the residual has opposite signs at the ends of the interval.
-    let [first, _, _, last] = derivative;
-    let single_turn = first.abs() > rounding
-        && last.abs() > rounding
-        && first.is_sign_negative() != last.is_sign_negative();
-    if !monotone && (leading != 0.0 || !(single_turn || cubic_has_one_real_root(a, b, c, d))) {
-        return Ok(None);
-    }
-    let residual = |x: f64| {
-        direction
-            * leading
-                .mul_add(x, a)
-                .mul_add(x, b)
-                .mul_add(x, c)
-                .mul_add(x, d)
-    };
-    if residual(1.0) <= 0.0 {
-        return Ok(None);
-    }
-    Ok(Some(Real::from_f64(bisect_increasing_root(
-        0.0, 1.0, residual,
-    ))?))
-}
-
-fn cubic_has_one_real_root(a: f64, b: f64, c: f64, d: f64) -> bool {
-    // A negative discriminant certifies one real root even when the
-    // derivative changes sign in the initial bracket. The coefficients
-    // have a common scale. Leave near-cancellation and underflow ambiguous.
-    let terms = [
-        b * b * c * c,
-        -4.0 * a * c * c * c,
-        -4.0 * b * b * b * d,
-        -27.0 * a * a * d * d,
-        18.0 * a * b * c * d,
-    ];
-    let rounding = 32.0 * f64::EPSILON * terms.iter().map(|term| term.abs()).sum::<f64>();
-    terms.into_iter().sum::<f64>() < -rounding.max(f64::MIN_POSITIVE)
 }
 
 fn normalized_polynomial<const N: usize>(coefficients: [Real; N]) -> RtResult<Option<[f64; N]>> {
@@ -368,7 +254,7 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         .map(Real::exp10)
         .max()
         .expect("a quadratic has a nonzero leading coefficient");
-    let [a, b, c] = [a, b, c].map(|coefficient| {
+    let scaled = [a, b, c].map(|coefficient| {
         let value = coefficient.scale10(-exponent)?.to_f64();
         if !coefficient.is_zero() && value == 0.0 {
             return Err(RuntimeError::new(
@@ -378,25 +264,26 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         }
         Ok(value)
     });
-    let (a, b, c) = (a?, b?, c?);
-    let cross = 4.0 * a * c;
-    let discriminant = b.mul_add(b, -cross);
-    let rounding = (b * b + cross.abs()) * f64::EPSILON;
+    let [sa, sb, sc] = scaled;
+    let (qa, qb, qc) = (sa?, sb?, sc?);
+    let cross = 4.0 * qa * qc;
+    let discriminant = qb.mul_add(qb, -cross);
+    let rounding = (qb * qb + cross.abs()) * f64::EPSILON;
     if discriminant <= rounding {
-        let root = (-0.5 * b) / a;
-        if discriminant.abs() <= rounding && (0.0..1.0).contains(&root) {
-            return Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                "PredX repeated root search inside the initial interval is unavailable",
-            ));
+        let root = (-0.5 * qb) / qa;
+        if discriminant.abs() <= rounding
+            && (0.0..1.0).contains(&root)
+            && let Some(vertex) = sampled_quadratic_vertex(a, b, c)?
+        {
+            return Ok(vertex);
         }
         return Err(RuntimeError::new(ErrorKind::Undefined, "Extremum found"));
     }
 
     // Compute the farther root without subtracting nearly equal terms and
     // derive the other from the product of the two roots.
-    let q = -0.5 * (b + discriminant.sqrt().copysign(b));
-    let (first, second) = (q / a, c / q);
+    let q = -0.5 * (qb + discriminant.sqrt().copysign(qb));
+    let (first, second) = (q / qa, qc / q);
     let (left, right) = (first.min(second), first.max(second));
     // The search starts at 0 and 1. The sum of the roots identifies the
     // closer endpoint when both roots are inside or straddle that interval.
@@ -407,4 +294,32 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
         (false, _) => left,
     };
     Ok(Real::from_f64(root)?)
+}
+
+// Sample on the original 0,1 secant, then interpolate the vertex using divided
+// differences at calculator precision. A flat residual alone is ambiguous at
+// a repeated zero. Require the same stationary point from the coefficients.
+fn sampled_quadratic_vertex(a: Real, b: Real, c: Real) -> RtResult<Option<Real>> {
+    let f = |x: Real| a.mul(x)?.add(b)?.mul(x)?.add(c);
+    let first_slope = a.add(b)?;
+    let half = Real::ONE.div(Real::from_i64(2))?;
+    let z = if first_slope.is_zero() {
+        half
+    } else {
+        c.neg().div(first_slope)?
+    };
+    if z == Real::ONE || z.is_zero() {
+        return Ok(None);
+    }
+    let exact = b.neg().div(a)?.mul(half)?;
+    if z == exact && f(z)?.is_zero() {
+        return Ok(Some(z));
+    }
+    let second_slope = f(z)?.sub(f(Real::ONE)?)?.div(z.sub(Real::ONE)?)?;
+    let curvature = second_slope.sub(first_slope)?.div(z)?;
+    if curvature.is_zero() {
+        return Ok(None);
+    }
+    let vertex = Real::ONE.sub(first_slope.div(curvature)?)?.mul(half)?;
+    Ok((vertex == exact && f(vertex)?.is_zero()).then_some(vertex))
 }

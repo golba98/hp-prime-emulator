@@ -439,7 +439,7 @@ pub(super) struct Evaluator {
     entry: String,
     sequence_append: Option<String>,
     sequence_reset: Option<String>,
-    implicit: bool,
+    coordinate_count: usize,
 }
 impl Evaluator {
     fn new(
@@ -466,11 +466,42 @@ impl Evaluator {
             None,
         )
     }
+    pub(super) fn geometry_plane(
+        expression: &str,
+        x: &str,
+        y: &str,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        if x == y || !valid_name(x) || !valid_name(y) {
+            return Err("Use distinct plane coordinate names".into());
+        }
+        Self::build(
+            GraphKind::Implicit,
+            expression,
+            snapshot,
+            cancel,
+            None,
+            None,
+            Some(&format!("{x},{y}")),
+        )
+    }
     pub(super) fn geometry_function(
         expression: &str,
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        Self::geometry_curve(expression, "x", snapshot, cancel)
+    }
+    pub(super) fn geometry_curve(
+        expression: &str,
+        variable: &str,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        if !valid_name(variable) {
+            return Err("Invalid curve variable".into());
+        }
         Self::build(
             GraphKind::Function,
             expression,
@@ -478,7 +509,7 @@ impl Evaluator {
             cancel,
             None,
             None,
-            Some("x"),
+            Some(variable),
         )
     }
     fn build(
@@ -638,7 +669,13 @@ impl Evaluator {
             entry,
             sequence_append,
             sequence_reset,
-            implicit,
+            coordinate_count: if !implicit {
+                1
+            } else if independent.is_some() {
+                2
+            } else {
+                4
+            },
         })
     }
     fn at_value(&mut self, x: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
@@ -646,7 +683,7 @@ impl Evaluator {
     }
     pub(super) fn at_xy_value(&mut self, x: f64, y: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
         let x = ppl_vm::Value::Real(ppl_math::Real::from_f64(x)?);
-        if self.implicit {
+        if self.coordinate_count > 1 {
             let y = ppl_vm::Value::Real(ppl_math::Real::from_f64(y)?);
             self.at_coordinates(x, y)
         } else {
@@ -659,8 +696,12 @@ impl Evaluator {
         x: ppl_vm::Value,
         y: ppl_vm::Value,
     ) -> ppl_vm::RtResult<ppl_vm::Value> {
-        self.machine
-            .call_function(&self.entry, vec![x.clone(), y.clone(), x, y])
+        let args = if self.coordinate_count == 2 {
+            vec![x, y]
+        } else {
+            vec![x.clone(), y.clone(), x, y]
+        };
+        self.machine.call_function(&self.entry, args)
     }
 
     pub(super) fn at(&mut self, x: f64) -> Result<Option<f64>, String> {
@@ -1321,6 +1362,13 @@ impl ImplicitRelation {
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
+        let (relation, source) = Self::parse(expression)?;
+        Ok(Self {
+            evaluator: Evaluator::implicit(&source, snapshot, cancel)?,
+            relation,
+        })
+    }
+    fn parse(expression: &str) -> Result<(Relation, String), String> {
         use ppl_syntax::ast::{BinOp as B, ExprKind as E};
         let (ast, diags) = ppl_syntax::parse_expression(expression);
         if diags.has_errors() {
@@ -1347,10 +1395,7 @@ impl ImplicitRelation {
             }
             _ => (Relation::Equal, expression.to_string()),
         };
-        Ok(Self {
-            evaluator: Evaluator::implicit(&source, snapshot, cancel)?,
-            relation,
-        })
+        Ok((relation, source))
     }
     fn value(&mut self, x: f64, y: f64) -> Result<Option<SurfaceValue>, String> {
         let result = self.evaluator.at_xy_value(x, y);
@@ -1518,6 +1563,23 @@ fn region_runs(
     }
     Ok(segments)
 }
+pub(super) fn geometry_contours(
+    expression: &str,
+    axes: [&str; 2],
+    window: &PlotWindow,
+    snapshot: &ppl_vm::SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<CurveSamples, String> {
+    let (relation, source) = ImplicitRelation::parse(expression)?;
+    let mut relation = ImplicitRelation {
+        relation,
+        evaluator: Evaluator::geometry_plane(&source, axes[0], axes[1], snapshot, cancel.clone())?,
+    };
+    if !matches!(relation.relation, Relation::Equal) {
+        return Err("Implicit plot needs an equation".into());
+    }
+    contours(&mut relation, window, 72, 72, &cancel)
+}
 fn contours(
     relation: &mut ImplicitRelation,
     window: &PlotWindow,
@@ -1551,9 +1613,13 @@ fn contours(
             let values = [a, b, c, d];
             let x = window.xmin + col as f64 * dx;
             let y = window.ymin + row as f64 * dy;
-            let points = [[x, y], [x + dx, y], [x + dx, y + dy], [x, y + dy]];
+            // Use the same grid coordinates and interpolation direction in
+            // adjoining cells so their contour endpoints coincide exactly.
+            let right = window.xmin + (col + 1) as f64 * dx;
+            let top = window.ymin + (row + 1) as f64 * dy;
+            let points = [[x, y], [right, y], [right, top], [x, top]];
             let mut crossings = Vec::new();
-            for (a, b) in [(0, 1), (1, 2), (2, 3), (3, 0)] {
+            for (a, b) in [(0, 1), (1, 2), (3, 2), (0, 3)] {
                 let (va, vb) = (values[a], values[b]);
                 if va.sign == 0 && vb.sign == 0 {
                     output.extend([Some(points[a]), Some(points[b]), None]);
@@ -1570,10 +1636,14 @@ fn contours(
                 } else {
                     (va.number / scale) / ((va.number / scale) - (vb.number / scale))
                 };
-                let point = [
-                    points[a][0] + (points[b][0] - points[a][0]) * t,
-                    points[a][1] + (points[b][1] - points[a][1]) * t,
-                ];
+                let point = if t == 1. {
+                    points[b]
+                } else {
+                    [
+                        points[a][0] + (points[b][0] - points[a][0]) * t,
+                        points[a][1] + (points[b][1] - points[a][1]) * t,
+                    ]
+                };
                 // A sign jump across a pole is not a zero contour. Check the
                 // interpolated crossing before joining the cell's segments.
                 if va.sign != 0 && vb.sign != 0 {
