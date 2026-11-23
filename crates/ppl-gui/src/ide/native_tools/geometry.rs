@@ -10,6 +10,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 const TRACE_MENU: usize = 8;
+const ARC_PICKER: usize = 9;
+const TANGENT_PICKER: usize = 10;
+
+fn is_object_picker(category: Option<usize>) -> bool {
+    matches!(category, Some(ARC_PICKER | TANGENT_PICKER))
+}
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Cursor {
@@ -32,21 +38,55 @@ pub(super) struct Panel {
     plot_minified: bool,
     texture: Option<egui::TextureHandle>,
     menu: Option<Menu>,
+    picker_candidates: Vec<String>,
+    tangent_curve: Option<String>,
     tool: Option<Command>,
     command_text: CommandText,
     args: Vec<String>,
+    polygon_last_pointer: Option<Point2>,
     selected: Option<String>,
     hover: Option<String>,
     pub(super) refresh: bool,
     busy: bool,
     drag: Option<String>,
     drag_trace: VecDeque<Point2>,
-    angle_turn: f64,
+    transform_parameter: Option<String>,
     pub(super) memory_revision: Option<u64>,
     pub(super) scene_generation: Option<u64>,
     pub(super) live_context: Option<(u64, ppl_vm::SessionSnapshot)>,
     settings: Option<ppl_vm::GeometryPlotSettings>,
     setup_index: usize,
+}
+impl Panel {
+    fn dismiss_object_picker(&mut self) {
+        if self
+            .menu
+            .is_some_and(|menu| is_object_picker(menu.category))
+        {
+            self.menu = None;
+        }
+        self.picker_candidates.clear();
+    }
+    fn clear_operands(&mut self) {
+        self.dismiss_object_picker();
+        self.args.clear();
+        self.tangent_curve = None;
+        self.polygon_last_pointer = None;
+        self.transform_parameter = None;
+    }
+}
+#[derive(Debug, Clone, Copy)]
+pub enum TransformParameter {
+    Angle,
+    ScaleFactor,
+}
+impl TransformParameter {
+    pub fn prompt(self) -> &'static str {
+        match self {
+            Self::Angle => "Enter the angle",
+            Self::ScaleFactor => "Enter a scale factor",
+        }
+    }
 }
 #[derive(Default)]
 struct CommandText {
@@ -77,22 +117,61 @@ struct Menu {
 enum Need {
     Point,
     PointOnCurve,
+    ReflectionAxis,
+    ReflectionObject,
+    DilationObject,
+    RotationObject,
+    TranslationObject,
+    TranslationSegment,
     Line,
     Circle,
+    Arc,
     Shape,
     Curve,
 }
 impl Need {
-    fn accepts(self, command: Command, shape: &Shape) -> bool {
+    fn allows_new_point(self) -> bool {
+        matches!(
+            self,
+            Self::Point
+                | Self::ReflectionAxis
+                | Self::ReflectionObject
+                | Self::DilationObject
+                | Self::RotationObject
+                | Self::TranslationObject
+        )
+    }
+    fn accepts(self, shape: &Shape, function_graph: bool) -> bool {
         match self {
             Self::Point | Self::PointOnCurve => matches!(shape, Shape::Point(_)),
+            Self::ReflectionAxis => matches!(shape, Shape::Point(_) | Shape::Line { .. }),
+            Self::ReflectionObject
+            | Self::DilationObject
+            | Self::RotationObject
+            | Self::TranslationObject => matches!(
+                shape,
+                Shape::Point(_)
+                    | Shape::Line { .. }
+                    | Shape::Circle { .. }
+                    | Shape::Arc(_)
+                    | Shape::Ellipse(_)
+                    | Shape::Polygon(_)
+            ),
+            Self::TranslationSegment => matches!(
+                shape,
+                Shape::Line {
+                    extent: geo::Extent::Segment,
+                    ..
+                }
+            ),
             Self::Line => matches!(shape, Shape::Line { .. }),
             Self::Circle => matches!(shape, Shape::Circle { .. } | Shape::Arc(_)),
+            Self::Arc => matches!(shape, Shape::Arc(_)),
             Self::Curve => {
                 matches!(
                     shape,
                     Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
-                ) || command.function == "element" && matches!(shape, Shape::Function { .. })
+                ) || function_graph && matches!(shape, Shape::Function { .. })
             }
             Self::Shape => matches!(
                 shape,
@@ -112,10 +191,26 @@ struct Command {
     needs: &'static [Need],
 }
 impl Command {
-    fn pick_filter(self) -> Option<Need> {
+    fn need(self, operand: usize) -> Option<Need> {
+        if self.function == "polygon" {
+            Some(Need::Point)
+        } else {
+            self.needs.get(operand).copied()
+        }
+    }
+    fn pick_filter(self, operand: usize) -> Option<Need> {
         match self.function {
             "element" => Some(Need::Curve),
             "tangent" => Some(Need::PointOnCurve),
+            "reflection" | "rotation" | "homothety" | "translation" | "projection" | "polygon"
+            | "rectangle" | "parallelogram" => self.need(operand),
+            _ => None,
+        }
+    }
+    fn transform_parameter(self) -> Option<TransformParameter> {
+        match self.function {
+            "rotation" => Some(TransformParameter::Angle),
+            "homothety" => Some(TransformParameter::ScaleFactor),
             _ => None,
         }
     }
@@ -199,11 +294,33 @@ const LINES: &[Command] = &[
         needs: &[Need::Point, Need::Point, Need::Point],
     },
 ];
-const POLYGONS: &[Command] = &[Command {
-    label: "Triangle",
-    function: "triangle",
-    needs: &[Need::Point, Need::Point, Need::Point],
-}];
+const POLYGONS: &[Command] = &[
+    Command {
+        label: "Triangle",
+        function: "triangle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Quadrilateral",
+        function: "quadrilateral",
+        needs: &[Need::Point, Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Polygon",
+        function: "polygon",
+        needs: &[],
+    },
+    Command {
+        label: "Rectangle",
+        function: "rectangle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Parallelogram",
+        function: "parallelogram",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+];
 const CURVES: &[Command] = &[
     Command {
         label: "Circle",
@@ -235,17 +352,27 @@ const TRANSFORMS: &[Command] = &[
     Command {
         label: "Reflection",
         function: "reflection",
-        needs: &[Need::Line, Need::Point],
+        needs: &[Need::ReflectionAxis, Need::ReflectionObject],
     },
     Command {
         label: "Rotation",
         function: "rotation",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::RotationObject],
     },
     Command {
         label: "Dilation",
         function: "homothety",
-        needs: &[Need::Point, Need::Point],
+        needs: &[Need::Point, Need::DilationObject],
+    },
+    Command {
+        label: "Translation",
+        function: "translation",
+        needs: &[Need::TranslationObject, Need::TranslationSegment],
+    },
+    Command {
+        label: "Projection",
+        function: "projection",
+        needs: &[Need::Line, Need::Point],
     },
 ];
 const MEASURES: &[Command] = &[
@@ -514,6 +641,7 @@ impl NativeTools {
         self.geometry_changed();
     }
     pub fn geometry_changed(&mut self) {
+        self.geometry_panel.dismiss_object_picker();
         self.memory.geometry_draft = None;
         if self.geometry_panel.selected.as_ref().is_some_and(|n| {
             !self
@@ -525,15 +653,21 @@ impl NativeTools {
         }) {
             self.geometry_panel.selected = None;
         }
-        if self.geometry_panel.args.iter().any(|n| {
-            !self
-                .memory
-                .models
-                .geometry_book
-                .as_ref()
-                .is_some_and(|b| b.objects.iter().any(|o| &o.name == n))
-        }) {
-            self.geometry_panel.args.clear();
+        if self
+            .geometry_panel
+            .args
+            .iter()
+            .chain(&self.geometry_panel.tangent_curve)
+            .any(|n| {
+                !self
+                    .memory
+                    .models
+                    .geometry_book
+                    .as_ref()
+                    .is_some_and(|b| b.objects.iter().any(|o| &o.name == n))
+            })
+        {
+            self.geometry_panel.clear_operands();
         }
 
         self.memory.models.results.remove("Geometry");
@@ -681,6 +815,21 @@ impl NativeTools {
             ]
             .map(str::to_owned)
             .to_vec(),
+            Some(ARC_PICKER | TANGENT_PICKER) => self
+                .geometry_panel
+                .picker_candidates
+                .iter()
+                .map(|name| {
+                    let source = self
+                        .memory
+                        .models
+                        .geometry_book
+                        .as_ref()
+                        .and_then(|book| book.objects.iter().find(|object| &object.name == name))
+                        .map_or("", |object| object.source.as_str());
+                    format!("G{name}  {source}")
+                })
+                .collect(),
             Some(TRACE_MENU) => {
                 let object = self.memory.models.geometry_book.as_ref().and_then(|book| {
                     book.objects.iter().find(|object| {
@@ -719,6 +868,25 @@ impl NativeTools {
         }
         let category = menu.category.unwrap();
         self.geometry_panel.menu = None;
+        if is_object_picker(Some(category)) {
+            let candidates = std::mem::take(&mut self.geometry_panel.picker_candidates);
+            let Some(name) = candidates.get(menu.index) else {
+                return vec![];
+            };
+            if category == TANGENT_PICKER
+                && self.geometry_scene().is_some_and(|scene| {
+                    scene.objects.iter().any(|object| {
+                        object.name == *name && matches!(object.value, Ok(Shape::Function { .. }))
+                    })
+                })
+            {
+                self.geometry_panel.tangent_curve = Some(name.clone());
+                self.error = None;
+                self.dirty();
+                return vec![];
+            }
+            return self.geometry_confirm(Some(name));
+        }
         if category == TRACE_MENU {
             if let Some(name) = self.geometry_panel.selected.as_deref()
                 && let Some(object) = self
@@ -783,7 +951,7 @@ impl NativeTools {
         };
         if self.page == Some(Page::Plot) && command.function == "plotfunc" {
             self.geometry_panel.tool = None;
-            self.geometry_panel.args.clear();
+            self.geometry_panel.clear_operands();
             let name = self
                 .memory
                 .models
@@ -800,7 +968,7 @@ impl NativeTools {
         }
         if self.page == Some(Page::Plot) && category != 6 {
             self.geometry_panel.tool = Some(command);
-            self.geometry_panel.args.clear();
+            self.geometry_panel.clear_operands();
         } else {
             return vec![Request::EditMath(
                 self.geometry_target(Some(format!("{}()", command.function))),
@@ -815,6 +983,36 @@ impl NativeTools {
             y: self.memory.geometry_cursor.pointer[1],
         }
     }
+    fn geometry_needs_intersection_point(&self, command: Command, scene: Option<&Scene>) -> bool {
+        command.function == "single_inter"
+            && matches!(
+                self.geometry_panel.args.as_slice(),
+                [a, b] if scene.is_some_and(|scene| scene.forms_arc_intersection_pair(a, b))
+            )
+    }
+    fn geometry_operand_filter(&self, command: Command, scene: Option<&Scene>) -> Option<Need> {
+        if self.geometry_needs_intersection_point(command, scene) {
+            Some(Need::Point)
+        } else {
+            command.pick_filter(self.geometry_panel.args.len())
+        }
+    }
+    fn geometry_plot_hit(
+        &self,
+        scene: &Scene,
+        book: &Book,
+        p: [f64; 2],
+        window: &crate::ide::native_apps::PlotWindow,
+        filter: Option<Need>,
+    ) -> Option<String> {
+        if let (Some(Need::PointOnCurve), Some(curve)) =
+            (filter, self.geometry_panel.tangent_curve.as_deref())
+        {
+            view::function_tangent_point_hit(scene, book, p, window, curve)
+        } else {
+            view::hit(scene, book, p, window, filter)
+        }
+    }
     fn geometry_hovered_operand<'a>(
         &self,
         command: Command,
@@ -822,14 +1020,15 @@ impl NativeTools {
         scene: Option<&'a Scene>,
     ) -> Option<(String, &'a Shape)> {
         let scene = scene?;
-        let hit = if let Some(filter) = command.pick_filter() {
+        let filter = self.geometry_operand_filter(command, Some(scene));
+        let hit = if filter.is_some() {
             let w = self.trace_window();
-            view::hit(
+            self.geometry_plot_hit(
                 scene,
                 self.memory.models.geometry_book.as_ref()?,
                 view::project(p, &w),
                 &w,
-                Some(filter),
+                filter,
             )
         } else {
             self.geometry_panel.hover.clone()
@@ -844,6 +1043,21 @@ impl NativeTools {
         p: Point2,
         scene: Option<&Scene>,
     ) -> Result<String, String> {
+        if let Some(parameter) = command.transform_parameter() {
+            let name = command.function;
+            let value = self.geometry_panel.transform_parameter.as_deref();
+            return Ok(match args {
+                [center, object] => {
+                    let value = value.ok_or(parameter.prompt())?;
+                    format!("{name}({center},{value},{object})")
+                }
+                [center] => match value {
+                    Some(value) => format!("{name}({center},{value})"),
+                    None => format!("{name}({center})"),
+                },
+                _ => format!("{name}({})", args.join(",")),
+            });
+        }
         Ok(match (command.function, args) {
             ("point", _) => point_source(p),
             ("element", [curve]) => {
@@ -851,64 +1065,241 @@ impl NativeTools {
             }
             ("single_inter", [a, b]) => format!("single_inter({a},{b},{})", point_source(p)),
             ("circle", [center, edge]) => format!("circle({center},{edge}-{center})"),
-            ("rotation", [shape, center]) => {
-                let angle = match self.geometry_panel.angle_turn {
-                    360. => "90",
-                    400. => "100",
-                    _ => "π/2",
-                };
-                format!("rotation({shape},{angle},{center})")
-            }
-            ("homothety", [shape, center]) => format!("homothety({shape},2,{center})"),
+            ("translation", [object, segment]) => format!("translation({segment},{object})"),
             (name, _) => format!("{name}({})", args.join(",")),
         })
+    }
+    fn geometry_references(&self) -> Vec<String> {
+        self.geometry_panel
+            .args
+            .iter()
+            .map(|n| format!("G{n}"))
+            .collect()
     }
     fn geometry_command_preview(&self, scene: Option<&Scene>) -> Option<String> {
         let command = self.geometry_panel.tool?;
         let p = self.construction_pointer();
-        let mut args: Vec<_> = self
-            .geometry_panel
-            .args
-            .iter()
-            .map(|n| format!("G{n}"))
-            .collect();
-        if let Some(need) = command.needs.get(args.len()) {
+        let mut args = self.geometry_references();
+        let need = if self.geometry_needs_intersection_point(command, scene) {
+            Some(Need::Point)
+        } else {
+            command.need(args.len())
+        };
+        if let Some(need) = need {
             if let Some((name, shape)) = self.geometry_hovered_operand(command, p, scene)
-                && need.accepts(command, shape)
+                && need.accepts(shape, command.function == "element")
             {
                 args.push(format!("G{name}"));
-            } else if *need == Need::Point {
+            } else if need.allows_new_point() {
                 args.push(point_source(p));
             }
         }
         self.geometry_command_source(command, &args, p, scene).ok()
     }
-    fn geometry_confirm(&mut self) -> Vec<Request> {
+    pub fn geometry_transform_parameter(
+        &mut self,
+        parameter: TransformParameter,
+        source: Option<&str>,
+    ) -> Result<(), String> {
+        if let Some(source) = source {
+            let source = source.trim();
+            if source.is_empty() {
+                return Err(parameter.prompt().into());
+            }
+            geo::source(source)?;
+            let (_, diagnostics) = ppl_syntax::parse_expression(source);
+            if let Some(error) = diagnostics.errors().next() {
+                return Err(error.message.clone());
+            }
+            self.geometry_panel.transform_parameter = Some(source.into());
+        } else {
+            self.geometry_panel.clear_operands();
+        }
+        self.dirty();
+        Ok(())
+    }
+    fn geometry_finish_command(
+        &mut self,
+        command: Command,
+        scene: Option<&Scene>,
+        new_intersection_point: Option<Point2>,
+    ) -> Vec<Request> {
+        let mut book = self.memory.models.geometry_book.as_ref().unwrap().clone();
+        let mut args = self.geometry_references();
+        if let Some(p) = new_intersection_point {
+            if book.objects.len() + 2 > geo::MAX_OBJECTS || geo::point(p).is_err() {
+                self.error = Some("Geometry point exceeds its limit".into());
+                self.dirty();
+                return vec![];
+            }
+            let name = book.next_name();
+            args.push(format!("G{name}"));
+            book.objects.push(Object {
+                name,
+                source: point_source(p),
+                ..Default::default()
+            });
+        }
+        let source =
+            self.geometry_command_source(command, &args, self.construction_pointer(), scene);
+        self.geometry_panel.clear_operands();
+        let source = match source {
+            Ok(source) => source,
+            Err(error) => {
+                self.error = Some(error);
+                self.dirty();
+                return vec![];
+            }
+        };
+        let name = book.next_name();
+        let (name, source) = if command.function == "parallelogram" {
+            // Validate the derived corner and its polygon in the same Geometry edit.
+            let corner = format!("vertices(G{name},3)");
+            book.objects.push(Object {
+                name,
+                source,
+                ..Default::default()
+            });
+            (book.next_name(), corner)
+        } else {
+            (name, source)
+        };
+        vec![Request::Calculate(
+            crate::ide::native_app_ui::Calculation::GeometryEdit {
+                book: Box::new(book),
+                name,
+                source,
+                insert: None,
+            },
+        )]
+    }
+    fn geometry_open_object_picker(
+        &mut self,
+        command: Command,
+        scene: Option<&Scene>,
+        p: Point2,
+    ) -> bool {
+        let (Some(scene), Some(book)) = (scene, self.memory.models.geometry_book.as_ref()) else {
+            return false;
+        };
+        let category = match (command.function, self.geometry_panel.args.as_slice()) {
+            ("single_inter", [first])
+                if scene.objects.iter().any(|object| {
+                    &object.name == first && matches!(object.value, Ok(Shape::Arc(_)))
+                }) =>
+            {
+                ARC_PICKER
+            }
+            ("tangent", []) if self.geometry_panel.tangent_curve.is_none() => TANGENT_PICKER,
+            _ => return false,
+        };
+        let window = self.trace_window();
+        let p = view::project(p, &window);
+        let names = if category == ARC_PICKER {
+            view::arc_hits(scene, book, p, &window)
+        } else {
+            view::function_tangent_hits(scene, book, p, &window)
+        };
+        if names.len() < 2 {
+            return false;
+        }
+        self.geometry_panel.picker_candidates = names;
+        self.geometry_panel.menu = Some(Menu {
+            category: Some(category),
+            index: 0,
+            first: 0,
+        });
+        self.error = None;
+        self.dirty();
+        true
+    }
+    fn geometry_confirm(&mut self, picked_object: Option<&str>) -> Vec<Request> {
         let p = self.construction_pointer();
         if let Some(command) = self.geometry_panel.tool {
             if command.function == "point" {
                 self.geometry_add_point(p);
-                self.geometry_panel.args.clear();
+                self.geometry_panel.clear_operands();
                 return vec![];
             }
             let index = self.geometry_panel.args.len();
-            let Some(need) = command.needs.get(index) else {
+            let scene = self.geometry_scene();
+            let needs_intersection_point =
+                self.geometry_needs_intersection_point(command, scene.as_ref());
+            let need = if needs_intersection_point {
+                Need::Point
+            } else if let Some(need) = command.need(index) {
+                need
+            } else {
                 return vec![];
             };
-            let scene = self.geometry_scene();
-            let hovered = self.geometry_hovered_operand(command, p, scene.as_ref());
-            if *need == Need::PointOnCurve && hovered.is_none() {
-                self.error = Some("Select a point on a curve".into());
+            if picked_object.is_none()
+                && self.geometry_open_object_picker(command, scene.as_ref(), p)
+            {
+                return vec![];
+            }
+            let hovered = if let Some(name) = picked_object {
+                scene.as_ref().and_then(|scene| {
+                    let object = scene.objects.iter().find(|object| object.name == name)?;
+                    Some((name.to_owned(), object.value.as_ref().ok()?))
+                })
+            } else {
+                self.geometry_hovered_operand(command, p, scene.as_ref())
+            };
+            if command.function == "polygon" {
+                let repeated = self.geometry_panel.polygon_last_pointer == Some(p)
+                    || hovered
+                        .as_ref()
+                        .is_some_and(|(name, _)| self.geometry_panel.args.last() == Some(name));
+                if repeated {
+                    return if index >= 2 {
+                        self.geometry_finish_command(command, scene.as_ref(), None)
+                    } else {
+                        vec![]
+                    };
+                }
+                let name = hovered
+                    .as_ref()
+                    .map(|(name, _)| name.clone())
+                    .unwrap_or_else(|| {
+                        self.memory
+                            .models
+                            .geometry_book
+                            .as_ref()
+                            .unwrap()
+                            .next_name()
+                    });
+                let mut candidate = self.geometry_references();
+                candidate.push(format!("G{name}"));
+                if let Err(error) = self
+                    .geometry_command_source(command, &candidate, p, scene.as_ref())
+                    .and_then(|source| geo::source(&source))
+                {
+                    self.error = Some(error);
+                    self.dirty();
+                    return vec![];
+                }
+            }
+            let required = match need {
+                Need::PointOnCurve => Some("Select a point on a curve"),
+                Need::TranslationSegment => Some("Select the displacement segment"),
+                _ => None,
+            };
+            if hovered.is_none()
+                && let Some(message) = required
+            {
+                self.error = Some(message.into());
                 self.dirty();
                 return vec![];
             }
             let name = if let Some((name, shape)) = hovered {
-                if !need.accepts(command, shape) {
+                if !need.accepts(shape, command.function == "element") {
                     self.error = Some(format!("Select a {need:?}"));
                     return vec![];
                 }
                 name
-            } else if *need == Need::Point {
+            } else if needs_intersection_point {
+                return self.geometry_finish_command(command, scene.as_ref(), Some(p));
+            } else if need.allows_new_point() {
                 let Some(name) = self.geometry_add_point(p) else {
                     return vec![];
                 };
@@ -918,46 +1309,21 @@ impl NativeTools {
                 return vec![];
             };
             self.geometry_panel.args.push(name);
-            if self.geometry_panel.args.len() == command.needs.len() {
-                let args = self
-                    .geometry_panel
-                    .args
-                    .iter()
-                    .map(|n| format!("G{n}"))
-                    .collect::<Vec<_>>();
-                let source = self.geometry_command_source(command, &args, p, scene.as_ref());
-                self.geometry_panel.args.clear();
-                let source = match source {
-                    Ok(source) => source,
-                    Err(error) => {
-                        self.error = Some(error);
-                        self.dirty();
-                        return vec![];
-                    }
-                };
-                let name = self
-                    .memory
-                    .models
-                    .geometry_book
-                    .as_ref()
-                    .unwrap()
-                    .next_name();
-                if matches!(command.function, "rotation" | "homothety") {
-                    return vec![Request::EditMath(MathTarget::GeometryObject {
-                        name,
-                        preset: Some(source),
-                        insert: None,
-                    })];
-                }
-                let book = self.memory.models.geometry_book.as_ref().unwrap().clone();
-                return vec![Request::Calculate(
-                    crate::ide::native_app_ui::Calculation::GeometryEdit {
-                        book: Box::new(book),
-                        name,
-                        source,
-                        insert: None,
-                    },
-                )];
+            if command.function == "polygon" {
+                self.geometry_panel.polygon_last_pointer = Some(p);
+                self.error = None;
+            }
+            if index == 0
+                && let Some(parameter) = command.transform_parameter()
+            {
+                return vec![Request::EditMath(MathTarget::GeometryTransformParameter(
+                    parameter,
+                ))];
+            }
+            if command.need(self.geometry_panel.args.len()).is_none()
+                && !self.geometry_needs_intersection_point(command, scene.as_ref())
+            {
+                return self.geometry_finish_command(command, scene.as_ref(), None);
             }
         } else {
             self.geometry_panel.selected = self.geometry_panel.hover.clone();
@@ -992,6 +1358,7 @@ impl NativeTools {
             return Some(vec![]);
         }
         if action == A::Tool(crate::ide::native::keys::Tool::Menu) {
+            self.geometry_panel.dismiss_object_picker();
             self.geometry_panel.menu = Some(Menu {
                 category: if self.geometry_panel.selected.is_some() {
                     Some(7)
@@ -1005,6 +1372,7 @@ impl NativeTools {
             return Some(vec![]);
         }
         if matches!(action, A::Home | A::Tool(_)) {
+            self.geometry_panel.dismiss_object_picker();
             return None;
         }
         if self.page == Some(Page::PlotSetup) {
@@ -1044,7 +1412,9 @@ impl NativeTools {
                 }
                 A::Evaluate => return Some(self.geometry_choose_menu(menu)),
                 A::Back | A::On => {
-                    if menu.category.is_some() {
+                    if is_object_picker(menu.category) {
+                        self.geometry_panel.dismiss_object_picker();
+                    } else if menu.category.is_some() {
                         self.geometry_panel.menu = Some(Menu {
                             category: None,
                             index: 0,
@@ -1063,7 +1433,7 @@ impl NativeTools {
             let w = self.trace_window();
             let old_pointer = self.memory.geometry_cursor.pointer;
             match action {
-                A::Evaluate => return Some(self.geometry_confirm()),
+                A::Evaluate => return Some(self.geometry_confirm(None)),
                 A::History(d) => {
                     self.memory.geometry_cursor.pointer[1] -=
                         f64::from(d) * (w.ymax - w.ymin) / 219.
@@ -1077,9 +1447,20 @@ impl NativeTools {
                 A::Insert("+" | "-") => {
                     self.geometry_zoom(if action == A::Insert("+") { 0.5 } else { 2. });
                 }
+                A::Back
+                    if self
+                        .geometry_panel
+                        .tool
+                        .is_some_and(|tool| tool.function == "polygon")
+                        && !self.geometry_panel.args.is_empty() =>
+                {
+                    self.geometry_panel.args.pop();
+                    self.geometry_panel.polygon_last_pointer = None;
+                    self.error = None;
+                }
                 A::Back | A::On => {
                     self.geometry_panel.tool = None;
-                    self.geometry_panel.args.clear();
+                    self.geometry_panel.clear_operands();
                     self.geometry_panel.selected = None;
                 }
                 _ => {}
@@ -1089,12 +1470,12 @@ impl NativeTools {
             {
                 let p = view::project(self.construction_pointer(), &w);
                 self.geometry_panel.hover = self.geometry_scene().and_then(|scene| {
-                    view::hit(
+                    self.geometry_plot_hit(
                         &scene,
                         self.memory.models.geometry_book.as_ref()?,
                         p,
                         &w,
-                        command.pick_filter(),
+                        self.geometry_operand_filter(command, Some(&scene)),
                     )
                 });
             }

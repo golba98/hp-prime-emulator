@@ -73,6 +73,45 @@ pub fn reflect(p: Point2, a: Point2, b: Point2) -> Result<Point2, String> {
         y: 2. * m.y - p.y,
     })
 }
+pub fn parallelogram(a: Point2, b: Point2, c: Point2) -> Result<Shape, String> {
+    let side = point(delta(b, c))?;
+    let d = point(Point2 {
+        x: a.x + side.x,
+        y: a.y + side.y,
+    })?;
+    Ok(Shape::Polygon(vec![a, b, c, d]))
+}
+pub fn rectangle(a: Point2, b: Point2, control: &Shape) -> Result<Shape, String> {
+    let base = point(delta(a, b))?;
+    let length = number(base.x.hypot(base.y))?;
+    if length == 0. {
+        return Err("A rectangle needs two distinct base points".into());
+    }
+    let offset = match *control {
+        Shape::Point(p) => {
+            let relative = point(delta(a, p))?;
+            let height = number((base.x * relative.y - base.y * relative.x) / length)?;
+            Point2 {
+                x: -base.y / length * height,
+                y: base.x / length * height,
+            }
+        }
+        Shape::Number { re, im: 0. } => Point2 {
+            x: -base.y * re,
+            y: base.x * re,
+        },
+        _ => return Err("A rectangle needs a height point or a real ratio".into()),
+    };
+    let c = point(Point2 {
+        x: b.x + offset.x,
+        y: b.y + offset.y,
+    })?;
+    let d = point(Point2 {
+        x: a.x + offset.x,
+        y: a.y + offset.y,
+    })?;
+    Ok(Shape::Polygon(vec![a, b, c, d]))
+}
 pub fn polygon(points: Vec<Point2>) -> Result<Shape, String> {
     if points.len() < 3 {
         return Err("A polygon needs at least three vertices".into());
@@ -292,12 +331,12 @@ pub fn intersections(a: &Shape, b: &Shape) -> Result<Vec<Point2>, String> {
         | (Shape::Arc(arc), Shape::Line { a, b, extent }) => {
             let mut points = line_circle_intersections(*a, *b, *extent, arc.center, arc.radius)?;
             points.retain(|p| arc.contains_intersection(*p));
-            Ok(order_curve_intersections(points, *a, *b))
+            Ok(order_curve_intersections(points, a.x == b.x))
         }
         (Shape::Line { a, b, extent }, Shape::Ellipse(ellipse))
         | (Shape::Ellipse(ellipse), Shape::Line { a, b, extent }) => {
             let points = ellipse.line_intersections(*a, *b, *extent)?;
-            Ok(order_curve_intersections(points, *a, *b))
+            Ok(order_curve_intersections(points, a.x == b.x))
         }
         (
             Shape::Circle {
@@ -308,49 +347,59 @@ pub fn intersections(a: &Shape, b: &Shape) -> Result<Vec<Point2>, String> {
                 center: b,
                 radius: s,
             },
-        ) => {
-            let d = a.distance(*b)?;
-            let tol = 64. * f64::EPSILON * r.max(*s).max(d).max(1.);
-            if d <= tol {
-                return if (r - s).abs() <= tol {
-                    Err("Coincident circles have no unique intersections".into())
-                } else {
-                    Ok(vec![])
-                };
-            }
-            if d > r + s + tol || d < (r - s).abs() - tol {
-                return Ok(vec![]);
-            }
-            let along = (r * r - s * s + d * d) / (2. * d);
-            let h = (r * r - along * along).max(0.).sqrt();
-            let u = Point2 {
-                x: (b.x - a.x) / d,
-                y: (b.y - a.y) / d,
-            };
-            let m = Point2 {
-                x: a.x + along * u.x,
-                y: a.y + along * u.y,
-            };
-            let p = point(Point2 {
-                x: m.x - h * u.y,
-                y: m.y + h * u.x,
-            })?;
-            if h <= tol {
-                Ok(vec![p])
-            } else {
-                Ok(vec![
-                    p,
-                    point(Point2 {
-                        x: m.x + h * u.y,
-                        y: m.y - h * u.x,
-                    })?,
-                ])
-            }
+        ) => circle_intersections(*a, *r, *b, *s),
+        (Shape::Arc(arc), Shape::Circle { center, radius })
+        | (Shape::Circle { center, radius }, Shape::Arc(arc)) => {
+            let mut points = circle_intersections(arc.center, arc.radius, *center, *radius)?;
+            points.retain(|p| arc.contains_intersection(*p));
+            Ok(order_curve_intersections(points, arc.center.y == center.y))
         }
-        _ => Err(
-            "Select straight objects and circles, or a straight object with an arc or ellipse"
-                .into(),
-        ),
+        (Shape::Arc(a), Shape::Arc(b)) => {
+            let mut points = circle_intersections(a.center, a.radius, b.center, b.radius)?;
+            points.retain(|p| a.contains_intersection(*p) && b.contains_intersection(*p));
+            Ok(order_curve_intersections(points, a.center.y == b.center.y))
+        }
+        _ => Err("Select compatible straight objects, circles, arcs, or ellipses".into()),
+    }
+}
+
+fn circle_intersections(a: Point2, r: f64, b: Point2, s: f64) -> Result<Vec<Point2>, String> {
+    let d = a.distance(b)?;
+    let tol = 64. * f64::EPSILON * r.max(s).max(d).max(1.);
+    if d <= tol {
+        return if (r - s).abs() <= tol {
+            Err("Coincident circles have no unique intersections".into())
+        } else {
+            Ok(vec![])
+        };
+    }
+    if d > r + s + tol || d < (r - s).abs() - tol {
+        return Ok(vec![]);
+    }
+    let along = (r * r - s * s + d * d) / (2. * d);
+    let h = (r * r - along * along).max(0.).sqrt();
+    let u = Point2 {
+        x: (b.x - a.x) / d,
+        y: (b.y - a.y) / d,
+    };
+    let m = Point2 {
+        x: a.x + along * u.x,
+        y: a.y + along * u.y,
+    };
+    let p = point(Point2 {
+        x: m.x - h * u.y,
+        y: m.y + h * u.x,
+    })?;
+    if h <= tol {
+        Ok(vec![p])
+    } else {
+        Ok(vec![
+            p,
+            point(Point2 {
+                x: m.x + h * u.y,
+                y: m.y - h * u.x,
+            })?,
+        ])
     }
 }
 
@@ -392,8 +441,8 @@ pub(super) fn line_circle_intersections(
     Ok(result)
 }
 
-fn order_curve_intersections(mut points: Vec<Point2>, a: Point2, b: Point2) -> Vec<Point2> {
-    let coordinate = |p: &Point2| if a.x == b.x { p.y } else { p.x };
+fn order_curve_intersections(mut points: Vec<Point2>, vertical: bool) -> Vec<Point2> {
+    let coordinate = |p: &Point2| if vertical { p.y } else { p.x };
     points.sort_by(|p, q| coordinate(q).total_cmp(&coordinate(p)));
     points
 }

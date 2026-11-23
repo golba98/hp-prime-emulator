@@ -446,7 +446,9 @@ impl IdeDesktopApp {
             return;
         }
         if let Some(ch) = press.ch {
-            if self.state.native.history_viewer.is_some() {
+            if self.state.native.history_viewer.is_some()
+                || self.native_tools.spreadsheet_tool_picker_open()
+            {
                 return;
             }
             let shifted = std::mem::take(&mut self.state.native.shifted);
@@ -512,9 +514,21 @@ impl IdeDesktopApp {
         if action == KeyAction::AppVariable {
             action = KeyAction::Insert(self.native_independent_variable());
         }
+        let spreadsheet_inline =
+            self.spreadsheet_math_entry() && self.native_tools.is_spreadsheet_page();
+        let spreadsheet_picker = self.native_tools.spreadsheet_tool_picker_open();
+        if spreadsheet_inline
+            && !spreadsheet_picker
+            && self.spreadsheet_cell_math_entry()
+            && action == KeyAction::Tool(keys::Tool::Menu)
+        {
+            self.native_tools.spreadsheet_open_command_picker(true);
+            ctx.request_repaint();
+            return;
+        }
         if !((self.function_numeric_math_entry().is_some()
             && self.native_tools.is_function_numeric_page())
-            || (self.spreadsheet_math_entry() && self.native_tools.is_spreadsheet_page())
+            || (spreadsheet_inline && !spreadsheet_picker)
             || (self.graph_math_entry()
                 && self.native_tools.is_graph_symbolic_page()
                 && !self.native_tools.graph_symbolic_menu()))
@@ -525,10 +539,14 @@ impl IdeDesktopApp {
         }
         if self.state.native.history_viewer.is_some() {
             match action {
-                KeyAction::History(d) => self
-                    .state
-                    .native
-                    .scroll_history_viewer(0, i64::from(d) * 24),
+                KeyAction::History(d) => {
+                    let dy = match (shifted, d) {
+                        (true, -1) => i64::MIN,
+                        (true, 1) => i64::MAX,
+                        _ => i64::from(d) * 8,
+                    };
+                    self.state.native.scroll_history_viewer(0, dy);
+                }
                 KeyAction::Edit(EditCommand::Left(_)) => {
                     self.state.native.scroll_history_viewer(-24, 0)
                 }
@@ -765,9 +783,15 @@ impl IdeDesktopApp {
             }
             NativeView::Home if touch.y >= self.state.native.entry_top() => {
                 let byte = self.state.native.editor_byte_at_position(touch.x, touch.y);
-                self.state
-                    .native
-                    .edit(|e| e.set_cursor(byte, shift || !pressed));
+                let textbook = self.state.native.presentation.entry
+                    == crate::ide::native::presentation::EntryMode::Textbook;
+                self.state.native.edit(|editor| {
+                    if textbook {
+                        editor.set_textbook_cursor(byte, shift || !pressed);
+                    } else {
+                        editor.set_cursor(byte, shift || !pressed);
+                    }
+                });
             }
             NativeView::Home
                 if pressed
@@ -1021,6 +1045,7 @@ impl IdeDesktopApp {
             let copy_event = events
                 .iter()
                 .any(|event| matches!(event, egui::Event::Copy));
+            let statistics_summary = self.native_tools.statistics_one_summary_open();
             for (index, event) in events.iter().enumerate() {
                 if self.model_task.is_some() {
                     if matches!(
@@ -1052,8 +1077,13 @@ impl IdeDesktopApp {
                     {
                         self.native_tools.spreadsheet_action(KeyAction::Copy)
                     }
+                    egui::Event::Copy if self.math_entry.is_none() && statistics_summary => {
+                        self.native_tools.statistics_action(KeyAction::Copy)
+                    }
                     egui::Event::Text(text) | egui::Event::Paste(text) => {
-                        if self.native_tools.graph_symbolic_menu() {
+                        if self.native_tools.graph_symbolic_menu()
+                            || self.native_tools.spreadsheet_tool_picker_open()
+                        {
                             Some(Vec::new())
                         } else if self.math_entry.is_some() {
                             self.state.native.edit(|editor| editor.type_text(text));
@@ -1079,6 +1109,10 @@ impl IdeDesktopApp {
                         ..
                     } if !modifiers.alt => {
                         if self.math_entry.is_some() && modifiers.command {
+                            if self.native_tools.spreadsheet_tool_picker_open() {
+                                consumed.push(index);
+                                continue;
+                            }
                             match key {
                                 egui::Key::A => {
                                     self.native_edit_command(ctx, E::SelectAll);
@@ -1114,13 +1148,22 @@ impl IdeDesktopApp {
                                 Some(KeyAction::Edit(E::Right(modifiers.shift)))
                             }
                             egui::Key::Enter => Some(KeyAction::Evaluate),
+                            egui::Key::Escape
+                                if modifiers.shift && self.native_tools.is_spreadsheet_page() =>
+                            {
+                                Some(KeyAction::Edit(E::Clear))
+                            }
                             egui::Key::Escape => Some(KeyAction::Back),
                             egui::Key::Backspace => Some(KeyAction::Edit(E::Backspace)),
                             egui::Key::Delete => Some(KeyAction::Edit(E::Delete)),
+                            egui::Key::F9 if self.native_tools.is_spreadsheet_page() => {
+                                Some(KeyAction::Tool(keys::Tool::Menu))
+                            }
                             egui::Key::C
                                 if modifiers.command
                                     && (!copy_event
-                                        || !self.native_tools.is_spreadsheet_page()) =>
+                                        || !(self.native_tools.is_spreadsheet_page()
+                                            || statistics_summary)) =>
                             {
                                 Some(KeyAction::Copy)
                             }
@@ -1243,7 +1286,11 @@ impl IdeDesktopApp {
         if (matches!(
             self.native_tools.page,
             Some(crate::ide::native_tools::Page::Characters | crate::ide::native_tools::Page::Help)
-        ) || self.native_tools.is_picker_page())
+        ) || self.native_tools.is_picker_page()
+            || self.native_tools.graph3d_numeric_navigation_active()
+            || self.native_tools.function_plot_setup_open()
+            || (self.native_tools.memory.selected_app == crate::ide::native_graph3d::NAME
+                && self.native_tools.page == Some(crate::ide::native_tools::Page::Plot)))
             && egui::Popup::is_any_open(ctx)
         {
             return;
@@ -1343,8 +1390,42 @@ impl IdeDesktopApp {
                         | egui::Key::Plus
                         | egui::Key::Minus
                 );
+            let graph3d_row_navigation = self.native_tools.graph3d_numeric_navigation_active()
+                && matches!(
+                    key,
+                    egui::Key::ArrowUp
+                        | egui::Key::ArrowDown
+                        | egui::Key::ArrowLeft
+                        | egui::Key::ArrowRight
+                );
+            let statistics_zoom_navigation = self.native_tools.statistics_zoom_open()
+                && matches!(
+                    key,
+                    egui::Key::ArrowUp
+                        | egui::Key::ArrowDown
+                        | egui::Key::Enter
+                        | egui::Key::Escape
+                );
+            let statistics_factor_number = self.native_tools.statistics_zoom_factors_open()
+                && matches!(
+                    key,
+                    egui::Key::Num0
+                        | egui::Key::Num1
+                        | egui::Key::Num2
+                        | egui::Key::Num3
+                        | egui::Key::Num4
+                        | egui::Key::Num5
+                        | egui::Key::Num6
+                        | egui::Key::Num7
+                        | egui::Key::Num8
+                        | egui::Key::Num9
+                        | egui::Key::Period
+                );
             if !catalog_navigation
                 && !plot_navigation
+                && !graph3d_row_navigation
+                && !statistics_zoom_navigation
+                && !statistics_factor_number
                 && !matches!(
                     key,
                     egui::Key::F1
@@ -1372,7 +1453,9 @@ impl IdeDesktopApp {
             };
             consumed.push(index);
             self.state.set_key_down(code, *pressed);
-            if *pressed && (!repeat || catalog_navigation || plot_navigation) {
+            if *pressed
+                && (!repeat || catalog_navigation || plot_navigation || graph3d_row_navigation)
+            {
                 if modifiers.shift {
                     self.state.native.shifted = true;
                 }
@@ -2293,6 +2376,48 @@ mod remediation_tests {
         );
         assert_eq!(app.native_tools.page, Some(Page::Symbolic));
     }
+    #[test]
+    fn spreadsheet_menu_keeps_the_current_formula_draft_and_caret() {
+        use crate::ide::native_tools::Page;
+        let (mut app, ctx) = home();
+        app.native_tools.memory.selected_app = "Spreadsheet".into();
+        app.native_tools.open(Page::Numeric);
+        press(&mut app, &ctx, KEY_ENTER);
+        app.state.native.edit(|editor| {
+            editor.set_text("=(A1:A2)");
+            editor.set_cursor(1, false);
+        });
+
+        let _ = ctx.run(
+            egui::RawInput {
+                events: vec![egui::Event::Key {
+                    key: egui::Key::F9,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }],
+                ..Default::default()
+            },
+            |ctx| app.route_native_keyboard(ctx),
+        );
+        assert!(app.native_tools.spreadsheet_tool_picker_open());
+        press(&mut app, &ctx, KEY_ESC);
+        assert!(!app.native_tools.spreadsheet_tool_picker_open());
+        assert_eq!(app.state.native.home_input, "=(A1:A2)");
+        assert_eq!(app.state.native.editor.cursor(), 1);
+
+        press(&mut app, &ctx, KEY_MENU);
+        for _ in 0..3 {
+            press(&mut app, &ctx, KEY_DOWN);
+        }
+        press(&mut app, &ctx, KEY_ENTER);
+        assert!(app.spreadsheet_cell_math_entry());
+        assert_eq!(app.state.native.home_input, "=AVERAGE(A1:A2)");
+        assert_eq!(app.state.native.editor.cursor(), 8);
+        assert!(app.native_tools.memory.models.spreadsheet.cells.is_empty());
+    }
+
     #[test]
     fn function_numeric_shared_editor_validates_async_keeps_invalid_drafts_and_fences_cancel() {
         use crate::ide::native_tools::Page;

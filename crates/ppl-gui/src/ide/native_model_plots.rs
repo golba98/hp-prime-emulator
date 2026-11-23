@@ -37,13 +37,15 @@ pub struct PlotFill {
     pub points: Vec<[f64; 2]>,
     pub color: u32,
 }
+pub(crate) const DOT_FILL_ALPHA: u8 = 86;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DotColumn {
     pub x: f64,
     pub count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fraction: Option<f64>,
-    /// Actual pale fill; the original disk boundary is black.
+    /// Fill composited over white. Other backgrounds use the same opacity.
     pub color: u32,
     pub analysis: usize,
 }

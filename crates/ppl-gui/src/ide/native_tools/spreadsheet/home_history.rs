@@ -6,12 +6,18 @@ use crate::keymap::{KEY_DOWN, KEY_ENTER, KEY_ESC, KEY_UP};
 use ppl_cas::CasValue;
 use std::collections::VecDeque;
 
+const AGGREGATE_COMMANDS: [&str; 2] = ["SUM", "AVERAGE"];
+
 pub(super) enum Picker {
-    Commands(ChooseBox),
+    Commands {
+        widget: ChooseBox,
+        inline: bool,
+    },
     History {
         widget: ChooseBox,
         drafts: Vec<Draft>,
         origin: SpreadsheetHistory,
+        inline: bool,
     },
 }
 
@@ -22,15 +28,23 @@ pub(super) struct Draft {
 }
 
 impl Picker {
-    pub(super) fn commands() -> Self {
-        Self::Commands(ChooseBox::new(
-            "Spreadsheet commands",
-            vec!["Get from Home".into(), "Get from CAS".into()],
-            1,
-        ))
+    pub(super) fn commands(inline: bool) -> Self {
+        let items = ["Get from Home", "Get from CAS"]
+            .into_iter()
+            .chain(AGGREGATE_COMMANDS)
+            .map(str::to_owned)
+            .collect();
+        Self::Commands {
+            widget: ChooseBox::new("Spreadsheet commands", items, 1),
+            inline,
+        }
     }
 
-    fn history(origin: SpreadsheetHistory, entries: &VecDeque<HomeEntry>) -> Option<Self> {
+    fn history(
+        origin: SpreadsheetHistory,
+        entries: &VecDeque<HomeEntry>,
+        inline: bool,
+    ) -> Option<Self> {
         let mut labels = Vec::new();
         let mut drafts = Vec::new();
         for (row, entry) in entries.iter().enumerate() {
@@ -56,18 +70,19 @@ impl Picker {
             widget: ChooseBox::new(origin.title(), labels, current),
             drafts,
             origin,
+            inline,
         })
     }
 
     pub(super) fn widget(&self) -> &ChooseBox {
         match self {
-            Self::Commands(widget) | Self::History { widget, .. } => widget,
+            Self::Commands { widget, .. } | Self::History { widget, .. } => widget,
         }
     }
 
     fn widget_mut(&mut self) -> &mut ChooseBox {
         match self {
-            Self::Commands(widget) | Self::History { widget, .. } => widget,
+            Self::Commands { widget, .. } | Self::History { widget, .. } => widget,
         }
     }
 
@@ -103,7 +118,7 @@ impl Picker {
         if y >= 220 && x >= 212 {
             return self.action(if x >= 265 { A::Evaluate } else { A::Back });
         }
-        if let Self::Commands(widget) = self
+        if let Self::Commands { widget, .. } = self
             && let Some(index) = widget.item_at(x, y)
         {
             return Some(DialogResult::Chosen(index));
@@ -165,17 +180,27 @@ fn cas_worksheet_source(value: &CasValue) -> String {
 }
 
 impl NativeTools {
+    pub fn spreadsheet_tool_picker_open(&self) -> bool {
+        self.is_spreadsheet_page() && self.spreadsheet_panel.tool_picker.is_some()
+    }
+
+    pub fn spreadsheet_open_command_picker(&mut self, inline: bool) {
+        self.spreadsheet_panel.tool_picker = Some(Picker::commands(inline));
+        self.dirty();
+    }
+
     pub fn spreadsheet_open_history(
         &mut self,
         origin: SpreadsheetHistory,
         active: Option<&VecDeque<HomeEntry>>,
+        inline: bool,
     ) {
         if self.is_spreadsheet_page() {
             let entries = active.unwrap_or(match origin {
                 SpreadsheetHistory::Home => &self.memory.home_history,
                 SpreadsheetHistory::Cas => &self.memory.cas_history,
             });
-            self.spreadsheet_panel.tool_picker = Picker::history(origin, entries);
+            self.spreadsheet_panel.tool_picker = Picker::history(origin, entries, inline);
             self.error = self
                 .spreadsheet_panel
                 .tool_picker
@@ -191,19 +216,37 @@ impl NativeTools {
         requests: &mut Vec<Request>,
     ) {
         match (self.spreadsheet_panel.tool_picker.take(), result) {
-            (Some(Picker::Commands(_)), DialogResult::Chosen(1)) => {
+            (Some(Picker::Commands { .. }), DialogResult::Chosen(1)) => {
                 requests.push(Request::SpreadsheetHistory(SpreadsheetHistory::Home));
             }
-            (Some(Picker::Commands(_)), DialogResult::Chosen(2)) => {
+            (Some(Picker::Commands { .. }), DialogResult::Chosen(2)) => {
                 requests.push(Request::SpreadsheetHistory(SpreadsheetHistory::Cas));
             }
-            (Some(Picker::History { drafts, origin, .. }), DialogResult::Chosen(index)) => {
+            (Some(Picker::Commands { inline, .. }), DialogResult::Chosen(index)) => {
+                if let Some(&name) = AGGREGATE_COMMANDS.get(index - 3) {
+                    if !inline {
+                        requests.push(self.spreadsheet_edit(true));
+                    }
+                    requests.push(Request::TypeText(name.into()));
+                }
+            }
+            (
+                Some(Picker::History {
+                    drafts,
+                    origin,
+                    inline,
+                    ..
+                }),
+                DialogResult::Chosen(index),
+            ) => {
                 if let Some(draft) = drafts.into_iter().nth(index - 1) {
-                    requests.push(Request::EditMath(MathTarget::SpreadsheetCell {
-                        address: self.spreadsheet_edit_address(),
-                        clear: true,
-                        history: Some(origin),
-                    }));
+                    if !inline {
+                        requests.push(Request::EditMath(MathTarget::SpreadsheetCell {
+                            address: self.spreadsheet_edit_address(),
+                            clear: true,
+                            history: Some(origin),
+                        }));
+                    }
                     requests.push(Request::TypeText(draft.source));
                 }
             }

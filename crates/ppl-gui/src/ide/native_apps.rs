@@ -405,11 +405,19 @@ fn check_cancel(cancel: &AtomicBool) -> Result<(), String> {
     }
 }
 pub(super) fn numeric(result: ppl_vm::RtResult<ppl_vm::Value>) -> Result<Option<f64>, String> {
+    Ok(decimal_sample(result)?
+        .map(ppl_math::Real::to_f64)
+        .filter(|value| value.is_finite()))
+}
+
+pub(super) fn decimal_sample(
+    result: ppl_vm::RtResult<ppl_vm::Value>,
+) -> Result<Option<ppl_math::Real>, String> {
     if matches!(&result,Ok(ppl_vm::Value::Complex(c)) if !c.im.is_zero()) {
         return Ok(None);
     }
     match result.and_then(|v| v.expect_real("Graph")) {
-        Ok(v) => Ok(Some(v.to_f64()).filter(|v| v.is_finite())),
+        Ok(value) => Ok(Some(value)),
         Err(e)
             if matches!(
                 e.kind,

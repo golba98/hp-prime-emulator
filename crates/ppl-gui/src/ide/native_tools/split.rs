@@ -129,7 +129,10 @@ impl NativeTools {
                             ui,
                             &mut window,
                             points,
-                            &colors,
+                            super::super::native_plot_view::GraphStyle {
+                                colors: &colors,
+                                function_setup: None,
+                            },
                             size,
                             scale,
                             None,
@@ -156,7 +159,10 @@ impl NativeTools {
                     ui,
                     &mut window,
                     &points,
-                    &colors,
+                    super::super::native_plot_view::GraphStyle {
+                        colors: &colors,
+                        function_setup: None,
+                    },
                     size,
                     scale,
                     trace,

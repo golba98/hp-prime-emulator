@@ -965,6 +965,8 @@ impl<'a> Evaluator<'a> {
                         out.push_str(&address.row.to_string());
                     } else if token == "Col" {
                         out.push_str(&address.col.to_string());
+                    } else if token.eq_ignore_ascii_case("pi") {
+                        out.push('π');
                     } else {
                         out.push_str(token);
                     }
@@ -1756,6 +1758,40 @@ mod tests {
         assert_eq!(
             sheet.evaluate_in("B5", &memory, no_cancel()).unwrap(),
             CellValue::Text("SUM(A1:A2)".into())
+        );
+    }
+    #[test]
+    fn pi_spellings_evaluate_without_changing_stored_formula_text() {
+        let mut context = SessionContext::default();
+        context.settings.numeric_version = ppl_math::NumericVersion::Current15751;
+        let mut memory = context.snapshot();
+        memory
+            .globals
+            .insert("pi_rate".into(), PortableValue::Real(Real::from_i64(9)));
+        let mut sheet = Spreadsheet::default();
+        for source in ["=π/3", "=pi/3", "=PI/3", "=Pi/3"] {
+            sheet.set("A1", source).unwrap();
+            let PortableValue::Real(value) =
+                sheet.read_attribute("A1", 0, &memory, no_cancel()).unwrap()
+            else {
+                panic!("Expected numeric result for {source}");
+            };
+            assert_eq!(value.to_string(), "1.0471975512");
+            assert_eq!(
+                value.origin(),
+                ppl_math::RealOrigin::PiMultiple {
+                    numerator: 1,
+                    denominator: 3,
+                }
+            );
+            assert_eq!(sheet.cells["A1"], source);
+        }
+        sheet.set("A1", "=pi_rate/3").unwrap();
+        assert_eq!(number(&sheet, "A1", &memory), 3.);
+        sheet.set("A1", "=\"pi π PI pi_rate\"").unwrap();
+        assert_eq!(
+            sheet.evaluate_in("A1", &memory, no_cancel()).unwrap(),
+            CellValue::Text("pi π PI pi_rate".into())
         );
     }
     #[test]

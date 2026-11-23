@@ -8,6 +8,7 @@ use super::{
     native_apps::{CurveSamples, GraphKind, PlotSamples, PlotWindow},
     native_model_plots::PlotData,
 };
+use ppl_math::Real;
 use ppl_vm::AngleMode;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,27 @@ use serde::{Deserialize, Serialize};
 /// G1 C→PX. Bitmap dimensions remain 320x240; they are not the plot spans.
 pub const X_PIXEL_SPAN: f64 = 318.;
 pub const Y_PIXEL_SPAN: f64 = 218.;
+
+// The calculator rounds to decimal precision before choosing a raster pixel.
+pub(super) fn axis_pixel(value: f64) -> i64 {
+    Real::from_f64(value).map_or(value, Real::to_f64).round() as i64
+}
+
+pub(super) fn ticks(low: f64, high: f64, spacing: f64, extent: f64) -> Vec<i64> {
+    let units_per_pixel = (high - low) / extent;
+    if !units_per_pixel.is_finite() || units_per_pixel <= 0. {
+        return Vec::new();
+    }
+    if spacing < units_per_pixel {
+        return (0..=extent as i64).collect();
+    }
+    let first = (low / spacing).ceil() * spacing;
+    (0..=extent as i64)
+        .map(|i| first + i as f64 * spacing)
+        .take_while(|&value| value <= high)
+        .map(|value| ((value - low) / (high - low) * extent).round() as i64)
+        .collect()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {

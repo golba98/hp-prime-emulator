@@ -42,7 +42,7 @@ fn sample(x: f64, y: Option<f64>, value: Option<Real>) -> Sample {
 fn set_frequency(sample: &mut Sample, frequency: Frequency) {
     match frequency {
         Frequency::Whole(count) => sample.frequency = Some(count),
-        Frequency::Fractional(value) => sample.fractional_frequency = Some(encoded(value)),
+        Frequency::Decimal(value) => sample.fractional_frequency = Some(encoded(value)),
     }
 }
 fn sorted(data: &Data) -> Vec<Real> {
@@ -97,41 +97,16 @@ pub(super) fn build(
             }
         }
         Chart::BoxWhisker => {
-            let summary = data.summary(cancel)?;
-            let mut values =
-                ["MinVal", "Q₁", "MedVal", "Q₃", "MaxVal"].map(|name| summary.finite(name));
-            let mut outliers = Vec::new();
-            if analysis.option == 2 {
-                let spread = values[3]
-                    .sub(values[1])
-                    .map_err(|error| error.to_string())?;
-                let fence = spread
-                    .mul(Real::parse("1.5").unwrap())
-                    .map_err(|error| error.to_string())?;
-                let left = values[1].sub(fence).map_err(|error| error.to_string())?;
-                let right = values[3].add(fence).map_err(|error| error.to_string())?;
-                let mut inside = Vec::new();
-                for (&value, &frequency) in data.values.iter().zip(&data.weights) {
-                    if frequency.is_zero() {
-                        continue;
-                    }
-                    if value.cmp_value(left).is_lt() || value.cmp_value(right).is_gt() {
-                        outliers.push(value);
-                    } else {
-                        inside.push(value);
-                    }
-                }
-                inside.sort_by(|a, b| a.cmp_value(*b));
-                outliers.sort_by(|a, b| a.cmp_value(*b));
-                if let (Some(&min), Some(&max)) = (inside.first(), inside.last()) {
-                    values[0] = min;
-                    values[4] = max;
-                }
-            }
-            for (label, value) in ["Min", "Q1", "Med", "Q3", "Max"]
+            let data = one_plots::box_values(data, analysis.option, cancel)?;
+            let markers = ["Min", "Q1", "Med", "Q3", "Max"]
                 .into_iter()
-                .zip(values)
-                .chain(outliers.into_iter().map(|value| ("Outlier", value)))
+                .zip(data.markers);
+            for (label, value) in data
+                .below
+                .into_iter()
+                .map(|value| ("Outlier", value))
+                .chain(markers)
+                .chain(data.above.into_iter().map(|value| ("Outlier", value)))
             {
                 let mut point = sample(value.to_f64(), Some(index as f64 * 2. + 1.5), Some(value));
                 point.label = Some(label.into());

@@ -1,6 +1,50 @@
 //! LCD page controls; execution and state ownership stay in NativeTools.
 use super::*;
+
+fn function_cursor_picker(ui: &mut egui::Ui, mode: &mut PlotCursorMode) {
+    let labels = ["Standard", "Inverting", "Blinking"];
+    ui.label("Cursor");
+    let highlight = ui.id().with("function_plot_cursor_choice");
+    let lcd_style = ui.style().clone();
+    let menu = egui::ComboBox::from_id_salt("function_plot_cursor")
+        .selected_text(labels[*mode as usize])
+        .popup_style(egui::style::StyleModifier::new(move |style| {
+            *style = (*lcd_style).clone();
+        }))
+        .show_ui(ui, |ui| {
+            let mut row = ui
+                .data(|data| data.get_temp::<usize>(highlight))
+                .unwrap_or(*mode as usize);
+            let accept = ui.input_mut(|input| {
+                use egui::{Key, Modifiers};
+                if input.consume_key(Modifiers::NONE, Key::ArrowUp) {
+                    row = row.saturating_sub(1);
+                }
+                if input.consume_key(Modifiers::NONE, Key::ArrowDown) {
+                    row = (row + 1).min(PlotCursorMode::CHOICES.len() - 1);
+                }
+                input.consume_key(Modifiers::NONE, Key::Enter)
+            });
+            ui.data_mut(|data| data.insert_temp(highlight, row));
+            for (index, choice) in PlotCursorMode::CHOICES.into_iter().enumerate() {
+                let control = ui.selectable_label(index == row, labels[index]);
+                if control.clicked() || (accept && index == row) {
+                    *mode = choice;
+                    ui.close();
+                }
+            }
+        });
+    if menu.inner.is_none() {
+        ui.data_mut(|data| data.remove::<usize>(highlight));
+    }
+}
+
+use ppl_vm::PlotCursorMode;
 impl NativeTools {
+    pub(crate) fn function_plot_setup_open(&self) -> bool {
+        self.page == Some(Page::PlotSetup) && self.memory.selected_app == "Function"
+    }
+
     pub(super) fn show_page(
         &mut self,
         ui: &mut egui::Ui,
@@ -412,13 +456,22 @@ impl NativeTools {
                 }
                 let size = egui::vec2((lcd.width() - 4.).max(1.), 145. * scale);
                 let colors = self.graph_plot_colors();
+                let function_setup = (self.memory.selected_app == "Function")
+                    .then(|| snapshot.plot_settings_for("Function"))
+                    .flatten();
+                let cursor_mode = function_setup
+                    .as_ref()
+                    .and_then(|settings| settings.cursor_mode());
                 if let Some(app) = self.memory.graphs.get_mut(&self.memory.selected_app) {
                     let trace = self.trace.current(&self.points).map(|point| point.point);
                     let interaction = crate::ide::native_plot_view::show_graph(
                         ui,
                         &mut app.window,
                         &self.points,
-                        &colors,
+                        crate::ide::native_plot_view::GraphStyle {
+                            colors: &colors,
+                            function_setup: function_setup.as_ref(),
+                        },
                         size,
                         scale,
                         trace,
@@ -432,6 +485,11 @@ impl NativeTools {
                         ) {
                             self.error = Some(error);
                         }
+                    }
+                    if let (Some(mode), Some((rect, center))) =
+                        (cursor_mode, interaction.trace_cursor)
+                    {
+                        self.paint_plot_cursor(ui.painter(), rect, center, scale, mode);
                     }
                     if interaction.drag_stopped {
                         self.plot(snapshot.clone());
@@ -558,15 +616,6 @@ impl NativeTools {
             }
 
             Page::PlotSetup | Page::NumericSetup => {
-                if page == Page::PlotSetup
-                    && self.statistics_unbounded_plot()
-                    && self.statistics_plot_setup.is_none()
-                    && let Some(settings) = self.plot_settings_cache.get("Statistics 1Var")
-                {
-                    self.statistics_plot_setup = Some(Self::settings_window(settings));
-                }
-                let editing_unbounded =
-                    page == Page::PlotSetup && self.statistics_plot_setup.is_some();
                 if let Some(app) = self.memory.graphs.get_mut(&self.memory.selected_app) {
                     if page == Page::NumericSetup {
                         if app.kind == GraphKind::Implicit {
@@ -591,15 +640,91 @@ impl NativeTools {
                             ("Xmax", &mut w.xmax),
                             ("Ymin", &mut w.ymin),
                             ("Ymax", &mut w.ymax),
-                            ("Tmin", &mut w.tmin),
-                            ("Tmax", &mut w.tmax),
                         ] {
                             ui.horizontal(|ui| {
                                 ui.label(label);
                                 ui.add(egui::DragValue::new(value));
                             });
                         }
-                        ui.checkbox(&mut w.axes, "Axes");
+                        let function = self.memory.selected_app == "Function";
+                        if function && let Some(current) = snapshot.plot_settings_for("Function") {
+                            let mut settings = current.clone();
+                            for (field, label, number, flag, flag_label, hidden) in [
+                                (
+                                    "Xtick",
+                                    "X Tick",
+                                    current.xtick,
+                                    "GridDots",
+                                    "Grid Dots",
+                                    current.grid_dots,
+                                ),
+                                (
+                                    "Ytick",
+                                    "Y Tick",
+                                    current.ytick,
+                                    "GridLines",
+                                    "Grid Lines",
+                                    current.grid_lines,
+                                ),
+                            ] {
+                                let mut tick = number.to_f64();
+                                let mut visible = !hidden;
+                                ui.horizontal(|ui| {
+                                    ui.label(label);
+                                    if ui
+                                        .add(
+                                            egui::DragValue::new(&mut tick)
+                                                .speed(0.1)
+                                                .update_while_editing(false),
+                                        )
+                                        .changed()
+                                    {
+                                        let result = ppl_math::Real::from_f64(tick)
+                                            .map_err(|error| error.to_string())
+                                            .and_then(|value| {
+                                                settings
+                                                    .set(field, &ppl_vm::Value::Real(value))
+                                                    .map_err(|error| error.to_string())
+                                            });
+                                        self.error = result.err();
+                                    }
+                                    if ui.checkbox(&mut visible, flag_label).changed()
+                                        && let Err(error) =
+                                            settings.set(flag, &ppl_vm::Value::from_bool(!visible))
+                                    {
+                                        self.error = Some(error.to_string());
+                                    }
+                                });
+                            }
+                            let mut axes = !w.axes;
+                            let previous_mode =
+                                current.cursor_mode().unwrap_or(PlotCursorMode::Standard);
+                            let mut mode = previous_mode;
+                            ui.horizontal(|ui| {
+                                if ui.checkbox(&mut axes, "Axes").changed() {
+                                    settings.axes = !axes;
+                                    w.axes = settings.axes;
+                                }
+                                function_cursor_picker(ui, &mut mode);
+                            });
+                            if mode != previous_mode
+                                && let Err(error) = settings.set("Cursor", &mode.value())
+                            {
+                                self.error = Some(error.to_string());
+                            }
+                            if settings != current {
+                                requests
+                                    .push(Request::PlotConfiguration("Function".into(), settings));
+                            }
+                        } else {
+                            for (label, value) in [("Tmin", &mut w.tmin), ("Tmax", &mut w.tmax)] {
+                                ui.horizontal(|ui| {
+                                    ui.label(label);
+                                    ui.add(egui::DragValue::new(value));
+                                });
+                            }
+                            ui.checkbox(&mut w.axes, "Axes");
+                        }
                     }
                 }
                 if !self.memory.graphs.contains_key(&self.memory.selected_app) {
@@ -610,43 +735,11 @@ impl NativeTools {
                                 .prefix("Payments per group "),
                         );
                     }
-                    if self.memory.selected_app == "Statistics 1Var" {
-                        let mut manual = self.memory.models.histogram.is_some();
-                        if ui
-                            .checkbox(&mut manual, "Set histogram range/width")
-                            .changed()
-                        {
-                            self.memory.models.histogram = if manual {
-                                Some(crate::ide::native_model_plots::HistogramSpec {
-                                    minimum: 0.,
-                                    maximum: 10.,
-                                    width: 1.,
-                                })
-                            } else {
-                                None
-                            };
-                        }
-                        if let Some(spec) = &mut self.memory.models.histogram {
-                            for (label, value) in [
-                                ("Minimum", &mut spec.minimum),
-                                ("Maximum", &mut spec.maximum),
-                                ("Width", &mut spec.width),
-                            ] {
-                                ui.horizontal(|ui| {
-                                    ui.label(label);
-                                    ui.add(egui::DragValue::new(value));
-                                });
-                            }
-                        }
-                    }
-                    let window = if editing_unbounded {
-                        self.statistics_plot_setup.as_mut().unwrap()
-                    } else {
-                        self.memory
-                            .model_windows
-                            .entry(self.memory.selected_app.clone())
-                            .or_default()
-                    };
+                    let window = self
+                        .memory
+                        .model_windows
+                        .entry(self.memory.selected_app.clone())
+                        .or_default();
                     for (label, value) in [
                         ("Xmin", &mut window.xmin),
                         ("Xmax", &mut window.xmax),
@@ -655,16 +748,7 @@ impl NativeTools {
                     ] {
                         ui.horizontal(|ui| {
                             ui.label(label);
-                            let control = egui::DragValue::new(value);
-                            ui.add(if editing_unbounded && matches!(label, "Ymin" | "Ymax") {
-                                control.custom_formatter(|number, _| match number {
-                                    f64::NEG_INFINITY => "-Inf".into(),
-                                    f64::INFINITY => "+Inf".into(),
-                                    value => value.to_string(),
-                                })
-                            } else {
-                                control
-                            });
+                            ui.add(egui::DragValue::new(value));
                         });
                     }
                     if page == Page::PlotSetup {
@@ -672,30 +756,11 @@ impl NativeTools {
                     }
                 }
                 if ui.button("Apply").clicked() {
-                    let mut next_snapshot = snapshot.clone();
                     if page == Page::PlotSetup {
                         let name = self.memory.selected_app.clone();
-                        let mut settings = snapshot.plot_settings_for(&name);
-                        if editing_unbounded {
-                            settings = self.plot_settings_cache.get(&name).cloned();
-                        }
-                        if let Some(mut settings) = settings {
-                            let window = self
-                                .statistics_plot_setup
-                                .clone()
-                                .filter(|_| editing_unbounded)
-                                .unwrap_or_else(|| self.trace_window());
-                            let admissible = if editing_unbounded
-                                && (window.ymin.is_infinite() || window.ymax.is_infinite())
-                            {
-                                let mut finite = window.clone();
-                                finite.ymin = 0.;
-                                finite.ymax = 1.;
-                                finite.validate()
-                            } else {
-                                window.validate()
-                            };
-                            let result = admissible.and_then(|()| {
+                        if let Some(mut settings) = snapshot.plot_settings_for(&name) {
+                            let window = self.trace_window();
+                            let result = window.validate().and_then(|()| {
                                 for (field, number) in [
                                     ("Xmin", window.xmin),
                                     ("Xmax", window.xmax),
@@ -703,41 +768,17 @@ impl NativeTools {
                                     ("Ymax", window.ymax),
                                     ("Axes", if window.axes { 1. } else { 0. }),
                                 ] {
-                                    let value = match number {
-                                        f64::NEG_INFINITY => {
-                                            ppl_vm::PlotBound::NegativeInfinity.to_value()
-                                        }
-                                        f64::INFINITY => {
-                                            ppl_vm::PlotBound::PositiveInfinity.to_value()
-                                        }
-                                        finite => ppl_vm::Value::Real(
-                                            ppl_math::Real::from_f64(finite)
-                                                .map_err(|e| e.to_string())?,
-                                        ),
-                                    };
+                                    let value = ppl_vm::Value::Real(
+                                        ppl_math::Real::from_f64(number)
+                                            .map_err(|error| error.to_string())?,
+                                    );
                                     settings.set(field, &value).map_err(|e| e.to_string())?;
-                                }
-                                if name == "Statistics 1Var"
-                                    && let Some(spec) = self.memory.models.histogram
-                                {
-                                    Self::set_histogram_settings(&mut settings, spec)?;
                                 }
                                 settings.validate_for(&name)
                             });
                             if let Err(error) = result {
                                 self.error = Some(error);
                                 return;
-                            }
-                            if editing_unbounded {
-                                if !settings.has_infinite_y() {
-                                    self.memory.model_windows.insert(name.clone(), window);
-                                }
-                                self.plot_settings_cache
-                                    .insert(name.clone(), settings.clone());
-                                next_snapshot
-                                    .app_plot_settings
-                                    .insert(name.clone(), settings.clone());
-                                self.statistics_plot_setup = None;
                             }
                             requests.push(Request::PlotConfiguration(name, settings));
                         }
@@ -748,7 +789,7 @@ impl NativeTools {
                         self.table(snapshot);
                     } else {
                         self.page = Some(Page::Plot);
-                        self.plot(next_snapshot);
+                        self.plot(snapshot.clone());
                     }
                 }
             }

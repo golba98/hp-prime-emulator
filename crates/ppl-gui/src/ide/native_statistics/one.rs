@@ -74,6 +74,12 @@ impl Chart {
             (1..=2).contains(&option)
         }
     }
+    pub fn uses_frequencies(self) -> bool {
+        matches!(
+            self,
+            Self::Histogram | Self::BoxWhisker | Self::Line | Self::Dot
+        )
+    }
 }
 impl OneAnalysis {
     pub fn data_expression(&self) -> String {

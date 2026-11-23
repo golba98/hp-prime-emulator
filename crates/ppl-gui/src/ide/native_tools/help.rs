@@ -12,6 +12,9 @@ use std::{
 
 const HISTORY_LIMIT: usize = 64;
 const RESULT_PAGE: usize = 100;
+const INSTALLED_IMAGINARY_UNIT: &str = "\u{e003}";
+const MATH_FONT_PX: f32 = 16.;
+const SYNTAX_PANEL_COLOR: Color32 = Color32::from_rgb(243, 235, 197);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Visit {
@@ -120,7 +123,9 @@ struct Style {
     underline: bool,
     code: bool,
     math: bool,
+    key: bool,
     band: u8,
+    syntax_start: Option<usize>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Run {
@@ -173,9 +178,14 @@ impl Lists {
         self.open[level as usize..].fill(false);
         true
     }
-    fn finish_line(&mut self, runs: &mut Vec<Run>, blocks: &mut Vec<Block>) {
+    fn finish_line(&mut self, runs: &mut Vec<Run>, blocks: &mut Vec<Block>, example_on_line: bool) {
         let runs = std::mem::take(runs);
-        if let Some(line) = self.line
+        if example_on_line
+            && !runs.is_empty()
+            && let Some(Block::Example { annotation, .. }) = blocks.last_mut()
+        {
+            *annotation = runs;
+        } else if let Some(line) = self.line
             && (!runs.is_empty() || line.marker)
         {
             blocks.push(Block::ListItem(line, runs));
@@ -195,12 +205,54 @@ impl Lists {
 enum Block {
     Paragraph(Vec<Run>),
     ListItem(ListLine, Vec<Run>),
-    Example(usize, Style),
+    ProgramSample(String),
+    Example {
+        index: usize,
+        style: Style,
+        annotation: Vec<Run>,
+    },
 }
+impl Block {
+    fn syntax_section(&self) -> Option<usize> {
+        let Self::Paragraph(runs) = self else {
+            return None;
+        };
+        let start = runs.first()?.style.syntax_start?;
+        runs.iter()
+            .all(|run| run.style.band == 1 && run.style.syntax_start == Some(start))
+            .then_some(start)
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+enum Example {
+    Expression(String),
+    ProgramLauncher,
+}
+impl Example {
+    fn from_resource(line: &str) -> Self {
+        // The resource uses these records as demo launchers. Keep their
+        // example ordinals without offering the locator as executable text.
+        if line.trim().strip_prefix("__$Demo_").is_some_and(|name| {
+            !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_')
+        }) {
+            Self::ProgramLauncher
+        } else {
+            Self::Expression(example_line(line))
+        }
+    }
+
+    fn expression(&self) -> Option<&str> {
+        match self {
+            Self::Expression(text) => Some(text),
+            Self::ProgramLauncher => None,
+        }
+    }
+}
+
 #[derive(Default)]
 struct Document {
     blocks: Vec<Block>,
-    examples: Vec<String>,
+    examples: Vec<Example>,
     unsupported: BTreeSet<char>,
 }
 
@@ -209,6 +261,7 @@ struct Document {
 fn visible_units(units: &[u16]) -> String {
     char::decode_utf16(units.iter().copied())
         .map(|unit| match unit {
+            Ok('\u{e003}') => "ⅈ".into(),
             Ok(c) if ('\u{e000}'..='\u{f8ff}').contains(&c) => format!("[U+{:04X}]", c as u32),
             Ok(c) => c.to_string(),
             Err(error) => format!("[U+{:04X}]", error.unpaired_surrogate()),
@@ -231,6 +284,53 @@ fn flush(text: &mut String, runs: &mut Vec<Run>, style: Style) {
         });
     }
 }
+
+fn key_label(text: &str) -> Option<&str> {
+    let label = text.strip_prefix('[')?.strip_suffix(']')?;
+    (!label.trim().is_empty() && !label.contains(['[', ']', '\n', '\r'])).then_some(label)
+}
+
+fn example_line(line: &str) -> String {
+    use ppl_syntax::lexer::{Tok, lex};
+
+    if !line.contains(INSTALLED_IMAGINARY_UNIT) {
+        return line.to_owned();
+    }
+    let tokens = lex(line, &mut ppl_syntax::Diagnostics::default());
+    let mut normalized = String::with_capacity(line.len());
+    let mut from = 0;
+    for (index, token) in tokens.iter().enumerate() {
+        if !matches!(&token.tok, Tok::Ident(name) if name == INSTALLED_IMAGINARY_UNIT) {
+            continue;
+        }
+        normalized.push_str(&line[from..token.span.start as usize]);
+        // Installed examples can put the glyph directly after a coefficient.
+        // Insert multiplication in the executable spelling, outside strings.
+        if index > 0
+            && matches!(tokens[index - 1].tok, Tok::Number(_))
+            && tokens[index - 1].span.end == token.span.start
+        {
+            normalized.push('*');
+        }
+        normalized.push('ⅈ');
+        from = token.span.end as usize;
+    }
+    normalized.push_str(&line[from..]);
+    normalized
+}
+
+fn program_sample(chars: &[char]) -> Option<(String, usize)> {
+    let end = chars.windows(2).position(|pair| pair == ['P', '✐'])?;
+    let source = &chars[..end];
+    if !source.contains(&'\n')
+        || source.iter().any(|c| matches!(c, '✎' | '✐' | '✍'))
+        || !matches!(chars.get(end + 2), Some('\n') | None)
+    {
+        return None;
+    }
+    Some((source.iter().collect(), end + 2))
+}
+
 fn document(topic: &Topic) -> Document {
     let examples = topic
         .spans
@@ -239,7 +339,7 @@ fn document(topic: &Topic) -> Document {
         .unwrap_or_default()
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(str::to_owned)
+        .map(Example::from_resource)
         .collect();
     let mut out = Document {
         examples,
@@ -255,11 +355,26 @@ fn document(topic: &Topic) -> Document {
         (0, Style::default(), String::new(), Vec::new(), Vec::new());
     let mut used_examples = BTreeSet::new();
     let mut lists = Lists::default();
+    let mut example_on_line = false;
     while at < chars.len() {
         let c = chars[at];
         if c == '✎'
             && let Some(&tag) = chars.get(at + 1)
         {
+            if tag == 'P'
+                && style == Style::default()
+                && lists.line.is_none()
+                && text.is_empty()
+                && runs.is_empty()
+                && let Some((source, consumed)) = program_sample(&chars[at + 2..])
+            {
+                out.blocks.push(Block::ProgramSample(source));
+                at += 2 + consumed;
+                if chars.get(at) == Some(&'\n') {
+                    at += 1;
+                }
+                continue;
+            }
             flush(&mut text, &mut runs, style);
             if let Some(level) = ListLevel::from_tag(tag) {
                 lists.item(level);
@@ -269,7 +384,10 @@ fn document(topic: &Topic) -> Document {
                     '*' => style.bold = true,
                     '_' => style.underline = true,
                     '#' | '/' => style.italic = true,
-                    '^' => style.band = 1,
+                    '^' => {
+                        style.band = 1;
+                        style.syntax_start = Some(at);
+                    }
                     '%' => style.band = 2,
                     'P' | 'Y' | 'x' => style.code = true,
                     ';' | 'v' => style.math = true,
@@ -304,10 +422,17 @@ fn document(topic: &Topic) -> Document {
                 .position(|c| *c == '✍')
                 .map(|i| i + at + 1);
             if let Some(end) = end {
+                let text: String = chars[at + 1..end].iter().collect();
+                let (text, key) = match key_label(&text) {
+                    Some(label) => (label.to_owned(), true),
+                    None => (text, false),
+                };
                 runs.push(Run {
-                    text: chars[at + 1..end].iter().collect(),
+                    text,
                     style: Style {
-                        code: true,
+                        code: !key,
+                        math: style.math && !key,
+                        key,
                         ..style
                     },
                 });
@@ -327,19 +452,27 @@ fn document(topic: &Topic) -> Document {
                 && index > 0
                 && index <= out.examples.len()
             {
-                flush(&mut text, &mut runs, style);
-                if !runs.is_empty() || lists.line.is_some_and(|line| line.marker) {
-                    lists.finish_line(&mut runs, &mut out.blocks);
+                if out.examples[index - 1].expression().is_some() {
+                    flush(&mut text, &mut runs, style);
+                    if !runs.is_empty() || lists.line.is_some_and(|line| line.marker) {
+                        lists.finish_line(&mut runs, &mut out.blocks, example_on_line);
+                    }
+                    out.blocks.push(Block::Example {
+                        index: index - 1,
+                        style,
+                        annotation: Vec::new(),
+                    });
+                    example_on_line = true;
+                    used_examples.insert(index - 1);
                 }
-                out.blocks.push(Block::Example(index - 1, style));
-                used_examples.insert(index - 1);
                 at = end + 3;
                 continue;
             }
         }
         if c == '\n' {
             flush(&mut text, &mut runs, style);
-            lists.finish_line(&mut runs, &mut out.blocks);
+            lists.finish_line(&mut runs, &mut out.blocks, example_on_line);
+            example_on_line = false;
         } else {
             text.push(c);
         }
@@ -347,10 +480,15 @@ fn document(topic: &Topic) -> Document {
     }
     flush(&mut text, &mut runs, style);
     if !runs.is_empty() || lists.line.is_some_and(|line| line.marker) {
-        lists.finish_line(&mut runs, &mut out.blocks);
+        lists.finish_line(&mut runs, &mut out.blocks, example_on_line);
     }
-    let remaining = (0..out.examples.len())
-        .filter(|index| !used_examples.contains(index))
+    let remaining = out
+        .examples
+        .iter()
+        .enumerate()
+        .filter_map(|(index, example)| {
+            (example.expression().is_some() && !used_examples.contains(&index)).then_some(index)
+        })
         .collect::<Vec<_>>();
     if !remaining.is_empty() {
         out.blocks.push(Block::Paragraph(vec![Run {
@@ -361,15 +499,15 @@ fn document(topic: &Topic) -> Document {
                 ..Default::default()
             },
         }]));
-        out.blocks.extend(remaining.into_iter().map(|index| {
-            Block::Example(
+        out.blocks
+            .extend(remaining.into_iter().map(|index| Block::Example {
                 index,
-                Style {
+                style: Style {
                     band: 2,
                     ..Default::default()
                 },
-            )
-        }));
+                annotation: Vec::new(),
+            }));
     }
     out
 }
@@ -387,9 +525,11 @@ pub(super) struct Panel {
     limit: usize,
     cursor: usize,
     document: Option<(u32, Document)>,
-    textures: BTreeMap<String, egui::TextureHandle>,
+    textures: BTreeMap<(String, bool), egui::TextureHandle>,
     search_focused: bool,
     release_focus: bool,
+    demo_menu_open: bool,
+    demo_selection: usize,
     scroll: f32,
     scroll_to_result: bool,
     math_serial: usize,
@@ -399,8 +539,55 @@ impl Panel {
     pub(super) fn loading(&self) -> bool {
         self.loading.is_some()
     }
+
+    pub(super) fn close_demo_menu(&mut self) {
+        self.demo_menu_open = false;
+    }
+
+    fn demos<'a>(book: &'a Book, memory: &Memory) -> Vec<(&'a str, &'a str)> {
+        if memory.contents || language(memory.language) != Some(book.language) {
+            return Vec::new();
+        }
+        memory
+            .current
+            .as_ref()
+            .and_then(|visit| visit.id)
+            .and_then(|id| book.topic(id))
+            .map_or_else(Vec::new, |topic| book.topic_demo_programs(topic))
+    }
+
+    fn demo_button(
+        &mut self,
+        ui: &mut egui::Ui,
+        demos: &[(&str, &str)],
+        requests: &mut Vec<Request>,
+    ) {
+        let button = ui.button("Example");
+        if button.clicked() {
+            self.demo_menu_open = !self.demo_menu_open;
+            self.demo_selection = 0;
+        }
+        let selected = self.demo_selection;
+        let mut launch = None;
+        egui::Popup::menu(&button)
+            .style(ui.style().as_ref().clone())
+            .open_bool(&mut self.demo_menu_open)
+            .show(|ui| {
+                for (index, (name, source)) in demos.iter().enumerate() {
+                    if ui.selectable_label(index == selected, *name).clicked() {
+                        launch = Some((*name, *source));
+                    }
+                }
+            });
+        if let Some((name, source)) = launch {
+            self.close_demo_menu();
+            requests.push(Request::OpenHelpDemo(name.into(), source.into()));
+        }
+    }
+
     fn load(&mut self, wanted: Language) {
         self.language = Some(wanted);
+        self.close_demo_menu();
         self.book = None;
         self.document = None;
         self.textures.clear();
@@ -508,6 +695,7 @@ impl Panel {
     }
     fn select(&mut self, memory: &mut Memory, topic: &mut String, visit: Visit) {
         *topic = visit.name.clone();
+        self.close_demo_menu();
         memory.visit(visit);
         self.document = None;
         self.textures.clear();
@@ -576,20 +764,27 @@ impl Panel {
             ));
         }
     }
-    fn math(&mut self, ui: &mut egui::Ui, source: &str, scale: f32) {
-        let serial = self.math_serial;
-        self.math_serial += 1;
+    fn math_image(
+        &mut self,
+        ui: &egui::Ui,
+        source: &str,
+        scale: f32,
+    ) -> Option<(egui::TextureId, egui::Vec2)> {
+        let key = (source.to_owned(), ppl_graphics::text::prime::is_selected());
+        if let Some(texture) = self.textures.get(&key) {
+            return Some((texture.id(), (texture.size_vec2() * scale).round_ui()));
+        }
+        if source.len() > 8192 {
+            return None;
+        }
         let (_, diagnostics) = ppl_syntax::parse_expression(source);
-        if source.len() > 8192 || diagnostics.has_errors() {
-            ui.label(visible_units(&source.encode_utf16().collect::<Vec<_>>()));
-            return;
+        if diagnostics.has_errors() {
+            return None;
         }
-        let layout = crate::ide::native::math_layout::expression(source, 16.);
+        let layout = crate::ide::native::math_layout::expression(source, MATH_FONT_PX);
         if layout.width <= 0 || layout.width > 1024 || layout.height <= 0 || layout.height > 360 {
-            ui.label(visible_units(&source.encode_utf16().collect::<Vec<_>>()));
-            return;
+            return None;
         }
-        let key = source.to_owned();
         let texture = self.textures.entry(key).or_insert_with(|| {
             let width = layout.width as usize + 4;
             let height = layout.height as usize + 4;
@@ -606,14 +801,34 @@ impl Panel {
                 egui::TextureOptions::NEAREST,
             )
         });
-        let size = (texture.size_vec2() * scale).round_ui();
+        Some((texture.id(), (texture.size_vec2() * scale).round_ui()))
+    }
+
+    fn math(&mut self, ui: &mut egui::Ui, source: &str, scale: f32) {
+        let serial = self.math_serial;
+        self.math_serial += 1;
+        let Some(image) = self.math_image(ui, source, scale) else {
+            ui.label(visible_units(&source.encode_utf16().collect::<Vec<_>>()));
+            return;
+        };
         egui::ScrollArea::horizontal()
             .id_salt(("help_math", serial))
             .show(ui, |ui| {
-                ui.add(egui::Image::new((texture.id(), size)));
+                ui.add(egui::Image::new(image));
             });
     }
+
     fn paragraph(&mut self, ui: &mut egui::Ui, runs: &[Run], scale: f32) {
+        self.paragraph_with_syntax_panel(ui, runs, scale, false);
+    }
+
+    fn paragraph_with_syntax_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        runs: &[Run],
+        scale: f32,
+        in_syntax_panel: bool,
+    ) {
         if runs.is_empty() {
             ui.add_space(4. * scale);
             return;
@@ -622,15 +837,64 @@ impl Panel {
             self.math(ui, &runs[0].text, scale);
             return;
         }
-        let mut job = egui::text::LayoutJob {
-            wrap: egui::text::TextWrapping {
-                max_width: ui.available_width(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        for run in runs {
+        let mut job = Self::paragraph_job(ui, runs, scale, in_syntax_panel);
+        job.wrap.max_width = ui.available_width();
+        ui.add(egui::Label::new(job).wrap());
+    }
+
+    fn paragraph_job(
+        ui: &egui::Ui,
+        runs: &[Run],
+        scale: f32,
+        in_syntax_panel: bool,
+    ) -> egui::text::LayoutJob {
+        let mut job = egui::text::LayoutJob::default();
+        for (index, run) in runs.iter().enumerate() {
             let style = run.style;
+            if style.key {
+                let label = run.text.replace(' ', "\u{a0}");
+                let font = egui::FontId::new(
+                    13. * scale,
+                    ui.style().text_styles[&egui::TextStyle::Body]
+                        .family
+                        .clone(),
+                );
+                let (width, space_width) = ui.fonts(|fonts| {
+                    (
+                        fonts
+                            .layout_no_wrap(label.clone(), font.clone(), Color32::WHITE)
+                            .size()
+                            .x,
+                        fonts.glyph_width(&font, '\u{a0}'),
+                    )
+                });
+                // The measured softkey boxes are 50 pixels wide at LCD scale.
+                // Preserve longer localized labels and pad each side equally.
+                let padding = ((50. * scale - width) / (2. * space_width)).round().max(1.);
+                let spaces = "\u{a0}".repeat(padding as usize);
+                job.append(
+                    &format!("{spaces}{label}{spaces}"),
+                    0.,
+                    egui::TextFormat {
+                        font_id: font.clone(),
+                        color: Color32::WHITE,
+                        background: Color32::from_gray(96),
+                        expand_bg: 0.,
+                        ..Default::default()
+                    },
+                );
+                if runs.get(index + 1).is_some_and(|next| next.style.key) {
+                    job.append(
+                        "\u{2009}",
+                        0.,
+                        egui::TextFormat {
+                            font_id: font,
+                            ..Default::default()
+                        },
+                    );
+                }
+                continue;
+            }
             let role = if style.code {
                 egui::TextStyle::Monospace
             } else if style.bold {
@@ -655,7 +919,7 @@ impl Panel {
                         egui::Stroke::NONE
                     },
                     background: match style.band {
-                        1 => Color32::from_rgb(255, 255, 128),
+                        1 if !in_syntax_panel => Color32::from_rgb(255, 255, 128),
                         2 => Color32::from_rgb(180, 255, 180),
                         _ => Color32::TRANSPARENT,
                     },
@@ -663,7 +927,24 @@ impl Panel {
                 },
             );
         }
-        ui.add(egui::Label::new(job).wrap());
+        job
+    }
+
+    fn syntax_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        blocks: &[Block],
+        scale: f32,
+    ) -> (egui::layers::ShapeIdx, egui::Rect) {
+        let mut rect = ui.available_rect_before_wrap();
+        let background = ui.painter().add(egui::Shape::Noop);
+        for block in blocks {
+            if let Block::Paragraph(runs) = block {
+                self.paragraph_with_syntax_panel(ui, runs, scale, true);
+            }
+        }
+        rect.max.y = ui.min_rect().max.y;
+        (background, rect)
     }
     fn list_item(&mut self, ui: &mut egui::Ui, line: ListLine, runs: &[Run], scale: f32) {
         ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
@@ -676,28 +957,110 @@ impl Panel {
             self.paragraph(ui, runs, scale);
         });
     }
+    fn inline_example(
+        &mut self,
+        ui: &mut egui::Ui,
+        source: &str,
+        result: &str,
+        annotation: &[Run],
+        scale: f32,
+    ) -> bool {
+        if annotation.iter().any(|run| run.style.math || run.style.key) {
+            return false;
+        }
+        let (Some(source), Some(result)) = (
+            self.math_image(ui, source, scale),
+            self.math_image(ui, result, scale),
+        ) else {
+            return false;
+        };
+        // Keep tall textbook structures in the separate scrollable blocks.
+        // The image includes three pixels of line descent and four of padding.
+        let line_height = ((MATH_FONT_PX + 7.) * scale).round_ui();
+        if source.1.y > line_height || result.1.y > line_height {
+            return false;
+        }
+        let arrow = egui::text::LayoutJob::simple_singleline(
+            "→".into(),
+            egui::TextStyle::Small.resolve(ui.style()),
+            ui.visuals().text_color(),
+        );
+        let arrow = ui.fonts(|fonts| fonts.layout_job(arrow));
+        let annotation = (!annotation.is_empty()).then(|| {
+            let job = Self::paragraph_job(ui, annotation, scale, false);
+            ui.fonts(|fonts| fonts.layout_job(job))
+        });
+        let spacing = ui.spacing().item_spacing.x;
+        let width = source.1.x + arrow.size().x + result.1.x + 2. * spacing;
+        let width = width
+            + annotation
+                .as_ref()
+                .map_or(0., |note| note.size().x + spacing);
+        if width > ui.available_width() {
+            return false;
+        }
+        ui.horizontal(|ui| {
+            ui.add(egui::Image::new(source));
+            ui.label(arrow);
+            ui.add(egui::Image::new(result));
+            if let Some(note) = annotation {
+                ui.label(note);
+            }
+        });
+        true
+    }
+
+    fn program_sample(ui: &mut egui::Ui, source: &str, scale: f32, requests: &mut Vec<Request>) {
+        let font = egui::FontId::new(
+            13. * scale,
+            ui.style().text_styles[&egui::TextStyle::Monospace]
+                .family
+                .clone(),
+        );
+        let mut job = egui::text::LayoutJob::default();
+        job.append(
+            source,
+            0.,
+            egui::TextFormat {
+                font_id: font,
+                color: Color32::BLACK,
+                line_height: Some(16. * scale),
+                ..Default::default()
+            },
+        );
+        ui.add(egui::Label::new(job).wrap());
+        if ui.small_button("Copy sample").clicked() {
+            requests.push(Request::CopyText(source.into()));
+        }
+    }
+
     fn example(
         &mut self,
         ui: &mut egui::Ui,
         example: &str,
+        annotation: &[Run],
         scale: f32,
         requests: &mut Vec<Request>,
     ) {
-        if let Some((source, result)) = example.split_once("---->") {
-            self.math(ui, source.trim(), scale);
-            ui.small("→");
-            self.math(ui, result.trim(), scale);
+        let (source, inline) = if let Some((source, result)) = example.split_once("---->") {
+            let source = source.trim();
+            let result = result.trim();
+            let inline = self.inline_example(ui, source, result, annotation, scale);
+            if !inline {
+                self.math(ui, source, scale);
+                ui.small("→");
+                self.math(ui, result, scale);
+            }
+            (source, inline)
         } else {
             ui.monospace(visible_units(&example.encode_utf16().collect::<Vec<_>>()));
+            (example.trim(), false)
+        };
+        if !inline && !annotation.is_empty() {
+            self.paragraph(ui, annotation, scale);
         }
         if ui.small_button("Copy example").clicked() {
-            requests.push(Request::CopyText(
-                example
-                    .split_once("---->")
-                    .map_or(example, |(source, _)| source)
-                    .trim()
-                    .into(),
-            ));
+            requests.push(Request::CopyText(source.into()));
         }
     }
     fn show(
@@ -717,6 +1080,7 @@ impl Panel {
             language(memory.language).unwrap_or(Language::English),
         );
         self.synchronize_name(memory, topic);
+        let book = self.book.clone();
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(
@@ -725,6 +1089,7 @@ impl Panel {
                 )
                 .clicked()
             {
+                self.close_demo_menu();
                 memory.back();
                 if let Some(visit) = &memory.current {
                     *topic = visit.name.clone();
@@ -735,6 +1100,7 @@ impl Panel {
                 .add_enabled(!memory.forward.is_empty(), egui::Button::new("Forward"))
                 .clicked()
             {
+                self.close_demo_menu();
                 memory.forward();
                 if let Some(visit) = &memory.current {
                     *topic = visit.name.clone();
@@ -742,6 +1108,7 @@ impl Panel {
                 self.document = None;
             }
             if ui.button("Contents").clicked() {
+                self.close_demo_menu();
                 memory.contents = true;
                 query.clear();
             }
@@ -762,6 +1129,14 @@ impl Panel {
                         }
                     }
                 });
+            let demos = book
+                .as_deref()
+                .map_or_else(Vec::new, |book| Self::demos(book, memory));
+            if demos.is_empty() {
+                self.close_demo_menu();
+            } else {
+                self.demo_button(ui, &demos, requests);
+            }
         });
         let response = ui.add(
             egui::TextEdit::singleline(query)
@@ -775,6 +1150,7 @@ impl Panel {
             self.search_focused = false;
         }
         if response.changed() {
+            self.close_demo_menu();
             memory.contents = true;
             self.query = None;
         }
@@ -834,16 +1210,34 @@ impl Panel {
                     ui.strong(title(entry));
                     if self.document.as_ref().is_none_or(|(id, _)| *id != entry.id) { self.document = Some((entry.id, document(entry))); self.textures.clear(); }
                     let (_, doc) = self.document.take().unwrap();
-                    for block in &doc.blocks { match block {
+                    let mut syntax_panels = Vec::new();
+                    for blocks in doc.blocks.chunk_by(|left, right| {
+                        left.syntax_section().is_some_and(|id| right.syntax_section() == Some(id))
+                    }) {
+                        if blocks[0].syntax_section().is_some() {
+                            syntax_panels.push(self.syntax_panel(ui, blocks, scale));
+                            continue;
+                        }
+                        match &blocks[0] {
                         Block::Paragraph(runs) => self.paragraph(ui, runs, scale),
                         Block::ListItem(line, runs) => self.list_item(ui, *line, runs, scale),
-                        Block::Example(index, style) => {
-                            egui::Frame::new().fill(if style.band == 2 { Color32::from_rgb(180, 255, 180) } else { Color32::TRANSPARENT }).show(ui, |ui| {
-                                self.example(ui, &doc.examples[*index], scale, requests);
-                            });
+                        Block::ProgramSample(source) => Self::program_sample(ui, source, scale, requests),
+                        Block::Example { index, style, annotation } => {
+                            if let Some(example) = doc.examples[*index].expression() {
+                                egui::Frame::new().fill(if style.band == 2 { Color32::from_rgb(180, 255, 180) } else { Color32::TRANSPARENT }).show(ui, |ui| {
+                                    self.example(ui, example, annotation, scale, requests);
+                                });
+                            }
                         },
-                    }}
+                        }
+                    }
                     if !doc.unsupported.is_empty() { ui.small("Some original styles are shown as plain text."); }
+                    // Use the laid-out body edge without adding a widget that
+                    // changes wrapping or moves the scrollbar.
+                    for (background, mut rect) in syntax_panels {
+                        rect.max.x = ui.min_rect().max.x;
+                        ui.painter().set(background, egui::Shape::rect_filled(rect, 0., SYNTAX_PANEL_COLOR));
+                    }
                     self.document = Some((entry.id, doc));
                 } else { ui.label("No installed topic matches this selection. Search Contents for another topic."); }
             } else if self.loading.is_none() && ppl_compiler::builtins::lookup_case_insensitive(topic).is_none() {
@@ -903,6 +1297,34 @@ impl NativeTools {
     pub fn help_action(&mut self, action: KeyAction) -> Option<Vec<Request>> {
         if self.page != Some(Page::Help) || matches!(action, KeyAction::Home | KeyAction::Tool(_)) {
             return None;
+        }
+        if self.help_panel.demo_menu_open {
+            match action {
+                KeyAction::Back => {
+                    self.help_panel.close_demo_menu();
+                    return Some(vec![]);
+                }
+                KeyAction::Evaluate | KeyAction::History(_) => {
+                    let book = self.help_panel.book.as_deref()?;
+                    let demos = Panel::demos(book, &self.memory.help);
+                    if let KeyAction::History(delta) = action {
+                        self.help_panel.demo_selection = (self.help_panel.demo_selection as i64
+                            + i64::from(delta))
+                        .clamp(0, demos.len().saturating_sub(1) as i64)
+                            as usize;
+                        return Some(vec![]);
+                    }
+                    let request =
+                        demos
+                            .get(self.help_panel.demo_selection)
+                            .map(|(name, source)| {
+                                Request::OpenHelpDemo((*name).into(), (*source).into())
+                            });
+                    self.help_panel.close_demo_menu();
+                    return Some(request.into_iter().collect());
+                }
+                _ => {}
+            }
         }
         match action {
             KeyAction::Back if self.memory.help.back.is_empty() => {
@@ -1021,6 +1443,7 @@ mod tests {
                 topic(3, "ALPHA", "A distinct topic with the same name", ""),
             ],
             groups: vec![],
+            demo_programs: BTreeMap::new(),
         })
     }
     fn ready_panel() -> Panel {
@@ -1038,11 +1461,11 @@ mod tests {
         assert!(doc.unsupported.is_empty());
         assert!(doc.blocks.iter().any(|block| matches!(block, Block::Paragraph(runs) if runs.iter().any(|run|run.text=="Form" && run.style.bold && run.style.band==1))));
         assert!(
-            doc.blocks
-                .iter()
-                .any(|block| matches!(block, Block::Example(0, style) if style.band==2))
+            doc.blocks.iter().any(
+                |block| matches!(block, Block::Example { index: 0, style, .. } if style.band==2)
+            )
         );
-        assert_eq!(doc.examples, ["(1+2)/3 ----> 1"]);
+        assert_eq!(doc.examples[0].expression(), Some("(1+2)/3 ----> 1"));
         let text = doc
             .blocks
             .iter()
@@ -1068,6 +1491,125 @@ mod tests {
         assert!(image.pixels().contains(&0));
     }
     #[test]
+    fn syntax_panels_follow_their_original_markup_sections() {
+        let doc = document(&topic(
+            1,
+            "Synthetic syntax",
+            "✎^✎*Form:*✐\nf()^✐\n✎^g()^✐\nSee ✎^g()^✐ next.",
+            "",
+        ));
+        let sections = doc
+            .blocks
+            .iter()
+            .map(Block::syntax_section)
+            .collect::<Vec<_>>();
+        assert!(sections[0].is_some());
+        assert_eq!(sections[0], sections[1]);
+        assert!(sections[2].is_some());
+        assert_ne!(sections[1], sections[2]);
+        assert_eq!(sections[3], None);
+    }
+
+    #[test]
+    fn example_annotations_keep_their_own_result_on_the_resource_line() {
+        let value = topic(
+            6,
+            "EXAMPLE",
+            "✎%Example:(--E1--) ✎_(angle mode)_✐\n(--E2--)\nOrdinary text.\n(--E3--) (exact mode)%✐",
+            "sin(30) ----> 0.5\ncos(0) ----> 1\n1/2 ----> 1/2",
+        );
+        let doc = document(&value);
+        let annotations: Vec<_> = doc
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                Block::Example { annotation, .. } => Some(annotation.as_slice()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(annotations.len(), 3);
+        assert_eq!(annotations[0][1].text, "(angle mode)");
+        assert_eq!(annotations[0][1].style.band, 2);
+        assert!(annotations[0][1].style.underline);
+        assert!(annotations[1].is_empty());
+        assert_eq!(annotations[2][0].text, " (exact mode)");
+        assert!(doc.blocks.iter().any(|block|
+            matches!(block, Block::Paragraph(runs) if runs.iter().any(|run| run.text=="Ordinary text."))));
+        assert_eq!(doc.examples[0].expression(), Some("sin(30) ----> 0.5"));
+    }
+
+    #[test]
+    fn key_tokens_wrap_together_without_restyling_inline_code_or_prose() {
+        let doc = document(&topic(
+            1,
+            "KEYS",
+            "More controls ✍[Page Up]✍✍[OK]✍ then ✍A(1)✍ or [plain].",
+            "",
+        ));
+        let Block::Paragraph(runs) = &doc.blocks[0] else {
+            panic!("expected a paragraph");
+        };
+        assert_eq!(
+            runs.iter()
+                .map(|run| (run.text.as_str(), run.style.key, run.style.code))
+                .collect::<Vec<_>>(),
+            [
+                ("More controls ", false, false),
+                ("Page Up", true, false),
+                ("OK", true, false),
+                (" then ", false, false),
+                ("A(1)", false, true),
+                (" or [plain].", false, false),
+            ],
+        );
+        assert!(key_label("[]").is_none());
+        assert!(key_label("[[plain]]").is_none());
+        let ctx = egui::Context::default();
+        let mut panel = Panel::default();
+        let output = ctx.run(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(115., 220.),
+                )),
+                ..Default::default()
+            },
+            |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    panel.paragraph(ui, runs, 1.);
+                });
+            },
+        );
+        let galley = output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text().starts_with("More") => {
+                    Some(&text.galley)
+                }
+                _ => None,
+            })
+            .expect("paragraph is painted");
+        let rows: Vec<String> = galley
+            .rows
+            .iter()
+            .map(|row| row.glyphs.iter().map(|glyph| glyph.chr).collect())
+            .collect();
+        assert!(!rows[0].contains("Page"));
+        assert!(rows.iter().any(|row| row.contains("Page\u{a0}Up")));
+        let key_color = Color32::from_gray(96);
+        assert_eq!(
+            galley
+                .job
+                .sections
+                .iter()
+                .filter(|section| section.format.background == key_color)
+                .map(|section| galley.text()[section.byte_range.clone()].trim_matches('\u{a0}'))
+                .collect::<Vec<_>>(),
+            ["Page\u{a0}Up", "OK"],
+        );
+    }
+    #[test]
     fn list_markers_and_closers_preserve_nesting_and_continuation_styles() {
         let document = document(&topic(
             1,
@@ -1082,7 +1624,7 @@ mod tests {
                 let (list, runs) = match block {
                     Block::Paragraph(runs) => (None, runs),
                     Block::ListItem(line, runs) => (Some((line.level, line.marker)), runs),
-                    Block::Example(..) => panic!("unexpected example"),
+                    Block::ProgramSample(_) | Block::Example { .. } => panic!("unexpected example"),
                 };
                 (
                     list,
@@ -1182,6 +1724,7 @@ mod tests {
         let book = Book::load_resource(std::path::Path::new(&path), Language::English).unwrap();
         let topic = book.named("Function Plot View").next().unwrap();
         let document = document(topic);
+        let mut keys = BTreeSet::new();
         for level in [ListLevel::Primary, ListLevel::Secondary] {
             assert!(document.blocks.iter().any(|block| matches!(
                 block, Block::ListItem(line, _) if line.level == level && line.marker
@@ -1189,6 +1732,11 @@ mod tests {
         }
         for block in &document.blocks {
             if let Block::Paragraph(runs) | Block::ListItem(_, runs) = block {
+                keys.extend(
+                    runs.iter()
+                        .filter(|run| run.style.key)
+                        .map(|run| run.text.as_str()),
+                );
                 assert!(
                     !runs
                         .iter()
@@ -1196,6 +1744,35 @@ mod tests {
                 );
             }
         }
+        assert!(
+            ["Trace", "Go To", "Sketch", "Fcn", "Menu"]
+                .into_iter()
+                .all(|name| keys.contains(name))
+        );
+    }
+
+    #[test]
+    fn multiline_program_sample_keeps_source_and_demo_ordinals() {
+        let sample = "BEGIN\n  X:=42;\n\n  RETURN X;\nEND;";
+        let doc = document(&topic(
+            1,
+            "COMMAND",
+            &format!("Sample code:\n✎P{sample}P✐\nNext (--E1--)\n✎%(--E2--)%✐"),
+            "__$Demo_COMMAND\nXYZ(42) ----> 42",
+        ));
+        assert!(doc.unsupported.is_empty());
+        assert_eq!(doc.examples[0], Example::ProgramLauncher);
+        assert_eq!(doc.examples[1].expression(), Some("XYZ(42) ----> 42"));
+        assert_eq!(doc.blocks.len(), 4);
+        assert_eq!(doc.blocks[1], Block::ProgramSample(sample.into()));
+        assert!(matches!(&doc.blocks[2], Block::Paragraph(runs) if runs[0].text.trim() == "Next"));
+        assert!(matches!(&doc.blocks[3], Block::Example { index: 1, .. }));
+
+        let inline = document(&topic(2, "X", "Prefix ✎PX:=42;P✐ suffix", ""));
+        assert!(matches!(
+            &inline.blocks[0],
+            Block::Paragraph(runs) if runs[1].style.code && runs[1].text == "X:=42;"
+        ));
     }
 
     #[test]
@@ -1206,10 +1783,35 @@ mod tests {
             |block| matches!(block,Block::Paragraph(runs) if runs.iter().any(|run|run.text=="keep"))
         ));
         assert_eq!(
-            visible_units(&[0xd800, 0xe003, b'A' as u16]),
-            "[U+D800][U+E003]A"
+            visible_units(&[0xd800, 0xe001, b'A' as u16]),
+            "[U+D800][U+E001]A"
         );
     }
+    #[test]
+    fn complex_help_examples_keep_the_imaginary_unit_executable() {
+        let line = "EXPR(3+3\u{e003}) ----> 3+3*\u{e003}";
+        let entry = topic(1, "EXPR", "Uses y\u{e003}. (--E1--)", line);
+        let doc = document(&entry);
+        let example = doc.examples[0].expression().unwrap();
+        assert_eq!(example, "EXPR(3+3*ⅈ) ----> 3+3*ⅈ");
+        let (source, result) = example.split_once("---->").unwrap();
+        for expression in [source, result] {
+            assert!(
+                !ppl_syntax::parse_expression(expression.trim())
+                    .1
+                    .has_errors()
+            );
+        }
+        assert!(matches!(
+            &doc.blocks[0], Block::Paragraph(runs) if runs[0].text.contains("yⅈ")
+        ));
+        assert_eq!(
+            example_line("STRING(\"\u{e003}\") ----> \"\u{e003}\""),
+            "STRING(\"\u{e003}\") ----> \"\u{e003}\""
+        );
+        assert_eq!(String::from_utf16(&entry.spans[2]).unwrap(), line);
+    }
+
     #[test]
     fn duplicate_topics_navigation_languages_and_legacy_profiles_keep_identity() {
         let mut panel = ready_panel();
@@ -1371,7 +1973,7 @@ mod tests {
         assert!(
             doc.blocks
                 .iter()
-                .any(|block| matches!(block, Block::Example(..)))
+                .any(|block| matches!(block, Block::Example { .. }))
         );
         assert!(
             !panel.textures.is_empty(),

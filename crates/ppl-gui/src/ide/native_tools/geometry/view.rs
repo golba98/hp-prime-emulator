@@ -285,13 +285,13 @@ fn distance_segment(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
     .clamp(0., 1.);
     (p[0] - a[0] - t * d[0]).hypot(p[1] - a[1] - t * d[1])
 }
-pub(super) fn hit(
-    scene: &Scene,
+fn hit_candidates<'a>(
+    scene: &'a Scene,
     book: &Book,
     p: [f64; 2],
     w: &PlotWindow,
     filter: Option<Need>,
-) -> Option<String> {
+) -> Vec<(bool, f64, &'a str)> {
     let mut candidates = Vec::new();
     for object in &scene.objects {
         if !book
@@ -312,7 +312,8 @@ pub(super) fn hit(
                     | Shape::Ellipse(_)
             ),
             Some(Need::PointOnCurve) => scene.is_point_on_curve(&object.name),
-            _ => true,
+            Some(need) => need.accepts(shape, false),
+            None => true,
         };
         if !eligible {
             continue;
@@ -382,13 +383,137 @@ pub(super) fn hit(
             candidates.push((
                 !matches!(shape, Shape::Point(_)),
                 distance,
-                object.name.clone(),
+                object.name.as_str(),
             ));
         }
     }
-    candidates.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.total_cmp(&b.1)));
-    candidates.first().map(|c| c.2.clone())
+    candidates
 }
+
+pub(super) fn arc_hits(scene: &Scene, book: &Book, p: [f64; 2], w: &PlotWindow) -> Vec<String> {
+    hit_candidates(scene, book, p, w, Some(Need::Arc))
+        .into_iter()
+        .map(|(_, _, name)| name.to_owned())
+        .collect()
+}
+
+pub(super) fn function_tangent_hits(
+    scene: &Scene,
+    book: &Book,
+    p: [f64; 2],
+    w: &PlotWindow,
+) -> Vec<String> {
+    let hits = hit_candidates(scene, book, p, w, None);
+    let pairs: Vec<_> = hits
+        .iter()
+        .filter(|(not_point, _, _)| !not_point)
+        .filter_map(|&(_, _, point)| {
+            let curve = book.named_point_curve(point)?;
+            (scene.is_point_on_curve(point)
+                && hits.iter().any(|candidate| candidate.2 == curve)
+                && scene.objects.iter().any(|object| {
+                    object.name == curve && matches!(object.value, Ok(Shape::Function { .. }))
+                }))
+            .then_some((point, curve))
+        })
+        .collect();
+    hits.into_iter()
+        .filter(|&(_, _, name)| {
+            pairs
+                .iter()
+                .any(|(point, curve)| name == *point || name == curve)
+        })
+        .map(|(_, _, name)| name.to_owned())
+        .collect()
+}
+
+pub(super) fn function_tangent_point_hit(
+    scene: &Scene,
+    book: &Book,
+    p: [f64; 2],
+    w: &PlotWindow,
+    curve: &str,
+) -> Option<String> {
+    hit_candidates(scene, book, p, w, Some(Need::PointOnCurve))
+        .into_iter()
+        .filter(|&(_, _, name)| book.named_point_curve(name).as_deref() == Some(curve))
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(_, _, name)| name.to_owned())
+}
+
+pub(super) fn hit(
+    scene: &Scene,
+    book: &Book,
+    p: [f64; 2],
+    w: &PlotWindow,
+    filter: Option<Need>,
+) -> Option<String> {
+    let mut candidates = hit_candidates(scene, book, p, w, filter);
+    candidates.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.total_cmp(&b.1)));
+    candidates.first().map(|c| c.2.to_owned())
+}
+const CHOOSER_TITLE: &str = "Select an object";
+const CHOOSER_HEADER: i64 = 21;
+const CHOOSER_ROW: i64 = 21;
+
+fn function_chooser_bounds(items: &[String]) -> [i64; 4] {
+    let font_size = 14.;
+    let width = (items
+        .iter()
+        .map(|item| measure(item, font_size))
+        .fold(measure(CHOOSER_TITLE, font_size), i64::max)
+        + 18)
+        .clamp(148, 292);
+    let height = CHOOSER_HEADER + CHOOSER_ROW * items.len().min(8) as i64 + 1;
+    let left = (320 - width) / 2;
+    let top = (240 - height) / 2;
+    [left, top, left + width - 1, top + height - 1]
+}
+
+fn paint_function_chooser(image: &mut Grob, menu: Menu, items: &[String]) {
+    let [left, top, right, bottom] = function_chooser_bounds(items);
+    image.rect(left, top, right, bottom, 0, 0xf6faff);
+    image.fill_rect(
+        left + 1,
+        top + 1,
+        right - 1,
+        top + CHOOSER_HEADER - 1,
+        0x76a5d8,
+    );
+    let title_x = (320 - measure(CHOOSER_TITLE, 14.)) / 2;
+    text(image, CHOOSER_TITLE, title_x, top + 2);
+    for (row, (index, label)) in items
+        .iter()
+        .enumerate()
+        .skip(menu.first)
+        .take(8)
+        .enumerate()
+    {
+        let y = top + CHOOSER_HEADER + row as i64 * CHOOSER_ROW;
+        if index == menu.index {
+            image.fill_rect(left + 1, y, right - 1, y + CHOOSER_ROW - 1, 0xadccff);
+        }
+        draw_text(
+            image,
+            label,
+            left + 5,
+            y + 2,
+            14.,
+            0,
+            Some(right - left - 9),
+            None,
+        );
+        image.line(
+            left + 1,
+            y + CHOOSER_ROW - 1,
+            right - 1,
+            y + CHOOSER_ROW - 1,
+            0xe0e0e0,
+        );
+    }
+    chrome::softkeys(image, &["", "", "", "", "", "OK"]);
+}
+
 impl NativeTools {
     fn show_geometry_plot_setup(
         &mut self,
@@ -655,6 +780,49 @@ impl NativeTools {
                     }
                 }
             }
+            if let Some(tool) = self.geometry_panel.tool
+                && matches!(
+                    tool.function,
+                    "polygon" | "quadrilateral" | "rectangle" | "parallelogram"
+                )
+                && self.geometry_panel.menu.is_none()
+                && !self.geometry_panel.args.is_empty()
+            {
+                let points = self.geometry_panel.args.iter().map(|name| {
+                    let object = scene.objects.iter().find(|object| &object.name == name)?;
+                    match object.value.as_ref().ok()? {
+                        Shape::Point(point) => Some(*point),
+                        _ => None,
+                    }
+                });
+                if let Some(mut points) = points.collect::<Option<Vec<_>>>() {
+                    if tool.function == "polygon"
+                        || (matches!(tool.function, "rectangle" | "parallelogram")
+                            && points.len() == 2)
+                    {
+                        let pointer = self.construction_pointer();
+                        let point = match self.geometry_hovered_operand(tool, pointer, Some(scene))
+                        {
+                            Some((_, Shape::Point(point))) => *point,
+                            _ => pointer,
+                        };
+                        points.push(point);
+                    }
+                    let draft = match (tool.function, points.as_slice()) {
+                        ("rectangle", [a, b, control]) => {
+                            geo::primitives::rectangle(*a, *b, &Shape::Point(*control)).ok()
+                        }
+                        ("parallelogram", [a, b, c]) => {
+                            geo::primitives::parallelogram(*a, *b, *c).ok()
+                        }
+                        ("polygon" | "quadrilateral", [_, _, ..]) => Some(Shape::Polygon(points)),
+                        _ => None,
+                    };
+                    if let Some(shape) = draft {
+                        paint_shape(g, &shape, w, 0);
+                    }
+                }
+            }
             for (index, value) in scene.measurements.iter().enumerate() {
                 if let Some(m) = book.measurements.get(index)
                     && m.visible
@@ -728,7 +896,6 @@ impl NativeTools {
         if let Some(app) = snapshot.app_settings.get("Geometry") {
             settings = app.effective(&settings);
         }
-        self.geometry_panel.angle_turn = settings.angle.full_turn();
         let page = self.page.unwrap();
         let plot = page == Page::Plot;
         let numeric = page == Page::Numeric;
@@ -782,11 +949,29 @@ impl NativeTools {
             );
             let label = if let Some(command) = self.geometry_panel.tool {
                 match (command.function, self.geometry_panel.args.len()) {
+                    ("single_inter", 2) => "Select a nearby point".into(),
+                    ("polygon", 0) => "Select a point".into(),
+                    ("polygon", 1) => "Select another point".into(),
+                    ("polygon", _) => "Enter again at the last point to finish".into(),
+                    ("rectangle", 0) => "Select the first base point".into(),
+                    ("rectangle", 1) => "Select the second base point".into(),
+                    ("rectangle", _) => "Select a point to set the height".into(),
+                    ("quadrilateral" | "parallelogram", 0) => "Select a point".into(),
+                    ("quadrilateral" | "parallelogram", _) => "Select another point".into(),
                     ("ellipse", 0) => "Ellipse · First focus".into(),
                     ("ellipse", 1) => "Ellipse · Second focus".into(),
                     ("ellipse", _) => "Ellipse · Point on curve".into(),
+                    ("rotation", 1) => "Select the object to rotate".into(),
+                    ("homothety", 1) => "Select the object to dilate".into(),
+                    ("translation", 0) => "Select the object to translate".into(),
+                    ("translation", 1) => "Select the displacement segment".into(),
+                    ("tangent", _) if self.geometry_panel.tangent_curve.is_some() => {
+                        "Select a point".into()
+                    }
                     _ => match command.needs.get(self.geometry_panel.args.len()) {
                         Some(Need::PointOnCurve) => "Select a point on a curve".into(),
+                        Some(Need::ReflectionAxis) => "Select the mirror line or point".into(),
+                        Some(Need::ReflectionObject) => "Select the object to reflect".into(),
                         need => format!(
                             "{}: select {:?}",
                             command.label,
@@ -934,11 +1119,26 @@ impl NativeTools {
             };
             chrome::softkeys(&mut image, &labels);
         }
-        if let Some(menu) = self.geometry_panel.menu {
+        if let Some(menu) = self.geometry_panel.menu
+            && menu.category == Some(TANGENT_PICKER)
+        {
+            let items = self.geometry_menu_items(menu.category);
+            paint_function_chooser(&mut image, menu, &items);
+        } else if let Some(menu) = self.geometry_panel.menu {
             let items = self.geometry_menu_items(menu.category);
             image.rect(0, 22, 180, 219, 0, 0xffffff);
             image.fill_rect(1, 23, 179, 41, 0x76a5d8);
-            text(&mut image, "Geometry Commands", 10, 23);
+            let chooser = menu.category == Some(ARC_PICKER);
+            text(
+                &mut image,
+                if chooser {
+                    "Select an object"
+                } else {
+                    "Geometry Commands"
+                },
+                10,
+                23,
+            );
             for (row, (index, label)) in items
                 .iter()
                 .enumerate()
@@ -950,7 +1150,11 @@ impl NativeTools {
                 if index == menu.index {
                     image.fill_rect(1, top, 179, top + 20, 0xadccff);
                 }
-                text(&mut image, label, 3, top);
+                if chooser {
+                    draw_text(&mut image, label, 3, top, 14., 0, Some(175), None);
+                } else {
+                    text(&mut image, label, 3, top);
+                }
                 image.line(1, top + 20, 179, top + 20, 0xe0e0e0);
             }
         }
@@ -1129,12 +1333,29 @@ impl NativeTools {
             return;
         }
         if let Some(mut menu) = self.geometry_panel.menu {
-            if (0. ..=180.).contains(&p[0]) && (43. ..220.).contains(&p[1]) {
+            if menu.category == Some(TANGENT_PICKER) {
+                let items = self.geometry_menu_items(menu.category);
+                let [left, top, right, bottom] = function_chooser_bounds(&items);
+                if p[1] >= 220. && chrome::softkey_index(p[0] as i64) == 5 {
+                    requests.extend(self.geometry_choose_menu(menu));
+                } else if (left as f64..right as f64 + 1.).contains(&p[0])
+                    && ((top + CHOOSER_HEADER) as f64..bottom as f64).contains(&p[1])
+                {
+                    menu.index = menu.first
+                        + (p[1] as i64 - top - CHOOSER_HEADER) as usize / CHOOSER_ROW as usize;
+                    if menu.index < items.len() {
+                        requests.extend(self.geometry_choose_menu(menu));
+                    }
+                } else {
+                    self.geometry_panel.dismiss_object_picker();
+                }
+            } else if (0. ..=180.).contains(&p[0]) && (43. ..220.).contains(&p[1]) {
                 menu.index = menu.first + ((p[1] - 43.) / 21.) as usize;
                 if menu.index < self.geometry_menu_items(menu.category).len() {
                     requests.extend(self.geometry_choose_menu(menu));
                 }
             } else {
+                self.geometry_panel.dismiss_object_picker();
                 self.geometry_panel.menu = None;
             }
             self.dirty();
@@ -1199,8 +1420,12 @@ impl NativeTools {
         if self.page == Some(Page::Plot) {
             let pt = unproject([p[0].floor(), p[1].floor()], window);
             self.memory.geometry_cursor.pointer = [pt.x, pt.y];
-            let filter = self.geometry_panel.tool.and_then(Command::pick_filter);
-            self.geometry_panel.hover = scene.and_then(|s| hit(s, book, p, window, filter));
+            let filter = self
+                .geometry_panel
+                .tool
+                .and_then(|command| self.geometry_operand_filter(command, scene));
+            self.geometry_panel.hover =
+                scene.and_then(|s| self.geometry_plot_hit(s, book, p, window, filter));
         } else if (22. ..203.).contains(&p[1]) {
             let numeric = self.page == Some(Page::Numeric);
             let c = &mut self.memory.geometry_cursor;
@@ -1255,6 +1480,92 @@ mod tests {
             ..Default::default()
         }
     }
+    #[test]
+    fn arc_picker_keeps_visible_hits_in_definition_order() {
+        let mut book = Book {
+            objects: [
+                ("D", "circle(point(0,0),4,0,π/2)"),
+                ("C", "circle(point(4,0),4,π/2,π)"),
+                ("P", "point(1.2,3.1)"),
+                ("E", "circle(point(4,0),4)"),
+            ]
+            .into_iter()
+            .map(|(name, source)| Object {
+                name: name.into(),
+                source: source.into(),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        };
+        let scene = book
+            .calculate(
+                &ppl_vm::SessionContext::default().snapshot(),
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .unwrap();
+        let window = camera(-16., -11., 0.1);
+        let overlap = [172., 78.];
+        assert_eq!(arc_hits(&scene, &book, overlap, &window), ["D", "C"]);
+        assert_eq!(
+            hit(&scene, &book, overlap, &window, None).as_deref(),
+            Some("P")
+        );
+        book.objects[1].visible = false;
+        assert_eq!(arc_hits(&scene, &book, overlap, &window), ["D"]);
+        assert_eq!(arc_hits(&scene, &book, [188., 82.], &window), ["D"]);
+    }
+
+    #[test]
+    fn function_tangent_chooser_uses_visible_points_and_their_named_graph() {
+        let mut book = Book {
+            objects: [
+                ("A", "plotfunc(x^2/4+1)"),
+                ("D", "plotfunc(x^2/4+1)"),
+                ("B", "element(Geometry.GA,2)"),
+                ("C", "element(GA,-4)"),
+                ("P", "point(2,2)"),
+            ]
+            .into_iter()
+            .map(|(name, source)| Object {
+                name: name.into(),
+                source: source.into(),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        };
+        let scene = book
+            .calculate(
+                &ppl_vm::SessionContext::default().snapshot(),
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .unwrap();
+        let window = camera(-16., -11., 0.1);
+        let first = [180., 89.];
+        let second = [120., 59.];
+        assert_eq!(
+            function_tangent_hits(&scene, &book, first, &window),
+            ["A", "B"]
+        );
+        assert_eq!(
+            function_tangent_hits(&scene, &book, second, &window),
+            ["A", "C"]
+        );
+        assert_eq!(
+            function_tangent_point_hit(&scene, &book, second, &window, "A").as_deref(),
+            Some("C")
+        );
+        assert_eq!(
+            function_tangent_point_hit(&scene, &book, second, &window, "D"),
+            None
+        );
+        book.objects[2].visible = false;
+        assert!(function_tangent_hits(&scene, &book, first, &window).is_empty());
+        book.objects[0].visible = false;
+        assert!(function_tangent_hits(&scene, &book, second, &window).is_empty());
+    }
+
     #[test]
     fn original_geometry_canvas_markers_and_touch_use_square_pixels() {
         for (window, controls) in [

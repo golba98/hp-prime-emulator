@@ -8,7 +8,7 @@ use ppl_graphics::{
 };
 use serde::{Deserialize, Serialize};
 
-const APPS: [&str; 18] = [
+pub(super) const APPS: [&str; 18] = [
     "Function",
     "Advanced Graphing",
     "Geometry",
@@ -74,12 +74,26 @@ impl Selection {
         Ok(())
     }
 }
+#[derive(Clone, Copy)]
+enum ResetTarget {
+    App(ResetApp),
+    Spreadsheet,
+}
+impl ResetTarget {
+    fn from_name(name: &str) -> Option<Self> {
+        if name == "Spreadsheet" {
+            Some(Self::Spreadsheet)
+        } else {
+            ResetApp::from_name(name).map(Self::App)
+        }
+    }
+}
 #[derive(Default)]
 pub(super) struct Panel {
     texture: Option<egui::TextureHandle>,
     pixels: Vec<u32>,
     pub(super) menu: Option<usize>,
-    confirm_reset: Option<ResetApp>,
+    confirm_reset: Option<ResetTarget>,
     prefix: String,
     typed: Option<std::time::Instant>,
 }
@@ -225,7 +239,10 @@ impl NativeTools {
     fn finish_app_reset(&mut self, confirmed: bool) -> Option<Request> {
         let target = self.gallery_panel.confirm_reset.take()?;
         self.dirty();
-        confirmed.then_some(Request::ResetApp(target))
+        confirmed.then_some(match target {
+            ResetTarget::App(app) => Request::ResetApp(app),
+            ResetTarget::Spreadsheet => Request::ResetSpreadsheet,
+        })
     }
     pub(super) fn show_gallery(
         &mut self,
@@ -273,7 +290,7 @@ impl NativeTools {
             let top = 22 + (196 - height) * first as i64 / (rows - 3) as i64;
             g.fill_rect(316, top, 318, top + height - 1, 0x3d3d3d);
         }
-        let reset_target = ResetApp::from_name(names[selected]);
+        let reset_target = ResetTarget::from_name(names[selected]);
         let reset_label = if reset_target.is_some() { "Reset" } else { "" };
         chrome::softkeys_with_menus(&mut g, &["", reset_label, "Sort", "", "", "Start"], &[2]);
         if let Some(index) = self.gallery_panel.menu {
@@ -307,22 +324,42 @@ impl NativeTools {
         if let Some(target) = self.gallery_panel.confirm_reset {
             g.rect(26, 72, 294, 170, 0x234765, 0xffffff);
             g.fill_rect(27, 73, 293, 98, 0x234765);
-            let title = format!("Reset {}?", target.name());
-            draw_text(&mut g, &title, 39, 78, 16., 0xffffff, None, None);
-            let scope = match target {
-                ResetApp::Geometry => "Clear constructions and measurements.",
-                ResetApp::StatisticsOne | ResetApp::StatisticsTwo => {
-                    "Clear data columns and analysis definitions."
+            let (name, scope, details) = match target {
+                ResetTarget::Spreadsheet => (
+                    "Spreadsheet",
+                    "Clear worksheet contents and formatting.",
+                    "The copied range remains available.",
+                ),
+                ResetTarget::App(app) => {
+                    let (scope, details) = match app {
+                        ResetApp::Sequence => (
+                            "Clear definitions and initial terms.",
+                            "Reset Plot, Numeric and Symbolic.",
+                        ),
+                        ResetApp::Geometry => (
+                            "Clear constructions and measurements.",
+                            "Restore the default plot settings.",
+                        ),
+                        ResetApp::StatisticsOne | ResetApp::StatisticsTwo => (
+                            "Clear data columns and analysis definitions.",
+                            "Restore default plot and Symbolic settings.",
+                        ),
+                    };
+                    (app.name(), scope, details)
                 }
             };
+            draw_text(
+                &mut g,
+                &format!("Reset {name}?"),
+                39,
+                78,
+                16.,
+                0xffffff,
+                None,
+                None,
+            );
             label(&mut g, scope, 39, 108);
-            let settings = match target {
-                ResetApp::Geometry => "Restore the default plot settings.",
-                ResetApp::StatisticsOne | ResetApp::StatisticsTwo => {
-                    "Restore default plot and Symbolic settings."
-                }
-            };
-            label(&mut g, settings, 39, 131);
+            label(&mut g, details, 39, 131);
             chrome::softkeys(&mut g, &["Cancel", "", "", "", "", "Reset"]);
         }
         if let Some(error) = &self.error {
@@ -550,5 +587,32 @@ fn icon(g: &mut Grob, name: &str, x: i64, y: i64) {
             }
             last = Some(point);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spreadsheet_library_reset_only_dispatches_after_confirmation() {
+        let mut tools = NativeTools::default();
+        tools.memory.selected_app = "Function".into();
+        tools.memory.models.spreadsheet.set("A1", "2").unwrap();
+        tools.open(Page::Apps);
+        tools.memory.gallery.highlight = "Spreadsheet".into();
+
+        tools.gallery_panel.confirm_reset = ResetTarget::from_name("Spreadsheet");
+        assert!(tools.gallery_action(A::Back).unwrap().is_empty());
+        assert!(tools.gallery_panel.confirm_reset.is_none());
+        assert_eq!(tools.memory.models.spreadsheet.cells["A1"], "2");
+
+        tools.gallery_panel.confirm_reset = ResetTarget::from_name("Spreadsheet");
+        let requests = tools.gallery_action(A::Evaluate).unwrap();
+        assert!(matches!(requests.as_slice(), [Request::ResetSpreadsheet]));
+        assert!(tools.gallery_panel.confirm_reset.is_none());
+        assert_eq!(tools.memory.selected_app, "Function");
+        assert_eq!(tools.memory.gallery.highlight, "Spreadsheet");
+        assert_eq!(tools.page, Some(Page::Apps));
     }
 }

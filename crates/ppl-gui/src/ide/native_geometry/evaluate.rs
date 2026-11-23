@@ -198,9 +198,8 @@ fn symbolic_value(
                 && let Some(object) = book.objects.iter().find(|o| o.name == name)
             {
                 return match book.current_values.get(name) {
-                    Some(value) => {
-                        ppl_vm::cas::expression(&value.to_value()).map_err(|e| e.to_string())
-                    }
+                    Some(value) => ppl_vm::cas::expression(&value.portable()?.to_value())
+                        .map_err(|e| e.to_string()),
                     None => Ok(object.source.clone()),
                 };
             }
@@ -281,6 +280,11 @@ impl Evaluator<'_> {
         if let Some(value) = self.cache.get(name) {
             return value.clone();
         }
+        if self.current
+            && let Some(CachedObject::Curve(curve)) = self.book.current_values.get(name)
+        {
+            return Ok((**curve).clone());
+        }
         if self.visiting.len() >= 64 {
             return Err("Geometry dependency nesting exceeded".into());
         }
@@ -288,11 +292,9 @@ impl Evaluator<'_> {
             return Err(format!("Circular geometry definition G{name}"));
         }
         let source = if self.current {
-            let value = self
-                .book
-                .current_values
-                .get(name)
-                .ok_or("Geometry object has not been evaluated")?;
+            let Some(CachedObject::Portable(value)) = self.book.current_values.get(name) else {
+                return Err("Geometry object has not been evaluated".into());
+            };
             match value {
                 ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source)) => {
                     source.clone()
@@ -356,11 +358,23 @@ impl Evaluator<'_> {
             return Ok(None);
         };
         let curve = self.value(curve, source)?;
-        Ok(matches!(
-            curve,
-            Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
-        )
-        .then_some(curve))
+        Ok(match curve {
+            Shape::Function { expression, .. } => Some(Shape::Function {
+                expression,
+                paths: Vec::new(),
+            }),
+            Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_) => {
+                Some(curve)
+            }
+            _ => None,
+        })
+    }
+    fn tangent_at(&self, curve: &Shape, p: Point2) -> Result<Shape, String> {
+        if let Shape::Function { expression, .. } = curve {
+            super::function::tangent_at(expression, p, self.snapshot, self.cancel.clone())
+        } else {
+            g::tangent_at(curve, p)
+        }
     }
     fn value(&mut self, e: &Expr, source: &str) -> Result<Shape, String> {
         self.check()?;
@@ -443,7 +457,7 @@ impl Evaluator<'_> {
                     let curve = self
                         .point_curve(point, source)?
                         .ok_or("A one-argument tangent needs a point on a curve")?;
-                    g::tangent_at(&curve, as_point(location)?)
+                    self.tangent_at(&curve, as_point(location)?)
                 }
                 [curve, location] => {
                     let curve = self.value(curve, source)?;
@@ -453,7 +467,18 @@ impl Evaluator<'_> {
                         && super::access::shape_value(&curve)?
                             == super::access::shape_value(&constraint)?
                     {
-                        return g::tangent_at(&curve, p);
+                        return self.tangent_at(&curve, p);
+                    }
+                    if let Shape::Function { expression, .. } = &curve
+                        && let Shape::Number { re, im: 0. } = at
+                    {
+                        let p = super::function::element(
+                            expression,
+                            re,
+                            self.snapshot,
+                            self.cancel.clone(),
+                        )?;
+                        return self.tangent_at(&curve, p);
                     }
                     g::tangent(curve, at)
                 }
@@ -572,12 +597,12 @@ impl Evaluator<'_> {
                 if name == "inter" {
                     Ok(Shape::Points(points))
                 } else {
-                    let line_on_curve = matches!(
+                    let ordered_curve = matches!(
                         (&a, &b),
                         (Shape::Line { .. }, Shape::Arc(_) | Shape::Ellipse(_))
                             | (Shape::Arc(_) | Shape::Ellipse(_), Shape::Line { .. })
-                    );
-                    let p = if args.len() == 2 && line_on_curve {
+                    ) || a.forms_arc_intersection_pair(&b);
+                    let p = if args.len() == 2 && ordered_curve {
                         points.first().copied()
                     } else {
                         let near = if args.len() == 3 {
@@ -593,7 +618,7 @@ impl Evaluator<'_> {
                     };
                     match p {
                         Some(p) => Ok(Shape::Point(p)),
-                        None if line_on_curve => Ok(Shape::Undefined),
+                        None if ordered_curve => Ok(Shape::Undefined),
                         None => Err("The geometric objects do not intersect".into()),
                     }
                 }
@@ -659,15 +684,58 @@ impl Evaluator<'_> {
                     )
                 }
             }
-            "triangle" | "polygon" => {
-                if name == "triangle" {
-                    arity(3)?;
+            "parallelogram" => {
+                arity(3)?;
+                let a = self.pt(&args[0], source)?;
+                let b = self.pt(&args[1], source)?;
+                let c = self.pt(&args[2], source)?;
+                g::parallelogram(a, b, c)
+            }
+            "rectangle" => {
+                arity(3)?;
+                let a = self.pt(&args[0], source)?;
+                let b = self.pt(&args[1], source)?;
+                let control = self.value(&args[2], source)?;
+                g::rectangle(a, b, &control)
+            }
+            "triangle" | "quadrilateral" | "polygon" => {
+                match name.as_str() {
+                    "triangle" => arity(3)?,
+                    "quadrilateral" => arity(4)?,
+                    _ => {}
                 }
-                let points = args
+                let mut points = args
                     .iter()
                     .map(|a| self.pt(a, source))
                     .collect::<Result<Vec<_>, _>>()?;
+                // PPL exports polygon values with their first vertex repeated at the end.
+                if name == "polygon" && points.len() == 3 && points.first() == points.last() {
+                    points.pop();
+                }
+                let pair = points.len() == 2;
+                let closed_quadrilateral = points.len() == 5 && points.first() == points.last();
+                let collapsed = points.len() >= 4 && points.iter().all(|p| *p == points[0]);
+                if name == "quadrilateral"
+                    || (name == "polygon" && (pair || closed_quadrilateral || collapsed))
+                {
+                    return Ok(Shape::Polygon(points));
+                }
                 g::polygon(points)
+            }
+            "vertices" => {
+                arity(2)?;
+                let Shape::Polygon(points) = self.value(&args[0], source)? else {
+                    return Err("Vertices needs a polygon".into());
+                };
+                let index = self.real(&args[1], source)?;
+                if index < 0. || index.fract() != 0. {
+                    return Err("A vertex index must be a nonnegative integer".into());
+                }
+                points
+                    .get(index as usize)
+                    .copied()
+                    .map(Shape::Point)
+                    .ok_or_else(|| "Geometry vertex index is out of range".into())
             }
             "center" => {
                 arity(1)?;
@@ -775,40 +843,153 @@ impl Evaluator<'_> {
                 let p = self.pt(&args[1], source)?;
                 Ok(Shape::Point(g::project(p, a, b)?))
             }
+            "translation" => {
+                arity(2)?;
+                let offset = match self.value(&args[0], source)? {
+                    Shape::Number { re, im } => Point2 { x: re, y: im },
+                    Shape::Line {
+                        a,
+                        b,
+                        extent: Extent::Segment,
+                    } => g::delta(a, b),
+                    _ => return Err("A translation needs a numeric displacement or segment".into()),
+                };
+                let translate = |p: Point2| {
+                    point(Point2 {
+                        x: p.x + offset.x,
+                        y: p.y + offset.y,
+                    })
+                };
+                match self.value(&args[1], source)? {
+                    Shape::Line { a, b, extent } => g::line(translate(a)?, translate(b)?, extent),
+                    Shape::Circle { center, radius } => Ok(Shape::Circle {
+                        center: translate(center)?,
+                        radius,
+                    }),
+                    Shape::Arc(mut arc) => {
+                        arc.center = translate(arc.center)?;
+                        Ok(Shape::Arc(arc))
+                    }
+                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(ellipse.translated(translate)?)),
+                    Shape::Polygon(vertices) => Ok(Shape::Polygon(
+                        vertices
+                            .into_iter()
+                            .map(translate)
+                            .collect::<Result<_, _>>()?,
+                    )),
+                    target => Ok(Shape::Point(translate(as_point(target)?)?)),
+                }
+            }
             "reflection" => {
                 arity(2)?;
-                let axis = self.value(&args[0], source)?;
-                let p = self.pt(&args[1], source)?;
-                let p = match axis {
-                    Shape::Line { a, b, .. } => g::reflect(p, a, b)?,
-                    center => {
-                        let c = as_point(center)?;
-                        point(Point2 {
-                            x: 2. * c.x - p.x,
-                            y: 2. * c.y - p.y,
-                        })?
-                    }
+                let (origin, axis_end) = match self.value(&args[0], source)? {
+                    Shape::Line { a, b, .. } => (a, Some(b)),
+                    center => (as_point(center)?, None),
                 };
-                Ok(Shape::Point(p))
+                let reflect = |p: Point2| match axis_end {
+                    Some(end) => g::reflect(p, origin, end),
+                    None => point(Point2 {
+                        x: 2. * origin.x - p.x,
+                        y: 2. * origin.y - p.y,
+                    }),
+                };
+                match self.value(&args[1], source)? {
+                    Shape::Circle { center, radius } => Ok(Shape::Circle {
+                        center: reflect(center)?,
+                        radius,
+                    }),
+                    Shape::Arc(arc) => {
+                        // A line mirror negates both angles, including for oblique axes.
+                        // Point symmetry keeps the original angular bounds.
+                        let (start, end) = if axis_end.is_some() {
+                            (-arc.start, -arc.end)
+                        } else {
+                            (arc.start, arc.end)
+                        };
+                        Ok(Shape::Arc(CircularArc::new(
+                            reflect(arc.center)?,
+                            arc.radius,
+                            start,
+                            end,
+                        )?))
+                    }
+                    Shape::Line { a, b, extent } => Ok(Shape::Line {
+                        a: reflect(a)?,
+                        b: reflect(b)?,
+                        extent,
+                    }),
+                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(
+                        ellipse.reflected(reflect, axis_end.is_some())?,
+                    )),
+                    Shape::Polygon(vertices) => {
+                        let vertices = vertices
+                            .into_iter()
+                            .map(reflect)
+                            .collect::<Result<_, _>>()?;
+                        g::polygon(vertices)
+                    }
+                    target => Ok(Shape::Point(reflect(as_point(target)?)?)),
+                }
             }
             "rotation" => {
                 arity(3)?;
                 let center = self.pt(&args[0], source)?;
                 let angle = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(
-                    p.rotate(center, angle * 360. / self.angle_turn())?,
-                ))
+                let degrees = angle * 360. / self.angle_turn();
+                let rotate = |p: Point2| p.rotate(center, degrees);
+                match self.value(&args[2], source)? {
+                    Shape::Line { a, b, extent } => g::line(rotate(a)?, rotate(b)?, extent),
+                    Shape::Circle { center, radius } => Ok(Shape::Circle {
+                        center: rotate(center)?,
+                        radius,
+                    }),
+                    Shape::Arc(mut arc) => {
+                        // Firmware moves the center and keeps the source angular bounds.
+                        arc.center = rotate(arc.center)?;
+                        Ok(Shape::Arc(arc))
+                    }
+                    Shape::Ellipse(ellipse) => {
+                        Ok(Shape::Ellipse(ellipse.rotated(center, degrees)?))
+                    }
+                    Shape::Polygon(vertices) => {
+                        g::polygon(vertices.into_iter().map(rotate).collect::<Result<_, _>>()?)
+                    }
+                    target => Ok(Shape::Point(rotate(as_point(target)?)?)),
+                }
             }
             "homothety" => {
                 arity(3)?;
-                let c = self.pt(&args[0], source)?;
-                let k = self.real(&args[1], source)?;
-                let p = self.pt(&args[2], source)?;
-                Ok(Shape::Point(point(Point2 {
-                    x: c.x + k * (p.x - c.x),
-                    y: c.y + k * (p.y - c.y),
-                })?))
+                let center = self.pt(&args[0], source)?;
+                let factor = self.real(&args[1], source)?;
+                let scale = |p: Point2| {
+                    point(Point2 {
+                        x: center.x + factor * (p.x - center.x),
+                        y: center.y + factor * (p.y - center.y),
+                    })
+                };
+                match self.value(&args[2], source)? {
+                    Shape::Line { a, b, extent } => g::line(scale(a)?, scale(b)?, extent),
+                    Shape::Point(_) | Shape::Circle { .. } | Shape::Ellipse(_) if factor == 0. => {
+                        Ok(Shape::Point(center))
+                    }
+                    Shape::Circle { center, radius } => {
+                        g::circle(scale(center)?, factor.abs() * radius)
+                    }
+                    Shape::Arc(arc) if factor != 0. => Ok(Shape::Arc(CircularArc::new(
+                        scale(arc.center)?,
+                        factor.abs() * arc.radius,
+                        arc.start,
+                        arc.end,
+                    )?)),
+                    Shape::Ellipse(ellipse) => Ok(Shape::Ellipse(ellipse.dilated(scale, factor)?)),
+                    Shape::Polygon(vertices) if factor == 0. => {
+                        Ok(Shape::Polygon(vec![center; vertices.len()]))
+                    }
+                    Shape::Polygon(vertices) => Ok(Shape::Polygon(
+                        vertices.into_iter().map(scale).collect::<Result<_, _>>()?,
+                    )),
+                    target => Ok(Shape::Point(scale(as_point(target)?)?)),
+                }
             }
             _ => self.numeric(e, source),
         }
@@ -967,6 +1148,17 @@ fn call_arguments<'a>(e: &'a Expr, function: &str) -> Option<&'a [Expr]> {
         .eq_ignore_ascii_case(function)
         .then_some(args.as_slice())
 }
+pub(super) fn named_element_curve(source: &str) -> Option<String> {
+    let expression = parse(source).ok()?;
+    let [curve, ..] = call_arguments(&expression, "element")? else {
+        return None;
+    };
+    let ExprKind::Ident(reference) = &curve.kind else {
+        return None;
+    };
+    let reference = reference.strip_prefix("Geometry.").unwrap_or(reference);
+    Some(reference.strip_prefix('G')?.to_owned())
+}
 // A stored PPL argument can replay the literal construction exported by
 // shape_value. Keep arbitrary symbolic bindings out of recursive evaluation.
 fn replayable_arc(source: &str) -> Option<Expr> {
@@ -1013,7 +1205,11 @@ fn known(name: &str) -> bool {
             | "circumcircle"
             | "incircle"
             | "triangle"
+            | "quadrilateral"
+            | "parallelogram"
+            | "rectangle"
             | "polygon"
+            | "vertices"
             | "center"
             | "radius"
             | "abscissa"
@@ -1025,6 +1221,7 @@ fn known(name: &str) -> bool {
             | "slope"
             | "angle"
             | "projection"
+            | "translation"
             | "reflection"
             | "rotation"
             | "homothety"

@@ -11,7 +11,9 @@ pub fn supports(name: &str, view: AppView) -> bool {
     use AppView::*;
     match name {
         "Function" | "Advanced Graphing" | "Parametric" | "Polar" | "Sequence" => true,
-        super::native_graph3d::NAME => matches!(view, Symbolic | Plot | Numeric | PlotSetup),
+        super::native_graph3d::NAME => {
+            matches!(view, Symbolic | Plot | Numeric | PlotSetup | NumericSetup)
+        }
         "Linear Explorer" | "Quadratic Explorer" | "Trig Explorer" => view == Plot,
         "Finance" => matches!(view, Plot | Numeric),
         "Linear Solver" | "Triangle Solver" | "Spreadsheet" => view == Numeric,

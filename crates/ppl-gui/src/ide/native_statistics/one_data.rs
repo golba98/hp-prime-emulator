@@ -59,12 +59,12 @@ fn real(value: &Value) -> Result<Real, String> {
         .expect_real("statistics observation")
         .map_err(|error| error.to_string())
 }
-/// Retain exact whole counts for grouped plots and trace labels. Fractional
-/// weights use calculator arithmetic throughout aggregation.
+/// Retain exact whole counts for grouped plots and trace labels where they fit.
+/// Larger or fractional weights use calculator arithmetic throughout aggregation.
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Frequency {
     Whole(u64),
-    Fractional(Real),
+    Decimal(Real),
 }
 impl Frequency {
     pub(super) const ZERO: Self = Self::Whole(0);
@@ -74,34 +74,34 @@ impl Frequency {
         if value.is_negative() {
             return Err("Statistics frequency must be nonnegative".into());
         }
-        if !value.is_integer() {
-            return Ok(Self::Fractional(exact_input(value)));
+        if value.is_integer()
+            && let Some(count) = value
+                .to_i128()
+                .and_then(|integer| u64::try_from(integer).ok())
+        {
+            return Ok(Self::Whole(count));
         }
-        value
-            .to_i128()
-            .and_then(|value| u64::try_from(value).ok())
-            .map(Self::Whole)
-            .ok_or_else(|| "Statistics frequency exceeds its integer range".into())
+        Ok(Self::Decimal(exact_input(value)))
     }
 
     pub(super) fn is_zero(self) -> bool {
         match self {
             Self::Whole(value) => value == 0,
-            Self::Fractional(value) => value.is_zero(),
+            Self::Decimal(value) => value.is_zero(),
         }
     }
 
     pub(super) fn to_f64(self) -> f64 {
         match self {
             Self::Whole(value) => value as f64,
-            Self::Fractional(value) => value.to_f64(),
+            Self::Decimal(value) => value.to_f64(),
         }
     }
 
     pub(super) fn split(self) -> Result<(u64, Option<f64>), String> {
         match self {
             Self::Whole(value) => Ok((value, None)),
-            Self::Fractional(value) => {
+            Self::Decimal(value) => {
                 let whole = value.floor();
                 let count = whole
                     .to_i128()
@@ -119,29 +119,27 @@ impl Frequency {
     fn real(self) -> Real {
         match self {
             Self::Whole(value) => Real::from_u64(value),
-            Self::Fractional(value) => value,
+            Self::Decimal(value) => value,
         }
     }
 
     fn exact(self) -> Real {
         match self {
             Self::Whole(value) => Real::exact_rational(false, value, 1).expect("whole frequency"),
-            Self::Fractional(value) => value,
+            Self::Decimal(value) => value,
         }
     }
 
     pub(super) fn checked_add(self, other: Self) -> Result<Self, String> {
-        match (self, other) {
-            (Self::Whole(left), Self::Whole(right)) => left
-                .checked_add(right)
-                .map(Self::Whole)
-                .ok_or_else(|| "Statistics frequency total exceeds its integer range".into()),
-            _ => self
-                .exact()
-                .add(other.exact())
-                .map(Self::Fractional)
-                .map_err(|error| error.to_string()),
+        if let (Self::Whole(left), Self::Whole(right)) = (self, other)
+            && let Some(total) = left.checked_add(right)
+        {
+            return Ok(Self::Whole(total));
         }
+        self.exact()
+            .add(other.exact())
+            .map(Self::Decimal)
+            .map_err(|error| error.to_string())
     }
 }
 
@@ -189,7 +187,13 @@ impl Data {
             return Err("A statistics data expression must return a list".into());
         };
         let values = values.iter().map(real).collect::<Result<Vec<_>, _>>()?;
-        let source = analysis.frequency_expression();
+        // Charts that count raw observations retain the saved frequency
+        // expression. It becomes active again when the chart uses weights.
+        let source = if analysis.chart.uses_frequencies() {
+            analysis.frequency_expression()
+        } else {
+            String::new()
+        };
         let explicit_weights = !source.is_empty();
         let weights = if !explicit_weights {
             vec![Frequency::Whole(1); values.len()]
@@ -271,7 +275,7 @@ impl Data {
         };
         let target = match self.count {
             Frequency::Whole(_) => None,
-            Frequency::Fractional(total) => Some(
+            Frequency::Decimal(total) => Some(
                 total
                     .mul(Real::exact_rational(false, quarter, 4).unwrap())
                     .map_err(|error| error.to_string())?,
@@ -288,7 +292,7 @@ impl Data {
                     _ => n * u128::from(quarter),
                 }
             }
-            Frequency::Fractional(_) => 0,
+            Frequency::Decimal(_) => 0,
         };
         for (index, &(value, weight)) in sorted.iter().enumerate() {
             check(cancel)?;
@@ -381,9 +385,7 @@ impl Data {
             Comparison::Greater => {
                 let denominator = match self.count {
                     Frequency::Whole(count) => Real::from_u64(count - 1),
-                    Frequency::Fractional(count) => {
-                        count.sub(Real::ONE).map_err(|e| e.to_string())?
-                    }
+                    Frequency::Decimal(count) => count.sub(Real::ONE).map_err(|e| e.to_string())?,
                 };
                 let sample_variance = deviations.div(denominator).map_err(|e| e.to_string())?;
                 (
@@ -513,6 +515,61 @@ mod tests {
         assert_eq!(session.snapshot().globals, snapshot.globals);
         let cancelled = Arc::new(AtomicBool::new(true));
         assert!(Data::evaluate(&analysis, &snapshot, cancelled).is_err());
+    }
+    #[test]
+    fn original_chart_selection_controls_summary_weights_without_clearing_the_source() {
+        use crate::ide::native_statistics::one::Chart;
+
+        let mut context = ppl_vm::SessionContext::default();
+        let list = |values: &[&str]| {
+            PortableValue::List(
+                values
+                    .iter()
+                    .map(|value| PortableValue::Real(parse(value)))
+                    .collect(),
+            )
+        };
+        context
+            .set_variable("D1", list(&["1", "3", "5", "9"]))
+            .unwrap();
+        context
+            .set_variable("D2", list(&["0", "1.25", "3.75", "1"]))
+            .unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut analysis = OneAnalysis {
+            data_source: Some("D1".into()),
+            frequency_source: Some("D2".into()),
+            ..Default::default()
+        };
+        for chart in Chart::ALL {
+            analysis.chart = chart;
+            let summary = Data::evaluate(&analysis, &context.snapshot(), cancel.clone())
+                .unwrap()
+                .summary(&cancel)
+                .unwrap();
+            let expected = match chart.code() {
+                1 | 2 | 4 | 8 => ["6", "3", "5", "5.25"],
+                _ => ["4", "1", "4", "4.5"],
+            };
+            for (field, value) in ["NbItem", "MinVal", "MedVal", "MeanX"]
+                .into_iter()
+                .zip(expected)
+            {
+                assert_eq!(
+                    summary.finite(field).to_string(),
+                    value,
+                    "{chart:?} {field}"
+                );
+            }
+            assert_eq!(analysis.frequency_expression(), "D2");
+        }
+
+        context.set_variable("D2", list(&["1", "2"])).unwrap();
+        let snapshot = context.snapshot();
+        analysis.chart = Chart::Bar;
+        assert!(Data::evaluate(&analysis, &snapshot, cancel.clone()).is_ok());
+        analysis.chart = Chart::Histogram;
+        assert!(Data::evaluate(&analysis, &snapshot, cancel).is_err());
     }
     #[test]
     fn original_frequency_controls_accept_list_expressions_and_only_literal_scalars() {
@@ -679,5 +736,64 @@ mod tests {
                 .is_err()
         );
         assert!(Data::new(vec![parse("1")], vec![1, 2], NumericVersion::Current15751).is_err());
+    }
+
+    #[test]
+    fn statistics_frequency_totals_follow_original_above_the_host_integer_range() {
+        let mut context = ppl_vm::SessionContext::default();
+        context.settings.numeric_version = NumericVersion::Current15751;
+        context
+            .set_variable(
+                "D1",
+                PortableValue::List(vec![
+                    PortableValue::Real(Real::from_i64(-1)),
+                    PortableValue::Real(Real::from_i64(2)),
+                    PortableValue::Real(Real::from_i64(4)),
+                ]),
+            )
+            .unwrap();
+        let analysis = OneAnalysis {
+            data_source: Some("D1".into()),
+            frequency_source: Some("D2".into()),
+            ..Default::default()
+        };
+        for (weights, expected) in [
+            (
+                "{1e19,1e19,1e19}",
+                ["3e19", "-1", "2", "4", "1.66666666667", "5e19"],
+            ),
+            (
+                "{1e20,3e20,5e20}",
+                ["9e20", "2", "4", "4", "2.77777777778", "2.5e21"],
+            ),
+            (
+                "{1e50,3e50,5e50}",
+                ["9e50", "2", "4", "4", "2.77777777778", "2.5e51"],
+            ),
+            ("{1e20,0.5,2.25}", ["1e20", "-1", "-1", "-1", "-1", "-1e20"]),
+        ] {
+            context
+                .evaluate_home(
+                    &format!("D2:={weights}"),
+                    Box::new(ppl_vm::HeadlessHost::default()),
+                    ppl_vm::Limits::default(),
+                )
+                .result
+                .unwrap();
+            let cancel = Arc::new(AtomicBool::new(false));
+            let data = Data::evaluate(&analysis, &context.snapshot(), cancel.clone()).unwrap();
+            assert!(matches!(data.count, Frequency::Decimal(_)));
+            let summary = data.summary(&cancel).unwrap();
+            for (name, value) in ["NbItem", "Q₁", "MedVal", "Q₃", "MeanX", "ΣX"]
+                .into_iter()
+                .zip(expected)
+            {
+                let actual = summary.finite(name);
+                assert!(
+                    actual.cmp_value(parse(value)).is_eq(),
+                    "{weights} {name}: {actual}"
+                );
+            }
+        }
     }
 }
