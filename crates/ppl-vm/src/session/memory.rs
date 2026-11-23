@@ -285,7 +285,7 @@ fn decode_map(j: &Json) -> Result<BTreeMap<String, PortableValue>, String> {
 }
 impl SessionContext {
     pub fn memory_json(&self) -> Json {
-        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
+        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_plot_settings":self.app_plot_settings.iter().map(|(name,settings)|(name.clone(),Json::Object(crate::AppPlotSettings::NAMES.into_iter().map(|field|(field.into(),encode_value(&PortableValue::from(&settings.get(field).unwrap())))).collect()))).collect::<serde_json::Map<String,Json>>(),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
             "modules":self.modules.iter().map(|(k,m)|(k.clone(),json!({"revision":m.revision,"initialized":m.initialized,"values":encode_map(&m.values)}))).collect::<serde_json::Map<String,Json>>(),
             "notes":self.notes,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
             "settings":{"angle":self.settings.angle.code(),"format":self.settings.hformat,"digits":self.settings.hdigits,"string_format_version":self.settings.string_format_version.code(),"numeric_version":self.settings.numeric_version.code(),"complex":self.settings.complex_results,"separator":self.settings.digit_grouping.code(),"complex_format":self.settings.complex_display.code(),"base":base_code(self.settings.int_base),"bits":self.settings.int_bits,"signed":self.settings.int_signed,"font_px":self.settings.font_px,"exp_char":self.settings.exp_char.to_string()},
@@ -320,6 +320,34 @@ impl SessionContext {
                 };
                 settings.validate()?;
                 next.app_settings.insert(name.clone(), settings);
+            }
+        }
+        if let Some(apps) = j.get("app_plot_settings") {
+            let apps = apps.as_object().ok_or("Invalid Plot settings map")?;
+            if apps.len() > 1024 {
+                return Err("Too many Plot settings".into());
+            }
+            for (name, value) in apps {
+                let mut settings = crate::AppPlotSettings::for_app(name)
+                    .ok_or_else(|| format!("Unestablished Plot settings app {name}"))?;
+                let fields = value.as_object().ok_or("Invalid Plot settings")?;
+                if fields.len() != crate::AppPlotSettings::NAMES.len() {
+                    return Err("Invalid Plot settings fields".into());
+                }
+                for field in crate::AppPlotSettings::NAMES {
+                    let number = numeric_value(&value[field], false)?;
+                    if matches!(field, "Axes" | "GridDots" | "GridLines" | "Labels")
+                        && number != Real::ZERO
+                        && number != Real::ONE
+                    {
+                        return Err("Invalid Plot flag".into());
+                    }
+                    settings
+                        .set(field, &Value::Real(number))
+                        .map_err(|error| error.to_string())?;
+                }
+                settings.validate()?;
+                next.app_plot_settings.insert(name.clone(), settings);
             }
         }
         if let Some(apps) = j.get("app_numeric_settings") {
@@ -368,6 +396,26 @@ impl SessionContext {
             next.cas.validate().map_err(|e| e.to_string())?;
         }
         next.globals = decode_map(&j["globals"])?;
+        // Older profiles stored active-app bounds in Home globals. Migrate
+        // those exact values once, never overwrite an explicit scoped map.
+        if let Some(mut settings) = crate::AppPlotSettings::for_app(&next.active_app) {
+            let mut found = false;
+            for name in crate::AppPlotSettings::NAMES {
+                if let Some(value) = next.globals.remove(name) {
+                    if !next.app_plot_settings.contains_key(&next.active_app) {
+                        settings
+                            .set(name, &value.to_value())
+                            .map_err(|e| e.to_string())?;
+                        found = true;
+                    }
+                }
+            }
+            if found {
+                next.app_plot_settings
+                    .insert(next.active_app.clone(), settings);
+            }
+        }
+
         if j["version"]
             .as_u64()
             .is_some_and(|version| version < VERSION)

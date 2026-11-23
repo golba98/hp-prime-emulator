@@ -2,6 +2,7 @@
 //! host interface.
 
 mod app_numeric;
+mod app_plot;
 pub mod builtins;
 pub mod cas;
 pub mod collections;
@@ -16,6 +17,7 @@ mod statistics_columns;
 pub mod value;
 
 pub use app_numeric::AppNumericSettings;
+pub use app_plot::AppPlotSettings;
 pub use error::{ErrorKind, ResourceKind, RtResult, RuntimeError};
 pub use host::{
     Dialog, DialogResult, DisplayMode, HeadlessHost, Host, ScriptEvent, ScriptedInput,

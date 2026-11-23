@@ -1,0 +1,190 @@
+{
+  "provenance": "Unchanged self-authored programs executed in original installed G1 15751 firmware, selected app before compilation where required. No physical hardware. No vendor code or assets included.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "Function",
+      "active_app": "Function",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels}); END;",
+      "source_sha256": "7c8a8877d97012363db3081ca30f0c90bd8164739e5fb1110f9fbab106680b01",
+      "entry": "PLOTREF",
+      "expected": "{−15.9,15.9,−10.9,10.9,1,1,0,0,0,0}"
+    },
+    {
+      "name": "Parametric",
+      "active_app": "Parametric",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels}); END;",
+      "source_sha256": "7c8a8877d97012363db3081ca30f0c90bd8164739e5fb1110f9fbab106680b01",
+      "entry": "PLOTREF",
+      "expected": "{−15.9,15.9,−10.9,10.9,1,1,0,0,0,0}"
+    },
+    {
+      "name": "Polar",
+      "active_app": "Polar",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels}); END;",
+      "source_sha256": "7c8a8877d97012363db3081ca30f0c90bd8164739e5fb1110f9fbab106680b01",
+      "entry": "PLOTREF",
+      "expected": "{−15.9,15.9,−10.9,10.9,1,1,0,0,0,0}"
+    },
+    {
+      "name": "Sequence",
+      "active_app": "Sequence",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels}); END;",
+      "source_sha256": "7c8a8877d97012363db3081ca30f0c90bd8164739e5fb1110f9fbab106680b01",
+      "entry": "PLOTREF",
+      "expected": "{−1.8,30,−1.8,20,1,1,0,0,0,0}"
+    },
+    {
+      "name": "Statistics 1Var",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,Hmin,Hmax,Hwidth}); END;",
+      "source_sha256": "6a9570df2c784cc7be07ff0a9898484f4331c8214a6e073bfe7b9a644960b776",
+      "entry": "PLOTREF",
+      "expected": "{−1.8,30,−1.8,20,1,1,0,0,0,0,0,24,1}"
+    },
+    {
+      "name": "Statistics 2Var",
+      "active_app": "Statistics 2Var",
+      "source": "EXPORT PLOTREF() BEGIN RETURN STRING({Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels}); END;",
+      "source_sha256": "7c8a8877d97012363db3081ca30f0c90bd8164739e5fb1110f9fbab106680b01",
+      "entry": "PLOTREF",
+      "expected": "{−1.8,30,−1.8,20,1,1,0,0,0,0}"
+    },
+    {
+      "name": "admit_Xmin",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Xmin:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); ok:=1; IFERR Xmin:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmin}}); RETURN STRING(out); END;",
+      "source_sha256": "74cd952afbea339736ea667228767ebabbef143b6fe4d202472eb104ef2739c3",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Xmax",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Xmax:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); ok:=1; IFERR Xmax:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xmax}}); RETURN STRING(out); END;",
+      "source_sha256": "4a06c43e9622fba0eb23337f04f44213612f657aef56e61741d471981eb7a147",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Ymin",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Ymin:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); ok:=1; IFERR Ymin:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymin}}); RETURN STRING(out); END;",
+      "source_sha256": "064be3e79482bb38ea8d358696053dae0cced2bba2307f5fe591053c6df4b078",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Ymax",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Ymax:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); ok:=1; IFERR Ymax:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ymax}}); RETURN STRING(out); END;",
+      "source_sha256": "5d994f93957e3c76376aea5f7f7f16857a52f5db1a34bbe0cd62f26847c77205",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Xtick",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Xtick:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); ok:=1; IFERR Xtick:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Xtick}}); RETURN STRING(out); END;",
+      "source_sha256": "eb9ab2b9831e893f9d042ca34c30ed27ab3631471713f46c2f3951143527f1df",
+      "entry": "PLOTREF",
+      "expected": "{{0,1},{0,1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Ytick",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Ytick:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); ok:=1; IFERR Ytick:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Ytick}}); RETURN STRING(out); END;",
+      "source_sha256": "298caeb0436078e3582c211b209f731a55851f3ed9a4d9f6474afd10e89b2242",
+      "entry": "PLOTREF",
+      "expected": "{{0,1},{0,1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Axes",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Axes:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); ok:=1; IFERR Axes:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Axes}}); RETURN STRING(out); END;",
+      "source_sha256": "617627cefbdff8b4c2eb89bfce36c0f42d565d7434bb52c6e0dda734d5c84a3d",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,1},{1,1},{1,1},{1,1},{1,1},{0,1},{0,1},{0,1},{1,1}}"
+    },
+    {
+      "name": "admit_Labels",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Labels:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); ok:=1; IFERR Labels:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Labels}}); RETURN STRING(out); END;",
+      "source_sha256": "50b549f38ec977fa5468fdbd21c352395572e2bf1c914fd0014551a17147c47d",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,1},{1,1},{1,1},{1,1},{1,1},{0,1},{0,1},{0,1},{1,1}}"
+    },
+    {
+      "name": "admit_Hmin",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Hmin:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); ok:=1; IFERR Hmin:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmin}}); RETURN STRING(out); END;",
+      "source_sha256": "636f5301b8b31fd3ffe95492d6df035bba714f1ffe9aeed30cd2085d2fd88f6c",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Hmax",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Hmax:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); ok:=1; IFERR Hmax:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hmax}}); RETURN STRING(out); END;",
+      "source_sha256": "6218f0761a3fa00a01a4a0a4e0eef9a54248fdfd7c61808cfe7aaf4b52c62f17",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,−1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_Hwidth",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; STARTAPP(\"Statistics 1Var\"); ok:=1; IFERR Hwidth:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); ok:=1; IFERR Hwidth:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,Hwidth}}); RETURN STRING(out); END;",
+      "source_sha256": "b6f150ce3fcac1b6c3325aec9a834966d0cebe15c6ab345f59142e2ceb7a83d4",
+      "entry": "PLOTREF",
+      "expected": "{{0,1},{0,1},{1,0.5},{1,2},{1,1ᴇ100},{1,1},{0,1},{0,1},{0,1},{1,255}}"
+    },
+    {
+      "name": "admit_GridDots",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; ok:=1; IFERR GridDots:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); ok:=1; IFERR GridDots:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridDots}}); RETURN STRING(out); END;",
+      "source_sha256": "494594773ba107705d88caa806136537e4fe3f2bc2877d5bf7f7b04797aaf7e4",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,1},{1,1},{1,1},{1,1},{1,1},{0,1},{0,1},{0,1},{1,1}}"
+    },
+    {
+      "name": "admit_GridLines",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL out:={},ok; ok:=1; IFERR GridLines:=0; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=-1; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=0.5; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=2; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=1E100; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=(1,0); THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=(1,2); THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:={1}; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); ok:=1; IFERR GridLines:=#FFh; THEN ok:=0; END; out:=CONCAT(out,{{ok,GridLines}}); RETURN STRING(out); END;",
+      "source_sha256": "4a57abde50fef237a1ffd349098a57763735ac38b40b41e2a56453c939d702c0",
+      "entry": "PLOTREF",
+      "expected": "{{1,0},{1,1},{1,1},{1,1},{1,1},{1,1},{0,1},{0,1},{0,1},{1,1}}"
+    },
+    {
+      "name": "admit_origin",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN Xmin:=1/3; Hwidth:=1/3; Xtick:=π; RETURN STRING({Xmin*3,Hwidth*3,Xtick/π}); END;",
+      "source_sha256": "25e639379b063658acf14c0e2d8b1f0ee27b6753d0833814fa271630d3ac65ec",
+      "entry": "PLOTREF",
+      "expected": "{0.999999999999,0.999999999999,1}"
+    },
+    {
+      "name": "admit_scope",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT PLOTREF() BEGIN LOCAL a,b; Xmin:=7; Hwidth:=3; STARTAPP(\"Function\"); Xmin:=4; a:={Xmin,Statistics_1Var.Xmin,Statistics_1Var.Hwidth}; Statistics_1Var.Xmax:=99; STARTAPP(\"Statistics 1Var\"); b:={Xmin,Xmax,Hwidth}; RETURN STRING({a,b}); END;",
+      "source_sha256": "497b056a18d2931c2c3ff00ac72da8dbcec51714164c14c412542b98b966420c",
+      "entry": "PLOTREF",
+      "expected": "{{4,7,3},{7,99,3}}"
+    },
+    {
+      "name": "qualified_writes",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT COLREF() BEGIN LOCAL a,b; D1:={1,2}; STARTAPP(\"Function\"); Statistics_1Var.D1(1):=9; a:={D1,Statistics_1Var.D1}; Statistics_1Var.D2:={#FFh,3}; b:={D2,Statistics_1Var.D2(1),TYPE(D2(1))}; STARTAPP(\"Statistics 1Var\"); RETURN STRING({a,b,D1,D2}); END;",
+      "source_sha256": "6dbcc8c98149b39c729e2d9de6d0723ef53f8f1714e77993d651793ac6f9c3a7",
+      "entry": "COLREF",
+      "expected": "{{{9,2},{9,2}},{{255,3},255,0},{9,2},{255,3}}"
+    },
+    {
+      "name": "qualified_failures",
+      "active_app": "Statistics 1Var",
+      "source": "EXPORT COLREF() BEGIN LOCAL out:={},ok; D1:={1,2}; ok:=1; IFERR Statistics_1Var.D1:={3,\"a\"}; THEN ok:=0; END; out:=CONCAT(out,{{ok,D1}}); ok:=1; IFERR Statistics_1Var.D1(1):=\"a\"; THEN ok:=0; END; out:=CONCAT(out,{{ok,D1}}); ok:=1; IFERR Statistics_1Var.D1(0):=7; THEN ok:=0; END; out:=CONCAT(out,{{ok,D1}}); ok:=1; IFERR Statistics_1Var.D1(5):=7; THEN ok:=0; END; out:=CONCAT(out,{{ok,D1}}); RETURN STRING(out); END;",
+      "source_sha256": "e7cb2ec7b79ee3724e3d5040351c25ff802d8c654de3be56c8c96f2fcfbd33e4",
+      "entry": "COLREF",
+      "expected": "{{0,{1,2}},{0,{1,2}},{1,{1,2,7}},{0,{1,2,7}}}"
+    }
+  ]
+}

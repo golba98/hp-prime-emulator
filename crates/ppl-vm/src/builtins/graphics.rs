@@ -25,18 +25,12 @@ struct PlotWindow {
 }
 impl PlotWindow {
     fn from_machine(machine: &Machine) -> RtResult<Self> {
-        let value = |name: &str, default: f64| -> RtResult<f64> {
-            machine
-                .calculator_global(name)
-                .map(|v| v.expect_real(name).map(|n| n.to_f64()))
-                .transpose()
-                .map(|n| n.unwrap_or(default))
-        };
+        let settings = machine.plot_settings(&machine.active_app)?;
         let window = Self {
-            xmin: value("Xmin", -10.0)?,
-            xmax: value("Xmax", 10.0)?,
-            ymin: value("Ymin", -10.0)?,
-            ymax: value("Ymax", 10.0)?,
+            xmin: settings.xmin.to_f64(),
+            xmax: settings.xmax.to_f64(),
+            ymin: settings.ymin.to_f64(),
+            ymax: settings.ymax.to_f64(),
         };
         if ![window.xmin, window.xmax, window.ymin, window.ymax]
             .iter()

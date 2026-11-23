@@ -101,6 +101,7 @@ pub struct SessionSnapshot {
     pub active_app: String,
     pub app_settings: BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: BTreeMap<String, crate::AppPlotSettings>,
     pub app_files: BTreeMap<String, BTreeMap<String, PortableValue>>,
     pub cas: ppl_cas::CasSession,
     pub generation: u64,
@@ -121,6 +122,7 @@ pub struct SessionContext {
     pub active_app: String,
     pub app_settings: BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: BTreeMap<String, crate::AppPlotSettings>,
     pub app_files: BTreeMap<String, BTreeMap<String, PortableValue>>,
     pub cas: ppl_cas::CasSession,
     cas_home_values: BTreeMap<String, PortableValue>,
@@ -147,6 +149,21 @@ impl Default for SessionContext {
     }
 }
 impl SessionSnapshot {
+    pub fn app_plot_settings(&self) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(&self.active_app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(&self.active_app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!(
+                        "Plot Setup defaults are not established for {}",
+                        self.active_app
+                    ),
+                )
+            })
+    }
     pub fn app_numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -201,6 +218,21 @@ impl SessionContext {
             .entry(self.active_app.clone())
             .or_default()
     }
+    pub fn app_plot_settings(&self) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(&self.active_app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(&self.active_app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!(
+                        "Plot Setup defaults are not established for {}",
+                        self.active_app
+                    ),
+                )
+            })
+    }
     pub fn app_numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -228,6 +260,14 @@ impl SessionContext {
         } else {
             value
         };
+        if crate::AppPlotSettings::canonical_name(name).is_some() {
+            crate::AppPlotSettings::check_field(&self.active_app, name)?;
+            let mut next = self.app_plot_settings()?;
+            next.set(name, &value.to_value())?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            self.generation += 1;
+            return Ok(());
+        }
         if let Some(setting) = crate::AppNumericSettings::setting(name) {
             let mut next = self.app_numeric_settings();
             next.set(setting, &value.to_value())?;
@@ -392,6 +432,7 @@ impl SessionContext {
             active_app: "Function".into(),
             app_settings: Default::default(),
             app_numeric_settings: Default::default(),
+            app_plot_settings: Default::default(),
             app_files: Default::default(),
             cas: Default::default(),
             cas_home_values: Default::default(),
@@ -409,15 +450,22 @@ impl SessionContext {
         }
     }
     pub fn snapshot(&self) -> SessionSnapshot {
+        // This immutable view exposes the active app's effective values for
+        // existing graph consumers; only the scoped map is persisted.
+        let mut globals = self.globals.clone();
+        if let Ok(plot) = self.app_plot_settings() {
+            plot.project(&self.active_app, &mut globals);
+        }
         SessionSnapshot {
             active_app: self.active_app.clone(),
             app_settings: self.app_settings.clone(),
             app_numeric_settings: self.app_numeric_settings.clone(),
+            app_plot_settings: self.app_plot_settings.clone(),
             app_files: self.app_files.clone(),
             cas: self.cas.clone(),
             generation: self.generation,
             settings: self.settings.clone(),
-            globals: self.globals.clone(),
+            globals,
             last_value: self.last_value.clone(),
             notes: self.notes.clone(),
             programs: self.programs.clone(),
@@ -452,6 +500,7 @@ impl SessionContext {
         machine.active_app = self.active_app.clone();
         machine.app_settings = self.app_settings.clone();
         machine.app_numeric_settings = self.app_numeric_settings.clone();
+        machine.app_plot_settings = self.app_plot_settings.clone();
         machine.app_files = self.app_files.clone();
         machine.home_variables = self
             .globals
@@ -500,7 +549,9 @@ impl SessionContext {
                             .unwrap_or_default(),
                     );
                 }
-            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_)) {
+            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && crate::AppPlotSettings::canonical_name(&slot.name).is_none()
+            {
                 self.globals.insert(slot.name.clone(), value);
             }
         }
@@ -518,6 +569,7 @@ impl SessionContext {
         self.active_app = machine.active_app;
         self.app_settings = machine.app_settings;
         self.app_numeric_settings = machine.app_numeric_settings;
+        self.app_plot_settings = machine.app_plot_settings;
         self.app_files = machine.app_files;
         for (name, value) in machine.home_variables {
             self.globals.insert(name, PortableValue::from(&value));
@@ -560,6 +612,7 @@ impl SessionContext {
         machine.active_app = self.active_app.clone();
         machine.app_settings = self.app_settings.clone();
         machine.app_numeric_settings = self.app_numeric_settings.clone();
+        machine.app_plot_settings = self.app_plot_settings.clone();
         machine.app_files = self.app_files.clone();
         machine.home_variables = self
             .globals
@@ -627,7 +680,9 @@ impl SessionContext {
                             .unwrap_or_default(),
                     );
                 }
-            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_)) {
+            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && crate::AppPlotSettings::canonical_name(&slot.name).is_none()
+            {
                 self.globals.insert(slot.name.clone(), value);
             }
         }
@@ -645,6 +700,7 @@ impl SessionContext {
         self.active_app = machine.active_app;
         self.app_settings = machine.app_settings;
         self.app_numeric_settings = machine.app_numeric_settings;
+        self.app_plot_settings = machine.app_plot_settings;
         self.app_files = machine.app_files;
         for (name, value) in machine.home_variables {
             self.globals.insert(name, PortableValue::from(&value));

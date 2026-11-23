@@ -29,16 +29,55 @@ fn is_app_variable(name: &str) -> bool {
     name.strip_prefix("Spreadsheet.")
         .is_some_and(|field| !field.is_empty() && !field.contains('.'))
         || name.strip_prefix("Function.").is_some_and(is_function_slot)
+        || [
+            "Function.",
+            "Parametric.",
+            "Polar.",
+            "Sequence.",
+            "Statistics_1Var.",
+            "Statistics_2Var.",
+        ]
+        .iter()
+        .any(|prefix| name.strip_prefix(prefix).is_some_and(is_plot_variable))
         || name
             .strip_prefix("Statistics_1Var.")
-            .is_some_and(is_statistics_slot)
+            .is_some_and(|field| is_statistics_slot(field) || is_statistics_column(field))
+}
+
+fn is_plot_variable(name: &str) -> bool {
+    matches!(
+        name,
+        "Xmin"
+            | "Xmax"
+            | "Ymin"
+            | "Ymax"
+            | "Xtick"
+            | "Ytick"
+            | "Axes"
+            | "GridDots"
+            | "GridLines"
+            | "Labels"
+            | "Hmin"
+            | "Hmax"
+            | "Hwidth"
+    )
+}
+
+fn is_statistics_column(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'D' && bytes[1].is_ascii_digit()
 }
 
 fn app_access_name(name: &str) -> String {
-    name.strip_prefix("Statistics_1Var.").map_or_else(
-        || name.to_owned(),
-        |field| format!("Statistics 1Var.{field}"),
-    )
+    for (prefix, app) in [
+        ("Statistics_1Var.", "Statistics 1Var"),
+        ("Statistics_2Var.", "Statistics 2Var"),
+    ] {
+        if let Some(field) = name.strip_prefix(prefix) {
+            return format!("{app}.{field}");
+        }
+    }
+    name.to_owned()
 }
 
 fn is_function_slot(name: &str) -> bool {
@@ -198,6 +237,9 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
     let plot_default = match name.to_ascii_lowercase().as_str() {
         "xmin" | "ymin" => Some("-10"),
         "xmax" | "ymax" => Some("10"),
+        "xtick" | "ytick" | "hwidth" => Some("1"),
+        "hmin" | "axes" | "griddots" | "gridlines" | "labels" => Some("0"),
+        "hmax" => Some("24"),
         "tmin" => Some("0"),
         "nmin" => Some("1"),
         "nmax" => Some("100"),
@@ -252,6 +294,15 @@ fn canonical_system_name(name: &str) -> String {
         "xmax" => "Xmax".into(),
         "ymin" => "Ymin".into(),
         "ymax" => "Ymax".into(),
+        "xtick" => "Xtick".into(),
+        "ytick" => "Ytick".into(),
+        "axes" => "Axes".into(),
+        "griddots" => "GridDots".into(),
+        "gridlines" => "GridLines".into(),
+        "labels" => "Labels".into(),
+        "hmin" => "Hmin".into(),
+        "hmax" => "Hmax".into(),
+        "hwidth" => "Hwidth".into(),
         "numstart" => "NumStart".into(),
         "numstep" => "NumStep".into(),
         "numzoom" => "NumZoom".into(),
