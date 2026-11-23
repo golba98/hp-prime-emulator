@@ -373,8 +373,7 @@ impl NativeUiState {
             }
             _ => math_layout::text(self.history_text().unwrap_or(""), 17.),
         };
-        // Keep existing Show scrolling for grids that would only fit after
-        // reducing their cell heights.
+        // Keep scrolling for grids that overflow under the ordinary metrics.
         if !layout.is_matrix_grid
             || layout.width > SHOW_CONTENT_WIDTH
             || layout.height > SHOW_CONTENT_HEIGHT
@@ -383,7 +382,11 @@ impl NativeUiState {
         }
         entry
             .and_then(|entry| self.compact_show_matrix(entry))
-            .filter(|compact| compact.width == layout.width && compact.height < layout.height)
+            .filter(|compact| {
+                compact.height < layout.height
+                    && (compact.width == layout.width
+                        || (compact.compact_numeric_grid && compact.width <= SHOW_CONTENT_WIDTH))
+            })
             .unwrap_or(layout)
     }
     fn compact_show_matrix(&self, entry: &HomeEntry) -> Option<math_layout::MathLayout> {
@@ -413,11 +416,11 @@ impl NativeUiState {
         {
             return Some(if self.history_result { result } else { source });
         }
-        let source = math_layout::history_row_expression(&entry.expression, 17., px, None, true);
+        let source = math_layout::show_matrix_expression(&entry.expression, px);
         if !source.compact_numeric_grid {
             return None;
         }
-        let result = math_layout::history_result(entry.display_result(), Some(typed), px, true);
+        let result = math_layout::show_matrix_result(entry.display_result(), typed, px);
         result
             .compact_numeric_grid
             .then_some(if self.history_result { result } else { source })
@@ -497,7 +500,12 @@ mod tests {
     #[test]
     fn fitted_two_column_show_reuses_compact_cells_and_retains_overflow() {
         use serde_json::json;
-        for (rows, cols, expected_height) in [(2, 2, 36), (3, 1, 59), (9, 2, 185)] {
+        let advance = math_layout::text("2", 14.).width;
+        for (rows, cols, expected_bounds) in [
+            (2, 2, (2 * advance + 19, 36)),
+            (3, 1, (advance + 10, 59)),
+            (9, 2, (2 * advance + 15, 185)),
+        ] {
             let values = vec![json!({"type": "integer", "value": "2"}); rows * cols];
             let row = if cols == 2 { "[2,2]" } else { "[2]" };
             let source = format!("[{}]", vec![row; rows].join(","));
@@ -513,9 +521,11 @@ mod tests {
                 Some(json!({"type":"matrix", "value":{"rows":rows,"cols":cols,"values":values}})),
             );
             state.history_move(-1);
-            assert_eq!(state.history_layout().height, expected_height);
+            let result = state.history_layout();
+            assert_eq!((result.width, result.height), expected_bounds);
             state.history_move(-1);
-            assert_eq!(state.history_layout().height, expected_height);
+            let source = state.history_layout();
+            assert_eq!((source.width, source.height), expected_bounds);
         }
     }
 

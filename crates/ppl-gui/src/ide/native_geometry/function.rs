@@ -1,11 +1,15 @@
 //! Evaluated function graphs use the same compiled numeric engine as Function.
 use super::{Extent, Point2, Shape, number, point, primitives, source};
 use crate::ide::native_apps::Evaluator;
+use ppl_math::{AngleMode, Real};
 use ppl_syntax::ast::{BinOp, Expr, ExprKind, PostOp, UnOp};
 use ppl_vm::SessionSnapshot;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    f64::consts::{FRAC_PI_2, PI, TAU},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 pub(super) fn reads_x(expr: &Expr) -> bool {
@@ -138,7 +142,13 @@ pub(super) fn tangent_at(
             .ok_or("Invalid Function Graph constant")?;
         Ok::<_, String>(element(source, p.x, snapshot, cancel.clone())?.y)
     };
-    let (_, slope) = algebraic_value_and_slope(&expr, p.x, &constant)?;
+    let angle = snapshot
+        .app_settings
+        .get(&snapshot.active_app)
+        .map_or(snapshot.settings.angle, |app| {
+            app.effective(&snapshot.settings).angle
+        });
+    let (_, slope) = value_and_slope(&expr, p.x, angle, &constant)?;
     let length = slope.hypot(1.);
     let step = 1_f64.max(p.x.abs().max(p.y.abs()) * 4. * f64::EPSILON);
     primitives::line(
@@ -164,29 +174,31 @@ fn value_and_slope_of_power(base: f64, slope: f64, exponent: f64) -> (f64, f64) 
 
 // Evaluate the derivative along with the function value. Graph samples are
 // rounded calculator results and do not define the tangent direction.
-fn algebraic_value_and_slope(
+fn value_and_slope(
     expr: &Expr,
     x: f64,
+    angle: AngleMode,
     constant: &impl Fn(&Expr) -> Result<f64, String>,
 ) -> Result<(f64, f64), String> {
     if !reads_x(expr) {
         return Ok((constant(expr)?, 0.));
     }
-    let unsupported = || "Tangent needs a polynomial or rational Function Graph".to_owned();
+    let unsupported =
+        || "Tangent needs a polynomial, rational or circular trig Function Graph".to_owned();
     let (value, slope) = match &expr.kind {
         ExprKind::Ident(name) if name == "x" => (x, 1.),
         ExprKind::Unary(UnOp::Neg, arg) => {
-            let (value, slope) = algebraic_value_and_slope(arg, x, constant)?;
+            let (value, slope) = value_and_slope(arg, x, angle, constant)?;
             (-value, -slope)
         }
         ExprKind::Postfix(operation @ (PostOp::Square | PostOp::Cube), arg) => {
-            let (value, slope) = algebraic_value_and_slope(arg, x, constant)?;
+            let (value, slope) = value_and_slope(arg, x, angle, constant)?;
             let exponent = if *operation == PostOp::Square { 2. } else { 3. };
             value_and_slope_of_power(value, slope, exponent)
         }
         ExprKind::Binary(operation, left, right) => {
-            let (u, du) = algebraic_value_and_slope(left, x, constant)?;
-            let (v, dv) = algebraic_value_and_slope(right, x, constant)?;
+            let (u, du) = value_and_slope(left, x, angle, constant)?;
+            let (v, dv) = value_and_slope(right, x, angle, constant)?;
             match operation {
                 BinOp::Add => (u + v, du + dv),
                 BinOp::Sub => (u - v, du - dv),
@@ -201,7 +213,52 @@ fn algebraic_value_and_slope(
                 _ => return Err(unsupported()),
             }
         }
+        ExprKind::Call(callee, args) => {
+            let (ExprKind::Ident(name), [arg]) = (&callee.kind, args.as_slice()) else {
+                return Err(unsupported());
+            };
+            let (value, slope) = value_and_slope(arg, x, angle, constant)?;
+            let scale = TAU / angle.full_turn();
+            let (sin, cos) = (value * scale).sin_cos();
+            let slope = slope * scale;
+            if name.eq_ignore_ascii_case("sin") {
+                (sin, cos * slope)
+            } else if name.eq_ignore_ascii_case("cos") {
+                (cos, -sin * slope)
+            } else if name.eq_ignore_ascii_case("tan") {
+                if is_tangent_pole(value, angle) {
+                    return Err("Tangent is undefined at a pole of the Function Graph".into());
+                }
+                (sin / cos, slope / (cos * cos))
+            } else {
+                return Err(unsupported());
+            }
+        }
         _ => return Err(unsupported()),
     };
     Ok((number(value)?, number(slope)?))
+}
+
+fn is_tangent_pole(value: f64, angle: AngleMode) -> bool {
+    if angle != AngleMode::Radians {
+        let quarter = angle.full_turn() / 4.;
+        return value.rem_euclid(2. * quarter) == quarter;
+    }
+
+    let magnitude = value.abs();
+    let multiple = (magnitude / FRAC_PI_2).round();
+    if multiple.rem_euclid(2.) != 1. {
+        return false;
+    }
+    let Ok(decimal) = Real::from_f64(magnitude) else {
+        return false;
+    };
+    // A Geometry point carries its numeric coordinates. Rounding π first
+    // or rounding its exact multiple can give adjacent calculator decimals.
+    let exact = Real::from_f64(multiple * FRAC_PI_2);
+    let rounded_pi = Real::from_f64(PI).and_then(|pi| {
+        pi.mul(Real::from_i64(multiple as i64))?
+            .div(Real::from_i64(2))
+    });
+    exact == Ok(decimal) || rounded_pi == Ok(decimal)
 }

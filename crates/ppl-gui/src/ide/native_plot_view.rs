@@ -1,10 +1,15 @@
 //! Shared LCD plot geometry and interaction for function and model apps.
+use ppl_graphics::{
+    Grob, WHITE,
+    text::{draw_text, measure},
+};
+use ppl_math::{FormatOptions, Real};
 use ppl_vm::AppPlotSettings;
 
 use super::{
     native_apps::{CurveSamples, PlotWindow},
     native_model_plots::{DOT_FILL_ALPHA, PlotStyle},
-    native_plot_controls::{axis_pixel, ticks},
+    native_plot_controls::{X_PIXEL_SPAN, axis_pixel, ticks},
 };
 #[derive(Default)]
 pub struct PlotInteraction {
@@ -27,7 +32,47 @@ pub fn show(
 }
 pub struct GraphStyle<'a> {
     pub colors: &'a [egui::Color32],
-    pub function_setup: Option<&'a AppPlotSettings>,
+    pub function_setup: Option<FunctionPlotStyle<'a>>,
+}
+
+#[derive(Clone, Copy)]
+pub struct FunctionPlotStyle<'a> {
+    pub settings: &'a AppPlotSettings,
+    pub number_format: FormatOptions,
+}
+
+#[derive(Clone, Copy)]
+struct FunctionViewport {
+    width: i64,
+    height: i64,
+    vertical_axis: Option<i64>,
+    horizontal_axis: Option<i64>,
+}
+
+impl FunctionViewport {
+    fn for_plot(
+        window: &PlotWindow,
+        rect: egui::Rect,
+        scale: f32,
+        hide_axes: bool,
+    ) -> Option<Self> {
+        let width = (rect.width() / scale).floor() as i64;
+        let height = (rect.height() / scale).floor() as i64;
+        if width < 3 || height < 2 {
+            return None;
+        }
+        let vertical_axis = (!hide_axes && window.xmin <= 0. && window.xmax >= 0.).then(|| {
+            1 + axis_pixel(-window.xmin / (window.xmax - window.xmin) * (width - 2) as f64)
+        });
+        let horizontal_axis = (!hide_axes && window.ymin <= 0. && window.ymax >= 0.)
+            .then(|| axis_pixel(window.ymax / (window.ymax - window.ymin) * (height - 1) as f64));
+        Some(Self {
+            width,
+            height,
+            vertical_axis,
+            horizontal_axis,
+        })
+    }
 }
 
 /// Graph definitions keep their chosen colors in every plotted curve.
@@ -108,6 +153,7 @@ fn paint_function_grid(
     scale: f32,
     window: &PlotWindow,
     setup: &AppPlotSettings,
+    viewport: FunctionViewport,
 ) {
     const LINE: egui::Color32 = egui::Color32::from_gray(233);
     const DOT: egui::Color32 = egui::Color32::from_gray(148);
@@ -116,11 +162,12 @@ fn paint_function_grid(
     if setup.axes && setup.grid_dots && setup.grid_lines {
         return;
     }
-    let width = (rect.width() / scale).floor() as i64;
-    let height = (rect.height() / scale).floor() as i64;
-    if width < 3 || height < 2 {
-        return;
-    }
+    let FunctionViewport {
+        width,
+        height,
+        vertical_axis,
+        horizontal_axis,
+    } = viewport;
     let x_extent = (width - 2) as f64;
     let y_extent = (height - 1) as f64;
     let xs = ticks(window.xmin, window.xmax, setup.xtick.to_f64(), x_extent)
@@ -163,18 +210,91 @@ fn paint_function_grid(
             }
         }
     }
-    if !setup.axes && window.xmin <= 0. && window.xmax >= 0. {
-        let x = 1 + axis_pixel(-window.xmin / (window.xmax - window.xmin) * x_extent);
+    if let Some(x) = vertical_axis {
         ink(x, 0, 1, height, AXIS);
         for &y in &ys {
             ink(x - 2, y, 5, 1, AXIS);
         }
     }
-    if !setup.axes && window.ymin <= 0. && window.ymax >= 0. {
-        let y = axis_pixel(window.ymax / (window.ymax - window.ymin) * y_extent);
+    if let Some(y) = horizontal_axis {
         ink(0, y, width, 1, AXIS);
         for &x in &xs {
             ink(x, y - 2, 1, 5, AXIS);
+        }
+    }
+}
+
+fn paint_function_labels(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    scale: f32,
+    window: &PlotWindow,
+    style: FunctionPlotStyle<'_>,
+    viewport: FunctionViewport,
+) {
+    const FONT: f32 = 12.;
+    let FunctionViewport {
+        width,
+        height,
+        horizontal_axis,
+        vertical_axis,
+    } = viewport;
+    let hidden = style.settings.axes;
+    let label = |value| {
+        Real::from_f64(value)
+            .map(|number| number.format(style.number_format).replace('-', "−"))
+            .unwrap_or_else(|_| "Out of range".into())
+    };
+    let text_width = |text: &str| measure(text, FONT);
+    let mut bitmap = Grob::new(width as usize, height as usize, WHITE);
+    let mut draw = |text: &str, x, y| {
+        draw_text(&mut bitmap, text, x, y - 1, FONT, 0, None, None);
+    };
+
+    if hidden || horizontal_axis.is_some() {
+        let center = (height - 1) / 2;
+        let (numbers, letter) =
+            horizontal_axis.map_or((center - 2, center + 10), |y| (y + 3, y - 13));
+        let xmin = label(window.xmin - (window.xmax - window.xmin) / X_PIXEL_SPAN);
+        let xmax = label(window.xmax);
+        draw(&xmin, 1, numbers);
+        draw(&xmax, width - text_width(&xmax), numbers);
+        draw("X", width - text_width("X"), letter);
+    }
+    if hidden || vertical_axis.is_some() {
+        let at_left = |x| x < width / 2;
+        let number_x = |text: &str| match vertical_axis {
+            Some(x) if at_left(x) => x + 4,
+            Some(x) => x - 3 - text_width(text),
+            None => width / 2 + 3 - text_width(text) / 2,
+        };
+        let ymin = label(window.ymin);
+        let ymax = label(window.ymax);
+        draw(&ymax, number_x(&ymax), 0);
+        draw(&ymin, number_x(&ymin), height - 11);
+        let (x, y) = match vertical_axis {
+            Some(x) if at_left(x) => (x - 3 - text_width("Y"), 0),
+            Some(x) => (x + 4, 0),
+            None => (width / 2 + 3 - text_width("Y") / 2, 12),
+        };
+        draw("Y", x, y);
+    }
+
+    // G1 paints the black text coverage over the graph, preserving the
+    // remaining color of any curve under an antialiased glyph.
+    for (index, &pixel) in bitmap.pixels().iter().enumerate() {
+        if pixel != WHITE {
+            let x = (index % bitmap.width()) as f32;
+            let y = (index / bitmap.width()) as f32;
+            let cell = egui::Rect::from_min_size(
+                rect.min + scale * egui::vec2(x, y),
+                egui::Vec2::splat(scale),
+            );
+            painter.rect_filled(
+                cell,
+                0.,
+                egui::Color32::from_black_alpha(255 - (pixel as u8)),
+            );
         }
     }
 }
@@ -280,7 +400,7 @@ fn show_impl(
     data: Option<&super::native_model_plots::PlotData>,
     interactive: bool,
     calculator_backdrop: bool,
-    function_setup: Option<&AppPlotSettings>,
+    function_setup: Option<FunctionPlotStyle<'_>>,
 ) -> PlotInteraction {
     if let Err(error) = window.validate() {
         ui.colored_label(egui::Color32::DARK_RED, error);
@@ -326,9 +446,13 @@ fn show_impl(
             }
         }
     }
-    if let Some(setup) = function_setup {
-        paint_function_grid(&painter, rect, scale, window, setup);
-    } else if !calculator_backdrop && window.axes {
+    let function_viewport = function_setup.and_then(|style| {
+        FunctionViewport::for_plot(window, rect, scale, style.settings.axes)
+            .map(|viewport| (style, viewport))
+    });
+    if let Some((style, viewport)) = function_viewport {
+        paint_function_grid(&painter, rect, scale, window, style.settings, viewport);
+    } else if function_setup.is_none() && !calculator_backdrop && window.axes {
         if window.ymin <= 0. && window.ymax >= 0. {
             painter.line_segment(
                 [project([window.xmin, 0.]), project([window.xmax, 0.])],
@@ -466,6 +590,11 @@ fn show_impl(
                 rgb(annotation.color),
             );
         }
+    }
+    if let Some((style, viewport)) = function_viewport
+        && style.settings.labels
+    {
+        paint_function_labels(&painter, rect, scale, window, style, viewport);
     }
     if let Some(point) = trace {
         if prime {

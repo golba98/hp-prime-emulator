@@ -110,7 +110,7 @@ fn full_scalar_depth_form_writes_only_z_and_preserves_string_copies() {
 }
 
 #[test]
-fn packed_points_and_line_depth_match_original_controls() {
+fn packed_graphics_points_and_line_depth_match_original_controls() {
     use ppl_vm::Value;
     use sha2::{Digest, Sha256};
 
@@ -123,6 +123,7 @@ fn packed_points_and_line_depth_match_original_controls() {
     }
 
     for fixture in [
+        include_str!("../../../tests/fixtures/native-dimgrob-packed-capacity-controls.json"),
         include_str!("../../../tests/fixtures/native-mesh-point-controls.json"),
         include_str!("../../../tests/fixtures/native-line-depth-controls.json"),
         include_str!("../../../tests/fixtures/native-line-normalization-controls.json"),

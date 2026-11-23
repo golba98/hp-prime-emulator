@@ -20,7 +20,7 @@ pub(in crate::ide::native) fn result_with_matrix_font(
     px: f32,
     matrix_px: f32,
 ) -> MathLayout {
-    result_layout(display, typed, px, matrix_px, false)
+    result_layout(display, typed, px, matrix_px, MatrixStyle::Standard)
 }
 
 pub(in crate::ide::native) fn history_result(
@@ -29,7 +29,21 @@ pub(in crate::ide::native) fn history_result(
     px: f32,
     compact_matrices: bool,
 ) -> MathLayout {
-    result_layout(display, typed, px, px, compact_matrices)
+    result_layout(
+        display,
+        typed,
+        px,
+        px,
+        MatrixStyle::history(compact_matrices),
+    )
+}
+
+pub(in crate::ide::native) fn show_matrix_result(
+    display: &str,
+    typed: &Value,
+    px: f32,
+) -> MathLayout {
+    result_layout(display, Some(typed), px, px, MatrixStyle::CompactShow)
 }
 
 pub(in crate::ide::native) fn history_fraction_grids(
@@ -62,17 +76,17 @@ fn result_layout(
     typed: Option<&Value>,
     px: f32,
     matrix_px: f32,
-    compact_matrices: bool,
+    matrix_style: MatrixStyle,
 ) -> MathLayout {
     match typed.and_then(|v| v["type"].as_str()) {
         Some("matrix" | "list") => {
             let typed = typed.unwrap();
             if needs_display(typed) {
                 if let Some(restored) = legacy_display(typed, display) {
-                    return value(&restored, px, matrix_px, compact_matrices);
+                    return value(&restored, px, matrix_px, matrix_style);
                 }
             }
-            value(typed, px, matrix_px, compact_matrices)
+            value(typed, px, matrix_px, matrix_style)
         }
         Some("string") | None => text(display, px),
         Some("rational") => symbolic::rational_result(display, px, matrix_px),
@@ -155,7 +169,7 @@ fn legacy_display(typed: &Value, display: &str) -> Option<Value> {
     bind(&mut value, &expr, display)?;
     Some(value)
 }
-fn value(v: &Value, px: f32, matrix_px: f32, compact_matrix: bool) -> MathLayout {
+fn value(v: &Value, px: f32, matrix_px: f32, matrix_style: MatrixStyle) -> MathLayout {
     if let Some(display) = v["display"].as_str() {
         return if v["type"] == "string" {
             text(display, px)
@@ -169,7 +183,7 @@ fn value(v: &Value, px: f32, matrix_px: f32, compact_matrix: bool) -> MathLayout
         && let Ok(value) = serde_json::from_value::<ppl_cas::CasValue>(v.clone())
         && value.validate().is_ok()
     {
-        return cas_value(&value, px, matrix_px, compact_matrix);
+        return cas_value(&value, px, matrix_px, matrix_style);
     }
     match v["type"].as_str() {
         Some("list") => list_delimiters(px, matrix_px, |px| {
@@ -179,7 +193,7 @@ fn value(v: &Value, px: f32, matrix_px: f32, compact_matrix: bool) -> MathLayout
                     if index != 0 {
                         parts.push(text(", ", px));
                     }
-                    parts.push(value(entry, px, matrix_px, false));
+                    parts.push(value(entry, px, matrix_px, MatrixStyle::Standard));
                 }
             }
             parts
@@ -193,9 +207,9 @@ fn value(v: &Value, px: f32, matrix_px: f32, compact_matrix: bool) -> MathLayout
             }
             let cells = data
                 .iter()
-                .map(|v| value(v, px.min(matrix_px), matrix_px, false))
+                .map(|v| value(v, px.min(matrix_px), matrix_px, MatrixStyle::Standard))
                 .collect();
-            palette::static_brackets(cells, rows, cols, true, compact_matrix)
+            palette::static_brackets(cells, rows, cols, true, matrix_style)
         }
         Some("complex") => text(
             &format!(
@@ -216,16 +230,16 @@ fn cas_value(
     value: &ppl_cas::CasValue,
     px: f32,
     matrix_px: f32,
-    compact_matrix: bool,
+    matrix_style: MatrixStyle,
 ) -> MathLayout {
     use ppl_cas::CasValue;
     match value {
         CasValue::Matrix { rows, cols, values } if *rows != 0 && *cols != 0 => {
             let cells = values
                 .iter()
-                .map(|value| cas_value(value, px.min(matrix_px), matrix_px, false))
+                .map(|value| cas_value(value, px.min(matrix_px), matrix_px, MatrixStyle::Standard))
                 .collect();
-            palette::static_brackets(cells, *rows, *cols, false, compact_matrix)
+            palette::static_brackets(cells, *rows, *cols, false, matrix_style)
         }
         CasValue::Rational {
             numerator,

@@ -470,7 +470,12 @@ impl NativeTools {
                         &self.points,
                         crate::ide::native_plot_view::GraphStyle {
                             colors: &colors,
-                            function_setup: function_setup.as_ref(),
+                            function_setup: function_setup.as_ref().map(|settings| {
+                                crate::ide::native_plot_view::FunctionPlotStyle {
+                                    settings,
+                                    number_format: app_settings.home_format(),
+                                }
+                            }),
                         },
                         size,
                         scale,
@@ -706,6 +711,7 @@ impl NativeTools {
                                     w.axes = settings.axes;
                                 }
                                 function_cursor_picker(ui, &mut mode);
+                                ui.checkbox(&mut settings.labels, "Labels");
                             });
                             if mode != previous_mode
                                 && let Err(error) = settings.set("Cursor", &mode.value())

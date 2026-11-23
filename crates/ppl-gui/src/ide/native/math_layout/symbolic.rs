@@ -35,7 +35,16 @@ pub(in crate::ide::native) fn history_row_expression(
         source,
         px,
         matrix_px,
-        SourcePresentation::History(grouping, compact_matrices),
+        SourcePresentation::History(grouping, MatrixStyle::history(compact_matrices)),
+    )
+}
+
+pub(in crate::ide::native) fn show_matrix_expression(source: &str, matrix_px: f32) -> MathLayout {
+    expression_layout(
+        source,
+        17.,
+        matrix_px,
+        SourcePresentation::History(None, MatrixStyle::CompactShow),
     )
 }
 
@@ -45,7 +54,7 @@ pub(super) fn rational_result(source: &str, px: f32, matrix_px: f32) -> MathLayo
 
 enum SourcePresentation {
     Ordinary,
-    History(Option<DigitGrouping>, bool),
+    History(Option<DigitGrouping>, MatrixStyle),
     RationalResult,
 }
 
@@ -76,7 +85,7 @@ fn expression_layout(
                     matches!(presentation, SourcePresentation::RationalResult);
                 return layout;
             }
-            if let SourcePresentation::History(grouping, compact_matrices) = presentation {
+            if let SourcePresentation::History(grouping, matrix_style) = presentation {
                 if grouping.is_some()
                     && let Some(args) = indexed_root_fields(&expr)
                 {
@@ -85,7 +94,7 @@ fn expression_layout(
                 if let Some(layout) = history_numeric_power(&expr, source, px) {
                     return layout;
                 }
-                return node_with_compact_grid(&expr, source, px, 0, matrix_px, compact_matrices);
+                return node_with_matrix_style(&expr, source, px, 0, matrix_px, matrix_style);
             }
             return node(&expr, source, px, 0, matrix_px);
         }
@@ -359,16 +368,16 @@ fn square_root_fraction(
 }
 
 fn node(e: &Expr, source: &str, px: f32, depth: usize, matrix_px: f32) -> MathLayout {
-    node_with_compact_grid(e, source, px, depth, matrix_px, false)
+    node_with_matrix_style(e, source, px, depth, matrix_px, MatrixStyle::Standard)
 }
 
-fn node_with_compact_grid(
+fn node_with_matrix_style(
     e: &Expr,
     source: &str,
     px: f32,
     depth: usize,
     matrix_px: f32,
-    compact_matrix: bool,
+    matrix_style: MatrixStyle,
 ) -> MathLayout {
     let raw = &source[e.span.start as usize..e.span.end as usize];
     if depth >= 64 {
@@ -389,7 +398,7 @@ fn node_with_compact_grid(
             let cols = rows[0].len();
             if rows.iter().all(|row| row.len() == cols) {
                 let cells = rows.iter().flat_map(|row| row.iter().map(layout)).collect();
-                return palette::static_brackets(cells, rows.len(), cols, false, compact_matrix);
+                return palette::static_brackets(cells, rows.len(), cols, false, matrix_style);
             }
         }
         return palette::static_brackets(
@@ -397,7 +406,7 @@ fn node_with_compact_grid(
             1,
             items.len(),
             false,
-            false,
+            MatrixStyle::Standard,
         );
     }
     let editor = ExpressionEditor::from_text(raw);

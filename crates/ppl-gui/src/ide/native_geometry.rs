@@ -1496,6 +1496,174 @@ mod tests {
     }
 
     #[test]
+    fn circular_trig_tangents_follow_named_points_and_effective_angle() {
+        use ppl_math::AngleMode;
+
+        let mut construction = book(&[
+            ("A", "plotfunc(SIN(x))"),
+            ("B", "element(GA,1)"),
+            ("C", "tangent(GB)"),
+            ("D", "tangent(GA,1)"),
+        ]);
+        let mut context = SessionContext::default();
+        context.active_app = "Geometry".into();
+        let cancel = Arc::new(AtomicBool::new(false));
+
+        let check = |scene: &Scene, x, y, slope: f64, intercept: f64| {
+            pt(scene, "B", Point2 { x, y });
+            for name in ["C", "D"] {
+                let Shape::Line {
+                    a,
+                    b,
+                    extent: Extent::Line,
+                } = shape(scene, name)
+                else {
+                    panic!("{name} should be a tangent line");
+                };
+                let measured = (b.y - a.y) / (b.x - a.x);
+                assert!((measured - slope).abs() < 1e-10);
+                assert!((a.y - a.x * measured - intercept).abs() < 1e-10);
+            }
+        };
+
+        let snapshot = context.snapshot();
+        let initial = construction
+            .refresh_values(&snapshot, cancel.clone())
+            .unwrap();
+        check(&initial, 1., 0.841470984808, 0.540302305868, 0.30116867894);
+        construction.objects[0].source = "plotfunc(2*cos(2*x)+1)".into();
+        let changed = construction
+            .refresh_values(&snapshot, cancel.clone())
+            .unwrap();
+        check(&changed, 1., 0.167706326906, -3.6371897073, 3.80489603421);
+
+        construction.objects[1].source = "element(GA,1/2)".into();
+        construction.objects[3].source = "tangent(GA,1/2)".into();
+        let controls = [
+            (
+                AngleMode::Degrees,
+                1,
+                2.08060461174,
+                -3.36588393923,
+                3.76354658135,
+            ),
+            (
+                AngleMode::Radians,
+                2,
+                2.99969539031,
+                -0.00121840781891,
+                3.00030459422,
+            ),
+            (
+                AngleMode::Radians,
+                3,
+                2.99975326496,
+                -0.000986919853489,
+                3.00024672489,
+            ),
+            (
+                AngleMode::Degrees,
+                0,
+                2.99969539031,
+                -0.00121840781891,
+                3.00030459422,
+            ),
+        ];
+        for (home, app, y, slope, intercept) in controls {
+            context.settings.angle = home;
+            context.app_settings.insert(
+                "Geometry".into(),
+                ppl_vm::AppSettings {
+                    angle: app,
+                    ..Default::default()
+                },
+            );
+            let scene = construction
+                .refresh_values(&context.snapshot(), cancel.clone())
+                .unwrap();
+            check(&scene, 0.5, y, slope, intercept);
+        }
+        let serialized = serde_json::to_string(&construction).unwrap();
+        let mut reopened: Book = serde_json::from_str(&serialized).unwrap();
+        let scene = reopened
+            .refresh_values(&context.snapshot(), cancel)
+            .unwrap();
+        let (_, _, y, slope, intercept) = controls[3];
+        check(&scene, 0.5, y, slope, intercept);
+    }
+
+    #[test]
+    fn tangent_function_keeps_finite_neighbors_and_refuses_trig_poles() {
+        let mut construction = book(&[
+            ("A", "plotfunc(tan(x))"),
+            ("B", "element(GA,1/4)"),
+            ("C", "tangent(GB)"),
+        ]);
+        let mut context = SessionContext::default();
+        context.active_app = "Geometry".into();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let snapshot = context.snapshot();
+        let scene = construction
+            .refresh_values(&snapshot, cancel.clone())
+            .unwrap();
+        pt(
+            &scene,
+            "B",
+            Point2 {
+                x: 0.25,
+                y: 0.255341921221,
+            },
+        );
+        for (expression, expected) in [
+            ("slope(tangent(GB))", 1.06519949673),
+            ("slope(tangent(GA,1.5707))", 107771959.94),
+            ("slope(tangent(GA,1.5709))", 93039410.7723),
+        ] {
+            let value = construction
+                .current_expression(expression, &snapshot, cancel.clone())
+                .unwrap();
+            assert!(
+                matches!(value, PortableValue::Real(actual)
+                    if (actual.to_f64() / expected - 1.).abs() < 1e-7),
+                "{expression}: {value:?}"
+            );
+        }
+        for version in [
+            ppl_math::NumericVersion::Legacy15157,
+            ppl_math::NumericVersion::Current15751,
+        ] {
+            context.settings.numeric_version = version;
+            let radians = context.snapshot();
+            construction
+                .refresh_values(&radians, cancel.clone())
+                .unwrap();
+            for expression in ["tangent(GA,π/2)", "tangent(element(GA,π/2))"] {
+                assert!(
+                    matches!(
+                        construction.current_expression(expression, &radians, cancel.clone()).unwrap(),
+                        PortableValue::String(error) if error.contains("Bad Argument Value")
+                    ),
+                    "{version:?}: {expression}"
+                );
+            }
+        }
+
+        context.settings.angle = ppl_math::AngleMode::Degrees;
+        let degrees = context.snapshot();
+        construction
+            .refresh_values(&degrees, cancel.clone())
+            .unwrap();
+        assert!(matches!(
+            construction.current_expression("slope(tangent(GA,89))", &degrees, cancel.clone()).unwrap(),
+            PortableValue::Real(slope) if (slope.to_f64() - 57.3015976317).abs() < 1e-8
+        ));
+        assert!(matches!(
+            construction.current_expression("tangent(GA,90)", &degrees, cancel).unwrap(),
+            PortableValue::String(error) if error.contains("Bad Argument Value")
+        ));
+    }
+
+    #[test]
     fn two_arc_intersection_clips_both_sweeps_before_choosing_a_hit() {
         let mut construction = book(&[
             ("A", "point(0,0)"),

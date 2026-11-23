@@ -41,10 +41,11 @@ pub(super) fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> Math
         cols,
         MatrixSpacing {
             column_gap: 5,
-            side_inset: 5,
+            side_insets: (5, 5),
             row_gap: 3,
             top_inset: i64::from(rows != 1),
             bracket_cap: 3,
+            paired_rails: false,
             round_cell_centers: false,
         },
     )
@@ -55,26 +56,44 @@ pub(super) fn static_brackets(
     rows: usize,
     cols: usize,
     native_result: bool,
-    compact_history: bool,
+    style: MatrixStyle,
 ) -> MathLayout {
-    // Medium Prime Sans digits use a 16px cell in History. Trim just the
+    // Medium Prime Sans digits use a 16px cell in History and Show. Trim the
     // trailing layout descent, so the glyphs and the 4px grid gap stay put.
-    let compact = compact_history
-        && parts.iter().all(|part| {
-            part.has_plain_descent()
-                && !part.glyphs.is_empty()
-                && part.glyphs.iter().all(|glyph| {
-                    glyph.px == 14.
-                        && glyph.y == 0
-                        && glyph.text.bytes().all(|c| c.is_ascii_digit())
-                })
-        });
+    let compact = match style {
+        MatrixStyle::Standard => false,
+        MatrixStyle::CompactHistory => true,
+        MatrixStyle::CompactShow => cols == 2,
+    } && parts.iter().all(|part| {
+        part.has_plain_descent()
+            && !part.glyphs.is_empty()
+            && part.glyphs.iter().all(|glyph| {
+                glyph.px == 14. && glyph.y == 0 && glyph.text.bytes().all(|c| c.is_ascii_digit())
+            })
+    });
     if compact {
         for part in &mut parts {
             part.trim_plain_descent();
         }
     }
-    let mut layout = static_matrix(parts, rows, cols, native_result, false);
+    let mut layout = if compact && style == MatrixStyle::CompactShow {
+        matrix_grid(
+            parts,
+            rows,
+            cols,
+            MatrixSpacing {
+                column_gap: 8,
+                side_insets: (6, 5),
+                row_gap: 4,
+                top_inset: 0,
+                bracket_cap: 4,
+                paired_rails: true,
+                round_cell_centers: false,
+            },
+        )
+    } else {
+        static_matrix(parts, rows, cols, native_result, false)
+    };
     layout.compact_numeric_grid = compact;
     layout
 }
@@ -101,10 +120,11 @@ fn static_matrix(
         cols,
         MatrixSpacing {
             column_gap,
-            side_inset,
+            side_insets: (side_inset, side_inset),
             row_gap: 4,
             top_inset: 0,
             bracket_cap,
+            paired_rails: false,
             round_cell_centers,
         },
     )
@@ -112,10 +132,11 @@ fn static_matrix(
 
 struct MatrixSpacing {
     column_gap: i64,
-    side_inset: i64,
+    side_insets: (i64, i64),
     row_gap: i64,
     top_inset: i64,
     bracket_cap: i64,
+    paired_rails: bool,
     round_cell_centers: bool,
 }
 
@@ -127,10 +148,11 @@ fn matrix_grid(
 ) -> MathLayout {
     let MatrixSpacing {
         column_gap,
-        side_inset,
+        side_insets: (left_inset, right_inset),
         row_gap,
         top_inset,
         bracket_cap,
+        paired_rails,
         round_cell_centers,
     } = spacing;
     let widths = (0..cols)
@@ -155,7 +177,8 @@ fn matrix_grid(
                 .unwrap_or(0)
         })
         .collect::<Vec<_>>();
-    let width = widths.iter().sum::<i64>() + (cols as i64 - 1) * column_gap + 2 * side_inset;
+    let width =
+        widths.iter().sum::<i64>() + (cols as i64 - 1) * column_gap + left_inset + right_inset;
     let height = heights.iter().sum::<i64>() + (rows as i64 - 1) * row_gap + 2 * top_inset;
     let mut out = MathLayout {
         width,
@@ -168,7 +191,7 @@ fn matrix_grid(
     let mut parts = parts.into_iter();
     let mut y = top_inset;
     for h in heights {
-        let mut x = side_inset;
+        let mut x = left_inset;
         for &w in &widths {
             if let Some(part) = parts.next() {
                 let ox = (w - part.width) / 2;
@@ -179,7 +202,9 @@ fn matrix_grid(
         }
         y += h + row_gap;
     }
-    for x in [0, width - 1] {
+    let rail_positions = [0, width - 1, 2, width - 3];
+    let rail_count = if paired_rails { 4 } else { 2 };
+    for &x in &rail_positions[..rail_count] {
         out.rules.push(Rule {
             x,
             y: 0,

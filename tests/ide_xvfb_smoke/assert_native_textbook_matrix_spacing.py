@@ -125,6 +125,9 @@ def main(root):
         segments = [rail_runs(view, x, 24, 220)[0] for x in (left, right)]
         assert [height(segment) for segment in segments] == [expected] * 2, name
         assert all(abs(top + bottom - 218) <= 1 for top, bottom in segments), name
+        if installed and name in (*ordinary, "cas_two"):
+            assert (left, right) == (142, 176), name
+            assert [rail_runs(view, x, 24, 220)[0] for x in (left + 2, right - 2)] == segments, name
         view = frame(root, name + "_history")
         # The newest History pair ends one pixel above the y202 entry divider.
         segments = [rail_runs(view, x, 24, 202)[-1] for x in (1, 318)]

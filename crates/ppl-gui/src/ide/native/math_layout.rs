@@ -7,11 +7,30 @@ use ppl_graphics::{
 use std::ops::Range;
 mod palette;
 mod results;
-pub(super) use results::{history_fraction_grids, history_result, result_with_matrix_font};
+pub(super) use results::{
+    history_fraction_grids, history_result, result_with_matrix_font, show_matrix_result,
+};
 pub use results::{result, text};
 mod symbolic;
 pub use symbolic::expression;
-pub(super) use symbolic::{history_expression, history_row_expression};
+pub(super) use symbolic::{history_expression, history_row_expression, show_matrix_expression};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MatrixStyle {
+    Standard,
+    CompactHistory,
+    CompactShow,
+}
+
+impl MatrixStyle {
+    fn history(compact: bool) -> Self {
+        if compact {
+            Self::CompactHistory
+        } else {
+            Self::Standard
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 struct Glyph {
