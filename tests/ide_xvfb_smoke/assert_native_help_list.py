@@ -1,5 +1,6 @@
 """Verify installed Help list placement, actual navigation, and reopen."""
 import json
+from itertools import groupby
 from pathlib import Path
 import sys
 
@@ -59,6 +60,26 @@ def marker_centers(label, state):
     return centers
 
 
+def key_background_bands(label, state):
+    """Find filled key labels in the first column of the installed topic."""
+    (left, top), (right, bottom) = state['lcd_rect']['min'], state['lcd_rect']['max']
+    x_scale, y_scale = (right-left)/320, (bottom-top)/240
+    box = (round(left+14*x_scale), round(top+69*y_scale),
+           round(left+101*x_scale), round(bottom))
+    rows = []
+    with Image.open(ROOT / f'help_lists_{label}.png').convert('RGB') as image:
+        gutter = image.crop(box)
+        for y in range(gutter.height):
+            filled = sum(gutter.getpixel((x, y)) == (96, 96, 96) for x in range(gutter.width))
+            rows.append(filled >= round(24*x_scale))
+    bands = []
+    for filled, band in groupby(rows):
+        height = sum(1 for _ in band) / y_scale
+        if filled and 8 <= height <= 22:
+            bands.append(height)
+    return bands
+
+
 states = snapshots()
 reopened = snapshots('_reopen')
 for label, expected in [('plot_results', 'Function Plot View'), ('home_results', 'Home View')]:
@@ -76,7 +97,9 @@ assert assert_topic(reopened['nested_reopened'], plot, 82) > 0
 
 primary = marker_centers('primary', states['primary'])
 assert sum(2 < position < 9 for position in primary) >= 3, primary
+keys = key_background_bands('primary', states['primary'])
+assert len(keys) >= 3, keys
 for label, state in [('nested', states['nested']), ('nested_reopened', reopened['nested_reopened'])]:
     nested = marker_centers(label, state)
     assert sum(14 < position < 23 for position in nested) >= 3, (label, nested)
-print('Installed Help lists passed for primary and nested marker columns, navigation, and reopen')
+print('Installed Help passed for inline key labels, nested list columns, navigation, and reopen')

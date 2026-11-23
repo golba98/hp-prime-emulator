@@ -16,8 +16,12 @@ fi
 # Keep default raster checks independent of a user's installed font selection.
 unset PPL_PRIME_FONT_RESOURCE PPL_FACTORY_A PPL_FIRMWARE_INIT_DATA
 export PPL_CONFIG=/dev/null
-for scenario in input history history_reopen textbook textbook_radicals textbook_cas_matrix textbook_delimiters textbook_calls textbook_calls_reopen textbook_lists textbook_lists_reopen presentation presentation_reopen editing editing_reopen formatted formatted_reopen state_create state_reopen graph dialogs user integer clipboard models solve graph_context special_views worksheet worksheet_reopen app_views app_views_reopen tools tools_reopen note_bullets note_bullets_reopen sin_pointer home_chrome palette utf16 utf16_reopen cas_special cas_special_reopen cas_history_simplify cas_history_simplify_reopen cas_arguments settings settings_reopen expr_catalog expr_catalog_reopen statistics statistics_reopen statistics_one_charts statistics_one_charts_reopen statistics_one_scale statistics_one_scale_reopen statistics_one_reset statistics_one_reset_reopen statistics_two_scale statistics_two_scale_reopen statistics_check statistics_check_reopen statistics_two_fit statistics_two_fit_reopen statistics_two_writes statistics_two_writes_reopen statistics_two_reset statistics_two_reset_reopen statistics_two_cache statistics_two_cache_reopen statistics_one_trace statistics_one_definition statistics_one_definition_reopen statistics_geometry statistics_geometry_reopen statistics_fractional statistics_fractional_reopen statistics_unit statistics_unit_reopen statistics_infinite_autoscale statistics_infinite_autoscale_reopen word_metadata word_metadata_reopen geometry geometry_reopen geometry_bridge geometry_bridge_reopen geometry_settings geometry_settings_reopen geometry_cross_app geometry_cross_app_reopen geometry_curve_point geometry_curve_point_reopen geometry_tangent geometry_tangent_reopen geometry_function geometry_function_reopen geometry_trace geometry_trace_reopen geometry_scroll_text geometry_scroll_text_reopen geometry_ellipse geometry_ellipse_reopen geometry_arc geometry_arc_reopen geometry_curve_intersection geometry_curve_intersection_reopen geometry_reset geometry_reset_reopen spreadsheet_grid spreadsheet_grid_reopen spreadsheet_forms spreadsheet_forms_reopen spreadsheet_attributes spreadsheet_attributes_reopen spreadsheet_format_palette spreadsheet_format_palette_reopen spreadsheet_headers spreadsheet_headers_reopen spreadsheet_clipboard spreadsheet_clipboard_reopen spreadsheet_sort spreadsheet_sort_reopen spreadsheet_typed_sort spreadsheet_typed_sort_reopen spreadsheet_choose spreadsheet_choose_reopen spreadsheet_external_clipboard spreadsheet_external_clipboard_reopen spreadsheet_prediction spreadsheet_prediction_reopen spreadsheet_predx_polynomial spreadsheet_predx_polynomial_reopen spreadsheet_home_history spreadsheet_home_history_reopen spreadsheet_cas_history spreadsheet_cas_history_reopen spreadsheet_cas_toggle spreadsheet_cas_toggle_reopen qualified qualified_reopen gallery gallery_reopen graph3d graph3d_reopen raster triangle_raster invert_raster polygon_raster stddev_overloads stddev_signed stddev_signed_vector stddev_signed_matrix function_symbolic function_symbolic_reopen function_checkbox function_checkbox_reopen function_setup function_setup_reopen function_service function_service_reopen mouse function_numeric function_numeric_reopen function_numeric_exact function_numeric_exact_reopen function_numeric_controls function_definitions function_definitions_reopen current_numbers current_numbers_reopen; do
+for scenario in input history history_reopen textbook textbook_radicals textbook_cas_matrix textbook_matrix_spacing textbook_matrix_spacing_reopen textbook_delimiters textbook_calls textbook_calls_reopen textbook_lists textbook_lists_reopen presentation presentation_reopen editing editing_reopen formatted formatted_reopen state_create state_reopen graph dialogs user integer clipboard models solve graph_context special_views worksheet worksheet_reopen app_views app_views_reopen tools tools_reopen note_bullets note_bullets_reopen sin_pointer home_chrome palette utf16 utf16_reopen cas_special cas_special_reopen cas_history_simplify cas_history_simplify_reopen cas_arguments settings settings_reopen expr_catalog expr_catalog_reopen statistics statistics_reopen statistics_one_charts statistics_one_charts_reopen statistics_one_scale statistics_one_scale_reopen statistics_one_reset statistics_one_reset_reopen statistics_two_scale statistics_two_scale_reopen statistics_check statistics_check_reopen statistics_two_fit statistics_two_fit_reopen statistics_two_writes statistics_two_writes_reopen statistics_two_reset statistics_two_reset_reopen statistics_two_cache statistics_two_cache_reopen statistics_one_trace statistics_one_definition statistics_one_definition_reopen statistics_geometry statistics_geometry_reopen statistics_fractional statistics_fractional_reopen statistics_unit statistics_unit_reopen statistics_infinite_autoscale statistics_infinite_autoscale_reopen word_metadata word_metadata_reopen geometry geometry_reopen geometry_bridge geometry_bridge_reopen geometry_settings geometry_settings_reopen geometry_cross_app geometry_cross_app_reopen geometry_curve_point geometry_curve_point_reopen geometry_tangent geometry_tangent_reopen geometry_function geometry_function_reopen geometry_trace geometry_trace_reopen geometry_scroll_text geometry_scroll_text_reopen geometry_ellipse geometry_ellipse_reopen geometry_arc geometry_arc_reopen geometry_curve_intersection geometry_curve_intersection_reopen geometry_reset geometry_reset_reopen spreadsheet_grid spreadsheet_grid_reopen spreadsheet_forms spreadsheet_forms_reopen spreadsheet_attributes spreadsheet_attributes_reopen spreadsheet_format_palette spreadsheet_format_palette_reopen spreadsheet_headers spreadsheet_headers_reopen spreadsheet_clipboard spreadsheet_clipboard_reopen spreadsheet_sort spreadsheet_sort_reopen spreadsheet_typed_sort spreadsheet_typed_sort_reopen spreadsheet_choose spreadsheet_choose_reopen spreadsheet_external_clipboard spreadsheet_external_clipboard_reopen spreadsheet_prediction spreadsheet_prediction_reopen spreadsheet_predx_polynomial spreadsheet_predx_polynomial_reopen spreadsheet_home_history spreadsheet_home_history_reopen spreadsheet_cas_history spreadsheet_cas_history_reopen spreadsheet_cas_toggle spreadsheet_cas_toggle_reopen qualified qualified_reopen gallery gallery_reopen graph3d graph3d_reopen graph3d_setup graph3d_setup_reopen graph3d_numeric graph3d_numeric_reopen graph3d_numeric_navigation graph3d_numeric_navigation_reopen graph3d_numeric_custom graph3d_numeric_custom_reopen graph3d_plot_goto graph3d_plot_goto_reopen graph3d_plot_definition graph3d_plot_definition_reopen graph3d_colors graph3d_colors_reopen graph3d_plot_zoom graph3d_plot_zoom_reopen raster triangle_raster invert_raster polygon_raster stddev_overloads stddev_signed stddev_signed_vector stddev_signed_matrix stddev_complex_list stddev_complex_list_reopen stddev_exact stddev_exact_reopen stddev_imaginary stddev_imaginary_reopen function_symbolic function_symbolic_reopen function_checkbox function_checkbox_reopen function_setup function_setup_reopen function_service function_service_reopen mouse function_numeric function_numeric_reopen function_numeric_exact function_numeric_exact_reopen function_numeric_controls function_definitions function_definitions_reopen current_numbers current_numbers_reopen; do
   profile="$scenario"
+  if [[ "$scenario" == textbook_matrix_spacing* ]]; then profile=textbook_matrix_spacing; fi
+  if [[ "$scenario" == stddev_complex_list* ]]; then profile=stddev_complex_list; fi
+  if [[ "$scenario" == stddev_exact* ]]; then profile=stddev_exact; fi
+  if [[ "$scenario" == stddev_imaginary* ]]; then profile=stddev_imaginary; fi
   if [[ "$scenario" == textbook_calls* ]]; then profile=textbook_calls; fi
   if [[ "$scenario" == textbook_lists* ]]; then profile=textbook_lists; fi
   if [[ "$scenario" == state_* ]]; then profile=state; fi
@@ -78,6 +82,14 @@ for scenario in input history history_reopen textbook textbook_radicals textbook
   if [[ "$scenario" == qualified* ]]; then profile=qualified; fi
   if [[ "$scenario" == gallery* ]]; then profile=gallery; fi
   if [[ "$scenario" == graph3d* ]]; then profile=graph3d; fi
+  if [[ "$scenario" == graph3d_setup* ]]; then profile=graph3d_setup; fi
+  if [[ "$scenario" == graph3d_plot_zoom* ]]; then profile=graph3d_plot_zoom;
+  elif [[ "$scenario" == graph3d_colors* ]]; then profile=graph3d_colors;
+  elif [[ "$scenario" == graph3d_plot_definition* ]]; then profile=graph3d_plot_definition;
+  elif [[ "$scenario" == graph3d_plot_goto* ]]; then profile=graph3d_plot_goto;
+  elif [[ "$scenario" == graph3d_numeric_navigation* ]]; then profile=graph3d_numeric_navigation;
+  elif [[ "$scenario" == graph3d_numeric_custom* ]]; then profile=graph3d_numeric_custom;
+  elif [[ "$scenario" == graph3d_numeric* ]]; then profile=graph3d_numeric; fi
   if [[ "$scenario" == function_symbolic* ]]; then profile=function_symbolic; fi
   if [[ "$scenario" == function_checkbox* ]]; then profile=function_checkbox; fi
   if [[ "$scenario" == function_setup* ]]; then profile=function_setup; fi
@@ -155,6 +167,7 @@ python3 "$NATIVE_TEST_HERE/assert_native_history.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook_radicals.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook_cas_matrix.py"
+python3 "$NATIVE_TEST_HERE/assert_native_textbook_matrix_spacing.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook_delimiters.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook_calls.py"
 python3 "$NATIVE_TEST_HERE/assert_native_textbook_lists.py"
@@ -218,6 +231,14 @@ python3 "$NATIVE_TEST_HERE/assert_native_spreadsheet_cas_toggle.py"
 python3 "$NATIVE_TEST_HERE/assert_native_qualified.py"
 python3 "$NATIVE_TEST_HERE/assert_native_gallery.py"
 python3 "$NATIVE_TEST_HERE/assert_native_graph3d.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_setup.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_numeric.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_numeric_navigation.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_numeric_custom.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_plot_goto.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_plot_definition.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_colors.py"
+python3 "$NATIVE_TEST_HERE/assert_native_graph3d_plot_zoom.py"
 python3 "$NATIVE_TEST_HERE/assert_native_function_symbolic.py"
 python3 "$NATIVE_TEST_HERE/assert_native_function_checkbox.py"
 python3 "$NATIVE_TEST_HERE/assert_native_function_setup.py"
@@ -236,6 +257,9 @@ python3 "$NATIVE_TEST_HERE/assert_native_stddev_overloads.py"
 python3 "$NATIVE_TEST_HERE/assert_native_stddev_signed.py"
 python3 "$NATIVE_TEST_HERE/assert_native_stddev_signed_vector.py"
 python3 "$NATIVE_TEST_HERE/assert_native_stddev_signed_vector.py" /tmp/ppl-ide-e2e matrix
+python3 "$NATIVE_TEST_HERE/assert_native_stddev_complex_list.py"
+python3 "$NATIVE_TEST_HERE/assert_native_stddev_exact.py"
+python3 "$NATIVE_TEST_HERE/assert_native_stddev_exact.py" /tmp/ppl-ide-e2e imaginary
 python3 "$NATIVE_TEST_HERE/assert_native_palette.py"
 python3 "$NATIVE_TEST_HERE/assert_native_utf16.py"
 python3 "$NATIVE_TEST_HERE/assert_native_cas_special.py"

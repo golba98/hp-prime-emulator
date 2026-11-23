@@ -32,8 +32,9 @@ assert n['home_restored']['presentation'] == {'entry': 'algebraic', 'textbook_di
 for name in ['matrix_show', 'matrix_scrolled']:
     image = Image.open(root / ('native_presentation_' + name + '.png')).convert('RGB')
     assert image.size == (320, 240), image.size
-    for y in range(30, 220):
-        assert image.getpixel((10, y)) == (17, 17, 17), (name, y, image.getpixel((10, y)))
+    rails = [x for x in range(320)
+             if all(image.getpixel((x, y)) == (17, 17, 17) for y in range(30, 220))]
+    assert len(rails) == 2 and abs(sum(rails) - 319) <= 1, (name, rails)
 r = read('native_side_presentation_reopen.json')
 assert r['restored']['presentation'] == n['home_restored']['presentation']
 assert r['restored']['home_input'] == '7+'

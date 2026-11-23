@@ -1,0 +1,471 @@
+{
+  "original": "Original virtual G1 encoded-matrix division controls",
+  "cases": [
+    {
+      "name": "components",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,4)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,0)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=0; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "ea205ff4834de43611ffa227eca8f3720297d286222e18a0cce4e8956c782a64",
+      "expected": [
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf"
+        ],
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+(ZZT_TICK(2,0))/0*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "positions",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,1)/0],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,1)/0,ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1)],[ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1)],[ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[0,1,1,3]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[ZZT_TICK(1,1),ZZT_TICK(2,1)/0],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "fdc65050a1dc368d5b998648a17d806f425bd5ed2103b696cc9d2826e7cf6732",
+      "expected": [
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          12345,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+(ZZT_TICK(2,1))/0*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),[[0,1,1,3]]) \n Error: Bad Argument Value\""
+        ],
+        [
+          12456789,
+          0,
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "expression_order",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,10)/ZZT_TICK(3,0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0+ZZT_TICK(3,4)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),(ZZT_TICK(2,1)+ZZT_TICK(3,4))/0),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,ZZT_TICK(3,1)/0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),-(ZZT_TICK(2,1)/0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "217f5350dd25e6a7cdba83e8f41b21fb8e9d83463513f1b20932f7ccead902ff",
+      "expected": [
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          132456789,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "error_precedence",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_FAIL(3)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_FAIL(1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_FAIL(2)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/ZZT_FAIL(3)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,1)/0],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "9f2c4cb9d2b51ecf889e2a0d7a6e67f940b3eddbbcfd37b85203ce040889784c",
+      "expected": [
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+(ZZT_TICK(2,1))/0*,ZZT_FAIL(3),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_FAIL(1)+(ZZT_TICK(2,1))/0*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+(ZZT_FAIL(2))/0*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+(ZZT_TICK(2,1))/(ZZT_FAIL(3))*,4,ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "standalone_and_success",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=ZZT_TICK(2,1)/0; THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=[[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]]; THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_FAIL(2)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,12)/3),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "531f7f222269a50d6639b729683b95e81674e2fc5d0746864a2062ba04b6976e",
+      "expected": [
+        [
+          2,
+          1,
+          0,
+          "−99"
+        ],
+        [
+          12,
+          1,
+          0,
+          "−99"
+        ],
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+ZZT_FAIL(2)*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "11*√854/121"
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "11*√854/121"
+        ]
+      ]
+    },
+    {
+      "name": "signed_imaginary",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-3),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-10),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-11),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-12),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-100),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\nZZT_ARG(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN V; END;\nZZT_ALT(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN 4; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "cded77677e29acb578a5580ec5a0f84ff6e6ead6ffaa0ac8d16d8ed652f6947c",
+      "expected": [
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ]
+      ]
+    },
+    {
+      "name": "signed_real",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-3),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-10),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-11),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-12),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-100),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\nZZT_ARG(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN V; END;\nZZT_ALT(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN 4; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "361ea6ea1b48f1d651fb79c4f559e65e2c93fa1daafc930621215d1c4a712ee3",
+      "expected": [
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ]
+      ]
+    },
+    {
+      "name": "other_infinities",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,-1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,-1)/0,ZZT_TICK(2,0)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),(2,ZZT_TICK(3,1)/0)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,0),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[ZZT_TICK(1,1)/0,ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[ZZT_TICK(1,1)/0,ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\nZZT_ARG(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN V; END;\nZZT_ALT(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN 4; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "2e8a3b29ac8a7c575e9ad842c9c5f2dd79eca88bb06c5cd2b1f443dda024a9bb",
+      "expected": [
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ],
+        [
+          13456789,
+          0,
+          8,
+          "undef",
+          -1,
+          []
+        ],
+        [
+          13456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ]
+      ]
+    },
+    {
+      "name": "callback_argument",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_ARG(2,ZZT_TICK(3,1)/0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_ARG(2,ZZT_TICK(3,0)/0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_ALT(2,ZZT_TICK(3,1)/0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_ALT(2,ZZT_TICK(3,0)/0)),4],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\nZZT_ARG(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN V; END;\nZZT_ALT(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN 4; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "6fbe64d23c4e756375e667625920045aaccc9303b38b06d967da9875239eedff",
+      "expected": [
+        [
+          132456789,
+          0,
+          8,
+          "undef",
+          0,
+          [
+            "+Inf"
+          ]
+        ],
+        [
+          132456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+ZZT_ARG(2,(ZZT_TICK(3,0))/0)*,4,ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\"",
+          8,
+          [
+            "undef"
+          ]
+        ],
+        [
+          132456789,
+          0,
+          8,
+          "11*√854/121",
+          0,
+          [
+            "+Inf"
+          ]
+        ],
+        [
+          132456789,
+          0,
+          8,
+          "11*√854/121",
+          8,
+          [
+            "undef"
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "additional_zero",
+      "source": "EXPORT ZZT_INLINE() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0)/0,ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[ZZT_TICK(1,0)/0,ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),0/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),1/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nHComplex:=1; A:=0; B:=-1; L1:={}; E:=0; R:=-99;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,1)/0),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,-0.5),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),B,L1}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\nZZT_ARG(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN V; END;\nZZT_ALT(D,V) BEGIN A:=A*10+D; B:=TYPE(V); L1:={STRING(V)}; RETURN 4; END;\n",
+      "entry": "ZZT_INLINE",
+      "source_sha256": "5f32394b8f9d6c5321b301fc240d85757115eb649e56c4cf6fbf9dd2f5aaffcd",
+      "expected": [
+        [
+          123456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,(ZZT_TICK(6,0))/0,ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\"",
+          -1,
+          []
+        ],
+        [
+          13456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,(ZZT_TICK(1,0))/0,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\"",
+          -1,
+          []
+        ],
+        [
+          13456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+undef*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\"",
+          -1,
+          []
+        ],
+        [
+          13456789,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({1,2,2,ZZT_TICK(1,1)+undef*,ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)})),ListToMat(EVALLIST({1,1,4,ZZT_TICK(6,-1),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)}))) \n Error: Bad Argument Value\"",
+          -1,
+          []
+        ],
+        [
+          123456789,
+          0,
+          0,
+          "+Inf",
+          -1,
+          []
+        ]
+      ]
+    }
+  ]
+}

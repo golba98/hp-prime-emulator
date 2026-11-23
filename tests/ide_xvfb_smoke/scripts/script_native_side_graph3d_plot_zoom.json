@@ -1,0 +1,462 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_plot_zoom.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3ZOOM"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3ZOOM() BEGIN STARTAPP(\"Graph 3D\");Xmin:=-4;Xmax:=4;Ymin:=-4;Ymax:=4;Zmin:=-4;Zmax:=4;FZ1:=\"(X+2*Y)/4\";CHECK(1);RETURN STARTVIEW(1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "initial"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 66
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "all_in"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 84
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_default"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 84
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "all_out"
+    },
+    {
+      "step": "click_lcd",
+      "x": 162,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "click_lcd",
+      "x": 53,
+      "y": 53
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "click_lcd",
+      "x": 15,
+      "y": 77
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "selected"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_zoom_selected.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 49
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "center"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 101
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "x_in"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 119
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "x_out"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 101
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "x_restored"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 137
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "y_in"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 154
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "y_out"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 190
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "z_out"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 172
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "z_restored"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 172
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "z_in"
+    },
+    {
+      "step": "click_lcd",
+      "x": 250,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 223,
+      "y": 207
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "square"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_plot_zoom_square.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3ZOOM() BEGIN RETURN {Xmin,Xmax,Xtick,Ymin,Ymax,Ytick,Zmin,Zmax,Ztick,FZ1(2,3)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 14000
+    },
+    {
+      "step": "snapshot",
+      "label": "typed"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

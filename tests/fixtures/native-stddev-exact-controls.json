@@ -1,0 +1,387 @@
+{
+  "provenance": "Self-authored controls executed in the original virtual G1, with native typed STDDEV results and separate-process profile restoration.",
+  "cases": [
+    {
+      "name": "ordinary_1",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({1,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,1,1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "957a33d4c28a9d48060c005c9900d42faebaad9442f92895179c66192f652224",
+      "expected": [
+        [
+          8,
+          "1/2"
+        ],
+        [
+          0,
+          "1"
+        ],
+        [
+          0,
+          "0"
+        ],
+        [
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "radicals_0",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({0,2,4}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,4,8}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,2,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,6,6}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "d999d7f905b1011a974b2af892f563803a734abc8d29f372ee88c6054e2c34c4",
+      "expected": [
+        [
+          8,
+          "2*√6/3"
+        ],
+        [
+          8,
+          "4*√6/3"
+        ],
+        [
+          8,
+          "6*√2/9"
+        ],
+        [
+          8,
+          "2*√2"
+        ]
+      ]
+    },
+    {
+      "name": "radicals_1",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({1,4,5,7}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({2,4,10,14}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({-6,0,6}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,999983,1999966}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "ebc5be96b8f7956935cce2c9a77bf28bb8a09c770d3de7a99d69af1d28ca912f",
+      "expected": [
+        [
+          8,
+          "20*√3/16"
+        ],
+        [
+          8,
+          "2*√91/4"
+        ],
+        [
+          8,
+          "2*√6"
+        ],
+        [
+          8,
+          "999983*√6/3"
+        ]
+      ]
+    },
+    {
+      "name": "radicals_2",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({1,3},{1,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3},{2,6}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3},{1,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,4},{1,7}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "8f5fa137047e5449fcbd974791e292b1977b5f54dccf0982243f2e1ae2faaea0",
+      "expected": [
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "6*√2/9"
+        ],
+        [
+          8,
+          "2*√7/4"
+        ]
+      ]
+    },
+    {
+      "name": "radicals_4",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({1,3,5},{1,-1,1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3,5},{-1,1,-1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,4},{-1,-7}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,2,3},{2,1,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "3ef16e816627a369b69576cdb6ff9d4994785539c307af7ae29728bcca738b0f",
+      "expected": [
+        [
+          8,
+          "2*√2"
+        ],
+        [
+          8,
+          "2*√2"
+        ],
+        [
+          8,
+          "2*√7/4"
+        ],
+        [
+          8,
+          "2*√5/5"
+        ]
+      ]
+    },
+    {
+      "name": "structure_2",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL ONE:=1,HEXONE:=#1h,LVAL:={1,3},VVAL:=[1,3],WVAL:={1,3},WVEC:=[1,3];IFERR R:=stddev([1+0,2,3]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1+0,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({ONE,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev([ONE,2,3]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "343d7bb4cb9d2e31af3ac824b1cf9d5ab36e9372f9529ce818d69109fdf43ba3",
+      "expected": [
+        [
+          8,
+          "3*√11/9"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "3*√11/9"
+        ]
+      ]
+    },
+    {
+      "name": "structure_4",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL ONE:=1,HEXONE:=#1h,LVAL:={1,3},VVAL:=[1,3],WVAL:={1,3},WVEC:=[1,3];IFERR R:=stddev({1.0,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1/1,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0.5+0.5,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1.25,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "927b6d762c51b0c1fd6a3815f317948214728dd355e3ee98f38d0ad25125297c",
+      "expected": [
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          0,
+          "0.71686043892"
+        ]
+      ],
+      "numeric_tolerance_indices": [
+        3
+      ]
+    },
+    {
+      "name": "structure_5",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL ONE:=1,HEXONE:=#1h,LVAL:={1,3},VVAL:=[1,3],WVAL:={1,3},WVEC:=[1,3];IFERR R:=stddev({HEXONE,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({ROUND(1),2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(LVAL); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(VVAL); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "ecebf3b4e5c7d8035218b2716b280f72e5a33e7ab3d3188733ad6ed47fbc5780",
+      "expected": [
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          0,
+          "1"
+        ],
+        [
+          0,
+          "1"
+        ]
+      ]
+    },
+    {
+      "name": "structure_6",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL ONE:=1,HEXONE:=#1h,LVAL:={1,3},VVAL:=[1,3],WVAL:={1,3},WVEC:=[1,3];IFERR R:=stddev(LVAL,WVAL); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(VVAL,WVAL); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(VVAL,WVEC); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(LVAL,WVEC); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "d1566df38ea28d4253e822d81e421562d02f2a4111ba7c15ae663fa1a506c725",
+      "expected": [
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ]
+      ]
+    },
+    {
+      "name": "runtime_values",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL A1:={1,2,3}, V1:=[1,2,3], WV:=[1,3], VL:=[1,-3];IFERR R:=stddev(A1); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(V1); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(VL); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev(VL,WV); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "a81e04e3c0f745453f9271d671d895252cae254b58e2dcacbe7ba7f7196e2ea1",
+      "expected": [
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          0,
+          "2"
+        ],
+        [
+          8,
+          "√3"
+        ]
+      ]
+    },
+    {
+      "name": "decimal_modes",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev([1.0,2.0,3.0]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev([1.00,3.0],[1.0,3.0]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1.25,2,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3},{1,2.5}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "e5b93051a1707e5881edbd2bf2ccccb96a8a071bbb9ed678e9f68eb706e9d87d",
+      "expected": [
+        [
+          8,
+          "√6/3"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          0,
+          "0.71686043892"
+        ],
+        [
+          0,
+          "0.903507902905"
+        ]
+      ],
+      "numeric_tolerance_indices": [
+        2,
+        3
+      ]
+    },
+    {
+      "name": "sqrt_limit",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({0,1000003,2000006}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,10000000007,20000000014}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,10000000,10000001}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,100000001,100000003}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "8d90d68a68b9bb55f96fdea7de1df0adec2c85ea3832a2a7a760f370dc8b9031",
+      "expected": [
+        [
+          8,
+          "1000003*√6/3"
+        ],
+        [
+          8,
+          "10000000007*√6/3"
+        ],
+        [
+          8,
+          "√2.0000002ᴇ14/3"
+        ],
+        [
+          8,
+          "√2.00000008ᴇ16/3"
+        ]
+      ]
+    },
+    {
+      "name": "weighted_exact",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};IFERR R:=stddev({1,3},{100000,300000}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({1,3},{1000000001,3000000003}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,1,3},{0,1,0}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=stddev({0,1,3},{1,-1,1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "22f84287ae4787e1cd5b9dbb6a2324aa597f38946695df775bf3e36a55859f52",
+      "expected": [
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          0,
+          "0"
+        ],
+        [
+          0,
+          "2"
+        ]
+      ]
+    },
+    {
+      "name": "round_abs",
+      "entry": "ZZT_EXSTD",
+      "source": "EXPORT ZZT_EXSTD() BEGIN LOCAL R,O:={};LOCAL T:=stddev({1,2,3});IFERR R:=ROUND(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=ROUND(T,-2); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=ABS(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; IFERR R:=approx(ABS(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END; RETURN O; END;",
+      "source_sha256": "a756c691f1dba40fe8d546dc95142e63f01d8d261d34f6b89b8d635209b6e605",
+      "expected": [
+        [
+          8,
+          "ROUND(√6/3)"
+        ],
+        [
+          8,
+          "ROUND(√6/3,−2)"
+        ],
+        [
+          8,
+          "ABS(√6/3)"
+        ],
+        [
+          0,
+          "0.816496580928"
+        ]
+      ]
+    },
+    {
+      "name": "save",
+      "entry": "ZZT_EXKEEP",
+      "source": "EXPORT ZZT_EXKEEP() BEGIN LOCAL R:=stddev({1,2,3}),F:=stddev({1,2}); L1:={R,F,ROUND(R,10),ABS(F)}; RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3)),TYPE(L1(4)),STRING(L1(4))}; END;",
+      "source_sha256": "2c843a10f4a7e5e59ea8c26034d58e4c4b7ba2ae50804a84fb15d67b913bb422",
+      "expected": [
+        8,
+        "√6/3",
+        8,
+        "1/2",
+        8,
+        "ROUND(√6/3,10)",
+        8,
+        "ABS(1/2)"
+      ]
+    },
+    {
+      "name": "reopen",
+      "entry": "ZZT_EXREAD",
+      "source": "EXPORT ZZT_EXREAD() BEGIN LOCAL P:=approx(L1); RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3)),TYPE(L1(4)),STRING(L1(4)),TYPE(P),P}; END;",
+      "source_sha256": "203592126267a7745195f937c73ab5f17249cba9d1b17e4cb0e3e066a37c53b0",
+      "expected": [
+        8,
+        "√6/3",
+        8,
+        "1/2",
+        8,
+        "ROUND(√6/3,10)",
+        8,
+        "ABS(1/2)",
+        6,
+        [
+          0.816496580928,
+          0.5,
+          0.8164965809,
+          0.5
+        ]
+      ]
+    }
+  ]
+}

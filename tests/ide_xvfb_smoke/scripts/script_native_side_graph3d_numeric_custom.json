@@ -1,0 +1,453 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_numeric_custom.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DCUSTOM"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"1/(X-2)\";CHECK(1);Graph_3D.NumType:=1;Graph_3D.NumIndep:={[3,1],[2,5],[-1,11],[2,-2],[5,-1]};RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "snapshot",
+      "label": "surface_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 158,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_custom_definition.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 158,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_custom_hidden.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 112,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 110,
+      "y": 49
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 220
+    },
+    {
+      "step": "snapshot",
+      "label": "ascending_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN Graph_3D.NumIndep; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "ascending"
+    },
+    {
+      "step": "click_lcd",
+      "x": 112,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 110,
+      "y": 56
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 220
+    },
+    {
+      "step": "snapshot",
+      "label": "descending_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN Graph_3D.NumIndep; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "descending"
+    },
+    {
+      "step": "click_lcd",
+      "x": 75,
+      "y": 209
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "snapshot",
+      "label": "new_y_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 69,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "2+3"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 55
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 220
+    },
+    {
+      "step": "snapshot",
+      "label": "added_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN Graph_3D.NumIndep; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "added"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN STARTVIEW(2); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 11,
+      "y": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 69,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "-3"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "click_lcd",
+      "x": 23,
+      "y": 55
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 220
+    },
+    {
+      "step": "snapshot",
+      "label": "edited_table"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN Graph_3D.NumIndep; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "edited"
+    },
+    {
+      "step": "click_lcd",
+      "x": 10,
+      "y": 80
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 69,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "click_lcd",
+      "x": 62,
+      "y": 32
+    },
+    {
+      "step": "wait_ms",
+      "ms": 155
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "type",
+      "text": "999"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 110
+    },
+    {
+      "step": "snapshot",
+      "label": "canceled"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DCUSTOM() BEGIN RETURN Graph_3D.NumIndep; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "retained"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

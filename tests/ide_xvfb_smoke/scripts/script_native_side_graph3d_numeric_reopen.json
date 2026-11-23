@@ -1,0 +1,47 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_numeric_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3DNUM"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN STARTAPP(\"Graph 3D\");RETURN {STARTVIEW(2,1),Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType,Graph_3D.NumIndep}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

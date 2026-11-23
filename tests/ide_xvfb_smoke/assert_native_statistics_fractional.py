@@ -16,6 +16,21 @@ def states(scenario):
     return {entry['label']: entry['state'] for entry in report['snapshots']}
 
 
+def plot_pixels(state, label):
+    window = state['native_tools']['memory']['model_windows']['Statistics 1Var']
+    left, top = state['lcd_rect']['min']
+    right, bottom = state['lcd_rect']['max']
+    image = Image.open(root / f'statistics_fractional_{label}.png').convert('RGB')
+
+    def pixel(x, y):
+        return image.getpixel((
+            round(left + (x - window['xmin']) / (window['xmax'] - window['xmin']) * (right - left)),
+            round(top + (window['ymax'] - y) / (window['ymax'] - window['ymin']) * (bottom - top) * 220 / 240),
+        ))
+
+    return pixel
+
+
 creation = states('statistics_fractional')
 reopen = states('statistics_fractional_reopen')
 for state in (creation['ppl'], reopen['reopened_ppl']):
@@ -40,23 +55,28 @@ for state, label in ((creation['dot'], 'dot'), (reopen['reopened_dot'], 'reopene
 
     # Examine the first half disk away from its clipping edge, trace cursor
     # and grid lines. The inside of the lower half receives the fill color.
-    window = state['native_tools']['memory']['model_windows']['Statistics 1Var']
-    left, top = state['lcd_rect']['min']
-    right, bottom = state['lcd_rect']['max']
-    image = Image.open(root / f'statistics_fractional_{label}.png').convert('RGB')
+    pixel = plot_pixels(state, label)
     color = data['dots'][0]['color']
     expected_rgb = (color >> 16, (color >> 8) & 255, color & 255)
-
-    def projected(x, y):
-        return (
-            round(left + (x - window['xmin']) / (window['xmax'] - window['xmin']) * (right - left)),
-            round(top + (window['ymax'] - y) / (window['ymax'] - window['ymin']) * (bottom - top) * 220 / 240),
-        )
-
-    assert image.getpixel(projected(1.12, 0.24)) == expected_rgb
-    assert image.getpixel(projected(1.12, 0.74)) != expected_rgb
+    assert pixel(1.12, 0.24) == expected_rgb
+    assert pixel(1.12, 0.74) != expected_rgb
 
 trace = creation['trace']['native_tools']['statistics_trace']
 assert trace['analysis'] == 1 and trace['right'] == 'F:0.5', trace
 assert float(trace['sample']['fractional_frequency']['value']) == 0.5
+
+# These pixels are inside one, two or four overlapping sectors or disks in the
+# original virtual G1 frame, away from the outlines and the trace cursor.
+overlap = reopen['overlapping_dot']
+assert overlap['native_tools']['page'] == 'Plot', overlap['native_tools']['page']
+overlap_result = overlap['native_session']['last_outcome']
+assert overlap_result['status'] == 'success', overlap_result
+assert [float(value['value']) for value in overlap_result['typed_result']['value']] == [
+    1.44601880878, 3.36, -0.055, 1.705,
+]
+pixel = plot_pixels(overlap, 'overlapping_dot')
+assert pixel(2.2, 0.75) == (169, 169, 231)
+assert pixel(2.8, 0.75) == (169, 169, 255)
+assert pixel(2.5, 0.76) == (112, 112, 239)
+assert pixel(2.25, 0.2) == (49, 49, 216)
 print('Fractional Statistics 1Var PPL, Numeric Stats, partial Dot, Trace and restart passed')

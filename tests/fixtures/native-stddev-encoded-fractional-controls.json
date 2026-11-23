@@ -1,0 +1,304 @@
+{
+  "provenance": "Self-authored direct lowercase stddev cases on a virtual G1. Fractional encoded matrix pairs with different shapes cover type and arithmetic boundaries, exact integer results after expression evaluation, cancellation, and private profile reopen.",
+  "cases": [
+    {
+      "name": "save",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE()\nBEGIN\n  LOCAL R,I,U,E,D;\n  HComplex:=1;\n  R:=stddev([[0+1,4,3,8]],[[-0.5,1],[1,3]]);\n  I:=stddev([[0+1,4],[3,8]],[[-8.5,-2.5,1,1]]);\n  U:=stddev([[0+1.5,4],[3,8]],[[-2,-2,-1,-1]]);\n  E:=stddev([[0.5+0.5,4],[3,8]],[[-1,1,1,3]]);\n  D:=stddev([[0+1.5,4],[3,8]],[[-0.5,1,1,3,2]]);\n  L1:={R,I,U,E,D};\n  RETURN {{TYPE(R),ROUND(R,8)},{TYPE(I),ROUND(RE(I),8),ROUND(IM(I),8)},\n          {TYPE(U),U},{TYPE(E),STRING(E),TYPE(approx(E))},{TYPE(D),D,INSTRING(D,CHAR(10))}};\nEND;",
+      "source_sha256": "530a7379a3f77b98966734d9a81d4ac6d8647ebb20d4a104abdf06c1aeb25f52",
+      "expected": [
+        [
+          0,
+          2.71856244
+        ],
+        [
+          3,
+          0,
+          4.06543697
+        ],
+        [
+          2,
+          "Undefined"
+        ],
+        [
+          8,
+          "10*√689/100",
+          0
+        ],
+        [
+          2,
+          "stddev(ListToMat(EVALLIST({1,2,2,0+1.5,4,3,8})),ListToMat(EVALLIST({1,1,5,-0.5,1,1,3,2}))) \n Error: Bad Argument Value",
+          92
+        ]
+      ]
+    },
+    {
+      "name": "reopen",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE()\nBEGIN\n  LOCAL R:=L1(1),I:=L1(2),U:=L1(3),E:=L1(4),D:=L1(5);\n  RETURN {{TYPE(R),ROUND(R,8)},{TYPE(I),ROUND(RE(I),8),ROUND(IM(I),8)},\n          {TYPE(U),U},{TYPE(E),STRING(E),TYPE(approx(E))},{TYPE(D),D,INSTRING(D,CHAR(10))}};\nEND;",
+      "source_sha256": "bfbdb1fd0b39aae8c7eb4784c11e92680546a8dc38fd2189f6c0dd1ec3d70453",
+      "expected": [
+        [
+          0,
+          2.71856244
+        ],
+        [
+          3,
+          0,
+          4.06543697
+        ],
+        [
+          2,
+          "Undefined"
+        ],
+        [
+          8,
+          "10*√689/100",
+          0
+        ],
+        [
+          2,
+          "stddev(ListToMat(EVALLIST({1,2,2,0+1.5,4,3,8})),ListToMat(EVALLIST({1,1,5,-0.5,1,1,3,2}))) \n Error: Bad Argument Value",
+          92
+        ]
+      ]
+    },
+    {
+      "name": "partials",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[0+1.5,4],[3,8]],[[-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1.5,4,3,8]],[[-1,1],[1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-0.5,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4,3,8]],[[-0.5,1],[1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[0+0.5,1.5,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1.5,4,-0.375,8]],[[0+0.5,0],[-0.125,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+0.5,4],[3,8]],[[0+0,0,0,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "e968e70569379df4bfc3b86acbf065581ca6541c20552353797954b75732777e",
+      "expected": [
+        [
+          0,
+          2.6781523,
+          0
+        ],
+        [
+          0,
+          2.7386128,
+          0
+        ],
+        [
+          0,
+          2.6453227,
+          0
+        ],
+        [
+          0,
+          2.7185624,
+          0
+        ],
+        [
+          0,
+          2.6057495,
+          0
+        ],
+        [
+          0,
+          2.9945721,
+          0
+        ],
+        [
+          0,
+          0.372678,
+          0
+        ],
+        [
+          8,
+          "10*√689/100"
+        ]
+      ]
+    },
+    {
+      "name": "cancellations",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-1.5,-2.5,-1,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4,3,8]],[[-1.5,-1.5],[-1,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1.5,4],[3,8]],[[-2,-2,-1,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-2,-2,-1,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+2,1],[1,1]],[[-5,1.5,2,3.5]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+2,1],[1,1.375]],[[-5,1,1,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-8.5,-2.5,1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-3.5,1,1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "e5f4f07f243c0c2562244cbf42265203871a8979d0eb9a2aeb2c7d30122e2210",
+      "expected": [
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          4.065437
+        ],
+        [
+          0,
+          1.6211413,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "spellings",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[0+1.0,4],[3,8]],[[-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-1.0,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0.5+0.5,4],[3,8]],[[-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-0.5-0.5,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[1+0.25-0.25,4],[3,8]],[[-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-1+0.25-0.25,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "5951f1b278b3227642356b67c527e61746ccb55dd6cd521a2ff4bdc09d5d65d1",
+      "expected": [
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ]
+      ]
+    },
+    {
+      "name": "held_low",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[-0.625,-4]],[[0+0.25],[5]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-1],[-4]],[[0+0.375,5]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+3.375],[9],[6]],[[-1.75,0,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+3,9,6]],[[-1.625],[0],[-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+8.375,7,4,-4]],[[-2.75,3],[0,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+8,7],[4,-4]],[[-2.625,3,0,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+9.375,-1,1],[8,9,4]],[[0+0.25,1,3,2,-2,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+9,-1,1,8,9,4]],[[0+0.375,1,3],[2,-2,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "b2ed56a06e52c8c28dcbe87dd1c5f733899e71f4c6e241affd537f075f546356",
+      "expected": [
+        [
+          0,
+          2.5944626,
+          0
+        ],
+        [
+          0,
+          2.5749563,
+          0
+        ],
+        [
+          3,
+          0,
+          70.9427586
+        ],
+        [
+          3,
+          0,
+          45.6557164
+        ],
+        [
+          3,
+          0,
+          10.6312708
+        ],
+        [
+          3,
+          0,
+          7.7887048
+        ],
+        [
+          3,
+          0,
+          1.0874601
+        ],
+        [
+          0,
+          2.4036743,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "held_high",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[-1.625,-2],[2,-3],[-3,1],[0,0]],[[0+4.25,3,0,4],[0,2,0,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-2,-2,2,-3],[-3,1,0,0]],[[0+4.375,3],[0,4],[0,2],[0,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+0.375,7,5],[-2,-3,1],[6,3,-2]],[[-0.75,-1,-1,3,3,3,-3,-2,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+0,7,5,-2,-3,1,6,3,-2]],[[-0.625,-1,-1],[3,3,3],[-3,-2,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-3.625,9,-4,8,1],[4,8,6,9,0]],[[0+2.25,2],[5,-3],[1,0],[1,1],[-1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-4,9],[-4,8],[1,4],[8,6],[9,0]],[[0+2.375,2,5,-3,1],[0,1,1,-1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-1.625,1,1,0],[2,7,-3,9],[5,4,0,1]],[[0+1.25,3,-2,-2,-2,-2],[0,1,4,-1,5,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[-2,1,1,0,2,7],[-3,9,5,4,0,1]],[[0+1.375,3,-2,-2],[-2,-2,0,1],[4,-1,5,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "a7ffa2c7e9f77519be511b8cc3d9a2e425787b1f914fb772e44895735835dfa9",
+      "expected": [
+        [
+          0,
+          2.436157,
+          0
+        ],
+        [
+          0,
+          2.4823874,
+          0
+        ],
+        [
+          3,
+          0,
+          3.0010471
+        ],
+        [
+          0,
+          2.9236077,
+          0
+        ],
+        [
+          0,
+          3.1170183,
+          0
+        ],
+        [
+          0,
+          3.1721969,
+          0
+        ],
+        [
+          0,
+          2.2675023,
+          0
+        ],
+        [
+          0,
+          2.832956,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "complex_off",
+      "entry": "ZZT_FRACSHAPE",
+      "source": "EXPORT ZZT_FRACSHAPE() BEGIN\nLOCAL R,O:={}; HComplex:=0;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-8.5,-2.5,1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[0+1,4],[3,8]],[[-3.5,1,1,1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),7),ROUND(IM(R),7)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "1c3412351dc1c9496483cdb3d6cfc3ac6c305b3ebaf42d33d2ae8acf8147274f",
+      "expected": [
+        [
+          3,
+          0,
+          4.065437
+        ],
+        [
+          0,
+          1.6211413,
+          0
+        ]
+      ]
+    }
+  ]
+}

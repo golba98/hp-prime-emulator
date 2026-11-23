@@ -1,0 +1,39 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_imaginary.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_IMKEEP"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_IMKEEP() BEGIN HComplex:=1; L1:={stddev({1,3},{-1,3}),stddev({0,1},{-1,4}),ROUND(stddev({1,3},{-1,3}),10)}; RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "imaginary_stddev_save"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/imaginary_stddev_save.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -66,6 +66,8 @@ def ready(state):
     return (analysis['chart'] == 'pie' and analysis['enabled']
             and analysis['data_source'] == 'D1+1' and analysis['frequency_source'] == '2'
             and analysis['color'] == 0xff0000 and book['result_analysis'] == 0
+            and book['result_values']['H1']['NbItem']['value'] == '5'
+            and book['result_values']['H1']['ΣX']['value'] == '28'
             and book['result_values']['H1']['MeanX']['value'] == '5.6'
             and data[0]['origin']['numerator'] == '1234567890123456789'
             and data[1]['origin']['numerator'] == '1' and data[1]['origin']['denominator'] == '3'
@@ -139,6 +141,7 @@ assert window == durable['ui']['tools']['model_windows']['Statistics 1Var']
 assert all(window['xmin'] <= x <= window['xmax'] and window['ymin'] <= y <= window['ymax']
            for curve in plot['curves'] for x, y in curve)
 summary = states['reopened_summary']['native_model_results']['Statistics 1Var']['H1']
-assert (summary['count'], summary['sum'], summary['mean']) == (10, 56, 5.6)
+# Pie counts each data row while retaining the saved frequency expression.
+assert (summary['count'], summary['sum'], summary['mean']) == (5, 28, 5.6)
 assert states['reopened_summary']['native_tools']['memory']['models']['statistics1_book']['result_values'] == before_book['result_values']
 print(f'Statistics SIGKILL/restart passed: exact19-digit/rational/extreme typed columns, definitions/color, result selection/cache, saved plot bounds and calculated Pie/summary; evidence {out}')

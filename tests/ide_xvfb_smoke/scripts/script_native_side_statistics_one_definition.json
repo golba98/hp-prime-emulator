@@ -162,7 +162,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -373,7 +373,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -584,7 +584,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -795,7 +795,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1006,7 +1006,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1217,7 +1217,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1462,7 +1462,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1673,7 +1673,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1884,7 +1884,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -2095,7 +2095,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -2446,7 +2446,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -2743,6 +2743,54 @@
       "path": "/tmp/ppl-ide-e2e/statistics_one_definition_line_before_home.png"
     },
     {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 130,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "6"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "line_goto_h1"
+    },
+    {
       "step": "native_home"
     },
     {
@@ -2926,7 +2974,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -3199,6 +3247,80 @@
     },
     {
       "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 270,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
       "x": 230,
       "y": 30
     },
@@ -3209,80 +3331,6 @@
     {
       "step": "key",
       "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "click_lcd",
-      "x": 270,
-      "y": 60
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "click_lcd",
-      "x": 270,
-      "y": 60
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "key",
-      "key": "ArrowDown"
     },
     {
       "step": "wait_ms",
@@ -3371,7 +3419,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",

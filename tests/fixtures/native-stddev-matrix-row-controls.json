@@ -1,0 +1,134 @@
+{
+  "provenance": "Self-authored PPL on an original virtual G1. Ordinary lowercase matrix row mismatches return canonical source diagnostics, including both directions, same and differing widths, and values from evaluated operands. Reopen uses a normally saved private profile.",
+  "cases": [
+    {
+      "name": "save",
+      "entry": "ZZT_MATROWS",
+      "source": "EXPORT ZZT_MATROWS()\nBEGIN\n  LOCAL D,W,R,Z;\n  LOCAL P,Q,realResult,colResult,signedResult;\n  HComplex:=1;\n  D:=[[1,4],[3,8]];\n  W:=[[1,1],[1,1],[1,1]];\n  A:=0;\n  IFERR R:=stddev(D,W); THEN R:=\"caught\"; A:=A+10; END;\n  Z:=stddev(W,D);\n  P:=stddev([[ 1.00, .5 ],[3E0,8]],W);\n  Q:=stddev(W,ZZT_MATRIX());\n  L1:={R,Z,P,Q};\n  W:=[[1,1],[1,1]];\n  realResult:=stddev(D,W);\n  W:=[[1],[1]];\n  colResult:=stddev(D,W);\n  W:=[[-1,1],[3,1]];\n  signedResult:=stddev(D,W);\n  RETURN {{TYPE(R),R,INSTRING(R,CHAR(10))},{TYPE(Z),Z},\n          {TYPE(P),P},{TYPE(Q),Q},A,\n          {TYPE(realResult),SIZE(realResult),realResult(1),realResult(2)},\n          {TYPE(colResult),SIZE(colResult),colResult(1)},\n          {TYPE(signedResult),TYPE(signedResult(1)),ROUND(IM(signedResult(1)),8)}};\nEND;\nZZT_MATRIX()\nBEGIN\n  A:=A+1;\n  RETURN [[1,4],[3,8]];\nEND;",
+      "source_sha256": "e4c998acb85a3f04d7bd0819645a9dc7fb24a4dbcef275a5d698649137a8f802",
+      "expected": [
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value",
+          13
+        ],
+        [
+          2,
+          "stddev(W,D) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev([[1,0.5],[3,8]],W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(W,ZZT_MATRIX) \n Error: Bad Argument Value"
+        ],
+        1,
+        [
+          4,
+          [
+            2
+          ],
+          1,
+          2
+        ],
+        [
+          4,
+          [
+            1
+          ],
+          1
+        ],
+        [
+          4,
+          3,
+          1.73205081
+        ]
+      ]
+    },
+    {
+      "name": "reopen",
+      "entry": "ZZT_MATROWS",
+      "source": "EXPORT ZZT_MATROWS()\nBEGIN\n  LOCAL R:=L1(1),Z:=L1(2),P:=L1(3),Q:=L1(4);\n  RETURN {{TYPE(R),R,INSTRING(R,CHAR(10))},{TYPE(Z),Z},{TYPE(P),P},{TYPE(Q),Q}};\nEND;",
+      "source_sha256": "9e1b1730e2bad9be3272f6687aaffe2cb9c2b2738c2ac682d81efe90ba959b12",
+      "expected": [
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value",
+          13
+        ],
+        [
+          2,
+          "stddev(W,D) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev([[1,0.5],[3,8]],W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(W,ZZT_MATRIX) \n Error: Bad Argument Value"
+        ]
+      ]
+    },
+    {
+      "name": "row_mismatch",
+      "entry": "ZZT_MATROWS",
+      "source": "EXPORT ZZT_MATROWS() BEGIN\nLOCAL D,W,R,O:={}; HComplex:=1;\nD:=[[1,4],[3,8]]; W:=[[1,1],[1,1],[1,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1,4],[3,8],[9,18]]; W:=[[1,1],[1,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1,4],[3,8]]; W:=[[-1,1],[3,1],[1,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1,4],[3,8],[9,18]]; W:=[[-1,1],[3,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1,4,9],[3,8,18]]; W:=[[1,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1,4]]; W:=[[-1,1,2],[3,1,2]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nD:=[[1.5,4],[3,8]]; W:=[[1.5,1],[1,1],[1,1]]; IFERR R:=stddev(D,W); O:=CONCAT(O,{{TYPE(R),R}}); THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "baddc079dcd3c52d853b7e07a550a33f124ec1b2269c2baed8bf28dfa1199de9",
+      "expected": [
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ],
+        [
+          2,
+          "stddev(D,W) \n Error: Bad Argument Value"
+        ]
+      ]
+    },
+    {
+      "name": "effect_left",
+      "entry": "ZZT_MATROWS",
+      "source": "EXPORT ZZT_MATROWS() BEGIN\nLOCAL D:=[[1,4],[3,8]], W:=[[1,1],[1,1],[1,1]], R,O:={}; HComplex:=1; M1:=D; M2:=W;\nA:=0; R:=stddev(ZZT_MATRIX(),W); RETURN {A,TYPE(R),R}; END;\nZZT_MATRIX() BEGIN A:=A+1; RETURN [[1,4],[3,8]]; END;",
+      "source_sha256": "e80d443eb8a235a11f5f5cd74756a3a8fb05cadec9cbed2d5f4d68cc5c7e01d1",
+      "expected": [
+        1,
+        2,
+        "stddev(ZZT_MATRIX,W) \n Error: Bad Argument Value"
+      ]
+    },
+    {
+      "name": "effect_right",
+      "entry": "ZZT_MATROWS",
+      "source": "EXPORT ZZT_MATROWS() BEGIN\nLOCAL D:=[[1,4],[3,8]], W:=[[1,1],[1,1],[1,1]], R,O:={}; HComplex:=1; M1:=D; M2:=W;\nA:=0; R:=stddev(W,ZZT_MATRIX()); RETURN {A,TYPE(R),R}; END;\nZZT_MATRIX() BEGIN A:=A+1; RETURN [[1,4],[3,8]]; END;",
+      "source_sha256": "6d8e6fd072a67aed107b43ac70243aaaee8ad0201852e7ffed1f9446e4b5f5f9",
+      "expected": [
+        1,
+        2,
+        "stddev(W,ZZT_MATRIX) \n Error: Bad Argument Value"
+      ]
+    }
+  ]
+}

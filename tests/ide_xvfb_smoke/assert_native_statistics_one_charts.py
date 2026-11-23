@@ -80,7 +80,7 @@ assert plot(states['chart_9_plot'])['annotations'], 'Stem and leaf needs actual 
 assert plot(states['chart_10_plot'])['fills'], 'Pie needs visible sectors'
 assert analysis(states['color'])['color'] == 0xff0000
 result = summary(states['summary'])
-assert [result[key] for key in ['count', 'minimum', 'maximum', 'sum', 'mean']] == [10, 2, 10, 56, 5.6]
+assert [result[key] for key in ['count', 'minimum', 'maximum', 'sum', 'mean']] == [5, 2, 10, 28, 5.6]
 assert result['_display']['mean'] == '5.6'
 assert analysis(restored['reopened']) == analysis(states['saved'])
 assert restored['reopened_plot']['native_tools']['memory']['model_windows']['Statistics 1Var'] == states['chart_10_plot']['native_tools']['memory']['model_windows']['Statistics 1Var']
@@ -94,7 +94,9 @@ reference = json.loads((Path(__file__).parents[1] / 'fixtures/native-statistics-
 pale_red = reference['chart_observations']['pale_fills'][1]
 assert plot(states['colored_dot'])['styles'] == ['TraceOnly']
 assert plot(states['colored_dot'])['colors'][0] == 0xff0000
-assert {column['color'] for column in plot(states['colored_dot'])['dots']} == {pale_red}
+assert [column['color'] for column in plot(states['colored_dot'])['dots']] == [
+    pale_red, 0xf6a9a9, 0xeea9a9, 0xe7a9a9, pale_red,
+]
 assert sum(column['count'] for column in plot(states['colored_dot'])['dots']) == 10
 raw = Image.open(root / 'statistics_one_charts_colored_dot.png').convert('RGB').tobytes()
 assert sum(red > green + 40 and red > blue + 40

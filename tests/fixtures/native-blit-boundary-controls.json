@@ -1,5 +1,5 @@
 {
-  "provenance": "Unchanged self-authored programs executed in the original locally installed G1 15751 firmware. Returned admission/result/complete5x5target pixels. Source/font/vendor bytes not bundled; no hardware verification claim.",
+  "provenance": "Unchanged self-authored programs executed in the original locally installed G1 15751 firmware. Returned admission/result/complete target pixel controls. Source/font/vendor bytes not bundled; no hardware verification claim.",
   "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
   "cases": [
     {
@@ -1013,6 +1013,179 @@
           1122867,
           1122867,
           1122867
+        ]
+      ]
+    },
+    {
+      "name": "pixel_key",
+      "source": "EXPORT ZZT_BLITKEY() BEGIN LOCAL O:={},P,C,X,R; Base:=3; Bits:=32; Signed:=0;\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,G1,#102030h); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,G1,#FF102030h); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,G1,0,0,#01102030h); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,G1,0,0,4279246896); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nRETURN O; END;",
+      "source_sha256": "8ae47ce5226c22944924ef3773b6d74a6ac0af8409c0c2a52fc06e1743ba02be",
+      "accepted": true,
+      "expected": [
+        [
+          1,
+          1,
+          [
+            16702650,
+            2441312,
+            5406880,
+            11325152,
+            16702650
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            1056816,
+            2441312,
+            5406880,
+            11325152,
+            16702650
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            1056816,
+            2441312,
+            5406880,
+            11325152,
+            16702650
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            1056816,
+            2441312,
+            5406880,
+            11325152,
+            16702650
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "scaled_alpha",
+      "source": "EXPORT ZZT_BLITKEY() BEGIN LOCAL O:={},P,C,X,R; Base:=3; Bits:=32; Signed:=0;\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,0,0,5,1,G1,0,0,4,1,#102030h,127); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,0,0,5,1,G1,0,0,4,1,#FF102030h,127); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,0,0,5,1,G1,0,0,4,1,#FF102030h,0); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G2,0,0,5,1,G1,0,0,4,1,#FF102030h,255); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nRETURN O; END;",
+      "source_sha256": "1de62818dba2c5d2cb8fe11af6d6fb7e9a04fbf6be391e36f37dad8182e0bcc2",
+      "accepted": true,
+      "expected": [
+        [
+          1,
+          1,
+          [
+            16702650,
+            9538956,
+            10988972,
+            10988972,
+            13948108
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            8813940,
+            9538956,
+            10988972,
+            10988972,
+            13948108
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            16702650,
+            16702650,
+            16702650,
+            16702650,
+            16702650
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            1056816,
+            2441312,
+            5406880,
+            5406880,
+            11325152
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "cartesian_keys",
+      "source": "EXPORT ZZT_BLITKEY() BEGIN LOCAL O:={},P,C,X,R; Base:=3; Bits:=32; Signed:=0;Xmin:=0; Xmax:=318; Ymin:=0; Ymax:=218;\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT(G2,0,218,5,217,G1,0,218,4,217,#102030h,127); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT(G2,0,218,5,217,G1,0,218,4,217,#FF102030h,127); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,5,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT(G2,0,218,5,217,G1,0,218,4,217,#FF102030h,255); THEN C:=0; END; FOR X FROM 0 TO 4 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G2,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nRETURN O; END;",
+      "source_sha256": "429f5c968c0c85cab52d7f78c673cc62c6874e63c8cd945351c1f159427a8501",
+      "accepted": true,
+      "expected": [
+        [
+          1,
+          1,
+          [
+            16702650,
+            9538956,
+            10988972,
+            13948108,
+            13948108
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            16702650,
+            9538956,
+            10988972,
+            13948108,
+            13948108
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            16702650,
+            2441312,
+            5406880,
+            11325152,
+            11325152
+          ]
+        ]
+      ]
+    },
+    {
+      "name": "in_place_keys",
+      "source": "EXPORT ZZT_BLITKEY() BEGIN LOCAL O:={},P,C,X,R; Base:=3; Bits:=32; Signed:=0;\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,4,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G1,1,0,4,1,G1,0,0,3,1,#102030h); THEN C:=0; END; FOR X FROM 0 TO 3 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G1,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nDIMGROB_P(G1,4,1,#102030h); PIXON_P(G1,1,0,#254060h); PIXON_P(G1,2,0,#5280A0h); PIXON_P(G1,3,0,#ACCEE0h); DIMGROB_P(G2,4,1,#FEDCBAh); C:=1; R:=-1; P:={}; IFERR R:=BLIT_P(G1,1,0,4,1,G1,0,0,3,1,#FF102030h); THEN C:=0; END; FOR X FROM 0 TO 3 DO P:=CONCAT(P,{B\u2192R(GETPIX_P(G1,X,0))}); END; O:=CONCAT(O,{{C,R,P}});\nRETURN O; END;",
+      "source_sha256": "8532a13b67745f12fd1294f0825003ebce304611f445a495701f92c0b5fcfbc8",
+      "accepted": true,
+      "expected": [
+        [
+          1,
+          1,
+          [
+            1056816,
+            2441312,
+            2441312,
+            2441312
+          ]
+        ],
+        [
+          1,
+          1,
+          [
+            1056816,
+            1056816,
+            1056816,
+            1056816
+          ]
         ]
       ]
     }

@@ -1,0 +1,162 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_numeric.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3DNUM"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"X+2*Y\";CHECK(1);RETURN {Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType,Graph_3D.NumIndep}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "defaults"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_defaults.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN Graph_3D.NumXStart:=2;Graph_3D.NumYStart:=-1;Graph_3D.NumXStep:=0.5;Graph_3D.NumYStep:=2;RETURN {STARTVIEW(2),Graph_3D.NumXStart,Graph_3D.NumYStart,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumXZoom,Graph_3D.NumYZoom,Graph_3D.NumType,Graph_3D.NumIndep}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "automatic"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_automatic.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN RETURN STARTVIEW(5); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "setup"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_setup.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN LOCAL a:=0,b:=0,c:=0,d:=0;IFERR Graph_3D.NumXStep:=0;THEN a:=1;END;IFERR Graph_3D.NumYStep:=-1;THEN b:=1;END;IFERR Graph_3D.NumYZoom:=1;THEN c:=1;END;IFERR Graph_3D.NumType:=1.5;THEN d:=1;END;RETURN {a,b,c,d,Graph_3D.NumXStep,Graph_3D.NumYStep,Graph_3D.NumYZoom,Graph_3D.NumType}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "invalid"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_invalid.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN LOCAL blocked:=0;IFERR Graph_3D.NumIndep:={{1,3},{2,4}};THEN blocked:=1;END;Graph_3D.NumIndep:={[1,3],[2,4]};Graph_3D.NumType:=1;RETURN {blocked,STARTVIEW(2,1),Graph_3D.NumType,Graph_3D.NumIndep}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "custom"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_custom.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DNUM() BEGIN STARTAPP(\"Function\");NumStart:=-5;NumStep:=3;RETURN {NumStart,NumStep,Graph_3D.NumXStart,Graph_3D.NumYStep}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "isolated"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_numeric_isolated.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}
