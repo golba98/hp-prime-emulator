@@ -38,9 +38,10 @@ def check_images(root):
         load_image(name) for name in ("plot", "rotated", "dragged", "reopened")
     )
     for image in (plot, rotated, dragged, reopened):
-        channels = image.tobytes()
-        pixels = zip(channels[::3], channels[1::3], channels[2::3])
-        assert sum(r < 116 and g >= 160 and b >= 180 for r, g, b in pixels) > 100
+        pixels = {rgb: count for count, rgb in image.getcolors(image.width * image.height)}
+        surface = sum(count for (r, g, b), count in pixels.items()
+                      if r == 0 and b >= 100 and g in (0, b))
+        assert surface > 100
     assert ImageChops.difference(plot, rotated).getbbox()
     assert ImageChops.difference(rotated, dragged).getbbox()
     assert ImageChops.difference(dragged, reopened).getbbox() is None

@@ -1,0 +1,215 @@
+{
+  "original": "Original virtual G1 lowercase APPEND matrix callback division controls",
+  "cases": [
+    {
+      "name": "matrix_carriers",
+      "source": "EXPORT ZZT_APPMCF() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1],[2]],ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A,2],[3,4]],ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A,2]],ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CMBASE(),ZZT_CFAIL(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CMBASE() BEGIN D:=D*10+1; RETURN [[A,2],[3,4]]; END;\nZZT_CFAIL(S) BEGIN D:=D*10+S; RETURN B/C; END;\n",
+      "source_sha256": "80e6456ff70db989bb9a121eff120b385f46ada35a93efa142c862ae6f8092ea",
+      "entry": "ZZT_APPMCF",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: X/0\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{[1],[2],\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,2,7,2,3,4,\"Error: X/0\"}",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,1,2,7,2,\"Error: X/0\"}",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          12,
+          0,
+          6,
+          "{[7,2],[3,4],\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "matrix_effects",
+      "source": "EXPORT ZZT_APPMCF() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CWRITE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CMBASE(),ZZT_CWRITE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CTICK(2,\"Error: X/0\")); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CTICK(2,B/C)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CMBASE() BEGIN D:=D*10+1; RETURN [[A,2],[3,4]]; END;\nZZT_CTICK(S,N) BEGIN D:=D*10+S; RETURN N; END;\nZZT_CWRITE(S) BEGIN D:=D*10+S; A:=19; RETURN B/C; END;\nZZT_CTYPE(S) BEGIN D:=D*10+S; RETURN B/\"bad\"; END;\n",
+      "source_sha256": "50a191bb6b3bdfd9d6acc866060260c7babb790e06f862ed94abcbebcdd46055",
+      "entry": "ZZT_APPMCF",
+      "expected": [
+        [
+          0,
+          "19",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: X/0\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "19",
+          11,
+          0,
+          12,
+          0,
+          6,
+          "{[7,2],[3,4],\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: X/0\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,1,7,2,+Inf}",
+          0,
+          "1"
+        ]
+      ],
+      "holdout_indices": [
+        3,
+        4
+      ]
+    },
+    {
+      "name": "matrix_quotient",
+      "source": "EXPORT ZZT_APPMCF() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],ZZT_CFAIL(2)/ZZT_CTICK(3,2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CTICK(2,B)/ZZT_CFAIL(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A,2],[3,4]],ZZT_CFAIL(2)/ZZT_CFAIL(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1],[2]],ZZT_CTICK(2,B)/ZZT_CTICK(3,2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CFAIL(S) BEGIN D:=D*10+S; RETURN B/C; END;\nZZT_CTICK(S,N) BEGIN D:=D*10+S; RETURN N; END;\n",
+      "source_sha256": "17fc52092a5364b2e734f4b1aa8dde1e01feefc5027b0614b098f71ad44d9a01",
+      "entry": "ZZT_APPMCF",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: X/0\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{1,2,2,7,2,3,4,\"Error: X/0\"}",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{[1],[2],5.5}",
+          0,
+          "5.5"
+        ]
+      ],
+      "holdout_indices": []
+    }
+  ]
+}

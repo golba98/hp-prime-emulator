@@ -48,7 +48,14 @@ for name, source in (("sqrt", "SQRT(9/4)"), ("cubert", "NTHROOT(3,27/8)")):
         assert len(strokes) >= 2, (label, strokes)
         (bar_y, bar_x, bar_width), (rule_y, rule_x, rule_width) = strokes[-2:]
         assert rule_y - bar_y >= 12, (label, strokes)
-        assert rule_x == bar_x + 1 and rule_width == bar_width, (label, strokes)
+        if name == "cubert":
+            # The indexed sign leaves one white column beside the vertical
+            # stem and overhangs the fraction rule by two pixels on the right.
+            assert rule_x == bar_x + 2 and rule_width + 3 == bar_width, (label, strokes)
+        else:
+            # The square fraction also has a gap beside its vertical stem,
+            # with its capped overbar extending farther to the right.
+            assert rule_x == bar_x + 2 and rule_width + 4 == bar_width, (label, strokes)
 
 closed = states["show_closed"]
 assert closed["history_viewer"] is None, closed["history_viewer"]

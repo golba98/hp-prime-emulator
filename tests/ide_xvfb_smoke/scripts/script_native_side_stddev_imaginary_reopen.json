@@ -1,0 +1,39 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_imaginary_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_IMREAD"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_IMREAD() BEGIN HComplex:=10; LOCAL T:=L1(1), R:=approx(L1(3)); LOCAL TMP:=approx(T); LOCAL PRODUCT:=TMP*TMP; RETURN {TYPE(T),STRING(T),TYPE(L1(2)),STRING(L1(2)),TYPE(R),RE(R),IM(R),TYPE(TMP),RE(TMP),IM(TMP),TYPE(PRODUCT),ROUND(RE(PRODUCT),10),IM(PRODUCT),TYPE(IM(T)),STRING(IM(T)),approx(IM(T))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "imaginary_stddev_reopen"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/imaginary_stddev_reopen.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

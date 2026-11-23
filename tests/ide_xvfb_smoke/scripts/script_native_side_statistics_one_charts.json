@@ -219,7 +219,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -324,7 +324,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -438,7 +438,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -543,7 +543,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -648,7 +648,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -753,7 +753,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -858,7 +858,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -963,7 +963,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1077,7 +1077,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1182,7 +1182,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1287,7 +1287,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1401,7 +1401,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1506,7 +1506,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1637,7 +1637,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -1742,7 +1742,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",

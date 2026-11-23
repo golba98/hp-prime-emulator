@@ -1,0 +1,81 @@
+{
+  "provenance": "Self-authored virtual G1 controls for two source-encoded matrices with complex observation pairs and participating real weights. The returned type and rounded components are independent of the model used to select the inputs.",
+  "cases": [
+    {
+      "name": "held_low",
+      "entry": "ZZT_ENCCPLX",
+      "source": "EXPORT ZZT_ENCCPLX() BEGIN\nLOCAL R,O:={}; HComplex:=1; M1:=[[(1,1),4],[3,(8,-1)]];\nIFERR R:=stddev([[(0.5,-3),(-1,3)]],[[0+3.25],[2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(0.5,-3)],[(-1,3)]],[[0+3.25,2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(4.5,1),(0,-3),(6,3)]],[[0+3.25],[-1],[-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(4.5,1)],[(0,-3)],[(6,3)]],[[0+3.25,-1,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(7.5,2),(5,-3),(-4,-1),(2,-2)]],[[-0.75,4],[5,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(7.5,2),(5,-3)],[(-4,-1),(2,-2)]],[[-0.75,4,5,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "babb16bef2093e662d384f2e39f14ad3329987b1a22df97f6e8a8489b02a9d17",
+      "expected": [
+        [
+          3,
+          0.4664757,
+          -2.08579561
+        ],
+        [
+          3,
+          0.4664757,
+          -2.08579561
+        ],
+        [
+          3,
+          2.01582759,
+          -0.91277647
+        ],
+        [
+          3,
+          2.01582759,
+          -0.91277647
+        ],
+        [
+          3,
+          3.28981914,
+          -0.86233405
+        ],
+        [
+          3,
+          3.06277204,
+          -0.89138163
+        ]
+      ]
+    },
+    {
+      "name": "held_high",
+      "entry": "ZZT_ENCCPLX",
+      "source": "EXPORT ZZT_ENCCPLX() BEGIN\nLOCAL R,O:={}; HComplex:=1; M1:=[[(1,1),4],[3,(8,-1)]];\nIFERR R:=stddev([[(5.5,-2),(3,-3),(-3,-3)],[(2,-1),(4,-2),(2,-1)]],[[0+0.25,5],[5,2],[3,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(5.5,-2),(3,-3)],[(-3,-3),(2,-1)],[(4,-2),(2,-1)]],[[0+0.25,5,5],[2,3,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(5.5,-3),(2,2),(-5,-1),(2,2),(-5,-2),(7,2),(-3,-3),(7,2)]],[[0+1.25,0],[2,0],[0,-1],[0,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(5.5,-3),(2,2)],[(-5,-1),(2,2)],[(-5,-2),(7,2)],[(-3,-3),(7,2)]],[[0+1.25,0,2,0,0,-1,0,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(0.5,-3),(-2,-3),(-2,3),(6,2)],[(2,-1),(-1,3),(1,-1),(0,-3)],[(-3,-2),(1,1),(3,1),(-3,2)]],[[0+1.25,1,2,-2,2,-1],[-1,4,4,4,0,5]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(0.5,-3),(-2,-3),(-2,3),(6,2),(2,-1),(-1,3)],[(1,-1),(0,-3),(-3,-2),(1,1),(3,1),(-3,2)]],[[0+1.25,1,2,-2],[2,-1,-1,4],[4,4,0,5]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "e7fbda06d15c7b244d196acd91c5b9a59789481356fece67129b6c6f6e7836d9",
+      "expected": [
+        [
+          3,
+          2.28755748,
+          0.49952798
+        ],
+        [
+          3,
+          2.28755748,
+          0.49952798
+        ],
+        [
+          3,
+          4.20968282,
+          0.42523096
+        ],
+        [
+          3,
+          3.1371578,
+          0.43963333
+        ],
+        [
+          3,
+          1.60902533,
+          -0.80698369
+        ],
+        [
+          3,
+          2.00329234,
+          -0.67383394
+        ]
+      ]
+    }
+  ]
+}

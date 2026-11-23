@@ -395,7 +395,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -554,35 +554,6 @@
     },
     {
       "step": "click_lcd",
-      "x": 230,
-      "y": 30
-    },
-    {
-      "step": "wait_ms",
-      "ms": 150
-    },
-    {
-      "step": "type",
-      "text": "10001"
-    },
-    {
-      "step": "key",
-      "key": "Enter"
-    },
-    {
-      "step": "wait_ms",
-      "ms": 100
-    },
-    {
-      "step": "wait_idle",
-      "timeout_ms": 15000
-    },
-    {
-      "step": "wait_ms",
-      "ms": 150
-    },
-    {
-      "step": "click_lcd",
       "x": 270,
       "y": 60
     },
@@ -621,6 +592,35 @@
     {
       "step": "wait_ms",
       "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 230,
+      "y": 30
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "type",
+      "text": "10001"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
     },
     {
       "step": "snapshot",
@@ -663,7 +663,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 141
+      "y": 156
     },
     {
       "step": "wait_ms",
@@ -917,7 +917,7 @@
     {
       "step": "click_lcd",
       "x": 50,
-      "y": 162
+      "y": 173
     },
     {
       "step": "wait_ms",

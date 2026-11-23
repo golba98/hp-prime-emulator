@@ -1,0 +1,39 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_exact.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_EXKEEP"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_EXKEEP() BEGIN LOCAL R:=stddev({1,2,3}),F:=stddev({1,2}); L1:={R,F,ROUND(R,10),ABS(F)}; RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3)),TYPE(L1(4)),STRING(L1(4))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact_stddev_save"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/exact_stddev_save.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

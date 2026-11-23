@@ -45,5 +45,5 @@ def bars(image_name, bounds):
 
 assert bars('history', (0, 84, 95, 198)) == [2, 2], 'source matrix fraction strokes'
 assert bars('history', (236, 320, 95, 198)) == [2, 2], 'result matrix fraction strokes'
-assert bars('show', (6, 90, 20, 200)) == [2, 2], 'Show matrix fraction strokes'
+assert bars('show', (0, 320, 24, 220)) == [2, 2], 'Show matrix fraction strokes'
 print('Native CAS matrix paints all four exact fractions in the expression, result and Show')

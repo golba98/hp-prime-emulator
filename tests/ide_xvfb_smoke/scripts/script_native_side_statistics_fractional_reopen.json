@@ -154,6 +154,59 @@
       "path": "/tmp/ppl-ide-e2e/statistics_fractional_reopened_dot.png"
     },
     {
+      "step": "native_object",
+      "kind": "program",
+      "name": "DOTOVERLAP",
+      "content": "EXPORT DOTOVERLAP() BEGIN D1:={2,2.01,2.05,2.2,2.8};D2:={.25,.59,.45,1.15,.99};SetSample(H1,D1);SetFreq(H1,D2);STARTVIEW(9);RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "DOTOVERLAP()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "overlapping_dot"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_fractional_overlapping_dot.png"
+    },
+    {
       "step": "exit"
     }
   ]

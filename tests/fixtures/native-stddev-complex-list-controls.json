@@ -1,0 +1,239 @@
+{
+  "provenance": "Original HP Prime G1 firmware 15751; copied independent firmware profile.",
+  "cases": [
+    {
+      "name": "unweighted",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,1+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({(1,1),(3,-1)}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev(1+i); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,2-i,-1+3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "40c02b6658341068cf0981ef46d880cfb05c889e2d63509338f18e14cff24352",
+      "expected": [
+        [
+          3,
+          1,
+          -1
+        ],
+        [
+          3,
+          1,
+          1
+        ],
+        [
+          3,
+          0,
+          1
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          1,
+          -1
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          1.2329522696,
+          -1.6221228099
+        ]
+      ]
+    },
+    {
+      "name": "weighted",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i},{.5,1.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{-.5,1.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{.2,.2}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{0,1}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},[.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,2-i,-1+3*i},{.25,.5,2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{-.25,-.75}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "6fd64bb0434ccdf49942f85d8241f6ffae19226ca24922bcb71db6b08683f281",
+      "expected": [
+        [
+          3,
+          0.8660254038,
+          -0.8660254038
+        ],
+        [
+          3,
+          1.7320508076,
+          1.7320508076
+        ],
+        [
+          3,
+          1,
+          -1
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0.8660254038,
+          -0.8660254038
+        ],
+        [
+          3,
+          1.1415550229,
+          -1.4720914359
+        ],
+        [
+          3,
+          0.8660254038,
+          -0.8660254038
+        ]
+      ]
+    },
+    {
+      "name": "undefined_and_bad_entries",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i},{0,0}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{-.5,.5}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1.5+i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+.5*i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,\"2\"},{1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{1,\"2\"}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;",
+      "source_sha256": "8b23211113104407a4cfff1892911c0849d5843337e382e498223101fa5af3ba",
+      "expected": [
+        [
+          8,
+          "undef"
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Error: Bad Argument Value\""
+        ],
+        [
+          2,
+          "\"Error: Bad Argument Value\""
+        ]
+      ]
+    },
+    {
+      "name": "complex_results_disabled",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\nHComplex:=10;\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "bdbd1be963bb84411eba1dd44b95ce3323c321e46def547e595c882de8564431",
+      "expected": [
+        [
+          3,
+          1,
+          -1
+        ],
+        [
+          3,
+          1,
+          1
+        ],
+        [
+          3,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "complex_results_enabled",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\nHComplex:=11;\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "5ea36f46f6d03fe74a4beefa34c9d3f2128da80f346b9cf7c5c923251daa6d42",
+      "expected": [
+        [
+          3,
+          1,
+          -1
+        ],
+        [
+          3,
+          1,
+          1
+        ],
+        [
+          3,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "axis_holdouts",
+      "entry": "ZZT_STCX",
+      "source": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1,3+.00000001*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,1+.00000001+3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1,3-.00000001*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({-.125+.25*i,.375-.125*i,.875-.0625*i},{.125,.375,2.125}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "86ffbab26045a724b71259d7006988650ad5c76a0081e3b8a0ef8b798e73e2c1",
+      "expected": [
+        [
+          3,
+          1,
+          5e-09
+        ],
+        [
+          3,
+          5e-09,
+          1
+        ],
+        [
+          3,
+          1,
+          -5e-09
+        ],
+        [
+          3,
+          0.2557900321,
+          -0.0379531986
+        ]
+      ]
+    }
+  ],
+  "persistence": {
+    "saved": {
+      "source": "EXPORT ZZT_STCX() BEGIN L1:={stddev({1+i,3-i},{.5,1.5}),stddev({1+i,3-i},{0,0}),stddev({1+i,3-i},{-.5,.5})}; LOCAL Z:=L1(1); RETURN {TYPE(Z),ROUND(RE(Z),10),ROUND(IM(Z),10),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;",
+      "source_sha256": "331cbbdaa82b826e18f97c57db85c1b857b2d782b0b37cfde76615b7455b0d79",
+      "expected": [
+        3,
+        0.8660254038,
+        -0.8660254038,
+        8,
+        "undef",
+        2,
+        "\"Undefined\""
+      ]
+    },
+    "reopened": {
+      "source": "EXPORT ZZT_STCX() BEGIN LOCAL Z:=L1(1); RETURN {TYPE(Z),ROUND(RE(Z),10),ROUND(IM(Z),10),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;",
+      "source_sha256": "eec8abc9077d6568fa39d6923d03e7553955fb0703ac21f943ba742d53101ae7",
+      "expected": [
+        3,
+        0.8660254038,
+        -0.8660254038,
+        8,
+        "undef",
+        2,
+        "\"Undefined\""
+      ]
+    }
+  }
+}

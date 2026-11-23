@@ -1,0 +1,262 @@
+{
+  "original": "Original virtual G1 lowercase APPEND collection controls",
+  "cases": [
+    {
+      "name": "scalar_payloads",
+      "source": "EXPORT ZZT_APPCOLL() BEGIN\nLOCAL R,E,W,V:=[1,2],O:={};\nHComplex:=1; L1:={1,2};\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],3);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append({1,2},3);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],(3,0));  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],(3,4));  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],#3h);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=[1,2,(3,0)];  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=[1,2,#3h];  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nRETURN O; END;\n",
+      "source_sha256": "2286ab8aa7c1b64402da59ea1782bf27cb0a04715f3c2530b6cb259c5c762aa3",
+      "expected": [
+        [
+          0,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{1,2,3}",
+          0,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[1,2,3+4*]",
+          3,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "collection_payloads",
+      "source": "EXPORT ZZT_APPCOLL() BEGIN\nLOCAL R,E,W,V:=[1,2],O:={};\nHComplex:=1; L1:={1,2};\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append({1,2},{3,4});  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append({1,2},[3,4]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],{3,4});  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],[3,4]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([1,2],\"three\");  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append({},[3,4]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nRETURN O; END;\n",
+      "source_sha256": "ebbe1cea805e1982669c78a407b564ae77ef75d6fe780b0f0d74e46267a8b8ad",
+      "expected": [
+        [
+          0,
+          0,
+          6,
+          "{1,2,{3,4}}",
+          6,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{1,2,[3,4]}",
+          4,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{1,2,{3,4}}",
+          6,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{1,2,[3,4]}",
+          4,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{1,2,three}",
+          8,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{[3,4]}",
+          -2,
+          "1",
+          "[1,2]",
+          "{1,2}"
+        ]
+      ],
+      "holdout_indices": [
+        4
+      ]
+    },
+    {
+      "name": "row_and_column_shapes",
+      "source": "EXPORT ZZT_APPCOLL() BEGIN\nLOCAL R,E,W,V:=[1,2],O:={};\nHComplex:=1; L1:={1,2};\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([[1],[2]],3);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([[1],[2]],[[3]]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([[1,2]],[3,4]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append([[1,2],[3,4]],[5,6]);  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nRETURN O; END;\n",
+      "source_sha256": "1c3e52c41e668f49a50426791760c57e502a2aaeca8460812a5e89c2e3e8ed2e",
+      "expected": [
+        [
+          0,
+          0,
+          6,
+          "{[1],[2],3}",
+          0,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{[1],[2],[[3]]}",
+          4,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[[1,2],[3,4]]",
+          -2,
+          "{2,2}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          4,
+          "[[1,2],[3,4],[5,6]]",
+          4,
+          "{3,2}",
+          "[1,2]",
+          "{1,2}"
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "copies_and_faults",
+      "source": "EXPORT ZZT_APPCOLL() BEGIN\nLOCAL R,E,W,V:=[1,2],O:={};\nHComplex:=1; L1:={1,2};\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append(V,3); R(1):=9; THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append(L1,[3,4]); R(1):=9; THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append(ZZT_TICK(1,V),ZZT_TICK(2,3));  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append(ZZT_FAIL(1),ZZT_TICK(2,3));  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nA:=0; E:=0; W:=-1; R:=-99;\nIFERR R:=append(ZZT_TICK(1,V),ZZT_FAIL(2));  THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),W,STRING(SIZE(R)),STRING(V),STRING(L1)}});\nRETURN O; END;\nZZT_TICK(D,T) BEGIN A:=A*10+D; RETURN T; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "source_sha256": "b8689320cd3b342632994c8b3580b75bb294e3690e32f93fa35e0e739acb6d62",
+      "expected": [
+        [
+          0,
+          0,
+          4,
+          "[9,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          0,
+          0,
+          6,
+          "{9,2,[3,4]}",
+          4,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          12,
+          0,
+          4,
+          "[1,2,3]",
+          0,
+          "{3}",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          12,
+          0,
+          2,
+          "\"append(ZZT_FAIL(1),ZZT_TICK(2,3)) \\n Error: Bad Argument Value\"",
+          0,
+          "61",
+          "[1,2]",
+          "{1,2}"
+        ],
+        [
+          12,
+          0,
+          6,
+          "{1,2,\"Error: X/0\"}",
+          2,
+          "3",
+          "[1,2]",
+          "{1,2}"
+        ]
+      ],
+      "holdout_indices": [
+        3,
+        4
+      ]
+    }
+  ]
+}

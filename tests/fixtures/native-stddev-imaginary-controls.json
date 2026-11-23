@@ -1,0 +1,344 @@
+{
+  "provenance": "Self-authored controls executed by the original virtual G1 for imaginary signed-list deviation, complex display modes, arithmetic on projected values and cold profile restoration.",
+  "cases": [
+    {
+      "name": "negative_irrational",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\n\nIFERR R:=stddev({1,3},{-1,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({1,3},{1,-3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({3,1},{3,-1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({1,3},{-2,6}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "e35ded520f9e61dcd3aa27c2224dcb4dc257b515e72288258fe7a243a8bfcf34",
+      "expected": [
+        [
+          8,
+          "*√3"
+        ],
+        [
+          8,
+          "*√3"
+        ],
+        [
+          8,
+          "*√3"
+        ],
+        [
+          8,
+          "*√3"
+        ]
+      ]
+    },
+    {
+      "name": "negative_rational",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\n\nIFERR R:=stddev({0,1},{-1,4}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,1},{-1,9}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,3},{-1,4}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,2},{-3,1}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "7cfa0bb2c27f73632d18425e3b8cb593f6c4605255cb8e0a9913003340f20e69",
+      "expected": [
+        [
+          8,
+          "2*/3"
+        ],
+        [
+          8,
+          "3*/8"
+        ],
+        [
+          3,
+          "2*"
+        ],
+        [
+          8,
+          "*√3"
+        ]
+      ]
+    },
+    {
+      "name": "positive_fraction",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\n\nIFERR R:=stddev({1,3},{1,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({1,3},{-.5,1.5}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({1,3},{-1.0,3.0}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({1.5,3.5},{-1,3}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "a7d84490b84146b21e114191d1cdeae82daac2c374f9796e2568cd4c0efc3bdb",
+      "expected": [
+        [
+          8,
+          "2*√3/4"
+        ],
+        [
+          3,
+          "1.73205080757*"
+        ],
+        [
+          8,
+          "*√3"
+        ],
+        [
+          3,
+          "1.73205080757*"
+        ]
+      ]
+    },
+    {
+      "name": "real_mode",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=10; LOCAL T:=stddev({1,3},{-1,3});\nIFERR R:=T; O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=RE(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "f68bda7cfa720a0fd1f4181afcf1651790b0a02011b0ea9d774fd29bcbf91bfd",
+      "expected": [
+        [
+          8,
+          "(0,1)*√3"
+        ],
+        [
+          3,
+          "(0,1.73205080757)"
+        ],
+        [
+          0,
+          "0"
+        ],
+        [
+          0,
+          "1.73205080757"
+        ]
+      ]
+    },
+    {
+      "name": "complex_mode",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11; LOCAL T:=stddev({1,3},{-1,3});\nIFERR R:=T; O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=RE(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "34184a519af643bc7da32e784ed7bd57d4c2414dd3ee2329e816f907e6e660d0",
+      "expected": [
+        [
+          8,
+          "(0,1)*√3"
+        ],
+        [
+          3,
+          "(0,1.73205080757)"
+        ],
+        [
+          0,
+          "0"
+        ],
+        [
+          0,
+          "1.73205080757"
+        ]
+      ]
+    },
+    {
+      "name": "rational_approx",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11;\nLOCAL T:=stddev({0,1},{-1,4});\nIFERR R:=T; O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=TYPE(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "224ba8e1afd8873d47b593caa3d84f08edf83393578a88cfd086dc190326172a",
+      "expected": [
+        [
+          8,
+          "(0,2)/3"
+        ],
+        [
+          3,
+          "(0,0.666666666667)"
+        ],
+        [
+          0,
+          "3"
+        ],
+        [
+          0,
+          "0.666666666667"
+        ]
+      ]
+    },
+    {
+      "name": "exact_components",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11;\nLOCAL T:=stddev({1,3},{-1,3});\nIFERR R:=RE(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=ABS(T); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=ROUND(T,10); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "741e38ea622942f23e223593824c2949ad2bb105c074daaced5fce0a5a20620e",
+      "expected": [
+        [
+          8,
+          "RE((0,1)*√3)"
+        ],
+        [
+          8,
+          "IM((0,1)*√3)"
+        ],
+        [
+          8,
+          "ABS((0,1)*√3)"
+        ],
+        [
+          8,
+          "ROUND((0,1)*√3,10)"
+        ]
+      ]
+    },
+    {
+      "name": "approx_components",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11;\nLOCAL T:=stddev({1,3},{-1,3});\nIFERR R:=approx(RE(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(IM(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(ABS(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(ROUND(T,10)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "0728d696d77ea1ce4a945810c8cbea835a02400bd9964e2abdc82a1f766ea6a9",
+      "expected": [
+        [
+          0,
+          "0"
+        ],
+        [
+          0,
+          "1.73205080757"
+        ],
+        [
+          0,
+          "1.73205080757"
+        ],
+        [
+          3,
+          "(0,1.7320508076)"
+        ]
+      ]
+    },
+    {
+      "name": "approx_arithmetic",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11;\nLOCAL T:=stddev({1,3},{-1,3});\nIFERR R:=approx(T)+2; O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=TYPE(approx(T)*approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=ROUND(RE(approx(T)*approx(T)),10); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(approx(T)*approx(T)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "6615c508a2b0cf885a6ae3cd76bd3f7980209a17292d9e9e283b1cbb6bdc53ab",
+      "expected": [
+        [
+          3,
+          "(2,1.73205080757)"
+        ],
+        [
+          0,
+          "3"
+        ],
+        [
+          0,
+          "−3"
+        ],
+        [
+          0,
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "imaginary_radicals",
+      "entry": "ZZT_IMSTD",
+      "source": "EXPORT ZZT_IMSTD() BEGIN\nLOCAL R,O:={};\nHComplex:=11;\n\nIFERR R:=stddev({0,1},{-1,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,2},{-1,2}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,1},{-1,5}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev({0,3},{-1,5}); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "source_sha256": "8afa5d32a62cdfa61ea050d835059f4a7afbc00d5df6d07428c07f7f31baab47",
+      "expected": [
+        [
+          8,
+          "(0,1)*√2"
+        ],
+        [
+          8,
+          "(0,2)*√2"
+        ],
+        [
+          8,
+          "(0,4)*√5/16"
+        ],
+        [
+          8,
+          "(0,12)*√5/16"
+        ]
+      ]
+    },
+    {
+      "name": "mode_switch",
+      "entry": "ZZT_IMMODE",
+      "source": "EXPORT ZZT_IMMODE() BEGIN LOCAL T,S; HComplex:=1; T:=stddev({0,1},{-1,4}); HComplex:=10; S:=STRING(T); HComplex:=0; RETURN {S,STRING(T),TYPE(T)}; END;",
+      "source_sha256": "c42dd2d371298a4c2f3ed6a3bfdb9332a4cb308cca169a3c732e49f7058fc68d",
+      "expected": [
+        "(0,2)/3",
+        "2*/3",
+        8
+      ]
+    },
+    {
+      "name": "pair_scaling",
+      "entry": "ZZT_IMMODE",
+      "source": "EXPORT ZZT_IMMODE() BEGIN LOCAL T,U; HComplex:=11; T:=stddev({0,1},{-3,1}); U:=stddev({0,1},{-1,4}); RETURN {STRING(T),STRING(U),STRING(ABS(T))}; END;",
+      "source_sha256": "8f9ff36e3127627702fc1bc099e42ed13f87d26aa8af14425d0589f0a3691134",
+      "expected": [
+        "(0,2)*√3/4",
+        "(0,2)/3",
+        "ABS((0,2)*√3/4)"
+      ]
+    },
+    {
+      "name": "negative_round",
+      "entry": "ZZT_IMROUND",
+      "source": "EXPORT ZZT_IMROUND() BEGIN HComplex:=11; LOCAL T:=stddev({0,1000},{-1,3}); LOCAL R:=ROUND(T,-2); LOCAL U:=ROUND(T,-1); LOCAL V:=ROUND(T,0); RETURN {TYPE(R),STRING(R),TYPE(approx(R)),IM(approx(R)),IM(approx(U)),IM(approx(V)),approx(ROUND(ABS(T),-2))}; END;",
+      "source_sha256": "05c33260ad5f1c237968489e91c60b6fc3371ee969dd51ab6ec3806918de3037",
+      "expected": [
+        8,
+        "ROUND((0,500)*√3,−2)",
+        3,
+        870,
+        900,
+        866,
+        870
+      ]
+    },
+    {
+      "name": "negative_small_round",
+      "entry": "ZZT_IMROUND",
+      "source": "EXPORT ZZT_IMROUND() BEGIN HComplex:=1; LOCAL T:=stddev({1,3},{-1,3}); LOCAL R:=ROUND(T,-2); LOCAL N:=approx(R); RETURN {TYPE(R),STRING(R),TYPE(N),STRING(N)}; END;",
+      "source_sha256": "3e7d7ac65c92339613fa412c9dcbd2e5171d3e5d0b46678933a9154e404aba12",
+      "expected": [
+        8,
+        "ROUND(*√3,−2)",
+        3,
+        "1.7*"
+      ]
+    },
+    {
+      "name": "zero_round",
+      "entry": "ZZT_IMROUND",
+      "source": "EXPORT ZZT_IMROUND() BEGIN HComplex:=1; LOCAL T:=stddev({0,1},{-1,9}); LOCAL R:=ROUND(T,0); LOCAL N:=approx(R); RETURN {TYPE(R),STRING(R),TYPE(N),STRING(N)}; END;",
+      "source_sha256": "c10a336a0b38984297c93ebe003743155058cb3d4b0e9bd92b7130638e8e367f",
+      "expected": [
+        8,
+        "ROUND(3*/8,0)",
+        0,
+        "0"
+      ]
+    },
+    {
+      "name": "save",
+      "entry": "ZZT_IMKEEP",
+      "source": "EXPORT ZZT_IMKEEP() BEGIN HComplex:=1; L1:={stddev({1,3},{-1,3}),stddev({0,1},{-1,4}),ROUND(stddev({1,3},{-1,3}),10)}; RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;",
+      "source_sha256": "f7f0c3abb8bb270120d300fb87ab12337cf59edec15cb41fb8f210e060ba8a70",
+      "expected": [
+        8,
+        "*√3",
+        8,
+        "2*/3",
+        8,
+        "ROUND(*√3,10)"
+      ]
+    },
+    {
+      "name": "reopen",
+      "entry": "ZZT_IMREAD",
+      "source": "EXPORT ZZT_IMREAD() BEGIN HComplex:=10; LOCAL T:=L1(1), R:=approx(L1(3)); LOCAL TMP:=approx(T); LOCAL PRODUCT:=TMP*TMP; RETURN {TYPE(T),STRING(T),TYPE(L1(2)),STRING(L1(2)),TYPE(R),RE(R),IM(R),TYPE(TMP),RE(TMP),IM(TMP),TYPE(PRODUCT),ROUND(RE(PRODUCT),10),IM(PRODUCT),TYPE(IM(T)),STRING(IM(T)),approx(IM(T))}; END;",
+      "source_sha256": "aa16f6b7453608917d448f25ed13494ec6b7e59bb23afdb35ae5ebf8bd68885e",
+      "expected": [
+        8,
+        "(0,1)*√3",
+        8,
+        "(0,2)/3",
+        3,
+        0,
+        1.7320508076,
+        3,
+        0,
+        1.73205080757,
+        3,
+        -3,
+        0,
+        8,
+        "IM((0,1)*√3)",
+        1.73205080757
+      ]
+    }
+  ]
+}

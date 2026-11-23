@@ -1,0 +1,234 @@
+{
+  "original": "Original virtual G1 encoded complex-vector STDDEV controls",
+  "cases": [
+    {
+      "name": "integral_pairs",
+      "source": "EXPORT ZZT_COMPLEXVEC() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,0),3],[0+1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[0+0,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[0+0,-1]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[0+1,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,1),(3,-1)],[0+1,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[0-1,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,0+2,(3,-2)],[0+2,1,4]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXVEC",
+      "source_sha256": "d9f50f8d27b0b99d8c48abda620bb79e7cabe59aed23906909bfee3d35d44ac2",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "7*√34/49"
+        ],
+        [
+          0,
+          0,
+          8,
+          "3*√5/9"
+        ],
+        [
+          0,
+          0,
+          3,
+          ""
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.525926564671-1.24173462297*",
+          0.52592656,
+          -1.24173462
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.801483377165-0.662037741537*",
+          0.80148338,
+          -0.66203774
+        ],
+        [
+          0,
+          0,
+          3,
+          "2.10910381816+0.606892837129*",
+          2.10910382,
+          0.60689284
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.627987758803-0.73697283246*",
+          0.62798776,
+          -0.73697283
+        ]
+      ],
+      "numeric_projection_indices": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "fractional_and_cancellation",
+      "source": "EXPORT ZZT_COMPLEXVEC() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1.5,4),3],[0+0,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4.5),3],[0+0,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[.5+0,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1.5,4.5),3],[0+1,3]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[-1,-2]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4.5),3],[-1,-2]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3,4],[0+0,-2,-2]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4.5),3,4],[0+0,-2,-2]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXVEC",
+      "source_sha256": "09580cae3e2983d3210e7c38a910a6e6636a5787e56d59853de6e197fcb3c978",
+      "expected": [
+        [
+          0,
+          0,
+          0,
+          "0.7453559925",
+          0.74535599,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          "0.7453559925",
+          0.74535599,
+          0
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.452152228882-0.837545854387*",
+          0.45215223,
+          -0.83754585
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.32287170627-1.4221861642*",
+          0.32287171,
+          -1.42218616
+        ],
+        [
+          0,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"Undefined\""
+        ],
+        [
+          0,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          0,
+          0,
+          8,
+          "undef"
+        ]
+      ],
+      "numeric_projection_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "component_effects",
+      "source": "EXPORT ZZT_COMPLEXVEC() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,0),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_FAIL(1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_FAIL(2)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3),ZZT_TICK(6,4)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXVEC",
+      "source_sha256": "d50468e15ab9cc68f15180f48b96d74ed9b3e393ccc4f656bc92cd203e8bab77",
+      "expected": [
+        [
+          12345,
+          0,
+          3,
+          "0.525926564671-1.24173462297*",
+          0.52592656,
+          -1.24173462
+        ],
+        [
+          12345,
+          0,
+          8,
+          "3*√5/9"
+        ],
+        [
+          12345,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_FAIL(1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),ListToMat(EVALLIST({0,1,2,ZZT_TICK(4,1),ZZT_TICK(5,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          12345,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_FAIL(2)*,ZZT_TICK(3,3)})),ListToMat(EVALLIST({0,1,2,ZZT_TICK(4,1),ZZT_TICK(5,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123456,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),ListToMat(EVALLIST({0,1,3,ZZT_TICK(4,1),ZZT_TICK(5,3),ZZT_TICK(6,4)}))) \n Error: Bad Argument Value\""
+        ]
+      ],
+      "numeric_projection_indices": [
+        0
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "inline_and_ordinary_guards",
+      "source": "EXPORT ZZT_COMPLEXVEC() BEGIN\nLOCAL R,E,O:={};\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1)/0,ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,0)/0,ZZT_TICK(2,4)),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)/0),ZZT_TICK(3,3)],[ZZT_TICK(4,1),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,3}); THEN E:=1; END;\nIF (TYPE(R)==0 OR TYPE(R)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),ROUND(RE(R),8),ROUND(IM(R),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}}); END;\nHComplex:=1; A:=0; E:=0; R:=-99;\nIFERR R:=ZZT_TICK(1,1)/0; THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXVEC",
+      "source_sha256": "7b1f73a259fc33e0aad986afe31c62b53af526605ae2882d277199215f47a4d6",
+      "expected": [
+        [
+          12345,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          12345,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,(ZZT_TICK(1,0))/0+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),ListToMat(EVALLIST({0,1,2,ZZT_TICK(4,1),ZZT_TICK(5,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          12345,
+          0,
+          8,
+          "undef"
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,1+4*,3})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          8,
+          "√3/2*(1-2*)"
+        ],
+        [
+          1,
+          1,
+          0,
+          "−99"
+        ]
+      ],
+      "numeric_projection_indices": [],
+      "holdout_indices": [
+        3,
+        4
+      ]
+    }
+  ]
+}

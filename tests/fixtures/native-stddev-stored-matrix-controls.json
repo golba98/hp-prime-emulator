@@ -1,0 +1,79 @@
+{
+  "provenance": "Self-authored direct lowercase stddev controls measured on a virtual G1, including naturally saved values read in a second process.",
+  "cases": [
+    {
+      "name": "save",
+      "source": "EXPORT ZZT_STDMATRIX()\nBEGIN\n  LOCAL D:=[[1,4],[3,8]], W:=[[-1,1],[3,1]], R, Z, P, Q, T, V;\n  HComplex:=1;\n  R:=stddev(D,W);\n  W:=[[-1,1],[1,1]];\n  Z:=stddev(D,W);\n  L1:={R,Z};\n  W:=[[-1,-1],[-1,-1]];\n  P:=stddev(D,W);\n  W:=[[1,-1],[1,3]];\n  Q:=stddev([[1,4],[3,8]],W);\n  W:=[[-.5,1],[1.5,1]];\n  M2:=W;\n  T:=stddev(D,M2);\n  W:=[[2,2],[-1,1],[2,1]];\n  D:=[[-1,4],[0,6],[1,8]];\n  V:=stddev(D,W);\n  RETURN {{TYPE(R),TYPE(R(1)),TYPE(R(2)),ROUND(IM(R(1)),8),R(2)},\n          {TYPE(Z),SIZE(Z),TYPE(Z(1)),STRING(Z)},\n          {TYPE(P),P(1),P(2)},\n          {TYPE(Q),Q(1),ROUND(IM(Q(2)),8)},\n          {TYPE(T),ROUND(IM(T(1)),8),T(2)},\n          {TYPE(V),ROUND(V(1),8),ROUND(V(2),8)}};\nEND;",
+      "entry": "ZZT_STDMATRIX",
+      "source_sha256": "9e8e4775a9910d284ed61cc231145720e16cecc39928521a337c23f7a7346d37",
+      "expected": [
+        [
+          4,
+          3,
+          3,
+          1.73205081,
+          {
+            "real": 2,
+            "imaginary": 0
+          }
+        ],
+        [
+          6,
+          1,
+          8,
+          "{undef}"
+        ],
+        [
+          4,
+          1,
+          2
+        ],
+        [
+          4,
+          {
+            "real": 1,
+            "imaginary": 0
+          },
+          3.46410162
+        ],
+        [
+          4,
+          1.73205081,
+          {
+            "real": 2,
+            "imaginary": 0
+          }
+        ],
+        [
+          4,
+          1.15470054,
+          1.6583124
+        ]
+      ]
+    },
+    {
+      "name": "reopen",
+      "source": "EXPORT ZZT_STDMATRIX()\nBEGIN\n  LOCAL R:=L1(1), Z:=L1(2);\n  RETURN {{TYPE(R),TYPE(R(1)),TYPE(R(2)),ROUND(IM(R(1)),8),R(2)},\n          {TYPE(Z),SIZE(Z),TYPE(Z(1)),STRING(Z)}};\nEND;",
+      "entry": "ZZT_STDMATRIX",
+      "source_sha256": "87c3c7ee49da1b2bbd8fad58e19111d1425fabb55710d41632262345f8ea66c8",
+      "expected": [
+        [
+          4,
+          3,
+          3,
+          1.73205081,
+          {
+            "real": 2,
+            "imaginary": 0
+          }
+        ],
+        [
+          6,
+          1,
+          8,
+          "{undef}"
+        ]
+      ]
+    }
+  ]
+}

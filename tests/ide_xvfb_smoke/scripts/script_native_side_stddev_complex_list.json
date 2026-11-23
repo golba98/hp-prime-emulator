@@ -1,0 +1,125 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_complex_list.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_STCX"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,1+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({(1,1),(3,-1)}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev(1+i); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,2-i,-1+3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "unweighted"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i},{.5,1.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{-.5,1.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{.2,.2}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{0,1}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},[.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,2-i,-1+3*i},{.25,.5,2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,3-i},{-.25,-.75}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "weighted"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1+i,3-i},{0,0}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{-.5,.5}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1.5+i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+.5*i,3-i},{-1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,\"2\"},{1,1}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev({1+i,3-i},{1,\"2\"}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "undefined_and_bad_entries"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\nHComplex:=10;\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "complex_results_disabled"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\nHComplex:=11;\nR:=stddev({1+i,3-i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1-i,3+i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({i,3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "complex_results_enabled"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN\nLOCAL R,out:={};\n\nR:=stddev({1,3+.00000001*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1+i,1+.00000001+3*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({1,3-.00000001*i}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev({-.125+.25*i,.375-.125*i,.875-.0625*i},{.125,.375,2.125}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "axis_holdouts"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_STCX() BEGIN L1:={stddev({1+i,3-i},{.5,1.5}),stddev({1+i,3-i},{0,0}),stddev({1+i,3-i},{-.5,.5})}; LOCAL Z:=L1(1); RETURN {TYPE(Z),ROUND(RE(Z),10),ROUND(IM(Z),10),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "saved"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

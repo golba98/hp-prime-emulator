@@ -45,9 +45,11 @@ def absolute_structure(label, top, bottom, fraction_and_root_lines):
     vertical = [(x, stroke) for x in range(105)
                 for stroke in runs(range(top, bottom), lambda y: image.getpixel((x, y)) < 96)
                 if len(stroke) >= 25]
-    assert len(vertical) == 2, (label, 'absolute-value bars', vertical)
-    (left, left_stroke), (right, right_stroke) = vertical
+    # The outer absolute-value bars also enclose the nested radical's stem.
+    assert len(vertical) >= 2, (label, 'absolute-value bars', vertical)
+    (left, left_stroke), (right, right_stroke) = vertical[0], vertical[-1]
     assert left_stroke == right_stroke
+    assert all(left < x < right for x, _ in vertical[1:-1])
     within_bars = range(left + 1, right)
     horizontal = [(y, stroke) for y in left_stroke
                   for stroke in runs(within_bars, lambda x: image.getpixel((x, y)) < 96)
