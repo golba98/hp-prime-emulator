@@ -482,6 +482,23 @@ impl NativeTools {
             picker.paint(&mut g);
             chrome::softkeys(&mut g, &["", "", "", "", "Cancel", "Apply"]);
         }
+        if self.spreadsheet_panel.confirm_reset {
+            g.rect(39, 76, 282, 155, 0x4b6070, 0xf7fafc);
+            g.fill_rect(40, 77, 281, 100, 0x3b5266);
+            draw_text(
+                &mut g,
+                "Reset Spreadsheet?",
+                48,
+                81,
+                15.,
+                0xffffff,
+                None,
+                None,
+            );
+            text(&mut g, "Clear all worksheet contents", 49, 111);
+            text(&mut g, "and formatting?", 49, 129);
+            chrome::softkeys(&mut g, &["Cancel", "", "", "", "", "OK"]);
+        }
         if self.spreadsheet_panel.pixels != g.pixels() {
             self.spreadsheet_panel.pixels = g.pixels().to_vec();
             let image = egui::ColorImage::new(
@@ -524,6 +541,22 @@ impl NativeTools {
                     ui.id().with("spreadsheet_surface"),
                     egui::Sense::click_and_drag(),
                 );
+                if self.spreadsheet_panel.confirm_reset {
+                    if response.clicked()
+                        && let Some(p) = response.interact_pointer_pos()
+                    {
+                        let p = (p - lcd.min) / scale;
+                        if p.y >= 220. {
+                            match chrome::softkey_index(p.x as i64) {
+                                0 => self.spreadsheet_finish_reset(false, requests),
+                                5 => self.spreadsheet_finish_reset(true, requests),
+                                _ => {}
+                            }
+                            ctx.request_repaint();
+                        }
+                    }
+                    return;
+                }
                 if response.hovered() {
                     let wheel = ctx.input(|i| i.smooth_scroll_delta.y);
                     if wheel.abs() > 1. && self.spreadsheet_panel.custom_color.is_none() {
@@ -560,7 +593,12 @@ impl NativeTools {
                 {
                     let p = (p - lcd.min) / scale;
                     let (x, y) = (p.x.floor() as i64, p.y.floor() as i64);
-                    if let Some(editor) = &self.spreadsheet_panel.editor {
+                    if let Some(picker) = &mut self.spreadsheet_panel.tool_picker {
+                        if let Some(result) = picker.pointer(x, y) {
+                            self.spreadsheet_finish_tool_pick(result, requests);
+                        }
+                        self.dirty();
+                    } else if let Some(editor) = &self.spreadsheet_panel.editor {
                         if self.spreadsheet_panel.form.is_some() {
                             if y >= 220 {
                                 match (x / 53).min(5) {
@@ -608,11 +646,6 @@ impl NativeTools {
                         ) {
                             requests.push(Request::TypeText(cell_name(col, row)));
                         }
-                    } else if let Some(picker) = &mut self.spreadsheet_panel.tool_picker {
-                        if let Some(result) = picker.pointer(x, y) {
-                            self.spreadsheet_finish_tool_pick(result, requests);
-                        }
-                        self.dirty();
                     } else if let Some(picker) = &mut self.spreadsheet_panel.custom_color {
                         if y >= 220 && x >= 212 {
                             self.spreadsheet_finish_custom_color(x >= 265);

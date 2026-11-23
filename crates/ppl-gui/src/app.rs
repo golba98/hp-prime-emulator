@@ -1712,7 +1712,10 @@ impl IdeDesktopApp {
                 {
                     if !self.state.firmware_backend && self.native_tools.page.is_some() {
                         self.request_composed_lcd(
-                            crate::ide::native_lcd_capture::CaptureAction::Save(file),
+                            crate::ide::native_lcd_capture::CaptureAction::Save {
+                                path: file,
+                                automation_step: None,
+                            },
                             _ctx,
                         );
                         return;
@@ -1809,7 +1812,10 @@ impl eframe::App for IdeDesktopApp {
         self.show_native_font_problem(ctx);
     }
 
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        if let Some(gl) = gl {
+            self.native_tools.release_statistics_cursor_overlay(gl);
+        }
         // Stop the worker on the way out (the handle's Drop also interrupts).
         self.stop_calculator_tasks();
         self.controller.join_current();
@@ -2071,6 +2077,9 @@ pub fn launch_ide_with(options: LaunchOptions) -> Result<(), Box<dyn std::error:
         check,
     } = options;
     let automation = crate::ide::automation::Automation::from_env();
+    let screenshot_failure = automation
+        .as_ref()
+        .map(crate::ide::automation::Automation::screenshot_failure);
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1440.0, 960.0])
         .with_min_inner_size([800.0, 500.0])
@@ -2105,6 +2114,14 @@ pub fn launch_ide_with(options: LaunchOptions) -> Result<(), Box<dyn std::error:
             Ok(Box::new(app))
         }),
     )?;
+    if let Some(failure) = screenshot_failure.and_then(|failure| {
+        failure
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take()
+    }) {
+        return Err(failure.into());
+    }
     Ok(())
 }
 

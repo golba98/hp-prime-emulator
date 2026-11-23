@@ -122,8 +122,12 @@ impl Default for ToolMemory {
             .map(|(name, kind)| {
                 let mut graph = GraphApp::new(kind);
                 if name == "Function" {
+                    graph.window = NativeTools::default_model_window(name);
                     graph.numeric_step = 0.1;
                     graph.curves[0].enabled = false;
+                }
+                if name == "Sequence" {
+                    graph.window = NativeTools::default_model_window(name);
                 }
                 (name.into(), graph)
             })
@@ -245,7 +249,12 @@ pub enum MathTarget {
         column: usize,
     },
     StatisticsPlotX,
+    StatisticsZoomFactor {
+        axis: usize,
+        initial: Option<&'static str>,
+    },
     GeometryPlotField(String),
+    GeometryTransformParameter(geometry::TransformParameter),
     GeometryObject {
         name: String,
         preset: Option<String>,
@@ -269,6 +278,7 @@ pub enum MathTarget {
 }
 #[derive(Clone, Copy)]
 pub enum ResetApp {
+    Sequence,
     Geometry,
     StatisticsOne,
     StatisticsTwo,
@@ -276,6 +286,7 @@ pub enum ResetApp {
 impl ResetApp {
     fn from_name(name: &str) -> Option<Self> {
         match name {
+            "Sequence" => Some(Self::Sequence),
             "Geometry" => Some(Self::Geometry),
             "Statistics 1Var" => Some(Self::StatisticsOne),
             "Statistics 2Var" => Some(Self::StatisticsTwo),
@@ -284,6 +295,7 @@ impl ResetApp {
     }
     pub fn name(self) -> &'static str {
         match self {
+            Self::Sequence => "Sequence",
             Self::Geometry => "Geometry",
             Self::StatisticsOne => "Statistics 1Var",
             Self::StatisticsTwo => "Statistics 2Var",
@@ -298,9 +310,12 @@ pub enum Request {
     },
     FinishMath(bool),
     ToggleSpreadsheetCas,
+    ResetSpreadsheet,
     SpreadsheetHistory(SpreadsheetHistory),
     TypeText(String),
     CopyText(String),
+    OpenHelpDemo(String, String),
+    CopyStatisticsSummary,
     StatisticsCellValue {
         two: bool,
         column: usize,
@@ -322,9 +337,26 @@ pub enum Request {
     StartApp(String),
     GraphConfiguration(String, super::native_apps::GraphApp),
     PlotConfiguration(String, ppl_vm::AppPlotSettings),
+    ImportStatisticsPicture {
+        from: String,
+        name: String,
+    },
+    StatisticsZoomFactors {
+        source: ([ppl_math::Real; 2], bool),
+        edited: ([ppl_math::Real; 2], bool),
+    },
+    Graph3dPlotZoom {
+        source: Box<ppl_vm::AppPlotSettings>,
+        edited: Box<ppl_vm::AppPlotSettings>,
+    },
     GeometryPlotConfiguration(ppl_vm::GeometryPlotSettings),
     ResetApp(ResetApp),
     FunctionNumericConfiguration(ppl_vm::AppNumericSettings),
+    Graph3dNumericConfiguration {
+        source: Box<ppl_vm::AppNumericSettings>,
+        edited: Box<ppl_vm::AppNumericSettings>,
+        selected_cell: [usize; 2],
+    },
     EditCollection {
         name: String,
         matrix: bool,
@@ -400,7 +432,6 @@ pub struct NativeTools {
     pub presentation_pending: bool,
     pub trace: super::native_plot_controls::TraceState,
     auto_scale_pending: bool,
-    statistics_plot_setup: Option<super::native_apps::PlotWindow>,
     pending_actions: Vec<Request>,
     pub pending_model_plot: Option<super::native_app_ui::Calculation>,
     pub integer_edit: Option<super::native_integer::IntegerEdit>,
@@ -485,7 +516,6 @@ impl NativeTools {
             self.observed_plot_settings
                 .insert(name.clone(), settings.clone());
             if name == "Statistics 1Var" {
-                self.statistics_plot_setup = None;
                 self.memory.models.histogram = Some(super::native_model_plots::HistogramSpec {
                     minimum: settings.hmin.to_f64(),
                     maximum: settings.hmax.to_f64(),
@@ -526,6 +556,9 @@ impl NativeTools {
         self.geometry_apply_context(context, committed_generation);
         self.spreadsheet_apply_context(context, committed_generation);
         self.function_numeric_apply_context(context);
+        if let Err(error) = self.graph3d_apply_plot_context(context) {
+            self.record_calculation_error("surface", Some(error));
+        }
         self.project_numeric_graph(context);
         if let Some(app) = self.memory.graphs.get_mut(&context.active_app) {
             for (name, target) in [
@@ -545,6 +578,7 @@ impl NativeTools {
             }
         }
         if context.active_app != "Geometry"
+            && context.active_app != super::native_graph3d::NAME
             && !self.memory.graphs.contains_key(&context.active_app)
             && super::native_app_views::supports(
                 &context.active_app,
@@ -582,6 +616,9 @@ impl NativeTools {
     }
     pub fn view_outcome(&self, changed: bool) -> ppl_vm::host::CalculatorViewOutcome {
         let mut globals = std::collections::BTreeMap::new();
+        if self.memory.selected_app == super::native_graph3d::NAME {
+            return ppl_vm::host::CalculatorViewOutcome { changed, globals };
+        }
         if changed && self.memory.selected_app == "Geometry" {
             let settings = self.geometry_plot_configuration().unwrap_or_default();
             for name in ppl_vm::GeometryPlotSettings::NAMES {
@@ -698,18 +735,24 @@ impl NativeTools {
         supports(&self.memory.selected_app, view)
     }
     pub fn open(&mut self, page: Page) {
+        if page == Page::PlotSetup && self.page != Some(Page::PlotSetup) {
+            self.statistics_reset_plot_setup();
+        }
+        if page == Page::NumericSetup {
+            self.graph3d_panel.reset_numeric_draft();
+        }
         if page == Page::Plot
             && self.page != Some(Page::Plot)
             && statistics::mode(&self.memory.selected_app) == Some(false)
         {
             self.trace.curve = 0;
             self.trace.sample = 0;
+            self.statistics_reset_free_plot_cursor();
         }
         if page == Page::Apps {
             self.gallery_open();
         }
         self.statistics_reset_popups();
-        self.statistics_plot_setup = None;
         if !self.supports_page(page) {
             self.error = Some(format!(
                 "Native {page:?} view is unavailable for {}",
@@ -728,6 +771,9 @@ impl NativeTools {
                 super::native::expression::palette::CELLS[0].name.into();
         }
         self.page = Some(page);
+        if self.memory.selected_app == super::native_graph3d::NAME && page == Page::Numeric {
+            self.graph3d_select_numeric_cell([0, 0]);
+        }
         if page == Page::Settings {
             self.home_settings = Default::default();
         }
@@ -740,8 +786,8 @@ impl NativeTools {
         self.generation = self.generation.wrapping_add(1);
     }
     pub fn close(&mut self) {
+        self.help_panel.close_demo_menu();
         self.statistics_reset_popups();
-        self.statistics_plot_setup = None;
         self.function_numeric_close();
         self.page = None;
         self.cancel_calculations();
@@ -800,6 +846,28 @@ impl NativeTools {
                 })
                 .unwrap_or_default()
         }
+    }
+    pub fn reset_sequence(&mut self, settings: &ppl_vm::AppPlotSettings) {
+        let name = "Sequence";
+        let mut graph = GraphApp::new(GraphKind::Sequence);
+        graph.window = Self::settings_window(settings);
+        graph.curves[0].enabled = false;
+        self.memory.graphs.insert(name.into(), graph);
+        self.pending_actions.retain(|request| {
+            !matches!(request,
+                Request::GraphConfiguration(app, _) | Request::PlotConfiguration(app, _)
+                if app == name
+            )
+        });
+        if self.memory.selected_app == name {
+            self.job = None;
+            self.table_job = None;
+            self.points.clear();
+            self.table.clear();
+            self.trace = Default::default();
+            self.error = None;
+        }
+        self.dirty();
     }
     pub fn default_model_window(name: &str) -> super::native_apps::PlotWindow {
         if name == "Geometry" {
@@ -890,8 +958,9 @@ impl NativeTools {
     ) {
         snapshot.active_app = self.memory.selected_app.clone();
         let angle = snapshot.effective_app_settings().angle;
+        let previous = self.trace_window();
         let window = match super::native_plot_controls::preset(
-            &self.trace_window(),
+            &previous,
             choice,
             angle,
             super::native_plot_controls::PresetCenter::Origin,
@@ -902,6 +971,9 @@ impl NativeTools {
                 return;
             }
         };
+        if self.memory.selected_app == statistics::app(false) {
+            self.statistics_record_zoom(previous);
+        }
         if let Some(app) = self.memory.graphs.get_mut(&self.memory.selected_app) {
             app.window = window;
         } else {
@@ -965,17 +1037,22 @@ impl NativeTools {
                 return Ok(());
             }
             let existing = self.memory.model_windows.get(name);
+            let had_window = existing.is_some();
             let mut window = existing
                 .cloned()
                 .unwrap_or_else(|| Self::settings_window(&settings));
+            let previous = (self.auto_scale_pending && bounds.is_some()).then(|| window.clone());
             if let Some(PlotScaleBounds::Finite([xmin, xmax, ymin, ymax])) = bounds {
                 window.xmin = *xmin;
                 window.xmax = *xmax;
                 window.ymin = *ymin;
                 window.ymax = *ymax;
             }
-            if existing.is_none() || bounds.is_some() {
+            if !had_window || bounds.is_some() {
                 window.validate()?;
+                if let Some(previous) = previous {
+                    self.statistics_record_zoom(previous);
+                }
                 self.memory.model_windows.insert(name.into(), window);
             }
             if let Some(histogram) = histogram {
@@ -1485,6 +1562,10 @@ impl NativeTools {
         }
         if self.is_spreadsheet_page() {
             self.show_spreadsheet(ctx, lcd, scale, snapshot, &mut requests);
+            return requests;
+        }
+        if self.statistics_plot_setup_active() {
+            self.show_statistics_plot_setup(ctx, lcd, scale, snapshot, &mut requests);
             return requests;
         }
         if statistics::mode(&self.memory.selected_app).is_some() && page == Page::Plot {

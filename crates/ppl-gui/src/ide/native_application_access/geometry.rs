@@ -1,6 +1,6 @@
 //! Measured Geometry Instruction/object access, committed only by the UI fence.
 mod host;
-use crate::ide::native_geometry::{Book, Object};
+use crate::ide::native_geometry::{Book, CachedObject, Object};
 pub(crate) use host::read_only_host;
 
 use ppl_vm::{
@@ -82,7 +82,9 @@ fn metadata(book: &Book, index: usize, snapshot: &SessionSnapshot) -> Result<Vec
         definition(&object.source, snapshot)?,
         book.current_values
             .get(&object.name)
-            .cloned()
+            .map(CachedObject::portable)
+            .transpose()
+            .map_err(invalid)?
             .unwrap_or(P::Symbolic(ppl_cas::CasValue::Undefined)),
         P::Integer(
             ppl_math::HpInt::parse_literal_with_defaults(&color, ppl_math::IntBase::Hex, 32)
@@ -188,7 +190,7 @@ pub(crate) fn read_only(
         name if name.starts_with('G') => {
             let object = requested_object(book, &name[1..], request)?;
             if let Some(value) = book.current_values.get(&object.name) {
-                value.clone()
+                value.portable().map_err(invalid)?
             } else {
                 definition(&object.source, snapshot)?
             }
@@ -296,7 +298,8 @@ pub fn access(
             let object = requested_object(&book, &name[1..], request)?;
             let name = object.name.clone();
             book.current_point_curves.remove(&name);
-            book.current_values.insert(name, value.clone());
+            book.current_values
+                .insert(name, CachedObject::Portable(value.clone()));
             value.clone()
         }
         _ => return Err(invalid("Unknown Geometry variable")),

@@ -90,6 +90,10 @@ pub enum Calculation {
     Finance(Finance, FinanceUnknown),
     Triangle(Triangle),
     Solve(String, String),
+    StatisticsPlotField {
+        field: super::native_tools::statistics::PlotSetupField,
+        source: String,
+    },
     GeometryPlotField {
         name: String,
         source: String,
@@ -146,6 +150,7 @@ impl Calculation {
             Self::Statistics1(_)
             | Self::Statistics1AutoScale(_)
             | Self::Statistics1Book(..)
+            | Self::StatisticsPlotField { .. }
             | Self::StatisticsDefinitionValue { two: false, .. }
             | Self::StatisticsCell { two: false, .. }
             | Self::StatisticsColumn { two: false, .. } => "Statistics 1Var",
@@ -285,6 +290,18 @@ impl Calculation {
                 json(data)
             }
             Self::Inference(request) => json(request.calculate_with_cancel(cancel)?),
+            Self::StatisticsPlotField { source, .. } => {
+                let value = super::native_readonly::evaluate(
+                    &source,
+                    "Statistics 1Var",
+                    snapshot,
+                    [],
+                    cancellation,
+                )?;
+                Ok(ppl_vm::session::encode_value(&ppl_vm::PortableValue::from(
+                    &value,
+                )))
+            }
             Self::GeometryPlotField { source, .. } => {
                 let value = super::native_readonly::evaluate(
                     &source,

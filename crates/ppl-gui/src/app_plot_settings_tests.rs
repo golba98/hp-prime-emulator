@@ -20,6 +20,43 @@ fn run(app: &mut IdeDesktopApp, ctx: &egui::Context, name: &str, source: &str) {
 }
 
 #[test]
+fn fresh_function_library_selection_keeps_firmware_plot_defaults() {
+    let (mut app, ctx) = fixture(Page::Programs);
+    app.handle_native_tool_request(Request::SelectApp("Function".into()), &ctx);
+    frame(&mut app, &ctx, vec![]);
+    let snapshot = app.controller.session_snapshot();
+    assert_eq!(
+        snapshot.app_plot_settings["Function"],
+        ppl_vm::AppPlotSettings::for_app("Function").unwrap()
+    );
+}
+
+#[test]
+fn function_library_selection_keeps_an_existing_ui_only_window() {
+    let (mut app, ctx) = fixture(Page::Programs);
+    app.native_tools
+        .memory
+        .graphs
+        .get_mut("Function")
+        .unwrap()
+        .window = crate::ide::native_apps::PlotWindow::default();
+    app.handle_native_tool_request(Request::SelectApp("Function".into()), &ctx);
+    frame(&mut app, &ctx, vec![]);
+    let snapshot = app.controller.session_snapshot();
+    let window = &snapshot.app_plot_settings["Function"];
+    assert_eq!(
+        [
+            window.xmin.to_f64(),
+            window.xmax.to_f64(),
+            window.ymin.to_f64(),
+            window.ymax.to_f64()
+        ],
+        [-10., 10., -10., 10.]
+    );
+    assert!(window.axes);
+}
+
+#[test]
 fn qualified_inactive_windows_survive_startapp_and_remain_independent() {
     let (mut app, ctx) = fixture(Page::Programs);
     run(
@@ -208,6 +245,89 @@ fn statistics_goto_editor_keeps_committed_and_cancelled_selection_but_home_reset
     app.native_tools.close();
     app.native_tools.open(Page::Plot);
     assert_eq!(point(&app), [1., 10001.]);
+}
+
+#[test]
+fn fresh_sequence_library_launch_keeps_firmware_plot_defaults() {
+    let (mut app, ctx) = fixture(Page::Programs);
+    app.handle_native_tool_request(Request::StartApp("Sequence".into()), &ctx);
+    frame(&mut app, &ctx, vec![]);
+    let snapshot = app.controller.session_snapshot();
+    assert_eq!(snapshot.active_app, "Sequence");
+    assert_eq!(app.native_tools.page, Some(Page::Symbolic));
+    assert_eq!(
+        snapshot.app_plot_settings["Sequence"],
+        ppl_vm::AppPlotSettings::for_app("Sequence").unwrap()
+    );
+}
+
+#[test]
+fn sequence_library_reset_restores_only_its_definitions_and_setup() {
+    use crate::ide::native_apps::SequenceDefinition;
+    use crate::ide::native_tools::ResetApp;
+
+    let (mut app, ctx) = fixture(Page::Programs);
+    run(
+        &mut app,
+        &ctx,
+        "SEQRESETSEED",
+        "EXPORT SEQRESETSEED() BEGIN A:=46467; HAngle:=1; STARTAPP(\"Function\"); Function.Xmin:=-12.25; Function.F1:=\"X+47\"; STARTAPP(\"Sequence\"); Xmin:=-4.5; Xmax:=22.125; Ymin:=-7.75; Ymax:=31.5; Xtick:=2; Ytick:=3; Axes:=1; GridDots:=1; GridLines:=1; Labels:=1; NumStart:=5; NumStep:=2; NumZoom:=4; NumIndep:={5,9}; NumType:=1; AAngle:=2; AComplex:=2; AFormat:=2; ADigits:=7; END;",
+    );
+    let graph = app.native_tools.memory.graphs.get_mut("Sequence").unwrap();
+    graph.curves[0].expression = "U1(N-1)+2".into();
+    graph.curves[0].enabled = true;
+    graph.curves[0].sequence = Some(SequenceDefinition {
+        start: 1,
+        initial: vec!["3".into(), "5".into()],
+        offset: 0,
+    });
+
+    app.native_tools.open(Page::Apps);
+    app.handle_native_tool_request(Request::ResetApp(ResetApp::Sequence), &ctx);
+    assert_eq!(app.native_tools.page, Some(Page::Apps));
+    let curves = &app.native_tools.memory.graphs["Sequence"].curves;
+    assert_eq!(curves.len(), 1);
+    assert!(curves[0].expression.is_empty());
+    assert!(!curves[0].enabled);
+    assert!(curves[0].sequence.is_none());
+
+    run(
+        &mut app,
+        &ctx,
+        "SEQRESETREAD",
+        "EXPORT SEQRESETREAD() BEGIN RETURN {Xmin,Xmax,Ymin,Ymax,Xtick,Ytick,Axes,GridDots,GridLines,Labels,NumStart,NumStep,NumZoom,NumType,TYPE(NumIndep),NumIndep,AAngle,AComplex,AFormat,ADigits,HAngle,A,Function.Xmin,Function.F1(2)}; END;",
+    );
+    let snapshot = app.controller.session_snapshot();
+    assert_eq!(snapshot.active_app, "Sequence");
+    assert_eq!(
+        snapshot.last_value.unwrap().display(&snapshot.settings),
+        "{-1.8,30,-1.8,20,1,1,0,0,0,0,1,1,2,0,6,{},0,0,0,4,1,46467,-12.25,49}"
+    );
+}
+
+#[test]
+fn sequence_library_selection_keeps_an_existing_ui_only_window() {
+    let (mut app, ctx) = fixture(Page::Programs);
+    app.native_tools
+        .memory
+        .graphs
+        .get_mut("Sequence")
+        .unwrap()
+        .window = crate::ide::native_apps::PlotWindow::default();
+    app.handle_native_tool_request(Request::SelectApp("Sequence".into()), &ctx);
+    frame(&mut app, &ctx, vec![]);
+    let snapshot = app.controller.session_snapshot();
+    let window = &snapshot.app_plot_settings["Sequence"];
+    assert_eq!(
+        [
+            window.xmin.to_f64(),
+            window.xmax.to_f64(),
+            window.ymin.to_f64(),
+            window.ymax.to_f64()
+        ],
+        [-10., 10., -10., 10.]
+    );
+    assert!(window.axes);
 }
 
 #[test]

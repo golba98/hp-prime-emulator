@@ -93,3 +93,57 @@ fn installed_help_search_mouse_keyboard_history_and_restored_selection_work_toge
         entry("COS").id
     );
 }
+
+#[test]
+fn installed_help_program_demo_opens_a_new_editor_without_changing_the_catalog() {
+    let Some(path) = std::env::var_os("PPL_PRIME_HELP_RESOURCE") else {
+        return;
+    };
+    let book = ppl_engine::help::Book::load_resource(
+        std::path::Path::new(&path),
+        ppl_engine::help::Language::English,
+    )
+    .unwrap();
+    let article = book.topic(925).unwrap();
+    let demos = book.topic_demo_programs(article);
+    assert_eq!(demos.len(), 1);
+    let (name, source) = demos[0];
+    assert_eq!(name, "Demo_BREAK");
+    assert!(source.starts_with("#pragma mode("));
+    assert_eq!(source.lines().count(), 10);
+
+    let (mut app, ctx) = fixture(Page::Help);
+    app.editor.new_tab("Unrelated.ppl", "prior tab contents");
+    let prior = app.editor.active_tab().unwrap().id;
+    let programs = app.controller.session_snapshot().programs;
+    app.native_tools.memory.help_topic = article.name.clone();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !rendered(&mut app, &ctx, "Example") {
+        assert!(
+            Instant::now() < deadline,
+            "installed demo picker did not load"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    click(&mut app, &ctx, "Example");
+    assert!(rendered(&mut app, &ctx, name));
+    assert!(app.route_native_tool_action(crate::ide::native::keys::KeyAction::Back, &ctx));
+    assert_eq!(app.native_tools.page, Some(Page::Help));
+    assert!(!rendered(&mut app, &ctx, name));
+
+    click(&mut app, &ctx, "Example");
+    assert!(rendered(&mut app, &ctx, name));
+    assert!(app.route_native_tool_action(crate::ide::native::keys::KeyAction::Evaluate, &ctx));
+    assert!(app.native_tools.page.is_none());
+    assert_eq!(
+        app.state.layout,
+        crate::ide::layout::WorkspaceLayout::Editor
+    );
+    let opened = app.editor.active_tab().unwrap();
+    assert_eq!(opened.title, "Demo_BREAK.ppl");
+    assert_eq!(opened.content, source);
+    assert!(opened.path.is_none());
+    let previous = &app.editor.tabs[app.editor.index_of(prior).unwrap()];
+    assert_eq!(previous.content, "prior tab contents");
+    assert_eq!(app.controller.session_snapshot().programs, programs);
+}

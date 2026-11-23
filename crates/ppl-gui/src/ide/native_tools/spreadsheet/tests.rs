@@ -10,6 +10,49 @@ fn tools() -> NativeTools {
 }
 
 #[test]
+fn reset_clear_requires_confirmation_and_blocks_grid_edits() {
+    let mut tools = tools();
+    tools.memory.models.spreadsheet.set("A1", "2").unwrap();
+    assert!(
+        tools
+            .spreadsheet_action(A::Edit(EditCommand::Clear))
+            .unwrap()
+            .is_empty()
+    );
+    assert!(tools.spreadsheet_panel.confirm_reset);
+    assert!(tools.spreadsheet_text("9").unwrap().is_empty());
+    assert!(
+        tools
+            .spreadsheet_paste_text("{{8,9},{10,11}}")
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        tools
+            .spreadsheet_action(A::Edit(EditCommand::Backspace))
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(tools.memory.models.spreadsheet.cells["A1"], "2");
+    assert!(tools.spreadsheet_action(A::Back).unwrap().is_empty());
+    assert!(!tools.spreadsheet_panel.confirm_reset);
+    assert_eq!(tools.memory.models.spreadsheet.cells["A1"], "2");
+
+    assert!(
+        tools
+            .spreadsheet_action(A::Edit(EditCommand::Clear))
+            .unwrap()
+            .is_empty()
+    );
+    assert!(matches!(
+        tools.spreadsheet_action(A::Evaluate).unwrap().as_slice(),
+        [Request::ResetSpreadsheet]
+    ));
+    assert!(!tools.spreadsheet_panel.confirm_reset);
+    assert_eq!(tools.memory.models.spreadsheet.cells["A1"], "2");
+}
+
+#[test]
 fn requested_dimensions_include_grid_lines_and_visible_row_labels_size_the_gutter() {
     let mut sheet = Spreadsheet::default();
     assert_eq!(view::axes(&sheet, 1, true, 1)[0], (1, 18, 83));

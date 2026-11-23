@@ -122,6 +122,7 @@ pub(super) struct Panel {
     cell_choice: Option<OpenCellChoice>,
     paste_choice: Option<usize>,
     clipboard: Option<Arc<ClipboardBlock>>,
+    confirm_reset: bool,
     show: bool,
     show_offset: [i64; 2],
     busy: bool,
@@ -206,6 +207,7 @@ impl Drop for Job {
 }
 impl NativeTools {
     pub fn spreadsheet_cancel(&mut self) {
+        self.spreadsheet_panel.confirm_reset = false;
         self.spreadsheet_panel.tool_picker = None;
         self.spreadsheet_panel.sort_menu = None;
         self.spreadsheet_panel.cell_choice = None;
@@ -413,6 +415,7 @@ impl NativeTools {
             return None;
         }
         if self.spreadsheet_panel.busy
+            || self.spreadsheet_panel.confirm_reset
             || self.spreadsheet_panel.menu.is_some()
             || self.spreadsheet_panel.tool_picker.is_some()
             || self.spreadsheet_panel.sort_menu.is_some()
@@ -562,7 +565,8 @@ impl NativeTools {
         text
     }
     pub fn spreadsheet_paste_text(&mut self, text: &str) -> Option<Vec<Request>> {
-        if self.spreadsheet_panel.paste_choice.is_some()
+        if self.spreadsheet_panel.confirm_reset
+            || self.spreadsheet_panel.paste_choice.is_some()
             || self.spreadsheet_panel.tool_picker.is_some()
             || self.spreadsheet_panel.sort_menu.is_some()
             || self.spreadsheet_panel.cell_choice.is_some()
@@ -692,12 +696,28 @@ impl NativeTools {
         }
         self.dirty();
     }
+    fn spreadsheet_finish_reset(&mut self, confirmed: bool, requests: &mut Vec<Request>) {
+        if std::mem::take(&mut self.spreadsheet_panel.confirm_reset) {
+            if confirmed {
+                requests.push(Request::ResetSpreadsheet);
+            }
+            self.dirty();
+        }
+    }
     pub fn spreadsheet_action(&mut self, action: A) -> Option<Vec<Request>> {
         if !self.is_spreadsheet_page() {
             return None;
         }
         let mut requests = vec![];
         if self.spreadsheet_panel.busy {
+            return Some(requests);
+        }
+        if self.spreadsheet_panel.confirm_reset {
+            match action {
+                A::Back => self.spreadsheet_finish_reset(false, &mut requests),
+                A::Evaluate => self.spreadsheet_finish_reset(true, &mut requests),
+                _ => {}
+            }
             return Some(requests);
         }
         if let Some(picker) = &mut self.spreadsheet_panel.tool_picker {
@@ -835,8 +855,7 @@ impl NativeTools {
         let extend = self.memory.spreadsheet_cursor.selecting;
         match action {
             A::Tool(crate::ide::native::keys::Tool::Menu) => {
-                self.spreadsheet_panel.tool_picker = Some(home_history::Picker::commands());
-                self.dirty();
+                self.spreadsheet_open_command_picker(false);
             }
             A::History(d) => self.spreadsheet_select(
                 c,
@@ -870,6 +889,11 @@ impl NativeTools {
                 self.memory.spreadsheet_cursor.selecting = false;
                 self.memory.spreadsheet_cursor.whole_rows = false;
                 self.memory.spreadsheet_cursor.whole_columns = false;
+                self.dirty();
+            }
+            A::Edit(E::Clear) if self.spreadsheet_panel.editor.is_none() => {
+                self.spreadsheet_panel.confirm_reset = true;
+                self.error = None;
                 self.dirty();
             }
             A::Edit(E::Backspace | E::Delete) => {

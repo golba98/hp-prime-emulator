@@ -15,7 +15,8 @@ use crate::ide::{
     native_app_models::Statistics1,
     native_inference::Distribution,
     native_model_plots::{
-        self as plots, DotColumn, HistogramSpec, PlotAnnotation, PlotData, PlotFill, PlotStyle,
+        self as plots, DOT_FILL_ALPHA, DotColumn, HistogramSpec, PlotAnnotation, PlotData,
+        PlotFill, PlotStyle,
     },
 };
 use ppl_vm::SessionSnapshot;
@@ -34,7 +35,7 @@ fn check(cancel: &AtomicBool) -> Result<(), String> {
         Ok(())
     }
 }
-pub(super) fn projection(data: &Data) -> Result<Statistics1, String> {
+pub(super) fn projection(data: &Data, chart: Chart) -> Result<Statistics1, String> {
     let samples = data
         .values
         .iter()
@@ -47,7 +48,8 @@ pub(super) fn projection(data: &Data) -> Result<Statistics1, String> {
             }
         })
         .collect::<Result<Vec<_>, String>>()?;
-    if data.count.is_zero() {
+    // Dot still traces the observation positions when every stack is empty.
+    if data.count.is_zero() && (chart != Chart::Dot || samples.is_empty()) {
         return Err("Insufficient statistics data".into());
     }
     Ok(Statistics1 {
@@ -231,43 +233,70 @@ fn bars(
     }
     Ok(())
 }
+pub(super) struct BoxValues {
+    pub markers: [ppl_math::Real; 5],
+    pub below: Vec<ppl_math::Real>,
+    pub above: Vec<ppl_math::Real>,
+}
+
+pub(super) fn box_values(
+    data: &Data,
+    option: u8,
+    cancel: &AtomicBool,
+) -> Result<BoxValues, String> {
+    let summary = data.summary(cancel)?;
+    let mut markers = ["MinVal", "Q₁", "MedVal", "Q₃", "MaxVal"].map(|name| summary.finite(name));
+    let mut below = Vec::new();
+    let mut above = Vec::new();
+    if option == 2 {
+        let fence = markers[3]
+            .sub(markers[1])
+            .and_then(|spread| spread.mul(ppl_math::Real::parse("1.5").unwrap()))
+            .map_err(|error| error.to_string())?;
+        let left = markers[1].sub(fence).map_err(|error| error.to_string())?;
+        let right = markers[3].add(fence).map_err(|error| error.to_string())?;
+
+        // Show outliers applies weighted quartile fences to every source row,
+        // including observations whose frequency is zero.
+        below = data.values.clone();
+        below.sort_by(|a, b| a.cmp_value(*b));
+        let first = below.partition_point(|value| value.cmp_value(left).is_lt());
+        let end = below.partition_point(|value| !value.cmp_value(right).is_gt());
+        let inside = &below[first..end];
+        if let (Some(&min), Some(&max)) = (inside.first(), inside.last()) {
+            markers[0] = min;
+            markers[4] = max;
+        }
+        above = below.split_off(end);
+        below.truncate(first);
+    }
+    Ok(BoxValues {
+        markers,
+        below,
+        above,
+    })
+}
+
 fn box_whisker(
     result: &mut PlotData,
     data: &Data,
-    model: &Statistics1,
     option: u8,
     index: usize,
     color: u32,
     cancel: &AtomicBool,
 ) -> Result<(), String> {
-    let summary = data.summary(cancel)?;
-    let number = |name: &str| summary.finite(name).to_f64();
-    let (q1, median, q3) = (number("Q₁"), number("MedVal"), number("Q₃"));
-    let (mut low, mut high) = (number("MinVal"), number("MaxVal"));
-    if option == 2 {
-        let spread = q3 - q1;
-        let (left, right) = (q1 - 1.5 * spread, q3 + 1.5 * spread);
-        let inside = model
-            .samples
-            .iter()
-            .zip(&data.weights)
-            .filter(|(x, w)| !w.is_zero() && **x >= left && **x <= right)
-            .map(|(&x, _)| x)
-            .collect::<Vec<_>>();
-        low = inside.iter().copied().fold(f64::INFINITY, f64::min);
-        high = inside.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let outliers = model
-            .samples
-            .iter()
-            .zip(&data.weights)
-            .filter(|(x, w)| !w.is_zero() && (**x < left || **x > right))
-            .map(|(&x, _)| [x, index as f64 * 2. + 1.5])
-            .collect::<Vec<_>>();
-        if !outliers.is_empty() {
-            curve(result, "Outliers", PlotStyle::Scatter, outliers, color)?;
-        }
-    }
+    let data = box_values(data, option, cancel)?;
+    let [low, q1, median, q3, high] = data.markers.map(ppl_math::Real::to_f64);
     let y = index as f64 * 2. + 1.5;
+    if !data.below.is_empty() || !data.above.is_empty() {
+        let outliers = data
+            .below
+            .iter()
+            .chain(&data.above)
+            .map(|value| [value.to_f64(), y])
+            .collect();
+        curve(result, "Outliers", PlotStyle::Scatter, outliers, color)?;
+    }
     result.fills.push(PlotFill {
         points: vec![[q1, y - 0.5], [q1, y + 0.5], [q3, y + 0.5], [q3, y - 0.5]],
         color: pale(color),
@@ -502,7 +531,7 @@ fn dot(
 ) -> Result<(), String> {
     let grouped = dot_groups(data, cancel)?;
     let mut points = Vec::with_capacity(grouped.len());
-    for (value, count) in grouped {
+    for (column, (value, count)) in grouped.into_iter().enumerate() {
         check(cancel)?;
         let x = value.to_f64();
         let (whole, fraction) = count.split()?;
@@ -510,13 +539,25 @@ fn dot(
             x,
             count: whole,
             fraction,
-            color: pale(color),
+            color: dot_fill(color, column),
             analysis: index + 1,
         });
         // Trace visits each distinct X once and uses the complete frequency.
         points.push([x, count.to_f64()]);
     }
     curve(result, "Dot", PlotStyle::TraceOnly, points, color)
+}
+fn dot_fill(color: u32, column: usize) -> u32 {
+    let alpha = u32::from(DOT_FILL_ALPHA);
+    let channel = |shift: u32| -> u32 {
+        let mut shade = (color >> shift) & 255u32;
+        // Sorted stacks cycle through four shades, including empty stacks.
+        for _ in 0..column % 4 {
+            shade = shade * 9 / 10;
+        }
+        (shade * alpha + 255 * (256 - alpha)) / 256
+    };
+    (channel(16) << 16) | (channel(8) << 8) | channel(0)
 }
 pub(super) type StemRow = ((bool, i64, u8), Vec<u8>);
 pub(super) struct StemLayout {
@@ -691,7 +732,7 @@ pub(crate) fn plot_with_geometry(
         check(&cancel)?;
         let data =
             Data::evaluate_with_geometry(analysis, snapshot, cancel.clone(), geometry.clone())?;
-        let model = projection(&data)?;
+        let model = projection(&data, analysis.chart)?;
         let color = analysis.plot_color(index);
         let mut chart = PlotData::new("Value", "Frequency");
         let mut histogram_trace = None;
@@ -728,15 +769,9 @@ pub(crate) fn plot_with_geometry(
                 }
             }
             Chart::Dot => dot(&mut chart, &data, index, color, &cancel)?,
-            Chart::BoxWhisker => box_whisker(
-                &mut chart,
-                &data,
-                &model,
-                analysis.option,
-                index,
-                color,
-                &cancel,
-            )?,
+            Chart::BoxWhisker => {
+                box_whisker(&mut chart, &data, analysis.option, index, color, &cancel)?
+            }
             _ => {
                 let mut values = model.samples.clone();
                 match analysis.chart {

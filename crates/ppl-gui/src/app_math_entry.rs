@@ -49,6 +49,12 @@ impl IdeDesktopApp {
             )
         })
     }
+    pub(super) fn spreadsheet_cell_math_entry(&self) -> bool {
+        self.math_entry
+            .as_ref()
+            .is_some_and(|entry| matches!(entry.target, MathTarget::SpreadsheetCell { .. }))
+    }
+
     pub(super) fn spreadsheet_cas_mode(&self) -> Option<bool> {
         self.math_entry.as_ref()?.spreadsheet_cas
     }
@@ -197,6 +203,7 @@ impl IdeDesktopApp {
             MathTarget::GeometryPlotField(name) => {
                 self.native_tools.geometry_plot_field_source(name)
             }
+            MathTarget::GeometryTransformParameter(_) => String::new(),
             MathTarget::GeometryObject { name, preset, .. } => {
                 self.native_tools.geometry_object_source(name, preset)
             }
@@ -214,6 +221,9 @@ impl IdeDesktopApp {
                 .map(|m| m.label.clone())
                 .unwrap_or_default(),
             MathTarget::StatisticsPlotX => self.native_tools.statistics_plot_x().to_string(),
+            MathTarget::StatisticsZoomFactor { axis, initial } => initial
+                .map(str::to_owned)
+                .unwrap_or_else(|| self.native_tools.statistics_zoom_factor_source(*axis)),
             MathTarget::StatisticsGoto { two } => {
                 (self.native_tools.memory.statistics_cursor[usize::from(*two)].row + 1).to_string()
             }
@@ -279,14 +289,13 @@ impl IdeDesktopApp {
             previous_page: self.native_tools.page.unwrap_or(Page::Symbolic),
             spreadsheet_cas,
         });
-        if matches!(
-            &self.math_entry.as_ref().unwrap().target,
-            MathTarget::FunctionNumeric { .. }
-        ) {
-            self.native_tools.cancel_calculations();
-            self.native_tools.page = None;
-        } else {
-            self.native_tools.close();
+        match &self.math_entry.as_ref().unwrap().target {
+            MathTarget::FunctionNumeric { .. } => {
+                self.native_tools.cancel_calculations();
+                self.native_tools.page = None;
+            }
+            MathTarget::StatisticsZoomFactor { .. } => self.native_tools.page = None,
+            _ => self.native_tools.close(),
         }
         self.state.native.edit(|e| e.set_text(&text));
         if matches!(
@@ -305,7 +314,11 @@ impl IdeDesktopApp {
                 .edit(|e| e.set_cursor(text.len() - 1, false));
         }
 
-        self.state.native.edit_title = Some("Edit expression · Enter: OK · Esc: cancel".into());
+        let title = match self.math_entry.as_ref().map(|entry| &entry.target) {
+            Some(MathTarget::GeometryTransformParameter(parameter)) => parameter.prompt(),
+            _ => "Edit expression",
+        };
+        self.state.native.edit_title = Some(format!("{title} · Enter: OK · Esc: cancel"));
         self.state.native.alpha_default_lower = spreadsheet_cas == Some(true)
             || matches!(
                 self.math_entry.as_ref().map(|entry| entry.previous_page),
@@ -321,6 +334,19 @@ impl IdeDesktopApp {
     }
 
     pub(super) fn finish_math_entry(&mut self, commit: bool, ctx: &egui::Context) -> bool {
+        if let Some(MathTarget::GeometryTransformParameter(parameter)) =
+            self.math_entry.as_ref().map(|entry| &entry.target)
+        {
+            let source = commit.then_some(self.state.native.home_input.as_str());
+            if let Err(error) = self
+                .native_tools
+                .geometry_transform_parameter(*parameter, source)
+            {
+                self.state.native.edit_title = Some(error);
+                ctx.request_repaint();
+                return true;
+            }
+        }
         if let Some(field) = self.function_numeric_math_entry() {
             if commit {
                 self.native_tools.function_numeric_submit(
@@ -376,6 +402,20 @@ impl IdeDesktopApp {
                 return true;
             }
         }
+        let zoom_factor = match self.math_entry.as_ref().map(|entry| &entry.target) {
+            Some(MathTarget::StatisticsZoomFactor { axis, .. }) => Some(*axis),
+            _ => None,
+        };
+        if commit
+            && let Some(axis) = zoom_factor
+            && let Err(error) = self
+                .native_tools
+                .statistics_set_zoom_factor(axis, &self.state.native.home_input)
+        {
+            self.state.native.edit_title = Some(error);
+            ctx.request_repaint();
+            return true;
+        }
         let graph_edit = self.graph_math_entry();
         if commit && graph_edit && !self.state.native.home_input.trim().is_empty() {
             let (_, d) = ppl_syntax::parse_expression(&self.state.native.home_input);
@@ -397,7 +437,7 @@ impl IdeDesktopApp {
         if commit {
             let source = self.state.native.home_input.clone();
             match entry.target {
-                MathTarget::FunctionNumeric { .. } => {}
+                MathTarget::FunctionNumeric { .. } | MathTarget::StatisticsZoomFactor { .. } => {}
                 MathTarget::SpreadsheetCell {
                     address, history, ..
                 } => {
@@ -547,6 +587,7 @@ impl IdeDesktopApp {
                 MathTarget::GeometryPlotField(_) => {
                     unreachable!("Geometry Plot Setup uses the worker")
                 }
+                MathTarget::GeometryTransformParameter(_) => {}
                 MathTarget::GeometryObject { name, insert, .. } => {
                     if let Some(book) = self.native_tools.memory.models.geometry_book.clone() {
                         self.native_tools.memory.geometry_draft =
@@ -704,7 +745,12 @@ impl IdeDesktopApp {
         // Returning from an editor is not a new Plot visit. In particular,
         // Go To has just chosen a trace sample that opening Plot must retain.
         let plot_trace = (entry.previous_page == Page::Plot).then_some(self.native_tools.trace);
-        self.native_tools.open(entry.previous_page);
+        if zoom_factor.is_some() {
+            self.native_tools.page = Some(entry.previous_page);
+            self.native_tools.dirty();
+        } else {
+            self.native_tools.open(entry.previous_page);
+        }
         if let Some(trace) = plot_trace {
             self.native_tools.trace = trace;
         }

@@ -1,7 +1,7 @@
 //! Evaluated function graphs use the same compiled numeric engine as Function.
 use super::{Extent, Point2, Shape, number, point, primitives, source};
 use crate::ide::native_apps::Evaluator;
-use ppl_syntax::ast::{BinOp, Expr, ExprKind, UnOp};
+use ppl_syntax::ast::{BinOp, Expr, ExprKind, PostOp, UnOp};
 use ppl_vm::SessionSnapshot;
 use std::sync::{
     Arc,
@@ -120,4 +120,88 @@ pub(super) fn element(
         &mut Evaluator::geometry_function(expression, snapshot, cancel)?,
         x,
     )
+}
+
+pub(super) fn tangent_at(
+    expression: &str,
+    p: Point2,
+    snapshot: &SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<Shape, String> {
+    let (expr, diagnostics) = ppl_syntax::parse_expression(expression);
+    if let Some(error) = diagnostics.errors().next() {
+        return Err(error.message.clone());
+    }
+    let constant = |expr: &Expr| {
+        let source = expression
+            .get(expr.span.start as usize..expr.span.end as usize)
+            .ok_or("Invalid Function Graph constant")?;
+        Ok::<_, String>(element(source, p.x, snapshot, cancel.clone())?.y)
+    };
+    let (_, slope) = algebraic_value_and_slope(&expr, p.x, &constant)?;
+    let length = slope.hypot(1.);
+    let step = 1_f64.max(p.x.abs().max(p.y.abs()) * 4. * f64::EPSILON);
+    primitives::line(
+        p,
+        Point2 {
+            x: p.x + step / length,
+            y: p.y + step * (slope / length),
+        },
+        Extent::Line,
+    )
+}
+
+fn value_and_slope_of_power(base: f64, slope: f64, exponent: f64) -> (f64, f64) {
+    if exponent == 0. {
+        (1., 0.)
+    } else {
+        (
+            base.powf(exponent),
+            exponent * base.powf(exponent - 1.) * slope,
+        )
+    }
+}
+
+// Evaluate the derivative along with the function value. Graph samples are
+// rounded calculator results and do not define the tangent direction.
+fn algebraic_value_and_slope(
+    expr: &Expr,
+    x: f64,
+    constant: &impl Fn(&Expr) -> Result<f64, String>,
+) -> Result<(f64, f64), String> {
+    if !reads_x(expr) {
+        return Ok((constant(expr)?, 0.));
+    }
+    let unsupported = || "Tangent needs a polynomial or rational Function Graph".to_owned();
+    let (value, slope) = match &expr.kind {
+        ExprKind::Ident(name) if name == "x" => (x, 1.),
+        ExprKind::Unary(UnOp::Neg, arg) => {
+            let (value, slope) = algebraic_value_and_slope(arg, x, constant)?;
+            (-value, -slope)
+        }
+        ExprKind::Postfix(operation @ (PostOp::Square | PostOp::Cube), arg) => {
+            let (value, slope) = algebraic_value_and_slope(arg, x, constant)?;
+            let exponent = if *operation == PostOp::Square { 2. } else { 3. };
+            value_and_slope_of_power(value, slope, exponent)
+        }
+        ExprKind::Binary(operation, left, right) => {
+            let (u, du) = algebraic_value_and_slope(left, x, constant)?;
+            let (v, dv) = algebraic_value_and_slope(right, x, constant)?;
+            match operation {
+                BinOp::Add => (u + v, du + dv),
+                BinOp::Sub => (u - v, du - dv),
+                BinOp::Mul => (u * v, du * v + u * dv),
+                BinOp::Div => {
+                    let value = u / v;
+                    (value, (du - value * dv) / v)
+                }
+                BinOp::Pow if !reads_x(right) && v.fract() == 0. => {
+                    value_and_slope_of_power(u, du, v)
+                }
+                _ => return Err(unsupported()),
+            }
+        }
+        _ => return Err(unsupported()),
+    };
+    Ok((number(value)?, number(slope)?))
 }

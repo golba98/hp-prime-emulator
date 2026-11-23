@@ -58,6 +58,7 @@ struct Resolver {
     calls: Rc<Cell<usize>>,
     stack: Vec<String>,
     home: ppl_vm::Settings,
+    cas_cache: Option<Rc<ppl_vm::session::HomeCasCache>>,
 }
 /// Local model changes are committed by the UI only after its source/epoch fence.
 pub struct AccessResult {
@@ -208,6 +209,7 @@ pub fn access(
         calls: Rc::new(Cell::new(0)),
         stack: vec![],
         home: snapshot.settings.clone(),
+        cas_cache: None,
     };
     Ok(AccessResult {
         value: resolver.read(request.clone(), snapshot.clone())?,
@@ -236,6 +238,7 @@ pub fn evaluate_expression(
         calls: Rc::new(Cell::new(0)),
         stack: vec![],
         home: snapshot.settings.clone(),
+        cas_cache: None,
     }
     .expression(source, None, snapshot)
 }
@@ -262,6 +265,7 @@ pub fn evaluate_numeric_rows(
         calls: Rc::new(Cell::new(0)),
         stack: vec![],
         home: snapshot.settings.clone(),
+        cas_cache: Some(Rc::default()),
     };
     let enabled = resolver
         .function
@@ -479,23 +483,23 @@ impl Resolver {
         }
         let before = context.snapshot();
         let remaining = self.deadline.saturating_duration_since(Instant::now());
-        let result = context
-            .evaluate_home(
-                &source,
-                Box::new(LocalHost {
-                    inner: HeadlessHost {
-                        interrupt: Some(self.cancel.clone()),
-                        ..Default::default()
-                    },
-                    resolver: self.clone(),
-                }),
-                ppl_vm::Limits {
-                    max_steps: Some(1_000_000),
-                    max_time: Some(remaining.min(Duration::from_secs(2))),
-                    ..Default::default()
-                },
-            )
-            .result;
+        let host = Box::new(LocalHost {
+            inner: HeadlessHost {
+                interrupt: Some(self.cancel.clone()),
+                ..Default::default()
+            },
+            resolver: self.clone(),
+        });
+        let limits = ppl_vm::Limits {
+            max_steps: Some(1_000_000),
+            max_time: Some(remaining.min(Duration::from_secs(2))),
+            ..Default::default()
+        };
+        let result = match &self.cas_cache {
+            Some(cache) => context.evaluate_home_with_cas_cache(&source, host, limits, cache),
+            None => context.evaluate_home(&source, host, limits),
+        }
+        .result;
         self.check()?;
         let after = context.snapshot();
         if super::native_readonly::changed(&before, &after) {

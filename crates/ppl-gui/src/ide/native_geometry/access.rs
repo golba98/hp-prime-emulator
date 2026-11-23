@@ -82,6 +82,14 @@ pub(crate) fn shape_value(shape: &Shape) -> Result<PortableValue, String> {
         Shape::Function { expression, .. } => symbolic(format!("plotfunc({expression})")),
     })
 }
+impl CachedObject {
+    pub(crate) fn portable(&self) -> Result<PortableValue, String> {
+        match self {
+            Self::Portable(value) => Ok(value.clone()),
+            Self::Curve(curve) => shape_value(curve),
+        }
+    }
+}
 impl Book {
     /// Include value-only assignments in the GUI's optimistic commit fence.
     pub fn access_fingerprint(&self) -> serde_json::Value {
@@ -89,7 +97,10 @@ impl Book {
             "definitions": self,
             "point_curves": self.current_point_curves,
             "values": self.current_values.iter().map(|(name, value)|
-                (name.clone(), ppl_vm::session::encode_value(value))).collect::<std::collections::BTreeMap<_, _>>()
+                (name.clone(), match value {
+                    CachedObject::Portable(value) => ppl_vm::session::encode_value(value),
+                    CachedObject::Curve(curve) => serde_json::json!({ "curve": curve }),
+                })).collect::<std::collections::BTreeMap<_, _>>()
         })
     }
     pub fn cache_scene(&mut self, scene: &Scene) -> Result<(), String> {
@@ -99,8 +110,14 @@ impl Book {
                 values.insert(
                     object.name.clone(),
                     match &object.value {
-                        Ok(shape) => shape_value(shape)?,
-                        Err(_) => undefined(),
+                        Ok(shape @ Shape::Arc(_)) => CachedObject::Curve(Box::new(shape.clone())),
+                        Ok(shape @ Shape::Ellipse(ellipse))
+                            if ellipse.element_reference.is_some() =>
+                        {
+                            CachedObject::Curve(Box::new(shape.clone()))
+                        }
+                        Ok(shape) => CachedObject::Portable(shape_value(shape)?),
+                        Err(_) => CachedObject::Portable(undefined()),
                     },
                 );
             }

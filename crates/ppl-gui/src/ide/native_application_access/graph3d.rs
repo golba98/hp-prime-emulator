@@ -2,7 +2,7 @@
 use super::{AccessResult, RuntimeError, checkbox, definition::Definition, invalid};
 use crate::ide::{
     native_apps::Evaluator,
-    native_graph3d::{Definitions, FUNCTIONS, NAME},
+    native_graph3d::{Definitions, FUNCTIONS, plot_context},
 };
 use ppl_math::Real;
 use ppl_vm::{ErrorKind, PortableValue, SessionSnapshot, Value, host::AppVariableRequest};
@@ -117,8 +117,7 @@ pub(crate) fn access(
     if let Some(value) = literal {
         return finish(value, None);
     }
-    let mut context = snapshot.clone();
-    context.active_app = NAME.to_owned();
+    let context = plot_context(snapshot);
     let context = crate::ide::native_graph_context::resolve(
         &context,
         &[&definition.source],
