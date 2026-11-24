@@ -424,6 +424,7 @@ pub struct NativeTools {
     geometry_panel: geometry::Panel,
     spreadsheet_panel: spreadsheet::Panel,
     template_icons: Vec<egui::TextureHandle>,
+    template_grid: Option<(usize, egui::TextureHandle)>,
     template_strip: Option<egui::TextureHandle>,
     picker_focus_pending: bool,
     picker_scroll_pending: bool,
@@ -466,6 +467,7 @@ impl NativeTools {
     pub(crate) fn set_prime_font(&mut self, selected: bool) {
         self.prime_font = selected;
         self.template_icons.clear();
+        self.template_grid = None;
         self.template_strip = None;
         self.dirty();
     }
