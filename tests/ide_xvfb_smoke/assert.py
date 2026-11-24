@@ -5,6 +5,7 @@ Usage: python3 assert.py dump_workflow.json dump_syntax.json ... [--gfx-png gfx_
 
 Exits non-zero on the first failed assertion.
 """
+import argparse
 import json
 import sys
 
@@ -23,10 +24,16 @@ def check(name, cond, detail=""):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    gfx_png = None
-    if "--gfx-png" in sys.argv:
-        gfx_png = sys.argv[sys.argv.index("--gfx-png") + 1]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("dumps", nargs="+", help="Ordered workflow through runconfig dumps")
+    parser.add_argument("--gfx-png", help="Graphics screenshot from the same isolated run")
+    options = parser.parse_args()
+    args = options.dumps
+    gfx_png = options.gfx_png
+    if not 1 <= len(args) <= 7:
+        parser.error("expected one to seven ordered scenario dumps")
+    if gfx_png and len(args) < 4:
+        parser.error("--gfx-png requires the graphics scenario dump")
 
     d = load(args[0])  # workflow
     check("workflow: vm finished", d["vm_state"] == "Done", d["vm_state"])
@@ -72,19 +79,24 @@ def main():
         d = load(args[3])
         check("gfx: run finished", d["vm_state"] == "Done")
         if gfx_png:
-            import subprocess
+            from PIL import Image
 
-            out = subprocess.run(
-                ["magick", gfx_png, "-format",
-                 "%w %h %[pixel:p{5,5}] %[pixel:p{80,70}] %[pixel:p{160,155}]",
-                 "info:"],
-                capture_output=True, text=True,
-            ).stdout.strip()
-            parts = out.split()
-            check("gfx: png 320x240", parts[0] == "320" and parts[1] == "240", out)
-            check("gfx: red background", parts[2] == "srgb(255,0,0)", out)
-            check("gfx: blue box", parts[3] == "srgb(0,0,255)", out)
-            check("gfx: yellow text", parts[4] == "srgb(255,255,0)", out)
+            with Image.open(gfx_png) as capture:
+                image = capture.convert("RGB")
+            check("gfx: png 320x240", image.size == (320, 240), str(image.size))
+            check("gfx: red background", image.getpixel((5, 5)) == (255, 0, 0))
+            check("gfx: blue box", image.getpixel((80, 70)) == (0, 0, 255))
+            # A point inside a glyph's bounding box can legitimately be its
+            # background. Require actual yellow glyph pixels in the declared
+            # TEXTOUT_P region and forbid yellow outside it instead.
+            yellow = [
+                (x, y) for y in range(240) for x in range(320)
+                if image.getpixel((x, y)) == (255, 255, 0)
+            ]
+            check("gfx: yellow text", len(yellow) >= 20, f"{len(yellow)} yellow pixels")
+            check("gfx: text stays in its region", all(
+                150 <= x < 185 and 150 <= y < 168 for x, y in yellow
+            ))
 
     if len(args) > 4:  # input
         d = load(args[4])
@@ -99,8 +111,9 @@ def main():
         d = load(args[5])
         check(
             "stop: execution stopped by user",
-            any("stopped by user" in m["text"] for m in d["console"])
-            and not d["worker_alive"],
+            any("Stop requested by user" in m["text"] for m in d["console"])
+            and any("Execution interrupted" in m["text"] for m in d["console"])
+            and not d["worker_alive"] and d["vm_state"] == "Idle",
             str(d["console"]),
         )
 

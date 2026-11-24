@@ -27,6 +27,19 @@ class ShellEntrypointTests(unittest.TestCase):
                 os.environ, PATH=f"{directory}:{os.environ['PATH']}"
             )
             environment.pop("CARGO_TARGET_DIR", None)
+            canonical_root = Path(
+                subprocess.check_output(
+                    [
+                        "git",
+                        "-C",
+                        str(ROOT),
+                        "rev-parse",
+                        "--path-format=absolute",
+                        "--git-common-dir",
+                    ],
+                    text=True,
+                ).strip()
+            ).parent
             for arguments in (
                 ["check", "--workspace", "--all-targets"],
                 ["test", "--workspace", "--all-targets"],
@@ -48,7 +61,8 @@ class ShellEntrypointTests(unittest.TestCase):
                 self.assertEqual(
                     Path(value["target"]).resolve(),
                     (
-                        ROOT.parent / ".cache/prime-emulator-target-compact"
+                        canonical_root.parent
+                        / ".cache/prime-emulator-target-compact"
                     ).resolve(),
                 )
             environment["FAKE_CARGO_EXIT"] = "37"

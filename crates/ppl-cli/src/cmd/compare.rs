@@ -115,7 +115,7 @@ pub struct CompareOpts {
     pub evidence: Option<PathBuf>,
 
     /// Directory where reports are saved.
-    #[arg(long, default_value = "docs/reports")]
+    #[arg(long, default_value = ".private/reports")]
     pub out_dir: PathBuf,
 
     /// Directory where evidence files are stored/looked up.
@@ -875,6 +875,20 @@ mod tests {
             .find(|p| p.extension().is_some_and(|x| x == "json"))
             .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().into_owned()))
             .expect("manifest written")
+    }
+
+    #[test]
+    fn report_destination_is_private_by_default_and_overridable() {
+        use clap::Parser;
+        #[derive(Parser)]
+        struct Cli {
+            #[command(flatten)]
+            compare: CompareOpts,
+        }
+        let default = Cli::parse_from(["compare", "suite.toml"]);
+        assert_eq!(default.compare.out_dir, PathBuf::from(".private/reports"));
+        let explicit = Cli::parse_from(["compare", "suite.toml", "--out-dir", "reports"]);
+        assert_eq!(explicit.compare.out_dir, PathBuf::from("reports"));
     }
 
     #[test]

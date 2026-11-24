@@ -4,7 +4,7 @@
   "physical_verification": false,
   "helper_sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
   "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
-  "raw_capture": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/retained-controls/capture.json",
+  "raw_capture": "artifacts/m19/retained-controls/capture.json",
   "source": "EXPORT M19RAT() BEGIN RETURN CAS(\"1/3\"); END;\nEXPORT M19SYM() BEGIN RETURN CAS(\"x+1\"); END;\nEXPORT M19NEST() BEGIN RETURN {{1+2*i,3-4*i},{5}}; END;\nEXPORT M19INT() BEGIN RETURN #FFFFFFFFFFFFFFFF:64h; END;\n",
   "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
   "cases": [

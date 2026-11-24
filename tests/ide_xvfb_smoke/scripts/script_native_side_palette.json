@@ -53,12 +53,28 @@
       "ms": 120
     },
     {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
       "step": "snapshot",
       "label": "palette_grid"
     },
     {
       "step": "screenshot",
       "path": "/tmp/ppl-ide-e2e/native_palette_grid.png"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "full"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
     },
     {
       "step": "click_lcd",

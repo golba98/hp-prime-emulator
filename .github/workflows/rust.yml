@@ -27,6 +27,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Documentation publication guard
+        run: |
+          python scripts/maintenance/check_documentation.py --revision HEAD
+          python -m unittest discover -s scripts/tests -p test_documentation_policy.py
+          python -m unittest discover -s scripts/tests -p test_agent_boundary.py
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

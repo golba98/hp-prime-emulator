@@ -2,7 +2,7 @@
 //!
 //! Covers all 32 inventoried features with at least 5 representative test cases each
 //! (total 160 test cases), strictly derived from requirements in ORIGINAL_REQUEST.md,
-//! PROJECT.md, and TEST_INFRA.md.
+//! the developer scripts guide.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
