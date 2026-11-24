@@ -4,9 +4,12 @@ pub mod function_numeric;
 pub mod function_views;
 mod gallery;
 pub mod geometry;
+mod graph3d;
 pub mod graph_symbolic;
+pub mod help;
 mod home_settings;
 mod model_job;
+mod notes;
 mod pickers;
 pub mod special_views;
 mod split;
@@ -61,6 +64,8 @@ pub struct ToolMemory {
     pub graph_symbolic: std::collections::BTreeMap<String, graph_symbolic::Cursor>,
     pub function_views: function_views::Memory,
     pub function_numeric: function_numeric::Memory,
+    #[serde(skip_serializing_if = "super::native_graph3d::Book::is_default")]
+    pub graph3d: super::native_graph3d::Book,
     pub explorers: std::collections::BTreeMap<String, [f64; 3]>,
     pub name: String,
     pub search: String,
@@ -69,6 +74,7 @@ pub struct ToolMemory {
     pub unit_prefix: String,
     pub template_selection: String,
     pub memory_selection: String,
+    pub help: help::Memory,
     pub help_query: String,
     pub help_topic: String,
     pub app_notes: std::collections::BTreeMap<String, String>,
@@ -87,8 +93,11 @@ pub struct ToolMemory {
     pub statistics_fit_visible: [bool; 2],
     pub geometry_cursor: geometry::Cursor,
     pub geometry_draft: Option<geometry::Draft>,
+    pub geometry_legacy_window: Option<super::native_apps::PlotWindow>,
     pub spreadsheet_cursor: spreadsheet::Cursor,
     pub spreadsheet_draft: Option<spreadsheet::Draft>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub spreadsheet_cas_mode: bool,
     pub home_history: std::collections::VecDeque<super::native::HomeEntry>,
     pub cas_history: std::collections::VecDeque<super::native::HomeEntry>,
     pub home_draft: String,
@@ -113,8 +122,12 @@ impl Default for ToolMemory {
             .map(|(name, kind)| {
                 let mut graph = GraphApp::new(kind);
                 if name == "Function" {
+                    graph.window = NativeTools::default_model_window(name);
                     graph.numeric_step = 0.1;
                     graph.curves[0].enabled = false;
+                }
+                if name == "Sequence" {
+                    graph.window = NativeTools::default_model_window(name);
                 }
                 (name.into(), graph)
             })
@@ -132,6 +145,7 @@ impl Default for ToolMemory {
             graph_symbolic: Default::default(),
             function_views: Default::default(),
             function_numeric: Default::default(),
+            graph3d: Default::default(),
             name: String::new(),
             search: String::new(),
             commands: Default::default(),
@@ -139,6 +153,7 @@ impl Default for ToolMemory {
             unit_prefix: String::new(),
             template_selection: String::new(),
             memory_selection: String::new(),
+            help: Default::default(),
             help_query: String::new(),
             help_topic: String::new(),
             app_notes: Default::default(),
@@ -157,8 +172,10 @@ impl Default for ToolMemory {
             statistics_fit_visible: Default::default(),
             geometry_cursor: Default::default(),
             geometry_draft: None,
+            geometry_legacy_window: None,
             spreadsheet_cursor: Default::default(),
             spreadsheet_draft: None,
+            spreadsheet_cas_mode: false,
             home_history: Default::default(),
             cas_history: Default::default(),
             home_draft: String::new(),
@@ -166,6 +183,18 @@ impl Default for ToolMemory {
         }
     }
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SpreadsheetHistory {
+    Home,
+    Cas,
+}
+
+impl SpreadsheetHistory {
+    pub fn is_cas(self) -> bool {
+        self == Self::Cas
+    }
+}
+
 #[derive(Clone)]
 pub enum MathTarget {
     FunctionNumeric {
@@ -175,6 +204,7 @@ pub enum MathTarget {
     SpreadsheetCell {
         address: String,
         clear: bool,
+        history: Option<SpreadsheetHistory>,
     },
     SpreadsheetGoto,
     SpreadsheetName {
@@ -204,11 +234,27 @@ pub enum MathTarget {
     StatisticsFit {
         analysis: usize,
     },
+    StatisticsTwoReference {
+        analysis: usize,
+        field: usize,
+        clear: bool,
+    },
+    StatisticsDefinition {
+        analysis: usize,
+        frequency: bool,
+        clear: bool,
+    },
     StatisticsColumn {
         two: bool,
         column: usize,
     },
     StatisticsPlotX,
+    StatisticsZoomFactor {
+        axis: usize,
+        initial: Option<&'static str>,
+    },
+    GeometryPlotField(String),
+    GeometryTransformParameter(geometry::TransformParameter),
     GeometryObject {
         name: String,
         preset: Option<String>,
@@ -230,14 +276,46 @@ pub enum MathTarget {
     Object,
     FunctionBody,
 }
+#[derive(Clone, Copy)]
+pub enum ResetApp {
+    Sequence,
+    Geometry,
+    StatisticsOne,
+    StatisticsTwo,
+}
+impl ResetApp {
+    fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Sequence" => Some(Self::Sequence),
+            "Geometry" => Some(Self::Geometry),
+            "Statistics 1Var" => Some(Self::StatisticsOne),
+            "Statistics 2Var" => Some(Self::StatisticsTwo),
+            _ => None,
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Sequence => "Sequence",
+            Self::Geometry => "Geometry",
+            Self::StatisticsOne => "Statistics 1Var",
+            Self::StatisticsTwo => "Statistics 2Var",
+        }
+    }
+}
+
 pub enum Request {
     MathCursor {
         position: usize,
         extend: bool,
     },
     FinishMath(bool),
+    ToggleSpreadsheetCas,
+    ResetSpreadsheet,
+    SpreadsheetHistory(SpreadsheetHistory),
     TypeText(String),
     CopyText(String),
+    OpenHelpDemo(String, String),
+    CopyStatisticsSummary,
     StatisticsCellValue {
         two: bool,
         column: usize,
@@ -246,7 +324,7 @@ pub enum Request {
     },
     StatisticsWrite {
         two: bool,
-        columns: Vec<(usize, Vec<f64>)>,
+        columns: Vec<(usize, Vec<ppl_vm::PortableValue>)>,
     },
     StatisticsDelete {
         two: bool,
@@ -258,7 +336,27 @@ pub enum Request {
     SelectApp(String),
     StartApp(String),
     GraphConfiguration(String, super::native_apps::GraphApp),
+    PlotConfiguration(String, ppl_vm::AppPlotSettings),
+    ImportStatisticsPicture {
+        from: String,
+        name: String,
+    },
+    StatisticsZoomFactors {
+        source: ([ppl_math::Real; 2], bool),
+        edited: ([ppl_math::Real; 2], bool),
+    },
+    Graph3dPlotZoom {
+        source: Box<ppl_vm::AppPlotSettings>,
+        edited: Box<ppl_vm::AppPlotSettings>,
+    },
+    GeometryPlotConfiguration(ppl_vm::GeometryPlotSettings),
+    ResetApp(ResetApp),
     FunctionNumericConfiguration(ppl_vm::AppNumericSettings),
+    Graph3dNumericConfiguration {
+        source: Box<ppl_vm::AppNumericSettings>,
+        edited: Box<ppl_vm::AppNumericSettings>,
+        selected_cell: [usize; 2],
+    },
     EditCollection {
         name: String,
         matrix: bool,
@@ -293,6 +391,7 @@ pub enum Request {
         args: String,
     },
     SaveNote(String, String),
+    SaveBulletedNote(String, String, std::collections::BTreeSet<usize>),
     DeleteNote(String),
     SetHomeSettings(ppl_vm::Settings),
     SetAngle(ppl_vm::AngleMode),
@@ -311,8 +410,11 @@ pub struct NativeTools {
     function_panel: function_views::Panel,
     numeric_panel: function_numeric::Panel,
     graph_symbolic_panel: graph_symbolic::Panel,
+    graph3d_panel: graph3d::Panel,
     gallery_panel: gallery::Panel,
     home_settings: home_settings::Panel,
+    help_panel: help::Panel,
+    note_bullets: Option<std::collections::BTreeSet<usize>>,
     statistics_panel: statistics::Panel,
     prime_font: bool,
     geometry_panel: geometry::Panel,
@@ -352,6 +454,9 @@ pub struct NativeTools {
     table: Vec<Vec<Option<f64>>>,
     pub generation: u64,
     memory_generation: u64,
+    plot_settings_cache: std::collections::BTreeMap<String, ppl_vm::AppPlotSettings>,
+    observed_plot_settings: std::collections::BTreeMap<String, ppl_vm::AppPlotSettings>,
+    observed_geometry_settings: Option<ppl_vm::GeometryPlotSettings>,
 }
 impl NativeTools {
     pub(crate) fn set_prime_font(&mut self, selected: bool) {
@@ -388,6 +493,60 @@ impl NativeTools {
             }
         }
     }
+    fn project_geometry_settings(&mut self, snapshot: &SessionSnapshot) {
+        if let Some(settings) = &snapshot.geometry_plot_settings
+            && self.observed_geometry_settings.as_ref() != Some(settings)
+        {
+            self.geometry_settings_changed(settings);
+            self.observed_geometry_settings = Some(settings.clone());
+        }
+    }
+    fn project_plot_settings(&mut self, snapshot: &SessionSnapshot) {
+        self.project_geometry_settings(snapshot);
+        // An explicit qualified assignment can update an inactive app. Project
+        // every changed scoped record before a later app switch can persist an
+        // older GUI window over that assignment. Never synthesize defaults for
+        // profiles that already retain their windows in the UI state.
+        for (name, settings) in &snapshot.app_plot_settings {
+            if self.observed_plot_settings.get(name) == Some(settings) {
+                continue;
+            }
+            self.plot_settings_cache
+                .insert(name.clone(), settings.clone());
+            self.observed_plot_settings
+                .insert(name.clone(), settings.clone());
+            if name == "Statistics 1Var" {
+                self.memory.models.histogram = Some(super::native_model_plots::HistogramSpec {
+                    minimum: settings.hmin.to_f64(),
+                    maximum: settings.hmax.to_f64(),
+                    width: settings.hwidth.to_f64(),
+                });
+                if settings.has_infinite_y() {
+                    if self.memory.selected_app == *name {
+                        self.trace.disable();
+                    }
+                    continue;
+                }
+            }
+            let window = if let Some(app) = self.memory.graphs.get_mut(name) {
+                Some(&mut app.window)
+            } else if super::native_app_views::supports(
+                name,
+                super::native_app_views::AppView::Plot,
+            ) {
+                Some(self.memory.model_windows.entry(name.clone()).or_default())
+            } else {
+                None
+            };
+            if let Some(window) = window {
+                window.xmin = settings.xmin.to_f64();
+                window.xmax = settings.xmax.to_f64();
+                window.ymin = settings.ymin.to_f64();
+                window.ymax = settings.ymax.to_f64();
+                window.axes = settings.axes;
+            }
+        }
+    }
     pub fn apply_view_context(&mut self, context: &SessionSnapshot, committed_generation: u64) {
         if self.memory.selected_app != context.active_app {
             self.gallery_started(&context.active_app);
@@ -397,6 +556,9 @@ impl NativeTools {
         self.geometry_apply_context(context, committed_generation);
         self.spreadsheet_apply_context(context, committed_generation);
         self.function_numeric_apply_context(context);
+        if let Err(error) = self.graph3d_apply_plot_context(context) {
+            self.record_calculation_error("surface", Some(error));
+        }
         self.project_numeric_graph(context);
         if let Some(app) = self.memory.graphs.get_mut(&context.active_app) {
             for (name, target) in [
@@ -408,22 +570,25 @@ impl NativeTools {
                 ("Tmax", &mut app.window.tmax),
             ] {
                 if let Some(value) = context
-                    .globals
-                    .get(name)
+                    .plot_variable_for(&context.active_app, name)
                     .and_then(|v| v.to_value().as_real())
                 {
                     *target = value.to_f64();
                 }
             }
         }
-        if !self.memory.graphs.contains_key(&context.active_app)
+        if context.active_app != "Geometry"
+            && context.active_app != super::native_graph3d::NAME
+            && !self.memory.graphs.contains_key(&context.active_app)
             && super::native_app_views::supports(
                 &context.active_app,
                 super::native_app_views::AppView::Plot,
             )
-            && ["Xmin", "Xmax", "Ymin", "Ymax"]
-                .iter()
-                .any(|name| context.globals.contains_key(*name))
+            && ["Xmin", "Xmax", "Ymin", "Ymax"].iter().any(|name| {
+                context
+                    .plot_variable_for(&context.active_app, name)
+                    .is_some()
+            })
         {
             let window = self
                 .memory
@@ -437,21 +602,47 @@ impl NativeTools {
                 ("Ymax", &mut window.ymax),
             ] {
                 if let Some(value) = context
-                    .globals
-                    .get(name)
+                    .plot_variable_for(&context.active_app, name)
                     .and_then(|v| v.to_value().as_real())
                 {
                     *target = value.to_f64();
                 }
             }
         }
+        self.project_plot_settings(context);
         // The operation has not committed. Do not replace its live values with
         // the preceding committed revision when the next GUI frame is painted.
         self.memory_generation = committed_generation;
     }
     pub fn view_outcome(&self, changed: bool) -> ppl_vm::host::CalculatorViewOutcome {
         let mut globals = std::collections::BTreeMap::new();
-        let default_window = super::native_apps::PlotWindow::default();
+        if self.memory.selected_app == super::native_graph3d::NAME {
+            return ppl_vm::host::CalculatorViewOutcome { changed, globals };
+        }
+        if changed && self.memory.selected_app == "Geometry" {
+            let settings = self.geometry_plot_configuration().unwrap_or_default();
+            for name in ppl_vm::GeometryPlotSettings::NAMES {
+                if let Ok(value) = settings.get(name) {
+                    globals.insert(name.into(), ppl_vm::PortableValue::from(&value));
+                }
+            }
+            return ppl_vm::host::CalculatorViewOutcome { changed, globals };
+        }
+        if changed
+            && self.statistics_unbounded_plot()
+            && let Some(settings) = self.plot_settings_cache.get("Statistics 1Var")
+        {
+            for name in [
+                "Xmin", "Xmax", "Ymin", "Ymax", "Hmin", "Hmax", "Hwidth", "Axes",
+            ] {
+                globals.insert(
+                    name.into(),
+                    ppl_vm::PortableValue::from(&settings.get(name).unwrap()),
+                );
+            }
+            return ppl_vm::host::CalculatorViewOutcome { changed, globals };
+        }
+        let default_window = Self::default_model_window(&self.memory.selected_app);
         let window = self
             .memory
             .graphs
@@ -465,6 +656,20 @@ impl NativeTools {
                 )
                 .then_some(&default_window)
             });
+        if changed
+            && self.memory.selected_app == "Statistics 1Var"
+            && let Some(histogram) = self.memory.models.histogram
+        {
+            for (name, number) in [
+                ("Hmin", histogram.minimum),
+                ("Hmax", histogram.maximum),
+                ("Hwidth", histogram.width),
+            ] {
+                if let Ok(number) = ppl_math::Real::from_f64(number) {
+                    globals.insert(name.into(), ppl_vm::PortableValue::Real(number));
+                }
+            }
+        }
         if changed && let Some(window) = window {
             for (name, value) in [
                 ("Xmin", window.xmin),
@@ -482,6 +687,12 @@ impl NativeTools {
                     );
                 }
             }
+        }
+        if changed && let Some(window) = window {
+            globals.insert(
+                "Axes".into(),
+                ppl_vm::PortableValue::Real(ppl_math::Real::from_i64(i64::from(window.axes))),
+            );
         }
         if changed && let Some(app) = self.memory.graphs.get(&self.memory.selected_app) {
             for (name, value) in [("Tmin", app.window.tmin), ("Tmax", app.window.tmax)] {
@@ -524,6 +735,20 @@ impl NativeTools {
         supports(&self.memory.selected_app, view)
     }
     pub fn open(&mut self, page: Page) {
+        if page == Page::PlotSetup && self.page != Some(Page::PlotSetup) {
+            self.statistics_reset_plot_setup();
+        }
+        if page == Page::NumericSetup {
+            self.graph3d_panel.reset_numeric_draft();
+        }
+        if page == Page::Plot
+            && self.page != Some(Page::Plot)
+            && statistics::mode(&self.memory.selected_app) == Some(false)
+        {
+            self.trace.curve = 0;
+            self.trace.sample = 0;
+            self.statistics_reset_free_plot_cursor();
+        }
         if page == Page::Apps {
             self.gallery_open();
         }
@@ -546,6 +771,9 @@ impl NativeTools {
                 super::native::expression::palette::CELLS[0].name.into();
         }
         self.page = Some(page);
+        if self.memory.selected_app == super::native_graph3d::NAME && page == Page::Numeric {
+            self.graph3d_select_numeric_cell([0, 0]);
+        }
         if page == Page::Settings {
             self.home_settings = Default::default();
         }
@@ -558,12 +786,15 @@ impl NativeTools {
         self.generation = self.generation.wrapping_add(1);
     }
     pub fn close(&mut self) {
+        self.help_panel.close_demo_menu();
+        self.statistics_reset_popups();
         self.function_numeric_close();
         self.page = None;
         self.cancel_calculations();
     }
     pub fn cancel_calculations(&mut self) {
         self.function_numeric_cancel_all();
+        self.graph3d_panel.cancel();
         self.spreadsheet_cancel();
         self.presentation_pending = false;
         self.detail_job = None;
@@ -575,7 +806,9 @@ impl NativeTools {
         self.pending_model_plot = None;
     }
     pub fn calculating(&self) -> bool {
-        self.function_numeric_calculating()
+        (self.page == Some(Page::Help) && self.help_panel.loading())
+            || self.function_numeric_calculating()
+            || self.graph3d_panel.calculating()
             || self.spreadsheet_panel.job.is_some()
             || self.detail_job.is_some()
             || self.detail_model_job.is_some()
@@ -594,6 +827,9 @@ impl NativeTools {
         self.generation = self.generation.wrapping_add(1);
     }
     pub fn trace_samples(&self) -> super::native_apps::PlotSamples {
+        if self.statistics_unbounded_plot() {
+            return Vec::new();
+        }
         if self.memory.graphs.contains_key(&self.memory.selected_app) {
             self.points.clone()
         } else {
@@ -605,9 +841,59 @@ impl NativeTools {
                     serde_json::from_value::<super::native_model_plots::PlotData>(value.clone())
                         .ok()
                 })
-                .map(|data| super::native_plot_controls::model_samples(&data))
+                .map(|data| {
+                    super::native_plot_controls::model_trace_samples(&data, &self.trace_window())
+                })
                 .unwrap_or_default()
         }
+    }
+    pub fn reset_sequence(&mut self, settings: &ppl_vm::AppPlotSettings) {
+        let name = "Sequence";
+        let mut graph = GraphApp::new(GraphKind::Sequence);
+        graph.window = Self::settings_window(settings);
+        graph.curves[0].enabled = false;
+        self.memory.graphs.insert(name.into(), graph);
+        self.pending_actions.retain(|request| {
+            !matches!(request,
+                Request::GraphConfiguration(app, _) | Request::PlotConfiguration(app, _)
+                if app == name
+            )
+        });
+        if self.memory.selected_app == name {
+            self.job = None;
+            self.table_job = None;
+            self.points.clear();
+            self.table.clear();
+            self.trace = Default::default();
+            self.error = None;
+        }
+        self.dirty();
+    }
+    pub fn default_model_window(name: &str) -> super::native_apps::PlotWindow {
+        if name == "Geometry" {
+            return super::native_geometry::default_window();
+        }
+        if let Some(settings) = ppl_vm::AppPlotSettings::for_app(name) {
+            return Self::settings_window(&settings);
+        }
+        Default::default()
+    }
+    fn settings_window(settings: &ppl_vm::AppPlotSettings) -> super::native_apps::PlotWindow {
+        super::native_apps::PlotWindow {
+            xmin: settings.xmin.to_f64(),
+            xmax: settings.xmax.to_f64(),
+            ymin: settings.ymin.to_f64(),
+            ymax: settings.ymax.to_f64(),
+            axes: settings.axes,
+            ..Default::default()
+        }
+    }
+    fn statistics_unbounded_plot(&self) -> bool {
+        self.memory.selected_app == "Statistics 1Var"
+            && self
+                .plot_settings_cache
+                .get("Statistics 1Var")
+                .is_some_and(ppl_vm::AppPlotSettings::has_infinite_y)
     }
     pub fn trace_window(&self) -> super::native_apps::PlotWindow {
         self.memory
@@ -620,13 +906,7 @@ impl NativeTools {
                     .get(&self.memory.selected_app)
                     .cloned()
             })
-            .unwrap_or_else(|| {
-                if self.memory.selected_app == "Geometry" {
-                    super::native_geometry::default_window()
-                } else {
-                    Default::default()
-                }
-            })
+            .unwrap_or_else(|| Self::default_model_window(&self.memory.selected_app))
     }
     pub fn trace_step(&mut self, direction: super::native_plot_controls::TraceDirection) {
         let samples = self.trace_samples();
@@ -649,6 +929,9 @@ impl NativeTools {
         self.dirty();
     }
     pub fn trace_toggle(&mut self) {
+        if self.statistics_trace_toggle() {
+            return;
+        }
         if self.trace.enabled {
             self.trace.disable();
         } else {
@@ -675,8 +958,9 @@ impl NativeTools {
     ) {
         snapshot.active_app = self.memory.selected_app.clone();
         let angle = snapshot.effective_app_settings().angle;
+        let previous = self.trace_window();
         let window = match super::native_plot_controls::preset(
-            &self.trace_window(),
+            &previous,
             choice,
             angle,
             super::native_plot_controls::PresetCenter::Origin,
@@ -687,6 +971,9 @@ impl NativeTools {
                 return;
             }
         };
+        if self.memory.selected_app == statistics::app(false) {
+            self.statistics_record_zoom(previous);
+        }
         if let Some(app) = self.memory.graphs.get_mut(&self.memory.selected_app) {
             app.window = window;
         } else {
@@ -703,7 +990,105 @@ impl NativeTools {
     ) -> Result<(), String> {
         let data = serde_json::from_value::<super::native_model_plots::PlotData>(value.clone())
             .map_err(|e| e.to_string())?;
-        if self.auto_scale_pending
+        if name == "Geometry"
+            && let Some(scene) = &data.geometry
+            && let Some(book) = &mut self.memory.models.geometry_book
+        {
+            book.cache_scene(scene)?;
+        }
+        if name == "Statistics 1Var" {
+            use super::native_model_plots::PlotScaleBounds;
+            let bounds = data.scale.as_ref().and_then(|scale| scale.bounds.as_ref());
+            let histogram = data.scale.as_ref().and_then(|scale| scale.histogram);
+            let mut settings = self
+                .plot_settings_cache
+                .get(name)
+                .cloned()
+                .or_else(|| ppl_vm::AppPlotSettings::for_app(name))
+                .ok_or("Missing Statistics Plot defaults")?;
+            if let Some(PlotScaleBounds::UnboundedY { x: [xmin, xmax] }) = bounds {
+                if !self.presentation_pending {
+                    return Err("Insufficient numerical resolution".into());
+                }
+                settings.xmin = ppl_math::Real::from_f64(*xmin).map_err(|e| e.to_string())?;
+                settings.xmax = ppl_math::Real::from_f64(*xmax).map_err(|e| e.to_string())?;
+                settings.ymin = ppl_vm::PlotBound::NegativeInfinity;
+                settings.ymax = ppl_vm::PlotBound::PositiveInfinity;
+                if let Some(histogram) = histogram {
+                    Self::set_histogram_settings(&mut settings, histogram)?;
+                    self.memory.models.histogram = Some(histogram);
+                }
+                self.queue_model_plot_settings(name, settings);
+                self.trace.disable();
+                self.points.clear();
+                self.auto_scale_pending = false;
+                self.dirty();
+                return Ok(());
+            }
+            if settings.has_infinite_y() && bounds.is_none() {
+                if let Some(histogram) = histogram {
+                    Self::set_histogram_settings(&mut settings, histogram)?;
+                    self.memory.models.histogram = Some(histogram);
+                    self.queue_model_plot_settings(name, settings);
+                }
+                self.points.clear();
+                self.auto_scale_pending = false;
+                self.dirty();
+                return Ok(());
+            }
+            let existing = self.memory.model_windows.get(name);
+            let had_window = existing.is_some();
+            let mut window = existing
+                .cloned()
+                .unwrap_or_else(|| Self::settings_window(&settings));
+            let previous = (self.auto_scale_pending && bounds.is_some()).then(|| window.clone());
+            if let Some(PlotScaleBounds::Finite([xmin, xmax, ymin, ymax])) = bounds {
+                window.xmin = *xmin;
+                window.xmax = *xmax;
+                window.ymin = *ymin;
+                window.ymax = *ymax;
+            }
+            if !had_window || bounds.is_some() {
+                window.validate()?;
+                if let Some(previous) = previous {
+                    self.statistics_record_zoom(previous);
+                }
+                self.memory.model_windows.insert(name.into(), window);
+            }
+            if let Some(histogram) = histogram {
+                self.memory.models.histogram = Some(histogram);
+            }
+            self.auto_scale_pending = false;
+        } else if name == "Statistics 2Var"
+            && let Some(scale) = &data.scale
+        {
+            if let Some(super::native_model_plots::PlotScaleBounds::Finite(
+                [xmin, xmax, ymin, ymax],
+            )) = scale.bounds
+            {
+                let default_settings = || {
+                    self.plot_settings_cache
+                        .get(name)
+                        .cloned()
+                        .or_else(|| ppl_vm::AppPlotSettings::for_app(name))
+                        .map(|settings| Self::settings_window(&settings))
+                        .unwrap_or_default()
+                };
+                let mut window = self
+                    .memory
+                    .model_windows
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(default_settings);
+                window.xmin = xmin;
+                window.xmax = xmax;
+                window.ymin = ymin;
+                window.ymax = ymax;
+                window.validate()?;
+                self.memory.model_windows.insert(name.into(), window);
+            }
+            self.auto_scale_pending = false;
+        } else if self.auto_scale_pending
             || (name != "Geometry" && !self.memory.model_windows.contains_key(name))
         {
             let current = self
@@ -732,15 +1117,76 @@ impl NativeTools {
             }
             self.auto_scale_pending = false;
         }
+        if let Some(settings) = self
+            .plot_settings_cache
+            .get(name)
+            .cloned()
+            .or_else(|| ppl_vm::AppPlotSettings::for_app(name))
+        {
+            let mut settings = settings;
+            if let Some(window) = self.memory.model_windows.get(name) {
+                for (field, number) in [
+                    ("Xmin", window.xmin),
+                    ("Xmax", window.xmax),
+                    ("Ymin", window.ymin),
+                    ("Ymax", window.ymax),
+                ] {
+                    let value = ppl_math::Real::from_f64(number).map_err(|e| e.to_string())?;
+                    settings
+                        .set(field, &ppl_vm::Value::Real(value))
+                        .map_err(|e| e.to_string())?;
+                }
+                settings.axes = window.axes;
+            }
+            if let Some(histogram) = data.scale.as_ref().and_then(|scale| scale.histogram) {
+                Self::set_histogram_settings(&mut settings, histogram)?;
+            }
+            self.queue_model_plot_settings(name, settings);
+        }
+        if name == "Statistics 2Var"
+            && let Some(book) = &mut self.memory.models.statistics2_book
+        {
+            for (index, source, columns_revision) in &data.statistics_two_fits {
+                book.set_calculated_fit(*index, source.clone(), *columns_revision);
+            }
+        }
         self.points = super::native_plot_controls::model_samples(&data);
         self.dirty();
         Ok(())
+    }
+    fn set_histogram_settings(
+        settings: &mut ppl_vm::AppPlotSettings,
+        histogram: super::native_model_plots::HistogramSpec,
+    ) -> Result<(), String> {
+        for (field, number) in [
+            ("Hmin", histogram.minimum),
+            ("Hmax", histogram.maximum),
+            ("Hwidth", histogram.width),
+        ] {
+            let value = ppl_math::Real::from_f64(number).map_err(|e| e.to_string())?;
+            settings
+                .set(field, &ppl_vm::Value::Real(value))
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+    fn queue_model_plot_settings(&mut self, name: &str, settings: ppl_vm::AppPlotSettings) {
+        if self.plot_settings_cache.get(name) != Some(&settings) {
+            self.plot_settings_cache
+                .insert(name.into(), settings.clone());
+            self.pending_actions
+                .push(Request::PlotConfiguration(name.into(), settings));
+        }
     }
     pub fn autoscale(&mut self, snapshot: ppl_vm::SessionSnapshot) {
         self.auto_scale_pending = true;
         self.plot(snapshot);
     }
     pub fn plot(&mut self, mut snapshot: ppl_vm::SessionSnapshot) {
+        if self.memory.selected_app == super::native_graph3d::NAME {
+            self.graph3d_calculate(Page::Plot, snapshot);
+            return;
+        }
         if self.memory.selected_app == "Geometry" {
             if self.geometry_panel.live_context.is_none()
                 && self.geometry_panel.memory_revision != Some(snapshot.generation)
@@ -772,21 +1218,56 @@ impl NativeTools {
             self.table_job = None;
         }
         let window = self.trace_window();
+        let unbounded = snapshot
+            .plot_settings_for(&snapshot.active_app)
+            .is_some_and(|settings| settings.has_infinite_y());
+        if self.memory.selected_app == "Geometry" {
+            let settings = self
+                .geometry_plot_configuration()
+                .unwrap_or_else(|| snapshot.geometry_plot_settings());
+            snapshot.geometry_plot_settings = Some(settings.clone());
+            self.geometry_settings_changed(&settings);
+            self.geometry_panel.refresh = false;
+        }
         for (name, value) in [
             ("Xmin", window.xmin),
             ("Xmax", window.xmax),
             ("Ymin", window.ymin),
             ("Ymax", window.ymax),
         ] {
-            if let Ok(value) = ppl_math::Real::from_f64(value) {
-                snapshot
-                    .globals
-                    .insert(name.into(), ppl_vm::PortableValue::Real(value));
+            if self.memory.selected_app == "Geometry" || unbounded {
+                continue;
             }
+            if let Ok(value) = ppl_math::Real::from_f64(value) {
+                if let Some(mut settings) = snapshot.plot_settings_for(&snapshot.active_app) {
+                    if settings.set(name, &ppl_vm::Value::Real(value)).is_ok() {
+                        snapshot
+                            .app_plot_settings
+                            .insert(snapshot.active_app.clone(), settings);
+                    }
+                } else {
+                    snapshot
+                        .globals
+                        .insert(name.into(), ppl_vm::PortableValue::Real(value));
+                }
+            }
+        }
+        if !self.memory.graphs.contains_key(&self.memory.selected_app)
+            && let Some(settings) = snapshot.app_plot_settings.get(&snapshot.active_app)
+        {
+            self.queue_model_plot_settings(&snapshot.active_app, settings.clone());
         }
         if let Some(app) = self.memory.graphs.get(&self.memory.selected_app) {
             self.model_job = None;
-            self.job = Some(PlotJob::start(app.clone(), snapshot));
+            self.job = Some(PlotJob::start(
+                app.clone(),
+                snapshot,
+                self.memory
+                    .models
+                    .geometry_book
+                    .clone()
+                    .map(std::sync::Arc::new),
+            ));
             self.points.clear();
         } else {
             self.job = None;
@@ -797,6 +1278,7 @@ impl NativeTools {
                 self.memory.selected_app.clone(),
                 model,
                 snapshot,
+                self.auto_scale_pending,
             ));
         }
     }
@@ -816,6 +1298,10 @@ impl NativeTools {
         }
     }
     pub fn table(&mut self, snapshot: &ppl_vm::SessionSnapshot) {
+        if self.memory.selected_app == super::native_graph3d::NAME {
+            self.graph3d_calculate(Page::Numeric, snapshot.clone());
+            return;
+        }
         if self.is_function_numeric_page() {
             self.table_job = None;
             self.function_numeric_start_table(snapshot);
@@ -878,6 +1364,13 @@ impl NativeTools {
             return Vec::new();
         };
         self.function_numeric_poll(snapshot);
+        self.graph3d_poll(ctx, snapshot);
+        if self.memory.selected_app == "Geometry" {
+            self.geometry_sync_context(snapshot);
+            if self.memory_generation != snapshot.generation {
+                self.project_geometry_settings(snapshot);
+            }
+        }
         if let Some(job) = &self.detail_model_job {
             if let Some(result) = job.poll() {
                 let job = self.detail_model_job.take().unwrap();
@@ -1022,14 +1515,14 @@ impl NativeTools {
                     ("Tmax", &mut app.window.tmax),
                 ] {
                     if let Some(value) = snapshot
-                        .globals
-                        .get(name)
+                        .plot_variable_for(&snapshot.active_app, name)
                         .and_then(|value| value.to_value().as_real())
                     {
                         *target = value.to_f64();
                     }
                 }
             }
+            self.project_plot_settings(snapshot);
             self.memory_generation = snapshot.generation;
         }
         let old_presentation = self.memory.presentation;
@@ -1069,6 +1562,10 @@ impl NativeTools {
         }
         if self.is_spreadsheet_page() {
             self.show_spreadsheet(ctx, lcd, scale, snapshot, &mut requests);
+            return requests;
+        }
+        if self.statistics_plot_setup_active() {
+            self.show_statistics_plot_setup(ctx, lcd, scale, snapshot, &mut requests);
             return requests;
         }
         if statistics::mode(&self.memory.selected_app).is_some() && page == Page::Plot {
@@ -1174,9 +1671,14 @@ impl NativeTools {
 impl ToolMemory {
     pub fn validate(&self) -> Result<(), String> {
         self.characters.validate()?;
+        self.help.validate()?;
+        if self.help_query.len() > 4096 || self.help_topic.len() > 4096 {
+            return Err("Saved Help search exceeds its limit".into());
+        }
         self.gallery.validate()?;
         self.function_views.validate()?;
         self.function_numeric.validate()?;
+        self.graph3d.validate()?;
         for (app, cursor) in &self.graph_symbolic {
             if app != "Function" {
                 return Err("Invalid Symbolic app selection".into());
@@ -1185,7 +1687,8 @@ impl ToolMemory {
         }
         self.spreadsheet_cursor.validate()?;
         if self.spreadsheet_draft.as_ref().is_some_and(|d| {
-            super::native_app_models::cell_coordinates(&d.address).is_none()
+            (super::native_app_models::cell_coordinates(&d.address).is_none()
+                && super::native_app_models::spreadsheet::Header::parse(&d.address).is_none())
                 || d.source.len() > 65536
         }) {
             return Err("Invalid Spreadsheet draft".into());
@@ -1360,5 +1863,101 @@ mod interaction_tests {
         );
         assert!(app.window.ymin > -10.);
         assert!(tools.calculating());
+    }
+    #[test]
+    fn inactive_scoped_plot_writes_reach_the_saved_window_without_resetting_legacy_profiles_or_zoom()
+     {
+        let mut tools = NativeTools::default();
+        tools.memory.graphs.get_mut("Function").unwrap().window.xmin = -123.;
+        let mut context = ppl_vm::SessionContext::default();
+        tools.project_plot_settings(&context.snapshot());
+        assert_eq!(tools.memory.graphs["Function"].window.xmin, -123.);
+        let evaluate = |context: &mut ppl_vm::SessionContext, source| {
+            context
+                .evaluate_home(
+                    source,
+                    Box::new(ppl_vm::HeadlessHost::new()),
+                    ppl_vm::Limits::default(),
+                )
+                .result
+                .unwrap();
+        };
+        evaluate(
+            &mut context,
+            "Statistics_1Var.Xmin:=2;Statistics_1Var.Xmax:=8",
+        );
+        tools.apply_view_context(&context.snapshot(), context.snapshot().generation);
+        assert_eq!(tools.memory.selected_app, "Function");
+        assert_eq!(tools.memory.model_windows["Statistics 1Var"].xmin, 2.);
+        assert_eq!(tools.memory.model_windows["Statistics 1Var"].xmax, 8.);
+        tools
+            .memory
+            .model_windows
+            .get_mut("Statistics 1Var")
+            .unwrap()
+            .zoom(0.5);
+        let zoomed = tools.memory.model_windows["Statistics 1Var"].xmin;
+        evaluate(&mut context, "A:=42");
+        tools.project_plot_settings(&context.snapshot());
+        assert_eq!(tools.memory.model_windows["Statistics 1Var"].xmin, zoomed);
+        evaluate(&mut context, "Statistics_1Var.Xmin:=1");
+        tools.project_plot_settings(&context.snapshot());
+        assert_eq!(tools.memory.model_windows["Statistics 1Var"].xmin, 1.);
+        assert_eq!(tools.memory.graphs["Function"].window.xmin, -123.);
+    }
+}
+
+#[cfg(test)]
+mod statistics_autoscale_tests {
+    use super::*;
+    #[test]
+    fn data_redraws_preserve_the_factory_or_explicit_statistics_window() {
+        let mut tools = NativeTools::default();
+        tools.memory.selected_app = "Statistics 1Var".into();
+        let mut plot = super::super::native_model_plots::PlotData::new("Value", "Frequency");
+        plot.push(
+            "H1 bars",
+            super::super::native_model_plots::PlotStyle::Line,
+            vec![[100., 400.], [200., 800.]],
+        )
+        .unwrap();
+        tools
+            .model_plot_completed("Statistics 1Var", &serde_json::to_value(&plot).unwrap())
+            .unwrap();
+        let factory = tools.memory.model_windows["Statistics 1Var"].clone();
+        assert_eq!(
+            [factory.xmin, factory.xmax, factory.ymin, factory.ymax],
+            [-1.8, 30., -1.8, 20.]
+        );
+        plot.scale = Some(super::super::native_model_plots::PlotScale {
+            bounds: Some(super::super::native_model_plots::PlotScaleBounds::Finite([
+                2., 8., -3., 5.,
+            ])),
+            histogram: None,
+        });
+        tools
+            .model_plot_completed("Statistics 1Var", &serde_json::to_value(&plot).unwrap())
+            .unwrap();
+        plot.scale = None;
+        tools
+            .model_plot_completed("Statistics 1Var", &serde_json::to_value(&plot).unwrap())
+            .unwrap();
+        let saved = &tools.memory.model_windows["Statistics 1Var"];
+        assert_eq!(
+            [saved.xmin, saved.xmax, saved.ymin, saved.ymax],
+            [2., 8., -3., 5.]
+        );
+        plot.scale = Some(super::super::native_model_plots::PlotScale {
+            bounds: None,
+            histogram: None,
+        });
+        tools
+            .model_plot_completed("Statistics 1Var", &serde_json::to_value(&plot).unwrap())
+            .unwrap();
+        let saved = &tools.memory.model_windows["Statistics 1Var"];
+        assert_eq!(
+            [saved.xmin, saved.xmax, saved.ymin, saved.ymax],
+            [2., 8., -3., 5.]
+        );
     }
 }

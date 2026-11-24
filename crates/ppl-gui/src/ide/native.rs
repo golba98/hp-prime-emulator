@@ -177,6 +177,13 @@ pub struct HistoryDisplay {
     pub text: String,
 }
 impl HomeEntry {
+    pub(crate) fn recall_result(&self) -> &str {
+        self.typed_result
+            .as_ref()
+            .and_then(|value| value["recall"].as_str())
+            .unwrap_or(&self.result)
+    }
+
     pub fn display_expression(&self) -> &str {
         // A submitted numeric object is painted in calculator notation; retain
         // its complete original source for recall and exact arithmetic.
@@ -285,6 +292,7 @@ pub struct NativeUiState {
     pub presentation: presentation::PresentationSettings,
     /// Default Prime history uses fourteen pixels; bundled fallback is calibrated separately.
     pub history_font_px: f32,
+    pub history_digit_grouping: ppl_math::DigitGrouping,
     pub history_format_stamp: String,
     pub cas_mode: bool,
     pub app_title: String,
@@ -311,6 +319,7 @@ pub struct NativeUiState {
     pub last_outcome: Option<serde_json::Value>,
     pub run_id: u64,
     pub view_generation: u64,
+    clock_view_changes: u64,
     pub input_epoch: u64,
     pub shifted: bool,
     pub trace: VecDeque<serde_json::Value>,
@@ -322,6 +331,7 @@ impl Default for NativeUiState {
         Self {
             presentation: Default::default(),
             history_font_px: 13.,
+            history_digit_grouping: ppl_math::DigitGrouping::default(),
             history_format_stamp: String::new(),
             cas_mode: false,
             app_title: "Function".into(),
@@ -348,6 +358,7 @@ impl Default for NativeUiState {
             last_outcome: None,
             run_id: 0,
             view_generation: 0,
+            clock_view_changes: 0,
             input_epoch: 0,
             shifted: false,
             trace: VecDeque::new(),
@@ -359,6 +370,16 @@ impl Default for NativeUiState {
 impl NativeUiState {
     pub fn touch_view(&mut self) {
         self.view_generation = self.view_generation.wrapping_add(1);
+    }
+    pub fn set_status_clock(&mut self, clock: String) {
+        if self.status_clock != clock {
+            self.status_clock = clock;
+            self.touch_view();
+            self.clock_view_changes = self.clock_view_changes.wrapping_add(1);
+        }
+    }
+    pub fn clock_view_changes(&self) -> u64 {
+        self.clock_view_changes
     }
     pub fn set_view(&mut self, view: NativeView) {
         if self.view != view {
@@ -487,7 +508,7 @@ impl NativeUiState {
                         )
                     )
                 });
-                math_layout::layout(editor, if tall { 96 } else { 36 })
+                math_layout::entry(editor, if tall { 96 } else { 36 })
             }
             presentation::EntryMode::Algebraic => math_layout::linear(editor),
         }
@@ -587,8 +608,8 @@ impl NativeUiState {
                     &mut screen,
                     &[
                         "Sto ▸",
-                        "",
-                        "",
+                        if self.cas_mode { "Simplify" } else { "" },
+                        if self.cas_mode { "=" } else { "" },
                         "",
                         if self.history.is_empty() { "" } else { "Copy" },
                         if self.history.is_empty() { "" } else { "Show" },

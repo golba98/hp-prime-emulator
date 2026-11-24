@@ -1,0 +1,62 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_polygon_raster.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_POLY"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_POLY() BEGIN\nRECT_P(#020406h);\nLOCAL accepted:=1,result:=99,x,y,pixels:={};\nIFERR result:=FILLPOLY_P([[1.8,0.8],[6.8,2.8],[3.8,6.8],[-1.8,3.8]],#FE8040h,128); THEN accepted:=0; END;\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 6 DO\n pixels:=CONCAT(pixels,{B→R(GETPIX_P(x,y))});\nEND;END;\nRETURN {accepted,TYPE(result),STRING(result),pixels};\nEND;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "original_polygon"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_polygon_raster.png"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_CARTPOLY"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_CARTPOLY() BEGIN\nXmin:=-17.5; Xmax:=141.5; Ymin:=-394; Ymax:=42;\nLOCAL x,y,r,ok,a;\nRECT_P(#020406h); r:=-1; ok:=1; a:={};\nIFERR r:=FILLPOLY({(-18.85,38.2),(-15.200,44.2),(-14.150,31.10),(-16.890,30.38)},#FF8048h,83); THEN ok:=0; END;\nFOR y FROM 0 TO 6 DO FOR x FROM 0 TO 6 DO\n a:=CONCAT(a,{B→R(GETPIX_P(x,y))});\nEND; END;\nRETURN {ok,r,a}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "desktop_cartesian"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_desktop_cartesian.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

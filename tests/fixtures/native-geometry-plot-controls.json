@@ -1,0 +1,62 @@
+{
+  "provenance": "Unchanged self-authored programs executed by original installed offline G1 firmware. No physical hardware, vendor code, or vendor assets included. Assignment controls verify canonical stored return values, type coercion, strict pixel-size lower threshold and scoped geometry minima.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "geometry_plot_window_defaults_and_qualifiers",
+      "active_app": "Function",
+      "entry": "ZZT_GEO_WINDOW",
+      "source": "EXPORT ZZT_GEO_WINDOW() BEGIN LOCAL out:={},v;STARTAPP(\"Geometry\");IFERR v:=EXPR(\"Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Xmin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Xmax\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Xmax\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Ymin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Ymin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Ymax\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Ymax\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Xtick\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Xtick\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Ytick\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Ytick\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Axes\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Axes\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Xmin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Xmax\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Xmax\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Ymin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Ymin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Ymax\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Ymax\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Xtick\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Xtick\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Ytick\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Ytick\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Axes\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Axes\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Function.Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Function.Xmin\",TYPE(v),STRING(v)}});RETURN STRING(out);END;",
+      "source_sha256": "1f0215b32dd4addc599f28d2acd0996d2210dd2721cde748aa692f9c9d02e4b7",
+      "expected": "{{\"Xmin\",0,\"−16\"},{\"Xmax\",2,\"\\\"ERR\\\"\"},{\"Ymin\",0,\"−11\"},{\"Ymax\",2,\"\\\"ERR\\\"\"},{\"Xtick\",0,\"1\"},{\"Ytick\",0,\"1\"},{\"Axes\",0,\"0\"},{\"Geometry.Xmin\",0,\"−16\"},{\"Geometry.Xmax\",2,\"\\\"ERR\\\"\"},{\"Geometry.Ymin\",0,\"−11\"},{\"Geometry.Ymax\",2,\"\\\"ERR\\\"\"},{\"Geometry.Xtick\",0,\"1\"},{\"Geometry.Ytick\",0,\"1\"},{\"Geometry.Axes\",0,\"0\"},{\"Function.Xmin\",0,\"−15.9\"}}"
+    },
+    {
+      "name": "geometry_pixel_size_and_other_plot_fields",
+      "active_app": "Function",
+      "entry": "ZZT_GEO_PIX",
+      "source": "EXPORT ZZT_GEO_PIX() BEGIN LOCAL out:={},v;STARTAPP(\"Geometry\");IFERR v:=EXPR(\"PixSize\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"PixSize\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.PixSize\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.PixSize\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"ScrollText\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"ScrollText\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.ScrollText\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.ScrollText\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"GridDots\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"GridDots\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"GridLines\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"GridLines\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Labels\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Labels\",TYPE(v),STRING(v)}});RETURN STRING(out);END;",
+      "source_sha256": "07d598459d5bb440ebdadf676b67db7f991d87795a6bfa1ef90a980c511ec59a",
+      "expected": "{{\"PixSize\",0,\"0.1\"},{\"Geometry.PixSize\",0,\"0.1\"},{\"ScrollText\",0,\"0\"},{\"Geometry.ScrollText\",0,\"0\"},{\"GridDots\",0,\"0\"},{\"GridLines\",0,\"0\"},{\"Labels\",0,\"0\"}}"
+    },
+    {
+      "name": "inactive_qualified_geometry_window_setters_keep_function_independent",
+      "active_app": "Function",
+      "entry": "ZZT_GEO_SCOPED",
+      "source": "EXPORT ZZT_GEO_SCOPED() BEGIN LOCAL out:={},v;STARTAPP(\"Function\");IFERR v:=EXPR(\"Function.Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Function.Xmin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Xmin:=-7\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Xmin:=-7\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Ymin:=-3\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Ymin:=-3\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.PixSize:=0.2\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.PixSize:=0.2\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Xmin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.Ymin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.Ymin\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Geometry.PixSize\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Geometry.PixSize\",TYPE(v),STRING(v)}});IFERR v:=EXPR(\"Function.Xmin\");THEN v:=\"ERR\";END;out:=CONCAT(out,{{\"Function.Xmin\",TYPE(v),STRING(v)}});STARTAPP(\"Geometry\");RETURN STRING({out,Xmin,Ymin,PixSize});END;",
+      "source_sha256": "3611792f84f3fd9952e7c367e94cb334318c3e41815ba2190deebdd947bd9a45",
+      "expected": "{{{\"Function.Xmin\",0,\"−15.9\"},{\"Geometry.Xmin:=-7\",0,\"−7\"},{\"Geometry.Ymin:=-3\",0,\"−3\"},{\"Geometry.PixSize:=0.2\",0,\"0.2\"},{\"Geometry.Xmin\",0,\"−7\"},{\"Geometry.Ymin\",0,\"−3\"},{\"Geometry.PixSize\",0,\"0.2\"},{\"Function.Xmin\",0,\"−15.9\"}},−7,−3,0.2}"
+    },
+    {
+      "name": "pixel_size_small_positive_decade_admission_controls",
+      "active_app": "Geometry",
+      "entry": "ZZT_GEO_SMALL",
+      "source": "EXPORT ZZT_GEO_SMALL() BEGIN LOCAL out:={},s;Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.01;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.01\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.00001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.00001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.000001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.000001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0000001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0000001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.00000001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.00000001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.000000001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.000000001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.1;RETURN STRING(out);END;",
+      "source_sha256": "8840d1906b61f6fbbd4209bb663d88502e82bbbca434c57364e58b2b27b48d17",
+      "expected": "{{\"0.01\",\"OK\",\"0.01\"},{\"0.001\",\"STOREERR\",\"0.125\"},{\"0.0001\",\"STOREERR\",\"0.125\"},{\"0.00001\",\"STOREERR\",\"0.125\"},{\"0.000001\",\"STOREERR\",\"0.125\"},{\"0.0000001\",\"STOREERR\",\"0.125\"},{\"0.00000001\",\"STOREERR\",\"0.125\"},{\"0.000000001\",\"STOREERR\",\"0.125\"}}"
+    },
+    {
+      "name": "pixel_size_precise_lower_threshold_controls",
+      "active_app": "Geometry",
+      "entry": "ZZT_GEO_EDGE",
+      "source": "EXPORT ZZT_GEO_EDGE() BEGIN LOCAL out:={},s;Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.001000000001;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.001000000001\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.00101;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.00101\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0011;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0011\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0015;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0015\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0019;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0019\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.001953125;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.001953125\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.002;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.002\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.0025;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.0025\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.003;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.003\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.003125;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.003125\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.00314;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.00314\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.125;s:=\"OK\";IFERR Geometry.PixSize:=0.004;THEN s:=\"STOREERR\";END;out:=CONCAT(out,{{\"0.004\",s,STRING(Geometry.PixSize)}});Geometry.PixSize:=0.1;RETURN STRING(out);END;",
+      "source_sha256": "3aaa3d8b8f4a45561ebba36eb5daf4d622e8aca36072a77f7ab4ab9fad756445",
+      "expected": "{{\"0.001000000001\",\"OK\",\"0.001000000001\"},{\"0.00101\",\"OK\",\"0.00101\"},{\"0.0011\",\"OK\",\"0.0011\"},{\"0.0015\",\"OK\",\"0.0015\"},{\"0.0019\",\"OK\",\"0.0019\"},{\"0.001953125\",\"OK\",\"0.001953125\"},{\"0.002\",\"OK\",\"0.002\"},{\"0.0025\",\"OK\",\"0.0025\"},{\"0.003\",\"OK\",\"0.003\"},{\"0.003125\",\"OK\",\"0.003125\"},{\"0.00314\",\"OK\",\"0.00314\"},{\"0.004\",\"OK\",\"0.004\"}}"
+    },
+    {
+      "name": "canonical_geometry_assignment_expression_return_values",
+      "active_app": "Geometry",
+      "entry": "ZZT_GEO_RETURN",
+      "source": "EXPORT ZZT_GEO_RETURN() BEGIN LOCAL out:={},v;STARTAPP(\"Geometry\");v:=EXPR(\"Geometry.PixSize:=10001\");out:=CONCAT(out,{{\"Geometry.PixSize:=10001\",TYPE(v),STRING(v)}});v:=EXPR(\"Geometry.PixSize:=#2h\");out:=CONCAT(out,{{\"Geometry.PixSize:=#2h\",TYPE(v),STRING(v)}});v:=EXPR(\"Geometry.PixSize:=(0.1,0)\");out:=CONCAT(out,{{\"Geometry.PixSize:=(0.1,0)\",TYPE(v),STRING(v)}});v:=EXPR(\"Geometry.Xmin:=1E499\");out:=CONCAT(out,{{\"Geometry.Xmin:=1E499\",TYPE(v),STRING(v)}});v:=EXPR(\"Geometry.Ymin:=(3,0)\");out:=CONCAT(out,{{\"Geometry.Ymin:=(3,0)\",TYPE(v),STRING(v)}});RETURN STRING({out,Geometry.Xmin,Geometry.Ymin,Geometry.PixSize});END;",
+      "source_sha256": "bf104600435410e6694a1f982b7f9259fd3e8fb25f95d90041c3e86cc9863f42",
+      "expected": "{{{\"Geometry.PixSize:=10001\",0,\"10000\"},{\"Geometry.PixSize:=#2h\",0,\"2\"},{\"Geometry.PixSize:=(0.1,0)\",0,\"0.1\"},{\"Geometry.Xmin:=1E499\",0,\"10000\"},{\"Geometry.Ymin:=(3,0)\",0,\"3\"}},10000,3,0.1}"
+    },
+    {
+      "name": "bare_geometry_assignment_expression_return_values",
+      "active_app": "Geometry",
+      "entry": "ZZT_GEO_BARE",
+      "source": "EXPORT ZZT_GEO_BARE() BEGIN LOCAL out:={},v;v:=EXPR(\"PixSize:=10001\");out:=CONCAT(out,{{\"PixSize:=10001\",TYPE(v),STRING(v)}});v:=EXPR(\"PixSize:=#2h\");out:=CONCAT(out,{{\"PixSize:=#2h\",TYPE(v),STRING(v)}});v:=EXPR(\"PixSize:=(0.1,0)\");out:=CONCAT(out,{{\"PixSize:=(0.1,0)\",TYPE(v),STRING(v)}});v:=EXPR(\"Xmin:=1E499\");out:=CONCAT(out,{{\"Xmin:=1E499\",TYPE(v),STRING(v)}});RETURN STRING(out);END;",
+      "source_sha256": "118057f29074b3d91d51c5bb5f1b57e9168e3d2ab0004319da5fd89334de0916",
+      "expected": "{{\"PixSize:=10001\",0,\"10000\"},{\"PixSize:=#2h\",0,\"2\"},{\"PixSize:=(0.1,0)\",0,\"0.1\"},{\"Xmin:=1E499\",0,\"10000\"}}"
+    }
+  ]
+}

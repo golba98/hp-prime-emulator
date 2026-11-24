@@ -1,0 +1,47 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_setup_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "RANGES"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN STARTAPP(\"Graph 3D\"); RETURN {STARTVIEW(1,1),Xmin,Xmax,Ymin,Ymax,Zmin,Zmax,Graph_3D.Xtick,Graph_3D.Ytick,Graph_3D.Ztick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

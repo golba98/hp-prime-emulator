@@ -1,0 +1,169 @@
+{
+  "provenance": "Self-authored virtual G1 controls for equal-count encoded matrices. Zero-weight integral pairs and explicit zero imaginary parts permit exact results. The effects controls record each evaluated cell in order.",
+  "cases": [
+    {
+      "name": "exact",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[(1,2),(4,1)],[(3,-1),(8,1)]],[[0+0,0,0,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,2),(4,1),(3,-1),(8,1)]],[[0+0,0],[0,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1.5,1.5),4],[3,8]],[[0+0,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1.5,0),4],[3,8]],[[0+0,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,2),4],[3,(8,1)]],[[0+0,1,1,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,0),4],[3,(8,0)]],[[0-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(0,0),(4,0),(3,0),(0,0)]],[[0-1,1],[1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,1-1),4],[3,(8,-0.0)]],[[0-1,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "a21abbc736413acf61dc888dd9eeecb9b3069738890acada0df317d37aba6578",
+      "expected": [
+        [
+          8,
+          "6*√5/36"
+        ],
+        [
+          8,
+          "15*√6/25"
+        ],
+        [
+          0,
+          2.65666167,
+          0
+        ],
+        [
+          0,
+          2.65666167,
+          0
+        ],
+        [
+          8,
+          "4*√11/16"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ],
+        [
+          8,
+          "2*√6/3"
+        ],
+        [
+          8,
+          "10*√689/100"
+        ]
+      ]
+    },
+    {
+      "name": "cancellations",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[(1,2),4],[3,8]],[[0+0,-2,-2,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1.5,1.5),4],[3,8]],[[0+0,-2,-2,-2]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,2),4,3,8]],[[0+0,-1.5],[-2.5,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1.5,0),4,3,8]],[[0-1,1],[1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,0),4],[3,8]],[[0-0.5,1,1,3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(1,2),4],[3,(8,1)]],[[0+0,1],[1,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "a37fd68f44eb7b8c28bdccc08480851295715028674d62431b05b61b647e3ea6",
+      "expected": [
+        [
+          8,
+          "undef"
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          0,
+          2.73861279,
+          0
+        ],
+        [
+          0,
+          2.64532275,
+          0
+        ],
+        [
+          8,
+          "7*√38/49"
+        ]
+      ]
+    },
+    {
+      "name": "held_low",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[(-1,3),(-1,0)]],[[0+0],[0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(-1,3)],[(-1,0)]],[[0+0,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(6,-3),5,(-6,0)]],[[0+0],[4],[0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(6,-3)],[5],[(-6,0)]],[[0+0,4,0]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(-6,-3),2],[-4,(5,0)]],[[0+0,-2,2,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(-6,-3),2,-4,(5,0)]],[[0+0,-2],[2,-1]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "4d958c2de3b54e0b904427a4f1dc09daae36b375fd841dd1433591d72306d38e",
+      "expected": [
+        [
+          8,
+          "4*√3/16"
+        ],
+        [
+          8,
+          "4*√3/16"
+        ],
+        [
+          8,
+          "12*√2/9"
+        ],
+        [
+          8,
+          "12*√2/9"
+        ],
+        [
+          8,
+          "8/5"
+        ],
+        [
+          8,
+          "5/2"
+        ]
+      ]
+    },
+    {
+      "name": "held_high",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[(5,-2),-1,3],[1,6,(2,0)]],[[0+0,-1],[-2,4],[0,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(5,-2),-1],[3,1],[6,(2,0)]],[[0+0,-1,-2],[4,0,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(3,1),2,-3,8],[1,-1,-4,(8,0)]],[[0+0,-1],[-2,-2],[1,1],[0,4]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(3,1),2],[-3,8],[1,-1],[-4,(8,0)]],[[0+0,-1,-2,-2],[1,1,0,4]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(8,1),3,5,-1,-6,-2],[8,5,-5,4,3,(6,0)]],[[0+0,4,1,3],[2,3,-3,4],[0,1,-3,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nIFERR R:=stddev([[(8,1),3,5,-1],[-6,-2,8,5],[-5,4,3,(6,0)]],[[0+0,4,1,3,2,3],[-3,4,0,1,-3,-3]]); IF TYPE(R)==0 OR TYPE(R)==3 THEN O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),8),ROUND(IM(R),8)}}); ELSE O:=CONCAT(O,{{TYPE(R),STRING(R)}}); END; THEN O:=CONCAT(O,{\"caught\"}); END;\nRETURN O; END;",
+      "source_sha256": "e092c77018a1892cba5098be52de58238dd1de7e992784fd9f006804dbc22794",
+      "expected": [
+        [
+          8,
+          "2**√5/4"
+        ],
+        [
+          8,
+          "2**√5/4"
+        ],
+        [
+          8,
+          "8**√113/64"
+        ],
+        [
+          8,
+          "8**√113/64"
+        ],
+        [
+          8,
+          "√1598/17"
+        ],
+        [
+          8,
+          "3*√26/9"
+        ]
+      ]
+    },
+    {
+      "name": "effects_a",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R:=0, gotError:=0; HComplex:=1; A:=0;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,4)],[ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1),ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN gotError:=1; END;\nRETURN {A,gotError,TYPE(R),STRING(R)};\nEND;\nZZT_TICK(digit,ret) BEGIN A:=A*10+digit; RETURN ret; END;\nZZT_FAIL() BEGIN A:=A*10+2; RETURN 1/0; END;",
+      "source_sha256": "240fe577568a22315fbeae485725d4e6808a2695c0a79429add35490e2b217da",
+      "expected": [
+        123456789,
+        0,
+        8,
+        "11*√854/121"
+      ]
+    },
+    {
+      "name": "effects_b",
+      "entry": "ZZT_ENCZERO",
+      "source": "EXPORT ZZT_ENCZERO() BEGIN\nLOCAL R:=0, gotError:=0; HComplex:=1; A:=0;\nIFERR R:=stddev([[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,4),ZZT_TICK(4,3),ZZT_TICK(5,8)]],[[ZZT_TICK(6,0),ZZT_TICK(7,1)],[ZZT_TICK(8,1),ZZT_TICK(9,3)]]); THEN gotError:=1; END;\nRETURN {A,gotError,TYPE(R),STRING(R)};\nEND;\nZZT_TICK(digit,ret) BEGIN A:=A*10+digit; RETURN ret; END;\nZZT_FAIL() BEGIN A:=A*10+2; RETURN 1/0; END;",
+      "source_sha256": "3a80e45d388ee50fde17a9e87d8bccbeffa76fb5ccc6d88b24f6c67f9c0abe57",
+      "expected": [
+        123456789,
+        0,
+        8,
+        "15*√21/25"
+      ]
+    }
+  ]
+}

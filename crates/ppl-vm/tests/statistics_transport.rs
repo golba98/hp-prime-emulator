@@ -258,3 +258,19 @@ fn interruption_preserves_the_pre_request_frame_and_cannot_become_a_success() {
     assert_eq!(session.snapshot().globals["A"], number(7));
     assert!(!session.snapshot().globals.contains_key("H1"));
 }
+
+#[test]
+fn frequency_capture_preserves_parentheses_that_change_statistics_validation() {
+    let (host, seen) = recording_host(vec![Ok(number(1)); 3]);
+    let mut session = SessionContext::default();
+    run(
+        &mut session,
+        "EXPORT GO() BEGIN SetFreq(H1,(2)); SetFreq(H1,1+1); SetFreq(H1,2); RETURN 1; END;",
+        host,
+    )
+    .unwrap();
+    let seen = seen.borrow();
+    for (request, expected) in seen.iter().zip(["(2)", "1+1", "2"]) {
+        assert_eq!(syntax(&request.0.indices[1]), expected);
+    }
+}

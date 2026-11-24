@@ -59,6 +59,12 @@ impl Matrix {
     pub fn row(&self, r: usize) -> &[Value] {
         &self.data[r * self.cols..(r + 1) * self.cols]
     }
+
+    /// The kind, row count and column count for an expression-built array in a list.
+    pub(crate) fn encoding_prefix(&self) -> [Value; 3] {
+        [usize::from(!self.vector), self.rows, self.cols]
+            .map(|entry| Value::Real(Real::from_u64(entry as u64)))
+    }
 }
 
 /// `TYPE()` codes (forum-reported for Home/PPL; **unverified** on the G1).
@@ -256,7 +262,24 @@ impl Value {
         match self {
             Value::Str(s) => 16 + s.len(),
             Value::RawString(s) => 16 + s.len() * 2,
-            Value::Symbolic(v) => 32 + v.expression().len(),
+            Value::Symbolic(v) => match v.as_ref() {
+                ppl_cas::CasValue::NativeExpression {
+                    source,
+                    display,
+                    approximation,
+                    pair_display,
+                    ..
+                } => {
+                    32 + source.len()
+                        + display.len()
+                        + match approximation {
+                            ppl_cas::NativeProjection::Scalar(text) => text.len(),
+                            ppl_cas::NativeProjection::GaussianRadical { .. } => 32,
+                        }
+                        + pair_display.as_ref().map_or(0, String::len)
+                }
+                _ => 32 + v.expression().len(),
+            },
             Value::List(l) => 16 + l.iter().map(Value::approx_bytes).sum::<usize>(),
             Value::Matrix(m) => 32 + m.data.len() * 24,
             _ => 24,
@@ -283,7 +306,15 @@ impl Value {
 
     fn write_display(&self, out: &mut String, opts: FormatOptions, nested: bool) {
         match self {
-            Value::Symbolic(v) => out.push_str(&v.to_string()),
+            Value::Symbolic(v) => match v.as_ref() {
+                ppl_cas::CasValue::NativeExpression {
+                    pair_display: Some(display),
+                    ..
+                } if opts.complex_format == ppl_math::ComplexFormat::Pair => {
+                    out.push_str(display);
+                }
+                _ => out.push_str(&v.to_string()),
+            },
             Value::Real(r) => out.push_str(&r.format(opts)),
             Value::Int(i) => {
                 out.push_str(&i.format_for(opts.int_bits, opts.int_signed, opts.int_base))

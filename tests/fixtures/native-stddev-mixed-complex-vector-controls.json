@@ -1,0 +1,169 @@
+{
+  "original": "Original virtual G1 mixed complex-vector STDDEV controls",
+  "cases": [
+    {
+      "name": "plain_bracket_witnesses",
+      "source": "EXPORT ZZT_COMPLEXMIX() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],[(1,4),3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,-4),3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,0),3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([3,(1,4)],[3,1]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[.5,1.5]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXMIX",
+      "source_sha256": "89a0b4a88e4fd7475e55db699546cb740f27fec2fbe9777184fd64e0d090bad7",
+      "expected": [
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,1+4*,3})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev([1,3],ListToMat(EVALLIST({0,1,2,1+4*,3}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,1+(-4)*,3})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,1+0*,3})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,3,1+4*})),[3,1]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,1+4*,3})),[0.5,1.5]) \n Error: Bad Argument Value\""
+        ]
+      ]
+    },
+    {
+      "name": "plain_bracket_effects",
+      "source": "EXPORT ZZT_COMPLEXMIX() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3),ZZT_TICK(4,6)],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[1,3,5]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3),ZZT_TICK(4,6)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3,5],[(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXMIX",
+      "source_sha256": "904ac5e9fd8ebb89303e43ae0f3723a75bd69bbe9f2e38e2178f8d2b82223da5",
+      "expected": [
+        [
+          123,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          123,
+          0,
+          2,
+          "\"stddev([1,3],ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          1234,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,3,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3),ZZT_TICK(4,6)})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          123,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),[1,3,5]) \n Error: Bad Argument Value\""
+        ],
+        [
+          1234,
+          0,
+          2,
+          "\"stddev([1,3],ListToMat(EVALLIST({0,1,3,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3),ZZT_TICK(4,6)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          123,
+          0,
+          2,
+          "\"stddev([1,3,5],ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)}))) \n Error: Bad Argument Value\""
+        ]
+      ]
+    },
+    {
+      "name": "callback_faults_and_list_order",
+      "source": "EXPORT ZZT_COMPLEXMIX() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_FAIL(1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],[(ZZT_TICK(1,1),ZZT_FAIL(2)),ZZT_TICK(3,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],{ZZT_TICK(4,1),ZZT_TICK(5,3)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({ZZT_TICK(1,1),ZZT_TICK(2,3)},[(ZZT_TICK(3,1),ZZT_TICK(4,4)),ZZT_TICK(5,3)]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)],{ZZT_FAIL(4),ZZT_TICK(5,3)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXMIX",
+      "source_sha256": "1331abfc7904184bc6f27fbea782d89b2b6086ea02339bdc1ce59dafb56f5d76",
+      "expected": [
+        [
+          123,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_FAIL(1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          123,
+          0,
+          2,
+          "\"stddev([1,3],ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_FAIL(2)*,ZZT_TICK(3,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          45123,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,ZZT_TICK(1,1)+ZZT_TICK(2,4)*,ZZT_TICK(3,3)})),{1,3}) \n Error: Bad Argument Value\""
+        ],
+        [
+          12345,
+          0,
+          2,
+          "\"stddev({1,3},ListToMat(EVALLIST({0,1,2,ZZT_TICK(3,1)+ZZT_TICK(4,4)*,ZZT_TICK(5,3)}))) \n Error: Bad Argument Value\""
+        ],
+        [
+          4,
+          1,
+          0,
+          "−99"
+        ]
+      ]
+    },
+    {
+      "name": "unaffected_controls",
+      "source": "EXPORT ZZT_COMPLEXMIX() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([1,3],{1,1}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([0+1,3],[1,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev([(1,4),3],[0+0,3]); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=ZZT_FAIL(1); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "entry": "ZZT_COMPLEXMIX",
+      "source_sha256": "428f1db81321ae7f538d77928bdfef24e08f0c6a850775cea0dd868915022ced",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "2*√3/4"
+        ],
+        [
+          0,
+          0,
+          0,
+          "1"
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(ListToMat(EVALLIST({0,1,2,0+1,3})),[1,3]) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          8,
+          "3*√5/9"
+        ],
+        [
+          1,
+          1,
+          0,
+          "−99"
+        ]
+      ]
+    }
+  ]
+}

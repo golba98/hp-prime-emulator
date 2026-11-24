@@ -56,7 +56,7 @@ fn direct_vertex_zbuffer_mutates_local_and_global_strings() {
 #[test]
 fn cached_lines_read_and_write_the_same_depth_buffer() {
     assert_eq!(run("DIMGROB_P(G1,8,8); LOCAL z:=TRIANGLE_P(G1); TRIANGLE_P(G1,{{0,0,10,#FFh},{8,0,10,#FFh},{0,8,10,#FFh}},{{1,2,3}},[[1,0,0],[0,1,0],[0,0,1]],z); RETURN {GETPIX_P(G1,1,1),ASC(LEFT(z,1))};").unwrap(),"{#FFh,{2570}}");
-    assert_eq!(run("DIMGROB_P(G1,8,8); LOCAL z:=TRIANGLE_P(G1); LOCAL c:=LINE_P(G1,{{0,1,10},{7,1,10}},{{1,2,#FFh}},{-1},z); LINE_P(G1,c,{{1,2,#FF0000h}},z); RETURN {GETPIX_P(G1,3,1),ASC(MID(z,5,1))};").unwrap(),"{#FF0000h,{2570}}");
+    assert_eq!(run("DIMGROB_P(G1,8,8); LOCAL z:=TRIANGLE_P(G1); LOCAL c:=LINE_P(G1,{{0,1,10},{7,1,10}},{{1,2,#FFh}},{-1},z); LINE_P(G1,c,{{1,2,#FF0000h}},z); RETURN {GETPIX_P(G1,3,1),ASC(MID(z,5,1))};").unwrap(),"{#FFh,{2570}}");
 }
 #[test]
 fn zbuffer_surrogate_units_use_the_exact_packed_utf16_layout() {
@@ -77,13 +77,14 @@ fn invalid_geometry_and_nonwritable_zstrings_do_not_draw_partial_results() {
         "#FFFFFFh"
     );
     assert_eq!(run("LOCAL z:=TRIANGLE_P(); IFERR LINE_P({{0,0},{10,0}},{{1,2,#FFh}},{-1},z+\"\"); THEN END; RETURN GETPIX_P(5,0);").unwrap(),"#FFFFFFh");
+    assert_eq!(run("DIMGROB_P(G1,9,7,#112233h); IFERR LINE_P(G1,[[(1,1),92],[(7,1),101]],{{1,2,#6F04D4h},{1,3}},{-1}); THEN END; RETURN GETPIX_P(G1,3,1);").unwrap(),"#112233h");
     assert!(run("LINE_P({{0,0},{10,0}},{{1,2}},[[1,0,0,0,0],[0,1,0,0,0]]);").is_err());
 }
 
 #[test]
 fn cartesian_triangle_and_line_share_plot_variables_and_cached_points() {
     assert_eq!(run("Xmin:=0; Xmax:=10; Ymin:=0; Ymax:=10; LOCAL c:=LINE({{0,0},{10,0},{0,10}},{{1,2}},{-1}); RECT_P(); TRIANGLE(c,{{1,2,3,#FFh}}); RETURN {GETPIX_P(10,220),GETPIX_P(310,10)};").unwrap(),"{#FFh,#FFFFFFh}");
-    assert_eq!(run("Xmin:=0; Xmax:=10; Ymin:=0; Ymax:=10; TRIANGLE(0,0,10,0,0,10,#FFh); RETURN GETPIX_P(10,220);").unwrap(),"#FFh");
+    assert_eq!(run("Xmin:=0; Xmax:=10; Ymin:=0; Ymax:=10; RECT_P(); TRIANGLE(0,0,10,0,0,10,#FFh); RETURN {GETPIX_P(10,220),GETPIX_P(10,210)};").unwrap(),"{#FFFFFFh,#FFh}");
     assert_eq!(
         run("TRIANGLE_P((0,0),(10,0),(0,10)); RETURN GETPIX_P(1,1);").unwrap(),
         "#0h"
@@ -106,4 +107,73 @@ fn full_scalar_depth_form_writes_only_z_and_preserves_string_copies() {
         run("LOCAL color:=#FFh; LINE_P(0,0,10,0,color); RETURN {GETPIX_P(5,0),color};").unwrap(),
         "{#FFh,#FFh}"
     );
+}
+
+#[test]
+fn packed_points_and_line_depth_match_original_controls() {
+    use ppl_vm::Value;
+    use sha2::{Digest, Sha256};
+
+    fn project(value: &Value) -> serde_json::Value {
+        match value {
+            Value::Real(value) => serde_json::json!(value.to_i64().unwrap()),
+            Value::List(values) => values.iter().map(project).collect(),
+            value => panic!("Unexpected mesh projection {value:?}"),
+        }
+    }
+
+    for fixture in [
+        include_str!("../../../tests/fixtures/native-mesh-point-controls.json"),
+        include_str!("../../../tests/fixtures/native-line-depth-controls.json"),
+        include_str!("../../../tests/fixtures/native-line-normalization-controls.json"),
+        include_str!("../../../tests/fixtures/native-line-source-z-controls.json"),
+    ] {
+        let fixture: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let source = case["source"].as_str().unwrap();
+            assert_eq!(
+                format!("{:x}", Sha256::digest(source)),
+                case["source_sha256"]
+            );
+            let mut run = Run::new(name, source);
+            let actual = run.call(case["entry"].as_str().unwrap(), &[]).unwrap();
+            assert_eq!(project(&actual), case["expected"], "{name}");
+        }
+    }
+}
+
+#[test]
+fn clipped_perspective_line_blends_and_writes_the_opaque_depth() {
+    let depth = "{65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,255,65322,65535,65535,65535,65535,65535,65535,65535,65535,32340,53928,65535,65535,65535}";
+    let empty_depth = format!("{{{}}}", ["65535"; 26].join(","));
+    for (primitives, color, expected_depth) in [
+        ("{{1,2,#A452E9h}}", 0xA452E9, depth),
+        ("{{1,2,#A452E9h,0}}", 0xA452E9, depth),
+        ("{{1,2,#A452E9h,1}}", 0xA351E8, depth),
+        ("{{1,2,#A452E9h,64}}", 0x7B3EB0, depth),
+        ("{{1,2,#A452E9h,128}}", 0x532B77, depth),
+        ("{{1,2,#A452E9h,192}}", 0x2A173E, depth),
+        ("{{1,2,#A452E9h,254}}", 0x030407, depth),
+        ("{{1,2,#A452E9h,255}}", 0x020406, &empty_depth),
+        ("{#A452E9h,128,{1,2}}", 0xA452E9, depth),
+    ] {
+        let result = run(&format!(
+            "DIMGROB_P(G1,17,3,#020406h); LOCAL z:=TRIANGLE_P(G1),c;\n\
+             c:=LINE_P(G1,{{{{0.375,0.125,20}},{{12.625,2.25,80}}}},{primitives},\n\
+                 {{-1,\"N\",{{0,0,80}},{{0,16,0,3,30,65}}}},z);\n\
+             RETURN {{TYPE(c),B→R(GETPIX_P(G1,6,1)),B→R(GETPIX_P(G1,5,1)),ASC(z)}};"
+        ))
+        .unwrap();
+        assert_eq!(
+            result,
+            format!("{{2,{color},132102,{expected_depth}}}"),
+            "{primitives}"
+        );
+    }
+}
+
+#[test]
+fn normalized_point_cache_preserves_the_line_depth_path() {
+    assert_eq!(run("DIMGROB_P(G1,9,7); LOCAL z:=TRIANGLE_P(G1), cache, first; cache:=LINE_P(G1,{{1,2,0},{7,2,255}},{{1,2,#FFh}},{-1,\"N\"},z); first:=ASC(MID(z,11,1)); z:=TRIANGLE_P(G1); LINE_P(G1,cache,{{1,2,#FFh}},z); RETURN {first,ASC(MID(z,11,1))};").unwrap(),"{{18211},{18211}}");
 }

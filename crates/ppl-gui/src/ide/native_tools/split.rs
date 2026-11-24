@@ -16,7 +16,15 @@ impl NativeTools {
                     let mut context = snapshot.clone();
                     context.active_app = self.memory.selected_app.clone();
                     self.detail = Some((app.window.clone(), Vec::new()));
-                    self.detail_job = Some(PlotJob::start(app, context));
+                    self.detail_job = Some(PlotJob::start(
+                        app,
+                        context,
+                        self.memory
+                            .models
+                            .geometry_book
+                            .clone()
+                            .map(std::sync::Arc::new),
+                    ));
                 } else {
                     let window = self.trace_window();
                     let mut context = snapshot.clone();
@@ -38,6 +46,7 @@ impl NativeTools {
                         self.memory.selected_app.clone(),
                         self.memory.models.clone(),
                         context,
+                        false,
                     ));
                 }
                 self.plot(snapshot);
@@ -120,7 +129,10 @@ impl NativeTools {
                             ui,
                             &mut window,
                             points,
-                            &colors,
+                            super::super::native_plot_view::GraphStyle {
+                                colors: &colors,
+                                function_setup: None,
+                            },
                             size,
                             scale,
                             None,
@@ -147,7 +159,10 @@ impl NativeTools {
                     ui,
                     &mut window,
                     &points,
-                    &colors,
+                    super::super::native_plot_view::GraphStyle {
+                        colors: &colors,
+                        function_setup: None,
+                    },
                     size,
                     scale,
                     trace,

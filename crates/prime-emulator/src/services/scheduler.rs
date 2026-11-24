@@ -5,7 +5,7 @@
 //! Host scheduling may delay a boundary; this is not cycle-accurate timing.
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
     time::{Duration, Instant},
 };
 #[derive(Default)]
@@ -45,6 +45,7 @@ impl Image {
                 used: self.used.clone(),
                 active: None,
             }),
+            released: Condvar::new(),
         })
     }
     pub fn owners(&self) -> impl Iterator<Item = u32> + '_ {
@@ -53,6 +54,7 @@ impl Image {
 }
 pub struct Scheduler {
     state: Mutex<State>,
+    released: Condvar,
 }
 impl Default for Scheduler {
     fn default() -> Self {
@@ -61,6 +63,7 @@ impl Default for Scheduler {
                 slots: BTreeMap::from([(0, 16)]),
                 ..Default::default()
             }),
+            released: Condvar::new(),
         }
     }
 }
@@ -98,6 +101,9 @@ impl Scheduler {
             return false;
         }
         state.slots.insert(thread, slot);
+        if state.active.is_none() {
+            self.released.notify_all();
+        }
         true
     }
     pub fn retire(&self, thread: u32) {
@@ -105,14 +111,45 @@ impl Scheduler {
         state.slots.remove(&thread);
         state.requests.remove(&thread);
         state.used.remove(&thread);
+        if state.active.is_none() {
+            self.released.notify_all();
+        }
     }
     pub fn cancel_request(&self, thread: u32) {
         let mut state = self.state.lock().unwrap();
         state.requests.remove(&thread);
         state.used.remove(&thread);
+        if state.active.is_none() {
+            self.released.notify_all();
+        }
     }
     pub fn try_enter(self: &Arc<Self>, thread: u32, interrupt: bool) -> Option<Permit> {
+        self.try_enter_locked(&mut self.state.lock().unwrap(), thread, interrupt)
+    }
+
+    /// Wait briefly on contention, then let the CPU recheck its boundary.
+    ///
+    /// A scheduler change can wake a guest before the polling interval. The
+    /// guest always checks safe points and the power gate before a fresh try.
+    pub fn enter_slice(self: &Arc<Self>, thread: u32) -> Option<Permit> {
         let mut state = self.state.lock().unwrap();
+        if let Some(permit) = self.try_enter_locked(&mut state, thread, false) {
+            return Some(permit);
+        }
+        drop(
+            self.released
+                .wait_timeout(state, Duration::from_millis(1))
+                .unwrap(),
+        );
+        None
+    }
+
+    fn try_enter_locked(
+        self: &Arc<Self>,
+        state: &mut State,
+        thread: u32,
+        interrupt: bool,
+    ) -> Option<Permit> {
         if !state.slots.contains_key(&thread) {
             return None;
         }
@@ -132,14 +169,14 @@ impl Scheduler {
                     .min_by_key(|owner| state.slots[owner])
                     .copied()
             };
-            let next = if let Some(owner) = eligible(&state) {
+            let next = if let Some(owner) = eligible(state) {
                 owner
             } else {
                 let ready: Vec<_> = state.requests.iter().copied().collect();
                 for owner in ready {
                     state.used.insert(owner, Duration::ZERO);
                 }
-                eligible(&state)?
+                eligible(state)?
             };
             if next != thread {
                 return None;
@@ -172,6 +209,7 @@ impl Drop for Permit {
         if !self.interrupt {
             *state.used.entry(self.thread).or_default() += self.start.elapsed();
         }
+        self.scheduler.released.notify_all();
     }
 }
 #[cfg(test)]

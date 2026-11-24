@@ -35,11 +35,24 @@ pub struct Template {
     pub span: Range<usize>,
     pub fields: Vec<Range<usize>>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SelectionAnchor {
+    byte: usize,
+    textbook: bool,
+}
+impl SelectionAnchor {
+    fn plain(byte: usize) -> Self {
+        Self {
+            byte,
+            textbook: false,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 struct Document {
     text: String,
     cursor: usize,
-    anchor: Option<usize>,
+    anchor: Option<SelectionAnchor>,
     templates: Vec<Template>,
 }
 #[derive(Debug, Clone, Default)]
@@ -73,9 +86,136 @@ impl ExpressionEditor {
     pub fn templates(&self) -> &[Template] {
         &self.doc.templates
     }
+    pub(super) fn powered_base<'a>(&self, power: &'a Template) -> Option<&'a Range<usize>> {
+        let [base, _] = power.fields.as_slice() else {
+            return None;
+        };
+        if power.kind != TemplateKind::Power
+            || self.text().get(power.span.start..base.start)? != "("
+            || self.text().as_bytes().get(base.end) != Some(&b')')
+        {
+            return None;
+        }
+        self.templates()
+            .iter()
+            .any(|child| child.kind == TemplateKind::Power && child.span == *base)
+            .then_some(base)
+    }
+
+    fn powered_base_step(&self, right: bool) -> Option<usize> {
+        self.templates().iter().rev().find_map(|power| {
+            let close = self.powered_base(power)?.end;
+            let exponent = &power.fields[1];
+            match self.cursor() {
+                pos if right && pos == close => Some(close + 1),
+                pos if right && pos == close + 1 => Some(exponent.start),
+                pos if !right && pos == exponent.start => Some(close + 1),
+                _ => None,
+            }
+        })
+    }
+    pub(super) fn fraction_factorial_operand(&self, group: &Template) -> Option<&Template> {
+        let [field] = group.fields.as_slice() else {
+            return None;
+        };
+        let source = self.text();
+        if group.kind != TemplateKind::Parentheses
+            || source.get(group.span.start..field.start)? != "("
+            || source.get(field.end..group.span.end)? != ")"
+            || !source.get(group.span.end..)?.starts_with('!')
+            || parentheses_follow_name(source, group.span.start)
+        {
+            return None;
+        }
+        self.templates()
+            .iter()
+            .find(|template| template.kind == TemplateKind::Fraction && template.span == *field)
+    }
+
+    fn fraction_factorial_step(&self, right: bool) -> Option<usize> {
+        let cursor = self.cursor();
+        self.templates().iter().rev().find_map(|group| {
+            let [upper, lower] = self.fraction_factorial_operand(group)?.fields.as_slice() else {
+                return None;
+            };
+            if right && cursor == group.span.start {
+                Some(lower.start)
+            } else if !right && cursor == group.span.end {
+                Some(lower.end)
+            } else if right && (cursor == upper.end || cursor == lower.end) {
+                Some(group.span.end)
+            } else if !right && (cursor == upper.start || cursor == lower.start) {
+                Some(group.span.start)
+            } else {
+                None
+            }
+        })
+    }
     pub fn selection(&self) -> Range<usize> {
-        let a = self.doc.anchor.unwrap_or(self.doc.cursor);
-        a.min(self.doc.cursor)..a.max(self.doc.cursor)
+        let cursor = self.doc.cursor;
+        let Some(anchor) = self.doc.anchor else {
+            return cursor..cursor;
+        };
+        let mut range = anchor.byte.min(cursor)..anchor.byte.max(cursor);
+        if anchor.textbook && !range.is_empty() {
+            for template in &self.doc.templates {
+                let Some(field) = self.stacked_absolute_field(template) else {
+                    continue;
+                };
+                // Touching either visible bar selects the complete ABS node.
+                // The underlying caret and anchor still permit reversing direction.
+                if (range.start < field.start && range.end > template.span.start)
+                    || (range.start < template.span.end && range.end > field.end)
+                {
+                    range.start = range.start.min(template.span.start);
+                    range.end = range.end.max(template.span.end);
+                }
+            }
+        }
+        range
+    }
+    pub(super) fn stacked_absolute_field<'a>(
+        &self,
+        template: &'a Template,
+    ) -> Option<&'a Range<usize>> {
+        let [field] = template.fields.as_slice() else {
+            return None;
+        };
+        if template.kind != TemplateKind::Function("ABS")
+            || !self
+                .doc
+                .text
+                .get(template.span.start..field.start)?
+                .eq_ignore_ascii_case("ABS(")
+            || self.doc.text.get(field.end..template.span.end)? != ")"
+        {
+            return None;
+        }
+        self.doc
+            .templates
+            .iter()
+            .any(|child| {
+                child.kind == TemplateKind::Fraction
+                    && child.span.start >= field.start
+                    && child.span.end <= field.end
+            })
+            .then_some(field)
+    }
+    fn stacked_absolute_opening_step(&self, right: bool) -> Option<usize> {
+        let cursor = self.doc.cursor;
+        self.doc.templates.iter().rev().find_map(|template| {
+            let [field] = template.fields.as_slice() else {
+                return None;
+            };
+            let position = if right && cursor == template.span.start {
+                field.start
+            } else if !right && cursor == field.start {
+                template.span.start
+            } else {
+                return None;
+            };
+            self.stacked_absolute_field(template).map(|_| position)
+        })
     }
     /// Move between vertically arranged textbook fields before leaving entry
     /// for history. Offsets count characters, never split a UTF-8 glyph.
@@ -151,12 +291,24 @@ impl ExpressionEditor {
         self.redo.clear();
     }
     pub fn set_cursor(&mut self, position: usize, select: bool) {
+        self.move_cursor(position, select, false);
+    }
+    pub(crate) fn set_textbook_cursor(&mut self, position: usize, select: bool) {
+        self.move_cursor(position, select, true);
+    }
+    fn move_cursor(&mut self, position: usize, select: bool, textbook: bool) {
         let mut position = position.min(self.doc.text.len());
         while !self.doc.text.is_char_boundary(position) {
             position -= 1;
         }
         if select {
-            self.doc.anchor.get_or_insert(self.doc.cursor);
+            self.doc.anchor = Some(SelectionAnchor {
+                byte: self
+                    .doc
+                    .anchor
+                    .map_or(self.doc.cursor, |anchor| anchor.byte),
+                textbook,
+            });
         } else {
             self.doc.anchor = None;
         }
@@ -373,7 +525,7 @@ impl ExpressionEditor {
         {
             let operand = self.operand_range();
             if !operand.is_empty() {
-                self.doc.anchor = Some(operand.start);
+                self.doc.anchor = Some(SelectionAnchor::plain(operand.start));
                 self.doc.cursor = operand.end;
             }
         }
@@ -481,7 +633,7 @@ impl ExpressionEditor {
             &fields[0]
         };
         self.doc.cursor = focus.start;
-        self.doc.anchor = (!focus.is_empty()).then_some(focus.end);
+        self.doc.anchor = (!focus.is_empty()).then_some(SelectionAnchor::plain(focus.end));
         self.doc.templates.push(Template {
             kind,
             span: start + offset..start + text.len(),
@@ -622,6 +774,8 @@ impl ExpressionEditor {
                     self.replace(range, "");
                 }
             }
+            Home(select) => self.set_cursor(0, select),
+            End(select) => self.set_cursor(self.doc.text.len(), select),
             _ => self.apply(command),
         }
     }
@@ -639,12 +793,12 @@ impl ExpressionEditor {
                 }
             }
             SelectAll => {
-                self.doc.anchor = Some(0);
+                self.doc.anchor = Some(SelectionAnchor::plain(0));
                 self.doc.cursor = self.doc.text.len();
             }
             Clear => self.set_text(""),
-            Home(select) => self.set_cursor(0, select),
-            End(select) => self.set_cursor(self.doc.text.len(), select),
+            Home(select) => self.set_textbook_cursor(0, select),
+            End(select) => self.set_textbook_cursor(self.doc.text.len(), select),
             Left(select) | Right(select) => {
                 let right = matches!(command, Right(_));
                 let selection = self.selection();
@@ -654,6 +808,12 @@ impl ExpressionEditor {
                     } else {
                         selection.start
                     }
+                } else if let Some(position) = self.stacked_absolute_opening_step(right) {
+                    position
+                } else if let Some(position) = self.fraction_factorial_step(right) {
+                    position
+                } else if !select && let Some(position) = self.powered_base_step(right) {
+                    position
                 } else if !select {
                     let jump = self.doc.templates.iter().rev().find_map(|t| {
                         if let TemplateKind::Palette(form) = t.kind
@@ -675,6 +835,12 @@ impl ExpressionEditor {
                             } else if !right && self.doc.cursor == f.start {
                                 Some(if t.kind == TemplateKind::Fraction {
                                     t.span.start
+                                } else if matches!(t.kind, TemplateKind::Function(name) if name != "ABS")
+                                    && i == 0
+                                    && self.doc.text[..f.start].ends_with('(')
+                                {
+                                    // The opening mark and the call name are separately editable.
+                                    f.start - 1
                                 } else if let TemplateKind::Palette(form) = t.kind {
                                     form.neighbor(i, -1, 0, t.fields.len())
                                         .map_or(t.span.start, |n| t.fields[n].end)
@@ -692,11 +858,25 @@ impl ExpressionEditor {
                 } else {
                     self.adjacent(right)
                 };
-                self.set_cursor(position, select);
+                self.set_textbook_cursor(position, select);
             }
             Backspace | Delete => {
                 let mut range = self.selection();
                 if range.is_empty() {
+                    if command == Backspace
+                        && let Some(position) = self.templates().iter().rev().find_map(|group| {
+                            if group.span.end != self.cursor() {
+                                return None;
+                            }
+                            self.fraction_factorial_operand(group)?
+                                .fields
+                                .get(1)
+                                .map(|f| f.end)
+                        })
+                    {
+                        self.set_textbook_cursor(position, false);
+                        return;
+                    }
                     if let Some((span, text, cursor)) =
                         self.structural_deletion(command == Backspace)
                     {
@@ -813,6 +993,17 @@ impl ExpressionEditor {
                 .map_or(0, |(i, _)| i)
         }
     }
+}
+
+pub(super) fn parentheses_follow_name(source: &str, open: usize) -> bool {
+    source[..open]
+        .rsplit(|ch: char| !(ch.is_alphanumeric() || ch == '_'))
+        .next()
+        .is_some_and(|name| {
+            name.starts_with(|ch: char| {
+                ch == '_' || ch.is_alphabetic() && !matches!(ch, 'π' | 'ⅈ' | 'ℯ')
+            })
+        })
 }
 
 fn function_name(name: &str) -> Option<&'static str> {
@@ -1005,6 +1196,97 @@ fn recover_templates(text: &str) -> Vec<Template> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn textbook_powered_base_separates_the_closing_mark_from_the_outer_exponent() {
+        let source = "((2)^(3))^(2)";
+        let mut editor = ExpressionEditor::from_text(source);
+        editor.set_cursor(8, false);
+        for byte in [9, 11, 9, 8] {
+            let right = editor.cursor() < byte;
+            editor.apply(if right {
+                EditCommand::Right(false)
+            } else {
+                EditCommand::Left(false)
+            });
+            assert_eq!(editor.cursor(), byte);
+        }
+        editor.apply(EditCommand::Right(true));
+        assert_eq!(editor.selected_text(), ")");
+        assert_eq!(editor.text(), source);
+        editor.apply_linear(EditCommand::Right(false));
+        editor.apply_linear(EditCommand::Right(false));
+        assert_eq!(editor.cursor(), 10);
+    }
+
+    #[test]
+    fn textbook_fraction_factorial_traverses_visible_fields_and_keeps_source() {
+        let source = "((6)/(2))!";
+        let mut editor = ExpressionEditor::from_text(source);
+        for position in [9, 7, 6, 0, 0] {
+            editor.apply(EditCommand::Left(false));
+            assert_eq!(editor.cursor(), position);
+        }
+        for position in [6, 7, 9, 10, 10] {
+            editor.apply(EditCommand::Right(false));
+            assert_eq!(editor.cursor(), position);
+        }
+        editor.apply(EditCommand::Left(true));
+        assert_eq!(editor.selected_text(), "!");
+        editor.apply(EditCommand::Right(true));
+        assert!(editor.selection().is_empty());
+        editor.apply(EditCommand::Left(false));
+        for _ in 0..3 {
+            editor.apply(EditCommand::Left(true));
+        }
+        assert_eq!(editor.selected_text(), "((6)/(2))");
+        editor.set_textbook_cursor(9, false);
+        editor.apply(EditCommand::Backspace);
+        assert_eq!(editor.cursor(), 7);
+        assert_eq!(editor.text(), source);
+        assert!(editor.vertical_field(false));
+        assert_eq!(editor.cursor(), 3);
+
+        editor.set_cursor(9, false);
+        editor.apply_linear(EditCommand::Left(false));
+        assert_eq!(editor.cursor(), 8);
+    }
+
+    #[test]
+    fn stacked_absolute_bar_selection_preserves_the_complete_expression() {
+        let source = "ABS((-3)/(2))";
+        let mut editor = ExpressionEditor::from_text(source);
+        editor.apply(EditCommand::Home(false));
+        editor.apply(EditCommand::Right(false));
+        assert_eq!(editor.cursor(), 4);
+        editor.apply(EditCommand::Left(true));
+        assert_eq!(editor.cursor(), 0);
+        assert_eq!(editor.selected_text(), source);
+        editor.apply(EditCommand::Right(true));
+        assert_eq!(editor.cursor(), 4);
+        assert!(editor.selection().is_empty());
+
+        editor.apply(EditCommand::End(false));
+        editor.apply(EditCommand::Left(true));
+        assert_eq!(editor.cursor(), 12);
+        assert_eq!(editor.selected_text(), source);
+        editor.apply(EditCommand::Right(true));
+        assert!(editor.selection().is_empty());
+
+        editor.set_textbook_cursor(4, false);
+        editor.set_textbook_cursor(12, true);
+        assert_eq!(editor.selected_text(), "(-3)/(2)");
+        editor.set_textbook_cursor(10, false);
+        editor.set_textbook_cursor(11, true);
+        assert_eq!(editor.selected_text(), "2");
+
+        editor.apply_linear(EditCommand::Home(false));
+        editor.apply_linear(EditCommand::Right(true));
+        assert_eq!(editor.selected_text(), "A");
+        let mut short = ExpressionEditor::from_text("ABS(-3)");
+        short.apply(EditCommand::Left(true));
+        assert_eq!(short.selected_text(), ")");
+    }
+
     #[test]
     fn insertion_selection_unicode_and_undo() {
         let mut e = ExpressionEditor::from_text("12π");

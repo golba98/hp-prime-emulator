@@ -106,6 +106,32 @@
       "path": "/tmp/ppl-ide-e2e/native_history_matrix.png"
     },
     {
+      "step": "drag_lcd",
+      "from_x": 235,
+      "from_y": 155,
+      "to_x": 170,
+      "to_y": 118
+    },
+    {
+      "step": "snapshot",
+      "label": "dragged_matrix"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_matrix_dragged.png"
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 155,
+      "from_y": 110,
+      "to_x": 240,
+      "to_y": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "dragged_to_origin"
+    },
+    {
       "step": "key",
       "key": "ArrowDown"
     },

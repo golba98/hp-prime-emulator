@@ -17,5 +17,7 @@ serde_json = { workspace = true, features = ["raw_value"] }
 tempfile = "3"
 toml.workspace = true
 sha2 = "0.10"
+zune-core = "0.4"
+zune-jpeg = "0.4"
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = { version = "0.31", features = ["signal", "process"] }

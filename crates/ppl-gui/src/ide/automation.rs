@@ -10,6 +10,7 @@
 //! window: honest, scripted smoke tests of the real event loop.
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::app::IdeDesktopApp;
@@ -170,6 +171,14 @@ pub enum AutoStep {
 /// host time and power status change on their own.
 const STATUS_BAR_ROWS: usize = 20;
 
+#[derive(serde::Serialize)]
+struct ScreenshotResult {
+    step: usize,
+    kind: &'static str,
+    path: PathBuf,
+    error: Option<String>,
+}
+
 pub struct Automation {
     pub steps: Vec<AutoStep>,
     pub next: usize,
@@ -184,6 +193,8 @@ pub struct Automation {
     pending_screenshot: Option<PathBuf>,
     /// Sizes and scale observed at each window screenshot, for the dump.
     captures: Vec<serde_json::Value>,
+    screenshots: Vec<ScreenshotResult>,
+    screenshot_failure: Arc<Mutex<Option<String>>>,
     last_pump_frame: Option<u64>,
     /// Labelled intermediate states (`snapshot` steps), for the dump.
     snapshots: Vec<serde_json::Value>,
@@ -397,12 +408,58 @@ impl Automation {
             pending_drag: Default::default(),
             pending_screenshot: None,
             captures: Vec::new(),
+            screenshots: Vec::new(),
+            screenshot_failure: Arc::default(),
             last_pump_frame: None,
             snapshots: Vec::new(),
             lcd_watch: None,
             timeouts: Vec::new(),
             started: Instant::now(),
         })
+    }
+    pub(crate) fn screenshot_failure(&self) -> Arc<Mutex<Option<String>>> {
+        self.screenshot_failure.clone()
+    }
+
+    pub(crate) fn record_screenshot(
+        &mut self,
+        step: usize,
+        kind: &'static str,
+        path: PathBuf,
+        result: Result<(), String>,
+    ) {
+        let error = result.err();
+        if let Some(error) = &error {
+            self.screenshot_failure
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .get_or_insert_with(|| {
+                    format!(
+                        "Automation screenshot step {step} ({}) failed: {error}",
+                        path.display()
+                    )
+                });
+        }
+        self.screenshots.push(ScreenshotResult {
+            step,
+            kind,
+            path,
+            error,
+        });
+    }
+
+    fn record_lcd_screenshot(
+        &mut self,
+        app: &mut IdeDesktopApp,
+        kind: &'static str,
+        path: PathBuf,
+        result: Result<(), String>,
+    ) {
+        app.state.status_message = match &result {
+            Ok(()) => format!("Screenshot saved to {}", path.display()),
+            Err(error) => format!("Screenshot failed: {error}"),
+        };
+        self.record_screenshot(self.next - 1, kind, path, result);
     }
     /// The firmware LCD below the status bar has not changed for `quiet`.
     fn lcd_quiet(&mut self, app: &IdeDesktopApp, quiet: Duration) -> bool {
@@ -433,6 +490,14 @@ impl Automation {
             return;
         }
         self.last_pump_frame = Some(frame);
+        if self
+            .screenshots
+            .last()
+            .is_some_and(|capture| capture.error.is_some())
+        {
+            self.finish(app, ctx);
+            return;
+        }
         if !self.pending_drag.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(16));
             return;
@@ -454,8 +519,13 @@ impl Automation {
                 });
                 match image {
                     Some(image) => {
-                        if let Err(e) = save_color_image(&image, &path) {
-                            eprintln!("automation: window screenshot failed: {e}");
+                        let result = save_color_image(&image, &path);
+                        let failed = result.is_err();
+                        self.record_screenshot(self.next - 1, "window", path.clone(), result);
+                        self.pending_screenshot = None;
+                        if failed {
+                            self.finish(app, ctx);
+                            return;
                         }
                         let tab = app.editor.active_tab();
                         let cursor = tab.and_then(|t| {
@@ -479,7 +549,6 @@ impl Automation {
                                 [f.visible_lines.start, f.visible_lines.end]
                             }),
                         }));
-                        self.pending_screenshot = None;
                     }
                     None => {
                         ctx.request_repaint();
@@ -756,7 +825,7 @@ impl Automation {
                     .firmware
                     .as_ref()
                     .and_then(|f| f.latest.lock().unwrap_or_else(|e| e.into_inner()).clone());
-                app.state.status_message = match frame {
+                let result = match frame {
                     Some(frame) => {
                         let rgba: Vec<u8> = frame
                             .pixels
@@ -764,13 +833,11 @@ impl Automation {
                             .flat_map(|p| [(p >> 16) as u8, (p >> 8) as u8, *p as u8, 255])
                             .collect();
                         let image = egui::ColorImage::from_rgba_unmultiplied([320, 240], &rgba);
-                        match save_color_image(&image, &path) {
-                            Ok(()) => format!("Screenshot saved to {}", path.display()),
-                            Err(e) => format!("Screenshot failed: {e}"),
-                        }
+                        save_color_image(&image, &path)
                     }
-                    None => "Screenshot failed: no firmware frame yet".into(),
+                    None => Err("no firmware frame yet".into()),
                 };
+                self.record_lcd_screenshot(app, "firmware_lcd", path, result);
             }
             AutoStep::CalcKey(code) => {
                 app.state.set_key_down(code, true);
@@ -791,22 +858,19 @@ impl Automation {
             AutoStep::Screenshot(path) => {
                 if app.native_tools.page.is_some() {
                     app.request_composed_lcd(
-                        super::native_lcd_capture::CaptureAction::Save(path),
+                        super::native_lcd_capture::CaptureAction::Save {
+                            path,
+                            automation_step: Some(self.next - 1),
+                        },
                         ctx,
                     );
                     return;
                 }
-                if let Some((grob, _)) = app.capture_compare_frame() {
-                    match grob.save_png(&path) {
-                        Ok(()) => {
-                            app.state.status_message =
-                                format!("Screenshot saved to {}", path.display())
-                        }
-                        Err(e) => app.state.status_message = format!("Screenshot failed: {e}"),
-                    }
-                } else {
-                    app.state.status_message = "No current frame from the selected engine".into();
-                }
+                let result = app
+                    .capture_compare_frame()
+                    .ok_or_else(|| "no current frame from the selected engine".to_owned())
+                    .and_then(|(grob, _)| grob.save_png(&path).map_err(|error| error.to_string()));
+                self.record_lcd_screenshot(app, "native_lcd", path, result);
             }
             AutoStep::FocusEditor => {
                 if let Some(tab) = app.editor.active_tab() {
@@ -1221,12 +1285,23 @@ impl Automation {
                 "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
             },
         });
+        dump["screenshot_results"] = json!(self.screenshots);
         dump["calculator_font"] = app.native_fonts.snapshot();
         dump["native_model_results"] = json!(app.native_tools.memory.models.results);
         dump["native_plot_trace"] = json!(app.native_tools.trace);
         dump["calculator_cas"] = json!(app.controller.session_snapshot().cas);
         dump["native_tools"] = json!({"page":app.native_tools.page,"memory":app.native_tools.memory,"error":app.native_tools.error,"plot_points":app.native_tools.plot_samples(),"detail_plot":app.native_tools.detail_plot(),"table":app.native_tools.numeric_table(),"integer_edit":app.native_tools.integer_edit,"calculating":app.native_tools.calculating()});
+        dump["native_tools"]["help"] = app.native_tools.help_snapshot();
+        let cell = app.native_tools.graph3d_numeric_cell();
+        dump["native_tools"]["graph3d_numeric_row"] = json!(cell.map(|[row, _]| row));
+        dump["native_tools"]["graph3d_numeric_cell"] = json!(cell);
+        dump["native_tools"]["graph3d_trace_point"] = json!(app.native_tools.graph3d_trace_point());
+        dump["native_tools"]["trace_points"] = json!(app.native_tools.trace_samples());
         let memory = app.controller.session_snapshot();
+        dump["native_tools"]["statistics_trace"] =
+            app.native_tools.statistics_trace_snapshot(&memory);
+        dump["native_tools"]["statistics_plot_definition"] =
+            serde_json::json!(app.native_tools.statistics_plot_definition());
         dump["calculator_app_settings"] = json!(
             memory
                 .app_settings
@@ -1418,6 +1493,8 @@ mod tests {
             pending_drag: Default::default(),
             pending_screenshot: None,
             captures: vec![],
+            screenshots: vec![],
+            screenshot_failure: Arc::default(),
             last_pump_frame: None,
             snapshots: vec![],
             lcd_watch: None,
@@ -1505,6 +1582,8 @@ mod tests {
             pending_drag: Default::default(),
             pending_screenshot: None,
             captures: Vec::new(),
+            screenshots: Vec::new(),
+            screenshot_failure: Arc::default(),
             last_pump_frame: None,
             snapshots: Vec::new(),
             lcd_watch: None,

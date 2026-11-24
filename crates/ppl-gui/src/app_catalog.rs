@@ -24,7 +24,7 @@ pub(super) enum CatalogChange {
 impl CatalogChange {
     pub(super) fn from_request(request: &Request) -> Option<Self> {
         match request {
-            Request::SaveNote(name, _) => Some(Self::Saved {
+            Request::SaveNote(name, _) | Request::SaveBulletedNote(name, ..) => Some(Self::Saved {
                 name: name.clone(),
                 page: Page::Notes,
             }),
@@ -80,6 +80,9 @@ impl IdeDesktopApp {
                 self.native_tools.memory.name.clear();
                 self.native_tools.memory.original_name.clear();
                 self.native_tools.memory.content.clear();
+                if page == Some(Page::Notes) {
+                    self.native_tools.clear_note_bullets();
+                }
             }
             _ => {}
         }

@@ -1,0 +1,65 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_signed_vector.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_SDVEC"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_SDVEC() BEGIN LOCAL R,out:={};\nR:=stddev([0,1,3],{2,-.5,1}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,5],{-.25,1.25}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,4,8],{-1.5,-.5,-2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([3,3,3],{-1.5,.5,2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-1,0,1],[1.5,-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-1,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,-3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-3,0,4],[1.5,-.5,2]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-3,0,4],[-2.5,-.5,-2]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([0+1,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-(-1),3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-0,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "finite"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_SDVEC() BEGIN LOCAL R,out:={};\nR:=stddev([2,4],{-.25,.25}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([2,4],{-2,2}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([-1,3],[-1.5,-1.5]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([-1,3],[-1,-2]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "zero_total"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_SDVEC() BEGIN LOCAL R:=stddev([0,1,3],{2,-.5,1}); RETURN {TYPE(R/2),ROUND(R/2,10),ROUND(2/3,10),ROUND(stddev({1,3},{.5,1.5}),10)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "divide"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

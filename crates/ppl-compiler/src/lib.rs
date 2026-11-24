@@ -5,6 +5,7 @@ pub mod bytecode;
 pub mod catalog;
 mod compile;
 mod expression_source;
+pub mod geometry;
 pub use expression_source::{SourceError, ppl_expression_source};
 pub mod highlight;
 mod symbolic;
@@ -27,7 +28,7 @@ pub fn compile_source(
     if diags.has_errors() {
         return (None, diags);
     }
-    let (prog, sema) = compile(&ast, opts);
+    let (prog, sema) = compile::compile_with_source(&ast, opts, Some(&file.text));
     diags.extend(sema);
     diags.sort();
     if diags.has_errors() {

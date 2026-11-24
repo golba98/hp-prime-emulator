@@ -8,6 +8,10 @@ pub(crate) fn is_column(name: &str) -> bool {
     bytes.len() == 2 && matches!(bytes[0], b'C' | b'D') && bytes[1].is_ascii_digit()
 }
 
+pub(crate) fn is_two_variable_column(name: &str) -> bool {
+    matches!(name.as_bytes(), [b'C', b'0'..=b'9'])
+}
+
 pub(crate) fn coerce(name: &str, value: Value) -> RtResult<Value> {
     if !is_column(name) {
         return Ok(value);

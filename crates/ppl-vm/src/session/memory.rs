@@ -3,7 +3,8 @@ use super::*;
 use ppl_math::IntBase;
 use serde_json::{Value as Json, json};
 
-const VERSION: u64 = 5;
+const VERSION: u64 = 6;
+const TYPED_NUMERIC_VERSION: u64 = 5;
 const MAX_CELLS: usize = 1_000_000;
 
 pub fn encode_value(value: &PortableValue) -> Json {
@@ -269,6 +270,126 @@ fn decode(j: &Json, depth: usize, remaining: &mut usize) -> Result<PortableValue
         _ => return Err("Unknown calculator value kind".into()),
     })
 }
+fn encode_numeric_settings(settings: &crate::AppNumericSettings) -> Json {
+    let real = |value| encode_value(&PortableValue::Real(value));
+    let mut value = json!({
+        "start": real(settings.start), "step": real(settings.step), "zoom": real(settings.zoom),
+        "kind": settings.kind, "independent": settings.independent.iter().copied().map(real).collect::<Vec<_>>(),
+    });
+    if let Some(graph) = &settings.graph3d {
+        value["graph3d"] = json!({
+            "start": real(graph.y_start), "step": real(graph.y_step), "zoom": real(graph.y_zoom),
+            "points": graph.points.iter().map(|point| point.map(real)).collect::<Vec<_>>(),
+        });
+    }
+    value
+}
+
+const STATISTICS_ZOOM_RECENTER: &str = "zoom_recenter";
+const STATISTICS_BACKGROUND: &str = "background";
+
+fn restore_plot_background(
+    settings: &mut crate::AppPlotSettings,
+    json: &Json,
+) -> Result<(), String> {
+    use crate::{PlotBackgroundField as Field, PlotBackgroundPlacement as Placement};
+    let fields = json
+        .as_object()
+        .filter(|fields| fields.len() == 4)
+        .ok_or("Invalid Plot image settings")?;
+    let byte = |value: &Json| value.as_u64().and_then(|value| u8::try_from(value).ok());
+    let placement = fields
+        .get("placement")
+        .and_then(byte)
+        .and_then(|index| Placement::CHOICES.get(usize::from(index)))
+        .ok_or("Unknown Plot image placement")?;
+    use crate::PlotBackgroundPicture as Picture;
+    let picture = match fields.get("picture") {
+        Some(Json::Null) => None,
+        Some(Json::String(name)) if !name.is_empty() && name.len() <= 255 => {
+            Some(Picture::AppFile(name.clone()))
+        }
+        Some(value) => Some(Picture::BuiltIn(byte(value).ok_or("Invalid Plot picture")?)),
+        None => return Err("Missing Plot picture".into()),
+    };
+    let opacity = fields
+        .get("opacity")
+        .and_then(byte)
+        .ok_or("Invalid Plot image opacity")?;
+    let bounds = fields
+        .get("bounds")
+        .and_then(Json::as_array)
+        .filter(|bounds| bounds.len() == 4)
+        .ok_or("Invalid Plot image bounds")?;
+    let background = settings
+        .statistics_background_mut()
+        .ok_or("Unexpected Plot image settings")?;
+    background.placement = *placement;
+    background.picture = picture;
+    background
+        .set(
+            Field::Opacity,
+            &Value::Real(Real::from_i64(i64::from(opacity))),
+        )
+        .map_err(|error| error.to_string())?;
+    for (field, encoded) in [Field::XMin, Field::XMax, Field::YMin, Field::YMax]
+        .into_iter()
+        .zip(bounds)
+    {
+        let PortableValue::Real(real) = decode_value(encoded)? else {
+            return Err("Plot image bounds must be real".into());
+        };
+        background
+            .set(field, &Value::Real(real))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn encode_plot_settings(name: &str, settings: &crate::AppPlotSettings) -> Json {
+    let mut fields: serde_json::Map<String, Json> = crate::AppPlotSettings::fields(name)
+        .iter()
+        .chain(settings.stored_zoom_fields())
+        .map(|&field| {
+            let value = settings.get(field).expect("declared Plot field");
+            (field.into(), encode_value(&PortableValue::from(&value)))
+        })
+        .collect();
+    if let Some(mode) = settings.cursor_mode()
+        && mode != crate::PlotCursorMode::Standard
+    {
+        fields.insert(
+            crate::AppPlotSettings::CURSOR_NAME.into(),
+            encode_value(&PortableValue::from(&mode.value())),
+        );
+    }
+    if let Some(background) = settings.statistics_background()
+        && *background != crate::StatisticsPlotBackground::default()
+    {
+        let bounds = background
+            .bounds()
+            .map(|value| encode_value(&PortableValue::Real(value)));
+        use crate::PlotBackgroundPicture as Picture;
+        let picture = background.picture.as_ref().map(|picture| match picture {
+            Picture::BuiltIn(slot) => json!(slot),
+            Picture::AppFile(name) => json!(name),
+        });
+        fields.insert(
+            STATISTICS_BACKGROUND.into(),
+            json!({
+                "placement": background.placement as u8,
+                "picture": picture,
+                "opacity": background.opacity(),
+                "bounds": bounds,
+            }),
+        );
+    }
+    if let Some((_, false)) = settings.statistics_zoom() {
+        fields.insert(STATISTICS_ZOOM_RECENTER.into(), Json::Bool(false));
+    }
+    Json::Object(fields)
+}
+
 fn encode_map(map: &BTreeMap<String, PortableValue>) -> Json {
     Json::Object(
         map.iter()
@@ -285,18 +406,19 @@ fn decode_map(j: &Json) -> Result<BTreeMap<String, PortableValue>, String> {
 }
 impl SessionContext {
     pub fn memory_json(&self) -> Json {
-        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),json!({"start":encode_value(&PortableValue::Real(s.start)),"step":encode_value(&PortableValue::Real(s.step)),"zoom":encode_value(&PortableValue::Real(s.zoom)),"kind":s.kind,"independent":s.independent.iter().map(|v|encode_value(&PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
+        json!({"version":VERSION,"cas":self.cas,"active_app":self.active_app,"app_settings":self.app_settings.iter().map(|(name,s)|(name.clone(),json!({"angle":s.angle,"complex":s.complex,"format":s.format,"digits":s.digits}))).collect::<serde_json::Map<String,Json>>(),"app_plot_settings":self.app_plot_settings.iter().map(|(name,settings)|(name.clone(),encode_plot_settings(name, settings))).collect::<serde_json::Map<String,Json>>(),"geometry_plot_settings":self.geometry_plot_settings.as_ref().map(|settings|Json::Object(crate::GeometryPlotSettings::NAMES.into_iter().map(|name|(name.into(),encode_value(&PortableValue::from(&settings.get(name).expect("Geometry field"))))).collect())),"app_numeric_settings":self.app_numeric_settings.iter().map(|(name,s)|(name.clone(),encode_numeric_settings(s))).collect::<serde_json::Map<String,Json>>(),"app_files":self.app_files.iter().map(|(k,v)|(k.clone(),encode_map(v))).collect::<serde_json::Map<String,Json>>(),"generation":self.generation,"globals":encode_map(&self.globals),
             "modules":self.modules.iter().map(|(k,m)|(k.clone(),json!({"revision":m.revision,"initialized":m.initialized,"values":encode_map(&m.values)}))).collect::<serde_json::Map<String,Json>>(),
-            "notes":self.notes,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
+            "notes":self.notes,"note_bullets":self.note_bullets,"programs":self.programs,"last_value":self.last_value.as_ref().map(encode_value),
             "settings":{"angle":self.settings.angle.code(),"format":self.settings.hformat,"digits":self.settings.hdigits,"string_format_version":self.settings.string_format_version.code(),"numeric_version":self.settings.numeric_version.code(),"complex":self.settings.complex_results,"separator":self.settings.digit_grouping.code(),"complex_format":self.settings.complex_display.code(),"base":base_code(self.settings.int_base),"bits":self.settings.int_bits,"signed":self.settings.int_signed,"font_px":self.settings.font_px,"exp_char":self.settings.exp_char.to_string()},
             "rng":self.rng.state(),"terminal":self.terminal,"display":if self.display==DisplayMode::Graphics {"graphics"}else{"terminal"},
             "grobs":self.grobs.iter().map(|g|g.as_ref().map(|g|json!({"width":g.width(),"height":g.height(),"pixels":g.pixels()}))).collect::<Vec<_>>()})
     }
     /// Parse into a fresh context first; malformed/future state never mutates this session.
     pub fn restore_memory(&mut self, j: &Json) -> Result<(), String> {
-        if !matches!(j["version"].as_u64(), Some(1 | 2 | 3 | 4 | VERSION)) {
-            return Err("Unsupported Native memory version".into());
-        }
+        let version = j["version"]
+            .as_u64()
+            .filter(|version| (1..=VERSION).contains(version))
+            .ok_or("Unsupported Native memory version")?;
         let mut next = Self::default();
         if let Some(name) = j["active_app"].as_str() {
             next.active_app = name.into();
@@ -322,6 +444,123 @@ impl SessionContext {
                 next.app_settings.insert(name.clone(), settings);
             }
         }
+        if let Some(value) = j
+            .get("geometry_plot_settings")
+            .filter(|value| !value.is_null())
+        {
+            let fields = value.as_object().ok_or("Invalid Geometry Plot settings")?;
+            if fields.len() != crate::GeometryPlotSettings::NAMES.len() {
+                return Err("Invalid Geometry Plot settings fields".into());
+            }
+            let mut settings = crate::GeometryPlotSettings::default();
+            for field in crate::GeometryPlotSettings::NAMES {
+                let number = numeric_value(&value[field], false)?;
+                if matches!(
+                    field,
+                    "Axes" | "GridDots" | "GridLines" | "Labels" | "ScrollText"
+                ) && number != Real::ZERO
+                    && number != Real::ONE
+                {
+                    return Err("Invalid Geometry flag".into());
+                }
+                settings
+                    .set(field, &Value::Real(number))
+                    .map_err(|e| e.to_string())?;
+                if settings
+                    .get(field)
+                    .map_err(|e| e.to_string())?
+                    .expect_real(field)
+                    .map_err(|e| e.to_string())?
+                    != number
+                {
+                    return Err("Noncanonical Geometry Plot value".into());
+                }
+            }
+            settings.validate()?;
+            next.geometry_plot_settings = Some(settings);
+        }
+        if let Some(apps) = j.get("app_plot_settings") {
+            let apps = apps.as_object().ok_or("Invalid Plot settings map")?;
+            if apps.len() > 1024 {
+                return Err("Too many Plot settings".into());
+            }
+            for (name, value) in apps {
+                let mut settings = crate::AppPlotSettings::for_app(name)
+                    .ok_or_else(|| format!("Unestablished Plot settings app {name}"))?;
+                let fields = value.as_object().ok_or("Invalid Plot settings")?;
+                let saved_zoom_fields = if name == "Statistics 1Var"
+                    && crate::AppPlotSettings::ZOOM_NAMES
+                        .iter()
+                        .any(|field| fields.contains_key(*field))
+                {
+                    crate::AppPlotSettings::ZOOM_NAMES.as_slice()
+                } else {
+                    &[]
+                };
+                let cursor = crate::AppPlotSettings::CURSOR_NAME;
+                let saved_cursor = fields.contains_key(cursor).then_some(cursor);
+                let names = crate::AppPlotSettings::fields(name)
+                    .iter()
+                    .copied()
+                    .chain(saved_zoom_fields.iter().copied())
+                    .chain(saved_cursor);
+                let recenter = if let (Some(_), Some(value)) = (
+                    settings.statistics_zoom(),
+                    fields.get(STATISTICS_ZOOM_RECENTER),
+                ) {
+                    Some(
+                        value
+                            .as_bool()
+                            .ok_or("Invalid Statistics Zoom Recenter flag")?,
+                    )
+                } else {
+                    None
+                };
+                let background = fields.get(STATISTICS_BACKGROUND);
+                if fields.len()
+                    != names.clone().count()
+                        + usize::from(recenter.is_some())
+                        + usize::from(background.is_some())
+                {
+                    return Err("Invalid Plot settings fields".into());
+                }
+                for field in names {
+                    let decoded = decode_value(&value[field])?;
+                    let number = match &decoded {
+                        PortableValue::Real(number) => *number,
+                        PortableValue::Symbolic(ppl_cas::CasValue::Infinity(_))
+                            if name == "Statistics 1Var" && matches!(field, "Ymin" | "Ymax") =>
+                        {
+                            settings
+                                .set(field, &decoded.to_value())
+                                .map_err(|error| error.to_string())?;
+                            continue;
+                        }
+                        _ => return Err("Numeric setting must be a real".into()),
+                    };
+                    if matches!(field, "Axes" | "GridDots" | "GridLines" | "Labels")
+                        && number != Real::ZERO
+                        && number != Real::ONE
+                    {
+                        return Err("Invalid Plot flag".into());
+                    }
+                    settings
+                        .set(field, &Value::Real(number))
+                        .map_err(|error| error.to_string())?;
+                }
+                if let Some(recenter) = recenter {
+                    let (factors, _) = settings.statistics_zoom().expect("Statistics Zoom storage");
+                    settings
+                        .set_statistics_zoom(factors, recenter)
+                        .map_err(|error| error.to_string())?;
+                }
+                if let Some(background) = background {
+                    restore_plot_background(&mut settings, background)?;
+                }
+                settings.validate_for(name)?;
+                next.app_plot_settings.insert(name.clone(), settings);
+            }
+        }
         if let Some(apps) = j.get("app_numeric_settings") {
             let apps = apps.as_object().ok_or("Invalid numeric settings map")?;
             if apps.len() > 1024 {
@@ -331,11 +570,42 @@ impl SessionContext {
                 if name.is_empty() || name.len() > 1024 {
                     return Err("Invalid numeric settings name".into());
                 }
-                let legacy = j["version"]
-                    .as_u64()
-                    .is_some_and(|version| version < VERSION);
+                let legacy = version < TYPED_NUMERIC_VERSION;
                 let real = |key: &str| numeric_value(&value[key], legacy);
+                let graph3d = match (name.as_str(), value.get("graph3d")) {
+                    ("Graph 3D", Some(graph)) => {
+                        let points = graph["points"]
+                            .as_array()
+                            .ok_or("Invalid Graph 3D Numeric rows")?;
+                        if points.len() > MAX_CELLS / 2 {
+                            return Err("Too many Graph 3D Numeric rows".into());
+                        }
+                        let points = points
+                            .iter()
+                            .map(|value| {
+                                let pair =
+                                    value.as_array().ok_or("Invalid Graph 3D Numeric pair")?;
+                                let [x, y] = pair.as_slice() else {
+                                    return Err("Expected two Graph 3D coordinates".into());
+                                };
+                                Ok([numeric_value(x, legacy)?, numeric_value(y, legacy)?])
+                            })
+                            .collect::<Result<Vec<_>, String>>()?;
+                        Some(Box::new(crate::Graph3dNumericSettings {
+                            y_start: numeric_value(&graph["start"], legacy)?,
+                            y_step: numeric_value(&graph["step"], legacy)?,
+                            y_zoom: numeric_value(&graph["zoom"], legacy)?,
+                            points,
+                        }))
+                    }
+                    ("Graph 3D", None) => Some(Box::default()),
+                    (_, Some(_)) => {
+                        return Err("Graph 3D Numeric values belong to the Graph 3D app".into());
+                    }
+                    (_, None) => None,
+                };
                 let settings = crate::AppNumericSettings {
+                    graph3d,
                     start: real("start")?,
                     step: real("step")?,
                     zoom: real("zoom")?,
@@ -354,7 +624,7 @@ impl SessionContext {
                 settings.validate()?;
                 next.app_numeric_settings.insert(name.clone(), settings);
             }
-        } else if j["version"].as_u64() == Some(VERSION) {
+        } else if version >= TYPED_NUMERIC_VERSION {
             return Err("Missing numeric settings map".into());
         }
         if let Some(files) = j["app_files"].as_object() {
@@ -368,10 +638,32 @@ impl SessionContext {
             next.cas.validate().map_err(|e| e.to_string())?;
         }
         next.globals = decode_map(&j["globals"])?;
-        if j["version"]
-            .as_u64()
-            .is_some_and(|version| version < VERSION)
-        {
+        // Older profiles stored active-app bounds in Home globals. Migrate
+        // those exact values once, never overwrite an explicit scoped map.
+        if next.active_app == "Graph 3D" {
+            // Older Graph 3D profiles save the actual viewport in the UI book.
+            // The flat 2-D aliases were emitted by the generic view response.
+            next.globals
+                .retain(|name, _| crate::AppPlotSettings::canonical_name(name).is_none());
+        } else if let Some(mut settings) = crate::AppPlotSettings::for_app(&next.active_app) {
+            let mut found = false;
+            for &name in crate::AppPlotSettings::fields(&next.active_app) {
+                if let Some(value) = next.globals.remove(name) {
+                    if !next.app_plot_settings.contains_key(&next.active_app) {
+                        settings
+                            .set(name, &value.to_value())
+                            .map_err(|e| e.to_string())?;
+                        found = true;
+                    }
+                }
+            }
+            if found {
+                next.app_plot_settings
+                    .insert(next.active_app.clone(), settings);
+            }
+        }
+
+        if version < TYPED_NUMERIC_VERSION {
             let mut settings = next.app_numeric_settings();
             let mut changed = false;
             for name in ["NumStart", "NumStep", "NumZoom", "NumType", "NumIndep"] {
@@ -419,6 +711,17 @@ impl SessionContext {
             })
             .collect::<Result<_, String>>()?;
         next.notes = serde_json::from_value(j["notes"].clone()).map_err(|e| e.to_string())?;
+        if let Some(bullets) = j.get("note_bullets") {
+            next.note_bullets =
+                serde_json::from_value(bullets.clone()).map_err(|e| e.to_string())?;
+            next.note_bullets.retain(|name, bullets| {
+                next.notes.get(name).is_some_and(|text| {
+                    let paragraphs = text.split('\n').count();
+                    bullets.retain(|index| *index < paragraphs);
+                    !bullets.is_empty()
+                })
+            });
+        }
         next.programs = serde_json::from_value(j["programs"].clone()).map_err(|e| e.to_string())?;
         next.last_value = if j["last_value"].is_null() {
             None
@@ -446,7 +749,7 @@ impl SessionContext {
                 .ok_or("Invalid STRING format version")?,
         };
         next.settings.numeric_version = match s.get("numeric_version") {
-            None if j["version"].as_u64() != Some(VERSION) => ppl_math::NumericVersion::Legacy15157,
+            None if version < TYPED_NUMERIC_VERSION => ppl_math::NumericVersion::Legacy15157,
             Some(value) => value
                 .as_i64()
                 .and_then(ppl_math::NumericVersion::from_code)
@@ -568,6 +871,38 @@ mod tests {
         assert!(b.restore_memory(&broken).is_err());
         assert_eq!(b.memory_json(), image);
     }
+    #[test]
+    fn note_bullets_are_optional_metadata_and_follow_the_saved_note() {
+        let mut context = SessionContext::default();
+        context
+            .store_bulleted_note("NOTE", "title\nitem".into(), [1, 8].into())
+            .unwrap();
+        let mut image = context.memory_json();
+        assert_eq!(image["notes"]["NOTE"], "title\nitem");
+        assert_eq!(image["note_bullets"]["NOTE"], json!([1]));
+
+        context.restore_memory(&image).unwrap();
+        context.rename_note("NOTE", "RENAMED").unwrap();
+        assert_eq!(context.snapshot().note_bullets["RENAMED"], [1].into());
+        let result = context.evaluate_home(
+            r#"Notes("RENAMED")"#,
+            Box::new(crate::HeadlessHost::new()),
+            crate::Limits::default(),
+        );
+        assert_eq!(
+            PortableValue::from(&result.result.unwrap()),
+            PortableValue::String("title\nitem".into())
+        );
+        assert_eq!(context.snapshot().note_bullets["RENAMED"], [1].into());
+
+        context.delete_note("RENAMED");
+        assert!(context.snapshot().note_bullets.is_empty());
+        image.as_object_mut().unwrap().remove("note_bullets");
+        context.restore_memory(&image).unwrap();
+        assert!(context.snapshot().note_bullets.is_empty());
+        assert_eq!(context.snapshot().notes["NOTE"], "title\nitem");
+    }
+
     #[test]
     fn malformed_matrix_and_words_are_rejected() {
         assert!(

@@ -1,0 +1,48 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_plot_definition_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "resize",
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "step": "new_program",
+      "name": "G3DDEF"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3DDEF() BEGIN RETURN {Graph_3D.FZ1(0,0),Graph_3D.FZ2(0,0),TYPE(Graph_3D.FZ2),ISCHECK(2),STARTVIEW(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ use crate::machine::Machine;
 use crate::value::Value;
 
 mod mesh;
+mod triangle;
 
 /// Plot settings are the same calculator variables used by the Function app.
 struct PlotWindow {
@@ -25,18 +26,38 @@ struct PlotWindow {
 }
 impl PlotWindow {
     fn from_machine(machine: &Machine) -> RtResult<Self> {
-        let value = |name: &str, default: f64| -> RtResult<f64> {
-            machine
-                .calculator_global(name)
-                .map(|v| v.expect_real(name).map(|n| n.to_f64()))
-                .transpose()
-                .map(|n| n.unwrap_or(default))
-        };
-        let window = Self {
-            xmin: value("Xmin", -10.0)?,
-            xmax: value("Xmax", 10.0)?,
-            ymin: value("Ymin", -10.0)?,
-            ymax: value("Ymax", 10.0)?,
+        let window = if machine.active_app == "Geometry" {
+            let [xmin, xmax, ymin, ymax] = machine.geometry_plot_settings().derived_bounds();
+            Self {
+                xmin: xmin.to_f64(),
+                xmax: xmax.to_f64(),
+                ymin: ymin.to_f64(),
+                ymax: ymax.to_f64(),
+            }
+        } else if crate::AppPlotSettings::for_app(&machine.active_app).is_some() {
+            let settings = machine.plot_settings(&machine.active_app)?;
+            Self {
+                xmin: settings.xmin.to_f64(),
+                xmax: settings.xmax.to_f64(),
+                ymin: settings.ymin.to_f64(),
+                ymax: settings.ymax.to_f64(),
+            }
+        } else {
+            // Preserve existing graphics for apps whose own Plot Setup
+            // variable contracts have not been established yet.
+            let value = |name: &str, default: f64| -> RtResult<f64> {
+                machine
+                    .calculator_global(name)
+                    .map(|v| v.expect_real(name).map(|n| n.to_f64()))
+                    .transpose()
+                    .map(|n| n.unwrap_or(default))
+            };
+            Self {
+                xmin: value("Xmin", -10.)?,
+                xmax: value("Xmax", 10.)?,
+                ymin: value("Ymin", -10.)?,
+                ymax: value("Ymax", 10.)?,
+            }
         };
         if ![window.xmin, window.xmax, window.ymin, window.ymax]
             .iter()
@@ -81,7 +102,15 @@ fn split_grob(args: &[Value]) -> (usize, &[Value]) {
 }
 
 fn coord(v: &Value, cartesian: bool, axis_x: bool, window: &PlotWindow) -> RtResult<i64> {
-    let r = v.expect_real("coordinate")?.to_f64();
+    coordinate_number(
+        v.expect_real("coordinate")?.to_f64(),
+        cartesian,
+        axis_x,
+        window,
+    )
+}
+
+fn coordinate_number(r: f64, cartesian: bool, axis_x: bool, window: &PlotWindow) -> RtResult<i64> {
     if !r.is_finite() {
         return Err(RuntimeError::new(
             ErrorKind::BadArgValue,
@@ -89,17 +118,21 @@ fn coord(v: &Value, cartesian: bool, axis_x: bool, window: &PlotWindow) -> RtRes
         ));
     }
     if !cartesian {
-        // Pixel coordinates are truncated (unverified: the G1 may round).
+        // Calculator pixel commands tested here floor the supplied coordinate.
         return Ok(r.floor() as i64);
     }
-    Ok(if axis_x {
-        // Genuine G1 C→PX: (Xmin,Ymax)=(1,0), (Xmax,Ymin)=(319,218).
-        // The projection is independent of the target GROB dimensions.
-        (1.0 + (r - window.xmin) / (window.xmax - window.xmin) * (SCREEN_W as f64 - 2.0)).round()
-            as i64
+    Ok(cartesian_pixel(r, axis_x, window) as i64)
+}
+
+fn cartesian_pixel(value: f64, axis_x: bool, window: &PlotWindow) -> f64 {
+    // Genuine G1 projects the plot rectangle to (1,0)–(319,218),
+    // independently of the target GROB. Half pixels round toward positive infinity.
+    let pixel = if axis_x {
+        1.0 + (value - window.xmin) / (window.xmax - window.xmin) * (SCREEN_W as f64 - 2.0)
     } else {
-        ((window.ymax - r) / (window.ymax - window.ymin) * (SCREEN_H as f64 - 22.0)).round() as i64
-    })
+        (window.ymax - value) / (window.ymax - window.ymin) * (SCREEN_H as f64 - 22.0)
+    };
+    (pixel + 0.5).floor()
 }
 
 fn grob_mut(m: &mut Machine, n: usize) -> RtResult<&mut Grob> {
@@ -201,7 +234,9 @@ fn call_inner(
     use Builtin as B;
     let cart = matches!(
         b,
-        B::Rect
+        B::CtoPx
+            | B::PxToC
+            | B::Rect
             | B::Line
             | B::Pixon
             | B::Pixoff
@@ -211,7 +246,10 @@ fn call_inner(
             | B::Textout
             | B::Blit
             | B::Triangle
+            | B::Fillpoly
             | B::Subgrob
+            | B::Grobw
+            | B::Grobh
     );
     let window = if cart {
         PlotWindow::from_machine(m)?
@@ -224,6 +262,54 @@ fn call_inner(
         }
     };
     match b {
+        B::CtoPx | B::PxToC => {
+            let real = |value: &Value| match value {
+                Value::Real(v) => Some(*v),
+                Value::Int(v) => Some(v.to_real()),
+                Value::Complex(v) if v.im.is_zero() => Some(v.re),
+                _ => None,
+            };
+            let coordinates = match args {
+                [Value::Complex(value)] => Some((value.re, value.im)),
+                [Value::List(values)] => match values.as_slice() {
+                    [x, y] => real(x).zip(real(y)),
+                    _ => None,
+                },
+                [x, y] => real(x).zip(real(y)),
+                _ => None,
+            };
+            if b == B::CtoPx {
+                let Some((x, y)) = coordinates else {
+                    return Ok(Value::list(vec![Value::zero(), Value::zero()]));
+                };
+                let project = |v: ppl_math::Real, x: bool| {
+                    let pixel = cartesian_pixel(v.to_f64(), x, &window);
+                    Value::from_i64(pixel.clamp(i32::MIN as f64, i32::MAX as f64) as i64)
+                };
+                return Ok(Value::list(vec![project(x, true), project(y, false)]));
+            }
+            let (x, y) = coordinates.unwrap_or((ppl_math::Real::ZERO, ppl_math::Real::ZERO));
+            let pixel = |v: ppl_math::Real| {
+                let v = v.to_f64().floor();
+                if v.is_finite() && v >= i32::MIN as f64 && v <= i32::MAX as f64 {
+                    Some(v)
+                } else {
+                    None
+                }
+            };
+            // The original converts the pair in order: an invalid first
+            // component leaves both zero; an invalid second retains the first.
+            let (x, y) = match pixel(x) {
+                Some(x) => (x, pixel(y).unwrap_or(0.)),
+                None => (0., 0.),
+            };
+            let x = window.xmin + (x - 1.) * (window.xmax - window.xmin) / 318.;
+            let y = window.ymax - y * (window.ymax - window.ymin) / 218.;
+            Ok(Value::list(vec![
+                Value::Real(ppl_math::Real::from_f64(x)?),
+                Value::Real(ppl_math::Real::from_f64(y)?),
+            ]))
+        }
         B::Rgb => {
             let c = |i: usize| -> RtResult<u32> {
                 Ok(arg(args, i, name)?.expect_i64(name)?.clamp(0, 255) as u32)
@@ -570,6 +656,7 @@ fn call_inner(
                 } else {
                     (grob_ref(m, &Value::Grob(0))?, &args[..args.len() - 1])
                 };
+            let dst = *dst as usize;
             let source = m.grobs[src].as_ref().unwrap();
             let sub = match coordinates.len() {
                 0 => source.clone(),
@@ -584,20 +671,36 @@ fn call_inner(
                     } else {
                         (source.width() as i64, source.height() as i64)
                     };
-                    let width = x2
-                        .checked_sub(x1)
-                        .filter(|n| *n > 0)
-                        .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidInput))?;
-                    let height = y2
-                        .checked_sub(y1)
-                        .filter(|n| *n > 0)
-                        .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidInput))?;
+                    let extent = |start: i64, end: i64| {
+                        end.checked_sub(start)
+                            .and_then(|length| usize::try_from(length).ok())
+                            .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidInput))
+                    };
+                    let width = extent(x1, x2)?;
+                    let height = extent(y1, y2)?;
                     let cells = width
                         .checked_mul(height)
-                        .and_then(|n| usize::try_from(n).ok())
                         .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidInput))?;
-                    m.check_len(cells)?;
-                    source.sub(x1, y1, x2, y2)
+                    // Zero-area crops still carry dimensions, which must
+                    // remain bounded even when the pixel count is zero.
+                    m.check_len(cells.max(width).max(height))?;
+
+                    // Uncovered cells retain the original destination buffer's
+                    // prefix, even when the row stride changes. Aliased crops
+                    // read live pixels only after resizing that buffer.
+                    let mut target = m.grobs[dst]
+                        .take()
+                        .unwrap_or_else(|| Grob::new(0, 0, WHITE));
+                    target.resize_preserving_pixels(width, height);
+                    let output = (0, 0, width as i64, height as i64);
+                    let input = (x1, y1, x2, y2);
+                    if src == dst {
+                        target.blit_in_place(output, input, None, 255);
+                    } else {
+                        let source = m.grobs[src].as_ref().unwrap();
+                        target.blit(output, source, input, None, 255);
+                    }
+                    target
                 }
                 _ => {
                     return Err(RuntimeError::new(
@@ -606,16 +709,22 @@ fn call_inner(
                     ));
                 }
             };
-            m.grobs[*dst as usize] = Some(sub);
+            m.grobs[dst] = Some(sub);
             Ok(Value::from_i64(1))
         }
         B::InvertP => {
             let (g, r) = split_grob(args);
+            if !matches!(r.len(), 0 | 2 | 4) {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "INVERT_P requires zero, two or four coordinates",
+                ));
+            }
             let grob = grob_mut(m, g)?;
             let (w, h) = (grob.width() as i64, grob.height() as i64);
             let c = |i: usize, d: i64| -> RtResult<i64> {
                 r.get(i)
-                    .map(|v| v.expect_i64(name))
+                    .map(|v| coord(v, false, i % 2 == 0, &window))
                     .transpose()
                     .map(|x| x.unwrap_or(d))
             };
@@ -623,11 +732,34 @@ fn call_inner(
             grob.invert(x1, y1, x2, y2);
             Ok(Value::from_i64(1))
         }
-        B::FillpolyP => {
+        B::FillpolyP | B::Fillpoly => {
             let (g, r) = split_grob(args);
-            let pts = points(arg(r, 0, name)?)?;
-            let color = opt_color(r, 1, BLACK)?;
-            grob_mut(m, g)?.fill_polygon(&pts, color);
+            if r.len() > 3 {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    format!("{name} requires points with optional color and transparency"),
+                ));
+            }
+            let points = polygon_points(arg(r, 0, name)?, cart, &window)?;
+            let mut color = opt_color(r, 1, BLACK)?;
+            if let Some(alpha) = r.get(2) {
+                let alpha = alpha.expect_real(name)?;
+                if alpha.is_negative() {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        format!("{name} transparency must be nonnegative"),
+                    ));
+                }
+                color = color & 0xff_ff_ff | (alpha.to_f64().min(255.) as u32) << 24;
+            }
+            let interrupt = m.host.interrupt_flag();
+            if !grob_mut(m, g)?.calculator_polygon(&points, color, || {
+                interrupt
+                    .as_ref()
+                    .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+            }) {
+                return Err(RuntimeError::kind(ErrorKind::Interrupted));
+            }
             Ok(Value::from_i64(1))
         }
         B::TriangleP | B::Triangle => {
@@ -666,12 +798,10 @@ fn call_inner(
             }
             let (vertices, colors, alpha) =
                 if (3..=4).contains(&r.len()) && r.iter().take(3).all(is_vertex) {
-                    if r.len() > 3 {
-                        return Err(RuntimeError::new(
-                            ErrorKind::Unsupported,
-                            "TRIANGLE_P z-buffer writeback requires a mutable string reference",
-                        ));
-                    }
+                    let alpha = r
+                        .get(3)
+                        .map(|value| value.expect_real(name).map(|number| number.to_f64()))
+                        .transpose()?;
                     let vertices = [
                         triangle_vertex(&r[0])?,
                         triangle_vertex(&r[1])?,
@@ -680,7 +810,7 @@ fn call_inner(
                     (
                         [vertices[0].0, vertices[1].0, vertices[2].0],
                         [vertices[0].1, vertices[1].1, vertices[2].1],
-                        None,
+                        alpha,
                     )
                 } else {
                     if r.len() > 10 {
@@ -710,48 +840,55 @@ fn call_inner(
                         [first; 3]
                     };
                     let alpha = match r.len() {
-                        8 => Some(r[7].expect_i64(name)?),
-                        10 => Some(r[9].expect_i64(name)?),
+                        8 => Some(r[7].expect_real(name)?.to_f64()),
+                        10 => Some(r[9].expect_real(name)?.to_f64()),
                         _ => None,
                     };
                     (vertices, colors, alpha)
                 };
-            let vertices = if cart {
-                vertices.map(|(x, y)| {
-                    (
-                        (x - window.xmin) / (window.xmax - window.xmin) * (SCREEN_W - 1) as f64,
-                        (window.ymax - y) / (window.ymax - window.ymin) * (SCREEN_H - 1) as f64,
-                    )
-                })
-            } else {
-                vertices
+            let project = |(x, y)| -> RtResult<_> {
+                Ok((
+                    coordinate_number(x, cart, true, &window)?,
+                    coordinate_number(y, cart, false, &window)?,
+                ))
             };
-            if alpha.is_some_and(|alpha| !(0..=255).contains(&alpha)) {
-                return Err(RuntimeError::new(
-                    ErrorKind::BadArgValue,
-                    "TRIANGLE_P alpha must be 0 through 255",
-                ));
-            }
+            let [a, b, c] = vertices;
+            let vertices = [project(a)?, project(b)?, project(c)?];
+            let transparency = alpha.map_or(0, |value| value.clamp(0., 255.) as u8);
             let interrupt = m.host.interrupt_flag();
             let grob = grob_mut(m, g)?;
-            if colors[0] == colors[1] && colors[1] == colors[2] {
-                let color = alpha.map_or(colors[0], |alpha| {
-                    (colors[0] & 0xffffff) | ((255 - alpha) as u32) << 24
-                });
-                grob.fill_polygon(&vertices, color);
-            } else {
-                triangle_gradient(grob, vertices, colors, alpha, interrupt.as_deref())?;
-            }
-            Ok(Value::zero())
+            triangle::draw(grob, vertices, colors, transparency, interrupt.as_deref())?;
+            Ok(Value::from_i64(1))
         }
-        B::GrobwP | B::GrobhP => {
-            let n = grob_ref(m, arg(args, 0, name)?)?;
-            let g = m.grobs[n].as_ref().unwrap();
-            Ok(Value::from_i64(if b == B::GrobwP {
-                g.width()
+        B::GrobwP | B::GrobhP | B::Grobw | B::Grobh => {
+            let index = match args.first() {
+                None => 0,
+                Some(Value::Grob(index)) => usize::from(*index),
+                Some(_) => {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgType,
+                        format!("{name} expects a graphic G0–G9"),
+                    ));
+                }
+            };
+            let width = matches!(b, B::GrobwP | B::Grobw);
+            let size = m
+                .grobs
+                .get(index)
+                .and_then(Option::as_ref)
+                .map_or(0, |grob| if width { grob.width() } else { grob.height() });
+            if cart {
+                let (span, pixels) = if width {
+                    (window.xmax - window.xmin, SCREEN_W - 2)
+                } else {
+                    (window.ymax - window.ymin, SCREEN_H - 22)
+                };
+                Ok(Value::Real(ppl_math::Real::from_f64(
+                    size as f64 * span / pixels as f64,
+                )?))
             } else {
-                g.height()
-            } as i64))
+                Ok(Value::from_i64(size as i64))
+            }
         }
         other => Err(RuntimeError::new(
             ErrorKind::Unsupported,
@@ -788,113 +925,57 @@ fn triangle_vertex(value: &Value) -> RtResult<((f64, f64), Color)> {
         opt_color(data, 2, BLACK)?,
     ))
 }
-fn triangle_gradient(
-    grob: &mut Grob,
-    points: [(f64, f64); 3],
-    colors: [Color; 3],
-    alpha: Option<i64>,
-    interrupt: Option<&std::sync::atomic::AtomicBool>,
-) -> RtResult<()> {
-    let cross = |a: (f64, f64), b: (f64, f64), c: (f64, f64)| {
-        (b.0 - a.0) * (c.1 - a.1) - (b.1 - a.1) * (c.0 - a.0)
-    };
-    let area = cross(points[0], points[1], points[2]);
-    if area == 0.0 || !area.is_finite() {
-        return Ok(());
-    }
-    let minx = points
-        .iter()
-        .map(|p| p.0)
-        .fold(f64::INFINITY, f64::min)
-        .floor()
-        .max(0.0) as usize;
-    let maxx = points
-        .iter()
-        .map(|p| p.0)
-        .fold(f64::NEG_INFINITY, f64::max)
-        .ceil()
-        .min(grob.width() as f64 - 1.0)
-        .max(-1.0) as i64;
-    let miny = points
-        .iter()
-        .map(|p| p.1)
-        .fold(f64::INFINITY, f64::min)
-        .floor()
-        .max(0.0) as usize;
-    let maxy = points
-        .iter()
-        .map(|p| p.1)
-        .fold(f64::NEG_INFINITY, f64::max)
-        .ceil()
-        .min(grob.height() as f64 - 1.0)
-        .max(-1.0) as i64;
-    if maxx < 0 || maxy < 0 {
-        return Ok(());
-    }
-    for y in miny..=maxy as usize {
-        if interrupt.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed)) {
-            return Err(RuntimeError::kind(ErrorKind::Interrupted));
-        }
-        for x in minx..=maxx as usize {
-            let point = (x as f64 + 0.5, y as f64 + 0.5);
-            let weights = [
-                cross(points[1], points[2], point) / area,
-                cross(points[2], points[0], point) / area,
-                cross(points[0], points[1], point) / area,
-            ];
-            if weights.iter().any(|w| *w < -1e-12) {
-                continue;
-            }
-            let mut color = 0;
-            for shift in [0, 8, 16, 24] {
-                let value = (0..3)
-                    .map(|i| ((colors[i] >> shift) & 255) as f64 * weights[i])
-                    .sum::<f64>()
-                    .round()
-                    .clamp(0.0, 255.0) as u32;
-                color |= value << shift;
-            }
-            if let Some(alpha) = alpha {
-                color = (color & 0xffffff) | ((255 - alpha) as u32) << 24;
-            }
-            grob.set(x as i64, y as i64, color);
-        }
-    }
-    Ok(())
-}
 
-fn points(v: &Value) -> RtResult<Vec<(f64, f64)>> {
-    let l = v.expect_list("FILLPOLY_P")?;
-    let mut out = Vec::new();
-    if l.iter().all(|p| matches!(p, Value::List(_))) {
-        for p in l.iter() {
-            let pl = p.expect_list("point")?;
-            if pl.len() != 2 {
-                return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
-            }
-            out.push((
-                pl[0].expect_real("x")?.to_f64(),
-                pl[1].expect_real("y")?.to_f64(),
-            ));
-        }
-    } else if l.iter().all(|p| matches!(p, Value::Complex(_))) {
-        for p in l.iter() {
-            let Value::Complex(c) = p else { unreachable!() };
-            out.push((c.re.to_f64(), c.im.to_f64()));
-        }
-    } else {
-        // Flat {x1,y1,x2,y2,…} (Python-era form, kept for compatibility).
-        if l.len() % 2 != 0 {
+fn polygon_points(v: &Value, cartesian: bool, window: &PlotWindow) -> RtResult<Vec<(i64, i64)>> {
+    let point = |x: &Value, y: &Value| -> RtResult<_> {
+        Ok((
+            coord(x, cartesian, true, window)?,
+            coord(y, cartesian, false, window)?,
+        ))
+    };
+    let flat = |values: &[Value]| -> RtResult<_> {
+        if values.len() % 2 != 0 {
             return Err(RuntimeError::kind(ErrorKind::InvalidDimension));
         }
-        for p in l.chunks(2) {
-            out.push((
-                p[0].expect_real("x")?.to_f64(),
-                p[1].expect_real("y")?.to_f64(),
-            ));
+        values
+            .chunks_exact(2)
+            .map(|pair| point(&pair[0], &pair[1]))
+            .collect()
+    };
+    let complex_point = |value: &Value| match value {
+        Value::Complex(value) => point(&Value::Real(value.re), &Value::Real(value.im)),
+        value => point(value, &Value::zero()),
+    };
+    match v {
+        // Matrix storage normalizes zero-imaginary complex values to reals.
+        Value::Matrix(matrix) if matrix.data.iter().any(|v| matches!(v, Value::Complex(_))) => {
+            matrix.data.iter().map(complex_point).collect()
         }
+        // Real vectors and matrices supply consecutive x, y pairs in storage order.
+        Value::Matrix(matrix) => flat(&matrix.data),
+        Value::List(list) => {
+            let mut values = list.iter();
+            let mut points = Vec::new();
+            while let Some(value) = values.next() {
+                points.push(match value {
+                    Value::List(coords) if coords.len() == 2 => point(&coords[0], &coords[1])?,
+                    Value::List(_) => return Err(RuntimeError::kind(ErrorKind::InvalidDimension)),
+                    Value::Complex(_) => complex_point(value)?,
+                    x => {
+                        let y = values
+                            .next()
+                            .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidDimension))?;
+                        point(x, y)?
+                    }
+                });
+            }
+            Ok(points)
+        }
+        _ => Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            "Polygon requires a list or matrix of points",
+        )),
     }
-    Ok(out)
 }
 
 /// `BLIT_P([trgtG], [dx1, dy1, [dx2, dy2]], srcG, [sx1, sy1, [sx2, sy2]], [c], [a])`.
@@ -953,7 +1034,7 @@ fn blit(
         }
         Ok(coordinate)
     };
-    let src = m.grobs[src_n].as_ref().unwrap().clone();
+    let src = m.grobs[src_n].as_ref().unwrap();
     let (sw, sh) = (src.width() as i64, src.height() as i64);
     let (sx1, sy1, sx2, sy2, rest) = match after.len() {
         n if n >= 4 => (
@@ -1000,7 +1081,15 @@ fn blit(
                     "BLIT transparency color must be nonnegative",
                 ));
             }
-            color_of(value)
+            // Cartesian BLIT normalizes the key to RGB. BLIT_P compares an
+            // explicit key as a full pixel word, independently of opacity.
+            color_of(value).map(|color| {
+                if cartesian {
+                    color & 0x00FF_FFFF
+                } else {
+                    color
+                }
+            })
         })
         .transpose()?;
     let alpha = rest
@@ -1019,12 +1108,13 @@ fn blit(
         .transpose()?
         .unwrap_or(255)
         .clamp(0, 255) as u8;
-    grob_mut(m, target)?.blit(
-        (dx1, dy1, dx2, dy2),
-        &src,
-        (sx1, sy1, sx2, sy2),
-        transparent,
-        alpha,
-    );
+    let destination = (dx1, dy1, dx2, dy2);
+    let source = (sx1, sy1, sx2, sy2);
+    if src_n == target {
+        grob_mut(m, target)?.blit_in_place(destination, source, transparent, alpha);
+    } else {
+        let src = src.clone();
+        grob_mut(m, target)?.blit(destination, &src, source, transparent, alpha);
+    }
     Ok(Value::from_i64(1))
 }

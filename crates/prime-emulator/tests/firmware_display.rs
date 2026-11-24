@@ -14,8 +14,9 @@ use std::time::Duration;
 use prime_emulator::calcverify::{self, CalcVerifyConfig, CalcVerifyOutcome, DEFAULT_SETUP_KEYS};
 use prime_emulator::keys::{KEYS, parse_keys};
 use prime_emulator::runner::{self, Outcome, RunConfig, RunReport};
-use prime_emulator::script::ScriptConfig;
+use prime_emulator::script::{CaptureRecord, ScriptConfig};
 use prime_emulator::services::UnsupportedPolicy;
+use prime_emulator::verify::load_png;
 
 /// armfir.elf's loaded text/data segment (single PT_LOAD).
 const FW_START: u32 = 0x3060_0000;
@@ -149,9 +150,24 @@ fn m4b_a_digit_key_draws_on_the_home_edit_line() {
     let keys = &r.display.script.as_ref().unwrap().keys;
     let idle = &keys[keys.len() - 2];
     let two = &keys[keys.len() - 1];
-    // Negative control: the same settle window with no input changes nothing.
+    // While no input is sent, the Home edit line and the rest of the display
+    // stay unchanged. The firmware's top-right clock may roll to the next minute.
     assert_eq!(idle.name, "IDLE");
-    assert_eq!(idle.stable_change.changed, 0, "{idle:?}");
+    assert_eq!(idle.code, 0);
+    let setup = &keys[keys.len() - 3];
+    assert_eq!(idle.delivery_seq, setup.delivery_seq);
+    let frame = |capture: &CaptureRecord| {
+        let png = capture.png.as_deref().expect("captured firmware LCD");
+        let frame = load_png(Path::new(png)).expect("load captured firmware LCD");
+        assert_eq!((frame.width, frame.height), (320, 240));
+        frame
+    };
+    let clock = (0..240)
+        .flat_map(|y| (0..320).map(move |x| y <= 7 && (278..=311).contains(&x)))
+        .collect::<Vec<_>>();
+    let idle_frame = frame(&idle.after);
+    let idle_diff = idle_frame.diff(&frame(&setup.after), Some(&clock));
+    assert_eq!(idle_diff.changed, 0, "{idle_diff:?}");
     // The key: delivered to the UI pump thread, then a lasting glyph on the
     // edit line, drawn by firmware code.
     assert_eq!(two.code, 0x5A);
@@ -160,17 +176,26 @@ fn m4b_a_digit_key_draws_on_the_home_edit_line() {
     assert_eq!(two.delivered_to_thread, heartbeat.thread_id);
     assert!(in_firmware(heartbeat.caller_pc));
     assert!(heartbeat.events_delivered > 0 && heartbeat.pump_reentries > 0);
-    let [x0, y0, x1, y1] = two.stable_change.bbox.expect("a lasting change");
-    assert!(two.stable_change.changed > 20, "{two:?}");
+    let digit_diff = frame(&two.after).diff(&idle_frame, Some(&clock));
+    let [x0, y0, x1, y1] = digit_diff.bbox.expect("a lasting change");
+    assert!(digit_diff.changed > 20, "{digit_diff:?}");
     assert!(
         x0 < 16 && x1 < 32 && y0 > 190 && y1 < 225,
         "edit line: {:?}",
-        two.stable_change.bbox
+        digit_diff.bbox
     );
     assert!(two.fb_writes.unwrap() > 0);
     assert!(two.fb_writer_pcs.iter().all(|&(pc, _)| in_firmware(pc)));
     assert_eq!(r.outcomes.input_delivery, Some(true));
-    assert_eq!(r.outcomes.input_to_display, Some(true));
+    // The separate report flag applies to every scripted step, including the
+    // onboarding taps and the idle frame. Keep its whole-frame meaning.
+    let setup_redrew = keys[..keys.len() - 2]
+        .iter()
+        .all(|key| key.stable_change.changed > 0);
+    assert_eq!(
+        r.outcomes.input_to_display,
+        Some(setup_redrew && idle.stable_change.changed == 0)
+    );
 }
 
 #[test]

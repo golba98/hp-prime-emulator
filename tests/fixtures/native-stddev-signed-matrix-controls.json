@@ -1,0 +1,83 @@
+{
+  "provenance": "Self-authored PPL controls executed on the original virtual G1 for direct lowercase signed matrix stddev with matching shapes, real and imaginary results, and typed cancellation.",
+  "cases": [
+    {
+      "name": "finite",
+      "entry": "ZZT_SDMAT",
+      "source": "EXPORT ZZT_SDMAT() BEGIN LOCAL R,out:={};\nR:=stddev([[-1,-2],[0,0],[1,2]],[[1.5,-1.5],[-.5,.5],[1.5,-1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,0],[1,2]],[[.5,1.5],[.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[0+1,1],[3,3]],[[-.5,1.5],[1.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,1],[3,3]],[[-.5,-3.5],[-3.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,1],[3,3]],[[.5,-.5],[.5,.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,3]],[[-.5,1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1],[3]],[[-.5],[1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1]],[[-3.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-3,-2],[-1,0]],[[1.5,-.5],[1.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[2-1,2,5],[4,-1,0]],[[.25,-2.5,4],[.5,.25,1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "53a7a7da0a97f5e28388ab58903b12d31093c3a1b02fab29e0b4b3015a7b5524",
+      "expected": [
+        [
+          3,
+          0,
+          0.9718253158
+        ],
+        [
+          0,
+          0.9897433186,
+          0
+        ],
+        [
+          0,
+          0.638876565,
+          0
+        ],
+        [
+          0,
+          1.9148542155,
+          0
+        ],
+        [
+          0,
+          0.9860132972,
+          0
+        ],
+        [
+          3,
+          0,
+          0.4898979486
+        ],
+        [
+          3,
+          0,
+          0.4898979486
+        ],
+        [
+          3,
+          0,
+          12.9614813968
+        ],
+        [
+          0,
+          1.9897697539,
+          0
+        ],
+        [
+          0,
+          1.9595917942,
+          0
+        ]
+      ]
+    },
+    {
+      "name": "zero_total",
+      "entry": "ZZT_SDMAT",
+      "source": "EXPORT ZZT_SDMAT() BEGIN LOCAL R,out:={};\nR:=stddev([[-1,1],[3,3]],[[-.5,-1.5],[-1.5,-1.5]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1,1],[3,3]],[[-1,-2],[-1,-1]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1]],[[-3]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;",
+      "source_sha256": "d416c25fdc55aaff18c048967eda263de87c4540ee3a32039530f395350be5a3",
+      "expected": [
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          8,
+          "undef"
+        ]
+      ]
+    }
+  ]
+}

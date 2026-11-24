@@ -1,0 +1,183 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_colors.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3COL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN STARTAPP(\"Graph 3D\");FZ1:=\"0\";FZ2:=\"1\";CHECK(1);CHECK(2);RETURN STARTVIEW(1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "initial"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_initial.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "click_lcd",
+      "x": 122,
+      "y": 203
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "click_lcd",
+      "x": 127,
+      "y": 157
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "upper"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_upper.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 140,
+      "y": 203
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "click_lcd",
+      "x": 169,
+      "y": 132
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "click_lcd",
+      "x": 210,
+      "y": 31
+    },
+    {
+      "step": "wait_ms",
+      "ms": 300
+    },
+    {
+      "step": "snapshot",
+      "label": "both"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_both.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "lower"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_lower.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN RETURN {FZ1(0,0),FZ2(0,0),TYPE(FZ1),TYPE(FZ2),ISCHECK(1),ISCHECK(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "typed"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN RETURN STARTVIEW(0); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "symbolic"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_symbolic.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

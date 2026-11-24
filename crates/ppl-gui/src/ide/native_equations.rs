@@ -100,7 +100,7 @@ pub fn plot(
         ("Ymin", &mut app.window.ymin),
         ("Ymax", &mut app.window.ymax),
     ] {
-        if let Some(value) = snapshot.globals.get(name) {
+        if let Some(value) = snapshot.plot_variable_for(&snapshot.active_app, name) {
             *target = value
                 .to_value()
                 .expect_real(name)
@@ -132,6 +132,13 @@ pub fn plot(
     check(&cancelled)?;
     let mut output = PlotData {
         geometry: None,
+        colors: Vec::new(),
+        annotations: Vec::new(),
+        fills: Vec::new(),
+        dots: Vec::new(),
+        statistics_traces: Vec::new(),
+        scale: None,
+        statistics_two_fits: Vec::new(),
         curves: Vec::new(),
         labels: Vec::new(),
         styles: Vec::new(),

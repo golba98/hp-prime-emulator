@@ -82,7 +82,9 @@ fn directory(root: &Path, path: &str) -> Result<PathBuf> {
     if !host.starts_with(canonical_root) {
         return Err("VFS search path escapes storage root".into());
     }
-    Ok(host)
+    // Keep the admitted root spelling for snapshot capture and relocation.
+    // File descriptors use the same representation after canonical validation.
+    Ok(root.join(path))
 }
 fn valid_name(name: &str) -> bool {
     !name.is_empty()

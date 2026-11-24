@@ -87,6 +87,7 @@ impl LinkedProgram {
                     Op::Jump(target) => positions.push(target as usize),
                     Op::JumpIfFalse(target)
                     | Op::TryBegin(target)
+                    | Op::TryStddevCell(target)
                     | Op::LogicJump { target, .. } => {
                         positions.push(target as usize);
                         positions.push(position + 1);
@@ -404,6 +405,9 @@ fn link_sources_internal(
                 Op::Const(i) => Op::Const(constant_bases[module] + i),
                 Op::LoadGlobal(i) => Op::LoadGlobal(global_maps[module][i as usize]),
                 Op::StoreGlobal(i) => Op::StoreGlobal(global_maps[module][i as usize]),
+                Op::GeometryAssignmentResult(i) => {
+                    Op::GeometryAssignmentResult(global_maps[module][i as usize])
+                }
                 Op::StoreIndexGlobal { slot, n } => Op::StoreIndexGlobal {
                     slot: global_maps[module][slot as usize],
                     n,

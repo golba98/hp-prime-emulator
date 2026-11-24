@@ -1,0 +1,50 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_signed_matrix.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "ZZT_SDMAT"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_SDMAT() BEGIN LOCAL R,out:={};\nR:=stddev([[-1,-2],[0,0],[1,2]],[[1.5,-1.5],[-.5,.5],[1.5,-1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,0],[1,2]],[[.5,1.5],[.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[0+1,1],[3,3]],[[-.5,1.5],[1.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,1],[3,3]],[[-.5,-3.5],[-3.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,1],[3,3]],[[.5,-.5],[.5,.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,3]],[[-.5,1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1],[3]],[[-.5],[1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1]],[[-3.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-3,-2],[-1,0]],[[1.5,-.5],[1.5,-.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[2-1,2,5],[4,-1,0]],[[.25,-2.5,4],[.5,.25,1.5]]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "finite"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT ZZT_SDMAT() BEGIN LOCAL R,out:={};\nR:=stddev([[-1,1],[3,3]],[[-.5,-1.5],[-1.5,-1.5]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1,1],[3,3]],[[-1,-2],[-1,-1]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1]],[[-3]]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "zero_total"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

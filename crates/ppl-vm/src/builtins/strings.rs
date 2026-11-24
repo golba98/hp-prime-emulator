@@ -4,6 +4,8 @@ use ppl_compiler::builtins::Builtin;
 mod formatting;
 mod fractions;
 
+pub use formatting::default_string_units;
+
 use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::machine::Machine;

@@ -1,0 +1,17 @@
+{"dump": "/tmp/ppl-ide-e2e/native_side_spreadsheet_format_palette_reopen.json", "steps": [
+  {"step": "backend", "engine": "native"},
+  {"step": "layout", "mode": "calculator"},
+  {"step": "native_app", "name": "Spreadsheet"},
+  {"step": "wait_idle", "timeout_ms": 10000},
+  {"step": "wait_ms", "ms": 130},
+  {"step": "snapshot", "label": "reopened_grid"},
+  {"step": "window_screenshot", "path": "/tmp/ppl-ide-e2e/spreadsheet_palette_reopened_grid.png"},
+  {"step": "native_home"},
+  {"step": "calc_focus"},
+  {"step": "type", "text": "SHEETPALREAD()"},
+  {"step": "key", "key": "Enter"},
+  {"step": "wait_idle", "timeout_ms": 10000},
+  {"step": "wait_ms", "ms": 130},
+  {"step": "snapshot", "label": "reopened_ppl"},
+  {"step": "exit"}
+]}

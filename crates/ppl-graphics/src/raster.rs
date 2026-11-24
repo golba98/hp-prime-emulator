@@ -2,6 +2,26 @@
 use crate::{Color, Grob};
 
 pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) {
+    line_pixels((grob.width(), grob.height()), a, b, |x, y| {
+        line_point(grob, i128::from(x), i128::from(y), color);
+        Ok::<(), std::convert::Infallible>(())
+    })
+    .unwrap();
+}
+
+pub(super) fn line_pixels<E>(
+    (width, height): (usize, usize),
+    a: (i64, i64),
+    b: (i64, i64),
+    mut visit: impl FnMut(i64, i64) -> Result<(), E>,
+) -> Result<(), E> {
+    let (right, bottom) = (width as i128 - 1, height as i128 - 1);
+    let mut paint = |x: i128, y: i128| {
+        if x >= 0 && x <= right && y >= 0 && y <= bottom {
+            visit(x as i64, y as i64)?;
+        }
+        Ok(())
+    };
     let (mut x1, mut y1) = (i128::from(a.0), i128::from(a.1));
     let (mut x2, mut y2) = (i128::from(b.0), i128::from(b.1));
     if x1 > x2 {
@@ -12,31 +32,33 @@ pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) 
     let dy = y2.abs_diff(y1);
     let sign = if y2 >= y1 { 1 } else { -1 };
     if dx == 0 && dy == 0 {
-        line_point(grob, x1, y1, color);
-        return;
+        return paint(x1, y1);
     }
     if dy == 0 {
-        span(grob, x1, x2, y1, color);
-        return;
+        if y1 < 0 || y1 > bottom {
+            return Ok(());
+        }
+        for x in x1.max(0)..=x2.min(right) {
+            paint(x, y1)?;
+        }
+        return Ok(());
     }
     if dx == 0 {
-        for y in y1.min(y2).max(0)..=y1.max(y2).min(grob.height() as i128 - 1) {
-            line_point(grob, x1, y, color);
+        for y in y1.min(y2).max(0)..=y1.max(y2).min(bottom) {
+            paint(x1, y)?;
         }
-        return;
+        return Ok(());
     }
     if dx == 1 && dy == 1 {
-        line_point(grob, x1, y1, color);
-        line_point(grob, x2, y2, color);
-        return;
+        paint(x1, y1)?;
+        return paint(x2, y2);
     }
     // The guest orders endpoints by x, including steep lines, and clips x
     // before y. Reconstruct its accumulator at each boundary; rounding a
     // continuous line or skipping ordinary Bresenham pixels loses that phase.
     let (dx, dy) = (dx as i128, dy as i128);
-    let (right, bottom) = (grob.width() as i128 - 1, grob.height() as i128 - 1);
     if x2 < 0 || x1 > right || y1.max(y2) < 0 || y1.min(y2) > bottom {
-        return;
+        return Ok(());
     }
     if dx > dy {
         let mut error = -(dx / 2);
@@ -53,7 +75,7 @@ pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) 
             x1 = 0;
         }
         if (sign > 0 && y1 > bottom) || (sign < 0 && y1 < 0) {
-            return;
+            return Ok(());
         }
         let distance = if sign > 0 { y1 } else { bottom - y1 };
         if distance < 0 {
@@ -71,7 +93,7 @@ pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) 
             if y1 < 0 || y1 > bottom {
                 break;
             }
-            line_point(grob, x, y1, color);
+            paint(x, y1)?;
             error += dy;
             if error >= 0 {
                 y1 += sign;
@@ -98,11 +120,11 @@ pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) 
         }
         let last = if sign > 0 { y2.min(bottom) } else { y2.max(0) };
         let count = (last - y1) * sign;
-        for offset in 0..=count.min(grob.height() as i128) {
+        for offset in 0..=count.min(height as i128) {
             if x1 < 0 || x1 > x2.min(right) {
                 break;
             }
-            line_point(grob, x1, y1 + sign * offset, color);
+            paint(x1, y1 + sign * offset)?;
             error += dx;
             if error >= 0 {
                 x1 += 1;
@@ -110,6 +132,7 @@ pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) 
             }
         }
     }
+    Ok(())
 }
 
 // Signed quotient/remainder for offset*span+phase without overflowing i128
@@ -136,7 +159,7 @@ pub(crate) fn point(grob: &mut Grob, x: i128, y: i128, color: Color) {
     blend(grob, x, y, color, 255);
 }
 
-fn line_point(grob: &mut Grob, x: i128, y: i128, color: Color) {
+pub(super) fn line_point(grob: &mut Grob, x: i128, y: i128, color: Color) {
     blend(grob, x, y, color, 256);
 }
 
@@ -170,6 +193,56 @@ pub(crate) fn span(grob: &mut Grob, x1: i128, x2: i128, y: i128, color: Color) {
     }
 }
 
+/// Pair integer-row crossings with half-open edges and spans.
+pub(crate) fn polygon(
+    grob: &mut Grob,
+    vertices: &[(i64, i64)],
+    color: Color,
+    mut cancelled: impl FnMut() -> bool,
+) -> bool {
+    if vertices.len() < 3 || color >> 24 == 255 || grob.width() == 0 {
+        return true;
+    }
+    let top = vertices.iter().map(|vertex| vertex.1).min().unwrap().max(0);
+    let bottom = vertices
+        .iter()
+        .map(|vertex| vertex.1)
+        .max()
+        .unwrap()
+        .min(grob.height() as i64);
+    let edges: Vec<_> = vertices
+        .iter()
+        .copied()
+        .zip(vertices.iter().copied().cycle().skip(1))
+        .filter(|(a, b)| a.1 != b.1)
+        .map(|(a, b)| if a.1 < b.1 { (a, b) } else { (b, a) })
+        .collect();
+    let mut crossings = Vec::with_capacity(edges.len());
+    for y in top..bottom {
+        if cancelled() {
+            return false;
+        }
+        crossings.clear();
+        let y = i128::from(y);
+        for &((x0, y0), (x1, y1)) in &edges {
+            let (y0, y1) = (i128::from(y0), i128::from(y1));
+            if y0 <= y && y < y1 {
+                let height = y1 - y0;
+                // The coefficients sum to the edge height. The full weighted
+                // numerator therefore fits in i128 even for i64 coordinates.
+                let x = i128::from(x0) * (y1 - y) + i128::from(x1) * (y - y0);
+                let ceiling = x.div_euclid(height) + i128::from(x.rem_euclid(height) != 0);
+                crossings.push(ceiling);
+            }
+        }
+        crossings.sort_unstable();
+        for pair in crossings.chunks_exact(2) {
+            span(grob, pair[0], pair[1] - 1, y, color);
+        }
+    }
+    true
+}
+
 /// Rectangle borders and interior are disjoint: transparency is applied once
 /// per pixel, including corners and degenerate rows/columns. Clip the work,
 /// retaining original border coordinates so clipping never creates an edge.
@@ -186,5 +259,25 @@ pub(crate) fn rectangle(grob: &mut Grob, a: (i64, i64), b: (i64, i64), edge: Col
                 line_point(grob, right, y, edge);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod polygon_tests {
+    use super::*;
+
+    #[test]
+    fn polygon_clips_full_i64_edges_and_stops_at_a_visible_row() {
+        let lo = i64::MIN;
+        let hi = i64::MAX;
+        let points = [(lo, lo), (hi, lo), (hi, hi), (lo, hi)];
+        let mut grob = Grob::new(3, 3, crate::WHITE);
+        let mut scanned = 0;
+        assert!(!grob.calculator_polygon(&points, crate::BLACK, || {
+            scanned += 1;
+            scanned == 2
+        }));
+        assert_eq!(&grob.pixels()[..3], &[crate::BLACK; 3]);
+        assert_eq!(&grob.pixels()[3..], &[crate::WHITE; 6]);
     }
 }

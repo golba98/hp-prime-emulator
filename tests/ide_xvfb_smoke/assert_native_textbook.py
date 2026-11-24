@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Actual desktop root-field navigation, evaluated roots and symbolic CAS Show."""
 import json
+import sys
 from pathlib import Path
 
-d = json.loads(Path('/tmp/ppl-ide-e2e/native_side_textbook.json').read_text())
+root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('/tmp/ppl-ide-e2e')
+d = json.loads((root / 'native_side_textbook.json').read_text())
 assert d['wait_timeouts'] == [], d['wait_timeouts']
 n = {s['label']: s['state']['native_session'] for s in d['snapshots']}
 assert n['nthroot_degree_down_stays']['home_input'] == 'NTHROOT(3,)'
@@ -29,4 +31,15 @@ assert n['fraction_numerator']['home_input'] == '(3)/(2)'
 assert n['fraction_numerator']['cursor'] == 2
 assert n['fraction_denominator']['cursor'] == 6
 assert n['fraction_result']['history'][-1]['result'] == '1.5'
-print('Native textbook: nth-root field navigation/result, real Giac rational Show and Home/CAS histories passed')
+power = n['tall_power_value']
+assert power['last_outcome']['status'] == 'success', power['last_outcome']
+assert power['last_outcome']['typed_result']['type'] == 'symbolic', power['last_outcome']
+assert n['tall_power_top']['history_viewer'] == {'x': 0, 'y': 0}
+assert n['tall_power_scrolled']['history_viewer']['y'] > 50
+assert n['tall_power_closed']['history_viewer'] is None
+for label in ('tall_power_top', 'tall_power_scrolled', 'tall_power_closed'):
+    assert n[label]['ans'] == power['ans']
+    assert n[label]['run_id'] == power['run_id']
+    assert n[label]['home_input'] == power['home_input']
+assert (root / 'textbook_tall_power_top.png').read_bytes() != (root / 'textbook_tall_power_scrolled.png').read_bytes()
+print('Native textbook: tall exponent scrolling, preserved calculation, nth-root field navigation/result, real Giac rational Show and Home/CAS histories passed')

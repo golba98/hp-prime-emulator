@@ -1,0 +1,186 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_unit.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "LOWSTAT1",
+      "content": "EXPORT LOWSTAT1() BEGIN\n    STARTAPP(\"Statistics 1Var\"); D1:={1,3};D2:={.5,.5};SetSample(H1,D1);SetFreq(H1,D2);\n    Do1VStats(H1);RETURN {NbItem,σX,TYPE(sX),STRING(sX),STRING(sX+1),TYPE(serrX),STRING(serrX)};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "LOWSTATREAD",
+      "content": "EXPORT LOWSTATREAD() BEGIN\n    LOCAL im:=0,ie:=0;\n    IFERR im:=TYPE(sX);THEN im:=1;END;\n    IFERR ie:=TYPE(serrX);THEN ie:=1;END;\n    RETURN {NbItem,MeanX,σX,im,ie};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "LOWSTAT2",
+      "content": "EXPORT LOWSTAT2() BEGIN\n    STARTAPP(\"Statistics 1Var\"); D1:={1,3};D2:={.25,.25};SetSample(H1,D1);SetFreq(H1,D2); Do1VStats(H1);\n    RETURN LOWSTATREAD();\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "LOWSTAT1()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "unit_ppl"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "unit_summary"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_unit_unit_summary.png"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "key",
+      "key": "A",
+      "command": true
+    },
+    {
+      "step": "type",
+      "text": "LOWSTAT2()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "subtotal_ppl"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 1Var"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "snapshot",
+      "label": "subtotal_summary"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_unit_subtotal_summary.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

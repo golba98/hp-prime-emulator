@@ -1,5 +1,6 @@
 //! Input controls for app models. No evaluation is performed in the egui frame.
 use super::native_app_models::*;
+use super::native_application_access::geometry::ReadSnapshot as GeometryReadSnapshot;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -60,10 +61,17 @@ impl Default for AppMemory {
 #[derive(Clone)]
 pub enum Calculation {
     Plot(String, Box<AppMemory>),
+    Statistics1AutoScale(Box<AppMemory>),
+    Statistics2AutoScale(Box<super::native_statistics::TwoBook>),
     Amortization(Finance, usize),
     Statistics1(Statistics1),
     Statistics2(Statistics2),
-    Statistics1Book(Box<super::native_statistics::OneBook>),
+    Statistics1Book(Box<super::native_statistics::OneBook>, GeometryReadSnapshot),
+    StatisticsDefinitionValue {
+        two: bool,
+        source: String,
+        geometry: GeometryReadSnapshot,
+    },
     Statistics2Book(Box<super::native_statistics::TwoBook>),
     StatisticsColumn {
         two: bool,
@@ -82,6 +90,14 @@ pub enum Calculation {
     Finance(Finance, FinanceUnknown),
     Triangle(Triangle),
     Solve(String, String),
+    StatisticsPlotField {
+        field: super::native_tools::statistics::PlotSetupField,
+        source: String,
+    },
+    GeometryPlotField {
+        name: String,
+        source: String,
+    },
     Geometry(Geometry),
     GeometryBook(Box<super::native_geometry::Book>),
     GeometryEdit {
@@ -95,8 +111,35 @@ pub enum Calculation {
         index: usize,
         source: String,
     },
-    Spreadsheet(Spreadsheet),
-    SpreadsheetEntry(Spreadsheet, String, String),
+    Spreadsheet(Spreadsheet, GeometryReadSnapshot),
+    SpreadsheetEntry(Spreadsheet, String, String, GeometryReadSnapshot),
+    SpreadsheetCopy(
+        Spreadsheet,
+        super::native_app_models::spreadsheet::format::Block,
+        GeometryReadSnapshot,
+    ),
+    SpreadsheetPaste {
+        sheet: Spreadsheet,
+        clipboard: std::sync::Arc<super::native_app_models::spreadsheet::ClipboardBlock>,
+        destination: [usize; 2],
+        mode: super::native_app_models::spreadsheet::PasteMode,
+        geometry: GeometryReadSnapshot,
+    },
+    SpreadsheetPasteCollection {
+        sheet: Spreadsheet,
+        text: String,
+        destination: [usize; 2],
+        geometry: GeometryReadSnapshot,
+    },
+    SpreadsheetSort {
+        sheet: Spreadsheet,
+        block: super::native_app_models::spreadsheet::format::Block,
+        column: usize,
+        descending: bool,
+        geometry: GeometryReadSnapshot,
+    },
+    SpreadsheetChoices(Spreadsheet, String, GeometryReadSnapshot),
+    SpreadsheetSelectChoice(Spreadsheet, String, usize, GeometryReadSnapshot),
     Inference(super::native_inference::InferenceRequest),
 }
 impl Calculation {
@@ -105,34 +148,52 @@ impl Calculation {
             Self::Plot(name, _) => name,
             Self::Amortization(..) => "Finance",
             Self::Statistics1(_)
-            | Self::Statistics1Book(_)
+            | Self::Statistics1AutoScale(_)
+            | Self::Statistics1Book(..)
+            | Self::StatisticsPlotField { .. }
+            | Self::StatisticsDefinitionValue { two: false, .. }
             | Self::StatisticsCell { two: false, .. }
             | Self::StatisticsColumn { two: false, .. } => "Statistics 1Var",
             Self::Statistics2(_)
+            | Self::Statistics2AutoScale(_)
             | Self::Statistics2Book(_)
+            | Self::StatisticsDefinitionValue { two: true, .. }
             | Self::StatisticsCell { two: true, .. }
             | Self::StatisticsColumn { two: true, .. } => "Statistics 2Var",
             Self::Linear(_) => "Linear Solver",
             Self::Finance(_, _) => "Finance",
             Self::Triangle(_) => "Triangle Solver",
             Self::Solve(_, _) => "Solve",
-            Self::Geometry(_)
+            Self::GeometryPlotField { .. }
+            | Self::Geometry(_)
             | Self::GeometryBook(_)
             | Self::GeometryEdit { .. }
             | Self::GeometryMeasurement { .. } => "Geometry",
-            Self::Spreadsheet(_) | Self::SpreadsheetEntry(..) => "Spreadsheet",
+            Self::Spreadsheet(..)
+            | Self::SpreadsheetEntry(..)
+            | Self::SpreadsheetCopy(..)
+            | Self::SpreadsheetPaste { .. }
+            | Self::SpreadsheetPasteCollection { .. }
+            | Self::SpreadsheetSort { .. }
+            | Self::SpreadsheetChoices(..)
+            | Self::SpreadsheetSelectChoice(..) => "Spreadsheet",
             Self::Inference(_) => "Inference",
         }
     }
     pub fn result_key(&self) -> String {
-        if matches!(
+        if matches!(self, Self::StatisticsDefinitionValue { .. }) {
+            format!("{}:definition", self.app_name())
+        } else if matches!(
             self,
             Self::StatisticsCell { .. } | Self::StatisticsColumn { .. }
         ) {
             format!("{}:entry", self.app_name())
         } else if matches!(self, Self::Amortization(..)) {
             "Finance:amortization".into()
-        } else if matches!(self, Self::Plot(..)) {
+        } else if matches!(
+            self,
+            Self::Plot(..) | Self::Statistics1AutoScale(_) | Self::Statistics2AutoScale(_)
+        ) {
             format!("{}:plot", self.app_name())
         } else {
             self.app_name().into()
@@ -148,6 +209,34 @@ impl Calculation {
             serde_json::to_value(value).map_err(|e| e.to_string())
         }
         match self {
+            Self::Statistics1AutoScale(mut model) => {
+                let book = model
+                    .statistics1_book
+                    .as_ref()
+                    .ok_or("Missing Statistics 1Var definitions")?;
+                let scale = super::native_statistics::one_scale::autoscale_with_geometry(
+                    book,
+                    snapshot,
+                    cancellation.clone(),
+                    model.geometry_book.clone().map(std::sync::Arc::new),
+                )?;
+                if let Some(histogram) = scale.histogram {
+                    model.histogram = Some(histogram);
+                }
+                let mut data: super::native_model_plots::PlotData = serde_json::from_value(
+                    Self::Plot("Statistics 1Var".into(), model)
+                        .calculate(cancellation, snapshot)?,
+                )
+                .map_err(|error| error.to_string())?;
+                data.scale = Some(super::native_model_plots::PlotScale {
+                    bounds: scale.bounds,
+                    histogram: scale.histogram,
+                });
+                json(data)
+            }
+            Self::Statistics2AutoScale(book) => json(
+                super::native_statistics::plots::two_autoscale(&book, snapshot, &cancellation)?,
+            ),
             Self::Amortization(model, group) => json(
                 super::native_model_plots::amortization_schedule(&model, group, Some(2), cancel)?,
             ),
@@ -156,7 +245,13 @@ impl Calculation {
                 let data = match name.as_str() {
                     "Statistics 1Var" => {
                         if let Some(book) = &model.statistics1_book {
-                            super::native_statistics::plots::one(book, model.histogram, cancel)
+                            super::native_statistics::one_plots::plot_with_geometry(
+                                book,
+                                snapshot,
+                                model.histogram,
+                                cancellation.clone(),
+                                model.geometry_book.clone().map(std::sync::Arc::new),
+                            )
                         } else if let Some(spec) = &model.histogram {
                             plot::histogram(&model.statistics1, spec, cancel)
                         } else {
@@ -165,7 +260,7 @@ impl Calculation {
                     }
                     "Statistics 2Var" => {
                         if let Some(book) = &model.statistics2_book {
-                            super::native_statistics::plots::two(book, snapshot, cancel)
+                            super::native_statistics::plots::two(book, snapshot, &cancellation)
                         } else {
                             plot::statistics2(&model.statistics2, cancel)
                         }
@@ -195,6 +290,30 @@ impl Calculation {
                 json(data)
             }
             Self::Inference(request) => json(request.calculate_with_cancel(cancel)?),
+            Self::StatisticsPlotField { source, .. } => {
+                let value = super::native_readonly::evaluate(
+                    &source,
+                    "Statistics 1Var",
+                    snapshot,
+                    [],
+                    cancellation,
+                )?;
+                Ok(ppl_vm::session::encode_value(&ppl_vm::PortableValue::from(
+                    &value,
+                )))
+            }
+            Self::GeometryPlotField { source, .. } => {
+                let value = super::native_readonly::evaluate(
+                    &source,
+                    "Geometry",
+                    snapshot,
+                    [],
+                    cancellation,
+                )?;
+                Ok(ppl_vm::session::encode_value(&ppl_vm::PortableValue::from(
+                    &value,
+                )))
+            }
             Self::GeometryBook(book) => json(book.calculate(snapshot, cancellation)?),
             Self::GeometryEdit {
                 book,
@@ -262,14 +381,146 @@ impl Calculation {
                 }
                 json(distances)
             }
-            Self::Spreadsheet(model) => model.calculate(snapshot, cancellation),
-            Self::SpreadsheetEntry(model, name, source) => {
-                let sheet = model.enter(&name, &source, snapshot, cancellation.clone())?;
-                let values = sheet.calculate(snapshot, cancellation)?;
+            Self::Spreadsheet(model, geometry) => {
+                model.calculate_with_geometry(snapshot, cancellation, geometry)
+            }
+            Self::SpreadsheetEntry(model, name, source, geometry) => {
+                let sheet = model.enter_with_geometry(
+                    &name,
+                    &source,
+                    snapshot,
+                    cancellation.clone(),
+                    geometry.clone(),
+                )?;
+                let values = sheet.calculate_with_geometry(snapshot, cancellation, geometry)?;
                 Ok(serde_json::json!({"sheet":sheet,"values":values}))
             }
-            Self::Statistics1Book(book) => json(book.calculate(cancel)?),
-            Self::Statistics2Book(book) => json(book.calculate(snapshot, cancel)?),
+            Self::SpreadsheetCopy(sheet, block, geometry) => {
+                let clipboard = sheet.copy_block(block, snapshot, cancellation, geometry)?;
+                serde_json::to_value(clipboard).map_err(|error| error.to_string())
+            }
+            Self::SpreadsheetPaste {
+                sheet,
+                clipboard,
+                destination: [col, row],
+                mode,
+                geometry,
+            } => {
+                let sheet = sheet.paste_block(col, row, &clipboard, mode, &cancellation)?;
+                let values = sheet.calculate_with_geometry(snapshot, cancellation, geometry)?;
+                Ok(serde_json::json!({"sheet":sheet,"values":values}))
+            }
+            Self::SpreadsheetPasteCollection {
+                sheet,
+                text,
+                destination,
+                geometry,
+            } => {
+                let (sheet, selection) = sheet.paste_collection(
+                    destination,
+                    &text,
+                    snapshot,
+                    cancellation.clone(),
+                    geometry.clone(),
+                )?;
+                let values = sheet.calculate_with_geometry(snapshot, cancellation, geometry)?;
+                Ok(serde_json::json!({"sheet":sheet,"values":values,"selection":selection}))
+            }
+            Self::SpreadsheetSort {
+                sheet,
+                block,
+                column,
+                descending,
+                geometry,
+            } => {
+                let sheet = sheet.sort_rows(
+                    block,
+                    column,
+                    descending,
+                    snapshot,
+                    cancellation.clone(),
+                    geometry.clone(),
+                )?;
+                let values = sheet.calculate_with_geometry(snapshot, cancellation, geometry)?;
+                Ok(serde_json::json!({"sheet":sheet,"values":values}))
+            }
+            Self::SpreadsheetChoices(sheet, cell, geometry) => {
+                let choices = sheet.open_cell_choice(&cell, snapshot, cancellation, geometry)?;
+                serde_json::to_value(choices).map_err(|error| error.to_string())
+            }
+            Self::SpreadsheetSelectChoice(sheet, cell, selected, geometry) => {
+                let sheet = sheet.select_cell_choice(
+                    &cell,
+                    selected,
+                    snapshot,
+                    cancellation.clone(),
+                    geometry.clone(),
+                )?;
+                let values = sheet.calculate_with_geometry(snapshot, cancellation, geometry)?;
+                Ok(serde_json::json!({"sheet":sheet,"values":values}))
+            }
+            Self::Statistics1Book(mut book, geometry) => {
+                let mut summaries = serde_json::Map::new();
+                for index in 0..book.analyses.len() {
+                    if !book.analyses[index].enabled {
+                        continue;
+                    }
+                    let summary = book.compute_one_with_geometry(
+                        index,
+                        snapshot,
+                        cancellation.clone(),
+                        geometry.clone(),
+                    )?;
+                    let mut values = serde_json::Map::new();
+                    let mut display = serde_json::Map::new();
+                    let format = snapshot
+                        .app_settings
+                        .get("Statistics 1Var")
+                        .cloned()
+                        .unwrap_or_default()
+                        .effective(&snapshot.settings)
+                        .home_format();
+                    for (name, variable) in super::native_statistics::one_data::DISPLAY_FIELDS {
+                        let value = &summary.variables[variable];
+                        let label = match value {
+                            ppl_vm::PortableValue::Symbolic(ppl_cas::CasValue::Undefined) => {
+                                "NaN".into()
+                            }
+                            _ => value.to_value().display(format),
+                        };
+                        let numeric = value.to_value().as_real().map(ppl_math::Real::to_f64);
+                        values.insert(name.into(), json(numeric)?);
+                        display.insert(name.into(), json(label)?);
+                    }
+                    values.insert("_display".into(), display.into());
+                    summaries.insert(format!("H{}", index + 1), values.into());
+                }
+                if summaries.is_empty() {
+                    return Err("No definition checked in Symbolic view".into());
+                }
+                book.result_analysis = book.analyses.iter().position(|analysis| analysis.enabled);
+                Ok(serde_json::json!({"book":book,"summaries":summaries}))
+            }
+            Self::StatisticsDefinitionValue {
+                two,
+                source,
+                geometry,
+            } => {
+                let value = super::native_readonly::evaluate_with_geometry(
+                    &source,
+                    if two {
+                        "Statistics 2Var"
+                    } else {
+                        "Statistics 1Var"
+                    },
+                    snapshot,
+                    [],
+                    cancellation,
+                    geometry,
+                )?;
+                json(super::native::value_source(&value))
+            }
+            Self::Statistics2Book(book) => json(book.calculate(snapshot, &cancellation)?),
             Self::StatisticsColumn {
                 two,
                 column,
@@ -279,13 +530,15 @@ impl Calculation {
                 if column >= super::native_statistics::COLUMN_COUNT {
                     return Err("Invalid statistics column".into());
                 }
-                json(super::native_statistics::evaluation::column_values(
-                    &source,
-                    two,
-                    &columns,
-                    snapshot,
-                    cancellation,
-                )?)
+                Ok(ppl_vm::session::encode_value(
+                    &super::native_statistics::evaluation::typed_column(
+                        &source,
+                        two,
+                        &columns,
+                        snapshot,
+                        cancellation,
+                    )?,
+                ))
             }
             Self::StatisticsCell {
                 two,
@@ -299,13 +552,15 @@ impl Calculation {
                 {
                     return Err("Invalid statistics cell address".into());
                 }
-                json(super::native_statistics::evaluation::cell_value(
-                    &source,
-                    two,
-                    &columns,
-                    snapshot,
-                    cancellation,
-                )?)
+                Ok(ppl_vm::session::encode_value(
+                    &super::native_statistics::evaluation::typed_cell(
+                        &source,
+                        two,
+                        &columns,
+                        snapshot,
+                        cancellation,
+                    )?,
+                ))
             }
             Self::Statistics1(m) => json(m.calculate()?),
             Self::Statistics2(m) => {
@@ -325,6 +580,7 @@ impl Calculation {
     }
 }
 pub const MODEL_APPS: &[&str] = &[
+    super::native_graph3d::NAME,
     "Statistics 1Var",
     "Statistics 2Var",
     "Linear Solver",
@@ -339,7 +595,10 @@ pub fn numeric(name: &str, memory: &AppMemory) -> Option<Calculation> {
     Some(match name {
         "Statistics 1Var" => {
             if let Some(book) = &memory.statistics1_book {
-                Calculation::Statistics1Book(Box::new(book.clone()))
+                Calculation::Statistics1Book(
+                    Box::new(book.clone()),
+                    memory.geometry_book.clone().map(std::sync::Arc::new),
+                )
             } else {
                 Calculation::Statistics1(memory.statistics1.clone())
             }
@@ -361,7 +620,10 @@ pub fn numeric(name: &str, memory: &AppMemory) -> Option<Calculation> {
                 Calculation::Geometry(memory.geometry.clone())
             }
         }
-        "Spreadsheet" => Calculation::Spreadsheet(memory.spreadsheet.clone()),
+        "Spreadsheet" => Calculation::Spreadsheet(
+            memory.spreadsheet.clone(),
+            memory.geometry_book.clone().map(std::sync::Arc::new),
+        ),
         "Inference" => Calculation::Inference(memory.inference.clone()),
         "Solve" => Calculation::Solve(memory.equation.clone(), memory.solve_variable.clone()),
         _ => return None,
@@ -767,7 +1029,15 @@ impl AppMemory {
     pub fn input_fingerprint(&self) -> serde_json::Value {
         let mut input = self.clone();
         input.results.clear();
-        serde_json::to_value(input).expect("finite calculator app data")
+        if let Some(book) = &mut input.statistics2_book {
+            book.fit_equations.fill(None);
+        }
+        let mut fingerprint = serde_json::to_value(&input).expect("finite calculator app data");
+        fingerprint["geometry_current"] = input
+            .geometry_book
+            .as_ref()
+            .map_or(serde_json::Value::Null, |book| book.access_fingerprint());
+        fingerprint
     }
     pub fn validate(&self) -> Result<(), String> {
         // JSON has no NaN/infinity. Refuse such drafts before a durable profile

@@ -8,6 +8,7 @@ use super::{
     native_apps::{CurveSamples, GraphKind, PlotSamples, PlotWindow},
     native_model_plots::PlotData,
 };
+use ppl_math::Real;
 use ppl_vm::AngleMode;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,27 @@ use serde::{Deserialize, Serialize};
 /// G1 C→PX. Bitmap dimensions remain 320x240; they are not the plot spans.
 pub const X_PIXEL_SPAN: f64 = 318.;
 pub const Y_PIXEL_SPAN: f64 = 218.;
+
+// The calculator rounds to decimal precision before choosing a raster pixel.
+pub(super) fn axis_pixel(value: f64) -> i64 {
+    Real::from_f64(value).map_or(value, Real::to_f64).round() as i64
+}
+
+pub(super) fn ticks(low: f64, high: f64, spacing: f64, extent: f64) -> Vec<i64> {
+    let units_per_pixel = (high - low) / extent;
+    if !units_per_pixel.is_finite() || units_per_pixel <= 0. {
+        return Vec::new();
+    }
+    if spacing < units_per_pixel {
+        return (0..=extent as i64).collect();
+    }
+    let first = (low / spacing).ceil() * spacing;
+    (0..=extent as i64)
+        .map(|i| first + i as f64 * spacing)
+        .take_while(|&value| value <= high)
+        .map(|value| ((value - low) / (high - low) * extent).round() as i64)
+        .collect()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
@@ -142,6 +164,31 @@ pub fn model_samples(data: &PlotData) -> PlotSamples {
         .map(|curve| curve.iter().copied().map(Some).collect())
         .collect()
 }
+
+/// Statistics trace entries represent observations and summaries, independently
+/// of the vertices used to paint bars, whiskers and sectors.
+pub fn model_trace_samples(data: &PlotData, window: &PlotWindow) -> PlotSamples {
+    if data.statistics_traces.is_empty() {
+        return model_samples(data);
+    }
+    let middle = window.ymin / 2. + window.ymax / 2.;
+    data.statistics_traces
+        .iter()
+        .map(|series| {
+            series
+                .samples
+                .iter()
+                .map(|sample| {
+                    let point = [sample.x, sample.y.unwrap_or(middle)];
+                    point
+                        .iter()
+                        .all(|coordinate| coordinate.is_finite())
+                        .then_some(point)
+                })
+                .collect()
+        })
+        .collect()
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraceDirection {
     Left,
@@ -153,7 +200,9 @@ pub enum TraceDirection {
 pub struct TracePoint {
     pub curve: usize,
     pub sample: usize,
-    /// Exactly a computed sample, never a straight-line interpolation.
+    /// Cursor position for the selected entry, never an interpolated value.
+    /// Statistics stores its typed value separately; an undefined Moving Range
+    /// entry positions the cursor at the window midpoint while displaying NaN.
     pub point: [f64; 2],
 }
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -574,6 +623,13 @@ mod tests {
     fn dense_model_adapter_preserves_original_sample_order_and_values() {
         let data = PlotData {
             geometry: None,
+            colors: Vec::new(),
+            annotations: Vec::new(),
+            fills: Vec::new(),
+            dots: Vec::new(),
+            statistics_traces: Vec::new(),
+            scale: None,
+            statistics_two_fits: Vec::new(),
             curves: vec![vec![[3., 7.], [1., 2.]], vec![]],
             labels: vec![],
             styles: vec![],
@@ -593,6 +649,13 @@ mod tests {
     fn model_autoscale_uses_first_data_curve_and_both_axes() {
         let data = PlotData {
             geometry: None,
+            colors: Vec::new(),
+            annotations: Vec::new(),
+            fills: Vec::new(),
+            dots: Vec::new(),
+            statistics_traces: Vec::new(),
+            scale: None,
+            statistics_two_fits: Vec::new(),
             curves: vec![vec![[1., 2.], [3., 7.]], vec![[1e9, -1e9]]],
             labels: vec![],
             styles: vec![],

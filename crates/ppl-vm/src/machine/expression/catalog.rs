@@ -350,6 +350,9 @@ impl Machine {
                     Op::Const(index) => Op::Const(constant_base + index),
                     Op::LoadGlobal(index) => Op::LoadGlobal(global_map[index as usize] as u32),
                     Op::StoreGlobal(index) => Op::StoreGlobal(global_map[index as usize] as u32),
+                    Op::GeometryAssignmentResult(index) => {
+                        Op::GeometryAssignmentResult(global_map[index as usize] as u32)
+                    }
                     Op::StoreIndexGlobal { slot, n } => Op::StoreIndexGlobal {
                         slot: global_map[slot as usize] as u32,
                         n,

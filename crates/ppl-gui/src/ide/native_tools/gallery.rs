@@ -1,6 +1,6 @@
 //! Supported applications in the Prime's four-column Application Library.
 //! Icons are drawn here from primitives; no firmware artwork is distributed.
-use super::{NativeTools, Page, Request};
+use super::{NativeTools, Page, Request, ResetApp};
 use crate::ide::native::{chrome, expression::EditCommand as E, keys::KeyAction as A};
 use ppl_graphics::{
     Grob,
@@ -8,7 +8,7 @@ use ppl_graphics::{
 };
 use serde::{Deserialize, Serialize};
 
-const APPS: [&str; 17] = [
+pub(super) const APPS: [&str; 18] = [
     "Function",
     "Advanced Graphing",
     "Geometry",
@@ -26,6 +26,7 @@ const APPS: [&str; 17] = [
     "Linear Explorer",
     "Quadratic Explorer",
     "Trig Explorer",
+    super::super::native_graph3d::NAME,
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -73,11 +74,26 @@ impl Selection {
         Ok(())
     }
 }
+#[derive(Clone, Copy)]
+enum ResetTarget {
+    App(ResetApp),
+    Spreadsheet,
+}
+impl ResetTarget {
+    fn from_name(name: &str) -> Option<Self> {
+        if name == "Spreadsheet" {
+            Some(Self::Spreadsheet)
+        } else {
+            ResetApp::from_name(name).map(Self::App)
+        }
+    }
+}
 #[derive(Default)]
 pub(super) struct Panel {
     texture: Option<egui::TextureHandle>,
     pixels: Vec<u32>,
     pub(super) menu: Option<usize>,
+    confirm_reset: Option<ResetTarget>,
     prefix: String,
     typed: Option<std::time::Instant>,
 }
@@ -104,6 +120,7 @@ impl NativeTools {
     pub(super) fn gallery_open(&mut self) {
         self.memory.gallery.highlight = self.memory.selected_app.clone();
         self.gallery_panel.menu = None;
+        self.gallery_panel.confirm_reset = None;
         self.gallery_panel.prefix.clear();
         self.gallery_panel.typed = None;
         self.gallery_reveal();
@@ -145,7 +162,7 @@ impl NativeTools {
         if self.page != Some(Page::Apps) {
             return false;
         }
-        if self.gallery_panel.menu.is_some() {
+        if self.gallery_panel.menu.is_some() || self.gallery_panel.confirm_reset.is_some() {
             return true;
         }
         let now = std::time::Instant::now();
@@ -179,6 +196,14 @@ impl NativeTools {
         if self.page != Some(Page::Apps) {
             return None;
         }
+        if self.gallery_panel.confirm_reset.is_some() {
+            let request = match action {
+                A::Evaluate => self.finish_app_reset(true),
+                A::Back | A::On => self.finish_app_reset(false),
+                _ => None,
+            };
+            return Some(request.into_iter().collect());
+        }
         if let Some(index) = self.gallery_panel.menu {
             match action {
                 A::History(n) => {
@@ -210,6 +235,14 @@ impl NativeTools {
         self.gallery_reveal();
         self.dirty();
         Some(vec![])
+    }
+    fn finish_app_reset(&mut self, confirmed: bool) -> Option<Request> {
+        let target = self.gallery_panel.confirm_reset.take()?;
+        self.dirty();
+        confirmed.then_some(match target {
+            ResetTarget::App(app) => Request::ResetApp(app),
+            ResetTarget::Spreadsheet => Request::ResetSpreadsheet,
+        })
     }
     pub(super) fn show_gallery(
         &mut self,
@@ -257,7 +290,9 @@ impl NativeTools {
             let top = 22 + (196 - height) * first as i64 / (rows - 3) as i64;
             g.fill_rect(316, top, 318, top + height - 1, 0x3d3d3d);
         }
-        chrome::softkeys_with_menus(&mut g, &["", "", "Sort", "", "", "Start"], &[2]);
+        let reset_target = ResetTarget::from_name(names[selected]);
+        let reset_label = if reset_target.is_some() { "Reset" } else { "" };
+        chrome::softkeys_with_menus(&mut g, &["", reset_label, "Sort", "", "", "Start"], &[2]);
         if let Some(index) = self.gallery_panel.menu {
             g.rect(34, 134, 158, 219, 0, 0xffffff);
             g.fill_rect(35, 135, 157, 153, 0x517ebd);
@@ -285,6 +320,47 @@ impl NativeTools {
                     y + 3,
                 );
             }
+        }
+        if let Some(target) = self.gallery_panel.confirm_reset {
+            g.rect(26, 72, 294, 170, 0x234765, 0xffffff);
+            g.fill_rect(27, 73, 293, 98, 0x234765);
+            let (name, scope, details) = match target {
+                ResetTarget::Spreadsheet => (
+                    "Spreadsheet",
+                    "Clear worksheet contents and formatting.",
+                    "The copied range remains available.",
+                ),
+                ResetTarget::App(app) => {
+                    let (scope, details) = match app {
+                        ResetApp::Sequence => (
+                            "Clear definitions and initial terms.",
+                            "Reset Plot, Numeric and Symbolic.",
+                        ),
+                        ResetApp::Geometry => (
+                            "Clear constructions and measurements.",
+                            "Restore the default plot settings.",
+                        ),
+                        ResetApp::StatisticsOne | ResetApp::StatisticsTwo => (
+                            "Clear data columns and analysis definitions.",
+                            "Restore default plot and Symbolic settings.",
+                        ),
+                    };
+                    (app.name(), scope, details)
+                }
+            };
+            draw_text(
+                &mut g,
+                &format!("Reset {name}?"),
+                39,
+                78,
+                16.,
+                0xffffff,
+                None,
+                None,
+            );
+            label(&mut g, scope, 39, 108);
+            label(&mut g, details, 39, 131);
+            chrome::softkeys(&mut g, &["Cancel", "", "", "", "", "Reset"]);
         }
         if let Some(error) = &self.error {
             g.fill_rect(0, 201, 313, 219, 0xffffff);
@@ -335,8 +411,23 @@ impl NativeTools {
                 {
                     let p = (p - lcd.min) / (lcd.width() / 320.);
                     let (x, y) = (p.x as i64, p.y as i64);
-                    if y >= 220 {
+                    if self.gallery_panel.confirm_reset.is_some() {
+                        if y >= 220 {
+                            match chrome::softkey_index(x) {
+                                0 => {
+                                    self.finish_app_reset(false);
+                                }
+                                5 => requests.extend(self.finish_app_reset(true)),
+                                _ => {}
+                            }
+                        }
+                    } else if y >= 220 {
                         match chrome::softkey_index(x) {
+                            1 if self.gallery_panel.menu.is_none() => {
+                                self.gallery_panel.confirm_reset = reset_target;
+                                self.error = None;
+                                self.dirty();
+                            }
                             2 => self.gallery_panel.menu = Some(self.memory.gallery.sort.index()),
                             5 => requests.push(Request::StartApp(names[selected].into())),
                             _ => {}
@@ -395,6 +486,35 @@ fn icon(g: &mut Grob, name: &str, x: i64, y: i64) {
         g.line(x + 7, y + 31, x + 13, y + 6, white);
         g.line(x + 13, y + 6, x + 31, y + 24, white);
         g.line(x + 31, y + 24, x + 7, y + 31, white);
+    } else if name == super::super::native_graph3d::NAME {
+        let corners = [
+            (7, 13),
+            (19, 5),
+            (32, 12),
+            (20, 20),
+            (7, 26),
+            (19, 18),
+            (32, 25),
+            (20, 33),
+        ];
+        for (a, b) in [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ] {
+            let (ax, ay) = corners[a];
+            let (bx, by) = corners[b];
+            g.line(x + ax, y + ay, x + bx, y + by, white);
+        }
     } else if name == "Advanced Graphing" {
         g.line(x + 4, y + 31, x + 34, y + 31, white);
         g.line(x + 8, y + 3, x + 8, y + 34, white);
@@ -467,5 +587,32 @@ fn icon(g: &mut Grob, name: &str, x: i64, y: i64) {
             }
             last = Some(point);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spreadsheet_library_reset_only_dispatches_after_confirmation() {
+        let mut tools = NativeTools::default();
+        tools.memory.selected_app = "Function".into();
+        tools.memory.models.spreadsheet.set("A1", "2").unwrap();
+        tools.open(Page::Apps);
+        tools.memory.gallery.highlight = "Spreadsheet".into();
+
+        tools.gallery_panel.confirm_reset = ResetTarget::from_name("Spreadsheet");
+        assert!(tools.gallery_action(A::Back).unwrap().is_empty());
+        assert!(tools.gallery_panel.confirm_reset.is_none());
+        assert_eq!(tools.memory.models.spreadsheet.cells["A1"], "2");
+
+        tools.gallery_panel.confirm_reset = ResetTarget::from_name("Spreadsheet");
+        let requests = tools.gallery_action(A::Evaluate).unwrap();
+        assert!(matches!(requests.as_slice(), [Request::ResetSpreadsheet]));
+        assert!(tools.gallery_panel.confirm_reset.is_none());
+        assert_eq!(tools.memory.selected_app, "Function");
+        assert_eq!(tools.memory.gallery.highlight, "Spreadsheet");
+        assert_eq!(tools.page, Some(Page::Apps));
     }
 }

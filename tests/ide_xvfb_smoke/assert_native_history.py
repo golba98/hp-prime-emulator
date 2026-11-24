@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Desktop history interaction, structural Show and separate-process persistence."""
 import json
+import sys
 from pathlib import Path
 
-root = Path('/tmp/ppl-ide-e2e')
+root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('/tmp/ppl-ide-e2e')
 data = json.loads((root / 'native_side_history.json').read_text())
 assert data['wait_timeouts'] == [], data['wait_timeouts']
 n = {s['label']: s['state']['native_session'] for s in data['snapshots']}
@@ -13,11 +14,14 @@ assert n['copied_result']['home_input'] == '4*3'
 assert n['evaluated_copy']['last_outcome']['result'] == '12'
 assert n['matrix_result']['history'][-1]['typed_result']['rows'] == 12
 assert n['matrix_result']['history'][-1]['typed_result']['cols'] == 12
-for label in ['show_matrix', 'viewer_ignores_typing', 'scrolled_matrix', 'show_closed']:
+for label in ['show_matrix', 'viewer_ignores_typing', 'dragged_matrix', 'dragged_to_origin',
+              'scrolled_matrix', 'show_closed']:
     assert n[label]['home_input'] == ''
     assert n[label]['ans'] == n['matrix_result']['ans']
     assert n[label]['run_id'] == n['matrix_result']['run_id']
 assert n['show_matrix']['history_viewer'] == {'x': 0, 'y': 0}
+assert n['dragged_matrix']['history_viewer'] == {'x': 65, 'y': 37}
+assert n['dragged_to_origin']['history_viewer'] == {'x': 0, 'y': 0}
 assert n['scrolled_matrix']['history_viewer']['x'] > 0
 assert n['scrolled_matrix']['history_viewer']['y'] > 0
 assert n['show_closed']['history_viewer'] is None
@@ -46,4 +50,4 @@ assert r['restored']['history'][0]['expression'] == '4*3'
 assert r['restored']['home_input'] == '99*'
 assert r['restored_show']['history_viewer'] == {'x': 0, 'y': 0}
 assert r['restored_show']['ans'] == r['restored']['ans']
-print('Native history: draft/copy/evaluation, 12×12 Show scrolling, typed nesting and process reopen passed')
+print('Native history: draft/copy/evaluation, 12×12 Show keyboard and drag scrolling, typed nesting and process reopen passed')

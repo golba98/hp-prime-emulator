@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use ppl_compiler::{CompiledProgram, Const, GlobalInit, Op, Setting};
 use ppl_graphics::Grob;
 use ppl_math::{Complex, Real};
-use ppl_syntax::Span;
+use ppl_syntax::{Span, ast::BinOp};
 
 use crate::builtins;
 use crate::collections::{index_value, store_index};
@@ -19,6 +19,7 @@ use crate::rng::Rng;
 use crate::settings::{AngleMode, Settings};
 use crate::value::{Matrix, Value};
 
+mod app_variables;
 mod expression;
 
 /// Host-side protections. These are **not** calculator limits; they stop
@@ -60,6 +61,54 @@ struct TryRec {
     frame_depth: usize,
     stack_len: usize,
     handler: usize,
+    kind: TryKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TryKind {
+    IfErr,
+    StddevCell,
+    AppendCallback { collection_base: bool },
+}
+
+#[derive(Clone, Copy, Debug)]
+enum AppendCallbackFault {
+    DivisionByZero = 1,
+    BadArgType = 2,
+}
+
+impl AppendCallbackFault {
+    fn from_error(error: &ErrorKind) -> Option<Self> {
+        match error {
+            ErrorKind::DivisionByZero => Some(Self::DivisionByZero),
+            ErrorKind::BadArgType => Some(Self::BadArgType),
+            _ => None,
+        }
+    }
+
+    fn from_status(status: i64) -> Option<Self> {
+        match status {
+            0 => None,
+            1 => Some(Self::DivisionByZero),
+            2 => Some(Self::BadArgType),
+            _ => unreachable!("invalid APPEND callback status"),
+        }
+    }
+}
+
+impl TryKind {
+    fn catches(self, error: &ErrorKind) -> bool {
+        match self {
+            Self::IfErr => true,
+            Self::StddevCell => matches!(
+                error,
+                ErrorKind::DivisionByZero | ErrorKind::InvalidDimension | ErrorKind::BadArgType
+            ),
+            Self::AppendCallback { collection_base } => {
+                collection_base && AppendCallbackFault::from_error(error).is_some()
+            }
+        }
+    }
 }
 
 /// What a debugger wants after a statement stop.
@@ -85,6 +134,9 @@ pub struct Machine {
     pub active_app: String,
     pub app_settings: std::collections::BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: std::collections::BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: std::collections::BTreeMap<String, crate::AppPlotSettings>,
+    pub geometry_plot_settings: Option<crate::GeometryPlotSettings>,
+    pub(crate) statistics2_columns_revision: u64,
     pub app_files: std::collections::BTreeMap<
         String,
         std::collections::BTreeMap<String, crate::PortableValue>,
@@ -102,6 +154,8 @@ pub struct Machine {
     setting_slots: Vec<Option<Setting>>,
     /// Temporary expression slots which refer to a suspended caller's locals.
     captured_globals: std::collections::BTreeMap<usize, usize>,
+    scoped_plot_slots: std::collections::BTreeSet<usize>,
+    legacy_plot_writes: std::collections::BTreeSet<usize>,
     expression_scopes: std::collections::BTreeMap<usize, expression::Scope>,
     stack: Vec<Value>,
     frames: Vec<Frame>,
@@ -183,6 +237,21 @@ impl Machine {
         home
     }
     pub fn store_home_value(&mut self, name: &str, value: Value) -> RtResult<()> {
+        if self.active_app == "Geometry" && crate::GeometryPlotSettings::recognizes(name) {
+            let mut next = self.geometry_plot_settings();
+            next.set(name, &value)?;
+            self.geometry_plot_settings = Some(next);
+            return Ok(());
+        }
+        if crate::AppPlotSettings::recognizes(&self.active_app, name)
+            && crate::AppPlotSettings::for_app(&self.active_app).is_some()
+        {
+            crate::AppPlotSettings::check_field(&self.active_app, name)?;
+            let mut next = self.plot_settings(&self.active_app)?;
+            next.set_for(&self.active_app, name, &value)?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            return Ok(());
+        }
         if let Some(setting) = crate::AppNumericSettings::setting(name) {
             let mut next = self.numeric_settings();
             next.set(setting, &value)?;
@@ -207,6 +276,8 @@ impl Machine {
             })
         {
             self.store_global(slot, value.clone())?;
+        } else if crate::statistics_columns::is_two_variable_column(name) {
+            self.statistics2_columns_revision = self.statistics2_columns_revision.wrapping_add(1);
         }
         self.home_variables.insert(name.into(), value);
         Ok(())
@@ -225,7 +296,7 @@ impl Machine {
                 .map_or(!slot.program_var, |(image, _)| {
                     image.global_owners[i].is_none()
                 });
-            if shared {
+            if shared && !self.is_plot_slot(i) {
                 globals.insert(
                     slot.name.clone(),
                     crate::PortableValue::from(&self.load_global(i)),
@@ -236,6 +307,9 @@ impl Machine {
             active_app: self.active_app.clone(),
             app_settings: self.app_settings.clone(),
             app_numeric_settings: self.app_numeric_settings.clone(),
+            app_plot_settings: self.app_plot_settings.clone(),
+            geometry_plot_settings: self.geometry_plot_settings.clone(),
+            statistics2_columns_revision: self.statistics2_columns_revision,
             app_files: self.app_files.clone(),
             cas: self.cas_context.clone(),
             settings: self.settings.clone(),
@@ -243,6 +317,7 @@ impl Machine {
             generation: 0,
             last_value: None,
             notes: self.notes.clone(),
+            note_bullets: Default::default(),
             programs: self.programs.clone(),
         }
     }
@@ -250,8 +325,17 @@ impl Machine {
         self.prog
             .globals
             .iter()
-            .position(|slot| slot.name == name)
-            .map(|slot| &self.globals[slot])
+            .enumerate()
+            .find_map(|(index, slot)| {
+                let home = self
+                    .linked
+                    .as_ref()
+                    .map_or(!slot.program_var, |(image, _)| {
+                        image.global_owners[index].is_none()
+                    });
+                (home && slot.name == name && !self.captured_globals.contains_key(&index))
+                    .then_some(&self.globals[index])
+            })
             .or_else(|| self.home_variables.get(name))
     }
     pub fn new(
@@ -286,6 +370,9 @@ impl Machine {
             active_app: "Function".into(),
             app_settings: Default::default(),
             app_numeric_settings: Default::default(),
+            app_plot_settings: Default::default(),
+            geometry_plot_settings: None,
+            statistics2_columns_revision: 0,
             app_files: Default::default(),
             home_variables: Default::default(),
             legacy_type_cache: Default::default(),
@@ -296,6 +383,8 @@ impl Machine {
             globals,
             setting_slots,
             captured_globals: Default::default(),
+            scoped_plot_slots: Default::default(),
+            legacy_plot_writes: Default::default(),
             expression_scopes: Default::default(),
             stack: Vec::with_capacity(256),
             frames: Vec::new(),
@@ -561,6 +650,13 @@ impl Machine {
             .unwrap_or_default()
             .arithmetic(&self.settings)
     }
+    fn binary_value(&mut self, op: BinOp, left: &Value, right: &Value) -> RtResult<Value> {
+        if matches!(left, Value::Symbolic(_)) || matches!(right, Value::Symbolic(_)) {
+            crate::cas::binary(self, op, left, right)
+        } else {
+            ops::binary(op, left, right, &self.arithmetic_settings())
+        }
+    }
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {
         let idx = self.prog.function_index(name).ok_or_else(|| {
             RuntimeError::new(ErrorKind::Undefined, format!("no function named {name}"))
@@ -636,16 +732,23 @@ impl Machine {
                 Ok(Flow::Next) => {}
                 Ok(Flow::Done(v)) => return Ok(v),
                 Err(e) => {
-                    if e.kind.catchable() {
-                        if let Some(t) = self.tries.last().copied() {
-                            if t.frame_depth > stop_depth {
-                                self.tries.pop();
-                                self.frames.truncate(t.frame_depth);
-                                self.stack.truncate(t.stack_len);
-                                self.frames.last_mut().unwrap().ip = t.handler;
-                                continue;
-                            }
+                    if e.kind.catchable()
+                        && let Some(index) = self.tries.iter().rposition(|handler| {
+                            handler.frame_depth > stop_depth && handler.kind.catches(&e.kind)
+                        })
+                    {
+                        let handler = self.tries[index];
+                        self.tries.truncate(index);
+                        self.frames.truncate(handler.frame_depth);
+                        self.stack.truncate(handler.stack_len);
+                        if let TryKind::AppendCallback { .. } = handler.kind {
+                            let fault = AppendCallbackFault::from_error(&e.kind)
+                                .expect("APPEND handler catches supported callback errors");
+                            self.stack.push(Value::zero());
+                            self.stack.push(Value::from_i64(fault as i64));
                         }
+                        self.frames.last_mut().unwrap().ip = handler.handler;
+                        continue;
                     }
                     let mut e = e;
                     if e.trace.is_empty() {
@@ -757,6 +860,16 @@ impl Machine {
     }
 
     fn prepare_global(&mut self, slot: usize) -> RtResult<()> {
+        if self.is_plot_slot(slot) {
+            self.scoped_plot_slots.insert(slot);
+        }
+        if self.is_geometry_plot_slot(slot) {
+            self.geometry_plot_settings()
+                .get(&self.prog.globals[slot].name)?;
+        } else if self.is_plot_slot(slot) {
+            crate::AppPlotSettings::check_field(&self.active_app, &self.prog.globals[slot].name)?;
+            self.plot_settings(&self.active_app)?;
+        }
         if self.prog.globals[slot].external {
             return Err(RuntimeError::new(
                 ErrorKind::Undefined,
@@ -786,6 +899,55 @@ impl Machine {
         Ok(())
     }
 
+    pub fn geometry_plot_settings(&self) -> crate::GeometryPlotSettings {
+        self.geometry_plot_settings.clone().unwrap_or_default()
+    }
+    fn is_geometry_plot_slot(&self, slot: usize) -> bool {
+        self.active_app == "Geometry"
+            && self.is_home_slot(slot)
+            && crate::GeometryPlotSettings::recognizes(&self.prog.globals[slot].name)
+    }
+    pub(crate) fn retain_home_slot(&self, slot: usize) -> bool {
+        self.legacy_plot_writes.contains(&slot)
+            || (!self.scoped_plot_slots.contains(&slot) && !self.is_plot_slot(slot))
+    }
+    fn is_home_slot(&self, slot: usize) -> bool {
+        !self.captured_globals.contains_key(&slot)
+            && self
+                .linked
+                .as_ref()
+                .map_or(!self.prog.globals[slot].program_var, |(image, _)| {
+                    image.global_owners[slot].is_none()
+                })
+    }
+    pub fn plot_settings(&self, app: &str) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!("Plot Setup defaults are not established for {app}"),
+                )
+            })
+    }
+    fn is_plot_slot(&self, slot: usize) -> bool {
+        if self.captured_globals.contains_key(&slot) {
+            return false;
+        }
+        let global = &self.prog.globals[slot];
+        let home = self
+            .linked
+            .as_ref()
+            .map_or(!global.program_var, |(image, _)| {
+                image.global_owners[slot].is_none()
+            });
+        self.is_geometry_plot_slot(slot)
+            || home
+                && crate::AppPlotSettings::recognizes(&self.active_app, &global.name)
+                && crate::AppPlotSettings::for_app(&self.active_app).is_some()
+    }
     fn numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -795,6 +957,17 @@ impl Machine {
     fn load_global(&self, slot: usize) -> Value {
         if let Some(&local) = self.captured_globals.get(&slot) {
             return self.stack[local].clone();
+        }
+        if self.is_geometry_plot_slot(slot) {
+            return self
+                .geometry_plot_settings()
+                .get(&self.prog.globals[slot].name)
+                .unwrap_or_else(|_| Value::zero());
+        }
+        if self.is_plot_slot(slot)
+            && let Ok(settings) = self.plot_settings(&self.active_app)
+        {
+            return settings.get(&self.prog.globals[slot].name).unwrap();
         }
         match self.setting_slots.get(slot).copied().flatten() {
             Some(
@@ -861,6 +1034,19 @@ impl Machine {
                 .insert(self.active_app.clone(), next);
             return Ok(());
         }
+        if self.is_geometry_plot_slot(slot) {
+            let mut next = self.geometry_plot_settings();
+            next.set(&self.prog.globals[slot].name, &v)?;
+            self.geometry_plot_settings = Some(next);
+            return Ok(());
+        }
+        if self.is_plot_slot(slot) {
+            crate::AppPlotSettings::check_field(&self.active_app, &self.prog.globals[slot].name)?;
+            let mut next = self.plot_settings(&self.active_app)?;
+            next.set_for(&self.active_app, &self.prog.globals[slot].name, &v)?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            return Ok(());
+        }
         let name = &self.prog.globals[slot].name;
         let home_owned = self
             .linked
@@ -873,6 +1059,15 @@ impl Machine {
         } else {
             v
         };
+        if home_owned
+            && (crate::AppPlotSettings::canonical_name(name).is_some()
+                || crate::GeometryPlotSettings::recognizes(name))
+        {
+            self.legacy_plot_writes.insert(slot);
+        }
+        if home_owned && crate::statistics_columns::is_two_variable_column(name) {
+            self.statistics2_columns_revision = self.statistics2_columns_revision.wrapping_add(1);
+        }
         if home_owned && self.home_variables.contains_key(name) {
             self.home_variables.insert(name.clone(), v.clone());
         }
@@ -969,6 +1164,13 @@ impl Machine {
                 let v = self.pop();
                 self.store_global(g as usize, v)?;
             }
+            Op::GeometryAssignmentResult(slot) => {
+                if self.is_geometry_plot_slot(slot as usize) {
+                    self.pop();
+                    let value = self.load_global(slot as usize);
+                    self.stack.push(value);
+                }
+            }
             Op::Pop => {
                 self.pop();
             }
@@ -982,18 +1184,82 @@ impl Machine {
                     .unwrap_or((&self.active_app, qualified));
                 let (app, name) = (app.to_owned(), name.to_owned());
                 let value = store.then(|| crate::PortableValue::from(&self.pop()));
-                let indices = self
+                let indices: Vec<_> = self
                     .pop_n(argc as usize)
                     .iter()
                     .map(crate::PortableValue::from)
                     .collect();
+                if app == "Geometry" && crate::GeometryPlotSettings::recognizes(&name) {
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::InvalidInput,
+                            "Geometry Plot Setup values are scalar",
+                        ));
+                    }
+                    let mut settings = self.geometry_plot_settings();
+                    if let Some(value) = value {
+                        settings.set(&name, &value.to_value())?;
+                        self.geometry_plot_settings = Some(settings.clone());
+                    }
+                    self.stack.push(settings.get(&name)?);
+                    return Ok(Flow::Next);
+                }
+                if crate::AppPlotSettings::recognizes(&app, &name)
+                    && crate::AppPlotSettings::for_app(&app).is_some()
+                {
+                    crate::AppPlotSettings::check_field(&app, &name)?;
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "Plot Setup variables are scalar",
+                        ));
+                    }
+                    let mut settings = self.plot_settings(&app)?;
+                    if let Some(value) = value {
+                        settings.set_for(&app, &name, &value.to_value())?;
+                        self.app_plot_settings.insert(app, settings.clone());
+                    }
+                    self.stack.push(settings.get(&name).unwrap());
+                    return Ok(Flow::Next);
+                }
+                if app == "Graph 3D" && crate::AppNumericSettings::graph3d_field(&name) {
+                    if !indices.is_empty() {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "Graph 3D Numeric Setup requires an unindexed field",
+                        ));
+                    }
+                    let mut settings = self
+                        .app_numeric_settings
+                        .get(&app)
+                        .cloned()
+                        .unwrap_or_else(|| crate::AppNumericSettings::for_app(&app));
+                    if let Some(value) = value {
+                        settings.set_graph3d(&name, &value.to_value())?;
+                        self.app_numeric_settings.insert(app, settings.clone());
+                    }
+                    self.stack.push(settings.get_graph3d(&name)?);
+                    return Ok(Flow::Next);
+                }
+                if app == "Statistics 1Var"
+                    && name.starts_with('D')
+                    && crate::statistics_columns::is_column(&name)
+                {
+                    let result = self.statistics_column(&name, &indices, value)?;
+                    self.stack.push(result);
+                    return Ok(Flow::Next);
+                }
                 let request = crate::host::AppVariableRequest {
                     app,
                     name,
                     indices,
                     value,
                 };
-                let context = self.presentation_snapshot();
+                let context = if request.app == "Geometry" && request.name == "__Expression" {
+                    self.app_expression_snapshot()
+                } else {
+                    self.presentation_snapshot()
+                };
                 let result = self.host.app_variable_with_context(request, context)?;
                 self.stack.push(result.to_value());
             }
@@ -1020,21 +1286,40 @@ impl Machine {
                 let index = self.stack.len() - 1 - depth as usize;
                 self.stack.push(self.stack[index].clone());
             }
-            Op::Bin(b) => {
+            Op::Bin(b) | Op::StddevCellBin { op: b, .. } => {
                 let r = self.pop();
                 let l = self.pop();
-                let v = if matches!(l, Value::Symbolic(_)) || matches!(r, Value::Symbolic(_)) {
-                    crate::cas::binary(self, b, &l, &r)?
+                let encoded = match op {
+                    Op::StddevCellBin {
+                        literal_zero_quotient,
+                        ..
+                    } => {
+                        builtins::stddev_exact::inline_arithmetic(b, &l, &r, literal_zero_quotient)
+                    }
+                    _ => None,
+                };
+                let v = if let Some(result) = encoded {
+                    result?
                 } else {
-                    ops::binary(b, &l, &r, &self.arithmetic_settings())?
+                    self.binary_value(b, &l, &r)?
                 };
                 self.check_value(&v)?;
                 self.stack.push(v);
             }
-            Op::Neg => {
+            Op::Neg | Op::StddevCellNeg => {
                 let v = self.pop();
-                let value = if matches!(v, Value::Symbolic(_)) {
-                    crate::cas::evaluate(self, &format!("-({})", crate::cas::expression(&v)?))?
+                let value = if matches!(op, Op::StddevCellNeg)
+                    && builtins::stddev_exact::is_inline_undefined(&v)
+                {
+                    v
+                } else if matches!(v, Value::Symbolic(_)) {
+                    match ops::infinity::negate(&v) {
+                        Some(value) => value,
+                        None => crate::cas::evaluate(
+                            self,
+                            &format!("-({})", crate::cas::expression(&v)?),
+                        )?,
+                    }
                 } else {
                     ops::negate(&v)?
                 };
@@ -1050,7 +1335,13 @@ impl Machine {
             Op::Sqrt => {
                 let v = self.pop();
                 let r = if matches!(v, Value::Symbolic(_)) {
-                    crate::cas::evaluate(self, &format!("sqrt({})", crate::cas::expression(&v)?))?
+                    match ops::infinity::sqrt(&v) {
+                        Some(result) => result?,
+                        None => crate::cas::evaluate(
+                            self,
+                            &format!("sqrt({})", crate::cas::expression(&v)?),
+                        )?,
+                    }
                 } else {
                     builtins::math::sqrt(self, &v)?
                 };
@@ -1072,12 +1363,11 @@ impl Machine {
             Op::Square | Op::Cube => {
                 let v = self.pop();
                 let e = Value::from_i64(if op == Op::Square { 2 } else { 3 });
-                let r = ops::binary(
-                    ppl_syntax::ast::BinOp::Pow,
-                    &v,
-                    &e,
-                    &self.arithmetic_settings(),
-                )?;
+                let operation = ppl_syntax::ast::BinOp::Pow;
+                let r = match ops::infinity::binary(operation, &v, &e) {
+                    Some(result) => result?,
+                    None => ops::binary(operation, &v, &e, &self.arithmetic_settings())?,
+                };
                 self.stack.push(r);
             }
             Op::Jump(t) => self.frames.last_mut().unwrap().ip = t as usize,
@@ -1170,6 +1460,188 @@ impl Machine {
                 self.check_value(&v)?;
                 self.stack.push(v);
             }
+            Op::AppendCollection {
+                literal_payload,
+                callback_payload,
+                encoded_base,
+            } => {
+                let (item, fault) = self.pop_append_operand(callback_payload)?;
+                let base = self.pop();
+                let value = if let Some(fault) = fault {
+                    self.append_callback_fault(base, encoded_base, fault)?
+                } else {
+                    builtins::lists::append_collection(
+                        self,
+                        &[base, item],
+                        literal_payload,
+                        encoded_base,
+                    )?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::AppendQuotient {
+                literal_operands,
+                callback_operands: [numerator_call, denominator_call],
+                encoded_base,
+            } => {
+                let (denominator, denominator_fault) = self.pop_append_operand(denominator_call)?;
+                let (numerator, numerator_fault) = self.pop_append_operand(numerator_call)?;
+                let base = self.pop();
+                let result = if let Some(fault) = numerator_fault.or(denominator_fault) {
+                    self.append_callback_fault(base, encoded_base, fault)?
+                } else if matches!(base, Value::List(_) | Value::Matrix(_))
+                    && let (Value::Real(numerator), Value::Real(denominator)) =
+                        (&numerator, &denominator)
+                    && numerator.is_integer()
+                    && denominator.is_zero()
+                {
+                    builtins::lists::append_nonfinite_quotient(
+                        self,
+                        base,
+                        literal_operands || numerator.is_zero(),
+                    )?
+                } else {
+                    let item = self.append_quotient_value(
+                        matches!(base, Value::List(_) | Value::Matrix(_)),
+                        &numerator,
+                        &denominator,
+                    )?;
+                    self.check_value(&item)?;
+                    builtins::lists::append_collection(self, &[base, item], false, encoded_base)?
+                };
+                self.check_value(&result)?;
+                self.stack.push(result);
+            }
+            Op::AppendCallbackArgumentQuotient { preceding } => {
+                let denominator = self.pop();
+                let numerator = self.pop();
+                let base = &self.stack[self.stack.len() - 1 - usize::from(preceding)];
+                let value = self.append_quotient_value(
+                    matches!(base, Value::List(_) | Value::Matrix(_)),
+                    &numerator,
+                    &denominator,
+                )?;
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::StddevExact {
+                argc,
+                encoded_vector,
+                evaluated_matrices,
+                row_mismatch_diagnostic,
+                list_sources,
+            } => {
+                let diagnostic = row_mismatch_diagnostic.then(|| self.pop());
+                let args = self.pop_n(argc as usize);
+                let value = if let Some(diagnostic) = diagnostic
+                    && matches!(&args[..], [Value::Matrix(data), Value::Matrix(weights)]
+                        if !data.vector && !weights.vector && data.rows != weights.rows
+                            && data.rows != 0 && weights.rows != 0
+                            && data.cols != 0 && weights.cols != 0)
+                {
+                    diagnostic
+                } else if let Some(value) = list_sources.and_then(|sources| {
+                    stddev_list_length_diagnostic(
+                        &args,
+                        sources.map(|index| {
+                            index.map(|index| {
+                                let Value::Str(source) = &self.consts[index as usize] else {
+                                    unreachable!("stddev list source is a string constant");
+                                };
+                                source.as_ref()
+                            })
+                        }),
+                    )
+                }) {
+                    value
+                } else if let Some(value) =
+                    builtins::stddev_exact::ordinary_complex_deviation(self, &args)?
+                {
+                    value
+                } else {
+                    match builtins::stddev_exact::deviation(
+                        self,
+                        &args,
+                        encoded_vector,
+                        evaluated_matrices,
+                    )? {
+                        Some(value) => value,
+                        None => {
+                            builtins::call(self, ppl_compiler::builtins::Builtin::Stddev, args)?
+                        }
+                    }
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::StddevEncodedComplexMatrix => {
+                let args = self.pop_n(2);
+                let value = builtins::stddev_exact::encoded_complex_matrix(self, args)?;
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::StddevInlineCollection {
+                data,
+                weights,
+                encoded_weights,
+            } => {
+                let diagnostic = self.pop();
+                let failed = self.pop().truthy()?;
+                let args = self.pop_n(2);
+                let value = if failed || !encoded_weights {
+                    diagnostic
+                } else {
+                    let [Value::List(data_cells), Value::List(weight_cells)] = args.as_slice()
+                    else {
+                        unreachable!("encoded stddev operands are cell lists");
+                    };
+                    builtins::stddev_exact::inline_collection(
+                        self,
+                        [data_cells, weight_cells],
+                        [data, weights],
+                        diagnostic,
+                    )?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::StddevMatrixDiagnostic => {
+                let diagnostic = self.pop();
+                let args = self.pop_n(2);
+                let value = if matches!(&args[..], [Value::Matrix(data), Value::Matrix(weights)]
+                    if !data.vector && !weights.vector)
+                {
+                    diagnostic
+                } else {
+                    builtins::call(self, ppl_compiler::builtins::Builtin::Stddev, args)?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::StddevMixedVectorDiagnostic {
+                encoded_first,
+                evaluated_list,
+            } => {
+                let ordinary_source = self.pop().expect_str("stddev operand source")?;
+                let encoded_source = self.pop().expect_str("stddev encoded vector source")?;
+                let ordinary = self.pop();
+                let materialized = evaluated_list.then(|| ordinary.display(Default::default()));
+                let ordinary_source = materialized.as_deref().unwrap_or(&ordinary_source);
+                let (left, right) = if encoded_first {
+                    (encoded_source.as_ref(), ordinary_source)
+                } else {
+                    (ordinary_source, encoded_source.as_ref())
+                };
+                let error = if encoded_first && ordinary.as_real().is_some() {
+                    "Invalid dimension"
+                } else {
+                    "Bad Argument Value"
+                };
+                let value = Value::str(format!("stddev({left},{right}) \n Error: {error}"));
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
             Op::BuiltinRef { id, argc, refs } => {
                 let args = self.pop_n(argc as usize);
                 let (ret, updated) = builtins::call_ref(self, id, args)?;
@@ -1231,9 +1703,17 @@ impl Machine {
                     vector: false,
                 })));
             }
-            Op::MakeComplex => {
-                let im = self.pop().expect_real("complex")?;
-                let re = self.pop().expect_real("complex")?;
+            Op::MakeComplex | Op::StddevCellPair => {
+                let im = self.pop();
+                let re = self.pop();
+                if matches!(op, Op::StddevCellPair)
+                    && let Some(value) = builtins::stddev_exact::inline_pair(&re, &im)
+                {
+                    self.stack.push(value);
+                    return Ok(Flow::Next);
+                }
+                let im = im.expect_real("complex")?;
+                let re = re.expect_real("complex")?;
                 // Both original G1 builds retain the explicit complex type,
                 // including a zero imaginary component. Matrices normalize
                 // their cells separately through numeric_entry.
@@ -1393,11 +1873,31 @@ impl Machine {
                 }
                 self.stack.push(v);
             }
-            Op::TryBegin(h) => self.tries.push(TryRec {
+            Op::TryBegin(h) | Op::TryStddevCell(h) => self.tries.push(TryRec {
                 frame_depth: self.frames.len(),
                 stack_len: self.stack.len(),
                 handler: h as usize,
+                kind: if matches!(op, Op::TryStddevCell(_)) {
+                    TryKind::StddevCell
+                } else {
+                    TryKind::IfErr
+                },
             }),
+            Op::TryAppendCallback {
+                handler,
+                argc,
+                preceding,
+            } => {
+                let stack_len = self.stack.len() - usize::from(argc);
+                let base = &self.stack[stack_len - 1 - usize::from(preceding)];
+                let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
+                self.tries.push(TryRec {
+                    frame_depth: self.frames.len(),
+                    stack_len,
+                    handler: handler as usize,
+                    kind: TryKind::AppendCallback { collection_base },
+                });
+            }
             Op::TryEnd => {
                 self.tries.pop();
             }
@@ -1448,6 +1948,58 @@ impl Machine {
         Ok(Flow::Next)
     }
 
+    fn pop_append_operand(
+        &mut self,
+        callback: bool,
+    ) -> RtResult<(Value, Option<AppendCallbackFault>)> {
+        let fault = if callback {
+            AppendCallbackFault::from_status(self.pop().expect_i64("APPEND callback status")?)
+        } else {
+            None
+        };
+        Ok((self.pop(), fault))
+    }
+
+    fn append_quotient_value(
+        &mut self,
+        collection_base: bool,
+        numerator: &Value,
+        denominator: &Value,
+    ) -> RtResult<Value> {
+        if collection_base
+            && matches!(
+                (numerator, denominator),
+                (Value::Real(_), Value::Str(_)) | (Value::Str(_), Value::Real(_))
+            )
+        {
+            Ok(Value::str("string / Error: Bad Argument Value"))
+        } else {
+            self.binary_value(BinOp::Div, numerator, denominator)
+        }
+    }
+
+    fn append_callback_fault(
+        &mut self,
+        base: Value,
+        encoded_base: bool,
+        fault: AppendCallbackFault,
+    ) -> RtResult<Value> {
+        match fault {
+            AppendCallbackFault::DivisionByZero => {
+                builtins::lists::append_callback_division_error(self, base, encoded_base)
+            }
+            AppendCallbackFault::BadArgType => {
+                let message = RuntimeError::kind(ErrorKind::BadArgType).to_string();
+                builtins::lists::append_collection(
+                    self,
+                    &[base, Value::str(message)],
+                    false,
+                    encoded_base,
+                )
+            }
+        }
+    }
+
     fn check_value(&self, v: &Value) -> RtResult<()> {
         match v {
             Value::Str(s) if s.len() > self.limits.max_string_bytes => Err(RuntimeError::new(
@@ -1464,6 +2016,45 @@ impl Machine {
             _ => Ok(()),
         }
     }
+}
+
+fn stddev_list_length_diagnostic(args: &[Value], sources: [Option<&str>; 2]) -> Option<Value> {
+    let [Value::List(data), Value::List(weights)] = args else {
+        return None;
+    };
+    if data.len() == weights.len()
+        || !data
+            .iter()
+            .chain(weights.iter())
+            .all(|entry| matches!(entry, Value::Real(_) | Value::Complex(_)))
+    {
+        return None;
+    }
+    let mut diagnostic = String::from("stddev(");
+    for (index, (entries, source)) in [data, weights].into_iter().zip(sources).enumerate() {
+        if index != 0 {
+            diagnostic.push(',');
+        }
+        if let Some(source) = source {
+            diagnostic.push_str(source);
+            continue;
+        }
+        diagnostic.push('{');
+        for (index, entry) in entries.iter().enumerate() {
+            if index != 0 {
+                diagnostic.push(',');
+            }
+            let text = entry.display(Default::default());
+            if matches!(entry, Value::Complex(_)) {
+                diagnostic.push_str(&text.replace('i', "\u{e003}"));
+            } else {
+                diagnostic.push_str(&text);
+            }
+        }
+        diagnostic.push('}');
+    }
+    diagnostic.push_str(") \n Error: Bad Argument Value");
+    Some(Value::str(diagnostic))
 }
 
 pub(crate) fn numeric_entry(v: Value) -> RtResult<Value> {

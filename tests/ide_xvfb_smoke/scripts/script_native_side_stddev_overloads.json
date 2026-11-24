@@ -1,0 +1,52 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_stddev_overloads.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "SDWEIGHTS",
+      "content": "EXPORT SDWEIGHTS() BEGIN\n  LOCAL A:=stddev(1+i),M:=stddev([[1,10],[3,18],[9,38]],[[1,1],[0,3],[0,0]]);\n  LOCAL U:=stddev({1,3},{0,0}),B:=stddev([[1,10],[3,18],[9,38]],[[1,0],[3,0],[0,0]]);\n  RETURN {TYPE(A),A,TYPE(M),M,TYPE(U),STRING(U),TYPE(B),STRING(B)};\nEND;"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 180
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "SDWEIGHTS()"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "stddev_overloads"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

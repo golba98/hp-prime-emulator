@@ -1,0 +1,127 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_fit.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SFITNATIVE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SFITNATIVE() BEGIN STARTVIEW(0);RETURN {TYPE(S1),TYPE(S1(1)),TYPE(S1(2)),TYPE(S1(3)),TYPE(S1(4)),TYPE(S1(5)),TYPE(S1(6)),TYPE(S1(7)),TYPE(S1(8)),S1,S2}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "factory_record"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SFITNATIVE() BEGIN LOCAL calculated;C1:={1,2,3};C2:={3,5,7};X:=4;calculated:=Do2VStats(S1);STARTVIEW(0);RETURN {calculated,TYPE(S1(5)),S1(5),EXPR(STRING(S1(5)))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "first_fit"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_fit_symbolic.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SFITNATIVE() BEGIN LOCAL old,calculated;C2:={4,7,10};old:=EXPR(STRING(S1(5)));calculated:=Do2VStats(S1);RETURN {old,calculated,S1(5),EXPR(STRING(S1(5)))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "retained_then_refitted"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SFITNATIVE() BEGIN LOCAL rejected:=0;C2:={5,9,13};UNCHECK(1);IFERR Do2VStats(S1);THEN rejected:=1;END;CHECK(1);RETURN {rejected,EXPR(STRING(S1(5)))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "failed_keeps_fit"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SFITNATIVE() BEGIN C2:={5,9,13};STARTVIEW(9);RETURN {TYPE(S1(5)),S1(5),EXPR(STRING(S1(5)))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "plot_refreshed_fit"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_fit_plot.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

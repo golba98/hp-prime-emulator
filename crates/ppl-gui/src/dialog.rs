@@ -389,6 +389,15 @@ impl ChooseBox {
         b
     }
 
+    /// Returns the one-based option under a pointer within the list.
+    pub fn item_at(&self, x: i64, y: i64) -> Option<usize> {
+        if (24..=287).contains(&x) && (55..183).contains(&y) {
+            let index = self.scroll + ((y - 55) / CHOOSE_ROW_H) as usize;
+            return (index < self.items.len()).then_some(index + 1);
+        }
+        None
+    }
+
     fn fix_scroll(&mut self) {
         if self.selected < self.scroll {
             self.scroll = self.selected;
@@ -400,12 +409,9 @@ impl ChooseBox {
 
 impl ModalDialog for ChooseBox {
     fn pointer(&mut self, x: i64, y: i64) -> Option<DialogResult> {
-        if (24..=287).contains(&x) && (55..183).contains(&y) {
-            let selected = self.scroll + ((y - 55) / CHOOSE_ROW_H) as usize;
-            if selected < self.items.len() {
-                self.selected = selected;
-                self.fix_scroll();
-            }
+        if let Some(index) = self.item_at(x, y) {
+            self.selected = index - 1;
+            self.fix_scroll();
         } else if (190..=208).contains(&y) {
             if (25..=178).contains(&x) {
                 return Some(DialogResult::Chosen(self.selected + 1));

@@ -1,0 +1,200 @@
+{
+  "provenance": "Self-authored direct lowercase stddev controls from original virtual G1. Encoded matrices, ordinary columns, approximate projections and naturally saved calculator state use genuine returns.",
+  "cases": [
+    {
+      "name": "signed_radicals",
+      "source": "EXPORT ZZT_MATEX() BEGIN\nLOCAL R,O:={}; \nIFERR R:=stddev([[-1,1],[3,3]],[[-1,1],[1,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1,2,3]],[[-1,2,2]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1,3]],[[-1,3]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1],[3]],[[-1],[3]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "entry": "ZZT_MATEX",
+      "source_sha256": "38e677cba6d837e0b7d7f78990b06629de84eb0420085eca71644acb1dc75e84",
+      "expected": [
+        [
+          8,
+          "6*/5"
+        ],
+        [
+          8,
+          "4**√13/16"
+        ],
+        [
+          8,
+          "3**√10/9"
+        ],
+        [
+          8,
+          "3**√10/9"
+        ]
+      ]
+    },
+    {
+      "name": "exact_square",
+      "source": "EXPORT ZZT_MATEX() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nIFERR R:=stddev([[-2,-2],[-2,-2]],[[-2,-2],[1,3]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-2,-2],[-2,-1]],[[-2,-2],[-1,3]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-2,-2],[-2,-1]],[[-1,3],[3,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-2,-2],[-2,1]],[[-2,-1],[3,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-2,-2],[-2,3]],[[-2,-2],[2,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "entry": "ZZT_MATEX",
+      "source_sha256": "54a911a1fdcc1c351ead4e7e8b7e30de0264ea76c183014c5527be497e9550fc",
+      "expected": [
+        [
+          8,
+          "2/5"
+        ],
+        [
+          8,
+          "16*/3"
+        ],
+        [
+          0,
+          "2"
+        ],
+        [
+          0,
+          "0"
+        ],
+        [
+          3,
+          "5*"
+        ]
+      ]
+    },
+    {
+      "name": "weighted_sign",
+      "source": "EXPORT ZZT_MATEX() BEGIN\nLOCAL R,O:={}; \nIFERR R:=stddev([[-1,1],[3,3]],[[-1,-2],[1,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1,1],[3,3]],[[-3,1],[-3,-1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1,1],[3,3]],[[-1,-2],[-1,-2]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=stddev([[-1,1],[3,3]],[[0,0],[-1,0]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "entry": "ZZT_MATEX",
+      "source_sha256": "0c206bc1102951d5296a2743f604c8c3bae6fe465cc35a097d2181315db8e969",
+      "expected": [
+        [
+          3,
+          "3*"
+        ],
+        [
+          8,
+          "2*√5"
+        ],
+        [
+          8,
+          "2*√3"
+        ],
+        [
+          8,
+          "/2"
+        ]
+      ]
+    },
+    {
+      "name": "display_approx",
+      "source": "EXPORT ZZT_MATEX() BEGIN\nLOCAL R,O:={}; HComplex:=10; LOCAL X1:=stddev([[-1,2,3]],[[-1,2,2]]);\nIFERR R:=X1; O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(X1); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=IM(X1); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nIFERR R:=approx(IM(X1)); O:=CONCAT(O,{{TYPE(R),STRING(R)}}); THEN O:=CONCAT(O,{\"error\"}); END;\nRETURN O; END;",
+      "entry": "ZZT_MATEX",
+      "source_sha256": "557d321a28bd781f429355d52c62b9ad5c35528f4f4856c1409dd65bac592698",
+      "expected": [
+        [
+          8,
+          "(0,4)*√13/16"
+        ],
+        [
+          3,
+          "(0,0.901387818866)"
+        ],
+        [
+          8,
+          "IM((0,4)*√13/16)"
+        ],
+        [
+          0,
+          "0.901387818866"
+        ]
+      ]
+    },
+    {
+      "name": "positive_encoded",
+      "source": "EXPORT ZZT_MATCHECK() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nR:=stddev([[-1,1],[3,3]],[[0+1,1],[1,1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nR:=stddev([[0+1,1],[3,3]],[[1,1],[1,0+1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1,2,3]],[[3-2,1,1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nR:=stddev([[-1],[3]],[[-0],[2]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nRETURN O; END;",
+      "entry": "ZZT_MATCHECK",
+      "source_sha256": "04e5d9e0016444ce5dcd04f34505f409be38f157cfd9a2d586a0895e17a42aaa",
+      "expected": [
+        [
+          8,
+          "2*√3/3"
+        ],
+        [
+          8,
+          "18*√11/81"
+        ],
+        [
+          8,
+          "8*√119/64"
+        ],
+        [
+          8,
+          "√6/3"
+        ]
+      ]
+    },
+    {
+      "name": "ordinary_columns",
+      "source": "EXPORT ZZT_MATCHECK() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nR:=stddev([[1,1],[3,3]],[[1,1],[1,1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nR:=stddev([[1,2],[3,4]],[[2,2],[2,2]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nR:=stddev([[1],[2],[3]],[[1],[1],[1]]); O:=CONCAT(O,{{TYPE(R),STRING(R)}});\nRETURN O; END;",
+      "entry": "ZZT_MATCHECK",
+      "source_sha256": "6a98fa6b3777d9d61bd8709dacc43389cab08c8929a2ad282e6662c1e2dfd616",
+      "expected": [
+        [
+          4,
+          "[1,1]"
+        ],
+        [
+          4,
+          "[1,1]"
+        ],
+        [
+          4,
+          "[0.816496580928]"
+        ]
+      ]
+    },
+    {
+      "name": "fractional_observations",
+      "source": "EXPORT ZZT_MATCHECK() BEGIN\nLOCAL R,O:={}; HComplex:=1;\nR:=stddev([[-1.25,1],[3,3]],[[-1,1],[1,-1]]); O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([[-1,1.25],[3,3]],[[-1,1],[1,-1]]); O:=CONCAT(O,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN O; END;",
+      "entry": "ZZT_MATCHECK",
+      "source_sha256": "c8bcdcd086ff4a4cf65d7a8d590ed6986b91e90ad12c8c5ee876a8128e3e3a73",
+      "expected": [
+        [
+          3,
+          0,
+          1.3322912595
+        ],
+        [
+          3,
+          0,
+          1.2449899598
+        ]
+      ]
+    },
+    {
+      "name": "save",
+      "source": "EXPORT ZZT_MATKEEP() BEGIN HComplex:=1; L1:={stddev([[-1,1],[3,3]],[[0+1,1],[1,1]]),stddev([[-1,2,3]],[[-1,2,2]]),stddev([[-1,1],[3,3]],[[-1,1],[1,-1]])}; RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3))}; END;",
+      "entry": "ZZT_MATKEEP",
+      "source_sha256": "d68448e07aad70e7fcec94940e1dd71532cd74dee55bb0520955c68d4f0f1b08",
+      "expected": [
+        8,
+        "2*√3/3",
+        8,
+        "4**√13/16",
+        8,
+        "6*/5"
+      ]
+    },
+    {
+      "name": "reopen",
+      "source": "EXPORT ZZT_MATREAD() BEGIN HComplex:=10; LOCAL I:=approx(L1(2)); LOCAL J:=approx(L1(3)); RETURN {TYPE(L1(1)),STRING(L1(1)),TYPE(L1(2)),STRING(L1(2)),TYPE(L1(3)),STRING(L1(3)),TYPE(I),ROUND(RE(I),10),ROUND(IM(I),10),TYPE(J),IM(J)}; END;",
+      "entry": "ZZT_MATREAD",
+      "source_sha256": "8d1b94bb663c43885662d600879c57242567b0d263397b3043e0417d2d8de3d1",
+      "expected": [
+        8,
+        "2*√3/3",
+        8,
+        "(0,4)*√13/16",
+        8,
+        "(0,6)/5",
+        3,
+        0,
+        0.9013878189,
+        3,
+        1.2
+      ]
+    }
+  ]
+}

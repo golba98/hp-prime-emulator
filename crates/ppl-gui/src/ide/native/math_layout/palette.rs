@@ -34,7 +34,105 @@ fn fraction(upper: MathLayout, lower: MathLayout) -> MathLayout {
     });
     out
 }
-fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
+pub(super) fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
+    matrix_grid(
+        parts,
+        rows,
+        cols,
+        MatrixSpacing {
+            column_gap: 5,
+            side_inset: 5,
+            row_gap: 3,
+            top_inset: i64::from(rows != 1),
+            bracket_cap: 3,
+            round_cell_centers: false,
+        },
+    )
+}
+
+pub(super) fn static_brackets(
+    mut parts: Vec<MathLayout>,
+    rows: usize,
+    cols: usize,
+    native_result: bool,
+    compact_history: bool,
+) -> MathLayout {
+    // Medium Prime Sans digits use a 16px cell in History. Trim just the
+    // trailing layout descent, so the glyphs and the 4px grid gap stay put.
+    let compact = compact_history
+        && parts.iter().all(|part| {
+            part.has_plain_descent()
+                && !part.glyphs.is_empty()
+                && part.glyphs.iter().all(|glyph| {
+                    glyph.px == 14.
+                        && glyph.y == 0
+                        && glyph.text.bytes().all(|c| c.is_ascii_digit())
+                })
+        });
+    if compact {
+        for part in &mut parts {
+            part.trim_plain_descent();
+        }
+    }
+    let mut layout = static_matrix(parts, rows, cols, native_result, false);
+    layout.compact_numeric_grid = compact;
+    layout
+}
+
+pub(super) fn history_fraction_brackets(
+    parts: Vec<MathLayout>,
+    rows: usize,
+    cols: usize,
+) -> MathLayout {
+    static_matrix(parts, rows, cols, false, true)
+}
+
+fn static_matrix(
+    parts: Vec<MathLayout>,
+    rows: usize,
+    cols: usize,
+    native_result: bool,
+    round_cell_centers: bool,
+) -> MathLayout {
+    let (column_gap, side_inset, bracket_cap) = if native_result { (12, 8, 4) } else { (5, 5, 3) };
+    matrix_grid(
+        parts,
+        rows,
+        cols,
+        MatrixSpacing {
+            column_gap,
+            side_inset,
+            row_gap: 4,
+            top_inset: 0,
+            bracket_cap,
+            round_cell_centers,
+        },
+    )
+}
+
+struct MatrixSpacing {
+    column_gap: i64,
+    side_inset: i64,
+    row_gap: i64,
+    top_inset: i64,
+    bracket_cap: i64,
+    round_cell_centers: bool,
+}
+
+fn matrix_grid(
+    parts: Vec<MathLayout>,
+    rows: usize,
+    cols: usize,
+    spacing: MatrixSpacing,
+) -> MathLayout {
+    let MatrixSpacing {
+        column_gap,
+        side_inset,
+        row_gap,
+        top_inset,
+        bracket_cap,
+        round_cell_centers,
+    } = spacing;
     let widths = (0..cols)
         .map(|c| {
             parts
@@ -57,28 +155,29 @@ fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
                 .unwrap_or(0)
         })
         .collect::<Vec<_>>();
-    let width = widths.iter().sum::<i64>() + (cols as i64 - 1) * 5 + 10;
-    let height =
-        heights.iter().sum::<i64>() + (rows as i64 - 1) * 3 + if rows == 1 { 0 } else { 2 };
+    let width = widths.iter().sum::<i64>() + (cols as i64 - 1) * column_gap + 2 * side_inset;
+    let height = heights.iter().sum::<i64>() + (rows as i64 - 1) * row_gap + 2 * top_inset;
     let mut out = MathLayout {
         width,
         height,
         baseline: height / 2,
+        includes_matrix: true,
+        is_matrix_grid: true,
         ..Default::default()
     };
     let mut parts = parts.into_iter();
-    let mut y = if rows == 1 { 0 } else { 1 };
+    let mut y = top_inset;
     for h in heights {
-        let mut x = 5;
+        let mut x = side_inset;
         for &w in &widths {
             if let Some(part) = parts.next() {
                 let ox = (w - part.width) / 2;
-                let oy = (h - part.height) / 2;
+                let oy = (h - part.height + i64::from(round_cell_centers)) / 2;
                 out.append(part, x + ox, y + oy);
             }
-            x += w + 5;
+            x += w + column_gap;
         }
-        y += h + 3;
+        y += h + row_gap;
     }
     for x in [0, width - 1] {
         out.rules.push(Rule {
@@ -88,12 +187,12 @@ fn brackets(parts: Vec<MathLayout>, rows: usize, cols: usize) -> MathLayout {
             height: height - 1,
         });
     }
-    for (x, w) in [(0, 3), (width - 4, 3)] {
+    for x in [0, width - 1 - bracket_cap] {
         for y in [0, height - 1] {
             out.rules.push(Rule {
                 x,
                 y,
-                width: w,
+                width: bracket_cap,
                 height: 0,
             });
         }

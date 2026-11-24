@@ -1,0 +1,130 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook_radicals.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "SQRT(9/4)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "sqrt_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_radical_sqrt_history.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "sqrt_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_radical_sqrt_show.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "type",
+      "text": "NTHROOT(3,27/8)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "cubert_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_radical_cubert_history.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 140
+    },
+    {
+      "step": "snapshot",
+      "label": "cubert_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_radical_cubert_show.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "show_closed"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

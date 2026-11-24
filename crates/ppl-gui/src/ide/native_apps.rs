@@ -189,14 +189,24 @@ impl GraphApp {
         count: usize,
         cancel: Arc<AtomicBool>,
     ) -> PlotResult {
+        self.sample_with_geometry(snapshot, count, cancel, None)
+    }
+    fn sample_with_geometry(
+        &self,
+        snapshot: &ppl_vm::SessionSnapshot,
+        count: usize,
+        cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<super::native_geometry::Book>>,
+    ) -> PlotResult {
         let prepared = self.expanded_definitions(&cancel)?;
-        prepared.sample_expanded(snapshot, count, cancel)
+        prepared.sample_expanded(snapshot, count, cancel, geometry)
     }
     fn sample_expanded(
         &self,
         snapshot: &ppl_vm::SessionSnapshot,
         count: usize,
         cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<super::native_geometry::Book>>,
     ) -> PlotResult {
         self.window.validate()?;
         let memory = self.resolved_context(snapshot, &cancel)?;
@@ -240,8 +250,14 @@ impl GraphApp {
             .filter(|(_, c)| c.enabled && !c.expression.trim().is_empty())
         {
             check_cancel(&cancel)?;
-            let mut evaluator =
-                CurveEvaluator::new(self.kind, index, definition, snapshot, cancel.clone())?;
+            let mut evaluator = CurveEvaluator::new(
+                self.kind,
+                index,
+                definition,
+                snapshot,
+                cancel.clone(),
+                geometry.clone(),
+            )?;
             let mut second = if self.kind == GraphKind::Parametric {
                 Some(Evaluator::new(
                     GraphKind::Parametric,
@@ -345,7 +361,7 @@ impl GraphApp {
             .filter(|(_, c)| c.enabled && !c.expression.trim().is_empty())
         {
             functions.push((
-                CurveEvaluator::new(self.kind, index, c, snapshot, cancel.clone())?,
+                CurveEvaluator::new(self.kind, index, c, snapshot, cancel.clone(), None)?,
                 if self.kind == GraphKind::Parametric {
                     Some(Evaluator::new(
                         GraphKind::Parametric,
@@ -388,12 +404,20 @@ fn check_cancel(cancel: &AtomicBool) -> Result<(), String> {
         Ok(())
     }
 }
-fn numeric(result: ppl_vm::RtResult<ppl_vm::Value>) -> Result<Option<f64>, String> {
+pub(super) fn numeric(result: ppl_vm::RtResult<ppl_vm::Value>) -> Result<Option<f64>, String> {
+    Ok(decimal_sample(result)?
+        .map(ppl_math::Real::to_f64)
+        .filter(|value| value.is_finite()))
+}
+
+pub(super) fn decimal_sample(
+    result: ppl_vm::RtResult<ppl_vm::Value>,
+) -> Result<Option<ppl_math::Real>, String> {
     if matches!(&result,Ok(ppl_vm::Value::Complex(c)) if !c.im.is_zero()) {
         return Ok(None);
     }
     match result.and_then(|v| v.expect_real("Graph")) {
-        Ok(v) => Ok(Some(v.to_f64()).filter(|v| v.is_finite())),
+        Ok(value) => Ok(Some(value)),
         Err(e)
             if matches!(
                 e.kind,
@@ -410,7 +434,7 @@ fn numeric(result: ppl_vm::RtResult<ppl_vm::Value>) -> Result<Option<f64>, Strin
 }
 /// A compiled and linked private machine, seeded through typed PPL parameters.
 /// This uses real VM global slots; Home values are never pasted into formula text.
-struct Evaluator {
+pub(super) struct Evaluator {
     machine: ppl_vm::Machine,
     entry: String,
     sequence_append: Option<String>,
@@ -425,14 +449,37 @@ impl Evaluator {
         cancel: Arc<AtomicBool>,
         sequence: Option<&str>,
     ) -> Result<Self, String> {
-        Self::build(kind, expression, snapshot, cancel, sequence)
+        Self::build(kind, expression, snapshot, cancel, sequence, None, None)
     }
-    fn implicit(
+    pub(super) fn implicit(
         expression: &str,
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, String> {
-        Self::build(GraphKind::Implicit, expression, snapshot, cancel, None)
+        Self::build(
+            GraphKind::Implicit,
+            expression,
+            snapshot,
+            cancel,
+            None,
+            None,
+            None,
+        )
+    }
+    pub(super) fn geometry_function(
+        expression: &str,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Self, String> {
+        Self::build(
+            GraphKind::Function,
+            expression,
+            snapshot,
+            cancel,
+            None,
+            None,
+            Some("x"),
+        )
     }
     fn build(
         kind: GraphKind,
@@ -440,6 +487,8 @@ impl Evaluator {
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
         sequence: Option<&str>,
+        geometry: Option<Arc<super::native_geometry::Book>>,
+        independent: Option<&str>,
     ) -> Result<Self, String> {
         use std::collections::BTreeMap;
         let implicit = kind == GraphKind::Implicit;
@@ -511,13 +560,13 @@ impl Evaluator {
         // Only this app's independent variables are function parameters.
         // Other calculator variables keep the real seeded Home values. In
         // particular Function X+T must not silently become 2*X.
-        let parameters = match kind {
+        let parameters = independent.unwrap_or(match kind {
             GraphKind::Function => "X",
             GraphKind::Parametric => "T",
             GraphKind::Polar => "θ",
             GraphKind::Sequence => "N",
             GraphKind::Implicit => "X,Y,x,y",
-        };
+        });
         source.push_str(&format!(
             "EXPORT {entry}({parameters}) BEGIN RETURN {expression}; END;"
         ));
@@ -544,10 +593,13 @@ impl Evaluator {
         );
         let image = ppl_vm::link_sources_with_base(&catalog, root, snapshot.settings.int_base)
             .map_err(|e| e.to_string())?;
-        let host = GraphHost(ppl_vm::HeadlessHost {
-            interrupt: Some(cancel),
-            ..Default::default()
-        });
+        let host = GraphHost(
+            ppl_vm::HeadlessHost {
+                interrupt: Some(cancel),
+                ..Default::default()
+            },
+            geometry,
+        );
         let mut machine = ppl_vm::Machine::new_linked(
             image,
             Box::new(host),
@@ -561,6 +613,8 @@ impl Evaluator {
         machine.active_app = snapshot.active_app.clone();
         machine.app_settings = snapshot.app_settings.clone();
         machine.app_numeric_settings = snapshot.app_numeric_settings.clone();
+        machine.app_plot_settings = snapshot.app_plot_settings.clone();
+        machine.geometry_plot_settings = snapshot.geometry_plot_settings.clone();
         machine.app_files = snapshot.app_files.clone();
         machine.cas_context = snapshot.cas.clone();
         machine.home_variables = snapshot
@@ -590,23 +644,52 @@ impl Evaluator {
     fn at_value(&mut self, x: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
         self.at_xy_value(x, 0.)
     }
-    fn at_xy_value(&mut self, x: f64, y: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
+    pub(super) fn at_xy_value(&mut self, x: f64, y: f64) -> ppl_vm::RtResult<ppl_vm::Value> {
         let x = ppl_vm::Value::Real(ppl_math::Real::from_f64(x)?);
-        let args = if self.implicit {
+        if self.implicit {
             let y = ppl_vm::Value::Real(ppl_math::Real::from_f64(y)?);
-            vec![x.clone(), y.clone(), x, y]
+            self.at_coordinates(x, y)
         } else {
-            vec![x]
-        };
-        self.machine.call_function(&self.entry, args)
+            self.machine.call_function(&self.entry, vec![x])
+        }
     }
 
-    fn at(&mut self, x: f64) -> Result<Option<f64>, String> {
+    pub(super) fn at_coordinates(
+        &mut self,
+        x: ppl_vm::Value,
+        y: ppl_vm::Value,
+    ) -> ppl_vm::RtResult<ppl_vm::Value> {
+        self.machine
+            .call_function(&self.entry, vec![x.clone(), y.clone(), x, y])
+    }
+
+    pub(super) fn at(&mut self, x: f64) -> Result<Option<f64>, String> {
         numeric(self.at_value(x))
     }
 }
-struct GraphHost(ppl_vm::HeadlessHost);
+struct GraphHost(
+    ppl_vm::HeadlessHost,
+    Option<Arc<super::native_geometry::Book>>,
+);
 impl ppl_vm::Host for GraphHost {
+    fn app_variable_with_context(
+        &mut self,
+        request: ppl_vm::host::AppVariableRequest,
+        snapshot: ppl_vm::SessionSnapshot,
+    ) -> ppl_vm::RtResult<ppl_vm::PortableValue> {
+        if request.app == "Geometry"
+            && let (Some(book), Some(cancel)) = (&self.1, &self.0.interrupt)
+        {
+            return super::native_application_access::geometry::read_only(
+                book,
+                &request,
+                &snapshot,
+                cancel.clone(),
+            );
+        }
+        self.0.app_variable_with_context(request, snapshot)
+    }
+
     fn print(&mut self, text: &str) {
         ppl_vm::Host::print(&mut self.0, text);
     }
@@ -670,13 +753,16 @@ impl CurveEvaluator {
         curve: &Curve,
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: Arc<AtomicBool>,
+        geometry: Option<Arc<super::native_geometry::Book>>,
     ) -> Result<Self, String> {
         if kind != GraphKind::Sequence {
-            return Ok(Self::Plain(Evaluator::new(
+            return Ok(Self::Plain(Evaluator::build(
                 kind,
                 &curve.expression,
                 snapshot,
                 cancel,
+                None,
+                geometry,
                 None,
             )?));
         }
@@ -904,12 +990,16 @@ pub struct PlotJob {
     cancel: Arc<AtomicBool>,
 }
 impl PlotJob {
-    pub fn start(app: GraphApp, snapshot: ppl_vm::SessionSnapshot) -> Self {
+    pub fn start(
+        app: GraphApp,
+        snapshot: ppl_vm::SessionSnapshot,
+        geometry: Option<Arc<super::native_geometry::Book>>,
+    ) -> Self {
         let (tx, rx) = mpsc::channel();
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
         thread::spawn(move || {
-            let _ = tx.send(app.sample(&snapshot, 640, flag));
+            let _ = tx.send(app.sample_with_geometry(&snapshot, 640, flag, geometry));
         });
         Self { rx, cancel }
     }

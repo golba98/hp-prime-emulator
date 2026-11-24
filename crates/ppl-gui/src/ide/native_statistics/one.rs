@@ -1,6 +1,7 @@
 //! One-variable definitions. Plot/option codes follow independent original
 //! firmware assignment controls; presentation labels follow the calculator UI.
 use super::{Columns, OneAnalysis};
+use crate::ide::native_application_access::geometry::ReadSnapshot;
 use ppl_vm::PortableValue;
 use serde::{Deserialize, Serialize};
 
@@ -73,8 +74,13 @@ impl Chart {
             (1..=2).contains(&option)
         }
     }
+    pub fn uses_frequencies(self) -> bool {
+        matches!(
+            self,
+            Self::Histogram | Self::BoxWhisker | Self::Line | Self::Dot
+        )
+    }
 }
-const COLORS: [u32; 5] = [0x0000ff, 0xff0000, 0x008000, 0xffa500, 0x800080];
 impl OneAnalysis {
     pub fn data_expression(&self) -> String {
         self.data_source.clone().unwrap_or_else(|| {
@@ -89,7 +95,7 @@ impl OneAnalysis {
         })
     }
     pub fn plot_color(&self, index: usize) -> u32 {
-        self.color.unwrap_or(COLORS[index.min(4)])
+        self.color.unwrap_or(super::ANALYSIS_COLORS[index.min(4)])
     }
     pub fn definition(&self, index: usize) -> PortableValue {
         let expression = |source: String| {
@@ -151,7 +157,8 @@ fn expression(value: &PortableValue) -> Result<String, String> {
     if diagnostics.has_errors() || matches!(parsed.kind, ppl_syntax::ast::ExprKind::Str(_)) {
         return Err("A statistics definition requires a valid expression".into());
     }
-    ppl_compiler::ppl_expression_source(&parsed).map_err(|error| error.to_string())
+    ppl_compiler::ppl_expression_source(&parsed).map_err(|error| error.to_string())?;
+    Ok(source.trim().to_owned())
 }
 fn column(source: &str) -> Option<usize> {
     let bytes = source.as_bytes();
@@ -227,7 +234,9 @@ impl OneAnalysis {
         *self = candidate;
         Ok(value.clone())
     }
-    /// Indexed edits and SetSample/SetFreq retain the analysis checkbox.
+    /// Nonempty indexed edits and SetSample/SetFreq retain the checkbox.
+    /// Explicitly clearing either expression unchecks the definition, including
+    /// a frequency field that was already empty (original G1 UI control).
     pub fn assign_field(
         &mut self,
         field: usize,
@@ -236,6 +245,11 @@ impl OneAnalysis {
         let mut candidate = self.clone();
         candidate.set_field(field, value)?;
         candidate.validate_definition()?;
+        if (field == 1 && candidate.data_expression().is_empty())
+            || (field == 2 && candidate.frequency_expression().is_empty())
+        {
+            candidate.enabled = false;
+        }
         *self = candidate;
         Ok(value.clone())
     }
@@ -243,6 +257,12 @@ impl OneAnalysis {
 
 impl super::OneBook {
     pub(super) fn validate_results(&self) -> Result<(), String> {
+        if self
+            .result_analysis
+            .is_some_and(|index| index >= super::ANALYSIS_COUNT)
+        {
+            return Err("Invalid saved statistics result analysis".into());
+        }
         for (name, values) in &self.result_values {
             if !["H1", "H2", "H3", "H4", "H5"].contains(&name.as_str())
                 || values.len() != super::one_data::VARIABLES.len()
@@ -253,11 +273,13 @@ impl super::OneBook {
                 let value = values
                     .get(name)
                     .ok_or("Incomplete saved statistics results")?;
-                if !matches!(
-                    ppl_vm::session::decode_value(value)?,
-                    PortableValue::Real(_)
-                ) {
-                    return Err("Statistics results must contain real calculator values".into());
+                match ppl_vm::session::decode_value(value)? {
+                    PortableValue::Real(_) => {}
+                    PortableValue::Symbolic(
+                        ppl_cas::CasValue::Undefined
+                        | ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive),
+                    ) if matches!(name, "sX" | "serrX") => {}
+                    _ => return Err("Invalid calculator value in saved statistics results".into()),
                 }
             }
         }
@@ -268,6 +290,16 @@ impl super::OneBook {
         index: usize,
         snapshot: &ppl_vm::SessionSnapshot,
         cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<super::one_data::Summary, String> {
+        self.compute_one_with_geometry(index, snapshot, cancel, None)
+    }
+
+    pub(crate) fn compute_one_with_geometry(
+        &mut self,
+        index: usize,
+        snapshot: &ppl_vm::SessionSnapshot,
+        cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        geometry: ReadSnapshot,
     ) -> Result<super::one_data::Summary, String> {
         let analysis = self
             .analyses
@@ -280,7 +312,12 @@ impl super::OneBook {
             return Err("Insufficient statistics data".into());
         }
         analysis.validate_definition()?;
-        let data = super::one_data::Data::evaluate(analysis, snapshot, cancel.clone())?;
+        let data = super::one_data::Data::evaluate_with_geometry(
+            analysis,
+            snapshot,
+            cancel.clone(),
+            geometry,
+        )?;
         let result = data.summary(&cancel)?;
         if cancel.load(std::sync::atomic::Ordering::Acquire) {
             return Err("Statistics calculation interrupted".into());
@@ -288,7 +325,7 @@ impl super::OneBook {
         self.result_values.insert(
             format!("H{}", index + 1),
             result
-                .portable()
+                .variables
                 .iter()
                 .map(|(name, value)| (name.clone(), ppl_vm::session::encode_value(value)))
                 .collect(),
@@ -447,6 +484,32 @@ mod tests {
         assert_eq!(analysis.option, 0);
         assert!(analysis.assign_field(4, &number(2)).is_err());
         assert_eq!(analysis.option, 0);
+    }
+    #[test]
+    fn original_explicit_empty_frequency_unchecks_the_definition_even_when_already_empty() {
+        let mut definition = OneAnalysis {
+            enabled: true,
+            data: Some(0),
+            ..Default::default()
+        };
+        definition
+            .assign_field(2, &PortableValue::String(String::new()))
+            .unwrap();
+        assert!(!definition.enabled);
+        assert!(definition.frequency_expression().is_empty());
+        definition
+            .assign_field(2, &PortableValue::Real(ppl_math::Real::from_i64(2)))
+            .unwrap();
+        assert!(!definition.enabled);
+        definition.enabled = true;
+        definition
+            .assign_field(2, &PortableValue::String("3".into()))
+            .unwrap();
+        assert!(definition.enabled);
+        definition
+            .assign_field(1, &PortableValue::String(String::new()))
+            .unwrap();
+        assert!(!definition.enabled);
     }
     #[test]
     fn captured_command_strings_are_distinct_from_actual_definition_text() {

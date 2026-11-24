@@ -1503,12 +1503,17 @@ fn statistics_special_views_run_inside_ppl_without_second_owner_and_keep_referen
         assert_eq!(app.native_tools.page, Some(Page::Plot));
         assert!(app.native_tools.error.is_none());
         let memory = app.controller.session_snapshot();
-        let ymin = memory.globals["Ymin"]
+        assert!(!memory.globals.contains_key("Ymin"));
+        let ymin = memory
+            .plot_variable_for(name, "Ymin")
+            .unwrap()
             .to_value()
             .as_real()
             .unwrap()
             .to_f64();
-        let ymax = memory.globals["Ymax"]
+        let ymax = memory
+            .plot_variable_for(name, "Ymax")
+            .unwrap()
             .to_value()
             .as_real()
             .unwrap()
@@ -1982,3 +1987,9 @@ fn spreadsheet_grid_recalculates_live_ppl_view_without_reserving_another_executi
     assert_eq!(s.globals["Ans"].display(&s.settings), "0");
     assert!(app.native_tools.error.is_none());
 }
+
+#[path = "app_plot_settings_tests.rs"]
+mod plot_settings_regressions;
+
+#[path = "app_help_tests.rs"]
+mod help_regressions;

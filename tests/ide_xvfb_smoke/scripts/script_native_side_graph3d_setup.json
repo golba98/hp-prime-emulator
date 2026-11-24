@@ -1,0 +1,208 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_setup.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "RANGES"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN STARTAPP(\"Function\"); Xmin:=-12; Xmax:=18; Ymin:=-9; Ymax:=11; RETURN {Xmin,Xmax,Ymin,Ymax}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "function_before"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_function_before.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN STARTAPP(\"Graph 3D\"); RETURN {Xmin,Xmax,Ymin,Ymax,Zmin,Zmax,Graph_3D.Xtick,Graph_3D.Ytick,Graph_3D.Ztick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "defaults"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_defaults.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN FZ1:=\"X/2-Y/3\"; CHECK(1); Xmin:=-3; Xmax:=7; Ymin:=-2; Ymax:=5; Zmin:=-6; Zmax:=6; Graph_3D.Xtick:=1.5; Graph_3D.Ytick:=2; Graph_3D.Ztick:=2.5; RETURN {STARTVIEW(1,1),Xmin,Xmax,Ymin,Ymax,Zmin,Zmax,Graph_3D.Xtick,Graph_3D.Ytick,Graph_3D.Ztick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "plot"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_plot.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN RETURN {STARTVIEW(4),Xmin,Xmax,Ymin,Ymax,Zmin,Zmax,Graph_3D.Xtick,Graph_3D.Ytick,Graph_3D.Ztick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "setup"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_setup.png"
+    },
+    {
+      "step": "drag_lcd",
+      "from_x": 198,
+      "from_y": 33,
+      "to_x": 208,
+      "to_y": 33
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "setup_drag"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_setup_drag.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN STARTAPP(\"Function\"); Graph_3D.Zmax:=8; RETURN {Xmin,Xmax,Ymin,Ymax,Graph_3D.Xmin,Graph_3D.Zmin,Graph_3D.Zmax,Graph_3D.Xtick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "qualified"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_qualified.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN STARTAPP(\"Graph 3D\"); Xmin:=8; LOCAL tick:=Graph_3D.Ztick, rejected:=0; IFERR Graph_3D.Ztick:=-1; THEN rejected:=1; END; RETURN {STARTVIEW(1,1),Xmin,Xmax,rejected,Graph_3D.Ztick,tick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "inverted"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_inverted.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RANGES() BEGIN Xmin:=-3; RETURN {STARTVIEW(1,1),Xmin,Xmax,Ymin,Ymax,Zmin,Zmax,Graph_3D.Xtick,Graph_3D.Ytick,Graph_3D.Ztick}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "repaired"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_setup_repaired.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

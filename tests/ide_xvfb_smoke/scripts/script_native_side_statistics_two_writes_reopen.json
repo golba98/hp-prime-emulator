@@ -1,0 +1,47 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_writes_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "SWRITE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SWRITE() BEGIN X:=3;STARTVIEW(0);RETURN {TYPE(S1(1)),S1,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 16000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/statistics_two_writes_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

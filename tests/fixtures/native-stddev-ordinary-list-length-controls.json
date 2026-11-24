@@ -1,0 +1,137 @@
+{
+  "original": "Original virtual G1 lowercase ordinary STDDEV list-length controls",
+  "cases": [
+    {
+      "name": "literal_length_and_type",
+      "source": "EXPORT ZZT_STULIST() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1,3},{1}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1},{1,3}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4)},{1,3}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1,3},{(1,4)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1},{(1,4),3}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({},{1}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1},{}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\n",
+      "source_sha256": "875cadd0986bea216d8e23939aeb431a45346e9b3fbabd93141c47b685682b6a",
+      "entry": "ZZT_STULIST",
+      "expected": [
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1,3},{1}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1},{1,3}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1+4*,3},{1}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1+4*},{1,3}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1,3},{1+4*}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1},{1+4*,3}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({},{1}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev({1},{}) \n Error: Bad Argument Value\""
+        ]
+      ]
+    },
+    {
+      "name": "source_and_operand_effects",
+      "source": "EXPORT ZZT_STULIST() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nL1:={(1,4),3}; L2:={1};\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1+1,-4),2+1},{1+0}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev(L1,L2); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev(L2,L1); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(ZZT_TICK(1,1),ZZT_TICK(2,4)),ZZT_TICK(3,3)},{ZZT_TICK(4,1)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({ZZT_TICK(1,1)},{ZZT_TICK(2,1),ZZT_TICK(3,3)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(ZZT_FAIL(1),ZZT_TICK(2,4)),ZZT_TICK(3,3)},{ZZT_TICK(4,1)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({ZZT_TICK(1,1)},{ZZT_TICK(2,1),ZZT_FAIL(3)}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\nZZT_TICK(D,V) BEGIN A:=A*10+D; RETURN V; END;\nZZT_FAIL(D) BEGIN A:=A*10+D; RETURN 1/0; END;\n",
+      "source_sha256": "dd78b99802d47f2160775ebc73adb15c4ff8511bda06141029af2ea7ffcf86f0",
+      "entry": "ZZT_STULIST",
+      "expected": [
+        [
+          0,
+          0,
+          2,
+          "\"stddev({2-4*,3},{1}) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(L1,L2) \n Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          0,
+          2,
+          "\"stddev(L2,L1) \n Error: Bad Argument Value\""
+        ],
+        [
+          1234,
+          0,
+          2,
+          "\"stddev({1+4*,3},{1}) \n Error: Bad Argument Value\""
+        ],
+        [
+          123,
+          0,
+          2,
+          "\"stddev({1},{1,3}) \n Error: Bad Argument Value\""
+        ],
+        [
+          1,
+          1,
+          0,
+          "−99"
+        ],
+        [
+          123,
+          1,
+          0,
+          "−99"
+        ]
+      ]
+    },
+    {
+      "name": "equal_width_guards",
+      "source": "EXPORT ZZT_STULIST() BEGIN\nLOCAL R,E,O:={}; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1,3},{1,3}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,3}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{-1,1}); THEN E:=1; END;\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R)}});\nRETURN O; END;\n",
+      "source_sha256": "47230e017bd70f045ab50d3ae5779ff5d5a8e0118936da1bdf6b880d7e27dd3d",
+      "entry": "ZZT_STULIST",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "2*√3/4"
+        ],
+        [
+          0,
+          0,
+          8,
+          "√3/2*(1-2*)"
+        ],
+        [
+          0,
+          0,
+          8,
+          "undef"
+        ]
+      ]
+    }
+  ]
+}

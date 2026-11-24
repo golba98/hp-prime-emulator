@@ -1,0 +1,252 @@
+{
+  "original": "Original virtual G1 lowercase APPEND callback type controls",
+  "cases": [
+    {
+      "name": "type_fault_carriers",
+      "source": "EXPORT ZZT_APPTYPE() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append({A,2},ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([A,2],ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A,2],[3,4]],ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CBASE() BEGIN D:=D*10+1; RETURN [A,2]; END;\nZZT_CTYPE(S) BEGIN D:=D*10+S; RETURN B/\"bad\"; END;\n",
+      "source_sha256": "b21b25b2a7716f390cf5add5e3c93fd9fe6cfb6a1b4964d2e4ce1e9292858d9d",
+      "entry": "ZZT_APPTYPE",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          12,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{0,1,2,7,2,\"Error: Bad argument type\"}",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: Bad argument type\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{1,2,2,7,2,3,4,\"Error: Bad argument type\"}",
+          0,
+          "2"
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "type_fault_quotients",
+      "source": "EXPORT ZZT_APPTYPE() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTYPE(2)/ZZT_CTICK(3,2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTICK(2,B)/ZZT_CTYPE(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[A],[2]],ZZT_CTYPE(2)/ZZT_CTYPE(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTYPE(2)/ZZT_CFAIL(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CFAIL(2)/ZZT_CTYPE(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],ZZT_CTYPE(2)/ZZT_CWRITE(3)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CBASE() BEGIN D:=D*10+1; RETURN [A,2]; END;\nZZT_CTICK(S,N) BEGIN D:=D*10+S; RETURN N; END;\nZZT_CTYPE(S) BEGIN D:=D*10+S; RETURN B/\"bad\"; END;\nZZT_CFAIL(S) BEGIN D:=D*10+S; RETURN B/C; END;\nZZT_CWRITE(S) BEGIN D:=D*10+S; A:=19; RETURN B/C; END;\n",
+      "source_sha256": "6d02f53366272cc6f27e68065dcbaedfb5acfc66041a5a395f478472043c93ec",
+      "entry": "ZZT_APPTYPE",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          123,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          123,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{1,2,1,7,2,\"Error: Bad argument type\"}",
+          0,
+          "1"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          123,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          123,
+          0,
+          6,
+          "{7,2,\"Error: X/0\"}",
+          2,
+          "\"Error: X/0\""
+        ],
+        [
+          0,
+          "19",
+          11,
+          0,
+          23,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "type_fault_boundaries",
+      "source": "EXPORT ZZT_APPTYPE() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([A,2],ZZT_CTICK(2,\"Error: Bad argument type\")); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CCATCH(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=ZZT_CTYPE(2); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(1,ZZT_CTYPE(2)); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTICK(2,B/\"bad\")); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_CBASE(),ZZT_CTYPE(2)+1); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_CBASE() BEGIN D:=D*10+1; RETURN [A,2]; END;\nZZT_CTICK(S,N) BEGIN D:=D*10+S; RETURN N; END;\nZZT_CTYPE(S) BEGIN D:=D*10+S; RETURN B/\"bad\"; END;\nZZT_CCATCH(S) BEGIN LOCAL X; D:=D*10+S; IFERR X:=B/\"bad\"; THEN X:=3; END; RETURN X; END;\n",
+      "source_sha256": "c0bf840059c0e78a5c6d4d01561040ef5d9a7b6055d5350ff1d3443eed379ce9",
+      "entry": "ZZT_APPTYPE",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          6,
+          "{0,1,2,7,2,\"Error: Bad argument type\"}",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          12,
+          0,
+          4,
+          "[7,2,3]",
+          0,
+          "3"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          1,
+          0,
+          "−99",
+          -1,
+          ""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          2,
+          0,
+          2,
+          "\"append(1,ZZT_CTYPE(2)) \\n Error: Bad Argument Value\"",
+          0,
+          "112"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          12,
+          0,
+          6,
+          "{7,2,\"string / Error: Bad Argument Value\"}",
+          2,
+          "\"string / Error: Bad Argument Value\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          12,
+          0,
+          6,
+          "{7,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ]
+      ],
+      "holdout_indices": [
+        3,
+        4,
+        5
+      ]
+    }
+  ]
+}

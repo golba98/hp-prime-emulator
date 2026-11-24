@@ -23,12 +23,31 @@ for label, state in s.items():
 assert s['font_result']['native_session']['history'][-1]['result'] == '5'
 assert s['font_program']['native_session']['last_outcome']['result'] == '17'
 assert s['font_program']['native_session']['last_outcome']['status'] == 'success'
+assert s['font_settings']['native_tools']['page'] == 'Settings'
+# Compare actual composed tool pixels at the LCD's native resolution. The
+# default smaller calculator view necessarily resamples glyphs during capture.
+rect = s['font_settings']['lcd_rect']
+assert [rect['max'][i] - rect['min'][i] for i in range(2)] == [320, 240]
+assert all(float(n).is_integer() for n in rect['min'])
 
 controls = json.loads((Path(__file__).resolve().parents[1] / 'fixtures/native-ui-font-controls.json').read_text())
 for control in controls['controls']:
-    if control['id'] == 'home_settings_title':
-        continue  # Also exercised directly by the installed-font component test.
-    image = Image.open(prime / ('native_font_home.png' if control['kind'] == 'title' else 'native_font_result.png')).convert('RGB')
+    kind = control['kind']
+    if kind == 'softkeys':
+        # These are component-layout controls with supplied labels. The
+        # installed-font native_fonts component test renders and checks their
+        # golden hashes; a Home screenshot does not contain these app bars.
+        # This does not establish that actual app pages bind the same labels.
+        continue
+    if kind == 'title':
+        images = {'Function': 'native_font_home.png', 'Home Settings': 'native_font_settings.png'}
+        assert control['title'] in images, ('Unknown title control', control)
+        filename = images[control['title']]
+    elif kind in ['expression', 'result']:
+        filename = 'native_font_result.png'
+    else:
+        raise AssertionError(('Unknown font control kind', control))
+    image = Image.open(prime / filename).convert('RGB')
     x, y, width, height = control['region']
     actual = hashlib.sha256(image.crop((x, y, x + width, y + height)).tobytes()).hexdigest()
     assert actual == control['rgb24_sha256'], (control['id'], actual)
@@ -50,4 +69,4 @@ if len(sys.argv) > 3:
     error_lcd = Image.open(invalid / 'native_font_home.png').convert('RGB')
     assert error_lcd.getpixel((0, 0)) == (255, 255, 255)
     assert any(max(error_lcd.getpixel((x, y))) < 150 for y in range(40, 100) for x in range(8, 300))
-print('Installed Prime GUI fonts: three independent G1 pixel regions, actual results/rasters and explicit resource errors passed')
+print('Installed Prime GUI fonts: four independent G1 pixel regions, actual results/rasters and explicit resource errors passed')

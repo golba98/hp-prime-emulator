@@ -1,0 +1,150 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook_matrix_spacing_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "snapshot",
+      "label": "home_reopened_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_matrix_spacing_home_reopened_history.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "home_reopened_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_matrix_spacing_home_reopened_show.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "calc_key",
+      "code": 10
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_reopened_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_matrix_spacing_cas_reopened_history.png"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "click_lcd",
+      "x": 294,
+      "y": 230
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 170
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_reopened_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/textbook_matrix_spacing_cas_reopened_show.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

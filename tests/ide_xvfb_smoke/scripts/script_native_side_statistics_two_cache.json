@@ -1,0 +1,138 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_cache.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "TCACHE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN C1:={1,2,3};C2:={3,5,7};X:=4;LOCAL created:=Do2VStats(S1);UNCHECK(1);LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {created,ok,status,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "uncached_to_cached"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN A:=6;AAngle:=2;S1(8):=#E0F0h;LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {ok,status,EXPR(STRING(S1(5))),S1(8)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "home_and_style_keep_cache"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN C2:={3,5,7};LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {ok,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "same_column_write_invalidates"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN CHECK(1);C2:={4,7,10};LOCAL ok:=1;IFERR Do2VStats(S3);THEN ok:=0;END;RETURN {ok,EXPR(STRING(S1(5))),TYPE(S3(5)),ISCHECK(1),ISCHECK(3)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "invalid_target_updates_other"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN UNCHECK(1);C9:={21,42};LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {ok,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "uncached_board_column_invalidates"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN CHECK(1);C2:={5,9,13};STARTVIEW(9);UNCHECK(1);LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {ok,status,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "fresh_plot_cache"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

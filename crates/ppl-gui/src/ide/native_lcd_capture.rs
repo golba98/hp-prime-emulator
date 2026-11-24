@@ -74,7 +74,10 @@ fn finite_rect(rect: Rect) -> bool {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CaptureAction {
-    Save(PathBuf),
+    Save {
+        path: PathBuf,
+        automation_step: Option<usize>,
+    },
     Compare,
 }
 
@@ -513,7 +516,14 @@ mod tests {
         let mut capture = NativeLcdCapture::default();
         let s = stamp(1.0);
         let id = capture
-            .request(&ctx, s.clone(), CaptureAction::Save("lcd.png".into()))
+            .request(
+                &ctx,
+                s.clone(),
+                CaptureAction::Save {
+                    path: "lcd.png".into(),
+                    automation_step: None,
+                },
+            )
             .unwrap();
         assert_eq!(
             capture

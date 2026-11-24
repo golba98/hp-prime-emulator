@@ -1,0 +1,310 @@
+{
+  "original": "Original virtual G1 lowercase APPEND quotient assignment controls",
+  "cases": [
+    {
+      "name": "quotient_values",
+      "source": "EXPORT ZZT_APPQUOT() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=1/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=-1/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=0/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=.5/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=B/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=B/C\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=6/3\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=3/2\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=1/3\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=B/2\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=.5/.25\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\n",
+      "source_sha256": "8cad8f1ba58fc42a6fdaf10d06e1aa92b47fc9492e6f85473d2f4c073819bb5f",
+      "entry": "ZZT_APPQUOT",
+      "expected": [
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "2",
+          11,
+          0,
+          0,
+          0,
+          4,
+          "[1,2,2]",
+          0,
+          "2"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "2",
+          11,
+          0,
+          0,
+          0,
+          4,
+          "[1,2,2]",
+          0,
+          "2"
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "collection_shapes_and_effects",
+      "source": "EXPORT ZZT_APPQUOT() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append({1,2},\"A:=1/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1],[2]],\"A:=-1/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],\"A:=1/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append({1,2},\"A:=0/0\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([[1,2],[3,4]],\"A:=3/2\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append(ZZT_DIVBASE(),\"A:=A/C\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\nZZT_DIVBASE() BEGIN D:=D*10+1; A:=-6; RETURN [A,2]; END;\n",
+      "source_sha256": "ced521dc2d37cfee5c7ffe680e77666530657772a75d0643dafbbacee82241cd",
+      "entry": "ZZT_APPQUOT",
+      "expected": [
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{[1],[2],+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{[1,2],[3,4],+Inf}",
+          0,
+          "+Inf"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{[1,2],[3,4],\"Error: Bad argument type\"}",
+          2,
+          "\"Error: Bad argument type\""
+        ],
+        [
+          0,
+          "+Inf",
+          11,
+          0,
+          1,
+          0,
+          6,
+          "{−6,2,+Inf}",
+          0,
+          "+Inf"
+        ]
+      ],
+      "holdout_indices": []
+    },
+    {
+      "name": "unaffected_source_and_numeric_controls",
+      "source": "EXPORT ZZT_APPQUOT() BEGIN\nLOCAL R,E,W,T,O:={}; HComplex:=1;\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],CONCAT(\"A:=\",\"1/0\")); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],CONCAT(CHAR(34),\"A:=1/0\",CHAR(34))); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],\"A:=B+2\"); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],B/2); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=append([1,2],1/0); THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nA:=7; B:=11; C:=0; D:=0; E:=0; W:=-1; T:=\"\"; R:=-99;\nIFERR R:=A:=1/0; THEN E:=1; END;\nIF E==0 THEN IFERR W:=TYPE(R(3)); T:=STRING(R(3)); THEN W:=-2; END; END;\nO:=CONCAT(O,{{TYPE(A),STRING(A),B,C,D,E,TYPE(R),STRING(R),W,T}});\nRETURN O; END;\n",
+      "source_sha256": "29591ad934cc23e33d71b34df34b7c55c8681eb9367e9299fb7c9e5063eb0f11",
+      "entry": "ZZT_APPQUOT",
+      "expected": [
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"A:=1/0\"}",
+          2,
+          "\"A:=1/0\""
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,\"\\\"A:=1/0\\\"\"}",
+          2,
+          "\"\\\"A:=1/0\\\"\""
+        ],
+        [
+          0,
+          "13",
+          11,
+          0,
+          0,
+          0,
+          4,
+          "[1,2,13]",
+          0,
+          "13"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          4,
+          "[1,2,5.5]",
+          0,
+          "5.5"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          0,
+          6,
+          "{1,2,undef}",
+          8,
+          "undef"
+        ],
+        [
+          0,
+          "7",
+          11,
+          0,
+          0,
+          1,
+          0,
+          "−99",
+          -1,
+          ""
+        ]
+      ],
+      "holdout_indices": [
+        4
+      ]
+    }
+  ]
+}

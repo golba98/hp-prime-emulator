@@ -70,6 +70,122 @@ fn recording_host(replies: Vec<Result<PortableValue, RuntimeError>>) -> (Box<dyn
         seen,
     )
 }
+#[test]
+fn geometry_requests_capture_the_live_frame_and_evaluate_nested_ppl_calls_once() {
+    let source = r#"EXPORT VALUE() BEGIN A:=A+1;RETURN 7;END;
+        EXPORT GEO() BEGIN
+        LOCAL GA:=7,p:=point(9,12);
+        Geometry.Instruction(0):="point(0,0)";
+        Geometry.GA:=point(3,4);
+        RETURN {GA,Geometry.GA,distance(GA,0),distance(Geometry.GA,0),distance(p,0),distance(VALUE(),0),distance(Geometry.Instruction(1,4),0)};
+        END;"#;
+    let symbolic =
+        |source: &str| PortableValue::Symbolic(ppl_cas::CasValue::Symbolic(source.into()));
+    let (host, seen) = recording_host(vec![
+        Ok(symbolic("point(9,12)")),
+        Ok(number(1)),
+        Ok(symbolic("point(3,4)")),
+        Ok(symbolic("point(3,4)")),
+        Ok(symbolic("point(3,4)")),
+        Ok(number(7)),
+        Ok(number(5)),
+        Ok(symbolic("distance_data")),
+        Ok(number(7)),
+        Ok(symbolic("point(0,0)")),
+        Ok(symbolic("distance_data")),
+    ]);
+    let mut session = SessionContext::default();
+    let result = session.run(
+        SourceIdentity::new("geometry", source),
+        compiled(source),
+        host,
+        Limits::default(),
+        false,
+        |m| m.call_function("GEO", vec![]),
+    );
+    assert!(result.result.is_ok(), "{:?}", result.result);
+    assert_eq!(
+        session.snapshot().globals["A"],
+        number(1),
+        "A nested user call must execute exactly once"
+    );
+    let seen = seen.borrow();
+    assert_eq!(seen.len(), 11);
+    assert_eq!(
+        (&*seen[0].0.app, &*seen[0].0.name),
+        ("Geometry", "__Expression")
+    );
+    assert_eq!(seen[1].0.name, "Instruction");
+    assert_eq!(
+        seen[1].0.value,
+        Some(PortableValue::String("point(0,0)".into()))
+    );
+    assert_eq!(seen[3].0.name, "GA");
+    assert_eq!(seen[3].0.value, Some(symbolic("point(3,4)")));
+    let local = &seen[5].1.globals;
+    assert_eq!(local["GA"], number(7));
+    assert_eq!(local["p"], symbolic("point(9,12)"));
+    assert_eq!(
+        seen[8].0.indices[0],
+        PortableValue::List(vec![
+            PortableValue::String("__GeometryArgument0".into()),
+            number(7)
+        ])
+    );
+    assert_eq!(seen[9].0.name, "Instruction");
+    assert_eq!(seen[9].0.indices, vec![number(1), number(4)]);
+    assert_eq!(
+        seen[10].0.indices[0],
+        PortableValue::List(vec![
+            PortableValue::String("__GeometryArgument0".into()),
+            symbolic("point(0,0)")
+        ])
+    );
+    assert!(!session.snapshot().globals.contains_key("GA"));
+    assert!(!session.snapshot().globals.contains_key("p"));
+}
+#[test]
+fn geometry_names_preserve_graphics_commands_settings_and_declared_functions() {
+    let source = "point(x) BEGIN RETURN x+1;END; EXPORT GO() BEGIN GridLines:=1;TRIANGLE();line(0,1);line(0,0,1,1);triangle(0,1,i);triangle(0,0,1,0,0,1);RETURN {point(4),GETKEY};END;";
+    let program = compiled(source);
+    assert!(
+        !program
+            .functions
+            .iter()
+            .flat_map(|f| &f.code)
+            .any(|op| matches!(op, ppl_compiler::Op::AppVariable { .. })),
+        "Declared functions, settings and uppercase graphics must retain their existing resolution"
+    );
+}
+#[test]
+fn installed_g_prefixed_exports_take_precedence_over_provisional_app_names() {
+    let mut session = SessionContext::default();
+    session
+        .store_program(
+            "GEOBRIDGE",
+            "EXPORT GEOBRIDGE() BEGIN RETURN 42;END;".into(),
+        )
+        .unwrap();
+    session
+        .store_program("BROKEN", "EXPORT BROKEN( BEGIN".into())
+        .unwrap();
+    let result = session.evaluate_home(
+        "GEOBRIDGE()",
+        Box::new(HeadlessHost::new()),
+        Limits::default(),
+    );
+    assert_eq!(PortableValue::from(&result.result.unwrap()), number(42));
+    assert!(!session.snapshot().globals.contains_key("GEOBRIDGE"));
+    session
+        .store_program("OBJECTDATA", "EXPORT GA:=19;".into())
+        .unwrap();
+    let result = session.evaluate_home("GA", Box::new(HeadlessHost::new()), Limits::default());
+    assert_eq!(PortableValue::from(&result.result.unwrap()), number(19));
+    let result = session.evaluate_home("GA:=20", Box::new(HeadlessHost::new()), Limits::default());
+    assert_eq!(PortableValue::from(&result.result.unwrap()), number(20));
+    let result = session.evaluate_home("GA", Box::new(HeadlessHost::new()), Limits::default());
+    assert_eq!(PortableValue::from(&result.result.unwrap()), number(20));
+}
 fn number(n: i64) -> PortableValue {
     PortableValue::Real(Real::from_i64(n))
 }

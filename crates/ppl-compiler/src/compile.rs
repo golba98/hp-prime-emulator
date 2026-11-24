@@ -22,28 +22,362 @@ use crate::builtins::{self, Builtin, Status};
 use crate::bytecode::*;
 use crate::catalog::{self, CatalogKind};
 
+fn stddev_numeric_entry(expr: &Expr, integral_only: bool) -> bool {
+    match &expr.kind {
+        ExprKind::Number(source) => {
+            !integral_only || Real::parse(source).is_some_and(Real::is_integer)
+        }
+        ExprKind::Unary(UnOp::Neg, operand) => stddev_numeric_entry(operand, integral_only),
+        ExprKind::Binary(BinOp::Add | BinOp::Sub, left, right) => {
+            stddev_numeric_entry(left, integral_only) && stddev_numeric_entry(right, integral_only)
+        }
+        _ => false,
+    }
+}
+
+fn stddev_cell_has_call(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Call(..) => true,
+        ExprKind::ComplexPair(real, imaginary) => {
+            stddev_cell_has_call(real) || stddev_cell_has_call(imaginary)
+        }
+        _ => false,
+    }
+}
+
+fn stddev_cell_has_division(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Binary(BinOp::Div, ..) => true,
+        ExprKind::Binary(_, left, right) | ExprKind::ComplexPair(left, right) => {
+            stddev_cell_has_division(left) || stddev_cell_has_division(right)
+        }
+        ExprKind::Unary(_, operand) => stddev_cell_has_division(operand),
+        ExprKind::Call(_, arguments) => arguments.iter().any(stddev_cell_has_division),
+        _ => false,
+    }
+}
+
+fn stddev_literal_zero_quotient(left: &Expr, right: &Expr) -> bool {
+    stddev_literal_real(left).is_some() && stddev_literal_real(right).is_some_and(Real::is_zero)
+}
+
+fn stddev_matrix_cells(rows: &[Expr]) -> Option<(usize, Vec<&Expr>)> {
+    let (first, remaining) = rows.split_first()?;
+    let ExprKind::Bracket(first) = &first.kind else {
+        return None;
+    };
+    let cols = first.len();
+    let mut cells = Vec::from_iter(first);
+    for row in remaining {
+        let ExprKind::Bracket(row) = &row.kind else {
+            return None;
+        };
+        if row.len() != cols {
+            return None;
+        }
+        cells.extend(row);
+    }
+    Some((cols, cells))
+}
+
+fn source_encoded_matrix(operand: &Expr) -> bool {
+    let ExprKind::Bracket(rows) = &operand.kind else {
+        return false;
+    };
+    !rows.is_empty()
+        && rows
+            .iter()
+            .all(|row| matches!(row.kind, ExprKind::Bracket(_)))
+        && rows.iter().any(|row| {
+            matches!(&row.kind, ExprKind::Bracket(cells)
+                if cells.iter().any(|cell| !matches!(cell.kind, ExprKind::Number(_))))
+        })
+}
+
+fn source_encoded_vector(operand: &Expr) -> Option<&[Expr]> {
+    let ExprKind::Bracket(entries) = &operand.kind else {
+        return None;
+    };
+    (entries
+        .iter()
+        .any(|entry| !matches!(entry.kind, ExprKind::Number(_)))
+        && !entries
+            .iter()
+            .any(|entry| matches!(entry.kind, ExprKind::Bracket(_))))
+    .then_some(entries)
+}
+
+fn stddev_diagnostic_expression(
+    expr: &Expr,
+    depth: usize,
+    canonicalize_zero_subtraction: bool,
+    allow_pairs: bool,
+) -> Option<Expr> {
+    if depth > 128 {
+        return None;
+    }
+    let normalize = |expr: &Expr| {
+        stddev_diagnostic_expression(expr, depth + 1, canonicalize_zero_subtraction, allow_pairs)
+    };
+    let operand = |expr: &Expr| normalize(expr).map(Box::new);
+    let items = |items: &[Expr]| items.iter().map(normalize).collect::<Option<_>>();
+    let kind = match &expr.kind {
+        ExprKind::Number(number) => {
+            let number = Real::parse(number)?.to_string();
+            let number = match number.split_once('E') {
+                Some((significand, exponent)) if !exponent.starts_with('-') => {
+                    format!("{significand}E+{exponent}")
+                }
+                _ => number,
+            };
+            ExprKind::Number(number)
+        }
+        ExprKind::Ident(name) => ExprKind::Ident(name.clone()),
+        ExprKind::Bracket(entries) => ExprKind::Bracket(items(entries)?),
+        ExprKind::ComplexPair(real, imaginary) if allow_pairs => {
+            ExprKind::ComplexPair(operand(real)?, operand(imaginary)?)
+        }
+        ExprKind::Unary(UnOp::Neg, value) => ExprKind::Unary(UnOp::Neg, operand(value)?),
+        ExprKind::Binary(BinOp::Div, left, right) if allow_pairs => {
+            if stddev_literal_zero_quotient(left, right) {
+                ExprKind::Ident("undef".into())
+            } else {
+                ExprKind::Binary(BinOp::Div, operand(left)?, operand(right)?)
+            }
+        }
+        ExprKind::Binary(op @ (BinOp::Add | BinOp::Sub | BinOp::Mul), left, right) => {
+            let right = operand(right)?;
+            let op = if canonicalize_zero_subtraction
+                && *op == BinOp::Sub
+                && matches!(&right.kind, ExprKind::Number(number) if number == "0")
+            {
+                BinOp::Add
+            } else {
+                *op
+            };
+            ExprKind::Binary(op, operand(left)?, right)
+        }
+        ExprKind::Call(callee, args) if matches!(callee.kind, ExprKind::Ident(_)) => {
+            if args.is_empty() {
+                callee.kind.clone()
+            } else {
+                ExprKind::Call(operand(callee)?, items(args)?)
+            }
+        }
+        _ => return None,
+    };
+    Some(Expr {
+        kind,
+        span: expr.span,
+    })
+}
+
+fn stddev_matrix_operand_source(
+    expr: &Expr,
+    encoded: bool,
+    canonicalize_zero_subtraction: bool,
+    allow_pairs: bool,
+) -> Option<String> {
+    let expr = stddev_diagnostic_expression(expr, 0, canonicalize_zero_subtraction, allow_pairs)?;
+    if !encoded {
+        return crate::expression_source::ppl_diagnostic_expression_source(&expr).ok();
+    }
+    let ExprKind::Bracket(rows) = &expr.kind else {
+        return None;
+    };
+    let (cols, cells) = stddev_matrix_cells(rows)?;
+    let cells = cells
+        .into_iter()
+        .map(crate::expression_source::ppl_diagnostic_expression_source)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    Some(format!(
+        "ListToMat(EVALLIST({{1,{},{cols},{}}}))",
+        rows.len(),
+        cells.join(",")
+    ))
+}
+
+fn stddev_encoded_vector_source(
+    entries: &[Expr],
+    canonicalize_zero_subtraction: bool,
+    allow_pairs: bool,
+) -> Option<String> {
+    let cells = entries
+        .iter()
+        .map(|entry| {
+            let entry =
+                stddev_diagnostic_expression(entry, 0, canonicalize_zero_subtraction, allow_pairs)?;
+            crate::expression_source::ppl_diagnostic_expression_source(&entry).ok()
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(format!(
+        "ListToMat(EVALLIST({{0,1,{},{}}}))",
+        entries.len(),
+        cells.join(",")
+    ))
+}
+
+fn stddev_bad_argument(data: &str, weights: &str) -> String {
+    format!("stddev({data},{weights}) \n Error: Bad Argument Value")
+}
+
+enum StddevMatrixDiagnostic {
+    EncodedOperands(String),
+    RowMismatch(String),
+}
+
+fn stddev_matrix_diagnostic(args: &[Expr]) -> Option<StddevMatrixDiagnostic> {
+    let [data, weights] = args else {
+        return None;
+    };
+    let data_encoded = source_encoded_matrix(data);
+    let weights_encoded = source_encoded_matrix(weights);
+    let both_encoded = data_encoded && weights_encoded;
+    if both_encoded {
+        let cell_count = |operand: &Expr| {
+            let ExprKind::Bracket(rows) = &operand.kind else {
+                return None;
+            };
+            let (_, cells) = stddev_matrix_cells(rows)?;
+            Some(cells.len())
+        };
+        // The two encoded carriers include three shape fields each. Unequal
+        // carrier lengths select the diagnostic, even when both are matrices.
+        if cell_count(data)? == cell_count(weights)? {
+            return None;
+        }
+    }
+    let encoded = data_encoded || weights_encoded;
+    let matrix_operand = |expr: &Expr| match &expr.kind {
+        ExprKind::Bracket(rows) => stddev_matrix_cells(rows).is_some(),
+        ExprKind::Ident(_)
+        | ExprKind::Call(_, _)
+        | ExprKind::Unary(UnOp::Neg, _)
+        | ExprKind::Binary(BinOp::Add, _, _) => true,
+        _ => false,
+    };
+    if !encoded && !args.iter().all(matrix_operand) {
+        return None;
+    }
+    let data = stddev_matrix_operand_source(data, data_encoded, both_encoded, false)?;
+    let weights = stddev_matrix_operand_source(weights, weights_encoded, both_encoded, false)?;
+    let message = stddev_bad_argument(&data, &weights);
+    Some(if encoded {
+        StddevMatrixDiagnostic::EncodedOperands(message)
+    } else {
+        StddevMatrixDiagnostic::RowMismatch(message)
+    })
+}
+
+fn stddev_literal_real(expr: &Expr) -> Option<Real> {
+    match &expr.kind {
+        ExprKind::Number(source) => Real::parse(source),
+        ExprKind::Unary(UnOp::Neg, operand) => match &operand.kind {
+            ExprKind::Number(source) => Some(Real::parse(source)?.neg()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 fn is_app_variable(name: &str) -> bool {
     // App qualifiers are case sensitive. Additional app namespaces require
     // their own verified variable contract; ordinary dotted functions and CAS
     // continue through the existing resolution paths.
-    name.strip_prefix("Spreadsheet.")
-        .is_some_and(|field| !field.is_empty() && !field.contains('.'))
-        || name.strip_prefix("Function.").is_some_and(is_function_slot)
+    name.strip_prefix("Geometry.")
+        .is_some_and(crate::geometry::is_variable)
         || name
-            .strip_prefix("Statistics_1Var.")
-            .is_some_and(is_statistics_slot)
+            .strip_prefix("Spreadsheet.")
+            .is_some_and(|field| !field.is_empty() && !field.contains('.'))
+        || name.strip_prefix("Function.").is_some_and(is_function_slot)
+        || name.strip_prefix("Graph_3D.").is_some_and(|field| {
+            is_graph3d_slot(field)
+                || is_plot_variable(field)
+                || matches!(field, "Zmin" | "Zmax" | "Ztick")
+                || matches!(
+                    field,
+                    "NumXStart"
+                        | "NumYStart"
+                        | "NumXStep"
+                        | "NumYStep"
+                        | "NumXZoom"
+                        | "NumYZoom"
+                        | "NumType"
+                        | "NumIndep"
+                )
+        })
+        || [
+            "Function.",
+            "Parametric.",
+            "Polar.",
+            "Sequence.",
+            "Statistics_1Var.",
+            "Statistics_2Var.",
+        ]
+        .iter()
+        .any(|prefix| name.strip_prefix(prefix).is_some_and(is_plot_variable))
+        || name == "Function.Cursor"
+        || name.strip_prefix("Statistics_1Var.").is_some_and(|field| {
+            is_statistics_slot(field)
+                || is_statistics_column(field)
+                || matches!(field, "Xzoom" | "Yzoom" | "Cursor")
+        })
+}
+
+fn is_plot_variable(name: &str) -> bool {
+    matches!(
+        name,
+        "Xmin"
+            | "Xmax"
+            | "Ymin"
+            | "Ymax"
+            | "Xtick"
+            | "Ytick"
+            | "Axes"
+            | "GridDots"
+            | "GridLines"
+            | "Labels"
+            | "Hmin"
+            | "Hmax"
+            | "Hwidth"
+    )
+}
+
+fn is_statistics_column(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'D' && bytes[1].is_ascii_digit()
 }
 
 fn app_access_name(name: &str) -> String {
-    name.strip_prefix("Statistics_1Var.").map_or_else(
-        || name.to_owned(),
-        |field| format!("Statistics 1Var.{field}"),
-    )
+    if is_graph3d_slot(name) {
+        return format!("Graph 3D.{name}");
+    }
+    for (prefix, app) in [
+        ("Graph_3D.", "Graph 3D"),
+        ("Statistics_1Var.", "Statistics 1Var"),
+        ("Statistics_2Var.", "Statistics 2Var"),
+    ] {
+        if let Some(field) = name.strip_prefix(prefix) {
+            return format!("{app}.{field}");
+        }
+    }
+    name.to_owned()
 }
 
 fn is_function_slot(name: &str) -> bool {
     let bytes = name.as_bytes();
     bytes.len() == 2 && bytes[0] == b'F' && bytes[1].is_ascii_digit()
+}
+
+fn is_graph3d_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 3 && bytes.starts_with(b"FZ") && bytes[2].is_ascii_digit()
+}
+
+fn is_statistics_two_slot(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    bytes.len() == 2 && bytes[0] == b'S' && (b'1'..=b'5').contains(&bytes[1])
 }
 
 fn is_statistics_slot(name: &str) -> bool {
@@ -94,7 +428,15 @@ impl Default for CompileOptions {
 }
 
 pub fn compile(program: &Program, opts: &CompileOptions) -> (Option<CompiledProgram>, Diagnostics) {
-    let mut c = Compiler::new(opts.clone(), &program.punctuation);
+    compile_with_source(program, opts, None)
+}
+
+pub(crate) fn compile_with_source(
+    program: &Program,
+    opts: &CompileOptions,
+    source: Option<&str>,
+) -> (Option<CompiledProgram>, Diagnostics) {
+    let mut c = Compiler::new(opts.clone(), &program.punctuation, source);
     c.collect(program);
     c.compile_items(program);
     let has_errors = c.diags.has_errors();
@@ -148,6 +490,7 @@ struct LocalInfo {
 struct Compiler<'a> {
     opts: CompileOptions,
     punctuation: &'a [Punctuation],
+    source: Option<&'a str>,
     diags: Diagnostics,
     consts: Vec<Const>,
     globals: Vec<GlobalSlot>,
@@ -198,6 +541,11 @@ fn system_global(name: &str) -> Option<(GlobalInit, bool)> {
     let plot_default = match name.to_ascii_lowercase().as_str() {
         "xmin" | "ymin" => Some("-10"),
         "xmax" | "ymax" => Some("10"),
+        "xtick" | "ytick" | "hwidth" => Some("1"),
+        "xzoom" | "yzoom" => Some("2"),
+        "cursor" => Some("0"),
+        "hmin" | "axes" | "griddots" | "gridlines" | "labels" => Some("0"),
+        "hmax" => Some("24"),
         "tmin" => Some("0"),
         "nmin" => Some("1"),
         "nmax" => Some("100"),
@@ -252,6 +600,18 @@ fn canonical_system_name(name: &str) -> String {
         "xmax" => "Xmax".into(),
         "ymin" => "Ymin".into(),
         "ymax" => "Ymax".into(),
+        "xtick" => "Xtick".into(),
+        "ytick" => "Ytick".into(),
+        "xzoom" => "Xzoom".into(),
+        "yzoom" => "Yzoom".into(),
+        "axes" => "Axes".into(),
+        "griddots" => "GridDots".into(),
+        "gridlines" => "GridLines".into(),
+        "labels" => "Labels".into(),
+        "cursor" => "Cursor".into(),
+        "hmin" => "Hmin".into(),
+        "hmax" => "Hmax".into(),
+        "hwidth" => "Hwidth".into(),
         "numstart" => "NumStart".into(),
         "numstep" => "NumStep".into(),
         "numzoom" => "NumZoom".into(),
@@ -280,10 +640,11 @@ fn canonical_system_name(name: &str) -> String {
 }
 
 impl<'a> Compiler<'a> {
-    fn new(opts: CompileOptions, punctuation: &'a [Punctuation]) -> Self {
+    fn new(opts: CompileOptions, punctuation: &'a [Punctuation], source: Option<&'a str>) -> Self {
         Compiler {
             opts,
             punctuation,
+            source,
             diags: Diagnostics::default(),
             consts: Vec::new(),
             globals: Vec::new(),
@@ -667,7 +1028,7 @@ impl<'a> Compiler<'a> {
         };
     }
 
-    fn constant(&mut self, c: Const, span: Span) {
+    fn constant_index(&mut self, c: Const) -> u32 {
         let idx = match self.consts.iter().position(|k| *k == c) {
             Some(i) => i,
             None => {
@@ -675,7 +1036,12 @@ impl<'a> Compiler<'a> {
                 self.consts.len() - 1
             }
         };
-        self.cur.emit(Op::Const(idx as u32), span);
+        idx as u32
+    }
+
+    fn constant(&mut self, c: Const, span: Span) {
+        let idx = self.constant_index(c);
+        self.cur.emit(Op::Const(idx), span);
     }
 
     fn check_call_order(&mut self, id: u32, span: Span) {
@@ -701,6 +1067,18 @@ impl<'a> Compiler<'a> {
                 );
             }
         }
+    }
+
+    fn check_local_call(&mut self, name: &str, id: u32, argc: usize, span: Span) {
+        let params = self.fns[id as usize].params;
+        if params != argc {
+            self.error(
+                "wrong-arg-count",
+                span,
+                format!("`{name}` expects {params} argument(s), got {argc}"),
+            );
+        }
+        self.check_call_order(id, span);
     }
 
     // ---- statements ------------------------------------------------------
@@ -1046,6 +1424,12 @@ impl<'a> Compiler<'a> {
                     self.cur.emit(Op::Dup, span);
                 }
                 self.store(v, target.span);
+                if want_value
+                    && crate::geometry::is_plot_field(name)
+                    && let VarRef::Global(slot) = v
+                {
+                    self.cur.emit(Op::GeometryAssignmentResult(slot), span);
+                }
             }
             ExprKind::Call(base, idx) | ExprKind::Index(base, idx) => {
                 let ExprKind::Ident(name) = &base.kind else {
@@ -1357,7 +1741,14 @@ impl<'a> Compiler<'a> {
     /// Their app is selected at execution, including in a qualified outer call.
     fn is_app_access(&self, name: &str) -> bool {
         is_app_variable(name)
-            || ((is_function_slot(name) || is_statistics_slot(name))
+            || ((is_function_slot(name)
+                || is_graph3d_slot(name)
+                || matches!(name, "Zmin" | "Zmax" | "Ztick")
+                || is_statistics_slot(name)
+                || is_statistics_two_slot(name)
+                || (crate::geometry::is_variable(name)
+                    && system_global(name).is_none()
+                    && builtins::lookup_case_insensitive(name).is_none()))
                 && !self.scopes.iter().any(|scope| scope.contains_key(name))
                 && !self.global_map.contains_key(name)
                 && !self.fn_map.contains_key(name)
@@ -1461,6 +1852,9 @@ impl<'a> Compiler<'a> {
         if name == "i" {
             return self.constant(Const::Complex(Complex::new(Real::ZERO, Real::ONE)), span);
         }
+        if name.eq_ignore_ascii_case("AFiles") {
+            return self.builtin(Builtin::Afiles, &[], span);
+        }
         if let Some(spec) = builtins::lookup(name) {
             if spec.accepts(0) && spec.ref_args == 0 {
                 return self.builtin(spec.builtin, &[], span);
@@ -1553,6 +1947,64 @@ impl<'a> Compiler<'a> {
         None
     }
 
+    fn geometry_argument(&mut self, expression: &Expr, captures: &mut u8) -> Expr {
+        use ExprKind as E;
+        let mut result = expression.clone();
+        if let E::Call(callee, args) | E::Index(callee, args) = &expression.kind {
+            let native = matches!(&callee.kind, E::Ident(name) if crate::geometry::is_function_call(name, args.len())
+                && !self.fn_map.contains_key(name) && !self.opts.external_functions.contains_key(name)
+                && !self.scopes.iter().any(|scope| scope.contains_key(name)));
+            if !native {
+                if *captures >= 250 {
+                    self.error(
+                        "invalid-geometry-expression",
+                        expression.span,
+                        "Too many Geometry argument calls",
+                    );
+                    return result;
+                }
+                let name = format!("__GeometryArgument{}", *captures);
+                *captures += 1;
+                self.constant(Const::Str(name.clone()), expression.span);
+                self.expr(expression);
+                self.cur.emit(Op::MakeList(2), expression.span);
+                result.kind = E::Ident(name);
+                return result;
+            }
+        }
+        match &mut result.kind {
+            E::Call(_, args) | E::Index(_, args) | E::List(args) | E::Bracket(args) => {
+                for arg in args {
+                    *arg = self.geometry_argument(arg, captures);
+                }
+            }
+            E::Unary(_, e) | E::Postfix(_, e) | E::Quoted(e) => {
+                **e = self.geometry_argument(e, captures)
+            }
+            E::Binary(_, a, b) | E::ComplexPair(a, b) => {
+                **a = self.geometry_argument(a, captures);
+                **b = self.geometry_argument(b, captures);
+            }
+            E::Assign(..) | E::Store(..) => {
+                if *captures >= 250 {
+                    self.error(
+                        "invalid-geometry-expression",
+                        expression.span,
+                        "Too many Geometry argument calls",
+                    );
+                    return result;
+                }
+                let name = format!("__GeometryArgument{}", *captures);
+                *captures += 1;
+                self.constant(Const::Str(name.clone()), expression.span);
+                self.expr(expression);
+                self.cur.emit(Op::MakeList(2), expression.span);
+                result.kind = E::Ident(name);
+            }
+            _ => {}
+        }
+        result
+    }
     fn call(&mut self, callee: &Expr, args: &[Expr], span: Span) {
         let ExprKind::Ident(name) = &callee.kind else {
             // `L(1)(2)`: index the result.
@@ -1586,15 +2038,7 @@ impl<'a> Compiler<'a> {
             return;
         }
         if let Some(&id) = self.fn_map.get(name) {
-            let params = self.fns[id as usize].params;
-            if params != args.len() {
-                self.error(
-                    "wrong-arg-count",
-                    span,
-                    format!("`{name}` expects {params} argument(s), got {}", args.len()),
-                );
-            }
-            self.check_call_order(id, span);
+            self.check_local_call(name, id, args.len(), span);
             for a in args {
                 self.expr(a);
             }
@@ -1636,6 +2080,26 @@ impl<'a> Compiler<'a> {
                 },
                 span,
             );
+            return;
+        }
+        if crate::geometry::is_function_call(name, args.len()) {
+            let mut captures = 0;
+            let args = args
+                .iter()
+                .map(|arg| self.geometry_argument(arg, &mut captures))
+                .collect();
+            let expression = Expr {
+                kind: ExprKind::Call(Box::new(callee.clone()), args),
+                span,
+            };
+            match crate::ppl_expression_source(&expression) {
+                Ok(source) => self.constant(Const::Symbolic(source), span),
+                Err(error) => {
+                    self.error("invalid-geometry-expression", span, error.to_string());
+                    self.cur.emit(Op::Zero, span);
+                }
+            }
+            self.app_variable("Geometry.__Expression", captures + 1, false, span);
             return;
         }
         if let Some(function) = name.strip_prefix("CAS.") {
@@ -1681,11 +2145,17 @@ impl<'a> Compiler<'a> {
                         let d = self.compat_note(
                             "lowercase-command",
                             callee.span,
-                            format!(
-                                "`{name}` calls the CAS command on the calculator; \
-                                 the emulator runs the Home command {} instead",
-                                s.name
-                            ),
+                            if name == "stddev" {
+                                "Native implements only some forms of the calculator's lowercase stddev command".into()
+                            } else if name == "append" {
+                                "Native supports selected collection forms of lowercase append (APPEND)".into()
+                            } else {
+                                format!(
+                                    "`{name}` calls the CAS command on the calculator; \
+                                     the emulator runs the Home command {} instead",
+                                    s.name
+                                )
+                            },
                         );
                         d.hint = Some(
                             "results can differ where the CAS and Home versions differ".into(),
@@ -1784,12 +2254,24 @@ impl<'a> Compiler<'a> {
             }.into());
         }
         match spec.builtin {
-            Builtin::Do1VStats | Builtin::SetSample | Builtin::SetFreq
+            Builtin::Do1VStats | Builtin::Do2VStats | Builtin::SetSample | Builtin::SetFreq
                 if spec.accepts(args.len()) => {
                 // Firmware stores the argument syntax, including local names,
                 // without evaluating its list arithmetic or scalar frequency.
-                for argument in args {
-                    match crate::ppl_expression_source(argument) {
+                for (index, argument) in args.iter().enumerate() {
+                    let captured = crate::ppl_expression_source(argument).map(|canonical| {
+                        // Parentheses distinguish a scalar frequency expression from
+                        // a literal on the original calculator. AST printing erases them.
+                        if spec.builtin == Builtin::SetFreq && index == 1 {
+                            self.source
+                                .and_then(|source| source.get(argument.span.start as usize..argument.span.end as usize))
+                                .map(str::to_owned)
+                                .unwrap_or(canonical)
+                        } else {
+                            canonical
+                        }
+                    });
+                    match captured {
                         Ok(source) => self.constant(Const::Symbolic(source), argument.span),
                         Err(error) => {
                             self.error("invalid-app-expression", argument.span, error.to_string());
@@ -1841,6 +2323,85 @@ impl<'a> Compiler<'a> {
                 self.cur.emit(Op::CasCall { assignment, source }, span);
             }
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
+            Builtin::Append if name == "append" && args.len() == 2 => {
+                let base = &args[0];
+                let encoded_base =
+                    source_encoded_matrix(base) || source_encoded_vector(base).is_some();
+                self.expr(base);
+                let payload = &args[1];
+                if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &payload.kind {
+                    let numerator_call = self.append_callback_operand(numerator, 0);
+                    let denominator_call =
+                        self.append_callback_operand(denominator, 1 + u8::from(numerator_call));
+                    let literal_operands = matches!(numerator.kind, ExprKind::Number(_))
+                        && matches!(denominator.kind, ExprKind::Number(_));
+                    self.cur.emit(
+                        Op::AppendQuotient {
+                            literal_operands,
+                            callback_operands: [numerator_call, denominator_call],
+                            encoded_base,
+                        },
+                        payload.span,
+                    );
+                } else {
+                    let callback_payload = self.append_callback_operand(payload, 0);
+                    let literal_payload = matches!(payload.kind, ExprKind::Str(_));
+                    self.cur.emit(
+                        Op::AppendCollection {
+                            literal_payload,
+                            callback_payload,
+                            encoded_base,
+                        },
+                        span,
+                    );
+                }
+            }
+            Builtin::Stddev if name == "stddev" => {
+                if self.stddev_inline_vector_pair(args, span)
+                    || self.weighted_collection_stddev(args, span)
+                    || self.stddev_mixed_vector(args, span)
+                {
+                    return;
+                }
+                let matrix_diagnostic = stddev_matrix_diagnostic(args);
+                if let Some(StddevMatrixDiagnostic::EncodedOperands(diagnostic)) = matrix_diagnostic {
+                    for arg in args {
+                        self.expr(arg);
+                    }
+                    self.constant(Const::Str(diagnostic), span);
+                    self.cur.emit(Op::StddevMatrixDiagnostic, span);
+                } else {
+                    // In a two-argument call, encoded vectors have separate
+                    // argument-shape rules. Keep their established dispatch.
+                    if matches!(args, [data, weights]
+                        if source_encoded_vector(data).is_some()
+                            || source_encoded_vector(weights).is_some())
+                    {
+                        self.builtin(spec.builtin, args, span);
+                    } else {
+                        for arg in args {
+                            self.expr(arg);
+                        }
+                        let row_mismatch_diagnostic =
+                            if let Some(StddevMatrixDiagnostic::RowMismatch(diagnostic)) = matrix_diagnostic {
+                                self.constant(Const::Str(diagnostic), span);
+                                true
+                            } else {
+                                false
+                            };
+                        let list_sources = self.stddev_list_sources(args);
+                        self.cur.emit(Op::StddevExact {
+                            argc: args.len() as u8,
+                            encoded_vector: args.first().and_then(source_encoded_vector).is_some(),
+                            // Encoded inline matrices have a separate argument path.
+                            evaluated_matrices: matches!(args, [data, weights]
+                                if !source_encoded_matrix(data) && !source_encoded_matrix(weights)),
+                            row_mismatch_diagnostic,
+                            list_sources,
+                        }, span);
+                    }
+                }
+            }
             // Firmware EDITMAT writes back bare M0–M9 names, even when
             // locally declared. Other local names are value expressions.
             Builtin::Editmat | Builtin::Editlist
@@ -1861,6 +2422,21 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn stddev_list_sources(&mut self, args: &[Expr]) -> Option<[Option<u32>; 2]> {
+        let [data, weights] = args else {
+            return None;
+        };
+        let source = |expression: &Expr| match &expression.kind {
+            ExprKind::List(_) => Some(None),
+            ExprKind::Ident(name) => Some(Some(name.clone())),
+            _ => None,
+        };
+        Some(
+            [source(data)?, source(weights)?]
+                .map(|name| name.map(|name| self.constant_index(Const::Str(name)))),
+        )
+    }
+
     fn builtin(&mut self, id: Builtin, args: &[Expr], span: Span) {
         for a in args {
             self.expr(a);
@@ -1872,6 +2448,590 @@ impl<'a> Compiler<'a> {
             },
             span,
         );
+    }
+
+    fn append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {
+        if let ExprKind::Call(callee, args) = &expression.kind
+            && let ExprKind::Ident(name) = &callee.kind
+            && let Some(id) = self.fn_map.get(name).copied()
+            && !self.is_app_access(name)
+            && self.resolve_var(name).is_none()
+        {
+            let span = expression.span;
+            self.check_local_call(name, id, args.len(), span);
+            for (index, arg) in args.iter().enumerate() {
+                if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &arg.kind {
+                    self.expr(numerator);
+                    self.expr(denominator);
+                    self.cur.emit(
+                        Op::AppendCallbackArgumentQuotient {
+                            preceding: u16::from(preceding) + index.min(255) as u16,
+                        },
+                        arg.span,
+                    );
+                } else {
+                    self.expr(arg);
+                }
+            }
+            let argc = args.len().min(255) as u8;
+            let handler = self.cur.emit(
+                Op::TryAppendCallback {
+                    handler: 0,
+                    argc,
+                    preceding,
+                },
+                span,
+            );
+            self.cur.emit(Op::Call { func: id, argc }, span);
+            self.cur.emit(Op::TryEnd, span);
+            self.cur.emit(Op::Zero, span);
+            // The VM has already supplied the operand and status on failure.
+            self.cur.patch_jump(handler, self.cur.here());
+            return true;
+        }
+        self.expr(expression);
+        false
+    }
+
+    fn stddev_callback_source(&mut self, expression: &Expr) -> bool {
+        match &expression.kind {
+            ExprKind::ComplexPair(real, imaginary) => {
+                self.stddev_callback_source(real) && self.stddev_callback_source(imaginary)
+            }
+            ExprKind::Call(callee, args) => {
+                matches!(&callee.kind, ExprKind::Ident(name)
+                    if self.fn_map.contains_key(name)
+                        && !self.is_app_access(name)
+                        && self.resolve_var(name).is_none())
+                    && args.iter().all(|arg| stddev_numeric_entry(arg, false))
+            }
+            _ => stddev_numeric_entry(expression, false),
+        }
+    }
+
+    fn stddev_inline_source(&mut self, expression: &Expr) -> bool {
+        match &expression.kind {
+            ExprKind::Unary(UnOp::Neg, value) => self.stddev_inline_source(value),
+            ExprKind::Binary(BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div, left, right) => {
+                self.stddev_inline_source(left) && self.stddev_inline_source(right)
+            }
+            ExprKind::Call(callee, args) => {
+                matches!(&callee.kind, ExprKind::Ident(name)
+                    if self.fn_map.contains_key(name)
+                        && !self.is_app_access(name)
+                        && self.resolve_var(name).is_none())
+                    && args.iter().all(|arg| self.stddev_inline_source(arg))
+            }
+            _ => stddev_numeric_entry(expression, false),
+        }
+    }
+
+    fn stddev_inline_observation(&mut self, expression: &Expr) -> bool {
+        match &expression.kind {
+            ExprKind::ComplexPair(real, imaginary) => {
+                self.stddev_inline_source(real) && self.stddev_inline_source(imaginary)
+            }
+            _ => self.stddev_inline_source(expression),
+        }
+    }
+
+    fn stddev_callback_diagnostic(
+        &mut self,
+        data: &Expr,
+        weights: &Expr,
+        observations: &[&Expr],
+        weight_entries: &[&Expr],
+        encoded_weights: bool,
+    ) -> Option<String> {
+        let entries = || observations.iter().chain(weight_entries).copied();
+        if !entries().any(stddev_cell_has_call)
+            || !entries().all(|entry| self.stddev_callback_source(entry))
+        {
+            return None;
+        }
+        let data = stddev_matrix_operand_source(data, true, encoded_weights, true)?;
+        let weights =
+            stddev_matrix_operand_source(weights, encoded_weights, encoded_weights, true)?;
+        Some(stddev_bad_argument(&data, &weights))
+    }
+
+    fn stddev_callback_cell(&mut self, expression: &Expr, failure: Option<u16>) {
+        let span = expression.span;
+        let handler =
+            stddev_cell_has_call(expression).then(|| self.cur.emit(Op::TryStddevCell(0), span));
+        if let ExprKind::ComplexPair(real, imaginary) = &expression.kind {
+            self.stddev_callback_cell(real, failure);
+            self.stddev_callback_cell(imaginary, failure);
+            self.cur.emit(Op::MakeComplex, span);
+        } else {
+            self.expr(expression);
+        }
+        self.finish_stddev_cell_guard(handler, failure, span);
+    }
+
+    fn finish_stddev_cell_guard(
+        &mut self,
+        handler: Option<usize>,
+        failure: Option<u16>,
+        span: Span,
+    ) {
+        if let Some(handler) = handler {
+            self.cur.emit(Op::TryEnd, span);
+            let end = self.cur.emit(Op::Jump(0), span);
+            self.cur.patch_jump(handler, self.cur.here());
+            if let Some(failure) = failure {
+                self.constant(Const::Real(Real::ONE), span);
+                self.cur.emit(Op::StoreLocal(failure), span);
+            }
+            // Keep evaluating the source rows with a numeric placeholder.
+            self.cur.emit(Op::Zero, span);
+            self.cur.patch_jump(end, self.cur.here());
+        }
+    }
+
+    fn stddev_inline_cell(&mut self, expression: &Expr, failure: u16) {
+        let span = expression.span;
+        let handler = match expression.kind {
+            ExprKind::Call(..) | ExprKind::ComplexPair(..) => {
+                Some(self.cur.emit(Op::TryStddevCell(0), span))
+            }
+            _ => None,
+        };
+        match &expression.kind {
+            ExprKind::Binary(op, left, right) => {
+                self.stddev_inline_cell(left, failure);
+                self.stddev_inline_cell(right, failure);
+                self.cur.emit(
+                    Op::StddevCellBin {
+                        op: *op,
+                        literal_zero_quotient: *op == BinOp::Div
+                            && stddev_literal_zero_quotient(left, right),
+                    },
+                    span,
+                );
+            }
+            ExprKind::Unary(UnOp::Neg, value) => {
+                self.stddev_inline_cell(value, failure);
+                self.cur.emit(Op::StddevCellNeg, span);
+            }
+            ExprKind::ComplexPair(real, imaginary) => {
+                self.stddev_inline_cell(real, failure);
+                self.stddev_inline_cell(imaginary, failure);
+                self.cur.emit(Op::StddevCellPair, span);
+            }
+            ExprKind::Call(callee, args) => {
+                let ExprKind::Ident(name) = &callee.kind else {
+                    unreachable!("validated stddev cell callback");
+                };
+                let id = self.fn_map[name];
+                self.check_local_call(name, id, args.len(), span);
+                for arg in args {
+                    self.stddev_inline_cell(arg, failure);
+                }
+                self.cur.emit(
+                    Op::Call {
+                        func: id,
+                        argc: args.len().min(255) as u8,
+                    },
+                    span,
+                );
+            }
+            _ => self.expr(expression),
+        }
+        self.finish_stddev_cell_guard(handler, Some(failure), span);
+    }
+
+    fn stddev_mixed_vector(&mut self, args: &[Expr], span: Span) -> bool {
+        let [data, weights] = args else {
+            return false;
+        };
+        let (encoded_first, entries, ordinary) =
+            match (source_encoded_vector(data), source_encoded_vector(weights)) {
+                (Some(entries), None) => (true, entries, weights),
+                (None, Some(entries)) => (false, entries, data),
+                _ => return false,
+            };
+        if matches!(&ordinary.kind, ExprKind::Bracket(entries)
+            if entries.iter().any(|entry| matches!(entry.kind, ExprKind::Bracket(_))))
+            || !entries
+                .iter()
+                .all(|entry| self.stddev_callback_source(entry))
+        {
+            return false;
+        }
+        let allow_pairs = matches!(ordinary.kind, ExprKind::Bracket(_) | ExprKind::List(_));
+        let Some(encoded_source) = stddev_encoded_vector_source(entries, false, allow_pairs) else {
+            return false;
+        };
+        let evaluated_list = matches!(ordinary.kind, ExprKind::List(_));
+        let ordinary_source = if evaluated_list {
+            String::new()
+        } else {
+            let Some(ordinary) = stddev_diagnostic_expression(ordinary, 0, false, false) else {
+                return false;
+            };
+            let Ok(source) = crate::expression_source::ppl_diagnostic_expression_source(&ordinary)
+            else {
+                return false;
+            };
+            source
+        };
+        // The brace list is constructed before the encoded vector's cells
+        // are evaluated. References and function calls keep argument order.
+        let ordinary_first = evaluated_list || !encoded_first;
+        if ordinary_first {
+            self.expr(ordinary);
+        }
+        for entry in entries {
+            self.stddev_callback_cell(entry, None);
+            self.cur.emit(Op::Pop, entry.span);
+        }
+        if !ordinary_first {
+            self.expr(ordinary);
+        }
+        self.constant(Const::Str(encoded_source), span);
+        self.constant(Const::Str(ordinary_source), span);
+        self.cur.emit(
+            Op::StddevMixedVectorDiagnostic {
+                encoded_first,
+                evaluated_list,
+            },
+            span,
+        );
+        true
+    }
+
+    fn stddev_inline_vector_pair(&mut self, args: &[Expr], span: Span) -> bool {
+        let [data, weights] = args else {
+            return false;
+        };
+        let (Some(observations), Some(frequencies)) =
+            (source_encoded_vector(data), source_encoded_vector(weights))
+        else {
+            return false;
+        };
+        if !observations
+            .iter()
+            .all(|entry| self.stddev_inline_observation(entry))
+            || !frequencies
+                .iter()
+                .all(|entry| self.stddev_inline_source(entry))
+        {
+            return false;
+        }
+        let (Some(data_source), Some(weight_source)) = (
+            stddev_encoded_vector_source(observations, true, true),
+            stddev_encoded_vector_source(frequencies, true, true),
+        ) else {
+            return false;
+        };
+        self.emit_stddev_inline_collection(
+            [data, weights],
+            [
+                &observations.iter().collect::<Vec<_>>(),
+                &frequencies.iter().collect::<Vec<_>>(),
+            ],
+            [[0, 1, observations.len()], [0, 1, frequencies.len()]],
+            true,
+            stddev_bad_argument(&data_source, &weight_source),
+            span,
+        );
+        true
+    }
+
+    fn stddev_inline_matrix(
+        &mut self,
+        operands: [&Expr; 2],
+        entries: [&[&Expr]; 2],
+        shapes: [[usize; 2]; 2],
+        span: Span,
+    ) -> bool {
+        let [observations, weights] = entries;
+        if !observations
+            .iter()
+            .chain(weights)
+            .any(|entry| stddev_cell_has_division(entry))
+            || !observations
+                .iter()
+                .all(|entry| self.stddev_inline_observation(entry))
+            || !weights.iter().all(|entry| self.stddev_inline_source(entry))
+        {
+            return false;
+        }
+        let encoded_weights = weights
+            .iter()
+            .any(|entry| !matches!(entry.kind, ExprKind::Number(_)));
+        let Some(data_source) =
+            stddev_matrix_operand_source(operands[0], true, encoded_weights, true)
+        else {
+            return false;
+        };
+        let Some(weights_source) =
+            stddev_matrix_operand_source(operands[1], encoded_weights, encoded_weights, true)
+        else {
+            return false;
+        };
+        self.emit_stddev_inline_collection(
+            operands,
+            entries,
+            shapes.map(|[rows, cols]| [1, rows, cols]),
+            encoded_weights,
+            stddev_bad_argument(&data_source, &weights_source),
+            span,
+        );
+        true
+    }
+
+    fn emit_stddev_inline_collection(
+        &mut self,
+        operands: [&Expr; 2],
+        entries: [&[&Expr]; 2],
+        shapes: [[usize; 3]; 2],
+        encoded_weights: bool,
+        diagnostic: String,
+        span: Span,
+    ) {
+        let failure = self.hidden_local("stddev-cell");
+        self.cur.emit(Op::Zero, span);
+        self.cur.emit(Op::StoreLocal(failure), span);
+        for (operand, cells) in operands.into_iter().zip(entries) {
+            for entry in cells {
+                self.stddev_inline_cell(entry, failure);
+            }
+            self.cur
+                .emit(Op::MakeList(cells.len() as u32), operand.span);
+        }
+        self.cur.emit(Op::LoadLocal(failure), span);
+        self.constant(Const::Str(diagnostic), span);
+        self.cur.emit(
+            Op::StddevInlineCollection {
+                data: shapes[0].map(|n| n as u32),
+                weights: shapes[1].map(|n| n as u32),
+                encoded_weights,
+            },
+            span,
+        );
+    }
+
+    fn weighted_collection_stddev(&mut self, args: &[Expr], span: Span) -> bool {
+        let [data, weights] = args else {
+            return false;
+        };
+        let ExprKind::Bracket(data_entries) = &data.kind else {
+            return false;
+        };
+        let weights_kind = &weights.kind;
+        let (observations, weight_entries, [data_shape, weight_shape]) =
+            if let Some((cols, observations)) = stddev_matrix_cells(data_entries) {
+                let ExprKind::Bracket(weight_rows) = weights_kind else {
+                    return false;
+                };
+                let Some((weight_cols, weight_entries)) = stddev_matrix_cells(weight_rows) else {
+                    return false;
+                };
+                if observations
+                    .iter()
+                    .all(|entry| matches!(entry.kind, ExprKind::Number(_)))
+                {
+                    return false;
+                }
+                (
+                    observations,
+                    weight_entries,
+                    [
+                        Some([1, data_entries.len(), cols]),
+                        Some([1, weight_rows.len(), weight_cols]),
+                    ],
+                )
+            } else {
+                let encoded = data_entries
+                    .iter()
+                    .any(|entry| !matches!(entry.kind, ExprKind::Number(_)));
+                let weight_entries = match weights_kind {
+                    ExprKind::List(entries) if !encoded => entries,
+                    ExprKind::Bracket(entries) if encoded => entries,
+                    _ => return false,
+                };
+                (
+                    data_entries.iter().collect(),
+                    weight_entries.iter().collect(),
+                    [encoded.then_some([0, 1, data_entries.len()]); 2],
+                )
+            };
+        if observations.len() != weight_entries.len() {
+            return false;
+        }
+        if let [
+            Some([1, data_rows, data_cols]),
+            Some([1, weight_rows, weight_cols]),
+        ] = [data_shape, weight_shape]
+            && self.stddev_inline_matrix(
+                [data, weights],
+                [&observations, &weight_entries],
+                [[data_rows, data_cols], [weight_rows, weight_cols]],
+                span,
+            )
+        {
+            return true;
+        }
+        // A known nonzero weight on a nonreal cell selects the numeric
+        // complex path. Zero-weight complex cells can leave an exact series.
+        let complex_matrix = matches!(data_shape, Some([1, _, _]))
+            && observations
+                .iter()
+                .zip(&weight_entries)
+                .any(|(entry, weight)| {
+                    matches!(&entry.kind, ExprKind::ComplexPair(_, imaginary)
+                    if stddev_literal_real(imaginary).is_some_and(|value| !value.is_zero()))
+                        && stddev_literal_real(weight).is_some_and(|value| !value.is_zero())
+                });
+        if !observations.iter().all(|entry| {
+            stddev_numeric_entry(entry, false)
+                || (complex_matrix
+                    && matches!(&entry.kind, ExprKind::ComplexPair(real, imaginary)
+                        if stddev_numeric_entry(real, false)
+                            && stddev_numeric_entry(imaginary, false)))
+        }) {
+            let number_or_call = |entry: &Expr| {
+                stddev_numeric_entry(entry, false)
+                    || matches!(&entry.kind, ExprKind::Call(callee, _)
+                        if matches!(callee.kind, ExprKind::Ident(_)))
+            };
+            if let (Some(data_shape @ [1, _, _]), Some(weight_shape @ [1, _, _])) =
+                (data_shape, weight_shape)
+                && weight_entries.iter().all(|entry| number_or_call(entry))
+                && observations
+                    .iter()
+                    .any(|entry| matches!(entry.kind, ExprKind::ComplexPair(..)))
+                && observations.iter().all(|entry| match &entry.kind {
+                    ExprKind::ComplexPair(real, imaginary) => {
+                        number_or_call(real) && number_or_call(imaginary)
+                    }
+                    _ => number_or_call(entry),
+                })
+            {
+                let encoded_weights = weight_entries
+                    .iter()
+                    .any(|entry| !matches!(entry.kind, ExprKind::Number(_)));
+                if let Some(diagnostic) = self.stddev_callback_diagnostic(
+                    data,
+                    weights,
+                    &observations,
+                    &weight_entries,
+                    encoded_weights,
+                ) {
+                    let failure = self.hidden_local("stddev-cell");
+                    self.cur.emit(Op::Zero, span);
+                    self.cur.emit(Op::StoreLocal(failure), span);
+                    for (operand, [_, rows, cols], entries) in [
+                        (data, data_shape, observations),
+                        (weights, weight_shape, weight_entries),
+                    ] {
+                        for entry in entries {
+                            self.stddev_callback_cell(entry, Some(failure));
+                        }
+                        self.cur.emit(
+                            Op::MakeMatrix {
+                                rows: rows as u32,
+                                cols: cols as u32,
+                            },
+                            operand.span,
+                        );
+                    }
+                    let success = encoded_weights.then(|| {
+                        self.cur.emit(Op::LoadLocal(failure), span);
+                        self.cur.emit(Op::JumpIfFalse(0), span)
+                    });
+                    // Ordinary weights also select the mixed-operand diagnostic
+                    // after the source cells execute.
+                    self.constant(Const::Str(diagnostic), span);
+                    self.cur.emit(Op::StddevMatrixDiagnostic, span);
+                    if let Some(success) = success {
+                        let end = self.cur.emit(Op::Jump(0), span);
+                        self.cur.patch_jump(success, self.cur.here());
+                        self.cur.emit(Op::StddevEncodedComplexMatrix, span);
+                        self.cur.patch_jump(end, self.cur.here());
+                    }
+                    return true;
+                }
+                if encoded_weights {
+                    for operand in args {
+                        self.expr(operand);
+                    }
+                    self.cur.emit(Op::StddevEncodedComplexMatrix, span);
+                    return true;
+                }
+            }
+            return false;
+        }
+        // The encoded matrices pair their row-major cells and each operand's
+        // own shape fields as weighted observations.
+        let same_shape = data_shape == weight_shape;
+        let try_exact_matrix = matches!(data_shape, Some([1, _, _]))
+            && weight_entries
+                .iter()
+                .any(|entry| !matches!(entry.kind, ExprKind::Number(_)))
+            && weight_entries
+                .iter()
+                .all(|entry| stddev_numeric_entry(entry, same_shape));
+        if (!same_shape || complex_matrix) && !try_exact_matrix {
+            return false;
+        }
+        if !try_exact_matrix {
+            let Some(frequencies) = weight_entries
+                .iter()
+                .map(|entry| stddev_literal_real(entry))
+                .collect::<Option<Vec<_>>>()
+            else {
+                return false;
+            };
+            if !frequencies.iter().any(|value| value.is_negative()) {
+                return false;
+            }
+            let shape_weight = weight_shape.map_or(0, |shape| shape.into_iter().sum::<usize>());
+            let fractional = frequencies.iter().any(|value| !value.is_integer());
+            let zero_total = frequencies
+                .iter()
+                .try_fold(shape_weight as i128, |total, value| {
+                    total.checked_add(value.to_i128()?)
+                })
+                == Some(0);
+            if !fractional && !zero_total {
+                return false;
+            }
+        }
+
+        for (operand, entries, shape) in [
+            (data, observations, data_shape),
+            (weights, weight_entries, weight_shape),
+        ] {
+            if let Some(shape) = shape {
+                for dimension in shape {
+                    self.constant(Const::Real(Real::from_u64(dimension as u64)), operand.span);
+                }
+            }
+            let count = entries.len() + shape.map_or(0, |fields| fields.len());
+            for entry in entries {
+                self.expr(entry);
+            }
+            self.cur.emit(Op::MakeList(count as u32), operand.span);
+        }
+        let op = if try_exact_matrix {
+            Op::StddevExact {
+                argc: 2,
+                encoded_vector: false,
+                evaluated_matrices: false,
+                row_mismatch_diagnostic: false,
+                list_sources: None,
+            }
+        } else {
+            Op::Builtin {
+                id: Builtin::Stddev,
+                argc: 2,
+            }
+        };
+        self.cur.emit(op, span);
+        true
     }
 
     fn unsupported(&mut self, name: &str, argc: usize, span: Span) {

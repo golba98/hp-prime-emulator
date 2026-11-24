@@ -473,6 +473,30 @@ impl Real {
         )
     }
 
+    /// Multiplies the stored decimal values and truncates the exact product.
+    /// The product does not round to 12 digits before integer conversion.
+    pub fn mul_trunc_to_i64(self, other: Self) -> Option<i64> {
+        let coeff = u128::from(self.mant) * u128::from(other.mant);
+        if coeff == 0 {
+            return Some(0);
+        }
+        let exponent = self.exp + other.exp;
+        let integral = if exponent < 0 {
+            POW10_U128
+                .get(exponent.unsigned_abs() as usize)
+                .map_or(0, |scale| coeff / scale)
+        } else {
+            coeff.checked_mul(*POW10_U128.get(exponent as usize)?)?
+        };
+        let signed = i128::try_from(integral).ok()?;
+        i64::try_from(if self.neg != other.neg {
+            -signed
+        } else {
+            signed
+        })
+        .ok()
+    }
+
     pub fn div(self, o: Real) -> Result<Real, MathError> {
         if let Some(result) = self.origin_binary(o, origin::Binary::Div) {
             return result;
@@ -1102,8 +1126,43 @@ impl fmt::Display for Real {
 mod tests {
     use super::*;
 
+    #[test]
+    fn integer_quotient_uses_the_exact_operands() {
+        let numerator = Real::parse("999999999997").unwrap();
+        let divisor = Real::parse("499999999999").unwrap();
+        assert!(numerator.div(divisor).unwrap().is_integer());
+        assert!(numerator.quotient_if_integer(divisor).unwrap().is_none());
+
+        for version in [NumericVersion::Legacy15157, NumericVersion::Current15751] {
+            let numerator = Real::parse_versioned("-.5", version).unwrap();
+            let divisor = Real::parse_versioned(".25", version).unwrap();
+            assert_eq!(
+                numerator
+                    .quotient_if_integer(divisor)
+                    .unwrap()
+                    .unwrap()
+                    .to_i64(),
+                Some(-2),
+            );
+        }
+    }
+
     fn r(s: &str) -> Real {
         Real::parse(s).unwrap()
+    }
+
+    #[test]
+    fn truncating_decimal_products_preserves_digits_before_the_integer_boundary() {
+        let scale = Real::parse("7.22857142857").unwrap();
+        let span = Real::from_i64(35);
+        assert_eq!(scale.mul(span).unwrap(), Real::from_i64(253));
+        assert_eq!(scale.mul_trunc_to_i64(span), Some(252));
+        assert_eq!(scale.mul_trunc_to_i64(span.neg()), Some(-252));
+        let exact = Real::parse("0.6325").unwrap();
+        assert_eq!(exact.mul_trunc_to_i64(Real::from_i64(400)), Some(253));
+        let huge = Real::parse("1E50").unwrap();
+        assert_eq!(huge.mul_trunc_to_i64(Real::ONE), None);
+        assert_eq!(huge.mul_trunc_to_i64(Real::ZERO), Some(0));
     }
 
     #[test]

@@ -1,0 +1,77 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_graph3d_colors_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "calculator_mode",
+      "mode": "screen"
+    },
+    {
+      "step": "new_program",
+      "name": "G3COL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN STARTAPP(\"Graph 3D\");RETURN STARTVIEW(1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_reopened.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN RETURN {FZ1(0,0),FZ2(0,0),TYPE(FZ1),TYPE(FZ2),ISCHECK(1),ISCHECK(2)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_typed"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT G3COL() BEGIN RETURN STARTVIEW(0); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "reopened_symbolic"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/graph3d_colors_reopened_symbolic.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

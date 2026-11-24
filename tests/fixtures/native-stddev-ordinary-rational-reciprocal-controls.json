@@ -1,0 +1,225 @@
+{
+  "original": "Original virtual G1 rational Gaussian STDDEV controls",
+  "cases": [
+    {
+      "name": "equivalent_reciprocal",
+      "source": "EXPORT ZZT_STRAT() BEGIN\nLOCAL R,E,O:={},Q,P; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,4}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({3,(1,4)},{8,2}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{-2,-8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(6,1),(8,-3)},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({1+4*i,3},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},[2,8]); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nRETURN O; END;\n",
+      "source_sha256": "bfc913aa77e5825fb3df3130631a3df301d714b98cb5bbe79cedc3f25ac4d205",
+      "entry": "ZZT_STRAT",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ]
+      ],
+      "numeric_projection_indices": []
+    },
+    {
+      "name": "directions_and_signs",
+      "source": "EXPORT ZZT_STRAT() BEGIN\nLOCAL R,E,O:={},Q,P; HComplex:=1;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,-4),3},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,2),5},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,-2),5},{2,8}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,1),2},{1,1}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,1),(1,2)},{1,1}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{-1,4}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nRETURN O; END;\n",
+      "source_sha256": "21a8257e01dda88f5ff8a2fbd4425dd560909bb2bdabfc76b5092017f66342a0",
+      "entry": "ZZT_STRAT",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "4/(1-2*)",
+          0,
+          3,
+          0.8,
+          1.6
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(1-2*)",
+          0,
+          3,
+          1.6,
+          -0.8
+        ],
+        [
+          0,
+          0,
+          8,
+          "4/(2-)",
+          0,
+          3,
+          1.6,
+          0.8
+        ],
+        [
+          0,
+          0,
+          8,
+          "-/(1-)",
+          0,
+          3,
+          0.5,
+          -0.5
+        ],
+        [
+          0,
+          0,
+          8,
+          "/2",
+          0,
+          3,
+          0,
+          0.5
+        ],
+        [
+          0,
+          0,
+          8,
+          "(8+4*)/3",
+          0,
+          3,
+          2.66666667,
+          1.33333333
+        ]
+      ],
+      "numeric_projection_indices": []
+    },
+    {
+      "name": "denominator_and_numeric_guards",
+      "source": "EXPORT ZZT_STRAT() BEGIN\nLOCAL R,E,O:={},Q,P; HComplex:=1;\nL1:={(1,4),3}; L2:={2,8};\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,16}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,9}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,3}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{.5,2}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev({(1,4),3},{1,1}); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nA:=0; E:=0; R:=-99;\nIFERR R:=stddev(L1,L2); THEN E:=1; END;\nQ:=-99; P:=0; IFERR Q:=approx(R); THEN P:=1; END;\nIF (TYPE(Q)==0 OR TYPE(Q)==3) THEN\nO:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q),ROUND(RE(Q),8),ROUND(IM(Q),8)}});\nELSE O:=CONCAT(O,{{A,E,TYPE(R),STRING(R),P,TYPE(Q)}}); END;\nRETURN O; END;\n",
+      "source_sha256": "2b255297c8092707022f4b4e27ede211f239bab974f81f0098b65a3da362f670",
+      "entry": "ZZT_STRAT",
+      "expected": [
+        [
+          0,
+          0,
+          8,
+          "(8-16*)/17",
+          0,
+          3,
+          0.47058824,
+          -0.94117647
+        ],
+        [
+          0,
+          0,
+          8,
+          "−3*/(2-)",
+          0,
+          3,
+          0.6,
+          -1.2
+        ],
+        [
+          0,
+          0,
+          8,
+          "√3/2*(1-2*)",
+          0,
+          3,
+          0.8660254,
+          -1.73205081
+        ],
+        [
+          0,
+          0,
+          3,
+          "0.8-1.6*",
+          0,
+          3,
+          0.8,
+          -1.6
+        ],
+        [
+          0,
+          0,
+          3,
+          "1-2*",
+          0,
+          3,
+          1,
+          -2
+        ],
+        [
+          0,
+          0,
+          8,
+          "−4*/(2-)",
+          0,
+          3,
+          0.8,
+          -1.6
+        ]
+      ],
+      "numeric_projection_indices": [
+        3,
+        4
+      ]
+    }
+  ]
+}

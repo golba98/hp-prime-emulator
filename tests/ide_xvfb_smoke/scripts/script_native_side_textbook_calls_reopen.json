@@ -1,0 +1,29 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook_calls_reopen.json",
+  "steps": [
+    {"step":"backend","engine":"native"},
+    {"step":"layout","mode":"calculator"},
+    {"step":"calculator_mode","mode":"screen"},
+    {"step":"native_home"},
+    {"step":"calc_key","code":10},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":145},
+    {"step":"snapshot","label":"reopened"},
+    {"step":"screenshot","path":"/tmp/ppl-ide-e2e/textbook_call_reopened.png"},
+    {"step":"calc_focus"},
+    {"step":"key","key":"ArrowUp"},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":145},
+    {"step":"snapshot","label":"selected"},
+    {"step":"click_lcd","x":294,"y":230},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":145},
+    {"step":"snapshot","label":"show"},
+    {"step":"screenshot","path":"/tmp/ppl-ide-e2e/textbook_call_reopened_show.png"},
+    {"step":"key","key":"Escape"},
+    {"step":"wait_idle","timeout_ms":15000},
+    {"step":"wait_ms","ms":145},
+    {"step":"snapshot","label":"returned"},
+    {"step":"exit"}
+  ]
+}

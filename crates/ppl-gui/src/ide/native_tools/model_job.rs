@@ -18,10 +18,20 @@ impl ModelPlotJob {
         name: String,
         model: crate::ide::native_app_ui::AppMemory,
         snapshot: ppl_vm::SessionSnapshot,
+        autoscale: bool,
     ) -> Self {
         let source = model.input_fingerprint();
         let generation = snapshot.generation;
-        let operation = Calculation::Plot(name.clone(), Box::new(model));
+        let operation = if name == "Statistics 1Var" && autoscale {
+            Calculation::Statistics1AutoScale(Box::new(model))
+        } else if name == "Statistics 2Var"
+            && autoscale
+            && let Some(book) = model.statistics2_book
+        {
+            Calculation::Statistics2AutoScale(Box::new(book))
+        } else {
+            Calculation::Plot(name.clone(), Box::new(model))
+        };
         let cancel = Arc::new(AtomicBool::new(false));
         let flag = cancel.clone();
         let (tx, rx) = mpsc::channel();

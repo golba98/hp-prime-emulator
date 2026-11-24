@@ -14,10 +14,20 @@ fn projection(value: &ppl_vm::Value) -> serde_json::Value {
 
 #[test]
 fn original_blit_admission_and_every_target_pixel_match() {
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+    verify_controls(include_str!(
         "../../../tests/fixtures/native-blit-boundary-controls.json"
-    ))
-    .unwrap();
+    ));
+}
+
+#[test]
+fn original_blit_clipping_matches_rounded_source_edges() {
+    verify_controls(include_str!(
+        "../../../tests/fixtures/native-blit-sampling-controls.json"
+    ));
+}
+
+fn verify_controls(fixture: &str) {
+    let fixture: serde_json::Value = serde_json::from_str(fixture).unwrap();
     for case in fixture["cases"].as_array().unwrap() {
         let source = case["source"].as_str().unwrap();
         assert_eq!(

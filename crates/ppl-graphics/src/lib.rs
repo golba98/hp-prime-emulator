@@ -9,6 +9,7 @@
 //! Nothing here opens a window, so every primitive is unit-testable.
 
 mod arc;
+mod circle;
 mod ellipse;
 mod raster;
 pub mod softkeys;
@@ -62,6 +63,14 @@ impl Grob {
 
     pub fn screen() -> Grob {
         Grob::new(SCREEN_W, SCREEN_H, WHITE)
+    }
+
+    /// Resizes the pixel buffer in row-major order, retaining its existing prefix.
+    /// New cells are initialized to white.
+    pub fn resize_preserving_pixels(&mut self, width: usize, height: usize) {
+        self.px.resize(width * height, WHITE);
+        self.w = width;
+        self.h = height;
     }
 
     pub fn width(&self) -> usize {
@@ -139,7 +148,7 @@ impl Grob {
             self.hline(x1, x2, y1, edge);
             self.hline(x1, x2, y2, edge);
             let (ya, yb) = if y1 <= y2 { (y1, y2) } else { (y2, y1) };
-            for y in ya..=yb {
+            for y in ya.max(0)..=yb.min(self.h as i64 - 1) {
                 self.set(x1, y, edge);
                 self.set(x2, y, edge);
             }
@@ -148,27 +157,40 @@ impl Grob {
 
     /// Bresenham line, both endpoints included.
     pub fn line(&mut self, x1: i64, y1: i64, x2: i64, y2: i64, c: Color) {
-        let dx = (x2 - x1).abs();
-        let dy = -(y2 - y1).abs();
-        let sx = if x1 < x2 { 1 } else { -1 };
-        let sy = if y1 < y2 { 1 } else { -1 };
-        let mut err = dx + dy;
-        let (mut x, mut y) = (x1, y1);
-        // Bound the walk so huge off-screen coordinates cannot hang.
-        let max_steps = dx.max(-dy) + 1;
-        for _ in 0..=max_steps {
-            self.set(x, y, c);
-            if x == x2 && y == y2 {
-                break;
+        let (dx, dy) = (
+            i128::from(x2).abs_diff(i128::from(x1)),
+            i128::from(y2).abs_diff(i128::from(y1)),
+        );
+        let (sx, sy): (i128, i128) = (if x1 < x2 { 1 } else { -1 }, if y1 < y2 { 1 } else { -1 });
+        if dx == 0 && dy == 0 {
+            self.set(x1, y1, c);
+            return;
+        }
+        // Reconstruct Bresenham at each visible major-axis position instead
+        // of walking the entire (possibly full-i64) offscreen segment.
+        if dx >= dy {
+            for x in 0..self.w {
+                let step = (x as i128 - i128::from(x1)) * sx;
+                if step < 0 || step as u128 > dx {
+                    continue;
+                }
+                let minor = ((step as u128 * dy + dx / 2) / dx) as i128;
+                let y = i128::from(y1) + sy * minor;
+                if y >= 0 && y < self.h as i128 {
+                    self.set(x as i64, y as i64, c);
+                }
             }
-            let e2 = 2 * err;
-            if e2 >= dy {
-                err += dy;
-                x += sx;
-            }
-            if e2 <= dx {
-                err += dx;
-                y += sy;
+        } else {
+            for y in 0..self.h {
+                let step = (y as i128 - i128::from(y1)) * sy;
+                if step < 0 || step as u128 > dy {
+                    continue;
+                }
+                let minor = ((step as u128 * dx + dy / 2) / dy) as i128;
+                let x = i128::from(x1) + sx * minor;
+                if x >= 0 && x < self.w as i128 {
+                    self.set(x as i64, y as i64, c);
+                }
             }
         }
     }
@@ -177,6 +199,21 @@ impl Grob {
     /// error bias and clipped phase. Work is bounded by the visible major axis.
     pub fn calculator_line(&mut self, a: (i64, i64), b: (i64, i64), color: Color) {
         raster::line(self, a, b, color);
+    }
+
+    /// Write a single sample with calculator line transparency.
+    pub fn set_calculator_line_pixel(&mut self, x: i64, y: i64, color: Color) {
+        raster::line_point(self, i128::from(x), i128::from(y), color);
+    }
+
+    /// Visit the visible pixels of a calculator integer line in draw order.
+    pub fn try_calculator_line_pixels<E>(
+        size: (usize, usize),
+        a: (i64, i64),
+        b: (i64, i64),
+        visit: impl FnMut(i64, i64) -> Result<(), E>,
+    ) -> Result<(), E> {
+        raster::line_pixels(size, a, b, visit)
     }
 
     /// ARC's pixel-radius pair and optional edge/fill sector form.
@@ -197,43 +234,25 @@ impl Grob {
         raster::rectangle(self, a, b, edge, fill)
     }
 
-    /// Midpoint circle outline.
-    pub fn circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
-        if r < 0 {
-            return;
-        }
-        let (mut x, mut y, mut d) = (r, 0i64, 1 - r);
-        while x >= y {
-            for (px, py) in [
-                (x, y),
-                (y, x),
-                (-y, x),
-                (-x, y),
-                (-x, -y),
-                (-y, -x),
-                (y, -x),
-                (x, -y),
-            ] {
-                self.set(xc + px, yc + py, c);
-            }
-            y += 1;
-            if d < 0 {
-                d += 2 * y + 1;
-            } else {
-                x -= 1;
-                d += 2 * (y - x) + 1;
-            }
-        }
+    /// Calculator FILLPOLY_P raster. Returns false when interrupted.
+    pub fn calculator_polygon(
+        &mut self,
+        vertices: &[(i64, i64)],
+        color: Color,
+        cancelled: impl FnMut() -> bool,
+    ) -> bool {
+        raster::polygon(self, vertices, color, cancelled)
     }
 
+    /// Midpoint circle outline, clipped before iteration. Work is bounded by
+    /// the framebuffer dimensions even when the center or radius is enormous.
+    pub fn circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
+        circle::outline(self, xc, yc, r, c);
+    }
+
+    /// Filled circle with integer pixel-center inclusion and visible-row work.
     pub fn fill_circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
-        if r < 0 {
-            return;
-        }
-        for dy in -r..=r {
-            let half = (((r * r - dy * dy) as f64).sqrt()).floor() as i64;
-            self.hline(xc - half, xc + half, yc + dy, c);
-        }
+        circle::fill(self, xc, yc, r, c);
     }
 
     /// Arc from `a1` to `a2` radians, counter-clockwise as seen on screen.
@@ -304,8 +323,31 @@ impl Grob {
         transparent: Option<Color>,
         alpha: u8,
     ) {
+        self.blit_pixels(dst, s, transparent, alpha, |_, x, y| src.get(x, y));
+    }
+
+    /// Copies within this graphic, reading pixels in destination row order.
+    /// A source pixel can already contain the result of an earlier write.
+    pub fn blit_in_place(
+        &mut self,
+        dst: (i64, i64, i64, i64),
+        source: (i64, i64, i64, i64),
+        transparent: Option<Color>,
+        alpha: u8,
+    ) {
+        self.blit_pixels(dst, source, transparent, alpha, Grob::get);
+    }
+
+    fn blit_pixels(
+        &mut self,
+        dst: (i64, i64, i64, i64),
+        source: (i64, i64, i64, i64),
+        transparent: Option<Color>,
+        alpha: u8,
+        read: impl Fn(&Grob, i64, i64) -> Option<Color>,
+    ) {
         let (dx1, dy1, dx2, dy2) = dst;
-        let (sx1, sy1, sx2, sy2) = s;
+        let (sx1, sy1, sx2, sy2) = source;
         let (dw, dh) = (
             i128::from(dx2) - i128::from(dx1),
             i128::from(dy2) - i128::from(dy1),
@@ -317,19 +359,31 @@ impl Grob {
         if dw <= 0 || dh <= 0 || sw <= 0 || sh <= 0 {
             return;
         }
-        // Clip iteration, not the sampling origin. Wide unsigned products keep
-        // all i64-coordinate rectangles safe without walking off-screen pixels.
+        // Project the leading source clip onto the destination and round
+        // half up before sampling. At a half-pixel crossing this skips the
+        // destination pixel centered exactly on the start of the source.
+        let first = |dest_start: i64, dest_extent: i128, src_start: i64, src_span: i128| {
+            let clipped = -i128::from(src_start).min(0);
+            let offset = (clipped * dest_extent + src_span / 2) / src_span;
+            (i128::from(dest_start) + offset.min(dest_extent)) as i64
+        };
+        let first_x = first(dx1, dw, sx1, sw).max(0);
+        let first_y = first(dy1, dh, sy1, sh).max(0);
+        // Keep the original sampling origin after clipping. Wide unsigned
+        // products handle the entire i64 coordinate range.
         let sample = |position: i64, origin: i64, span: i128, extent: i128, start: i64| {
             let offset = (i128::from(position) - i128::from(origin)) as u128;
             let source = (offset * span as u128 + span as u128 / 2) / extent as u128;
             (i128::from(start) + source as i128) as i64
         };
-        for ty in dy1.max(0)..dy2.min(self.h as i64) {
+        for ty in first_y..dy2.min(self.h as i64) {
             let syy = sample(ty, dy1, sh, dh, sy1);
-            for tx in dx1.max(0)..dx2.min(self.w as i64) {
+            for tx in first_x..dx2.min(self.w as i64) {
                 let sxx = sample(tx, dx1, sw, dw, sx1);
-                let Some(p) = src.get(sxx, syy) else { continue };
-                if transparent.is_some_and(|t| t & 0x00FF_FFFF == p) {
+                let Some(p) = read(self, sxx, syy) else {
+                    continue;
+                };
+                if transparent == Some(p) {
                     continue;
                 }
                 if alpha == 255 {
@@ -388,9 +442,23 @@ impl Grob {
 
     /// Decodes an 8-bit RGB/RGBA PNG (for device screenshots and fixtures).
     pub fn read_png(bytes: &[u8]) -> Result<Grob, String> {
+        Self::decode_png(bytes, None)
+    }
+
+    /// Decode a bounded PNG with the inverse alpha in each pixel's high byte.
+    pub fn read_png_with_transparency(bytes: &[u8], maximum: [u32; 2]) -> Result<Grob, String> {
+        Self::decode_png(bytes, Some(maximum))
+    }
+
+    fn decode_png(bytes: &[u8], maximum: Option<[u32; 2]>) -> Result<Grob, String> {
         let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
         dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
         let mut reader = dec.read_info().map_err(|e| e.to_string())?;
+        if let Some([width, height]) = maximum
+            && (reader.info().width > width || reader.info().height > height)
+        {
+            return Err("PNG exceeds the requested dimensions".into());
+        }
         let mut buf = vec![0; reader.output_buffer_size().ok_or("png too large")?];
         let info = reader.next_frame(&mut buf).map_err(|e| e.to_string())?;
         let (w, h) = (info.width as usize, info.height as usize);
@@ -401,6 +469,11 @@ impl Grob {
             png::ColorType::GrayscaleAlpha => 2,
             other => return Err(format!("unsupported PNG colour type {other:?}")),
         };
+        let keep_transparency = maximum.is_some()
+            && matches!(
+                info.color_type,
+                png::ColorType::Rgba | png::ColorType::GrayscaleAlpha
+            );
         let mut g = Grob::new(w, h, WHITE);
         for (i, p) in g.px.iter_mut().enumerate() {
             let o = i * step;
@@ -409,6 +482,9 @@ impl Grob {
             } else {
                 rgb(buf[o], buf[o], buf[o])
             };
+            if keep_transparency {
+                *p |= u32::from(255 - buf[o + step - 1]) << 24;
+            }
         }
         Ok(g)
     }
@@ -662,6 +738,53 @@ pub fn compare_screens_detailed(a: &Grob, b: &Grob) -> Option<ScreenDiffDetailed
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ui_lines_clip_before_walking_without_changing_bresenham_pixels() {
+        fn reference(g: &mut Grob, a: (i64, i64), b: (i64, i64)) {
+            let (mut x, mut y) = a;
+            let dx = (b.0 - x).abs();
+            let dy = -(b.1 - y).abs();
+            let sx = if x < b.0 { 1 } else { -1 };
+            let sy = if y < b.1 { 1 } else { -1 };
+            let mut err = dx + dy;
+            loop {
+                g.set(x, y, BLACK);
+                if (x, y) == b {
+                    break;
+                }
+                let e2 = 2 * err;
+                if e2 >= dy {
+                    err += dy;
+                    x += sx;
+                }
+                if e2 <= dx {
+                    err += dx;
+                    y += sy;
+                }
+            }
+        }
+        for x1 in -3..10 {
+            for y1 in -3..10 {
+                for x2 in -3..10 {
+                    for y2 in -3..10 {
+                        let mut a = Grob::new(7, 7, WHITE);
+                        let mut b = a.clone();
+                        reference(&mut a, (x1, y1), (x2, y2));
+                        b.line(x1, y1, x2, y2, BLACK);
+                        assert_eq!(a, b, "({x1},{y1}) to ({x2},{y2})");
+                    }
+                }
+            }
+        }
+        let mut extreme = Grob::new(8, 8, WHITE);
+        extreme.line(i64::MIN, i64::MIN, i64::MAX, i64::MAX, BLACK);
+        for i in 0..8 {
+            assert_eq!(extreme.get(i, i), Some(BLACK));
+        }
+        extreme.rect(0, i64::MIN, 7, i64::MAX, BLACK, WHITE);
+        assert_eq!(extreme.get(0, 4), Some(BLACK));
+    }
+
     use super::*;
 
     #[test]
@@ -745,6 +868,24 @@ mod tests {
         assert_eq!(from_rgb565(0x0000), BLACK);
         assert_eq!(from_rgb565(0xF800), rgb(255, 0, 0));
         assert_eq!(to_rgb565(from_rgb565(0x630C)), 0x630C);
+    }
+
+    #[test]
+    fn bounded_png_preserves_transparency_without_changing_the_screenshot_reader() {
+        let mut bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut bytes, 2, 1);
+            encoder.set_color(png::ColorType::Rgba);
+            let mut image = encoder.write_header().unwrap();
+            image.write_image_data(&[1, 2, 3, 0, 4, 5, 6, 64]).unwrap();
+        }
+        assert!(Grob::read_png_with_transparency(&bytes, [1, 1]).is_err());
+        let with_alpha = Grob::read_png_with_transparency(&bytes, [2, 1]).unwrap();
+        assert_eq!(with_alpha.pixels(), &[0xff010203, 0xbf040506]);
+        assert_eq!(
+            Grob::read_png(&bytes).unwrap().pixels(),
+            &[0x010203, 0x040506]
+        );
     }
 
     #[test]

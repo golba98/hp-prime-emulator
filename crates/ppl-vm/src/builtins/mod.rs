@@ -5,6 +5,7 @@ pub mod io;
 pub mod lists;
 pub mod math;
 pub mod matrices;
+pub(crate) mod stddev_exact;
 pub mod strings;
 
 use ppl_compiler::builtins::{Builtin, spec};
@@ -25,9 +26,15 @@ pub(crate) fn arg<'a>(args: &'a [Value], i: usize, cmd: &str) -> RtResult<&'a Va
 pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
     use Builtin as B;
     let name = spec(b).name;
+    if let Some(result) = stddev_exact::symbolic_math(b, &args) {
+        return result;
+    }
     if args.iter().any(|v| matches!(v, Value::Symbolic(_)))
         && spec(b).category == ppl_compiler::builtins::Category::Math
     {
+        if let Some(result) = crate::ops::infinity::builtin(b, &args) {
+            return result;
+        }
         let function = if b == B::Approx {
             "evalf"
         } else if b == B::Exact {
@@ -48,7 +55,18 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
         );
     }
     match b {
-        B::Do1VStats | B::SetSample | B::SetFreq => {
+        B::PredX | B::PredY if m.active_app == "Spreadsheet" => math::call(m, b, name, &args),
+        B::PredX | B::PredY => Err(RuntimeError::new(
+            ErrorKind::InvalidInput,
+            format!("{name} requires the Spreadsheet app"),
+        )),
+        B::Do1VStats
+        | B::Do2VStats
+        | B::SetSample
+        | B::SetFreq
+        | B::Check
+        | B::Uncheck
+        | B::Ischeck => {
             let request = crate::host::AppVariableRequest {
                 app: m.active_app.clone(),
                 name: name.to_owned(),
@@ -192,11 +210,16 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
         | B::Subgrob
         | B::InvertP
         | B::FillpolyP
+        | B::Fillpoly
         | B::TriangleP
         | B::Triangle
         | B::GrobwP
         | B::GrobhP
-        | B::Rgb => graphics::call(m, b, name, &args),
+        | B::Grobw
+        | B::Grobh
+        | B::Rgb
+        | B::CtoPx
+        | B::PxToC => graphics::call(m, b, name, &args),
         B::Print
         | B::Msgbox
         | B::Getkey

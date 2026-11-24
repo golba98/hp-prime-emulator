@@ -44,6 +44,17 @@ pub enum CasValue {
         imaginary: Box<CasValue>,
     },
     Symbolic(String),
+    /// Exact calculator expression with an independent numeric projection.
+    /// The VM converts this to ordinary symbolic data at the Giac boundary.
+    NativeExpression {
+        source: String,
+        display: String,
+        approximation: NativeProjection,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        imaginary: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pair_display: Option<String>,
+    },
     /// A measurement, identified structurally by Giac's unit node in the helper.
     Unit(String),
     String(String),
@@ -56,6 +67,20 @@ pub enum CasValue {
         values: Vec<CasValue>,
     },
 }
+
+/// The scalar form keeps the existing calculator profile encoding.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NativeProjection {
+    Scalar(String),
+    GaussianRadical {
+        real: i64,
+        imaginary: i64,
+        radicand: u64,
+        denominator: u64,
+    },
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InfinitySign {
@@ -124,6 +149,7 @@ impl CasValue {
             }
             .into(),
             Self::Integer(s) | Self::Decimal(s) | Self::Symbolic(s) | Self::Unit(s) => s.clone(),
+            Self::NativeExpression { source, .. } => source.clone(),
             Self::Rational {
                 numerator,
                 denominator,
@@ -182,6 +208,7 @@ impl fmt::Display for CasValue {
                 numerator,
                 denominator,
             } => write!(f, "{numerator}/{denominator}"),
+            Self::NativeExpression { display, .. } => f.write_str(display),
             _ => f.write_str(&self.validated_expression()),
         }
     }
@@ -1036,6 +1063,29 @@ fn validate_value(value: &CasValue, depth: usize, budget: &mut Budget) -> Result
             budget.text(text)?;
             if text.trim().is_empty() || text.contains('\0') {
                 return Err(CasError::Protocol("invalid symbolic expression".into()));
+            }
+        }
+        CasValue::NativeExpression {
+            source,
+            display,
+            approximation,
+            pair_display,
+            ..
+        } => {
+            for text in [source, display].into_iter().chain(pair_display) {
+                budget.text(text)?;
+                if text.trim().is_empty() || text.contains('\0') {
+                    return Err(CasError::Protocol("invalid native expression".into()));
+                }
+            }
+            match approximation {
+                NativeProjection::Scalar(text) if decimal(text) => budget.text(text)?,
+                NativeProjection::GaussianRadical {
+                    radicand,
+                    denominator,
+                    ..
+                } if *radicand > 0 && *denominator > 0 => {}
+                _ => return Err(CasError::Protocol("invalid native approximation".into())),
             }
         }
         CasValue::String(text) => budget.text(text)?,

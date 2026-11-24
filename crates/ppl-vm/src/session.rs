@@ -11,8 +11,10 @@ use ppl_compiler::CompiledProgram;
 use ppl_graphics::Grob;
 use ppl_math::{Complex, HpInt, Real};
 use std::{
-    collections::BTreeMap,
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
     rc::Rc,
+    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -101,6 +103,9 @@ pub struct SessionSnapshot {
     pub active_app: String,
     pub app_settings: BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: BTreeMap<String, crate::AppPlotSettings>,
+    pub geometry_plot_settings: Option<crate::GeometryPlotSettings>,
+    pub statistics2_columns_revision: u64,
     pub app_files: BTreeMap<String, BTreeMap<String, PortableValue>>,
     pub cas: ppl_cas::CasSession,
     pub generation: u64,
@@ -108,6 +113,7 @@ pub struct SessionSnapshot {
     pub globals: BTreeMap<String, PortableValue>,
     pub last_value: Option<PortableValue>,
     pub notes: BTreeMap<String, String>,
+    pub note_bullets: BTreeMap<String, BTreeSet<usize>>,
     pub programs: BTreeMap<String, String>,
 }
 #[derive(Clone)]
@@ -121,6 +127,9 @@ pub struct SessionContext {
     pub active_app: String,
     pub app_settings: BTreeMap<String, crate::AppSettings>,
     pub app_numeric_settings: BTreeMap<String, crate::AppNumericSettings>,
+    pub app_plot_settings: BTreeMap<String, crate::AppPlotSettings>,
+    pub geometry_plot_settings: Option<crate::GeometryPlotSettings>,
+    statistics2_columns_revision: u64,
     pub app_files: BTreeMap<String, BTreeMap<String, PortableValue>>,
     pub cas: ppl_cas::CasSession,
     cas_home_values: BTreeMap<String, PortableValue>,
@@ -129,6 +138,7 @@ pub struct SessionContext {
     modules: BTreeMap<String, ModuleState>,
     grobs: Vec<Option<Grob>>,
     notes: BTreeMap<String, String>,
+    note_bullets: BTreeMap<String, BTreeSet<usize>>,
     programs: BTreeMap<String, String>,
     terminal: Vec<String>,
     display: DisplayMode,
@@ -136,6 +146,28 @@ pub struct SessionContext {
     generation: u64,
     last_value: Option<PortableValue>,
 }
+/// Successful literal CAS reads local to one read-only application calculation.
+#[derive(Default)]
+pub struct HomeCasCache {
+    entry: RefCell<Option<CachedHomeCas>>,
+}
+
+struct CachedHomeCas {
+    cas: ppl_cas::CasSession,
+    numeric_version: ppl_math::NumericVersion,
+    reads: BTreeMap<Vec<String>, BTreeMap<String, PortableValue>>,
+}
+
+impl CachedHomeCas {
+    fn matches(&self, session: &SessionContext) -> bool {
+        self.numeric_version == session.settings.numeric_version
+            && self.cas.bindings == session.cas.bindings
+            && self.cas.settings == session.cas.settings
+            && self.cas.last_value == session.cas.last_value
+            && self.cas.helper_version == session.cas.helper_version
+    }
+}
+
 pub struct SessionRun {
     pub result: RtResult<Value>,
     pub steps: u64,
@@ -147,6 +179,53 @@ impl Default for SessionContext {
     }
 }
 impl SessionSnapshot {
+    pub fn geometry_plot_settings(&self) -> crate::GeometryPlotSettings {
+        self.geometry_plot_settings.clone().unwrap_or_default()
+    }
+    /// Effective Plot Setup for an app with established variable contracts.
+    /// These values are separate from actual Home globals and are never
+    /// injected into snapshots merely for taking a read-only view.
+    pub fn plot_settings_for(&self, app: &str) -> Option<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(app))
+    }
+    /// An explicitly stored app field, or a legacy live value for the
+    /// active app. Default fields do not become Home variables.
+    pub fn plot_variable_for(&self, app: &str, name: &str) -> Option<PortableValue> {
+        if app == "Geometry" {
+            return self
+                .geometry_plot_settings
+                .as_ref()
+                .and_then(|s| s.get(name).ok())
+                .map(|v| PortableValue::from(&v));
+        }
+        self.app_plot_settings
+            .get(app)
+            .and_then(|settings| settings.get(name))
+            .map(|value| PortableValue::from(&value))
+            .or_else(|| {
+                (app == self.active_app)
+                    .then(|| self.globals.get(name).cloned())
+                    .flatten()
+            })
+    }
+    pub fn app_plot_settings(&self) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(&self.active_app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(&self.active_app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!(
+                        "Plot Setup defaults are not established for {}",
+                        self.active_app
+                    ),
+                )
+            })
+    }
     pub fn app_numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -162,6 +241,60 @@ impl SessionSnapshot {
     }
 }
 impl SessionContext {
+    pub fn geometry_plot_settings(&self) -> crate::GeometryPlotSettings {
+        self.geometry_plot_settings.clone().unwrap_or_default()
+    }
+    pub fn set_geometry_plot_settings(
+        &mut self,
+        settings: crate::GeometryPlotSettings,
+    ) -> RtResult<()> {
+        settings
+            .validate()
+            .map_err(|m| RuntimeError::new(ErrorKind::InvalidInput, m))?;
+        if self.geometry_plot_settings.as_ref() != Some(&settings) {
+            self.geometry_plot_settings = Some(settings);
+            self.generation += 1;
+        }
+        Ok(())
+    }
+    /// Effective Plot Setup for an app with established variable contracts.
+    /// These values are separate from actual Home globals and are never
+    /// injected into snapshots merely for taking a read-only view.
+    pub fn plot_settings_for(&self, app: &str) -> Option<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(app))
+    }
+    /// Store one app's Plot Setup without changing the selected application.
+    pub fn set_app_file(&mut self, app: &str, name: String, value: PortableValue) {
+        let files = self.app_files.entry(app.into()).or_default();
+        if files.get(&name) != Some(&value) {
+            files.insert(name, value);
+            self.generation += 1;
+        }
+    }
+
+    pub fn set_app_plot_settings(
+        &mut self,
+        app: &str,
+        settings: crate::AppPlotSettings,
+    ) -> RtResult<()> {
+        if crate::AppPlotSettings::for_app(app).is_none() {
+            return Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                format!("Plot Setup defaults are not established for {app}"),
+            ));
+        }
+        settings
+            .validate_for(app)
+            .map_err(|message| RuntimeError::new(ErrorKind::BadArgValue, message))?;
+        if self.app_plot_settings.get(app) != Some(&settings) {
+            self.app_plot_settings.insert(app.into(), settings);
+            self.generation += 1;
+        }
+        Ok(())
+    }
     fn retain_linked_modules(
         &mut self,
         machine: &Machine,
@@ -201,6 +334,21 @@ impl SessionContext {
             .entry(self.active_app.clone())
             .or_default()
     }
+    pub fn app_plot_settings(&self) -> RtResult<crate::AppPlotSettings> {
+        self.app_plot_settings
+            .get(&self.active_app)
+            .cloned()
+            .or_else(|| crate::AppPlotSettings::for_app(&self.active_app))
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    format!(
+                        "Plot Setup defaults are not established for {}",
+                        self.active_app
+                    ),
+                )
+            })
+    }
     pub fn app_numeric_settings(&self) -> crate::AppNumericSettings {
         self.app_numeric_settings
             .get(&self.active_app)
@@ -211,6 +359,27 @@ impl SessionContext {
         self.app_settings().effective(&self.settings)
     }
     /// Mutations from calculator catalogs share exactly the memory used by PPL.
+    pub fn set_graph3d_numeric_settings(
+        &mut self,
+        settings: crate::AppNumericSettings,
+    ) -> RtResult<()> {
+        if settings.graph3d.is_none() {
+            return Err(RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Graph 3D requires separate X and Y Numeric settings",
+            ));
+        }
+        settings
+            .validate()
+            .map_err(|message| RuntimeError::new(ErrorKind::InvalidInput, message))?;
+        if self.app_numeric_settings.get("Graph 3D") != Some(&settings) {
+            self.app_numeric_settings
+                .insert("Graph 3D".into(), settings);
+            self.generation += 1;
+        }
+        Ok(())
+    }
+
     pub fn set_variable(&mut self, name: &str, value: PortableValue) -> RtResult<()> {
         if name.is_empty()
             || !name
@@ -228,6 +397,21 @@ impl SessionContext {
         } else {
             value
         };
+        if self.active_app == "Geometry" && crate::GeometryPlotSettings::recognizes(name) {
+            let mut next = self.geometry_plot_settings();
+            next.set(name, &value.to_value())?;
+            return self.set_geometry_plot_settings(next);
+        }
+        if crate::AppPlotSettings::recognizes(&self.active_app, name)
+            && crate::AppPlotSettings::for_app(&self.active_app).is_some()
+        {
+            crate::AppPlotSettings::check_field(&self.active_app, name)?;
+            let mut next = self.app_plot_settings()?;
+            next.set_for(&self.active_app, name, &value.to_value())?;
+            self.app_plot_settings.insert(self.active_app.clone(), next);
+            self.generation += 1;
+            return Ok(());
+        }
         if let Some(setting) = crate::AppNumericSettings::setting(name) {
             let mut next = self.app_numeric_settings();
             next.set(setting, &value.to_value())?;
@@ -285,6 +469,10 @@ impl SessionContext {
                     ErrorKind::BadArgValue,
                     "Graphics references are read-only; use graphics commands",
                 ));
+            }
+            if crate::statistics_columns::is_two_variable_column(name) {
+                self.statistics2_columns_revision =
+                    self.statistics2_columns_revision.wrapping_add(1);
             }
             self.globals.insert(name.into(), value);
         }
@@ -360,6 +548,9 @@ impl SessionContext {
             .remove(old)
             .ok_or_else(|| RuntimeError::new(ErrorKind::Undefined, "Note does not exist"))?;
         self.notes.insert(new.into(), text);
+        if let Some(bullets) = self.note_bullets.remove(old) {
+            self.note_bullets.insert(new.into(), bullets);
+        }
         self.generation += 1;
         Ok(())
     }
@@ -370,11 +561,26 @@ impl SessionContext {
         removed
     }
     pub fn store_note(&mut self, name: &str, text: String) -> RtResult<()> {
+        self.store_bulleted_note(name, text, BTreeSet::new())
+    }
+    pub fn store_bulleted_note(
+        &mut self,
+        name: &str,
+        text: String,
+        mut bullets: BTreeSet<usize>,
+    ) -> RtResult<()> {
         if name.trim().is_empty() {
             return Err(RuntimeError::new(
                 ErrorKind::BadArgValue,
                 "A note needs a name",
             ));
+        }
+        let paragraphs = text.split('\n').count();
+        bullets.retain(|index| *index < paragraphs);
+        if bullets.is_empty() {
+            self.note_bullets.remove(name);
+        } else {
+            self.note_bullets.insert(name.into(), bullets);
         }
         self.notes.insert(name.into(), text);
         self.generation += 1;
@@ -382,6 +588,7 @@ impl SessionContext {
     }
     pub fn delete_note(&mut self, name: &str) -> bool {
         let removed = self.notes.remove(name).is_some();
+        self.note_bullets.remove(name);
         self.generation += u64::from(removed);
         removed
     }
@@ -392,6 +599,9 @@ impl SessionContext {
             active_app: "Function".into(),
             app_settings: Default::default(),
             app_numeric_settings: Default::default(),
+            app_plot_settings: Default::default(),
+            geometry_plot_settings: None,
+            statistics2_columns_revision: 0,
             app_files: Default::default(),
             cas: Default::default(),
             cas_home_values: Default::default(),
@@ -400,6 +610,7 @@ impl SessionContext {
             modules: BTreeMap::new(),
             grobs,
             notes: BTreeMap::new(),
+            note_bullets: BTreeMap::new(),
             programs: BTreeMap::new(),
             terminal: Vec::new(),
             display: DisplayMode::Graphics,
@@ -413,6 +624,9 @@ impl SessionContext {
             active_app: self.active_app.clone(),
             app_settings: self.app_settings.clone(),
             app_numeric_settings: self.app_numeric_settings.clone(),
+            app_plot_settings: self.app_plot_settings.clone(),
+            geometry_plot_settings: self.geometry_plot_settings.clone(),
+            statistics2_columns_revision: self.statistics2_columns_revision,
             app_files: self.app_files.clone(),
             cas: self.cas.clone(),
             generation: self.generation,
@@ -420,6 +634,7 @@ impl SessionContext {
             globals: self.globals.clone(),
             last_value: self.last_value.clone(),
             notes: self.notes.clone(),
+            note_bullets: self.note_bullets.clone(),
             programs: self.programs.clone(),
         }
     }
@@ -452,6 +667,9 @@ impl SessionContext {
         machine.active_app = self.active_app.clone();
         machine.app_settings = self.app_settings.clone();
         machine.app_numeric_settings = self.app_numeric_settings.clone();
+        machine.app_plot_settings = self.app_plot_settings.clone();
+        machine.statistics2_columns_revision = self.statistics2_columns_revision;
+        machine.geometry_plot_settings = self.geometry_plot_settings.clone();
         machine.app_files = self.app_files.clone();
         machine.home_variables = self
             .globals
@@ -500,7 +718,9 @@ impl SessionContext {
                             .unwrap_or_default(),
                     );
                 }
-            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_)) {
+            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && machine.retain_home_slot(i)
+            {
                 self.globals.insert(slot.name.clone(), value);
             }
         }
@@ -518,6 +738,9 @@ impl SessionContext {
         self.active_app = machine.active_app;
         self.app_settings = machine.app_settings;
         self.app_numeric_settings = machine.app_numeric_settings;
+        self.app_plot_settings = machine.app_plot_settings;
+        self.statistics2_columns_revision = machine.statistics2_columns_revision;
+        self.geometry_plot_settings = machine.geometry_plot_settings;
         self.app_files = machine.app_files;
         for (name, value) in machine.home_variables {
             self.globals.insert(name, PortableValue::from(&value));
@@ -526,6 +749,9 @@ impl SessionContext {
         self.cas = machine.cas_context.clone();
         self.settings = machine.settings.clone();
         self.grobs = machine.grobs;
+        // A PPL text replacement discards styles attached to the previous text.
+        self.note_bullets
+            .retain(|name, _| self.notes.get(name) == machine.notes.get(name));
         self.notes = machine.notes;
         self.programs = machine.programs;
         self.terminal = machine.terminal;
@@ -560,6 +786,9 @@ impl SessionContext {
         machine.active_app = self.active_app.clone();
         machine.app_settings = self.app_settings.clone();
         machine.app_numeric_settings = self.app_numeric_settings.clone();
+        machine.app_plot_settings = self.app_plot_settings.clone();
+        machine.statistics2_columns_revision = self.statistics2_columns_revision;
+        machine.geometry_plot_settings = self.geometry_plot_settings.clone();
         machine.app_files = self.app_files.clone();
         machine.home_variables = self
             .globals
@@ -627,7 +856,9 @@ impl SessionContext {
                             .unwrap_or_default(),
                     );
                 }
-            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_)) {
+            } else if !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && machine.retain_home_slot(i)
+            {
                 self.globals.insert(slot.name.clone(), value);
             }
         }
@@ -645,6 +876,9 @@ impl SessionContext {
         self.active_app = machine.active_app;
         self.app_settings = machine.app_settings;
         self.app_numeric_settings = machine.app_numeric_settings;
+        self.app_plot_settings = machine.app_plot_settings;
+        self.statistics2_columns_revision = machine.statistics2_columns_revision;
+        self.geometry_plot_settings = machine.geometry_plot_settings;
         self.app_files = machine.app_files;
         for (name, value) in machine.home_variables {
             self.globals.insert(name, PortableValue::from(&value));
@@ -653,6 +887,9 @@ impl SessionContext {
         self.cas = machine.cas_context.clone();
         self.settings = machine.settings.clone();
         self.grobs = machine.grobs;
+        // A PPL text replacement discards styles attached to the previous text.
+        self.note_bullets
+            .retain(|name, _| self.notes.get(name) == machine.notes.get(name));
         self.notes = machine.notes;
         self.programs = machine.programs;
         self.terminal = machine.terminal;
@@ -699,7 +936,12 @@ impl SessionContext {
         let fallback = std::sync::atomic::AtomicBool::new(false);
         let result=cas.evaluate_with_home(source,&home,&options,interrupt.as_deref().unwrap_or(&fallback)).and_then(|evaluation|{
             if cas.bindings.keys().any(|name|!self.cas.bindings.contains_key(name)){return Err(ppl_cas::CasError::InvalidRequest("Create Home variables through the Variables catalog or HVars before assigning a measurement".into()));}
-            for(name,value)in evaluation.home_updates{self.globals.insert(name,PortableValue::from(&crate::cas::from_cas_home_in_model(value,self.settings.numeric_version)));}
+            for (name, value) in evaluation.home_updates {
+    if crate::statistics_columns::is_two_variable_column(&name) {
+        self.statistics2_columns_revision = self.statistics2_columns_revision.wrapping_add(1);
+    }
+    self.globals.insert(name, PortableValue::from(&crate::cas::from_cas_home_in_model(value, self.settings.numeric_version)));
+}
             self.cas.bindings=cas.bindings;self.cas.helper_version=cas.helper_version;
             let value=crate::cas::from_cas_home_in_model(evaluation.value,self.settings.numeric_version);
             if promote{let portable=PortableValue::from(&value);self.globals.insert("Ans".into(),portable.clone());self.last_value=Some(portable);}
@@ -725,6 +967,27 @@ impl SessionContext {
         host: Box<dyn Host>,
         limits: Limits,
     ) -> SessionRun {
+        self.evaluate_home_in_context(text, catalog, host, limits, None)
+    }
+
+    pub fn evaluate_home_with_cas_cache(
+        &mut self,
+        text: &str,
+        host: Box<dyn Host>,
+        limits: Limits,
+        cache: &HomeCasCache,
+    ) -> SessionRun {
+        self.evaluate_home_in_context(text, &BTreeMap::new(), host, limits, Some(cache))
+    }
+
+    fn evaluate_home_in_context(
+        &mut self,
+        text: &str,
+        catalog: &BTreeMap<String, crate::ModuleSource>,
+        host: Box<dyn Host>,
+        limits: Limits,
+        cache: Option<&HomeCasCache>,
+    ) -> SessionRun {
         match ppl_cas::units::translate_home(text) {
             Ok(Some(source)) => return self.evaluate_measurement(&source, host, limits, true),
             Ok(None) => {}
@@ -741,7 +1004,50 @@ impl SessionContext {
             }
         }
         let compiled = self.compile_home(text);
-        if compiled.is_err() && (!self.programs.is_empty() || !catalog.is_empty()) {
+        // An app-style name may also be an installed user export (for example
+        // GEOBRIDGE). The initial isolated compile cannot see that catalog;
+        // retain declared-function precedence by using the existing dependency
+        // linker when such a name was provisionally emitted as app access.
+        let app_export = compiled.as_ref().is_ok_and(|program| {
+            let provisional = program
+                .functions
+                .iter()
+                .flat_map(|f| &f.code)
+                .filter_map(|op| {
+                    if let ppl_compiler::Op::AppVariable { name, .. } = op {
+                        let name = &program.names[*name as usize];
+                        (!name.contains('.')).then_some(name.as_str())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<std::collections::BTreeSet<_>>();
+            !provisional.is_empty()
+                && self
+                    .programs
+                    .values()
+                    .map(String::as_str)
+                    .chain(catalog.values().map(|module| module.source.as_str()))
+                    .any(|source| {
+                        let (ast, diagnostics) = ppl_syntax::parse(source);
+                        !diagnostics.has_errors()
+                            && ast.items.iter().any(|item| match item {
+                                ppl_syntax::ast::Item::Function(function) => {
+                                    function.exported
+                                        && provisional.contains(function.name.name.as_str())
+                                }
+                                ppl_syntax::ast::Item::Globals {
+                                    exported: true,
+                                    vars,
+                                    ..
+                                } => vars
+                                    .iter()
+                                    .any(|v| provisional.contains(v.name.name.as_str())),
+                                _ => false,
+                            })
+                    })
+        });
+        if (compiled.is_err() || app_export) && (!self.programs.is_empty() || !catalog.is_empty()) {
             let root = "<native-home>";
             let mut sources = self
                 .programs
@@ -795,16 +1101,17 @@ impl SessionContext {
                         .map(|slot| slot.name.clone())
                         .collect::<Vec<_>>();
                     let prepared = Instant::now();
-                    let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits) {
-                        Ok(remaining) => remaining,
-                        Err(error) => {
-                            return SessionRun {
-                                result: Err(error),
-                                steps: 0,
-                                elapsed: prepared.elapsed(),
-                            };
-                        }
-                    };
+                    let remaining =
+                        match self.prepare_home_cas(&names, host.as_ref(), limits, cache) {
+                            Ok(remaining) => remaining,
+                            Err(error) => {
+                                return SessionRun {
+                                    result: Err(error),
+                                    steps: 0,
+                                    elapsed: prepared.elapsed(),
+                                };
+                            }
+                        };
                     return self.run_linked(image, host, remaining, true, |machine| {
                         machine.call_function("__HOME", Vec::new())
                     });
@@ -828,7 +1135,7 @@ impl SessionContext {
                     .map(|slot| slot.name.clone())
                     .collect::<Vec<_>>();
                 let prepared = Instant::now();
-                let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits) {
+                let remaining = match self.prepare_home_cas(&names, host.as_ref(), limits, cache) {
                     Ok(remaining) => remaining,
                     Err(error) => {
                         return SessionRun {
@@ -866,11 +1173,47 @@ impl SessionContext {
         names: &[String],
         host: &dyn Host,
         mut limits: Limits,
+        cache: Option<&HomeCasCache>,
     ) -> RtResult<Limits> {
         self.cas_home_values.clear();
         let started = Instant::now();
-        let mut resolver = self.cas.clone();
         let cancel = host.interrupt_flag();
+        // Only integer bindings are independent of other CAS values and Ans.
+        // Other bindings retain the ordinary ordered, supervised resolution.
+        let lookup = cache
+            .filter(|_| {
+                self.cas
+                    .bindings
+                    .values()
+                    .all(|text| text.parse::<i64>().is_ok())
+            })
+            .and_then(|cache| {
+                let names = names
+                    .iter()
+                    .filter(|name| {
+                        self.cas.bindings.contains_key(*name) && !self.globals.contains_key(*name)
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                (!names.is_empty()).then_some((cache, names))
+            });
+        if let Some((cache, names)) = &lookup {
+            let entry = cache.entry.borrow();
+            if let Some(entry) = entry.as_ref()
+                && entry.matches(self)
+                && let Some(values) = entry.reads.get(names)
+                && cancel
+                    .as_ref()
+                    .is_none_or(|flag| !flag.load(Ordering::Acquire))
+            {
+                self.cas_home_values.clone_from(values);
+                limits.max_time = limits
+                    .max_time
+                    .map(|limit| limit.saturating_sub(started.elapsed()));
+                return Ok(limits);
+            }
+        }
+        let mut resolver = self.cas.clone();
         let fallback = std::sync::atomic::AtomicBool::new(false);
         for name in names {
             if self.cas.bindings.contains_key(name) && !self.globals.contains_key(name) {
@@ -904,6 +1247,18 @@ impl SessionContext {
                     }
                 }
             }
+        }
+        if let Some((cache, names)) = lookup {
+            let mut entry = cache.entry.borrow_mut();
+            if entry.as_ref().is_some_and(|entry| !entry.matches(self)) {
+                *entry = None;
+            }
+            let entry = entry.get_or_insert_with(|| CachedHomeCas {
+                cas: self.cas.clone(),
+                numeric_version: self.settings.numeric_version,
+                reads: BTreeMap::new(),
+            });
+            entry.reads.insert(names, self.cas_home_values.clone());
         }
         let elapsed = started.elapsed();
         limits.max_time = limits.max_time.map(|limit| limit.saturating_sub(elapsed));

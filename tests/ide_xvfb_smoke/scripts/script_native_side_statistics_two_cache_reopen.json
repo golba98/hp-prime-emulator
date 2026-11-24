@@ -1,0 +1,43 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_statistics_two_cache_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "new_program",
+      "name": "TCACHE"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT TCACHE() BEGIN X:=4;LOCAL ok:=1,status;IFERR status:=Do2VStats(S1);THEN ok:=0;END;RETURN {ok,EXPR(STRING(S1(5))),ISCHECK(1)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 18000
+    },
+    {
+      "step": "wait_ms",
+      "ms": 160
+    },
+    {
+      "step": "snapshot",
+      "label": "cold_reopen"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

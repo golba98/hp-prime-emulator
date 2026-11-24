@@ -227,6 +227,10 @@ fn home_user_variables_and_app_files_share_durable_calculator_memory() {
         home(&mut restored, "AFiles(\"data\")").display(Default::default()),
         "{1,2,3}"
     );
+    assert_eq!(
+        home(&mut restored, "AFiles").display(Default::default()),
+        home(&mut restored, "AFiles()").display(Default::default()),
+    );
     restored.active_app = "Parametric".into();
     assert_eq!(
         home(&mut restored, "AFiles()").display(Default::default()),

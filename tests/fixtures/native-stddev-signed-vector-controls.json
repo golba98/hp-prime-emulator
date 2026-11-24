@@ -1,0 +1,109 @@
+{
+  "provenance": "Self-authored PPL controls executed on the original virtual G1 for signed vector deviation shapes, typed cancellation, and ordinary numeric division and rounding.",
+  "cases": [
+    {
+      "name": "finite",
+      "entry": "ZZT_SDVEC",
+      "source": "EXPORT ZZT_SDVEC() BEGIN LOCAL R,out:={};\nR:=stddev([0,1,3],{2,-.5,1}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,5],{-.25,1.25}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,4,8],{-1.5,-.5,-2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([3,3,3],{-1.5,.5,2.5}); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-1,0,1],[1.5,-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-1,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([1,-3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-3,0,4],[1.5,-.5,2]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-3,0,4],[-2.5,-.5,-2]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([0+1,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-(-1),3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nR:=stddev([-0,3],[-.5,1.5]); out:=CONCAT(out,{{TYPE(R),ROUND(RE(R),10),ROUND(IM(R),10)}});\nRETURN out; END;",
+      "source_sha256": "cfdcb5f3b1b72fda6e3e38eab5ade721b7857581d604eecaf5f476ce0e6abc8a",
+      "expected": [
+        [
+          0,
+          1.5491933385,
+          0
+        ],
+        [
+          3,
+          0,
+          2.2360679775
+        ],
+        [
+          0,
+          3.2241373619,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1.5499570523,
+          0
+        ],
+        [
+          3,
+          0,
+          0.8660254038
+        ],
+        [
+          0,
+          2.3452078799,
+          0
+        ],
+        [
+          0,
+          2.6039608762,
+          0
+        ],
+        [
+          3,
+          0,
+          7.9843597113
+        ],
+        [
+          0,
+          0.6614378278,
+          0
+        ],
+        [
+          0,
+          0.6614378278,
+          0
+        ],
+        [
+          3,
+          0,
+          0.125
+        ]
+      ]
+    },
+    {
+      "name": "zero_total",
+      "entry": "ZZT_SDVEC",
+      "source": "EXPORT ZZT_SDVEC() BEGIN LOCAL R,out:={};\nR:=stddev([2,4],{-.25,.25}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([2,4],{-2,2}); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([-1,3],[-1.5,-1.5]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nR:=stddev([-1,3],[-1,-2]); out:=CONCAT(out,{{TYPE(R),STRING(R)}});\nRETURN out; END;",
+      "source_sha256": "db316381fc4df298d5e6109be5a737cd4ae8978dcb2e986631c92ad3094d9c01",
+      "expected": [
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ],
+        [
+          2,
+          "\"Undefined\""
+        ],
+        [
+          8,
+          "undef"
+        ]
+      ]
+    },
+    {
+      "name": "divide",
+      "entry": "ZZT_SDVEC",
+      "source": "EXPORT ZZT_SDVEC() BEGIN LOCAL R:=stddev([0,1,3],{2,-.5,1}); RETURN {TYPE(R/2),ROUND(R/2,10),ROUND(2/3,10),ROUND(stddev({1,3},{.5,1.5}),10)}; END;",
+      "source_sha256": "cba28f15fe44c2c4f49c10f536c8c0db09941aa7595dd5fbbc096c10c546d41b",
+      "expected": [
+        0,
+        0.7745966692,
+        0.6666666667,
+        0.8660254038
+      ]
+    }
+  ]
+}

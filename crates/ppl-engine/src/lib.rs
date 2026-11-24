@@ -16,6 +16,7 @@ pub mod help;
 pub mod inspection;
 pub mod live;
 pub mod native;
+pub mod plot_images;
 pub mod preflight;
 pub mod session;
 pub mod source;
