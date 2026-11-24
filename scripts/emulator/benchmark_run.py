@@ -27,6 +27,52 @@ def cpu_seconds(pid):
         return None
 
 
+def profile_sha256(directory):
+    """Bind comparisons to the same initial data, excluding host timestamps."""
+    digest = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        if path.is_symlink():
+            raise ValueError(f"initial profile contains a symlink: {path}")
+        name = path.relative_to(directory).as_posix().encode()
+        digest.update(struct.pack("<I", len(name)))
+        digest.update(name)
+        if path.is_dir():
+            digest.update(b"D")
+        elif path.is_file():
+            digest.update(b"F")
+            digest.update(struct.pack("<Q", path.stat().st_size))
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+        else:
+            raise ValueError(f"initial profile contains a nonregular entry: {path}")
+    return digest.hexdigest()
+
+
+def copy_initial_profile(source, destination):
+    expected = profile_sha256(source)
+    # Preserve unexpected links for validation, rather than following them if
+    # the source tree changes during the copy.
+    shutil.copytree(source, destination, symlinks=True)
+    copied = profile_sha256(destination)
+    if copied != expected:
+        raise ValueError("initial profile changed while preparing the benchmark")
+    return copied
+
+
+def host_identity():
+    processor = platform.processor()
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                processor = line.split(":", 1)[1].strip()
+                break
+    except OSError:
+        pass
+    return {"hostname": platform.node(), "machine": platform.machine(),
+            "processor": processor, "logical_cpus": os.cpu_count()}
+
+
 class Session:
     def __init__(self, helper, assets, profile, output):
         self.log = (output / "session.log").open("w")
@@ -129,14 +175,18 @@ def main():
             parser.error(f"missing resource: {item}")
     args.output.mkdir(parents=True, exist_ok=False)
     profile = args.output / "profile"
-    shutil.copytree(initial, profile)
+    initial_identity = copy_initial_profile(initial, profile)
     cases, tiny = workloads()
     metadata = {
         "helper": str(helper), "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
         "firmware_sha256": hashlib.sha256((assets / "armfir.elf").read_bytes()).hexdigest(),
+        "os_rom_sha256": hashlib.sha256((assets / "PRIME_OS.ROM").read_bytes()).hexdigest(),
         "platform": platform.platform(), "clock": "time.monotonic request write to matching Result event",
+        "host_identity": host_identity(),
         "cpu_clock": "/proc/pid/stat user+system ticks when available", "samples_per_case": 1,
         "verification": "local firmware only; no physical calculator",
+        "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "initial_profile_sha256": initial_identity,
         "boot_seconds": [], "results": [],
     }
     request = 0

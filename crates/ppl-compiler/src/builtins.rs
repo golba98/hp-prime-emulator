@@ -163,7 +163,7 @@ builtins! {
     Conj "CONJ" 1..=1 Math Implemented;
     Arg "ARG" 1..=1 Math Implemented;
     Approx "APPROX" 1..=1 Math Approximate;
-    Exact "EXACT" 1..=1 Math Unsupported;
+    Exact "EXACT" 1..=1 Math Approximate;
     Hms "→HMS" 1..=1 Math Implemented;
     HmsFrom "HMS→" 1..=1 Math Implemented;
     Nthroot "NTHROOT" 2..=2 Math Implemented;
@@ -179,7 +179,7 @@ builtins! {
     Bitnot "BITNOT" 1..=1 Bits Implemented;
     Bitsl "BITSL" 1..=2 Bits Implemented;
     Bitsr "BITSR" 1..=2 Bits Implemented;
-    RtoB "R→B" 1..=1 Bits Implemented;
+    RtoB "R→B" 1..=2 Bits Implemented;
     BtoR "B→R" 1..=1 Bits Implemented;
     Setbase "SETBASE" 1..=2 Bits Implemented;
     Getbase "GETBASE" 1..=1 Bits Implemented;
@@ -250,8 +250,8 @@ builtins! {
     Textout "TEXTOUT" 3..=8 Graphics Approximate;
     // srcG is required: the original firmware rejects `BLIT_P()` and
     // `BLIT()` (diagnostic corpus e06, e18).
-    BlitP "BLIT_P" 1..=11 Graphics Implemented;
-    Blit "BLIT" 1..=11 Graphics Approximate;
+    BlitP "BLIT_P" 1..=12 Graphics Implemented;
+    Blit "BLIT" 1..=12 Graphics Approximate;
     DimgrobP "DIMGROB_P" 2..=4 Graphics Implemented;
     Dimgrob "DIMGROB" 2..=4 Graphics Approximate;
     SubgrobP "SUBGROB_P" 2..=6 Graphics Implemented;
@@ -259,6 +259,7 @@ builtins! {
     InvertP "INVERT_P" 0..=5 Graphics Implemented;
     FillpolyP "FILLPOLY_P" 2..=4 Graphics Implemented;
     TriangleP "TRIANGLE_P" 0..=15 Graphics Approximate;
+    Triangle "TRIANGLE" 0..=15 Graphics Approximate;
     GrobwP "GROBW_P" 1..=1 Graphics Implemented;
     GrobhP "GROBH_P" 1..=1 Graphics Implemented;
     Rgb "RGB" 3..=4 Graphics Implemented;
@@ -273,24 +274,27 @@ builtins! {
     Mouse "MOUSE" 0..=1 Io Approximate;
     Disp "DISP" 2..=2 Io Approximate;
     Freeze "FREEZE" 0..=0 Io Approximate;
-    Drawmenu "DRAWMENU" 0..=6 Io Approximate;
-    Editlist "EDITLIST" 1..=1 Io Unsupported;
+    Drawmenu "DRAWMENU" 1..=6 Io Approximate;
+    Editlist "EDITLIST" 1..=1 Io Implemented;
     // ---- time ----
     Ticks "TICKS" 0..=0 Time Implemented;
     Time "TIME" 0..=0 Time Implemented;
     Date "DATE" 0..=0 Time Implemented;
+    // ---- application-owned statistics (typed Host transport) ----
+    Do1VStats "Do1VStats" 1..=1 System Approximate;
+    SetSample "SetSample" 2..=2 System Approximate;
+    SetFreq "SetFreq" 2..=2 System Approximate;
     // ---- system ----
     Type "TYPE" 1..=1 System Implemented;
-    Eval "EVAL" 1..=1 System Unsupported;
-    Startapp "STARTAPP" 1..=1 System Unsupported;
-    Startview "STARTVIEW" 1..=2 System Unsupported;
-    Recall "RECALL" 1..=1 System Unsupported;
+    Eval "EVAL" 1..=1 System Approximate;
+    Startapp "STARTAPP" 1..=1 System Approximate;
+    Startview "STARTVIEW" 1..=2 System Approximate;
     Notes "NOTES" 0..=1 System Implemented;
     Programs "PROGRAMS" 0..=1 System Implemented;
-    Afiles "AFILES" 0..=1 System Unsupported;
-    Hvars "HVARS" 0..=1 System Unsupported;
-    // ---- CAS (separate subsystem, not emulated) ----
-    CasCall "CAS" 0..=N Cas Unsupported;
+    Afiles "AFILES" 0..=1 System Implemented;
+    Hvars "HVARS" 0..=2 System Approximate;
+    // ---- CAS (supervised external algebra service) ----
+    CasCall "CAS" 1..=1 Cas Approximate;
 }
 
 pub fn spec(b: Builtin) -> &'static BuiltinSpec {

@@ -1,5 +1,7 @@
 //! Same-session source replacement using documented Programs and AFiles APIs.
 //! The host writes an app attachment; the guest loader performs the source assignment.
+mod image;
+
 use crate::{
     checkprog, direct, hpprgm, import, keys,
     memory::GuestMemory,
@@ -29,6 +31,7 @@ const DEFERRED_LIMIT: Duration = Duration::from_secs(10);
 /// Idle share over [`INTERRUPT_SETTLE`]: the firmware's own timers (every
 /// 183 ms) wake the UI pump, so idleness is never continuous.
 const INTERRUPT_IDLE_SHARE: f64 = 0.8;
+type DirectOutput = Arc<Mutex<Option<direct::Outcome>>>;
 /// Reserved source loader. AFiles decodes a serialized string in firmware,
 /// avoiding the interpreted per-character binary conversion. Programs():=
 /// remains responsible for compilation and storing the resulting program.
@@ -41,11 +44,14 @@ pub const LOADER_V1: &str = "EXPORT ZZTIDELOAD()\nBEGIN\n LOCAL b:=Function.AFil
 /// Reserved importer: stores ZZT_IDE's source as a new program whose name
 /// the host passes in an app attachment (`Programs(name):=`).
 pub const IMPORTER: &str = "EXPORT ZZTIDEIMPORT()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_NAME\",0,Function.AFilesB(\"ZZT_IDE_NAME\"));\n LOCAL n:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  n:=n+CHAR(b(i)+256*b(i+1));\n END;\n Programs(n):=Programs(\"ZZT_IDE\");\n RETURN SIZE(n);\nEND;\n";
+/// Named loader avoids the scratch ZZT_IDE module and duplicate exports.
+pub const NAMED_LOADER: &str = "EXPORT ZZTNAMEDLOAD()\nBEGIN\n LOCAL b:=Function.AFilesB(\"ZZT_IDE_NAME\",0,Function.AFilesB(\"ZZT_IDE_NAME\"));\n LOCAL n:=\"\";\n LOCAL i;\n FOR i FROM 1 TO SIZE(b) STEP 2 DO\n  n:=n+CHAR(b(i)+256*b(i+1));\n END;\n LOCAL s:=Function.AFiles(\"ZZT_IDE_SOURCE\");\n Programs(n):=s;\n RETURN SIZE(n);\nEND;\n";
 /// Share of idle samples over a sliding [`INTERRUPT_SETTLE`] window: the
 /// firmware UI is idle when its pump is parked in GetEvent with no input
 /// queued and the main thread waiting.
-#[derive(Default)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct IdleMeter {
+    #[serde(with = "crate::image_time")]
     samples: std::collections::VecDeque<(Instant, bool)>,
 }
 impl IdleMeter {
@@ -79,10 +85,41 @@ impl IdleMeter {
     pub fn clear(&mut self) {
         self.samples.clear();
     }
+    /// Current strict window for failure diagnostics, never an admission override.
+    pub fn diagnostic(&self) -> serde_json::Value {
+        let idle = self.samples.iter().filter(|(_, idle)| *idle).count();
+        // Diagnostic zero-order estimate only: coordinator samples do not prove
+        // the owner stayed in this state between observations. Never admit a
+        // checkpoint using this estimate or extrapolate beyond the last sample.
+        let mut observed = Duration::ZERO;
+        let mut estimated_idle = Duration::ZERO;
+        let mut maximum_gap = Duration::ZERO;
+        for ((start, was_idle), (end, _)) in self.samples.iter().zip(self.samples.iter().skip(1)) {
+            let interval = end.saturating_duration_since(*start);
+            observed += interval;
+            maximum_gap = maximum_gap.max(interval);
+            if *was_idle {
+                estimated_idle += interval;
+            }
+        }
+        serde_json::json!({"samples":self.samples.len(),"idle_samples":idle,
+        "share":idle as f64/self.samples.len().max(1) as f64,
+        "covered_ms":self.samples.front().map(|(t,_)|t.elapsed().as_secs_f64()*1000.0),
+        "required_share":INTERRUPT_IDLE_SHARE,"required_window_ms":INTERRUPT_SETTLE.as_millis(),
+        "sample_interval_estimate": {
+            "admission_input": false,
+            "observed_ms": observed.as_secs_f64()*1000.0,
+            "idle_ms": estimated_idle.as_secs_f64()*1000.0,
+            "maximum_gap_ms": maximum_gap.as_secs_f64()*1000.0,
+            "share": if observed.is_zero() { None } else { Some(estimated_idle.as_secs_f64()/observed.as_secs_f64()) }
+        }})
+    }
 }
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 enum Stage {
     CheckLoader,
+    CheckNamedLoader,
+    StoreNamed,
     Load,
     /// Check the reserved importer once, to learn its program context.
     CheckImporter,
@@ -95,9 +132,13 @@ enum Stage {
     /// A direct compiler call plan is running on the UI thread.
     Direct,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Job {
     pub request: u64,
     source: String,
+    stored_name: Option<String>,
+    binding: String,
     /// The new program name of an Import request.
     import: Option<String>,
     entry: Option<String>,
@@ -108,20 +149,27 @@ pub struct Job {
     check_step: usize,
     catalog_open: bool,
     catalog_start: usize,
+    #[serde(with = "crate::image_time")]
     started: Instant,
+    #[serde(with = "crate::image_time")]
     execution_started: Option<Instant>,
     reported_running: bool,
+    reported_entry: bool,
     /// The validated firmware Check verdict on `source`, once observed.
     check: Option<CheckVerdict>,
     /// Each finished UI script: stage, finish time and per-key timings.
     timeline: Vec<serde_json::Value>,
     /// Check by a direct compiler call (`direct`) instead of the UI.
     direct: bool,
-    direct_out: Option<Arc<Mutex<Option<direct::Outcome>>>>,
+    #[serde(with = "image::output")]
+    direct_out: Option<DirectOutput>,
     /// Guest-heap UTF-16 copy of `source` handed to the firmware.
     direct_text: u32,
+    #[serde(with = "crate::image_time")]
     direct_started: Option<Instant>,
 }
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Request {
     pub request: u64,
     pub source: String,
@@ -131,7 +179,7 @@ pub struct Request {
     /// Store the source as this new program instead of checking it.
     pub import: Option<String>,
 }
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct PreparedProgram {
     source: String,
     stored_sha: String,
@@ -139,21 +187,28 @@ struct PreparedProgram {
     fs_cursor: usize,
     compiler_cursor: usize,
 }
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Jobs {
     pub active: Option<Job>,
     prepared: Option<PreparedProgram>,
     /// A running program was interrupted (Stop / ON) at this time; its
     /// invocation is closed once the firmware is back at an idle UI.
+    #[serde(with = "crate::image_time")]
     interrupted: Option<Instant>,
     idle: IdleMeter,
     /// ON presses sent for the current interruption, and the latest one.
+    #[serde(with = "crate::image_time")]
     break_presses: (u32, Option<Instant>),
     /// When the held ON key went down; released after [`BREAK_HOLD`].
+    #[serde(with = "crate::image_time")]
     on_held: Option<Instant>,
     /// A request that arrived while an interrupted program was still
     /// stopping; it starts once the firmware is back at an idle UI.
+    #[serde(with = "crate::image_time")]
     deferred: Option<(Request, Instant)>,
     loader_context: Option<u32>,
+    named_loader_context: Option<u32>,
     importer_context: Option<u32>,
     catalog: Vec<String>,
     /// The catalog order last read from the guest's program reads.
@@ -164,12 +219,42 @@ pub struct Jobs {
     /// current burst, and when the last one was.
     user_seen: usize,
     user_burst: Vec<String>,
+    #[serde(with = "crate::image_time")]
     user_last: Option<Instant>,
     /// ZZT_IDE's program context, learned from the firmware's own compile in
     /// `Programs("ZZT_IDE"):=source` during a loader run.
     direct_ctx: Option<u32>,
 }
 impl Jobs {
+    pub(super) fn resume_requests(&self) -> Vec<ppl_engine::session::ResumeRequest> {
+        let mut requests = Vec::new();
+        if let Some(job) = &self.active {
+            requests.push(ppl_engine::session::ResumeRequest {
+                request: job.request,
+                run: job.run,
+                source: Some(job.source.clone()),
+                program: (job.binding == "stored_source_dispatch")
+                    .then(|| job.stored_name.clone())
+                    .flatten(),
+                entry: job.entry.clone(),
+                source_sha256: Some(crate::sha256::hex(job.source.as_bytes())),
+                execution_started: job.reported_entry,
+            });
+        }
+        if let Some((job, _)) = &self.deferred {
+            requests.push(ppl_engine::session::ResumeRequest {
+                request: job.request,
+                run: job.run,
+                source: Some(job.source.clone()),
+                program: None,
+                entry: job.entry.clone(),
+                source_sha256: Some(crate::sha256::hex(job.source.as_bytes())),
+                execution_started: false,
+            });
+        }
+        requests
+    }
+
     pub fn new() -> Self {
         Self {
             active: None,
@@ -180,6 +265,7 @@ impl Jobs {
             on_held: None,
             deferred: None,
             loader_context: None,
+            named_loader_context: None,
             importer_context: None,
             catalog: Vec::new(),
             observed: Vec::new(),
@@ -225,6 +311,22 @@ impl Jobs {
         }
         std::fs::read(shared.data_dir.join("C/DATA/ZZT_IDE.hpprgm"))
             .is_ok_and(|bytes| crate::sha256::hex(&bytes) == p.stored_sha)
+    }
+    pub fn running_request(&self, request: u64, trace: &TraceHub) -> bool {
+        self.active.as_ref().is_some_and(|job| {
+            job.request == request
+                && job.run
+                && trace.runtime.as_ref().is_some_and(|observer| {
+                    observer.unfinished()
+                        && observer.body_entry_evidence().is_some_and(|evidence| {
+                            target_body_entry(
+                                job.stage,
+                                &crate::sha256::hex(job.source.as_bytes()),
+                                &evidence,
+                            )
+                        })
+                })
+        })
     }
     pub fn accepts_input(&self) -> bool {
         self.active.as_ref().is_none_or(|j| j.reported_running)
@@ -307,6 +409,163 @@ impl Jobs {
             }
         }
     }
+    /// Named assignment and execution do not use the IDE scratch module.
+    pub fn store_named(
+        &mut self,
+        request: u64,
+        name: String,
+        source: String,
+        previous: Option<String>,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> Result<(), String> {
+        if self.active.is_some() || trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
+            return Err("Firmware is busy".into());
+        }
+        if !name.starts_with("ZZT_") {
+            return Err("Scripted named programs must use disposable ZZT_ names".into());
+        }
+        import::validate_name(&name).map_err(|e| e.to_string())?;
+        if ["ZZT_IDE", "ZZT_LOADER", "ZZT_IMPORT", "ZZT_NAMED"]
+            .contains(&name.to_ascii_uppercase().as_str())
+        {
+            return Err("Reserved session helper cannot be replaced".into());
+        }
+        match previous {
+            None => {
+                if import::list_programs(&shared.data_dir)
+                    .iter()
+                    .any(|n| n.eq_ignore_ascii_case(&name))
+                {
+                    return Err("Named program already exists; creation refused".into());
+                }
+            }
+            Some(expected) => {
+                let old = read_program(&shared.data_dir, &name)?
+                    .source()
+                    .map_err(|e| e.to_string())?
+                    .source;
+                if crate::sha256::hex(old.as_bytes()) != expected {
+                    return Err(
+                        "Previous program source identity differs; replacement refused".into(),
+                    );
+                }
+            }
+        }
+        hpprgm::build_program(&source).map_err(|e| e.to_string())?;
+        if read_program(&shared.data_dir, "ZZT_NAMED")?
+            .source()
+            .map_err(|e| e.to_string())?
+            .source
+            != NAMED_LOADER
+        {
+            return Err("Reserved named loader differs".into());
+        }
+        write_attachment(&shared.data_dir, "ZZT_IDE_NAME", &name)?;
+        write_source_attachment(&shared.data_dir, &source)?;
+        self.invalidate_prepared();
+        self.refresh_catalog(shared, trace);
+        let mut job = Self::named_job(request, name, source);
+        if let Some(context) = self.named_loader_context {
+            job.stage = Stage::StoreNamed;
+            invoke_reserved(&mut job, trace, context, NAMED_LOADER, "ZZTNAMEDLOAD")?;
+        } else {
+            job.stage = Stage::CheckNamedLoader;
+            self.check_script(&mut job, "ZZT_NAMED", trace)?;
+        }
+        self.active = Some(job);
+        Ok(())
+    }
+    #[allow(clippy::too_many_arguments)] // Mirrors the correlated protocol request plus emulator services.
+    pub fn run_stored(
+        &mut self,
+        request: u64,
+        name: String,
+        source_hash: String,
+        entry: String,
+        arguments: String,
+        shared: &SharedState,
+        trace: &TraceHub,
+    ) -> Result<(), String> {
+        if self.active.is_some() || trace.runtime.as_ref().is_some_and(|o| o.unfinished()) {
+            return Err("Firmware is busy".into());
+        }
+        import::validate_name(&name).map_err(|e| e.to_string())?;
+        let stored = read_program(&shared.data_dir, &name)?;
+        let source = stored.source().map_err(|e| e.to_string())?.source;
+        if crate::sha256::hex(source.as_bytes()) != source_hash {
+            return Err("Stored source differs from requested exact revision".into());
+        }
+        let flags = stored
+            .exports()
+            .iter()
+            .find(|(n, f)| n == &entry && f & 1 != 0)
+            .map(|(_, f)| *f)
+            .ok_or("Entry is absent from stored firmware exports")?;
+        let owners: Vec<_> = import::list_programs(&shared.data_dir)
+            .into_iter()
+            .filter(|n| {
+                read_program(&shared.data_dir, n)
+                    .is_ok_and(|p| p.exports().iter().any(|(e, f)| e == &entry && f & 1 != 0))
+            })
+            .collect();
+        if owners.len() != 1 {
+            return Err(format!(
+                "Export {entry} is ambiguous across programs {owners:?}"
+            ));
+        }
+        let args = runtime_value::parse_arguments(&format!("[{}]", arguments.trim()))?;
+        let invocation = ExecutionRequest {
+            entry: entry.clone(),
+            arguments: args,
+        };
+        let observer = trace
+            .runtime
+            .as_ref()
+            .ok_or("Runtime observation unavailable")?;
+        observer.reset();
+        observer.arm_stored(&source_hash, &invocation, trace.elapsed_secs() * 1000.0)?;
+        observer.cache_flags(flags);
+        let mut job = Self::named_job(request, name, source);
+        job.run = true;
+        job.arguments = arguments;
+        job.entry = Some(entry);
+        job.binding = "stored_source_dispatch".into();
+        job.stage = Stage::Invoke;
+        job.script = Some(invocation_script(runtime_value::invocation_keys(
+            &invocation.entry,
+            &invocation.arguments,
+        )?));
+        self.active = Some(job);
+        Ok(())
+    }
+    fn named_job(request: u64, name: String, source: String) -> Job {
+        Job {
+            request,
+            source,
+            stored_name: Some(name),
+            binding: "exact_compilation".into(),
+            import: None,
+            entry: None,
+            arguments: String::new(),
+            run: false,
+            stage: Stage::StoreNamed,
+            script: None,
+            check_step: 0,
+            catalog_open: false,
+            catalog_start: 0,
+            started: Instant::now(),
+            execution_started: None,
+            reported_running: false,
+            reported_entry: false,
+            check: None,
+            timeline: vec![],
+            direct: false,
+            direct_out: None,
+            direct_text: 0,
+            direct_started: None,
+        }
+    }
     pub fn start(
         &mut self,
         request: Request,
@@ -370,6 +629,8 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            stored_name: None,
+            binding: "exact_compilation".into(),
             import,
             entry,
             arguments,
@@ -382,6 +643,7 @@ impl Jobs {
             started: Instant::now(),
             execution_started: None,
             reported_running: false,
+            reported_entry: false,
             check: None,
             timeline: Vec::new(),
             direct: false,
@@ -441,6 +703,7 @@ impl Jobs {
         let name = match job.stage {
             Stage::CheckLoader => "ZZT_LOADER",
             Stage::CheckImporter => "ZZT_IMPORT",
+            Stage::CheckNamedLoader => "ZZT_NAMED",
             _ => "ZZT_IDE",
         };
         let row = self
@@ -504,6 +767,8 @@ impl Jobs {
         let mut job = Job {
             request,
             source,
+            stored_name: None,
+            binding: "exact_compilation".into(),
             import: None,
             entry: None,
             arguments: String::new(),
@@ -516,6 +781,7 @@ impl Jobs {
             started: Instant::now(),
             execution_started: None,
             reported_running: false,
+            reported_entry: false,
             check: None,
             timeline: Vec::new(),
             direct: true,
@@ -674,6 +940,23 @@ impl Jobs {
         };
         let previous_stage = job.stage;
         let result = self.advance(&mut job, mem, shared, trace);
+        let mut entry_events = vec![];
+        if job.run
+            && !job.reported_entry
+            && let Some(evidence) = trace.runtime.as_ref().unwrap().body_entry_evidence()
+            && target_body_entry(
+                job.stage,
+                &crate::sha256::hex(job.source.as_bytes()),
+                &evidence,
+            )
+        {
+            job.reported_entry = true;
+            entry_events.push(Event::ExecutionStarted {
+                request: job.request,
+                source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                entry: evidence["entry"].as_str().unwrap().into(),
+            });
+        }
         match result {
             Ok(None) => {
                 let mut events = if matches!(job.stage, Stage::Invoke | Stage::Execute)
@@ -696,23 +979,31 @@ impl Jobs {
                         message: progress_message(job.stage).into(),
                     });
                 }
+                events.extend(entry_events);
                 self.active = Some(job);
                 events
             }
-            Ok(Some(message)) => vec![
-                Event::Phase {
-                    phase: "ready".into(),
-                },
-                Event::Result {
-                    request: job.request,
-                    success: true,
-                    message,
-                    check: job.check,
-                },
-            ],
+            Ok(Some(message)) => {
+                let mut out = entry_events;
+                out.extend(execution_events(&job, trace));
+                out.extend(vec![
+                    Event::Phase {
+                        phase: "ready".into(),
+                    },
+                    Event::Result {
+                        request: job.request,
+                        success: true,
+                        message,
+                        check: job.check,
+                    },
+                ]);
+                out
+            }
             Err(message) => {
                 save_report(shared, trace, &job, false, &message);
-                vec![
+                let mut out = entry_events;
+                out.extend(execution_events(&job, trace));
+                out.extend(vec![
                     Event::Phase {
                         phase: "ready".into(),
                     },
@@ -722,7 +1013,8 @@ impl Jobs {
                         message,
                         check: job.check,
                     },
-                ]
+                ]);
+                out
             }
         }
     }
@@ -740,8 +1032,10 @@ impl Jobs {
             trace.set_script_step(script.current_step());
             match script.tick(mem, shared) {
                 Tick::Continue
-                    if matches!(job.stage, Stage::Load | Stage::Import | Stage::Invoke)
-                        && script.invocation_delivered(shared)
+                    if matches!(
+                        job.stage,
+                        Stage::Load | Stage::Import | Stage::Invoke | Stage::StoreNamed
+                    ) && script.invocation_delivered(shared)
                         && trace.runtime.as_ref().unwrap().progress().0 =>
                 {
                     job.timeline.push(serde_json::json!({
@@ -762,7 +1056,11 @@ impl Jobs {
                 Tick::Failed(e)
                     if matches!(
                         job.stage,
-                        Stage::Invoke | Stage::Execute | Stage::Load | Stage::Import
+                        Stage::Invoke
+                            | Stage::Execute
+                            | Stage::Load
+                            | Stage::Import
+                            | Stage::StoreNamed
                     ) && trace.runtime.as_ref().unwrap().progress().0 =>
                 {
                     job.timeline.push(serde_json::json!({
@@ -803,6 +1101,55 @@ impl Jobs {
             return Ok(None);
         }
         match job.stage {
+            Stage::CheckNamedLoader => {
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                let c = checkprog::validate(&observations, NAMED_LOADER, job.check_step)?;
+                if c.return_value != Some(1) {
+                    return Err("Firmware rejected named program loader".into());
+                }
+                self.named_loader_context = c.program_va;
+                job.stage = Stage::StoreNamed;
+                invoke_reserved(
+                    job,
+                    trace,
+                    c.program_va.ok_or("Named loader context missing")?,
+                    NAMED_LOADER,
+                    "ZZTNAMEDLOAD",
+                )?;
+            }
+            Stage::StoreNamed => {
+                let runtime = trace.runtime.as_ref().unwrap().snapshot();
+                let c = runtime
+                    .invocations
+                    .last()
+                    .ok_or("Named loader was not observed")?;
+                if c.ended_ms.is_none() {
+                    return Ok(None);
+                }
+                if trace.runtime.as_ref().unwrap().finish_observed() != ExecutionStatus::Completed
+                    || !c.body_entered
+                {
+                    return Err("Named source assignment failed".into());
+                }
+                let observations = trace.compiler.as_ref().unwrap().snapshot();
+                let assignment = checkprog::validate_assignment(&observations, &job.source)?;
+                let name = job.stored_name.as_ref().ok_or("Named program missing")?;
+                let stored = read_program(&shared.data_dir, name)?;
+                if stored.source().map_err(|e| e.to_string())?.source != job.source {
+                    return Err("Named source identity mismatch".into());
+                }
+                job.check = Some(CheckVerdict {
+                    accepted: true,
+                    source_sha256: crate::sha256::hex(job.source.as_bytes()),
+                    diagnostics: vec![],
+                });
+                job.timeline.push(
+                    serde_json::json!({"stage":"store-named","context":assignment.program_va}),
+                );
+                let message = format!("Firmware stored exact program {name}");
+                save_report(shared, trace, job, true, &message);
+                return Ok(Some(message));
+            }
             Stage::CheckLoader => {
                 let observations = trace.compiler.as_ref().unwrap().snapshot();
                 let c = checkprog::validate(&observations, LOADER, job.check_step)?;
@@ -827,24 +1174,10 @@ impl Jobs {
                     return Err(format!("Source loader failed: {status:?}"));
                 }
                 if job.direct {
-                    let sha = crate::sha256::hex(job.source.as_bytes());
                     let snapshot = trace.compiler.as_ref().unwrap().snapshot();
-                    let ctx = snapshot
-                        .checks
-                        .iter()
-                        .filter(|c| {
-                            c.kind.as_deref() == Some("assign")
-                                && c.return_value.is_some()
-                                && c.sources.len() == 1
-                                && c.sources[0].sha256 == sha
-                        })
-                        .map(|c| c.program_va)
-                        .collect::<Vec<_>>();
-                    let [Some(ctx)] = ctx.as_slice() else {
-                        return Err("The loader's program assignment was not observed".into());
-                    };
-                    self.direct_ctx = Some(*ctx);
-                    return begin_direct(job, *ctx, mem, shared, trace).map(|()| None);
+                    let ctx = diagnostic_context(&snapshot, &job.source)?;
+                    self.direct_ctx = Some(ctx);
+                    return begin_direct(job, ctx, mem, shared, trace).map(|()| None);
                 }
                 if job.import.is_some() {
                     self.import_script(job, trace)?;
@@ -873,6 +1206,9 @@ impl Jobs {
                         "compiler_returned_ms": compiled.returned_ms,
                     }));
                     job.stage = Stage::Prepared;
+                } else if let Ok(ctx) = diagnostic_context(&observations, &job.source) {
+                    self.direct_ctx = Some(ctx);
+                    return begin_direct(job, ctx, mem, shared, trace).map(|()| None);
                 } else {
                     job.stage = Stage::CheckTarget;
                     self.check_script(job, "ZZT_IDE", trace)?;
@@ -961,6 +1297,9 @@ impl Jobs {
                         .message
                         .clone()
                         .unwrap_or("The firmware rejected the program".into()));
+                }
+                if job.run {
+                    return Err("Syntax accepted, but executable preparation was not verified; the program was not run".into());
                 }
                 let message = "G1 firmware compiled the exact current source (direct)".to_string();
                 save_report(shared, trace, job, true, &message);
@@ -1125,6 +1464,16 @@ impl Jobs {
         Ok(None)
     }
 }
+/// Loader/importer bodies are genuine execution, but they are not the user's
+/// checked source. Never label them with its hash or admit its scenario input.
+fn target_body_entry(stage: Stage, source_sha256: &str, evidence: &serde_json::Value) -> bool {
+    matches!(stage, Stage::Invoke | Stage::Execute)
+        && evidence["body_entered"] == true
+        && evidence["source_sha256"].as_str() == Some(source_sha256)
+        && evidence["entry"]
+            .as_str()
+            .is_some_and(|entry| !entry.is_empty())
+}
 /// The on-screen catalog order, from the programs the guest read while
 /// showing it. A full read gives the order directly. The catalog re-reads
 /// only programs changed since it was last shown and lists them first, in
@@ -1175,9 +1524,36 @@ fn catalog_read(event: &serde_json::Value) -> Option<String> {
         .and_then(|p| p.strip_suffix(".hpprgm"))
         .map(str::to_owned)
 }
+/// This proves only a context for diagnostics, never prepared exports.
+fn diagnostic_context(trace: &crate::compiler::CompilerTrace, source: &str) -> Result<u32, String> {
+    if trace.dropped != 0 {
+        return Err("Incomplete compiler observations".into());
+    }
+    let sha = crate::sha256::hex(source.as_bytes());
+    let matches = trace
+        .checks
+        .iter()
+        .filter(|c| {
+            c.kind.as_deref() == Some("assign")
+                && c.compiler_entered
+                && c.return_value.is_some()
+                && c.returned_ms.is_some()
+                && c.errors.is_empty()
+                && c.sources.len() == 1
+                && c.sources[0].sha256 == sha
+                && c.sources[0].utf16_units == source.encode_utf16().count()
+        })
+        .filter_map(|c| c.program_va.filter(|p| *p != 0))
+        .collect::<Vec<_>>();
+    match matches.as_slice() {
+        [ctx] => Ok(*ctx),
+        _ => Err("Assignment context was missing or ambiguous".into()),
+    }
+}
 fn progress_message(stage: Stage) -> &'static str {
     match stage {
-        Stage::CheckLoader => "Preparing the firmware source loader…",
+        Stage::CheckLoader | Stage::CheckNamedLoader => "Preparing the firmware source loader…",
+        Stage::StoreNamed => "Storing named firmware program…",
         Stage::Load => "Loading and checking source in firmware…",
         Stage::CheckImporter | Stage::Import => "Saving the program to the calculator catalog…",
         Stage::CheckTarget | Stage::Direct => "Checking source with the firmware compiler…",
@@ -1187,6 +1563,8 @@ fn progress_message(stage: Stage) -> &'static str {
 }
 fn stage_name(stage: Stage, catalog: bool) -> &'static str {
     match (stage, catalog) {
+        (Stage::CheckNamedLoader, _) => "check-named-loader",
+        (Stage::StoreNamed, _) => "store-named",
         (Stage::CheckLoader, true) => "open-catalog-for-loader",
         (Stage::CheckLoader, false) => "check-loader",
         (Stage::Load, _) => "run-loader",
@@ -1221,9 +1599,8 @@ fn begin_direct(
     let bytes: Vec<u8> = units.iter().flat_map(|u| u.to_le_bytes()).collect();
     mem.write_bytes(text, &bytes).map_err(|e| e.to_string())?;
     let out = Arc::new(Mutex::new(None));
-    if let Err(e) = shared
-        .guest_calls
-        .submit(Box::new(direct::Plan::new(ctx, text, out.clone())))
+    if let Err(e) = direct::Plan::new(ctx, text, job.request, &job.source, out.clone())
+        .and_then(|plan| shared.guest_calls.submit(plan))
     {
         mem.heap_free(text);
         return Err(e);
@@ -1327,8 +1704,215 @@ fn script(keys: Vec<keys::Key>) -> ScriptDriver {
         ..Default::default()
     })
 }
+fn execution_events(job: &Job, trace: &TraceHub) -> Vec<Event> {
+    if !job.run || job.stored_name.is_none() {
+        return vec![];
+    }
+    let Some(runtime) = trace.runtime.as_ref().map(|o| o.snapshot()) else {
+        return vec![];
+    };
+    let Some(c) = runtime
+        .invocations
+        .last()
+        .filter(|c| c.source_sha256 == crate::sha256::hex(job.source.as_bytes()))
+    else {
+        return vec![];
+    };
+    let status = c
+        .status
+        .or(runtime.terminal)
+        .unwrap_or(ExecutionStatus::Indeterminate);
+    let image = c
+        .frame
+        .as_ref()
+        .map(|f| ppl_engine::session::ExecutionImage {
+            width: f.width as usize,
+            height: f.height as usize,
+            pixels: f.pixels.clone(),
+        });
+    let observation = ppl_engine::session::ExecutionObservation {
+        status: serde_json::to_value(status)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .into(),
+        binding: job.binding.clone(),
+        entry: c.entry.clone(),
+        body_entered: c.body_entered,
+        completed: c.ended_ms.is_some(),
+        return_value: c
+            .result
+            .as_ref()
+            .and_then(|v| v.value.as_ref())
+            .filter(|v| !matches!(v, runtime_value::FirmwareValue::Error { .. }))
+            .map(|v| serde_json::to_value(v).unwrap()),
+        return_representation: serde_json::to_value(ReturnRepresentation::of(c.result.as_ref()))
+            .unwrap(),
+        output: c
+            .output
+            .iter()
+            .map(|e| ppl_engine::OutputEvent {
+                kind: e.kind.clone(),
+                text: e.text.clone(),
+                value: e.value.as_ref().map(|v| serde_json::to_value(v).unwrap()),
+            })
+            .collect(),
+        diagnostics: c
+            .diagnostic
+            .as_ref()
+            .map(|d| ppl_engine::firmware::diagnostic(&serde_json::to_value(d).unwrap()))
+            .into_iter()
+            .collect(),
+        runtime: serde_json::to_value(&runtime).unwrap(),
+        image,
+    };
+    vec![execution_wire_event(Event::Execution {
+        request: job.request,
+        program: job.stored_name.clone().unwrap_or_else(|| "ZZT_IDE".into()),
+        source_sha256: c.source_sha256.clone(),
+        observation: Box::new(observation),
+    })]
+}
+/// Serialize only bounded wire evidence. The independent local report uses the
+/// original trace, not this projection. Whole typed observations remain intact
+/// unless their complete collection cannot fit; omissions are explicit gaps.
+fn execution_wire_event(mut event: Event) -> Event {
+    if packet_fits(&event) {
+        return event;
+    }
+    let Event::Execution { request, .. } = &event else {
+        return event;
+    };
+    let request = *request;
+    if let Event::Execution { observation, .. } = &mut event {
+        let omitted = strip_raw_value_evidence(&mut observation.runtime);
+        if omitted != 0 {
+            wire_gap(observation, request, "raw_value_representations", omitted);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let invocations = observation.runtime["invocations"]
+            .as_array()
+            .map_or(0, Vec::len);
+        // These are duplicated forensic call histories. Top-level return,
+        // output, diagnostics and source identity remain authoritative.
+        observation.runtime =
+            serde_json::json!({"wire_runtime_summary":true,"invocations_omitted":invocations});
+        wire_gap(observation, request, "runtime_call_history", invocations);
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        if observation.image.take().is_some() {
+            wire_gap(observation, request, "image", 1);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let outputs = observation.output.len();
+        if outputs != 0 {
+            observation.output.clear();
+            wire_gap(observation, request, "complete_output_collection", outputs);
+        }
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        let diagnostics = observation.diagnostics.len();
+        observation.diagnostics.clear();
+        wire_gap(
+            observation,
+            request,
+            "complete_diagnostic_collection",
+            diagnostics,
+        );
+    }
+    if packet_fits(&event) {
+        return event;
+    }
+    if let Event::Execution { observation, .. } = &mut event {
+        // A codec-produced return is already <=1MiB. This is a final guard for
+        // another future producer: never send a deceptively partial value.
+        observation.return_value = None;
+        observation.return_representation = serde_json::json!({"kind":"undecoded","reason":"Complete observed return omitted: session transport limit exceeded; inspect the local report if available"});
+        wire_gap(observation, request, "complete_return_value", 1);
+    }
+    event
+}
+fn packet_fits(event: &Event) -> bool {
+    struct Budget(usize);
+    impl std::io::Write for Budget {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self
+                .0
+                .checked_sub(bytes.len())
+                .ok_or_else(|| std::io::Error::other("session packet budget exceeded"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    serde_json::to_writer(&mut Budget(ppl_engine::session::MAX_PACKET), event).is_ok()
+}
+fn strip_raw_value_evidence(value: &mut serde_json::Value) -> usize {
+    match value {
+        serde_json::Value::Object(object) => {
+            let mut omitted = 0;
+            if object.contains_key("address")
+                && object.contains_key("unavailable")
+                && object.contains_key("representation")
+            {
+                if let Some(graph) = object
+                    .get_mut("representation")
+                    .map(serde_json::Value::take)
+                    .filter(|v| !v.is_null())
+                {
+                    object.insert("wire_representation_omitted".into(),serde_json::json!({"nodes":graph["nodes"].as_array().map_or(0,Vec::len),"captured_bytes":graph["captured_bytes"],"complete":graph["complete"],"coherent":graph["coherent"]}));
+                    omitted += 1;
+                }
+                // Root address, tag/subtype, readable root prefix and original
+                // unavailable diagnostic remain; duplicated bulk bytes do not.
+                object.insert("probe".into(), serde_json::json!([]));
+            }
+            omitted
+                + object
+                    .values_mut()
+                    .map(strip_raw_value_evidence)
+                    .sum::<usize>()
+        }
+        serde_json::Value::Array(items) => items.iter_mut().map(strip_raw_value_evidence).sum(),
+        _ => 0,
+    }
+}
+fn wire_gap(
+    observation: &mut ppl_engine::session::ExecutionObservation,
+    request: u64,
+    scope: &str,
+    count: usize,
+) {
+    if !observation.runtime.is_object() {
+        observation.runtime = serde_json::json!({});
+    }
+    let object = observation.runtime.as_object_mut().unwrap();
+    let gaps = object
+        .entry("wire_observation_gaps")
+        .or_insert_with(|| serde_json::json!([]));
+    if !gaps.is_array() {
+        *gaps = serde_json::json!([]);
+    }
+    gaps.as_array_mut().unwrap().push(serde_json::json!({"scope":scope,"omitted":count,"reason":"session_packet_budget","local_report_candidate":format!("ide-reports/request-{request}.json")}));
+    observation.diagnostics.push(ppl_engine::Diagnostic {source:"emulator-transport".into(),severity:"warning".into(),code:Some("firmware_observation_gap".into()),message:Some(format!("Execution evidence omitted from wire reply ({scope}, {count}) to fit the session packet limit. Inspect the local report if available; source identity and execution outcome are preserved.")),line:None,column:None,raw_position:None});
+}
 fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool, message: &str) {
-    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot())});
+    let report = serde_json::json!({"request":job.request,"source_sha256":crate::sha256::hex(job.source.as_bytes()),"success":success,"message":message,"check":job.check,"elapsed_ms":job.started.elapsed().as_secs_f64()*1000.0,"timeline":job.timeline,"compiler":trace.compiler.as_ref().map(|o|o.snapshot()),"runtime":trace.runtime.as_ref().map(|o|o.snapshot()),"debug":trace.diagnostic_bundle()});
     let dir = shared.data_dir.join("ide-reports");
     if std::fs::create_dir_all(&dir).is_ok() {
         if let Ok(bytes) = serde_json::to_vec_pretty(&report) {
@@ -1338,6 +1922,259 @@ fn save_report(shared: &SharedState, trace: &TraceHub, job: &Job, success: bool,
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn execution_start_requires_the_target_phase_and_exact_observed_source() {
+        use super::{Stage, target_body_entry};
+        let target =
+            serde_json::json!({"entry":"USER", "source_sha256":"target", "body_entered":true});
+        let loader = serde_json::json!({"entry":"ZZTIDELOAD", "source_sha256":"loader", "body_entered":true});
+        for phase in [
+            Stage::CheckLoader,
+            Stage::Load,
+            Stage::Direct,
+            Stage::Prepared,
+        ] {
+            assert!(!target_body_entry(phase, "target", &target));
+            assert!(!target_body_entry(phase, "target", &loader));
+        }
+        for phase in [Stage::Invoke, Stage::Execute] {
+            assert!(target_body_entry(phase, "target", &target));
+            assert!(!target_body_entry(phase, "target", &loader));
+            assert!(!target_body_entry(
+                phase,
+                "target",
+                &serde_json::json!({"entry":"USER","source_sha256":"target","body_entered":false})
+            ));
+        }
+    }
+
+    fn oversized_unknown_event() -> ppl_engine::session::Event {
+        use crate::{memory::GuestMemory, runtime_value};
+        use ppl_engine::session::{Event, ExecutionImage, ExecutionObservation};
+        let mut memory = GuestMemory::new();
+        memory
+            .map("synthetic objects", 0x10000, 4 * 1024 * 1024)
+            .unwrap();
+        memory.set_heap(0x10000, 4 * 1024 * 1024);
+        let root = memory.heap_alloc(12).unwrap();
+        let list = memory.heap_alloc(8 + 256 * 4).unwrap();
+        memory.write_u32(root, 0x0016_0001).unwrap();
+        memory.write_u32(root + 4, 1).unwrap();
+        memory.write_u32(root + 8, list).unwrap();
+        memory.write_u32(list, 0x0016_0001).unwrap();
+        memory.write_u32(list + 4, 256).unwrap();
+        for i in 0..256 {
+            let address = memory.heap_alloc(8192).unwrap();
+            memory.write_bytes(address, &[255; 8192]).unwrap();
+            memory.write_u32(address, 0x0009_0001).unwrap();
+            memory.write_u32(list + 8 + i * 4, address).unwrap();
+        }
+        let evidence = runtime_value::decode_return(&memory, root);
+        assert!(evidence.value.is_none());
+        assert!(evidence.representation.as_ref().unwrap().captured_bytes > 1024 * 1024 - 8192);
+        Event::Execution {
+            request: 42,
+            program: "ZZT_WIRE".into(),
+            source_sha256: "exact-source-hash".into(),
+            observation: Box::new(ExecutionObservation {
+                status: "completed".into(),
+                binding: "stored".into(),
+                entry: "WIRE".into(),
+                body_entered: true,
+                completed: true,
+                return_value: None,
+                return_representation: serde_json::to_value(
+                    runtime_value::ReturnRepresentation::of(Some(&evidence)),
+                )
+                .unwrap(),
+                output: vec![],
+                diagnostics: vec![],
+                runtime: serde_json::json!({"invocations":[{"result":evidence,"source_sha256":"exact-source-hash","entry":"WIRE","body_entered":true,"status":"completed"}]}),
+                image: Some(ExecutionImage {
+                    width: 320,
+                    height: 240,
+                    pixels: vec![u32::MAX; 320 * 240],
+                }),
+            }),
+        }
+    }
+    #[test]
+    fn nested_unknown_high_byte_evidence_fits_an_actual_execution_packet() {
+        use ppl_engine::session::{self, Event};
+        let original = oversized_unknown_event();
+        let mut rejected = Vec::new();
+        assert!(
+            session::write_event(&mut rejected, &original).is_err(),
+            "test did not reproduce oversized packet"
+        );
+        let event = super::execution_wire_event(original);
+        let mut bytes = Vec::new();
+        session::write_event(&mut bytes, &event)
+            .expect("unsupported return must keep a correlated execution reply");
+        assert!(bytes.len() <= session::MAX_PACKET + 5);
+        let Event::Execution {
+            request,
+            source_sha256,
+            observation,
+            ..
+        } = event
+        else {
+            panic!("lost execution identity");
+        };
+        assert_eq!(request, 42);
+        assert_eq!(source_sha256, "exact-source-hash");
+        assert!(observation.completed && observation.body_entered);
+        assert!(observation.return_value.is_none());
+        assert_eq!(observation.return_representation["kind"], "undecoded");
+        assert!(
+            observation.return_representation["reason"]
+                .as_str()
+                .unwrap()
+                .contains("unverified")
+        );
+        assert!(
+            observation.image.is_some(),
+            "raw evidence must yield before actual pixels"
+        );
+        assert!(
+            observation.runtime["wire_observation_gaps"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty())
+        );
+        assert!(
+            observation.runtime["invocations"][0]["result"]["bytes"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty()),
+            "root forensic prefix was lost"
+        );
+    }
+    #[test]
+    fn raw_wire_projection_preserves_whole_typed_return_output_and_error_diagnostics() {
+        use ppl_engine::session::{self, Event};
+        let mut event = oversized_unknown_event();
+        let expected = serde_json::json!({"type":"matrix","rows":1,"columns":2,"vector":false,"value":[{"type":"complex","real":"2","imaginary":"3"},{"type":"real","value":"4"}]});
+        if let Event::Execution { observation, .. } = &mut event {
+            // Unknown value is an internal call argument, not the typed return.
+            let capture = observation.runtime["invocations"][0]["result"].take();
+            observation.runtime["invocations"][0]["calls"] =
+                serde_json::json!([{"arguments":[capture]}]);
+            observation.return_value = Some(expected.clone());
+            observation.return_representation = serde_json::json!({"kind":"decoded"});
+            observation.output.push(ppl_engine::OutputEvent {
+                kind: "print".into(),
+                text: Some("entire output".into()),
+                value: None,
+            });
+            observation.diagnostics.push(ppl_engine::Diagnostic {
+                source: "guest-firmware".into(),
+                severity: "error".into(),
+                code: Some("actual_guest_error".into()),
+                message: Some("actual diagnostic".into()),
+                line: Some(7),
+                column: Some(3),
+                raw_position: None,
+            });
+        }
+        let event = super::execution_wire_event(event);
+        session::write_event(&mut Vec::new(), &event).unwrap();
+        let Event::Execution { observation, .. } = event else {
+            panic!();
+        };
+        assert_eq!(observation.return_value, Some(expected));
+        assert_eq!(observation.return_representation["kind"], "decoded");
+        assert_eq!(observation.output.len(), 1);
+        assert_eq!(observation.output[0].text.as_deref(), Some("entire output"));
+        assert_eq!(
+            observation.diagnostics[0].message.as_deref(),
+            Some("actual diagnostic")
+        );
+        assert_eq!(observation.diagnostics[0].line, Some(7));
+        assert!(observation.image.is_some());
+    }
+    #[test]
+    fn oversized_output_collection_is_omitted_whole_with_an_explicit_gap() {
+        use ppl_engine::session::{self, Event};
+        let mut event = oversized_unknown_event();
+        if let Event::Execution { observation, .. } = &mut event {
+            observation.return_value = Some(serde_json::json!({"type":"real","value":"7"}));
+            observation.return_representation = serde_json::json!({"kind":"decoded"});
+            observation.output = (0..80)
+                .map(|_| ppl_engine::OutputEvent {
+                    kind: "print".into(),
+                    text: Some("x".repeat(65536)),
+                    value: None,
+                })
+                .collect();
+        }
+        let event = super::execution_wire_event(event);
+        session::write_event(&mut Vec::new(), &event).unwrap();
+        let Event::Execution { observation, .. } = event else {
+            panic!();
+        };
+        assert_eq!(
+            observation.return_value,
+            Some(serde_json::json!({"type":"real","value":"7"}))
+        );
+        assert!(
+            observation.output.is_empty(),
+            "a partial print stream would pretend to be the full output"
+        );
+        assert!(
+            observation.runtime["wire_observation_gaps"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|gap| gap["scope"] == "complete_output_collection" && gap["omitted"] == 80)
+        );
+        assert!(
+            observation
+                .diagnostics
+                .iter()
+                .any(|d| d.code.as_deref() == Some("firmware_observation_gap"))
+        );
+    }
+    #[test]
+    fn ordinary_wire_events_remain_byte_for_byte_unchanged() {
+        let mut event = oversized_unknown_event();
+        if let ppl_engine::session::Event::Execution { observation, .. } = &mut event {
+            observation.runtime = serde_json::json!({"kept":"unchanged"});
+        }
+        let before = serde_json::to_vec(&event).unwrap();
+        assert_eq!(
+            serde_json::to_vec(&super::execution_wire_event(event)).unwrap(),
+            before
+        );
+    }
+    #[test]
+    fn diagnostic_context_requires_unique_complete_exact_source() {
+        let source = "RETURN 1+;";
+        let mut trace = crate::compiler::CompilerTrace::default();
+        trace.checks.push(crate::compiler::CheckObservation {
+            kind: Some("assign".into()),
+            compiler_entered: true,
+            returned_ms: Some(1.0),
+            return_value: Some(0),
+            program_va: Some(0x20001000),
+            sources: vec![crate::compiler::ObservedSource {
+                source_index: 0,
+                address: 0x20002000,
+                sha256: crate::sha256::hex(source.as_bytes()),
+                utf16_units: source.encode_utf16().count(),
+            }],
+            ..Default::default()
+        });
+        assert_eq!(
+            super::diagnostic_context(&trace, source).unwrap(),
+            0x20001000
+        );
+        assert!(super::diagnostic_context(&trace, "edited").is_err());
+        trace.dropped = 1;
+        assert!(super::diagnostic_context(&trace, source).is_err());
+        trace.dropped = 0;
+        trace.checks.push(trace.checks[0].clone());
+        assert!(super::diagnostic_context(&trace, source).is_err());
+    }
+
     use super::{catalog_order, validate_import};
     #[test]
     fn source_attachment_matches_firmware_string_encoding() {
@@ -1455,5 +2292,42 @@ mod tests {
         assert!(catalog_order(&v(&["ZZT_IDE"]), vec![], &expected).is_err());
         assert!(catalog_order(&v(&["ZZT_IDE"]), v(&["ZZT_IDE"]), &expected).is_err());
         assert!(catalog_order(&expected, v(&["OTHER"]), &expected).is_err());
+    }
+}
+
+#[cfg(test)]
+mod idle_diagnostic_tests {
+    use super::*;
+    #[test]
+    fn unequal_sampling_is_reported_without_replacing_strict_count_share() {
+        let start = Instant::now();
+        let meter = IdleMeter {
+            samples: [
+                (start, false),
+                (start + Duration::from_millis(400), true),
+                (start + Duration::from_millis(450), true),
+                (start + Duration::from_millis(500), true),
+            ]
+            .into(),
+        };
+        let report = meter.diagnostic();
+        assert_eq!(report["share"], 0.75);
+        assert_eq!(report["required_share"], 0.8);
+        assert_eq!(report["sample_interval_estimate"]["share"], 0.2);
+        assert_eq!(report["sample_interval_estimate"]["maximum_gap_ms"], 400.0);
+        assert_eq!(report["sample_interval_estimate"]["admission_input"], false);
+    }
+    #[test]
+    fn missing_intervals_are_unknown_not_idle_evidence() {
+        let meter = IdleMeter::default();
+        assert!(meter.diagnostic()["sample_interval_estimate"]["share"].is_null());
+        let meter = IdleMeter {
+            samples: [(Instant::now(), true)].into(),
+        };
+        assert!(meter.diagnostic()["sample_interval_estimate"]["share"].is_null());
+        assert_eq!(
+            meter.diagnostic()["sample_interval_estimate"]["observed_ms"],
+            0.0
+        );
     }
 }

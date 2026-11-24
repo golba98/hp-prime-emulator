@@ -98,6 +98,30 @@ fn setup() -> (Arc<GuestMemory>, Arc<SharedState>, CpuThread) {
     (mem, shared, cpu)
 }
 
+// Never leave the CPU loop alive when its test-owned device thread panics.
+// Functional assertions still fail at their original call site.
+struct StopOnDrop(Arc<SharedState>);
+impl Drop for StopOnDrop {
+    fn drop(&mut self) {
+        self.0.set_stopping();
+    }
+}
+
+// GetEvent can be logically idle just before its owning CPU releases the
+// memory gate. Busy is the capture API's explicit retry result, not a frame.
+fn capture_when_available(view: &LcdView, memory: &GuestMemory) -> prime_emulator::display::Frame {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match view.capture(memory) {
+            Ok(frame) => return frame,
+            Err(DisplayError::Busy) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(1))
+            }
+            Err(error) => panic!("Display capture failed: {error}"),
+        }
+    }
+}
+
 fn wait_for(what: &str, cond: impl Fn() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);
     while !cond() {
@@ -113,12 +137,13 @@ fn keys_reach_the_guest_and_its_pixels_are_captured() {
     // The "device": sends each input once the guest is parked in GetEvent
     // again (guest-observable synchronisation), then captures.
     let device = std::thread::spawn(move || {
+        let _stop = StopOnDrop(s2.clone());
         let idle =
             || s2.getevent_parked() && s2.input_events_pending() == 0 && s2.touch_pending() == 0;
         wait_for("boot to GetEvent", idle);
         let lcd = *s2.lcd_object.lock().unwrap();
         let view = LcdView::locate(&m2, lcd).expect("LCD object");
-        let initial = view.capture(&m2).unwrap();
+        let initial = capture_when_available(&view, &m2);
         for code in [0x5A, 0xB9, 0x5A] {
             s2.push_key_press(code);
             wait_for("key delivery", || s2.input_events_pending() == 0);
@@ -132,7 +157,7 @@ fn keys_reach_the_guest_and_its_pixels_are_captured() {
             });
             wait_for("guest idle", idle);
         }
-        let after = view.capture(&m2).unwrap();
+        let after = capture_when_available(&view, &m2);
         s2.set_stopping();
         (view, initial, after)
     });

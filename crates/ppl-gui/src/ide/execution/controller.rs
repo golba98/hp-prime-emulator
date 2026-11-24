@@ -5,7 +5,7 @@
 //! inspection data, plus the thread-safe [`VmBridge`] the worker's debugger
 //! uses to pause and resume.
 
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;
@@ -56,6 +56,7 @@ pub enum DebugCommand {
 /// Snapshot of the VM state when paused at a breakpoint or step.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DebugPauseSnapshot {
+    pub source: Option<ppl_vm::SourceIdentity>,
     pub line: usize,
     pub col: usize,
     pub function: String,
@@ -67,6 +68,8 @@ pub struct DebugPauseSnapshot {
 /// Snapshot of a single call stack frame.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StackFrameSnapshot {
+    pub source: Option<ppl_vm::SourceIdentity>,
+    pub globals: Vec<VariableSnapshot>,
     pub function: String,
     pub line: usize,
     pub col: usize,
@@ -123,6 +126,10 @@ fn value_details(val: &Value, fmt: FormatOptions) -> (&'static str, VariableDeta
             ("Complex", VariableDetailSnapshot::Complex { re, im })
         }
         Value::Str(s) => ("String", VariableDetailSnapshot::StringValue(s.to_string())),
+        Value::RawString(_) => (
+            "String",
+            VariableDetailSnapshot::StringValue(val.display(fmt)),
+        ),
         Value::List(items) => (
             "List",
             VariableDetailSnapshot::List(items.iter().map(|v| v.display(fmt)).collect()),
@@ -136,6 +143,7 @@ fn value_details(val: &Value, fmt: FormatOptions) -> (&'static str, VariableDeta
             },
         ),
         Value::Grob(_) => ("Grob", VariableDetailSnapshot::Scalar),
+        Value::Symbolic(_) => ("Symbolic", VariableDetailSnapshot::Scalar),
     }
 }
 
@@ -159,6 +167,8 @@ pub struct VmBridge {
     pub stop_at_entry: AtomicBool,
     /// The source being debugged (set before the worker spawns).
     source: Mutex<Option<SourceFile>>,
+    sources: Mutex<BTreeMap<ppl_vm::SourceIdentity, SourceFile>>,
+    pub source_breakpoints: Mutex<BTreeMap<ppl_vm::SourceIdentity, BTreeSet<usize>>>,
     wake_ui: Mutex<Option<Box<dyn Fn() + Send>>>,
 }
 
@@ -190,6 +200,13 @@ impl VmBridge {
         *lock(&self.source) = Some(file);
     }
 
+    pub fn set_source_breakpoints(
+        &self,
+        breakpoints: BTreeMap<ppl_vm::SourceIdentity, BTreeSet<usize>>,
+    ) {
+        *lock(&self.source_breakpoints) = breakpoints;
+    }
+
     fn take_source(&self) -> SourceFile {
         lock(&self.source)
             .clone()
@@ -208,7 +225,14 @@ impl VmBridge {
 
     /// Posts a command to the worker (wakes it if paused).
     pub fn post_command(&self, cmd: DebugCommand) {
-        lock(&self.commands).push_back(cmd);
+        // Clear the old pause before publishing a resume command. The worker
+        // cannot consume it until this lock is released, so a new pause cannot
+        // be erased or mistaken for completion of a subsequent Step action.
+        let mut commands = lock(&self.commands);
+        self.paused_line.store(0, Ordering::SeqCst);
+        *lock(&self.pause_snapshot) = None;
+        commands.push_back(cmd);
+        drop(commands);
         self.commands_wake.notify_all();
     }
 
@@ -257,8 +281,9 @@ enum StepMode {
 pub struct WorkerDebugger {
     bridge: Arc<VmBridge>,
     source: SourceFile,
+    sources: BTreeMap<ppl_vm::SourceIdentity, SourceFile>,
     mode: StepMode,
-    prev_stmt: Option<(usize, usize)>,
+    prev_stmt: Option<(Option<ppl_vm::SourceIdentity>, String, usize, usize)>,
     interrupt: Arc<AtomicBool>,
 }
 
@@ -270,9 +295,11 @@ impl WorkerDebugger {
             StepMode::Continue
         };
         let source = bridge.take_source();
+        let sources = lock(&bridge.sources).clone();
         Self {
             bridge,
             source,
+            sources,
             mode,
             prev_stmt: None,
             interrupt,
@@ -296,44 +323,47 @@ impl WorkerDebugger {
         col: usize,
     ) -> DebugPauseSnapshot {
         let fmt = machine.settings.format();
-        let stack = machine.call_stack();
-        let mut frames = Vec::with_capacity(stack.len());
-        // Frame 0 is the current stop position.
-        frames.push(StackFrameSnapshot {
-            function: function.to_string(),
+        let stack = machine.call_stack_frames();
+        let frames = stack
+            .iter()
+            .enumerate()
+            .map(|(depth, frame)| {
+                let file = frame
+                    .module
+                    .as_ref()
+                    .and_then(|id| self.sources.get(id))
+                    .unwrap_or(&self.source);
+                let lc = file.line_col(frame.span.start);
+                StackFrameSnapshot {
+                    source: frame.module.clone(),
+                    function: frame.function.clone(),
+                    line: if depth == 0 { line } else { lc.line as usize },
+                    col: if depth == 0 { col } else { lc.col as usize },
+                    locals: machine
+                        .locals(depth)
+                        .into_iter()
+                        .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
+                        .collect(),
+                    globals: machine
+                        .globals_for_frame(depth)
+                        .into_iter()
+                        .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
+                        .collect(),
+                }
+            })
+            .collect();
+        DebugPauseSnapshot {
+            source: machine.current_source().cloned(),
             line,
             col,
-            locals: machine
-                .locals(0)
+            function: function.to_owned(),
+            depth: stack.len(),
+            frames,
+            globals: machine
+                .globals()
                 .into_iter()
                 .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
                 .collect(),
-        });
-        for (depth, (name, span)) in stack.iter().enumerate().skip(1) {
-            let lc = self.source.line_col(span.start);
-            frames.push(StackFrameSnapshot {
-                function: name.clone(),
-                line: lc.line as usize,
-                col: lc.col as usize,
-                locals: machine
-                    .locals(depth)
-                    .into_iter()
-                    .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
-                    .collect(),
-            });
-        }
-        let globals = machine
-            .globals()
-            .into_iter()
-            .map(|(n, v)| VariableSnapshot::from_value(n, &v, fmt))
-            .collect();
-        DebugPauseSnapshot {
-            line,
-            col,
-            function: function.to_string(),
-            depth: stack.len(),
-            frames,
-            globals,
         }
     }
 }
@@ -349,11 +379,24 @@ impl Debugger for WorkerDebugger {
         if self.interrupt.load(Ordering::SeqCst) {
             return DebugAction::Abort;
         }
-        let lc = self.source.line_col(span.start);
+        let identity = machine.current_source().cloned();
+        let source = match &identity {
+            Some(id) => match self.sources.get(id) {
+                Some(source) => source,
+                None => return DebugAction::Abort,
+            },
+            None => &self.source,
+        };
+        let lc = source.line_col(span.start);
         let (line, col) = (lc.line as usize, lc.col as usize);
-        let prev = self.prev_stmt.replace((line, depth));
-        let breakpoints = lock(&self.bridge.breakpoints).clone();
-        let at_breakpoint = breakpoints.contains(&line) && prev != Some((line, depth));
+        let location = (identity.clone(), function.to_owned(), line, depth);
+        let prev = self.prev_stmt.replace(location.clone());
+        let at_breakpoint = match &identity {
+            Some(id) => lock(&self.bridge.source_breakpoints)
+                .get(id)
+                .is_some_and(|lines| lines.contains(&line)),
+            None => lock(&self.bridge.breakpoints).contains(&line),
+        } && prev != Some(location);
 
         if !at_breakpoint && !self.should_stop(depth) {
             return DebugAction::Continue;
@@ -362,8 +405,10 @@ impl Debugger for WorkerDebugger {
         // Publish the pause and wait for a UI command.
         let snapshot = self.build_snapshot(machine, function, line, col);
         *lock(&self.bridge.pause_snapshot) = Some(snapshot);
-        self.bridge.pause_generation.fetch_add(1, Ordering::SeqCst);
         self.bridge.paused_line.store(line as u64, Ordering::SeqCst);
+        // Publish the generation last: observing a new generation must also
+        // observe the complete snapshot and its nonzero pause location.
+        self.bridge.pause_generation.fetch_add(1, Ordering::SeqCst);
         if let Some(wake) = lock(&self.bridge.wake_ui).as_ref() {
             wake();
         }
@@ -462,8 +507,38 @@ impl ExecutionController {
     pub fn session_snapshot(&self) -> ppl_vm::SessionSnapshot {
         self.session.snapshot()
     }
+    pub fn open_native_profile(&self, path: &std::path::Path) -> Result<serde_json::Value, String> {
+        self.session.open_profile(path)
+    }
+    pub fn native_profile(&self) -> Option<crate::ide::native_profile::NativeProfile> {
+        self.session.profile()
+    }
+    pub fn mutate_memory(
+        &self,
+        change: impl FnOnce(&mut ppl_vm::SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.session.mutate(change)
+    }
+    pub fn reserve_native_operation(&self) -> Result<super::worker::SessionLease, String> {
+        self.session.reserve()
+    }
+    pub fn commit_native_operation(
+        &self,
+        owner: &super::worker::SessionLease,
+        change: impl FnOnce(&mut ppl_vm::SessionContext) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.session.mutate_reserved(owner, change)
+    }
 
     pub fn evaluate_home(&mut self, text: &str, max_steps: Option<u64>) -> RunStart {
+        self.evaluate_home_with_catalog(text, max_steps, None)
+    }
+    pub fn evaluate_home_with_catalog(
+        &mut self,
+        text: &str,
+        max_steps: Option<u64>,
+        catalog: Option<Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>>,
+    ) -> RunStart {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
@@ -476,7 +551,7 @@ impl ExecutionController {
         lock(&self.bridge.commands).clear();
         self.last_file = Some(SourceFile::new("<home>", text));
         self.session_open = true;
-        self.worker = Some(WorkerHandle::spawn_home(
+        self.worker = Some(WorkerHandle::spawn_home_with_catalog(
             text.into(),
             self.shared.clone(),
             self.session.clone(),
@@ -485,6 +560,23 @@ impl ExecutionController {
                 max_time: None,
                 ..ppl_vm::Limits::default()
             },
+            catalog,
+        ));
+        RunStart::Started
+    }
+    pub fn store_variable(&mut self, name: String, text: String) -> RunStart {
+        if self.running() {
+            return RunStart::AlreadyRunning;
+        }
+        self.shared.reset_for_run();
+        self.terminal_seen = 0;
+        self.is_interrupted.store(false, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::SeqCst);
+        self.worker = Some(WorkerHandle::spawn_store_variable(
+            name,
+            text,
+            self.shared.clone(),
+            self.session.clone(),
         ));
         RunStart::Started
     }
@@ -603,6 +695,34 @@ impl ExecutionController {
         max_steps: Option<u64>,
         promote_ans: bool,
     ) -> RunStart {
+        self.start_compiled_with_catalog(
+            namespace,
+            prog,
+            file,
+            entry,
+            args,
+            debug,
+            stop_at_entry,
+            max_steps,
+            promote_ans,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_compiled_with_catalog(
+        &mut self,
+        namespace: &str,
+        prog: ppl_compiler::CompiledProgram,
+        file: &SourceFile,
+        entry: &str,
+        args: Option<&str>,
+        debug: bool,
+        stop_at_entry: bool,
+        max_steps: Option<u64>,
+        promote_ans: bool,
+        catalog: Option<std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>>,
+    ) -> RunStart {
         if self.running() {
             return RunStart::AlreadyRunning;
         }
@@ -615,11 +735,27 @@ impl ExecutionController {
             .store(stop_at_entry, Ordering::SeqCst);
         self.bridge.paused_line.store(0, Ordering::SeqCst);
         *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
         self.bridge.set_source(file.clone());
+        *lock(&self.bridge.sources) = catalog
+            .as_ref()
+            .map(|catalog| {
+                catalog
+                    .values()
+                    .map(|module| {
+                        (
+                            module.identity.clone(),
+                            SourceFile::new(&module.identity.name, &module.source),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         self.last_file = Some(file.clone());
 
         let config = WorkerConfig {
             prog,
+            catalog: catalog.map(|sources| (namespace.to_owned(), sources)),
             entry: Some(entry.to_string()),
             args: args.map(str::to_string),
             settings: ppl_vm::Settings::default(),
@@ -648,6 +784,80 @@ impl ExecutionController {
         self.worker = Some(worker);
         self.is_running.store(true, Ordering::SeqCst);
         RunStart::Started
+    }
+
+    /// Run an exact User keyboard source snapshot without blocking the UI for
+    /// compilation/linking. Ordinary program, CAS and app workers share admission.
+    pub fn start_user_key(
+        &mut self,
+        namespace: &str,
+        source: &str,
+        entry: &str,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        self.start_source_operation(namespace, source, Some(entry), Some(""), catalog)
+    }
+
+    /// Execute a calculator program independently of IDE tabs, retaining its
+    /// stable object namespace and preferring its named exported entry.
+    pub fn start_catalog_program(
+        &mut self,
+        name: &str,
+        source: &str,
+        entry: Option<&str>,
+        args: Option<&str>,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        self.start_source_operation(name, source, entry, args, catalog)
+    }
+
+    fn start_source_operation(
+        &mut self,
+        namespace: &str,
+        source: &str,
+        entry: Option<&str>,
+        args: Option<&str>,
+        catalog: std::sync::Arc<std::collections::BTreeMap<String, ppl_vm::ModuleSource>>,
+    ) -> Result<(), String> {
+        if self.running() {
+            return Err("Calculator is busy".into());
+        }
+        let owner = self.session.reserve()?;
+        let mut sources = (*catalog).clone();
+        // The binding owns this source revision even if its IDE tab changes
+        // between resolution and execution. Preserve an already exact identity.
+        if sources
+            .get(namespace)
+            .is_none_or(|module| module.source != source)
+        {
+            sources.insert(
+                namespace.to_owned(),
+                ppl_vm::ModuleSource {
+                    identity: ppl_vm::SourceIdentity::new(namespace, source),
+                    source: source.into(),
+                },
+            );
+        }
+        self.shared.reset_for_run();
+        self.terminal_seen = 0;
+        self.is_interrupted.store(false, Ordering::SeqCst);
+        self.is_running.store(true, Ordering::SeqCst);
+        self.is_paused.store(false, Ordering::SeqCst);
+        self.bridge.paused_line.store(0, Ordering::SeqCst);
+        *lock(&self.bridge.pause_snapshot) = None;
+        lock(&self.bridge.commands).clear();
+        self.last_file = Some(SourceFile::new(namespace, source));
+        self.session_open = true;
+        self.worker = Some(WorkerHandle::spawn_source_in_session(
+            namespace.into(),
+            entry.map(str::to_owned),
+            args.map(str::to_owned),
+            std::sync::Arc::new(sources),
+            self.shared.clone(),
+            self.session.clone(),
+            owner,
+        ));
+        Ok(())
     }
 
     /// New terminal output lines since the last poll.
@@ -909,6 +1119,18 @@ mod tests {
         assert!(bridge.breakpoints.lock().unwrap().contains(&3));
         assert!(!bridge.toggle_breakpoint(3));
         assert!(!bridge.breakpoints.lock().unwrap().contains(&3));
+    }
+
+    #[test]
+    fn posted_step_invalidates_the_old_pause_before_worker_acknowledgement() {
+        let bridge = VmBridge::new();
+        bridge.paused_line.store(7, Ordering::SeqCst);
+        bridge.post_command(DebugCommand::StepInto);
+        assert_eq!(bridge.paused_line(), 0);
+        assert_eq!(
+            lock(&bridge.commands).pop_front(),
+            Some(DebugCommand::StepInto)
+        );
     }
 
     #[test]

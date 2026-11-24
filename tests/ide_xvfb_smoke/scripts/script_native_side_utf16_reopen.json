@@ -1,0 +1,86 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_utf16_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "type",
+      "text": "ASC(RAW)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "raw_readback"
+    },
+    {
+      "step": "type",
+      "text": "ASC(RAW2)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "copy_readback"
+    },
+    {
+      "step": "type",
+      "text": "DIM(RAW)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "unit_count"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -31,6 +31,9 @@ impl Host for SharedHost {
     fn sleep(&mut self, seconds: f64) -> Result<(), RuntimeError> {
         self.0.borrow_mut().sleep(seconds)
     }
+    fn mouse_state(&mut self) -> Result<ppl_vm::host::MouseState, RuntimeError> {
+        self.0.borrow_mut().mouse_state()
+    }
     fn touch(&mut self) -> Result<Option<Touch>, RuntimeError> {
         self.0.borrow_mut().touch()
     }

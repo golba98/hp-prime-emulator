@@ -8,6 +8,21 @@ Start with the [unified CLI report](M8_UNIFIED_CLI_REPORT.md). Firmware executio
 currently requires Linux. The desktop IDE offers both engines: Native PPL, and
 G1 Firmware, a live original-firmware calculator ([M12](M12_FULL_CALCULATOR_REPORT.md)).
 
+## Native calculator fonts
+
+Native mode uses Prime Sans from a locally installed G1 resource archive when
+`factory_a` or `init_data` is configured in the existing firmware settings.
+`PPL_PRIME_FONT_RESOURCE=/path/to/armfir.dat` selects that archive directly for
+both the desktop calculator and headless Native runs. No vendor fonts are
+bundled. Without configured resources, Native uses its bundled DejaVu font;
+selected resources that cannot be loaded produce an explicit error.
+
+The IDE's code and text families stay independent of the calculator fonts.
+Native TEXTOUT is checked against complete original-firmware framebuffers for
+all seven font codes, colored text and control characters. This does not
+establish complete GUI or graphics parity. See the
+[graphics and font contract](../development/native-graphics-data.md).
+
 ## Implementation milestones
 
 | Report | Scope |
@@ -55,7 +70,6 @@ distribution channel). Proprietary HP content — kept out of git
 | [FEDORA_COMPATIBILITY.md](FEDORA_COMPATIBILITY.md) | Windows-dependency audit, Fedora toolchain evidence |
 | [EMULATION_ARCHITECTURE.md](EMULATION_ARCHITECTURE.md) | Architecture comparison (A/B/C), recommendation, Rust crate layout |
 | [SVC_COVERAGE.md](SVC_COVERAGE.md) | Service ID inventory: 742 declared, 85 implemented, gaps |
-| [PHASE2_IMPLEMENTATION_PLAN.md](PHASE2_IMPLEMENTATION_PLAN.md) | Milestones, risks, success criteria for Phase 2 |
 | [M2_IMPLEMENTATION_REPORT.md](M2_IMPLEMENTATION_REPORT.md) | M2 outcome: what was built, verified startup state, findings |
 | [M2_EXECUTION_TRACE.md](M2_EXECUTION_TRACE.md) | Working command, live boot trace, quantitative evidence |
 | [M2_SVC_IMPLEMENTATIONS.md](M2_SVC_IMPLEMENTATIONS.md) | Service-by-service ledger with live call counts |
@@ -117,3 +131,20 @@ Allocation failure returns null to firmware and failed realloc leaves its old
 block intact. The budget excludes firmware mappings, stacks and host resources;
 it is **not** an assertion of physical 32 MB G1 equivalence. Use it to investigate
 allocation pressure, and record the budget alongside any parity result.
+
+### Read-only setup diagnostics
+
+`ppl doctor --engine firmware --json` reports all missing firmware/resource
+paths, platform support and helper executability using the same flag,
+environment and configuration precedence as execution. The text form omits
+`--json`; `--engine native` verifies Native availability independently of
+optional firmware configuration. Exit status is 0 when setup checks pass and
+2 when attention is required.
+
+The IDE's **Validate firmware resources** action runs the same checks on a
+worker, displays each result and resolved path, and discards results after
+settings change. It does not boot firmware, create profiles, contact a
+calculator, install dependencies or change resources. Helper protocol and
+firmware observation capabilities are explicitly **not checked** by preflight;
+the actual session negotiates those at startup. A valid ELF header is only a
+header check, not a verified firmware execution result.

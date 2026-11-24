@@ -127,7 +127,7 @@ fn hp_integers_compare_as_their_unsigned_word() {
         ),
         v(&["1", "0", "1", "4294967295"])
     );
-    // B→R honours the Signed setting (two's complement).
+    // Stored word metadata, rather than the current Signed setting, controls B→R.
     let signed = Settings {
         int_signed: true,
         ..Settings::default()
@@ -138,7 +138,7 @@ fn hp_integers_compare_as_their_unsigned_word() {
             signed
         )
         .unwrap(),
-        v(&["-5", "1"])
+        v(&["4294967291", "1"])
     );
 }
 
@@ -314,18 +314,18 @@ fn for_variable_assigned_in_body() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn and_or_evaluate_both_operands() {
-    // UNVERIFIED on G1: AND / OR are not short-circuit, so the right operand
-    // is evaluated (and can fail) even when the left decides the result.
+fn and_or_short_circuit_when_the_left_operand_decides_the_result() {
+    // Confirmed by original15751 firmware controls, including side effects.
     assert_eq!(
-        error_kind("IF 0 AND (1/0) THEN PRINT(1); END;"),
-        "DivisionByZero"
+        lines("IF 0 AND (1/0) THEN PRINT(1); END; IF 1 OR (1/0) THEN PRINT(2); END;"),
+        v(&["2"])
     );
     assert_eq!(
-        error_kind("IF 1 OR (1/0) THEN PRINT(1); END;"),
-        "DivisionByZero"
+        lines("LOCAL a:=0; PRINT(0 AND (a:=a+1)); PRINT(a); PRINT(1 OR (a:=a+1)); PRINT(a);"),
+        v(&["0", "0", "1", "0"])
     );
-    // UNVERIFIED on G1: results are 1/0 (not the operand values).
+    assert_eq!(error_kind("PRINT(1 AND (1/0));"), "DivisionByZero");
+    assert_eq!(error_kind("PRINT(0 OR (1/0));"), "DivisionByZero");
     assert_eq!(
         lines("PRINT(0 AND 2); PRINT(3 OR 0); PRINT(NOT 5); PRINT(2 XOR 3);"),
         v(&["0", "1", "0", "0"])
@@ -485,32 +485,27 @@ fn equality_across_kinds() {
 }
 
 // ---------------------------------------------------------------------------
-// MOUSE idle shape (regression: FIREWORKS-style guards)
-//
-// UNVERIFIED on G1 (shape inferred from real-world programs): with no
-// touch active, MOUSE() must be *empty* — programs written for hardware
-// guard with `SIZE(m) > 0` before indexing m[1,1]. The emulator used to
-// return [[],[]] (SIZE 2), crashing such programs with
-// "Invalid dimension (index 1 is outside 1..0)".
+// MOUSE returns two pointer lists, even when both are empty. Original G1
+// build15751 and the HP guide609 agree: SIZE of the outer list is2. A
+// program must test the selected pointer list before indexing its cells.
 
 #[test]
-fn mouse_idle_returns_empty_list_not_two_empty_lists() {
+fn mouse_idle_retains_both_empty_pointer_slots() {
     let out = lines(
-        "LOCAL m := MOUSE; PRINT(SIZE(m));
-         IF SIZE(m) > 0 THEN PRINT(m[1,1]); ELSE PRINT(\"idle\"); END;",
+        "LOCAL m := MOUSE; PRINT(SIZE(m)); PRINT(DIM(m));
+         IF SIZE(m[1]) > 0 THEN PRINT(m[1,1]); ELSE PRINT(\"idle\"); END;",
     );
-    assert_eq!(out, v(&["0", "idle"]));
+    assert_eq!(out, v(&["2", "{{},{}}", "idle"]));
 }
 
 #[test]
-fn mouse_idle_size_guard_pattern_survives() {
-    // the exact guard pattern used by tests/fixtures/FIREWORKS.hpprgm
+fn mouse_does_not_hide_invalid_outer_only_guards() {
     let out = lines(
         "LOCAL m := MOUSE, mx := 0;
-         IF SIZE(m) > 0 THEN mx := m[1,1]; END;
-         PRINT(mx);",
+         IFERR IF SIZE(m) > 0 THEN mx := m[1,1]; END; THEN PRINT(\"caught\"); END;
+         IF SIZE(m[1]) > 0 THEN mx := m[1,1]; END; PRINT(mx);",
     );
-    assert_eq!(out, v(&["0"]));
+    assert_eq!(out, v(&["caught", "0"]));
 }
 
 // ---------------------------------------------------------------------------
@@ -564,7 +559,7 @@ fn g1_string_escapes_double_quotes_without_changing_the_original_value() {
 fn string_of_string_concat_matches_hardware_record() {
     // the exact shape of the device-program record for a string case
     let out = lines(r#"PRINT(STRING(0) + "|" + STRING(-0.5));"#);
-    assert_eq!(out, v(&["0|-0.5"]));
+    assert_eq!(out, v(&["0|−0.5"]));
 }
 
 // ---------------------------------------------------------------------------

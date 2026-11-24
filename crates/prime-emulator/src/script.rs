@@ -15,14 +15,15 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::display::{Frame, FrameDiff, LcdView};
 use crate::keys::Key;
 use crate::memory::GuestMemory;
 use crate::services::SharedState;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScriptConfig {
     pub keys: Vec<Key>,
     /// Screen-unchanged period that counts as settled.
@@ -33,8 +34,8 @@ pub struct ScriptConfig {
     pub key_timeout: Duration,
     /// `initial.png` and `NN_<key>.png` are written here when set.
     pub screenshot_dir: Option<PathBuf>,
-    /// Start with the first item instead of waiting for a settled, idle
-    /// boot screen: input for a running program that never idles (a
+    /// Start with the first item instead of waiting for guest-observed boot
+    /// input readiness: input for a running program that never idles (a
     /// polling `WAIT(-1)` or `GETKEY` loop) must still be delivered.
     pub start_with_keys: bool,
 }
@@ -54,7 +55,7 @@ impl Default for ScriptConfig {
 }
 
 /// One framebuffer capture.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureRecord {
     pub checkpoint: String,
     pub elapsed_ms: u64,
@@ -66,7 +67,7 @@ pub struct CaptureRecord {
 }
 
 /// Evidence for one scripted key.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyRecord {
     pub index: usize,
     pub name: String,
@@ -97,13 +98,15 @@ pub struct KeyRecord {
     pub after: CaptureRecord,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptReport {
     pub status: String,
     pub display: Option<LcdView>,
     /// Pixels that changed with no input pending (excluded from key
     /// attribution).
     pub idle_mask_pixels: usize,
+    /// Legacy field name: time at which completed guest event-loop cycles
+    /// admitted input. An animated boot screen need not become static.
     pub boot_settled_ms: Option<u64>,
     pub captures: Vec<CaptureRecord>,
     pub keys: Vec<KeyRecord>,
@@ -112,7 +115,7 @@ pub struct ScriptReport {
 }
 
 /// Read-only evidence for the individual predicates of the settlement gate.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettlementDiagnostics {
     pub key_index: Option<usize>,
     pub key_name: Option<String>,
@@ -131,17 +134,32 @@ pub struct SettlementDiagnostics {
     pub states_seen: usize,
     pub last_capture_age_ms: Option<u64>,
     pub capture_errors: u64,
+    #[serde(default)]
+    pub main_wait_entries: u64,
+    #[serde(default)]
+    pub pump_entries: u64,
+    #[serde(default)]
+    pub timer_deliveries: u64,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 enum Phase {
     Boot,
-    IdleObserve { until: Instant },
-    KeyStart { index: usize },
+    IdleObserve {
+        #[serde(with = "crate::image_time")]
+        until: Instant,
+    },
+    KeyStart {
+        index: usize,
+    },
     KeyWait(Box<Pending>),
     Done,
     Failed(String),
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Pending {
     index: usize,
     before: Frame,
@@ -152,10 +170,14 @@ struct Pending {
     /// Touch samples still to send, and touch deliveries to wait for.
     touch_left: std::collections::VecDeque<crate::services::TouchSample>,
     touch_target: u64,
+    #[serde(with = "crate::image_time")]
     last_touch_push: Option<Instant>,
     writes_before: u64,
+    #[serde(with = "crate::image_time")]
     queued_at: Instant,
+    #[serde(with = "crate::image_time")]
     delivered_at: Option<Instant>,
+    #[serde(with = "crate::image_time")]
     first_change: Option<Instant>,
 }
 
@@ -167,14 +189,23 @@ pub enum Tick {
     Failed(String),
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScriptDriver {
     cfg: ScriptConfig,
     consume_from: Option<usize>,
     phase: Phase,
+    /// Input readiness is established by completed guest event-loop cycles,
+    /// independently of first-run animations and per-key raster settlement.
+    #[serde(default)]
+    boot_readiness: crate::session::readiness::BootReadiness,
+    #[serde(with = "crate::image_time")]
     started: Instant,
     view: Option<LcdView>,
     last: Option<Frame>,
+    #[serde(with = "crate::image_time")]
     last_sample_at: Option<Instant>,
+    #[serde(with = "crate::image_time")]
     last_change: Instant,
     idle_mask: Vec<bool>,
     /// Distinct screen states seen since the last reset (boot, or the
@@ -182,13 +213,16 @@ pub struct ScriptDriver {
     states: Vec<(u64, Frame, u32)>,
     /// When a never-seen state last appeared. A screen whose only changes
     /// cycle through known states (a blinking cursor) has settled.
+    #[serde(with = "crate::image_time")]
     last_new_state: Instant,
     /// Since when the UI pump has been continuously parked with empty
     /// input queues.
+    #[serde(with = "crate::image_time")]
     idle_since: Option<Instant>,
     /// Recent `(time, main thread waiting)` observations for diagnostics.
     /// The guest's periodic housekeeping makes its host waiting share
     /// depend on CPU speed, so that share is not a readiness predicate.
+    #[serde(with = "crate::image_time")]
     main_samples: std::collections::VecDeque<(Instant, bool)>,
     max_idle: Duration,
     max_pump_parked: Duration,
@@ -207,6 +241,35 @@ const MAX_STATES: usize = 32;
 const TOUCH_COMMIT_HOLD: Duration = Duration::from_millis(600);
 
 impl ScriptDriver {
+    pub(crate) fn validate_image(&self) -> Result<(), String> {
+        let valid_frame = |frame: &Frame| {
+            frame.width == 320 && frame.height == 240 && frame.pixels.len() == 320 * 240
+        };
+        if self.cfg.keys.len() > 65536
+            || self.states.len() > MAX_STATES
+            || self.idle_mask.len() > 320 * 240
+            || self.last.as_ref().is_some_and(|frame| !valid_frame(frame))
+            || self
+                .prev_capture
+                .as_ref()
+                .is_some_and(|frame| !valid_frame(frame))
+            || self.states.iter().any(|(_, frame, _)| !valid_frame(frame))
+        {
+            return Err("Script image exceeds key/display/state bounds".into());
+        }
+        match &self.phase {
+            Phase::KeyStart { index } if *index > self.cfg.keys.len() => {
+                return Err("Script image key cursor is outside the input sequence".into());
+            }
+            Phase::KeyWait(pending)
+                if pending.index >= self.cfg.keys.len() || !valid_frame(&pending.before) =>
+            {
+                return Err("Script image pending key/frame is invalid".into());
+            }
+            _ => {}
+        }
+        Ok(())
+    }
     pub fn new(cfg: ScriptConfig) -> ScriptDriver {
         let now = Instant::now();
         ScriptDriver {
@@ -217,6 +280,7 @@ impl ScriptDriver {
             },
             cfg,
             consume_from: None,
+            boot_readiness: Default::default(),
             started: now,
             view: None,
             last: None,
@@ -442,6 +506,9 @@ impl ScriptDriver {
                 .last_sample_at
                 .map(|t| now.duration_since(t).as_millis() as u64),
             capture_errors: self.capture_errors,
+            main_wait_entries: shared.main_wait_entries(),
+            pump_entries: shared.getevent_entries(),
+            timer_deliveries: shared.system_events_delivered(),
         }
     }
 
@@ -499,19 +566,27 @@ impl ScriptDriver {
                 self.report.settlement = Some(self.settlement(shared, now, idle_for, None));
                 if now.duration_since(self.started) > self.cfg.boot_timeout {
                     Phase::Failed(format!(
-                        "boot did not reach a stable screen within {:?} (display {}, pump idle {})",
+                        "boot event loop was not ready within {:?} (display {}, pump idle {}, main waits {}, pump entries {}, timer deliveries {})",
                         self.cfg.boot_timeout,
                         if self.view.is_some() {
                             "located"
                         } else {
                             "not created"
                         },
-                        Self::pump_idle(shared)
+                        Self::pump_idle(shared),
+                        shared.main_wait_entries(),
+                        shared.getevent_entries(),
+                        shared.system_events_delivered(),
                     ))
-                } else if self.view.is_some()
-                    && idle_for >= Duration::from_millis(self.cfg.settle_ms)
-                    && now.duration_since(self.last_new_state)
-                        >= Duration::from_millis(self.cfg.settle_ms)
+                } else if self
+                    .boot_readiness
+                    .observe(crate::session::readiness::Sample {
+                        valid_frame: self.last.is_some(),
+                        idle: Self::pump_idle(shared) && shared.main_waiting(),
+                        main_waits: shared.main_wait_entries(),
+                        pump_entries: shared.getevent_entries(),
+                        timer_deliveries: shared.system_events_delivered(),
+                    })
                 {
                     self.report.boot_settled_ms = Some(self.ms(now));
                     Phase::IdleObserve {
@@ -755,6 +830,98 @@ impl ScriptDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn boot_fixture() -> (GuestMemory, SharedState, ScriptDriver) {
+        let mut memory = GuestMemory::new();
+        memory.map("LCD", 0x10000, 320 * 240 * 4).unwrap();
+        let shared = SharedState::new(PathBuf::new(), String::new());
+        shared.set_getevent_parked(true);
+        shared.set_main_waiting(true);
+        let mut driver = ScriptDriver::new(ScriptConfig::default());
+        driver.view = Some(LcdView {
+            lcd_va: 0x10000,
+            fb_va: 0x10000,
+            width: 320,
+            height: 240,
+            stride: 1280,
+            format: crate::display::PixelFormat::Xrgb8888,
+        });
+        (memory, shared, driver)
+    }
+    #[test]
+    fn animated_boot_waits_for_real_round_trips_instead_of_static_raster() {
+        let (memory, shared, mut driver) = boot_fixture();
+        assert!(matches!(driver.tick(&memory, &shared), Tick::Continue));
+        assert!(matches!(driver.phase, Phase::Boot));
+        // More novel frames than the bounded state tracker can retain: a
+        // running welcome animation must not make readiness impossible.
+        for frame in 1..=40 {
+            memory.write_u32(0x10000, frame).unwrap();
+            driver.last_sample_at = None;
+            shared.set_main_waiting(false);
+            assert!(matches!(driver.tick(&memory, &shared), Tick::Continue));
+            assert!(matches!(driver.phase, Phase::Boot));
+        }
+        for _ in 0..2 {
+            shared.note_getevent_entry();
+            shared.push_system_event(crate::services::UI_EVENT_TYPE_SYS_TIMER);
+            assert!(shared.pop_system_event().is_some());
+        }
+        shared.set_main_waiting(true);
+        driver.last_sample_at = None;
+        assert!(matches!(driver.tick(&memory, &shared), Tick::Continue));
+        assert!(matches!(driver.phase, Phase::IdleObserve { .. }));
+        assert_eq!(driver.states.len(), MAX_STATES);
+        assert!(driver.report.boot_settled_ms.is_some());
+        assert!(driver.report.keys.is_empty());
+    }
+    #[test]
+    fn unchanged_boot_pixels_without_completed_pump_cycles_are_not_ready() {
+        let (memory, shared, mut driver) = boot_fixture();
+        for _ in 0..3 {
+            driver.idle_since = Some(Instant::now() - Duration::from_secs(1));
+            driver.last_new_state = Instant::now() - Duration::from_secs(1);
+            assert!(matches!(driver.tick(&memory, &shared), Tick::Continue));
+            assert!(matches!(driver.phase, Phase::Boot));
+        }
+        assert!(driver.report.boot_settled_ms.is_none());
+    }
+
+    #[test]
+    fn boot_progress_restores_while_legacy_images_require_fresh_evidence() {
+        let (memory, shared, mut driver) = boot_fixture();
+        driver.tick(&memory, &shared);
+        let anchor = Instant::now();
+        let image = crate::image_time::at(anchor, || serde_json::to_value(&driver)).unwrap();
+        shared.note_getevent_entry();
+        shared.push_system_event(crate::services::UI_EVENT_TYPE_SYS_TIMER);
+        shared.pop_system_event();
+        let mut restored: ScriptDriver =
+            crate::image_time::at(anchor, || serde_json::from_value(image.clone())).unwrap();
+        restored.validate_image().unwrap();
+        restored.tick(&memory, &shared);
+        assert!(matches!(restored.phase, Phase::Boot));
+        shared.note_getevent_entry();
+        shared.push_system_event(crate::services::UI_EVENT_TYPE_SYS_TIMER);
+        shared.pop_system_event();
+        shared.set_main_waiting(true);
+        restored.tick(&memory, &shared);
+        assert!(matches!(restored.phase, Phase::IdleObserve { .. }));
+        let mut legacy = image;
+        legacy.as_object_mut().unwrap().remove("boot_readiness");
+        let mut migrated: ScriptDriver =
+            crate::image_time::at(anchor, || serde_json::from_value(legacy)).unwrap();
+        migrated.tick(&memory, &shared);
+        assert!(matches!(migrated.phase, Phase::Boot));
+        for _ in 0..2 {
+            shared.note_getevent_entry();
+            shared.push_system_event(crate::services::UI_EVENT_TYPE_SYS_TIMER);
+            shared.pop_system_event();
+        }
+        shared.set_main_waiting(true);
+        migrated.tick(&memory, &shared);
+        assert!(matches!(migrated.phase, Phase::IdleObserve { .. }));
+    }
 
     #[test]
     fn handoff_requires_consumed_final_enter_and_empty_input_queue() {

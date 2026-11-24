@@ -12,10 +12,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use serde_json::json;
+pub mod image;
 
 /// Categories every diagnostic event falls into. Kept closed so the report
 /// stays mechanically checkable.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum EventKind {
     Stage,
     Map,
@@ -81,16 +82,33 @@ impl Default for TraceConfig {
 }
 
 /// One human-readable log line retained for the final report.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RingEntry {
     pub seq: u64,
     pub kind: EventKind,
     pub message: String,
 }
 
+/// A copied observation, never a resumable CPU context. Published only by
+/// the engine's owner; `svc_entry` may be followed by a long host wait.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ThreadObservation {
+    pub thread_id: u32,
+    pub sequence: u64,
+    pub observed_ms: f64,
+    pub boundary: String,
+    pub registers: [u32; 16],
+    pub cpsr: u32,
+    pub instructions_lower_bound: Option<u64>,
+    pub last_slice_exact: bool,
+}
+
 pub struct TraceHub {
     cfg: TraceConfig,
+    threads: Mutex<std::collections::BTreeMap<u32, ThreadObservation>>,
+    thread_observations_dropped: AtomicU64,
     start: Instant,
+    elapsed_before: std::time::Duration,
     jsonl: Mutex<Option<BufWriter<File>>>,
     ring: Mutex<Vec<RingEntry>>,
     ring_dropped: AtomicU64,
@@ -132,10 +150,13 @@ impl TraceHub {
             None => None,
         };
         Ok(TraceHub {
+            threads: Mutex::new(Default::default()),
+            thread_observations_dropped: AtomicU64::new(0),
             compiler: cfg.compiler.then(crate::compiler::Observer::default),
             runtime: cfg.runtime.then(crate::runtime::Observer::default),
             cfg,
             start: Instant::now(),
+            elapsed_before: std::time::Duration::ZERO,
             jsonl: Mutex::new(file),
             ring: Mutex::new(Vec::new()),
             ring_dropped: AtomicU64::new(0),
@@ -149,6 +170,62 @@ impl TraceHub {
             fs_log: Mutex::new(Vec::new()),
             fs_dropped: AtomicU64::new(0),
             script_step: AtomicU64::new(u64::MAX),
+        })
+    }
+
+    /// Disabled tracing performs no register reads, allocation or locking.
+    pub fn thread_observation_enabled(&self) -> bool {
+        self.cfg.svc_trace
+    }
+
+    pub fn note_thread(&self, mut observation: ThreadObservation) {
+        if !self.thread_observation_enabled() {
+            return;
+        }
+        let mut threads = self.threads.lock().unwrap();
+        if threads.len() >= 128 && !threads.contains_key(&observation.thread_id) {
+            self.thread_observations_dropped
+                .fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        observation.sequence = self.seq.fetch_add(1, Ordering::Relaxed);
+        observation.observed_ms = self.elapsed_secs() * 1000.0;
+        self.record(
+            EventKind::Thread,
+            format!("thread {} {}", observation.thread_id, observation.boundary),
+            json!({"thread_observation": observation}),
+        );
+        threads.insert(observation.thread_id, observation);
+    }
+
+    /// Latest copied observations; timestamps expose stale/blocked threads.
+    /// This does not pause guest execution or promise a coherent machine snapshot.
+    pub fn thread_observations(&self) -> Vec<ThreadObservation> {
+        self.threads.lock().unwrap().values().cloned().collect()
+    }
+
+    /// Bounded forensic data for headless consumers. Independently timestamped
+    /// records are evidence, not an atomic snapshot of the calculator.
+    pub fn diagnostic_bundle(&self) -> serde_json::Value {
+        let (tail, omitted) =
+            {
+                let ring = self.ring.lock().unwrap();
+                let tail: Vec<_> = ring.iter().rev().take(64).rev().map(|e|
+                json!({"sequence": e.seq, "kind": e.kind.as_str(), "message": e.message})
+            ).collect();
+                (tail, ring.len().saturating_sub(64))
+            };
+        json!({
+            "schema_version": 1,
+            "elapsed_ms": self.elapsed_secs()*1000.0,
+            "coherent_machine_snapshot": false,
+            "register_observations_enabled": self.thread_observation_enabled(),
+            "threads": self.thread_observations(),
+            "thread_observations_dropped": self.thread_observations_dropped.load(Ordering::Relaxed),
+            "trace_tail": tail,
+            "trace_ring_dropped": self.ring_dropped(),
+            "trace_tail_omitted": omitted,
+            "last_code": self.last_code(64)
         })
     }
 
@@ -221,12 +298,12 @@ impl TraceHub {
     }
 
     pub fn elapsed_secs(&self) -> f64 {
-        self.start.elapsed().as_secs_f64()
+        (self.elapsed_before + self.start.elapsed()).as_secs_f64()
     }
 
     fn record(&self, kind: EventKind, message: String, json: serde_json::Value) {
         let seq = self.seq.fetch_add(1, Ordering::Relaxed) + 1;
-        let at = self.start.elapsed().as_secs_f64();
+        let at = self.elapsed_secs();
         if let Some(w) = self.jsonl.lock().unwrap().as_mut() {
             let mut obj = json;
             obj["seq"] = json!(seq);
@@ -349,6 +426,7 @@ impl TraceHub {
                     "caller_pc": caller_pc,
                     "r0": r0,
                     "supported": supported,
+                    "thread_id": thread_id,
                 }),
             );
         } else if !supported {
@@ -360,7 +438,7 @@ impl TraceHub {
                     "unsupported svc {id:#07X} ({}) caller={caller_pc:#010X} r0={r0:#010X}",
                     name.unwrap_or("unknown"),
                 ),
-                json!({ "id": id, "name": name, "caller_pc": caller_pc, "r0": r0 }),
+                json!({ "id": id, "name": name, "caller_pc": caller_pc, "r0": r0, "thread_id": thread_id }),
             );
         }
     }
@@ -502,5 +580,54 @@ mod incremental_fs_tests {
         t.fs_dropped.store(1, Ordering::Relaxed);
         assert_eq!(t.fs_log_since(cursor).2, 1);
         assert_eq!(t.fs_log_since(usize::MAX).1, cursor);
+    }
+}
+
+#[cfg(test)]
+mod thread_observation_tests {
+    use super::*;
+    fn observation(id: u32) -> ThreadObservation {
+        ThreadObservation {
+            thread_id: id,
+            sequence: 0,
+            observed_ms: 0.0,
+            boundary: "svc_entry".into(),
+            registers: [id; 16],
+            cpsr: 0x10,
+            instructions_lower_bound: None,
+            last_slice_exact: false,
+        }
+    }
+    #[test]
+    fn disabled_observations_are_empty() {
+        let t = TraceHub::new(TraceConfig {
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        t.note_thread(observation(1));
+        assert!(t.thread_observations().is_empty());
+    }
+    #[test]
+    fn bounded_latest_observations_keep_sequence_and_raw_registers() {
+        let t = TraceHub::new(TraceConfig {
+            svc_trace: true,
+            verbosity: 0,
+            ..Default::default()
+        })
+        .unwrap();
+        for id in 0..200 {
+            t.note_thread(observation(id));
+        }
+        assert_eq!(t.thread_observations().len(), 128);
+        assert_eq!(t.diagnostic_bundle()["thread_observations_dropped"], 72);
+        let old = t.thread_observations()[0].sequence;
+        let mut updated = observation(0);
+        updated.registers[15] = 0x1234;
+        t.note_thread(updated);
+        let copied = t.thread_observations();
+        assert!(copied[0].sequence > old);
+        assert_eq!(copied[0].registers[15], 0x1234);
+        assert!(copied[0].instructions_lower_bound.is_none());
     }
 }

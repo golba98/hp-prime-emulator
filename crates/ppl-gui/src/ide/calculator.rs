@@ -8,7 +8,7 @@ use super::{
 use egui::{Color32, Rect, Stroke, StrokeKind, Vec2};
 pub const DEVICE_SIZE: Vec2 = Vec2::new(381.0, 797.0);
 /// The G1 Firmware session controls: (enabled, title, action).
-pub fn session_actions(state: &IdeAppState) -> [(bool, &'static str, IdeAction); 6] {
+pub fn session_actions(state: &IdeAppState) -> [(bool, &'static str, IdeAction); 8] {
     let session = &state.firmware_session;
     let asleep = *session == FirmwareSession::Sleeping;
     [
@@ -29,7 +29,23 @@ pub fn session_actions(state: &IdeAppState) -> [(bool, &'static str, IdeAction);
             IdeAction::FirmwareRestart,
         ),
         (
-            *session == FirmwareSession::Ready,
+            matches!(
+                session,
+                FirmwareSession::Ready | FirmwareSession::Running | FirmwareSession::Sleeping
+            ),
+            "Save live state",
+            IdeAction::FirmwareSaveLive,
+        ),
+        (
+            !matches!(
+                session,
+                FirmwareSession::Booting | FirmwareSession::Stopping
+            ),
+            "Resume live state",
+            IdeAction::FirmwareResumeLive,
+        ),
+        (
+            *session == FirmwareSession::Ready && state.firmware_managed_reason.is_none(),
             "Import to calculator",
             IdeAction::ImportToCalculator,
         ),
@@ -68,14 +84,44 @@ fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
         ui.label(egui::RichText::new(short).size(11.5).strong())
             .on_hover_text(session.label());
         for (enabled, title, action) in session_actions(state) {
-            if ui
-                .add_enabled(enabled, egui::Button::new(title).small())
-                .clicked()
-            {
+            let response = ui.add_enabled(enabled, egui::Button::new(title).small());
+            match action {
+                IdeAction::FirmwareSaveLive => { state.automation_ui_controls.insert("firmware_save_live".into(), response.rect); }
+                IdeAction::FirmwareResumeLive => { state.automation_ui_controls.insert("firmware_resume_live".into(), response.rect); }
+                _ => {}
+            }
+            if response.clicked() {
                 state.queue_action(action);
                 ui.ctx().request_repaint();
             }
         }
+        let environment=egui::containers::menu::MenuButton::new("Environment")
+            .config(egui::containers::menu::MenuConfig::default().close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside))
+            .ui(ui,|ui| {
+            use ppl_engine::environment::{BatteryPower,BATTERY_VOLTS_PER_SAMPLE};
+            let outputs=state.firmware_peripherals;
+            ui.label(if outputs.backlight_on {format!("Screen light: {}%",outputs.backlight_duty.saturating_mul(100).min(35000)/350)}else{"Screen light: off".into()});
+            ui.label(if outputs.indicator&7==0 {"Indicator lights: off"}else{"Indicator lights: on"});
+            ui.label("Virtual calculator battery");
+            let battery=&mut state.firmware.environment.battery;
+            let mut voltage=battery.voltage();
+            let slider=ui.add(egui::Slider::new(&mut voltage,3.0..=4.65).text("Voltage (V)").fixed_decimals(2));
+            state.automation_ui_controls.insert("battery_voltage".into(),Rect::from_min_size(slider.rect.min,Vec2::new(ui.spacing().slider_width,slider.rect.height())));
+            if slider.changed() {
+                battery.adc=(voltage/BATTERY_VOLTS_PER_SAMPLE).round().clamp(0.0,1023.0) as u16;
+            }
+            for (name,power,label) in [("battery_power",BatteryPower::Battery,"On battery"),("battery_charging",BatteryPower::Charging,"Charging"),("battery_charged",BatteryPower::Charged,"Fully charged")] {
+                let response=ui.radio_value(&mut battery.power,power,label);
+                state.automation_ui_controls.insert(name.into(),response.rect);
+            }
+            let apply=ui.add_enabled(session.live(),egui::Button::new("Apply battery settings"));
+            state.automation_ui_controls.insert("battery_apply".into(),apply.rect);
+            if apply.clicked() {
+                state.queue_action(IdeAction::FirmwareEnvironmentApply);
+                ui.close();
+            }
+        });
+        state.automation_ui_controls.insert("firmware_environment".into(),environment.0.rect);
         if ui.small_button("Configure firmware…").clicked() {
             state.queue_action(IdeAction::ShowSettingsDialog);
         }
@@ -84,6 +130,7 @@ fn session_bar(ui: &mut egui::Ui, state: &mut IdeAppState) {
         {
             state.queue_action(IdeAction::SelectBackend(false));
         }
+        if let Some(reason) = &state.firmware_managed_reason { ui.label(reason); }
         let unsupported = state.firmware_unsupported.len();
         if unsupported > 0 {
             let text = format!("{unsupported} unsupported OS service call site(s)");
@@ -117,6 +164,7 @@ pub fn show(
     display: &mut CalculatorDisplay,
     keypad: &mut VirtualKeypad,
 ) {
+    state.automation_ui_controls.clear();
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new("HP PRIME").size(12.0).strong());
         ui.label(
@@ -161,6 +209,11 @@ pub fn show(
                     ui.label("Tab: Alpha · Shift+Tab: calculator Shift");
                     ui.label("Ctrl+V: paste one expression · Esc: cancel queued typing");
                     ui.label("Right: leave a power/fraction template");
+                    if state.firmware_clipboard_available {
+                        ui.label("Calculator Copy/Cut also copies selected text to the desktop clipboard.");
+                    } else {
+                        ui.label("Desktop copy-out has no verified profile for this firmware.");
+                    }
                     ui.label("Paste PPL source into the IDE editor, then Import.");
                 }
                 if ui.button("Save LCD screenshot…").clicked() {
@@ -333,5 +386,83 @@ mod tests {
                 assert_eq!(state.calculator_mode, CalculatorMode::Full);
             }
         }
+    }
+    #[test]
+    fn environment_widgets_change_battery_and_queue_the_real_apply_action() {
+        let ctx = egui::Context::default();
+        let mut state = IdeAppState {
+            firmware_backend: true,
+            firmware_session: FirmwareSession::Ready,
+            layout: WorkspaceLayout::Calculator,
+            ..Default::default()
+        };
+        let mut display = CalculatorDisplay::default();
+        let mut keypad = VirtualKeypad::default();
+        let mut frame = |state: &mut IdeAppState, events: Vec<egui::Event>| {
+            let _ = ctx.run(
+                egui::RawInput {
+                    focused: true,
+                    screen_rect: Some(Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1280., 1000.),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default()
+                        .show(ctx, |ui| show(ui, state, &mut display, &mut keypad));
+                },
+            );
+        };
+        let mut click = |state: &mut IdeAppState, name: &str| {
+            frame(state, vec![]);
+            let pos = state
+                .automation_ui_controls
+                .get(name)
+                .unwrap_or_else(|| panic!("missing visible {name}"))
+                .center();
+            frame(
+                state,
+                vec![
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+            );
+            frame(
+                state,
+                vec![egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                }],
+            );
+        };
+        click(&mut state, "firmware_environment");
+        click(&mut state, "battery_voltage");
+        click(&mut state, "battery_charging");
+        click(&mut state, "battery_apply");
+        // The slider rounds to0.01 V before quantization to a10-bit sample.
+        assert!((state.firmware.environment.battery.voltage() - 3.825).abs() <= 0.01);
+        assert_eq!(
+            state.firmware.environment.battery.power,
+            ppl_engine::environment::BatteryPower::Charging
+        );
+        assert!(
+            state
+                .take_actions()
+                .iter()
+                .any(|action| matches!(action, IdeAction::FirmwareEnvironmentApply))
+        );
+        let saved = serde_json::to_vec(&state.firmware).unwrap();
+        let restored: crate::ide::firmware::FirmwareSettings =
+            serde_json::from_slice(&saved).unwrap();
+        assert_eq!(restored.environment, state.firmware.environment);
     }
 }

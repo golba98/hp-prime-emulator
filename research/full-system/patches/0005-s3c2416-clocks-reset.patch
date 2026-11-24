@@ -1,0 +1,277 @@
+--- a/include/hw/arm/s3c2416.h
++++ b/include/hw/arm/s3c2416.h
+@@ -10,0 +11,3 @@
++void s3c2416_pwm_set_clock(DeviceState *dev, uint32_t hz);
++void s3c2416_uart_set_clock(DeviceState *dev, uint32_t pclk, uint32_t sclk, bool modeled);
++void s3c2416_sysc_connect(DeviceState *dev, DeviceState *pwm, DeviceState *uart);
+--- a/hw/arm/s3c2416.c
++++ b/hw/arm/s3c2416.c
+@@ -125 +125 @@
+-    (void*) s3c2416_uart_create(0x50000000, 64, 0, NULL, rxd0_sub,txd0_sub,err0_sub);
++    DeviceState *uart = s3c2416_uart_create(0x50000000, 64, 0, NULL, rxd0_sub,txd0_sub,err0_sub);
+@@ -150,0 +151 @@
++    DeviceState *sysc = dev;
+@@ -158 +159 @@
+-    sysbus_create_varargs("s3c2416-pwm", 0x51000000,
++    DeviceState *pwm = sysbus_create_varargs("s3c2416-pwm", 0x51000000,
+@@ -164,0 +166,2 @@
++
++    s3c2416_sysc_connect(sysc, pwm, uart);
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -22 +22 @@
+-obj-$(CONFIG_S3C2416) += s3c2416.o s3c2416_gpio.o s3c2416_sysc.o s3c2416_memc.o s3c2416_timer.o s3c2416_wtcon.o
+\ No newline at end of file
++obj-$(CONFIG_S3C2416) += s3c2416.o s3c2416_gpio.o s3c2416_clock.o s3c2416_memc.o s3c2416_timer.o s3c2416_wtcon.o
+\ No newline at end of file
+--- /dev/null
++++ b/hw/arm/s3c2416_clock.c
+@@ -0,0 +1,178 @@
++/*
++ * S3C2416 clock and reset research subset.
++ * Copyright (c) 2026 HP Prime emulator contributors.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ *
++ * Samsung S3C2416X Rev1.10 chapter2, Linux v5.15 clk-s3c2443.c/clk-pll.c.
++ * No PLL locking delays, CPU cycle-rate control or external-source guessing.
++ * The legacy profile preserves M18's explicit 66MHz PWM / 24MHz UART inputs.
++ */
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "hw/sysbus.h"
++#include "hw/qdev-properties.h"
++#include "hw/arm/s3c2416.h"
++#include "sysemu/sysemu.h"
++
++#define TYPE_S3C2416_SYSC "s3c2416-sysc"
++#define SYSC(obj) OBJECT_CHECK(S3C2416SYSC, (obj), TYPE_S3C2416_SYSC)
++#define REG(x) ((x) / 4)
++typedef struct {
++    SysBusDevice parent_obj;
++    MemoryRegion iomem;
++    uint32_t regs[0x90 / 4];
++    uint32_t xti_hz, ext_hz;
++    bool clock_tree, software_reset;
++    DeviceState *pwm, *uart;
++} S3C2416SYSC;
++
++static bool valid_offset(hwaddr o)
++{
++    return o <= 0x8c && !(o & 3) && o != 0x0c && o != 0x14 &&
++           o != 0x3c && o != 0x48 && o != 0x4c &&
++           o != 0x54 && o != 0x58 && o != 0x5c;
++}
++
++static uint32_t bounded_rate(uint64_t rate)
++{
++    return rate <= UINT32_MAX ? rate : 0;
++}
++
++static uint32_t pll_rate(uint32_t parent, uint32_t con, uint32_t k, bool epll)
++{
++    unsigned m = (con >> (epll ? 16 : 14)) & (epll ? 255 : 1023);
++    unsigned p = (con >> (epll ? 8 : 5)) & 63;
++    unsigned shift = con & 7;
++    uint64_t rate;
++    if (!p) { return 0; }
++    if (epll) {
++        rate = (uint64_t)parent * ((m << 16) + (k & 65535));
++        rate = (rate / ((uint64_t)p << shift)) >> 16;
++    } else {
++        rate = (uint64_t)parent * m / ((uint64_t)p << shift);
++    }
++    return bounded_rate(rate);
++}
++
++static void update_clocks(S3C2416SYSC *s)
++{
++    uint32_t pclk = 66000000, uart_pclk = 24000000, uart_sclk = 0;
++    if (s->clock_tree) {
++        uint32_t src = s->regs[REG(0x20)], div = s->regs[REG(0x24)];
++        uint32_t mpllref = s->xti_hz / ((src & 8) ? 2 * ((div >> 6) & 7) + 1 : 1);
++        uint32_t msys = (src & 16) ? pll_rate(mpllref, s->regs[REG(0x10)], 0, false) : mpllref;
++        unsigned hdiv = div & 3;
++        unsigned erefsel = (src >> 7) & 3;
++        uint32_t eref = erefsel < 2 ? mpllref : erefsel == 2 ? s->xti_hz : s->ext_hz;
++        uint32_t esys = (src & 64) ? pll_rate(eref, s->regs[REG(0x18)], s->regs[REG(0x1c)], true) : eref;
++        pclk = hdiv == 2 ? 0 : msys / (((div >> 4) & 3) + 1) / (hdiv + 1) / (((div >> 2) & 1) + 1);
++        uart_pclk = (s->regs[REG(0x34)] & 1) ? pclk : 0;
++        uart_sclk = (s->regs[REG(0x38)] & (1 << 8)) ? esys / (((s->regs[REG(0x28)] >> 8) & 15) + 1) : 0;
++        if (!(s->regs[REG(0x34)] & (1 << 10))) { pclk = 0; }
++        if (!msys || hdiv == 2) {
++            qemu_log_mask(LOG_UNIMP, "s3c2416-sysc: invalid/unsupported main clock stops peripheral clocks\n");
++        }
++    }
++    if (s->pwm) { s3c2416_pwm_set_clock(s->pwm, pclk); }
++    if (s->uart) { s3c2416_uart_set_clock(s->uart, uart_pclk, uart_sclk, s->clock_tree); }
++}
++
++void s3c2416_sysc_connect(DeviceState *dev, DeviceState *pwm, DeviceState *uart)
++{
++    S3C2416SYSC *s = SYSC(dev);
++    s->pwm = pwm; s->uart = uart;
++    update_clocks(s);
++}
++
++static uint64_t sysc_read(void *opaque, hwaddr offset, unsigned size)
++{
++    S3C2416SYSC *s = opaque;
++    if (valid_offset(offset)) { return s->regs[REG(offset)]; }
++    qemu_log_mask(LOG_GUEST_ERROR, "s3c2416-sysc: bad read 0x%" HWADDR_PRIx "\n", offset);
++    return 0;
++}
++
++static void sysc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
++{
++    S3C2416SYSC *s = opaque;
++    if (!valid_offset(offset)) {
++        qemu_log_mask(LOG_GUEST_ERROR, "s3c2416-sysc: bad write 0x%" HWADDR_PRIx "\n", offset);
++        return;
++    }
++    if (offset == 0x44) {
++        if (val == 0x533c2416) {
++            s->software_reset = true;
++            qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
++        } else {
++            qemu_log_mask(LOG_GUEST_ERROR, "s3c2416-sysc: invalid SWRST key ignored\n");
++        }
++        return;
++    }
++    if (offset == 0x6c) {
++        s->regs[REG(offset)] &= ~val; /* WKUPSTAT is write-one-to-clear. */
++        return;
++    }
++    if (offset == 0x68) {
++        qemu_log_mask(LOG_UNIMP, "s3c2416-sysc: reset/wakeup status writes unsupported\n");
++        return;
++    }
++    s->regs[REG(offset)] = val;
++    if ((offset >= 0x10 && offset <= 0x38)) { update_clocks(s); }
++}
++
++static void sysc_reset(DeviceState *dev)
++{
++    S3C2416SYSC *s = SYSC(dev);
++    uint32_t saved[0x90 / 4];
++    bool soft = s->software_reset;
++    unsigned i;
++    memcpy(saved, s->regs, sizeof(saved));
++    memset(s->regs, 0, sizeof(s->regs));
++    s->regs[REG(0)] = s->regs[REG(4)] = 0xffff;
++    s->regs[REG(8)] = 0x8000;
++    s->regs[REG(0x10)] = 0x18540c0;
++    s->regs[REG(0x18)] = 0x1200102;
++    s->regs[REG(0x24)] = 0xc;
++    s->regs[REG(0x30)] = s->regs[REG(0x34)] = 0xffffffff;
++    s->regs[REG(0x38)] = 0xffffdfff;
++    s->regs[REG(0x64)] = 0x60101;
++    s->regs[REG(0x68)] = 1;
++    if (soft) {
++        const unsigned retain[] = {8, 0x60, 0x64, 0x68, 0x6c, 0x70, 0x74, 0x78, 0x7c};
++        for (i = 0; i < ARRAY_SIZE(retain); i++) { s->regs[REG(retain[i])] = saved[REG(retain[i])]; }
++    }
++    if (soft) { s->regs[REG(0x68)] = 0x20; } /* Rev1.10 2-35 SWRST cause. */
++    s->software_reset = false;
++    update_clocks(s);
++}
++static const MemoryRegionOps sysc_ops = {
++    .read = sysc_read, .write = sysc_write, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = {.min_access_size = 4, .max_access_size = 4, .unaligned = false},
++};
++static void sysc_init(Object *obj)
++{
++    S3C2416SYSC *s = SYSC(obj);
++    memory_region_init_io(&s->iomem, obj, &sysc_ops, s, TYPE_S3C2416_SYSC, 0x1000);
++    sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
++}
++static Property sysc_properties[] = {
++    DEFINE_PROP_BOOL("clock-tree", S3C2416SYSC, clock_tree, false),
++    DEFINE_PROP_UINT32("xti-hz", S3C2416SYSC, xti_hz, 12000000),
++    DEFINE_PROP_UINT32("ext-hz", S3C2416SYSC, ext_hz, 0),
++    DEFINE_PROP_END_OF_LIST(),
++};
++static const VMStateDescription sysc_vmstate = {
++    .name = TYPE_S3C2416_SYSC, .unmigratable = 1,
++};
++static void sysc_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->reset = sysc_reset; dc->props = sysc_properties; dc->vmsd = &sysc_vmstate;
++}
++static const TypeInfo sysc_type = {
++    .name = TYPE_S3C2416_SYSC, .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(S3C2416SYSC), .instance_init = sysc_init,
++    .class_init = sysc_class_init,
++};
++static void register_types(void) { type_register_static(&sysc_type); }
++type_init(register_types)
+--- a/hw/arm/s3c2416_timer.c
++++ b/hw/arm/s3c2416_timer.c
+@@ -7 +7 @@
+- * External clocks, DMA, waveform/dead-zone output and clock-tree changes
++ * External clocks, DMA and waveform/dead-zone output
+@@ -15,0 +16 @@
++#include "hw/arm/s3c2416.h"
+@@ -45,0 +47,5 @@
++    if (!s->pclk_hz) {
++        c->clock_supported = false;
++        ptimer_stop(c->timer);
++        return; /* A supported peripheral clock gate, not an external-clock error. */
++    }
+@@ -62,0 +69,9 @@
++}
++
++void s3c2416_pwm_set_clock(DeviceState *dev, uint32_t hz)
++{
++    S3C2416PWM *s = S3C2416_PWM(dev);
++    unsigned i;
++    if (s->pclk_hz == hz) { return; }
++    s->pclk_hz = hz;
++    for (i = 0; i < 5; i++) { update_frequency(s, i); }
+--- a/hw/char/s3c2416_uart.c
++++ b/hw/char/s3c2416_uart.c
+@@ -1 +1 @@
+-/*
++﻿/*
+@@ -23,0 +24,2 @@
++#include "hw/arm/s3c2416.h"
++#include "qemu/log.h"
+@@ -29,0 +32 @@
++#include "qemu/log.h"
+@@ -180,0 +184,2 @@
++    uint32_t pclk_hz, sclk_hz;
++    bool modeled_clock;
+@@ -304,3 +309 @@
+-    if (s->reg[I_(UBRDIV)] == 0) {
+-        return;
+-    }
++    if (s->modeled_clock && !s->pclk_hz) { return; }
+@@ -326,3 +329,6 @@
+-    uclk_rate = 24000000;
+-
+-    speed = uclk_rate / ((16 * (s->reg[I_(UBRDIV)]) & 0xffff) +
++    unsigned source = (s->reg[I_(UCON)] >> 10) & 3;
++    uclk_rate = !s->modeled_clock ? 24000000 : source == 1 ? 0 :
++                source == 3 ? s->sclk_hz : s->pclk_hz;
++    if (!uclk_rate) { return; }
++
++    speed = uclk_rate / (16 * ((s->reg[I_(UBRDIV)] & 0xffff) + 1) +
+@@ -341,0 +348,7 @@
++void s3c2416_uart_set_clock(DeviceState *dev, uint32_t pclk, uint32_t sclk, bool modeled)
++{
++    Exynos4210UartState *s = (Exynos4210UartState *)dev;
++    s->pclk_hz = pclk; s->sclk_hz = sclk; s->modeled_clock = modeled;
++    s3c2416_uart_update_parameters(s);
++}
++
+@@ -354,0 +368 @@
++    case UCON:
+@@ -372,0 +387,6 @@
++        if (s->modeled_clock && (!s->pclk_hz ||
++            ((s->reg[I_(UCON)] >> 10) & 3) == 1 ||
++            (((s->reg[I_(UCON)] >> 10) & 3) == 3 && !s->sclk_hz))) {
++            qemu_log_mask(LOG_UNIMP, "s3c2416-uart: clock gated or external source unsupported\n");
++            return;
++        }
+@@ -398 +417,0 @@
+-    case UCON:

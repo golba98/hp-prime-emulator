@@ -39,6 +39,61 @@ fn real(text: &str) -> Option<FirmwareValue> {
     Some(FirmwareValue::Real { value: text.into() })
 }
 #[test]
+fn decode_static_pi_and_heap_coefficients_without_overreading_or_rounding() {
+    let mut m = GuestMemory::new();
+    // Exactly four mapped bytes prove that static π needs no guessed payload.
+    m.map("static pi", 0x1000, 4).unwrap();
+    m.write_u32(0x1000, 0x020f0000).unwrap();
+    let decoded = runtime_value::decode(&m, 0x1000);
+    assert_eq!(decoded.bytes.len(), 4);
+    assert!(decoded.representation.as_ref().unwrap().complete);
+    let pi = FirmwareValue::PiMultiple {
+        negative: false,
+        numerator: "1".into(),
+        denominator: "1".into(),
+    };
+    assert_eq!(decoded.value, Some(pi.clone()));
+    assert_eq!(pi.display(), "π");
+    m.map("heap coefficient", 0x2000, 24).unwrap();
+    m.write_u32(0x2000, 0x021f0001).unwrap();
+    m.write_u32(0x2004, 1).unwrap();
+    m.write_bytes(0x2008, &2u64.to_le_bytes()).unwrap();
+    m.write_bytes(0x2010, &3u64.to_le_bytes()).unwrap();
+    let expected = FirmwareValue::PiMultiple {
+        negative: true,
+        numerator: "2".into(),
+        denominator: "3".into(),
+    };
+    let observed = runtime_value::decode(&m, 0x2000);
+    assert_eq!(observed.value, Some(expected.clone()));
+    assert_eq!(expected.display(), "-2*π/3");
+    assert_eq!(
+        serde_json::to_value(expected).unwrap(),
+        serde_json::json!({"type":"pi_multiple","negative":true,"numerator":"2","denominator":"3"})
+    );
+    assert_eq!(
+        runtime_value::decode_representation(observed.representation.unwrap()).value,
+        observed.value
+    );
+    m.write_bytes(0x2010, &0u64.to_le_bytes()).unwrap();
+    assert!(
+        runtime_value::decode(&m, 0x2000)
+            .unavailable
+            .unwrap()
+            .contains("denominator")
+    );
+    m.write_bytes(0x2010, &3u64.to_le_bytes()).unwrap();
+    m.write_u32(0x2004, 2).unwrap();
+    assert!(
+        runtime_value::decode(&m, 0x2000)
+            .unavailable
+            .unwrap()
+            .contains("sign")
+    );
+    m.write_u32(0x1000, 0x030f0000).unwrap();
+    assert!(runtime_value::decode(&m, 0x1000).value.is_none());
+}
+#[test]
 fn decode_exact_guest_rationals_and_fail_closed() {
     let m = memory();
     m.write_u32(0x1000, 0x010f0001).unwrap();
@@ -86,6 +141,15 @@ fn decode_bcd_and_utf16_without_lossy_replacement() {
         })
     );
     m.write_bytes(0x1008, &[0x3d, 0xd8, 0, 0, 0, 0]).unwrap();
+    assert_eq!(
+        runtime_value::decode(&m, 0x1000).value,
+        Some(FirmwareValue::Utf16 {
+            value: vec![0xd83d, 0]
+        })
+    );
+    // A malformed declared terminator remains a decoding error. An isolated
+    // code unit is legitimate calculator data, independently verified by ASC.
+    m.write_bytes(0x100c, &[1, 0]).unwrap();
     assert!(runtime_value::decode(&m, 0x1000).value.is_none());
 }
 /// Writes a kind-6 list object in the layout captured from G1 2.4.2.
@@ -142,9 +206,10 @@ fn decode_guest_lists_from_observed_layout() {
         runtime_value::decode(&m, 0x1580).value.map(|v| v.display()),
         Some("{1}".into())
     );
-    // Unobserved subtype, undecodable element, cycle and oversize count all
+    // Unobserved representation, undecodable element, cycle and oversize count all
     // fail closed for the value (never partially decoded).
     write_list(&m, 0x1600, 0x10, &[0x1100]);
+    m.write_u32(0x1600, 0x1026_0001).unwrap();
     assert!(runtime_value::decode(&m, 0x1600).value.is_none());
     m.write_u32(0x1700, 0x0009_0001).unwrap();
     write_list(&m, 0x1800, 0, &[0x1100, 0x1700]);

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use unicorn_engine::{RegisterARM, Unicorn, uc_error};
 
 use crate::{memory::GuestMemory, sha256, trace::TraceHub};
+pub mod image;
 
 pub const FIRMWARE_SHA256: &str =
     "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39";

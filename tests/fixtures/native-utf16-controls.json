@@ -1,0 +1,42 @@
+{
+  "provenance": "Actual installed G1 firmware executed through a disposable local profile; no physical calculator accessed. Numeric ASC readback preserves isolated UTF-16 units without relying on invalid Unicode text decoding.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "os_rom_sha256": "f6aeba161189a5aa1acb57be428dc5730cfa5ff7cd534494e59225debd5a8999",
+  "cases": [
+    {
+      "name": "units",
+      "entry": "STRUNITS",
+      "source": "EXPORT STRUNITS() BEGIN LOCAL s:=CHAR({65,55357,56832,66}); RETURN {DIM(s),SIZE(s),ASC(s),ASC(LEFT(s,2)),ASC(RIGHT(s,2)),ASC(MID(s,2,1)),INSTRING(s,CHAR(56832)),ASC(REPLACE(s,2,CHAR(88))),ASC(ROTATE(s,1))}; END;",
+      "success": true,
+      "message": "G1 firmware returned {4, 4, {65, 55357, 56832, 66}, {65, 55357}, {56832, 66}, {55357}, 3, {65, 88, 56832, 66}, {55357, 56832, 66, 65}}"
+    },
+    {
+      "name": "charbounds",
+      "entry": "CHARBOUND",
+      "source": "EXPORT CHARBOUND() BEGIN LOCAL r:={},s; IFERR s:=CHAR(65536); r:=CONCAT(r,{ASC(s)}); THEN r:=CONCAT(r,{\"error65536\"}); END; IFERR s:=CHAR(-1); r:=CONCAT(r,{ASC(s)}); THEN r:=CONCAT(r,{\"errorminus\"}); END; IFERR s:=CHAR(128512); r:=CONCAT(r,{ASC(s)}); THEN r:=CONCAT(r,{\"errorastral\"}); END; RETURN r; END;",
+      "success": true,
+      "message": "G1 firmware returned {{0}, {65535}, {62976}}"
+    },
+    {
+      "name": "nul",
+      "entry": "NULSTR",
+      "source": "EXPORT NULSTR() BEGIN LOCAL s:=CHAR({65,0,66}); RETURN {DIM(s),SIZE(s),ASC(s),ASC(s+CHAR(67)),ASC(LEFT(s,3))}; END;",
+      "success": true,
+      "message": "G1 firmware returned {3, 3, {65, 0, 66}, {65, 67}, {65, 0, 66}}"
+    },
+    {
+      "name": "index",
+      "entry": "INDEXSTR",
+      "source": "EXPORT INDEXSTR() BEGIN LOCAL s:=CHAR({65,55357,56832,66}); RETURN {ASC(s(2)),ASC(s(3)),ASC(LEFT(s,2)+RIGHT(s,2))}; END;",
+      "success": false,
+      "message": "Firmware runtime error: Error: Bad argument type; Error: Bad argument type\nRETURN {ASC(s(2)), ASC(s(3)), ASC(LEFT(s,2)+RIGHT(s,2))}\nZZT_IDE"
+    },
+    {
+      "name": "case",
+      "entry": "CASESTR",
+      "source": "EXPORT CASESTR() BEGIN LOCAL s:=CHAR({97,55357,98}); RETURN {ASC(UPPER(s)),ASC(LOWER(UPPER(s)))}; END;",
+      "success": true,
+      "message": "G1 firmware returned {{65, 55357, 66}, {97, 55357, 98}}"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "provenance": "Original isolated virtual G1 firmware screens captured for this change; no physical verification or vendor image/font bytes bundled.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "guide_pages": [
+    5,
+    63,
+    64
+  ],
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "operation": "Application Library",
+      "columns": 4,
+      "visible_rows": 3,
+      "header_bottom": 20,
+      "softkey_top": 220,
+      "icon_size": [
+        38,
+        38
+      ],
+      "selected_fill": 11390207,
+      "capture": "01-library.png",
+      "png_sha256": "52144e2d4f8c9e2b9b48198142caf61028b3104984c86124d8c1e8f41640e989"
+    },
+    {
+      "operation": "Sort Apps",
+      "choices": [
+        "Chronologically",
+        "Alphabetically",
+        "Fixed"
+      ],
+      "default_selected": "Fixed",
+      "capture": "02-sort.png",
+      "png_sha256": "0e1fba54f0ba57df85526ecc09e2b837c20a14640714c65c9cb1d7a7b27d93da"
+    },
+    {
+      "operation": "single icon tap",
+      "point": [
+        36,
+        108
+      ],
+      "result": "Spreadsheet Numeric grid",
+      "capture": "03-tap-spreadsheet.png",
+      "png_sha256": "a6d86ce75a6ced4403849a60660b1ecae22967f210d89f5b27f3f843c687a6c7"
+    }
+  ],
+  "limits": [
+    "Native displays its 17 supported apps, compacting unsupported Graph 3D and DataStreamer slots.",
+    "Authored primitive icons approximate app meanings and colors; not copied vendor artwork or exact raster parity.",
+    "Custom-app Save and app Reset are absent, rather than inactive labelled buttons.",
+    "Factory default here uses Fixed order as observed in the captured supplied firmware profile."
+  ]
+}

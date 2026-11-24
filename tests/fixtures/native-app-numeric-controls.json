@@ -1,0 +1,100 @@
+{
+  "provenance": {
+    "firmware": "Original installed G1 build15751, ELF SHA256 ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+    "transport": "Actual original compiler and execution; STRING result transport. STARTAPP defaults confirm return1. No physical device or vendor bytes.",
+    "coverage": "Native tests use an explicit component app-presentation host; actual GUI behavior has separate desktop validation.",
+    "limitation": "Original compiler rejects direct NumIndep(2) and NumIndep[2] syntax; use a local list alias then assign the complete NumIndep list. Native generic indexing is an extension and is not claimed as original syntax compatibility."
+  },
+  "cases": [
+    {
+      "case": "Function",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a:=STARTAPP(\"Function\"); RETURN STRING({a,NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "06942aaac49bc02deef7111df502338756133a8ca22320a7a52b67bd6561f70f",
+      "expected": "{1,0,0.1,2,0}"
+    },
+    {
+      "case": "Parametric",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a:=STARTAPP(\"Parametric\"); RETURN STRING({a,NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "f36cc756556d5aaa671797aa04b5909a6f370437372c0bb849e9f1e18e7d08ad",
+      "expected": "{1,0,0.1,2,0}"
+    },
+    {
+      "case": "Polar",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a:=STARTAPP(\"Polar\"); RETURN STRING({a,NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "f9c9cd8b37df912271e62aaf2ccbffef487567be2a63e22501cf486b593ef482",
+      "expected": "{1,0,0.1,2,0}"
+    },
+    {
+      "case": "Sequence",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a:=STARTAPP(\"Sequence\"); RETURN STRING({a,NumStart,NumStep,NumZoom,NumType}); END;",
+      "source_sha256": "9f5e79e8aa37c202c09a91b4725f1b2c14a4c9236d5f42ac3d4b94ffd6a77354",
+      "expected": "{1,1,1,2,0}"
+    },
+    {
+      "case": "NumStart",
+      "source": "EXPORT NUMSET() BEGIN LOCAL r:={},a; STARTAPP(\"Function\"); NumStart:=0; a:=1; IFERR NumStart:=-2; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=0; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=0.5; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=1; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=1.9; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=2; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=3; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=100; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=(1,2); THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:=\"2\"; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); NumStart:=0; a:=1; IFERR NumStart:={2}; THEN a:=0; END; r:=CONCAT(r,{{a,NumStart}}); RETURN STRING(r); END;",
+      "source_sha256": "730d63c4b3ddb9584509be096cc8e879cf1fcbce4b86097df55fa7e8422d5f23",
+      "expected": "{{1,−2},{1,0},{1,0.5},{1,1},{1,1.9},{1,2},{1,3},{1,100},{0,0},{0,0},{0,0}}"
+    },
+    {
+      "case": "NumStep",
+      "source": "EXPORT NUMSET() BEGIN LOCAL r:={},a; STARTAPP(\"Function\"); NumStep:=0.1; a:=1; IFERR NumStep:=-2; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=0; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=0.5; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=1; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=1.9; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=2; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=3; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=100; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=(1,2); THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:=\"2\"; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); NumStep:=0.1; a:=1; IFERR NumStep:={2}; THEN a:=0; END; r:=CONCAT(r,{{a,NumStep}}); RETURN STRING(r); END;",
+      "source_sha256": "76846e8c50409f7246a4b369732bf9275508ca0c73df4e2e42391d3dd8174994",
+      "expected": "{{0,0.1},{0,0.1},{1,0.5},{1,1},{1,1.9},{1,2},{1,3},{1,100},{0,0.1},{0,0.1},{0,0.1}}"
+    },
+    {
+      "case": "NumZoom",
+      "source": "EXPORT NUMSET() BEGIN LOCAL r:={},a; STARTAPP(\"Function\"); NumZoom:=2; a:=1; IFERR NumZoom:=-2; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=0; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=0.5; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=1; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=1.9; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=2; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=3; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=100; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=(1,2); THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:=\"2\"; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); NumZoom:=2; a:=1; IFERR NumZoom:={2}; THEN a:=0; END; r:=CONCAT(r,{{a,NumZoom}}); RETURN STRING(r); END;",
+      "source_sha256": "7d7e1fd7758fc86c9d28f9c50bd075c4fd26123da8440093d628b8348ebecf7d",
+      "expected": "{{0,2},{0,2},{0,2},{0,2},{1,1.9},{1,2},{1,3},{1,100},{0,2},{0,2},{0,2}}"
+    },
+    {
+      "case": "NumType",
+      "source": "EXPORT NUMSET() BEGIN LOCAL r:={},a; STARTAPP(\"Function\"); NumType:=0; a:=1; IFERR NumType:=-2; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=0; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=0.5; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=1; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=1.9; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=2; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=3; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=100; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=(1,2); THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:=\"2\"; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); NumType:=0; a:=1; IFERR NumType:={2}; THEN a:=0; END; r:=CONCAT(r,{{a,NumType}}); RETURN STRING(r); END;",
+      "source_sha256": "bd43d90eb0b17143b36764004c37923184992fdf66d41fcd20abeb1577900d1e",
+      "expected": "{{0,0},{1,0},{0,0},{1,1},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}}"
+    },
+    {
+      "case": "independent",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a,b; STARTAPP(\"Function\"); NumStart:=5; NumStep:=2; NumZoom:=3; NumType:=1; STARTAPP(\"Parametric\"); a:={NumStart,NumStep,NumZoom,NumType}; STARTAPP(\"Function\"); b:={NumStart,NumStep,NumZoom,NumType}; RETURN STRING({a,b}); END;",
+      "source_sha256": "a84ae6499fbffa0c177585edc6c1f280fb8ae35301d9ce6cdeede0599b6440e6",
+      "expected": "{{0,0.1,2,0},{5,2,3,1}}"
+    },
+    {
+      "case": "independent_default",
+      "source": "EXPORT NUMSET() BEGIN RETURN STRING({TYPE(NumIndep),NumIndep}); END;",
+      "source_sha256": "8b687b45a50578b15456c6038993fb68bcbd6e22af8953355e4f73371ab1e9ac",
+      "expected": "{6,{}}"
+    },
+    {
+      "case": "independent_list",
+      "source": "EXPORT NUMSET() BEGIN NumIndep:={2,4,6}; RETURN STRING({TYPE(NumIndep),NumIndep,NumType}); END;",
+      "source_sha256": "c564bc441257de93a41f5f888f84ecb33b3a9300ee6b86fd3d9ccf4be24a0291",
+      "expected": "{6,{2,4,6},0}"
+    },
+    {
+      "case": "independent_independent",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a,b; STARTAPP(\"Function\"); NumIndep:={2,4,6}; STARTAPP(\"Parametric\"); a:=NumIndep; STARTAPP(\"Function\"); b:=NumIndep; RETURN STRING({a,b}); END;",
+      "source_sha256": "36cb13e82919dedef1f595e7e77c432486f095789fd0076b944e0ea1934dd3c8",
+      "expected": "{{},{2,4,6}}"
+    },
+    {
+      "case": "independent_list_values",
+      "source": "EXPORT NUMSET() BEGIN NumIndep:={3,-2,3,0,1E-400}; RETURN STRING(NumIndep); END;",
+      "source_sha256": "d32a0c95cce5cae7ca002092dce414ad66e721de5d29ad0072b421ef22298042",
+      "expected": "{3,−2,3,0,1ᴇ−400}"
+    },
+    {
+      "case": "independent_empty",
+      "source": "EXPORT NUMSET() BEGIN NumIndep:={}; RETURN STRING(NumIndep); END;",
+      "source_sha256": "d4be698472baeb455fef111c7f2f44f65c48350b77e4ff5c82f86e39a0ff07ef",
+      "expected": "{}"
+    },
+    {
+      "case": "independent_words",
+      "source": "EXPORT NUMSET() BEGIN LOCAL a; NumIndep:={#2h,1.5,#1h,1E400}; a:=NumIndep; RETURN STRING({a,TYPE(a(1)),TYPE(a(3))}); END;",
+      "source_sha256": "56cdbf6957135762b2c514c3cd99e6135526a69e5db5292383fe067c85a83bdc",
+      "expected": "{{2,1.5,1,1ᴇ400},0,0}"
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "provenance": "Sequential self-authored C/D column programs executed in fresh disposable original G1 profiles, one fresh session per suite. Only independently decoded values recorded; no vendor captures or physical device.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "suites": [
+    {
+      "name": "app-columns-reference",
+      "cases": [
+        {
+          "name": "function_default",
+          "reference_source_sha256": "2a90de386f977ed4958adbac31027205bdb74dfd8302bc0748a0e2e453a77c28",
+          "source": "EXPORT COLDEFAULT() BEGIN RETURN {TYPE(C1),SIZE(C1),TYPE(D1),SIZE(D1),TYPE(C0),TYPE(D0)}; END;",
+          "entry": "COLDEFAULT",
+          "expected": [
+            6,
+            0,
+            6,
+            0,
+            6,
+            6
+          ]
+        },
+        {
+          "name": "function_set",
+          "reference_source_sha256": "76a40b411441d985dc041824d84f1d6c4034f6a2eb96eebed355413665ae9391",
+          "source": "EXPORT COLSET() BEGIN C1:={1,2,3}; D1:={4,5}; RETURN {C1,D1,TYPE(C1),TYPE(D1)}; END;",
+          "entry": "COLSET",
+          "expected": [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              4,
+              5
+            ],
+            6,
+            6
+          ]
+        },
+        {
+          "name": "start_stats2",
+          "reference_source_sha256": "6a6d7e8c0e43b891195194d560aa18df69dd71c7db71d433a037a6b6a2b201ae",
+          "source": "EXPORT STCOL() BEGIN STARTAPP(\"Statistics 2Var\"); RETURN {C1,D1}; END;",
+          "entry": "STCOL",
+          "expected": [
+            [
+              1,
+              2,
+              3
+            ],
+            [
+              4,
+              5
+            ]
+          ]
+        },
+        {
+          "name": "stats2_set",
+          "reference_source_sha256": "c3c3a0df8b5f168fc8876fe31f13c24c4e6bab3b750fefb8491d586f798ecbdb",
+          "source": "EXPORT STSET() BEGIN C1:={9,8}; C0:={7}; RETURN {C1,C0,TYPE(C1),SIZE(C1)}; END;",
+          "entry": "STSET",
+          "expected": [
+            [
+              9,
+              8
+            ],
+            [
+              7
+            ],
+            6,
+            2
+          ]
+        },
+        {
+          "name": "stats2_scalar",
+          "reference_source_sha256": "547a3103147177d171b3003da73e3c7eee018c4a305c5a297d4c38643a10a1fa",
+          "source": "EXPORT STSCALAR() BEGIN LOCAL r; IFERR C1:=5; THEN r:=\"error\"; END; RETURN {r,C1}; END;",
+          "entry": "STSCALAR",
+          "expected": [
+            "error",
+            [
+              9,
+              8
+            ]
+          ]
+        },
+        {
+          "name": "stats2_complex",
+          "reference_source_sha256": "2b5249c8e8da3d05c1e1a7ecab2e2dc175ed7aecb3c21e392be847ed7c935bfc",
+          "source": "EXPORT STCOMPLEX() BEGIN LOCAL r; IFERR C1:={(1,2),3}; THEN r:=\"error\"; END; RETURN {r,C1}; END;",
+          "entry": "STCOMPLEX",
+          "expected": [
+            "error",
+            [
+              9,
+              8
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "app-columns-extra-reference",
+      "cases": [
+        {
+          "name": "types",
+          "reference_source_sha256": "1592b1592c468457d96795163396c6019544aceadf2248460f600c43c642251f",
+          "source": "EXPORT COTYPES() BEGIN LOCAL out:={},r,vals:={{1,2},{#FFh,2},{\"a\"},{{1}},{}},k; FOR k FROM 1 TO 5 DO IFERR C1:=vals(k); r:=STRING({C1,TYPE(C1(1))}); THEN r:=\"error\"; END; out:=CONCAT(out,{r}); END; RETURN out; END;",
+          "entry": "COTYPES",
+          "expected": [
+            "{{1,2},0}",
+            "{{255,2},0}",
+            "error",
+            "error",
+            "error"
+          ]
+        },
+        {
+          "name": "dcolumns",
+          "reference_source_sha256": "fa8ed31df61958116a86dc0a368c55eb75a8c0387f811f5a63d91a6ee3c467e7",
+          "source": "EXPORT DCOLS() BEGIN D1:={4,5}; D0:={6}; RETURN STRING({D1,D0,C1,C0}); END;",
+          "entry": "DCOLS",
+          "expected": "{{4,5},{6},{},{}}"
+        },
+        {
+          "name": "start_stats1",
+          "reference_source_sha256": "bf4774c7e087e5bcb796bf7aebdb3f1e70ec4ca56091e7ec7f67152679bafa18",
+          "source": "EXPORT ONCOL() BEGIN STARTAPP(\"Statistics 1Var\"); RETURN STRING({D1,C1,D0}); END;",
+          "entry": "ONCOL",
+          "expected": "{{4,5},{},{6}}"
+        },
+        {
+          "name": "stats1_set",
+          "reference_source_sha256": "37d3176f8fa43704cc2e4ae7c0e45983d793fdf25d766ca8b8a42b6713be9627",
+          "source": "EXPORT ONSET() BEGIN D1:={20,30,40}; D0:={6}; RETURN STRING({D1,D0,C1}); END;",
+          "entry": "ONSET",
+          "expected": "{{20,30,40},{6},{}}"
+        },
+        {
+          "name": "return_function",
+          "reference_source_sha256": "c9bb7c04c790358a40abc3989d9ddfbe10c962ee6bd380fc3d36c7e125af2068",
+          "source": "EXPORT RETFN() BEGIN STARTAPP(\"Function\"); RETURN STRING({C1,D1,C0,D0}); END;",
+          "entry": "RETFN",
+          "expected": "{{},{20,30,40},{},{6}}"
+        },
+        {
+          "name": "indexes",
+          "reference_source_sha256": "3045fa62f294b901aa0f545049c9757a9aef303b34bbc8e7fe948a01a0ea7b4b",
+          "source": "EXPORT COINDEX() BEGIN C1:={1,2}; LOCAL r; IFERR C1(1):=\"x\"; THEN r:=\"error\"; END; RETURN STRING({r,C1}); END;",
+          "entry": "COINDEX",
+          "expected": "{\"error\",{1,2}}"
+        }
+      ]
+    }
+  ]
+}

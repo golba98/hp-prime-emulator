@@ -45,6 +45,7 @@ pub enum AutoStep {
     StepOver,
     StepOut,
     Breakpoint(usize),
+    DebugFrame(usize),
     /// Type text into the VM key queue (for INPUT dialogs).
     SendKeys(String),
     /// Press one HP keycode.
@@ -56,6 +57,7 @@ pub enum AutoStep {
     },
     /// Wait until the VM is idle (finished/failed) with a timeout in ms.
     WaitIdle(u64),
+    WaitDialog(String, u64),
     /// Wait until the debugger is paused, with a timeout in ms.
     WaitPaused(u64),
     /// Wait until the live firmware reports the program running (entered
@@ -67,11 +69,23 @@ pub enum AutoStep {
     FocusEditor,
     ClickCalculator,
     ClickCalculatorKey(i64),
+    /// Click the currently visible production widget, using its rendered bounds.
+    ClickUiControl(String),
     Snapshot(PathBuf),
     Detach,
+    NativeTool(String),
+    NativeApp(String),
+    NativeObject {
+        kind: String,
+        name: String,
+        content: String,
+    },
+    NativeCas(String),
     NativeHome,
     NativeCatalog,
     IdeSettings,
+    ResearchDiagnostics(String),
+    ResearchRun(String),
     /// Type text into the focused widget as real keyboard input: `\n`
     /// becomes Enter and `\t` becomes Tab.
     Type(String),
@@ -130,6 +144,8 @@ pub enum AutoStep {
     /// Wait until the firmware session state's label starts with this
     /// (case-insensitive, e.g. "ready", "unavailable"), with a timeout in ms.
     WaitSession(String, u64),
+    WaitEnvironment(u64),
+    WaitLiveSave(u64),
     /// Wait until the firmware LCD below the status bar has not changed for
     /// `quiet` ms, with a timeout in ms.
     WaitLcdSettled {
@@ -139,6 +155,8 @@ pub enum AutoStep {
     /// Click the LCD with the mouse at a firmware pixel (real pointer path:
     /// projection, touch down, minimum tap, release).
     ClickLcd(u16, u16),
+    /// A real pointer drag held across successive rendered frames.
+    DragLcd(u16, u16, u16, u16),
     /// Wait until no firmware session request (Run, Check, Import) is
     /// unanswered, with a timeout in ms.
     WaitFirmware(u64),
@@ -161,6 +179,7 @@ pub struct Automation {
     /// Input to inject at the start of the next frame.
     pending_events: Vec<egui::Event>,
     pending_pointer_release: Option<egui::Pos2>,
+    pending_drag: std::collections::VecDeque<Vec<egui::Event>>,
     /// Window screenshot requested and not yet delivered.
     pending_screenshot: Option<PathBuf>,
     /// Sizes and scale observed at each window screenshot, for the dump.
@@ -223,6 +242,9 @@ impl Automation {
                     "step_into" => AutoStep::StepInto,
                     "step_over" => AutoStep::StepOver,
                     "step_out" => AutoStep::StepOut,
+                    "debug_frame" => AutoStep::DebugFrame(
+                        s.get("index").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+                    ),
                     "breakpoint" => AutoStep::Breakpoint(
                         s.get("line").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
                     ),
@@ -234,6 +256,7 @@ impl Automation {
                         entry: s.get("entry").and_then(|v| v.as_str()).map(String::from),
                         args: get_str("args"),
                     },
+                    "wait_dialog" => AutoStep::WaitDialog(get_str("kind"), get_ms("timeout_ms")),
                     "wait_idle" => AutoStep::WaitIdle(get_ms("timeout_ms")),
                     "wait_paused" => AutoStep::WaitPaused(get_ms("timeout_ms")),
                     "wait_running" => AutoStep::WaitRunning(get_ms("timeout_ms")),
@@ -243,11 +266,22 @@ impl Automation {
                     "click_calculator_key" => AutoStep::ClickCalculatorKey(
                         s.get("code").and_then(|v| v.as_i64()).unwrap_or(-1),
                     ),
+                    "click_ui_control" => AutoStep::ClickUiControl(get_str("name")),
                     "snapshot" => AutoStep::Snapshot(get_path("path").unwrap_or_default()),
                     "detach" => AutoStep::Detach,
+                    "native_tool" => AutoStep::NativeTool(get_str("name")),
+                    "native_app" => AutoStep::NativeApp(get_str("name")),
+                    "native_object" => AutoStep::NativeObject {
+                        kind: get_str("kind"),
+                        name: get_str("name"),
+                        content: get_str("content"),
+                    },
+                    "native_cas" => AutoStep::NativeCas(get_str("expression")),
                     "native_home" => AutoStep::NativeHome,
                     "native_catalog" => AutoStep::NativeCatalog,
                     "ide_settings" => AutoStep::IdeSettings,
+                    "research_diagnostics" => AutoStep::ResearchDiagnostics(get_str("build_root")),
+                    "research_run" => AutoStep::ResearchRun(get_str("case")),
                     "type" => AutoStep::Type(get_str("text")),
                     "paste" => AutoStep::Paste(get_str("text")),
                     "key" => match egui::Key::from_name(&get_str("key")) {
@@ -328,11 +362,19 @@ impl Automation {
                     "firmware_reset" => AutoStep::FirmwareReset,
                     "firmware_restart" => AutoStep::FirmwareRestart,
                     "import" => AutoStep::Import,
+                    "wait_live_save" => AutoStep::WaitLiveSave(get_ms("timeout_ms")),
+                    "wait_environment" => AutoStep::WaitEnvironment(get_ms("timeout_ms")),
                     "wait_session" => AutoStep::WaitSession(get_str("state"), get_ms("timeout_ms")),
                     "wait_lcd_settled" => AutoStep::WaitLcdSettled {
                         quiet: s.get("quiet_ms").and_then(|v| v.as_u64()).unwrap_or(800),
                         timeout: get_ms("timeout_ms"),
                     },
+                    "drag_lcd" => AutoStep::DragLcd(
+                        s.get("from_x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                        s.get("from_y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                        s.get("to_x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                        s.get("to_y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
+                    ),
                     "click_lcd" => AutoStep::ClickLcd(
                         s.get("x").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
                         s.get("y").and_then(|v| v.as_u64()).unwrap_or(0) as u16,
@@ -352,6 +394,7 @@ impl Automation {
             dumped: false,
             pending_events: Vec::new(),
             pending_pointer_release: None,
+            pending_drag: Default::default(),
             pending_screenshot: None,
             captures: Vec::new(),
             last_pump_frame: None,
@@ -390,17 +433,22 @@ impl Automation {
             return;
         }
         self.last_pump_frame = Some(frame);
+        if !self.pending_drag.is_empty() {
+            ctx.request_repaint_after(Duration::from_millis(16));
+            return;
+        }
+        if app.lcd_capture_pending() {
+            ctx.request_repaint_after(Duration::from_millis(16));
+            return;
+        }
         loop {
-            if self.next >= self.steps.len() {
-                // Script finished without an explicit exit: dump and close.
-                self.finish(app, ctx);
-                return;
-            }
             if let Some(path) = self.pending_screenshot.clone() {
                 // Wait for the frame capture requested by WindowScreenshot.
                 let image = ctx.input(|i| {
                     i.events.iter().find_map(|e| match e {
-                        egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                        egui::Event::Screenshot {
+                            image, user_data, ..
+                        } if user_data.data.is_none() => Some(image.clone()),
                         _ => None,
                     })
                 });
@@ -439,6 +487,12 @@ impl Automation {
                     }
                 }
             }
+            if self.next >= self.steps.len() {
+                // A terminal screenshot still owns its pending response.
+                // Save it before the implicit end-of-script close.
+                self.finish(app, ctx);
+                return;
+            }
             // Consume screenshot responses even after focus loss, but never
             // advance past keyboard input that could not be delivered.
             if !ctx.input(|i| i.focused) || !self.pending_events.is_empty() {
@@ -458,15 +512,26 @@ impl Automation {
             }
             match step {
                 AutoStep::WaitIdle(_)
+                | AutoStep::WaitDialog(..)
                 | AutoStep::WaitPaused(_)
                 | AutoStep::WaitCheck(_)
                 | AutoStep::WaitRunning(_)
                 | AutoStep::WaitSession(..)
+                | AutoStep::WaitEnvironment(_)
+                | AutoStep::WaitLiveSave(_)
                 | AutoStep::WaitFirmware(_)
                 | AutoStep::WaitLcdSettled { .. } => {
                     let deadline = *self.wait_deadline.get_or_insert_with(Instant::now);
                     let (ms, done) = match &self.steps[self.next] {
-                        AutoStep::WaitIdle(ms) => (*ms, !app.execution_busy()),
+                        AutoStep::WaitDialog(kind, ms) => (
+                            *ms,
+                            app.native_input_snapshot()["active_dialog"]["kind"].as_str()
+                                == Some(kind),
+                        ),
+                        AutoStep::WaitIdle(ms) => (
+                            *ms,
+                            !app.execution_busy() && !app.native_tools.calculating(),
+                        ),
                         AutoStep::WaitPaused(ms) => (*ms, app.controller.paused()),
                         AutoStep::WaitCheck(ms) => (*ms, !app.check_pending()),
                         AutoStep::WaitRunning(ms) => (*ms, app.firmware_running()),
@@ -477,6 +542,17 @@ impl Automation {
                                 .label()
                                 .to_ascii_lowercase()
                                 .starts_with(&state.to_ascii_lowercase()),
+                        ),
+                        AutoStep::WaitLiveSave(ms) => (
+                            *ms,
+                            app.firmware_live_save_result.is_some()
+                                && app.firmware_live_save.is_none(),
+                        ),
+                        AutoStep::WaitEnvironment(ms) => (
+                            *ms,
+                            app.firmware_alive()
+                                && app.firmware_environment.initialized
+                                && app.firmware_environment.pending.is_none(),
                         ),
                         AutoStep::WaitFirmware(ms) => (*ms, !app.firmware_requests_pending()),
                         AutoStep::WaitLcdSettled { quiet, timeout } => {
@@ -524,7 +600,11 @@ impl Automation {
                 app.handle_action(IdeAction::OpenFile(Some(path)), ctx);
             }
             AutoStep::SetContent(content) => {
-                if let Some(tab) = app.editor.active_tab_mut() {
+                if let Some(tab) = app
+                    .editor
+                    .active_tab_mut()
+                    .filter(|tab| tab.debug_source.is_none())
+                {
                     tab.content = content;
                     tab.modified = true;
                     app.state.status_message = "Buffer content set".into();
@@ -557,6 +637,9 @@ impl Automation {
             AutoStep::StepInto => app.handle_action(IdeAction::StepInto, ctx),
             AutoStep::StepOver => app.handle_action(IdeAction::StepOver, ctx),
             AutoStep::StepOut => app.handle_action(IdeAction::StepOut, ctx),
+            AutoStep::DebugFrame(index) => {
+                app.handle_action(IdeAction::SelectDebugFrame(index), ctx)
+            }
             AutoStep::Breakpoint(line) => {
                 app.handle_action(IdeAction::ToggleBreakpoint(line), ctx);
             }
@@ -581,17 +664,31 @@ impl Automation {
                 app.handle_action(IdeAction::RunProgram, ctx);
             }
             AutoStep::WaitIdle(_)
+            | AutoStep::WaitDialog(..)
             | AutoStep::WaitPaused(_)
             | AutoStep::WaitCheck(_)
             | AutoStep::WaitRunning(_)
             | AutoStep::WaitSession(..)
+            | AutoStep::WaitEnvironment(_)
+            | AutoStep::WaitLiveSave(_)
             | AutoStep::WaitFirmware(_)
             | AutoStep::WaitLcdSettled { .. } => {
                 unreachable!("handled in pump")
             }
             AutoStep::CalcKeyTransition(code, down) => {
                 app.state.set_key_down(code, down);
-                app.send_calc_transition(code, down);
+                if app.state.firmware_backend {
+                    app.send_calc_transition(code, down);
+                } else {
+                    app.controller.shared.set_key_down(code, down);
+                    if down {
+                        app.route_native_press(
+                            crate::dialog::KeyPress::code(code),
+                            "automation-hold",
+                            ctx,
+                        );
+                    }
+                }
             }
             AutoStep::CalcFocus => {
                 app.state.calc_input_focus = true;
@@ -612,6 +709,33 @@ impl Automation {
             }
             AutoStep::FirmwareRestart => app.handle_action(IdeAction::FirmwareRestart, ctx),
             AutoStep::Import => app.handle_action(IdeAction::ImportToCalculator, ctx),
+            AutoStep::DragLcd(x0, y0, x1, y1) => {
+                let rect = app.display.last_display_rect;
+                let scale = rect.width() / 320.;
+                let start = rect.min + egui::vec2(f32::from(x0) + 0.5, f32::from(y0) + 0.5) * scale;
+                let end = rect.min + egui::vec2(f32::from(x1) + 0.5, f32::from(y1) + 0.5) * scale;
+                self.pending_drag.push_back(vec![
+                    egui::Event::PointerMoved(start),
+                    egui::Event::PointerButton {
+                        pos: start,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ]);
+                for i in 1..=8 {
+                    self.pending_drag.push_back(vec![egui::Event::PointerMoved(
+                        start + (end - start) * (i as f32 / 8.),
+                    )]);
+                }
+                self.pending_drag
+                    .push_back(vec![egui::Event::PointerButton {
+                        pos: end,
+                        button: egui::PointerButton::Primary,
+                        pressed: false,
+                        modifiers: egui::Modifiers::NONE,
+                    }]);
+            }
             AutoStep::ClickLcd(x, y) => {
                 let rect = app.display.last_display_rect;
                 let scale = rect.width() / 320.0;
@@ -649,8 +773,15 @@ impl Automation {
                 };
             }
             AutoStep::CalcKey(code) => {
-                app.send_calc_transition(code, true);
-                app.send_calc_transition(code, false);
+                app.state.set_key_down(code, true);
+                if app.state.firmware_backend {
+                    app.send_calc_transition(code, true);
+                    app.send_calc_transition(code, false);
+                } else {
+                    app.route_native_press(crate::dialog::KeyPress::code(code), "automation", ctx);
+                }
+                app.state.set_key_down(code, false);
+                app.controller.shared.set_key_down(code, false);
             }
             AutoStep::CalcTouch { status, x, y } => {
                 if let Some(f) = &app.firmware {
@@ -658,6 +789,13 @@ impl Automation {
                 }
             }
             AutoStep::Screenshot(path) => {
+                if app.native_tools.page.is_some() {
+                    app.request_composed_lcd(
+                        super::native_lcd_capture::CaptureAction::Save(path),
+                        ctx,
+                    );
+                    return;
+                }
                 if let Some((grob, _)) = app.capture_compare_frame() {
                     match grob.save_png(&path) {
                         Ok(()) => {
@@ -705,6 +843,30 @@ impl Automation {
                     ]);
                 }
             }
+            AutoStep::ClickUiControl(name) => {
+                if let Some(rect) = app
+                    .state
+                    .automation_ui_controls
+                    .get(&name)
+                    .copied()
+                    .filter(|_| app.state.firmware_backend)
+                {
+                    let pos = rect.center();
+                    self.pending_events.extend([
+                        egui::Event::PointerMoved(pos),
+                        egui::Event::PointerButton {
+                            pos,
+                            button: egui::PointerButton::Primary,
+                            pressed: true,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ]);
+                } else {
+                    self.timeouts.push(self.next);
+                    app.console
+                        .print_error(format!("No visible UI control {name}"));
+                }
+            }
             AutoStep::Snapshot(path) => {
                 if let Some(parent) = path.parent() {
                     let _ = std::fs::create_dir_all(parent);
@@ -719,9 +881,69 @@ impl Automation {
                 let _ = std::fs::write(&self.dump_path, snapshot);
                 self.dumped = true;
             }
+            AutoStep::NativeApp(name) => {
+                app.handle_native_tool_request(super::native_tools::Request::SelectApp(name), ctx);
+                let page = super::native_tools::NativeTools::entry_page(
+                    &app.native_tools.memory.selected_app,
+                );
+                app.native_tools.open(page);
+                if page == super::native_tools::Page::Plot {
+                    app.native_tools.plot(app.controller.session_snapshot());
+                }
+            }
+            AutoStep::NativeTool(name) => {
+                use super::native_tools::Page;
+                let page = match name.as_str() {
+                    "apps" => Page::Apps,
+                    "symbolic" => Page::Symbolic,
+                    "plot" => Page::Plot,
+                    "numeric" => Page::Numeric,
+                    "settings" => Page::Settings,
+                    "programs" => Page::Programs,
+                    "lists" => Page::Lists,
+                    "matrices" => Page::Matrices,
+                    "notes" => Page::Notes,
+                    "variables" => Page::Variables,
+                    "templates" => Page::Templates,
+                    "help" => Page::Help,
+                    "info" => Page::Info,
+                    _ => Page::Toolbox,
+                };
+                app.native_tools.open(page);
+            }
+            AutoStep::NativeObject {
+                kind,
+                name,
+                content,
+            } => {
+                use super::native_tools::Request;
+                let request = match kind.as_str() {
+                    "program" => Request::SaveProgram(name, content),
+                    "note" => Request::SaveNote(name, content),
+                    "delete_program" => Request::DeleteProgram(name),
+                    "delete_note" => Request::DeleteNote(name),
+                    "delete_variable" => Request::DeleteVariable(name),
+                    _ => Request::StoreVariable(name, content),
+                };
+                app.handle_native_tool_request(request, ctx);
+            }
+            AutoStep::NativeCas(expression) => {
+                app.switch_native_environment(true, ctx);
+                app.state.native.edit(|e| e.set_text(&expression));
+                app.submit_native_home(ctx);
+            }
             AutoStep::NativeHome => app.handle_action(IdeAction::NativeHome, ctx),
             AutoStep::NativeCatalog => app.handle_action(IdeAction::NativeCatalog, ctx),
             AutoStep::IdeSettings => app.handle_action(IdeAction::ShowSettingsDialog, ctx),
+            AutoStep::ResearchDiagnostics(path) => {
+                app.state.full_system_build_root = path;
+                app.handle_action(IdeAction::ShowResearchDiagnostics, ctx);
+            }
+            AutoStep::ResearchRun(case) => {
+                app.dialogs
+                    .research
+                    .start_case(ctx, &app.state.full_system_build_root, &case);
+            }
             AutoStep::Paste(text) => self.pending_events.push(egui::Event::Paste(text)),
             AutoStep::Type(text) => {
                 for ch in text.chars() {
@@ -885,6 +1107,7 @@ impl Automation {
                 });
                 json!({
                     "title": t.title,
+                    "debug_snapshot": t.debug_source.is_some(),
                     "modified": t.modified,
                     "path": t.path.as_ref().map(|p| p.display().to_string()),
                     "content": t.content,
@@ -932,6 +1155,15 @@ impl Automation {
             "cursor_line": state.cursor_line,
             "cursor_col": state.cursor_col,
             "paused_line": state.paused_line,
+            "debug_pause": app.debugger.snapshot.as_ref().map(|snapshot| json!({
+                "source": snapshot.source.as_ref().map(|id| &id.name), "line": snapshot.line, "col": snapshot.col,
+                "function": snapshot.function, "depth": snapshot.depth,
+                "frames": snapshot.frames.iter().map(|frame|json!({
+                    "source":frame.source.as_ref().map(|id|&id.name),"function":frame.function,"line":frame.line,"col":frame.col,
+                    "locals":frame.locals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                    "globals":frame.globals.iter().map(|v|json!({"name":v.name,"value":v.preview})).collect::<Vec<_>>(),
+                })).collect::<Vec<_>>(),
+            })),
             "worker_alive": app.controller.worker_alive(),
             "worker_outcome": outcome,
             "console": app.console.messages.iter().map(|m| json!({
@@ -989,6 +1221,53 @@ impl Automation {
                 "max": [app.display.last_display_rect.max.x, app.display.last_display_rect.max.y],
             },
         });
+        dump["calculator_font"] = app.native_fonts.snapshot();
+        dump["native_model_results"] = json!(app.native_tools.memory.models.results);
+        dump["native_plot_trace"] = json!(app.native_tools.trace);
+        dump["calculator_cas"] = json!(app.controller.session_snapshot().cas);
+        dump["native_tools"] = json!({"page":app.native_tools.page,"memory":app.native_tools.memory,"error":app.native_tools.error,"plot_points":app.native_tools.plot_samples(),"detail_plot":app.native_tools.detail_plot(),"table":app.native_tools.numeric_table(),"integer_edit":app.native_tools.integer_edit,"calculating":app.native_tools.calculating()});
+        let memory = app.controller.session_snapshot();
+        dump["calculator_app_settings"] = json!(
+            memory
+                .app_settings
+                .iter()
+                .map(|(name, s)| (
+                    name.clone(),
+                    json!({"angle":s.angle,"format":s.format,"digits":s.digits,"complex":s.complex})
+                ))
+                .collect::<serde_json::Map<String, serde_json::Value>>()
+        );
+        let mut numeric = memory.app_numeric_settings.clone();
+        numeric
+            .entry(memory.active_app.clone())
+            .or_insert_with(|| memory.app_numeric_settings());
+        dump["calculator_app_numeric_settings"]=json!(numeric.iter().map(|(name,s)|(name.clone(),json!({"start":s.start.to_string(),"step":s.step.to_string(),"zoom":s.zoom.to_string(),"kind":s.kind,"independent":s.independent.iter().map(ToString::to_string).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,serde_json::Value>>());
+        dump["native_numeric_values"] = json!(
+            app.native_tools
+                .numeric_typed_table()
+                .iter()
+                .map(|row| row
+                    .iter()
+                    .map(|v| v.as_ref().map(super::native::portable_json))
+                    .collect::<Vec<_>>())
+                .collect::<Vec<_>>()
+        );
+        dump["calculator_numeric_version"] = json!(memory.settings.numeric_version.code());
+        dump["calculator_app_numeric_values"]=json!(numeric.iter().map(|(name,s)|(name.clone(),json!({"start":ppl_vm::session::encode_value(&ppl_vm::PortableValue::Real(s.start)),"step":ppl_vm::session::encode_value(&ppl_vm::PortableValue::Real(s.step)),"zoom":ppl_vm::session::encode_value(&ppl_vm::PortableValue::Real(s.zoom)),"independent":s.independent.iter().map(|v|ppl_vm::session::encode_value(&ppl_vm::PortableValue::Real(*v))).collect::<Vec<_>>()}))).collect::<serde_json::Map<String,serde_json::Value>>());
+        dump["calculator_home_settings"] = json!({"angle":format!("{:?}",memory.settings.angle),"format":memory.settings.hformat,"digits":memory.settings.hdigits});
+        dump["calculator_memory"] = json!(
+            memory
+                .globals
+                .iter()
+                .map(|(k, v)| (k.clone(), super::native::portable_json(v)))
+                .collect::<serde_json::Map<String, serde_json::Value>>()
+        );
+        dump["calculator_programs"] = json!(memory.programs);
+        dump["calculator_notes"] = json!(memory.notes);
+
+        dump["research_diagnostics_open"] = json!(app.dialogs.research.open);
+        dump["research_result"] = json!(app.dialogs.research.execution_result());
+        dump["full_system_build_root"] = json!(state.full_system_build_root);
         // M12: the firmware session (added separately: json! recursion).
         let frame_generation = app.firmware.as_ref().and_then(|f| {
             f.latest
@@ -1009,6 +1288,23 @@ impl Automation {
                 json!(app.firmware.as_ref().map(|f| f.session_id)),
             ),
             ("firmware_alive", json!(app.firmware_alive())),
+            ("firmware_live_save", json!(app.firmware_live_save)),
+            (
+                "firmware_live_save_result",
+                json!(app.firmware_live_save_result),
+            ),
+            ("firmware_resumed", json!(app.firmware_resumed)),
+            ("firmware_status", json!(app.firmware_status)),
+            (
+                "firmware_program_running",
+                json!(app.firmware_program_running),
+            ),
+            ("firmware_environment", json!(state.firmware.environment)),
+            ("firmware_peripherals", json!(state.firmware_peripherals)),
+            (
+                "firmware_clipboard_available",
+                json!(state.firmware_clipboard_available),
+            ),
             ("firmware_frame_generation", json!(frame_generation)),
             ("firmware_unsupported", json!(unsupported)),
             (
@@ -1056,6 +1352,10 @@ pub fn inject_raw_input(app: &mut IdeDesktopApp, input: &mut egui::RawInput) {
         return;
     }
     if let Some(auto) = app.automation.as_mut() {
+        if let Some(events) = auto.pending_drag.pop_front() {
+            input.events.extend(events);
+        }
+
         if let Some(pos) = auto.pending_pointer_release.take() {
             input.events.push(egui::Event::PointerButton {
                 pos,
@@ -1094,6 +1394,92 @@ mod tests {
     use super::*;
 
     #[test]
+    fn terminal_screenshot_is_written_before_implicit_exit_even_after_focus_loss() {
+        let root = std::env::temp_dir().join(format!(
+            "ppl-terminal-screenshot-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("screen.png");
+        let mut app = IdeDesktopApp::default();
+        let ctx = egui::Context::default();
+        let mut automation = Automation {
+            steps: vec![AutoStep::WindowScreenshot(path.clone())],
+            next: 0,
+            dump_path: root.join("state.json"),
+            wait_deadline: None,
+            dumped: false,
+            pending_events: vec![],
+            pending_pointer_release: None,
+            pending_drag: Default::default(),
+            pending_screenshot: None,
+            captures: vec![],
+            last_pump_frame: None,
+            snapshots: vec![],
+            lcd_watch: None,
+            timeouts: vec![],
+            started: Instant::now(),
+        };
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: true,
+                ..Default::default()
+            },
+            |ctx| automation.pump(&mut app, ctx),
+        );
+        assert_eq!(automation.next, 1);
+        assert!(!automation.dumped);
+        assert!(automation.pending_screenshot.is_some());
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: false,
+                ..Default::default()
+            },
+            |ctx| automation.pump(&mut app, ctx),
+        );
+        assert!(
+            !automation.dumped,
+            "must wait for the asynchronous screenshot"
+        );
+        let _ = ctx.run(
+            egui::RawInput {
+                focused: false,
+                events: vec![egui::Event::Screenshot {
+                    viewport_id: egui::ViewportId::ROOT,
+                    user_data: Default::default(),
+                    image: std::sync::Arc::new(egui::ColorImage::new(
+                        [2, 2],
+                        vec![egui::Color32::GREEN; 4],
+                    )),
+                }],
+                ..Default::default()
+            },
+            |ctx| automation.pump(&mut app, ctx),
+        );
+        assert!(automation.dumped);
+        assert!(automation.pending_screenshot.is_none());
+        assert_eq!(automation.captures.len(), 1);
+        let decoder =
+            png::Decoder::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
+        let mut reader = decoder.read_info().unwrap();
+        let mut pixels = vec![0; reader.output_buffer_size().unwrap()];
+        let frame = reader.next_frame(&mut pixels).unwrap();
+        assert_eq!((frame.width, frame.height), (2, 2));
+        assert_eq!(&pixels[..frame.buffer_size()], &[0, 255, 0, 255].repeat(4));
+        let dump: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join("state.json")).unwrap()).unwrap();
+        assert_eq!(
+            dump["window_captures"][0]["pixels"],
+            serde_json::json!([2, 2])
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn repeated_layout_passes_do_not_merge_independent_input_steps() {
         let ctx = egui::Context::default();
         let mut app = IdeDesktopApp::default();
@@ -1116,6 +1502,7 @@ mod tests {
             dumped: false,
             pending_events: Vec::new(),
             pending_pointer_release: None,
+            pending_drag: Default::default(),
             pending_screenshot: None,
             captures: Vec::new(),
             last_pump_frame: None,

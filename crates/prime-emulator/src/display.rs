@@ -35,7 +35,7 @@ mod off {
 }
 
 /// Pixel encoding of the framebuffer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PixelFormat {
     /// Little-endian 32-bit words `0x00RRGGBB` (bytes B, G, R, unused).
     /// Verified from guest stores (e.g. `0x00F2F2F2`); the top byte is not
@@ -78,7 +78,7 @@ impl std::fmt::Display for DisplayError {
 impl std::error::Error for DisplayError {}
 
 /// A validated view of the active LCD's framebuffer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LcdView {
     pub lcd_va: u32,
     pub fb_va: u32,
@@ -180,7 +180,8 @@ impl LcdView {
 }
 
 /// One captured screen: raw guest pixel words, row-major.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Frame {
     pub width: u32,
     pub height: u32,
@@ -189,7 +190,7 @@ pub struct Frame {
 }
 
 /// Pixels that differ between two frames.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FrameDiff {
     pub changed: u32,
     /// Inclusive bounding box `[x0, y0, x1, y1]` of the changes.

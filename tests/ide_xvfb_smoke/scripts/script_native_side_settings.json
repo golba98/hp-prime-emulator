@@ -1,0 +1,593 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_settings.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "123456.789"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "original"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "snapshot",
+      "label": "opened"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_initial.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 175,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "angle_focused"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "angle_choices"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_angle_choices.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "degrees"
+    },
+    {
+      "step": "click_lcd",
+      "x": 265,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "format_choices"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_format_choices.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "click_lcd",
+      "x": 290,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "fixed_two"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "fixed_history"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 265,
+      "y": 60
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic"
+    },
+    {
+      "step": "click_lcd",
+      "x": 230,
+      "y": 164
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "click_lcd",
+      "x": 248,
+      "y": 164
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "complex_pair_allowed"
+    },
+    {
+      "step": "click_lcd",
+      "x": 248,
+      "y": 164
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "complex_pair_disallowed"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 86
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "grouping_choices"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "ungrouped"
+    },
+    {
+      "step": "click_lcd",
+      "x": 190,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "page_two"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "small_selected"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "small_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_small_history.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "canonical_copy"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "copied_result"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 190,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 34
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "large_selected"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "large_history"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_large_history.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 150
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 138
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "128"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "invalid_bits"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "type",
+      "text": "64"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "valid_bits"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 138
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "signed_64"
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 138
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "63"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 138
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "snapshot",
+      "label": "signed_63"
+    },
+    {
+      "step": "click_lcd",
+      "x": 260,
+      "y": 138
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "type",
+      "text": "64"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "signed_bits_64_rejected"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "final"
+    },
+    {
+      "step": "type",
+      "text": "SIN(30)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "angle_calculation"
+    },
+    {
+      "step": "type",
+      "text": "{HAngle,HFormat,HDigits,HSeparator,HComplex}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "settings_codes"
+    },
+    {
+      "step": "new_program",
+      "name": "SETTINGFONT"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT SETTINGFONT() BEGIN RECT_P(0,0,319,239,16777215,16777215); TEXTOUT_P(\"123456.789\",1,1,0,0); RETURN 17; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "system_font_program"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_settings_system_font.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

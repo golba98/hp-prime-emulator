@@ -359,7 +359,7 @@ fn runtime_errors_are_runtime_problems_until_the_source_changes() {
 #[test]
 fn compatibility_warnings_allow_running_and_stay_distinct() {
     let ctx = egui::Context::default();
-    let mut app = app_with("EXPORT EV()\nBEGIN\n  RETURN EVAL(\"1+1\");\nEND;\n");
+    let mut app = app_with("EXPORT EV()\nBEGIN\n  RETURN AFilesB(\"x\");\nEND;\n");
     settle(&mut app, &ctx);
     assert_eq!(app.state.analysis, AnalysisState::ValidWithWarnings(1));
     assert_eq!(app.problems.error_count(), 0);
@@ -1057,4 +1057,189 @@ fn a_direct_firmware_check_is_marked_like_any_firmware_check() {
             .current_firmware()
             .is_none()
     );
+}
+
+fn linked_app() -> IdeDesktopApp {
+    let mut app =
+        app_with("LOCAL count:=100; EXPORT TOP() BEGIN count:=count+1; RETURN count+LEAF(); END;");
+    app.editor.new_tab(
+        "LEAF.ppl",
+        "LOCAL count:=10; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;",
+    );
+    app.editor
+        .new_tab("UNRELATED.ppl", "EXPORT BROKEN() BEGIN RETURN 1+; END;");
+    app.editor.active_tab_index = 0;
+    app
+}
+#[test]
+fn open_tab_native_catalog_checks_runs_retains_and_relinks_edits() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    settle(&mut app, &ctx);
+    assert_eq!(app.analysis_state(0), AnalysisState::Valid);
+    assert_eq!(app.analysis_state(1), AnalysisState::Valid);
+    assert!(matches!(
+        app.analysis_state(2),
+        AnalysisState::Invalid { .. }
+    ));
+    for expected in ["112", "114"] {
+        app.handle_action(IdeAction::RunProgram, &ctx);
+        finish_run(&mut app);
+        assert!(
+            matches!(app.controller.outcome(),Some(WorkerOutcome::Success {value_str,..}) if value_str==expected),
+            "{}",
+            console(&app)
+        );
+    }
+    app.editor.tabs[1].content =
+        "LOCAL count:=40; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;".into();
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    finish_run(&mut app);
+    assert!(
+        matches!(app.controller.outcome(),Some(WorkerOutcome::Success {value_str,..}) if value_str=="144"),
+        "{}",
+        console(&app)
+    );
+    app.editor.tabs[1].content = "EXPORT LEAF(x) BEGIN RETURN x; END;".into();
+    settle(&mut app, &ctx);
+    assert!(matches!(
+        app.analysis_state(0),
+        AnalysisState::Invalid { .. }
+    ));
+}
+#[test]
+fn dependency_edit_supersedes_inflight_native_compile_without_executing() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    app.editor.tabs[1].content = "EXPORT LEAF() BEGIN RETURN 99; END;".into();
+    finish_run(&mut app);
+    assert!(!app.controller.worker_alive());
+    assert!(app.state.status_message.contains("sources changed"));
+    assert!(app.state.native.last_outcome.as_ref().unwrap()["status"] == "blocked");
+}
+#[test]
+fn linked_runtime_failure_points_to_the_actual_dependency_source() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.editor.tabs[1].content = "EXPORT LEAF()\nBEGIN\n RETURN 1/0;\nEND;".into();
+    let dependency = app.editor.tabs[1].id;
+    app.handle_action(IdeAction::RunProgram, &ctx);
+    finish_run(&mut app);
+    let problem = &app.runtime_problems[0].0;
+    assert_eq!(problem.tab, Some(dependency));
+    assert_eq!(problem.file, "LEAF.ppl");
+    assert_eq!(problem.line, 3);
+}
+fn pause_debug(app: &mut IdeDesktopApp) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        app.poll_execution();
+        if app.controller.paused() {
+            app.poll_execution();
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "debugger never paused: {}",
+            app.state.status_message
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+#[test]
+fn linked_debug_navigates_steps_frames_and_private_globals() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.editor.tabs[0].content = "LOCAL count:=100;\nEXPORT TOP()\nBEGIN\n LOCAL result;\n result:=LEAF();\n RETURN result+count;\nEND;".into();
+    app.editor.tabs[1].content =
+        "LOCAL count:=10;\nEXPORT LEAF()\nBEGIN\n RETURN count;\nEND;".into();
+    app.editor.active_tab_index = 1;
+    app.handle_action(IdeAction::ToggleBreakpoint(4), &ctx);
+    app.editor.active_tab_index = 0;
+    app.begin_native_compile(true, true, true, &ctx);
+    pause_debug(&mut app);
+    app.handle_action(IdeAction::ContinueExecution, &ctx);
+    // Wait for this generation to finish before observing the next pause.
+    let generation = app.last_pause_gen;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while app.last_pause_gen == generation {
+        app.poll_execution();
+        assert!(Instant::now() < deadline);
+        std::thread::yield_now();
+    }
+    let snapshot = app.debugger.snapshot.as_ref().unwrap();
+    assert_eq!(
+        snapshot.source.as_ref().unwrap().name,
+        IdeDesktopApp::native_namespace(&app.editor.tabs[1])
+    );
+    assert_eq!(snapshot.line, 4);
+    assert_eq!(app.editor.active_tab_index, 1);
+    assert_eq!(app.state.paused_tab, Some(app.editor.tabs[1].id));
+    assert_eq!(snapshot.frames.len(), 2);
+    assert_eq!(
+        snapshot.frames[0]
+            .globals
+            .iter()
+            .find(|v| v.name == "count")
+            .unwrap()
+            .preview,
+        "10"
+    );
+    assert_eq!(
+        snapshot.frames[1]
+            .globals
+            .iter()
+            .find(|v| v.name == "count")
+            .unwrap()
+            .preview,
+        "100"
+    );
+    app.handle_action(IdeAction::SelectDebugFrame(1), &ctx);
+    assert_eq!(app.editor.active_tab_index, 0);
+    assert_eq!(app.state.cursor_line, 5);
+    app.handle_action(IdeAction::StepOut, &ctx);
+    let generation = app.last_pause_gen;
+    while app.last_pause_gen == generation {
+        app.poll_execution();
+        assert!(Instant::now() < deadline);
+        std::thread::yield_now();
+    }
+    assert_eq!(app.editor.active_tab_index, 0);
+    assert_eq!(app.debugger.snapshot.as_ref().unwrap().line, 6);
+    app.handle_action(IdeAction::ContinueExecution, &ctx);
+    finish_run(&mut app);
+    assert!(console(&app).contains("110"));
+}
+
+#[test]
+fn linked_debug_edited_or_closed_source_uses_immutable_snapshot() {
+    let ctx = egui::Context::default();
+    let mut app = linked_app();
+    app.begin_native_compile(true, true, true, &ctx);
+    pause_debug(&mut app);
+    let original = app.editor.tabs[0].content.clone();
+    app.editor.tabs[0].content = "edited source".into();
+    app.poll_execution();
+    let snapshot = app.editor.active_tab_index;
+    assert_eq!(app.editor.tabs[snapshot].content, original);
+    assert!(app.editor.tabs[snapshot].debug_source.is_some());
+    assert!(app.editor.tabs[snapshot].save(None).is_err());
+    app.refresh_native_sources();
+    assert_eq!(app.native_catalog.sources.len(), 3);
+    app.editor.close_tab(snapshot);
+    app.editor.close_tab(0);
+    app.select_debug_frame(0, true);
+    assert_eq!(app.editor.active_tab().unwrap().content, original);
+    assert!(app.editor.active_tab().unwrap().debug_source.is_some());
+    app.handle_action(IdeAction::StopProgram, &ctx);
+    finish_run(&mut app);
+}
+
+#[test]
+fn missing_catalog_root_is_an_analysis_failure_instead_of_a_lost_worker() {
+    let result = diagnostics::analyze_catalog("missing", &Default::default(), 1);
+    assert!(result.failure.is_some());
+    assert!(result.program.is_none());
 }

@@ -1,0 +1,87 @@
+{
+  "provenance": "Genuine isolated virtual G1 firmware captures; not physical hardware verification. Screenshots and proprietary resources are not bundled.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "four_values": {
+    "D1": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "n": 4,
+    "minimum": 1,
+    "quartile1": 1.5,
+    "median": 2.5,
+    "quartile3": 3.5,
+    "maximum": 4,
+    "sum": 10,
+    "sum_squares": 30,
+    "mean": 2.5,
+    "sample_standard_deviation": 1.29099444874
+  },
+  "single_value": {
+    "D1": [
+      7
+    ],
+    "error": "Insufficient statistics data"
+  },
+  "layout": {
+    "lcd": [
+      320,
+      240
+    ],
+    "numeric_header_y": 20,
+    "numeric_first_row_y": 37,
+    "numeric_row_height": 17,
+    "symbolic_analysis_height": 79,
+    "plot_canvas": [
+      320,
+      220
+    ],
+    "plot_menu": [
+      "Zoom",
+      "Trace",
+      "Go To",
+      "Fit",
+      "Fcn",
+      "Menu"
+    ]
+  },
+  "captures": [
+    {
+      "control": "05-two-symbolic-valid",
+      "png_sha256": "e453806a4460c042f8ac0c66deabf892d15bb04c499db1cffc1efe2755459ad8"
+    },
+    {
+      "control": "10-two-data",
+      "png_sha256": "3fc0b52bb27391656c1647a0cb7b54e4d3657a5eb9e716f170ad558c0f0cb5c2"
+    },
+    {
+      "control": "13-one-summary-four",
+      "png_sha256": "c203e8eb71a83dab234d2faaad70cdcc69876a7a5276693b42f0706cb023ac81"
+    },
+    {
+      "control": "14-one-summary-single",
+      "png_sha256": "65cfb07668fc483fbc86cf81e7b84a6b6b740fc33ad30282e4983eeee551aa9f"
+    },
+    {
+      "control": "01-two-plot",
+      "png_sha256": "c02d2ef5491868229ed29849b8d6bdf9d1190cc8286fdedde8a03e30975a569e"
+    },
+    {
+      "control": "02-two-plot-menu",
+      "png_sha256": "02db5c49e9c9ea63d263bebdd33cf92762ce212ae5dc53548357f10f8be71796"
+    },
+    {
+      "control": "03-two-plot-fit",
+      "png_sha256": "6a0696730b6b6d0b713a9c76f4a061c7d583f4e4499fc24ff95b8d9543dc6a31"
+    }
+  ],
+  "limits": "Layout measurements and listed numeric controls only. No whole-screen raster equality, all-fit numerical parity, marker/color menu coverage or matching 15157 physical corpus is claimed."
+}

@@ -1,0 +1,515 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_cas_arguments.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "CASCONTROL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASSIGN() BEGIN LOCAL r; CAS(\"purge(zztest)\"); r:=CAS(\"zztest:=7\"); RETURN {TYPE(r),STRING(r),CAS(\"zztest+2\")}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-acceptance-reference-assign"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASARG() BEGIN LOCAL a:=2; RETURN CAS(\"a+1\"); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-acceptance-reference-argument"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASFUNC() BEGIN CAS(\"zzfun(x):=x+1\"); RETURN CAS(\"zzfun(4)\"); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-acceptance-reference-function"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASINFTYPE() BEGIN LOCAL a:=CAS(\"1/0\"); RETURN {TYPE(a),STRING(a)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-special-values-reference-infinitytype"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASUNDTYPE() BEGIN LOCAL a:=CAS(\"0/0\"); RETURN {TYPE(a),STRING(a)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-special-values-reference-undeftype"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EVALTEST() BEGIN RETURN EVAL(7); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-special-values-reference-eval"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASBOUND() BEGIN LOCAL z:=CAS(\"-1/0\"),p:=CAS(\"+infinity\"),n:=CAS(\"-infinity\"),u:=CAS(\"undef\"); RETURN {TYPE(z),STRING(z),TYPE(p),STRING(p),TYPE(n),STRING(n),TYPE(u),STRING(u)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-boundary-reference-bounds"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXACTLOW() BEGIN LOCAL r:=exact(0.25); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-boundary-reference-exactlower"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EMPTYCALL() BEGIN LOCAL r:={}; IFERR r:=CONCAT(r,{STRING(CAS(\"sin()\"))}); THEN r:=CONCAT(r,{\"caught\"}); END; RETURN r; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-boundary-reference-emptycall"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT STORESPECIAL() BEGIN CAS(\"zzbound:=1/0\"); RETURN {TYPE(CAS(\"zzbound\")),STRING(CAS(\"zzbound\")),STRING(CAS(\"1/0+2\")),STRING(CAS(\"infinity>0\"))}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-boundary-reference-storedspecial"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EVALSTR() BEGIN LOCAL r:=EVAL(\"1+2\"); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-source-data-evalstring"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EVALCOL() BEGIN LOCAL r:=EVAL({\"2+3\",CAS(\"zzdynamic+1\")}); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-source-data-evalcollection"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXACTCOL() BEGIN LOCAL r:=exact({0.25,\"1/3\"}); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-source-data-exactcollection"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASG() BEGIN LOCAL a:=2,r; r:=CAS(a:=3); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-assign"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASSTORE() BEGIN LOCAL a:=2,r; r:=CAS(3\u25b6a); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-store"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASGEX() BEGIN LOCAL a:=2,r; r:=CAS(a:=SIN(0)+5); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-assignexpr"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASGN() BEGIN LOCAL abc:=2,r; r:=CAS(abc:=3); RETURN {abc,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-assignname"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASGNEST() BEGIN LOCAL a:=2,r; r:=CAS(1+(a:=3)); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-nested"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXACTSTYPE() BEGIN RETURN TYPE(exact(\"1/3\")); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-exactstrtype"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXACTSVAL() BEGIN RETURN STRING(exact(\"1/3\")); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-assignment-argument-reference-exactstrvalue"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXARITH() BEGIN LOCAL r:=exact(\"1+2\"); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact-string-reference-arithmetic"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXDEC() BEGIN LOCAL r:=exact(\"0.25\"); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact-string-reference-decimal"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXSYM() BEGIN LOCAL r:=exact(\"zzunknown\"); RETURN {TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact-string-reference-symbol"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASGNEST() BEGIN LOCAL a:=2,r; r:=CAS({a:=3,4}); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact-string-reference-nestedcas"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASGCALL() BEGIN LOCAL a:=2,r; r:=CAS(sin(a:=3)); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "exact-string-reference-call"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASLF() BEGIN LOCAL r:=CAS({1/2}); RETURN {TYPE(r),TYPE(r(1)),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-collection-reference-listfraction"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASVA() BEGIN LOCAL a:=2,r; r:=CAS([a:=3,4]); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-collection-reference-vectorassign"
+    },
+    {
+      "step": "set_content",
+      "content": "SIDE() BEGIN A:=A+1; RETURN 3; END; EXPORT CASSIDE() BEGIN A:=0; LOCAL r:=CAS(SIDE()); RETURN {A,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-collection-reference-callside"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT CASASTR() BEGIN LOCAL a:=2,r; r:=CAS(a:=\"1+2\"); RETURN {a,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-collection-reference-stringassign"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT EXESC() BEGIN LOCAL r:=exact(\"zzunicode+1\"); RETURN STRING(r); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-collection-reference-exactescaped"
+    },
+    {
+      "step": "set_content",
+      "content": "SIDE() BEGIN A:=A+1; RETURN 3; END; EXPORT CASDYNEX() BEGIN A:=0; LOCAL r:=CAS(SIDE()+1); RETURN {A,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-dynamic-arguments-reference-nativeexpr"
+    },
+    {
+      "step": "set_content",
+      "content": "SIDE() BEGIN A:=A+1; RETURN \"1/2\"; END; EXPORT CASDYNTXT() BEGIN A:=0; LOCAL r:=CAS(SIDE()); RETURN {A,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-dynamic-arguments-reference-casdynamictext"
+    },
+    {
+      "step": "set_content",
+      "content": "SIDE() BEGIN A:=A+1; RETURN 3; END; EXPORT CASDYNLIST() BEGIN A:=0; LOCAL r:=CAS({SIDE()+1,1/2}); RETURN {A,TYPE(r),STRING(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas-dynamic-arguments-reference-listside"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

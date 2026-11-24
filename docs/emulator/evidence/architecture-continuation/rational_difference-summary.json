@@ -1,0 +1,115 @@
+{
+  "assertions": 6,
+  "fixture_sha256": "7239cd4530db5a8da1a05e6bda450303c2d29fa9201ea377909a4533e02438c8",
+  "mismatches": [
+    {
+      "actual": {
+        "type": "list",
+        "value": [
+          {
+            "denominator": "3",
+            "negative": false,
+            "numerator": "1",
+            "type": "rational"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "2"
+              },
+              {
+                "type": "real",
+                "value": "3"
+              }
+            ]
+          }
+        ]
+      },
+      "backend": "firmware_hle",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0.333333333333"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "2"
+              },
+              {
+                "type": "real",
+                "value": "3"
+              }
+            ]
+          }
+        ]
+      },
+      "path": "/return_value",
+      "reason": "declared expectation differs or is absent",
+      "reference": null,
+      "step": "run"
+    },
+    {
+      "actual": "3",
+      "backend": "firmware_hle",
+      "expected": null,
+      "path": "/return_value/value/0/denominator",
+      "reason": "field absent from one backend",
+      "reference": "native",
+      "step": "run"
+    },
+    {
+      "actual": false,
+      "backend": "firmware_hle",
+      "expected": null,
+      "path": "/return_value/value/0/negative",
+      "reason": "field absent from one backend",
+      "reference": "native",
+      "step": "run"
+    },
+    {
+      "actual": "1",
+      "backend": "firmware_hle",
+      "expected": null,
+      "path": "/return_value/value/0/numerator",
+      "reason": "field absent from one backend",
+      "reference": "native",
+      "step": "run"
+    },
+    {
+      "actual": "rational",
+      "backend": "firmware_hle",
+      "expected": "real",
+      "path": "/return_value/value/0/type",
+      "reason": "exact observable value differs",
+      "reference": "native",
+      "step": "run"
+    },
+    {
+      "actual": null,
+      "backend": "firmware_hle",
+      "expected": "0.333333333333",
+      "path": "/return_value/value/0/value",
+      "reason": "field absent from one backend",
+      "reference": "native",
+      "step": "run"
+    }
+  ],
+  "passed": false,
+  "schema_version": 1,
+  "source_sha256": "403ad06ff05183eaa2b16ccb6f3a30124d7a3aea39da17844e5edc7e83c943e2"
+}

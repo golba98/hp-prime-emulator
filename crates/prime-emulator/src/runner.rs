@@ -20,10 +20,13 @@ use crate::trace::{TraceConfig, TraceHub};
 /// Startup stack for the main thread. Reference: `MEM_STACK_SIZE` (4 MiB),
 /// allocated from the dynamic heap (PrimU2 `Thread::Thread`).
 pub const MAIN_STACK_SIZE: usize = 0x40_0000;
+mod restore;
 
 #[derive(Clone, Debug)]
 pub struct RunConfig {
     pub firmware_path: PathBuf,
+    /// Explicitly restore a compatible full live archive instead of booting.
+    pub resume_live: bool,
     /// Optional `PRIME_OS.ROM`; mapped inert (reference behavior) when given,
     /// mapped zeroed when not.
     pub os_rom_path: Option<PathBuf>,
@@ -70,6 +73,7 @@ impl Default for RunConfig {
     fn default() -> Self {
         RunConfig {
             firmware_path: PathBuf::new(),
+            resume_live: false,
             os_rom_path: None,
             data_dir: PathBuf::from("prime_data"),
             firmware_guest_path: "A:\\programs\\misc\\armfir.elf".to_owned(),
@@ -199,9 +203,25 @@ pub struct UnsupportedHit {
     pub calls: u64,
 }
 
+fn collect_unsupported_hits(trace: &TraceHub, registry: &Registry) -> Vec<UnsupportedHit> {
+    trace
+        .call_sites()
+        .into_iter()
+        .filter(|((id, _), _)| registry.handler(*id).is_none())
+        .map(|((id, caller_pc), calls)| UnsupportedHit {
+            id,
+            name: names::service_name(id).map(str::to_owned),
+            caller_pc,
+            calls,
+        })
+        .collect()
+}
+
 #[derive(Debug, Serialize)]
 pub struct FaultJson {
     pub kind: String,
+    pub thread_id: u32,
+    pub address: Option<u64>,
     pub pc: u32,
     pub regs: [u32; 16],
     pub cpsr: u32,
@@ -282,23 +302,35 @@ fn spawn_device_thread(
     let handle = std::thread::Builder::new()
         .name("device".into())
         .spawn(move || {
-            let (mut sys, mut dev, mut inject) = (Instant::now(), Instant::now(), Instant::now());
+            let mut inject = Instant::now();
             let mut script_running = driver.is_some();
             while !shared.stopping() {
+                // Deadlines must also wake an engine parked inside a host SVC.
+                // Checking only after run_slice returns cannot bound an infinite
+                // GetEvent/OSWaitForEvent with no producers.
+                if started.elapsed().as_secs_f64() >= max_seconds {
+                    trace.limit(format!(
+                        "device wall-clock limit reached ({max_seconds:.1}s)"
+                    ));
+                    shared.set_stopping();
+                    break;
+                }
                 if let Some(s) = &session {
                     s.tick(&mem, &shared, &trace);
                     s.capture(&mem, &shared);
                 }
-                if ui_timers {
+                shared.power_execution_allowed(false);
+                if ui_timers && !shared.sleeping() {
                     // PrimU2's 60 Hz window timer raises SYS_TIMER every 11
                     // ticks and DEVICE_TIMER every 61.
-                    if sys.elapsed() >= SYS_TIMER_PERIOD {
+                    let mut timers = shared.timers.lock().unwrap();
+                    if shared.clock.now().saturating_sub(timers.system) >= SYS_TIMER_PERIOD {
                         shared.push_system_event(crate::services::UI_EVENT_TYPE_SYS_TIMER);
-                        sys = Instant::now();
+                        timers.system = shared.clock.now();
                     }
-                    if dev.elapsed() >= DEVICE_TIMER_PERIOD {
+                    if shared.clock.now().saturating_sub(timers.device) >= DEVICE_TIMER_PERIOD {
                         shared.push_system_event(crate::services::UI_EVENT_TYPE_DEVICE_TIMER);
-                        dev = Instant::now();
+                        timers.device = shared.clock.now();
                     }
                 }
                 if let Some((key, interval_ms)) = inject_key {
@@ -431,6 +463,527 @@ pub fn run_with_session(
         ),
     );
 
+    let World {
+        mem,
+        shared,
+        trace,
+        sp,
+        workers,
+        mut cpu,
+        segments: seg_infos,
+        registry,
+    } = if cfg.resume_live {
+        let session = session
+            .as_ref()
+            .ok_or("Live restore requires a session owner")?;
+        restore::prepare(cfg, session)?
+    } else {
+        boot_world(cfg, &elf, trace)?
+    };
+
+    let start = Instant::now();
+    let mut heartbeat_events: Option<HeartbeatJson> = None;
+    let outcome: Outcome;
+    let evidence: String;
+    let mut fault_json: Option<FaultJson> = None;
+    // Device-side producers (UI timers, key injection, key script) run on
+    // their own host thread: the main guest thread blocks in long
+    // OSWaitForEvent calls that only the UI pump ends, and the pump only
+    // runs when GetEvent has something to deliver.
+    let device = spawn_device_thread(
+        cfg,
+        mem.clone(),
+        shared.clone(),
+        trace.clone(),
+        session.clone(),
+    );
+
+    let get_event_id = names::service_id_by_name("GetEvent").unwrap();
+
+    loop {
+        // Deliver virtual IRQ ticks between slices (deterministic order).
+        {
+            let mut timers = shared.timers.lock().unwrap();
+            if !shared.sleeping()
+                && shared.clock.now().saturating_sub(timers.irq)
+                    >= Duration::from_millis(cfg.irq_tick_ms)
+            {
+                timers.irq = shared.clock.now();
+                drop(timers);
+                shared.queue_due_isrs();
+            }
+        }
+        cpu.dispatch_pending_isrs();
+        match cpu.run_slice(cfg.slice_instructions)? {
+            crate::engine::RunSliceOutcome::Progress => {}
+            crate::engine::RunSliceOutcome::Stopped(reason) => {
+                match reason {
+                    StopReason::UnsupportedService { id, caller_pc } => {
+                        outcome = Outcome::UnsupportedStop;
+                        evidence = format!(
+                            "strict policy stopped at unimplemented service {id:#07X} ({}) called from {caller_pc:#010X}",
+                            registry.name(id).unwrap_or("unknown"),
+                        );
+                    }
+                    StopReason::Fault => {
+                        outcome = Outcome::Fault;
+                        if let Some(f) = cpu.fault_report() {
+                            evidence = format!("{} at pc={:#010X}", f.kind, f.pc);
+                            fault_json = Some(f.to_json());
+                        } else {
+                            evidence = "guest fault (no report)".into();
+                        }
+                    }
+                    StopReason::Requested if start.elapsed().as_secs_f64() >= cfg.max_seconds => {
+                        outcome = Outcome::LimitReached;
+                        evidence = format!("time limit reached ({:.1}s)", cfg.max_seconds);
+                    }
+                    StopReason::Requested if cfg.program.is_some() => {
+                        outcome = Outcome::ProgramComplete;
+                        evidence = "program controller requested shutdown".into();
+                    }
+                    other => {
+                        evidence = format!("stopped: {other:?}");
+                        outcome = Outcome::LimitReached;
+                    }
+                }
+                break;
+            }
+        }
+
+        if let Some(s) = &session {
+            s.capture(&mem, &shared);
+        }
+
+        // Heartbeat probe: count GetEvent calls that returned with a real
+        // batch. The handler bumps the total; we require the guest to have
+        // re-entered it from the same loop, which call-site counters show.
+        let delivered = shared.input_delivered();
+        if delivered >= cfg.heartbeat_min_events {
+            let sites = trace.call_sites();
+            let getev = sites
+                .iter()
+                .filter(|((id, _), _)| *id == get_event_id)
+                .max_by_key(|(_, c)| *c);
+            let chain = shared.getevent_chain();
+            if let Some(((_, caller_pc), calls)) = getev {
+                if *calls >= cfg.heartbeat_min_events as u64 && heartbeat_events.is_none() {
+                    trace.heartbeat(format!(
+                        "firmware event loop verified: GetEvent serviced {delivered} injected key events, re-entered from caller {caller_pc:#010X} {calls} times, no faults"
+                    ));
+                    heartbeat_events = Some(HeartbeatJson {
+                        service: "GetEvent".into(),
+                        caller_pc: *caller_pc,
+                        stack_slots: [chain[1], chain[2]],
+                        thread_id: shared.input_thread(),
+                        events_delivered: delivered,
+                        pump_reentries: *calls,
+                        instructions: cpu.instructions,
+                    });
+                    if cfg.script.is_none() && cfg.program.is_none() && session.is_none() {
+                        outcome = Outcome::Heartbeat;
+                        evidence = format!(
+                            "firmware event loop verified: GetEvent serviced {delivered} injected key events, re-entered from caller {caller_pc:#010X} {calls} times, no faults"
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Scripted input (M4) finished on the device thread?
+        let finished = device.result.lock().unwrap().take();
+        match finished {
+            None | Some(Tick::Continue) => {}
+            Some(Tick::Done) => {
+                outcome = if cfg.program.is_some() {
+                    Outcome::ProgramComplete
+                } else {
+                    Outcome::ScriptComplete
+                };
+                evidence = if cfg.program.is_some() {
+                    program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
+                } else {
+                    format!(
+                        "key script completed: {} item(s) delivered and settled",
+                        cfg.script.as_ref().map_or(0, |s| s.keys.len())
+                    )
+                };
+                break;
+            }
+            Some(Tick::Failed(m)) => {
+                outcome = Outcome::ScriptFailed;
+                evidence = format!("key script failed: {m}");
+                break;
+            }
+        }
+
+        if shared.thread_is_exiting() {
+            outcome = Outcome::LimitReached;
+            evidence = "main guest thread called OSExitThread".to_owned();
+            break;
+        }
+        if cpu.instructions >= cfg.max_instructions {
+            outcome = Outcome::LimitReached;
+            evidence = format!("instruction limit reached ({})", cfg.max_instructions);
+            break;
+        }
+        let elapsed = start.elapsed().as_secs_f64();
+        if elapsed >= cfg.max_seconds {
+            outcome = Outcome::LimitReached;
+            evidence = format!("time limit reached ({:.1}s)", cfg.max_seconds);
+            break;
+        }
+    }
+
+    shared.set_stopping();
+    let _ = cpu.take_stop_reason();
+    let script = device.handle.join().unwrap_or(None);
+    workers.shutdown();
+    let (outcome, evidence) = if let Some(failure) = shared.take_thread_failure() {
+        let outcome = if matches!(failure.reason, StopReason::UnsupportedService { .. }) {
+            Outcome::UnsupportedStop
+        } else {
+            Outcome::Fault
+        };
+        fault_json = failure.fault.map(|f| f.to_json());
+        (
+            outcome,
+            format!("guest thread {} failed: {}", failure.tid, failure.detail),
+        )
+    } else {
+        (outcome, evidence)
+    };
+    let evidence = if cfg.program.is_some() && outcome == Outcome::ProgramComplete {
+        program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
+    } else {
+        evidence
+    };
+
+    // ── Report ────────────────────────────────────────────────────────
+    let svc_calls_total: u64 = trace.svc_totals().iter().map(|(_, c)| *c).sum();
+    let used_services = registry
+        .used_services()
+        .into_iter()
+        .map(|(id, name, status, calls)| UsedService {
+            id,
+            name: name.map(str::to_owned),
+            status: status.to_owned(),
+            calls,
+        })
+        .collect();
+    let unsupported_hits = collect_unsupported_hits(&trace, &registry);
+
+    trace.stage("done", format!("outcome: {}", outcome.as_str()));
+    let threads = {
+        let mut t: Vec<ThreadInfo> = shared
+            .thread_instructions
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(&tid, &n)| ThreadInfo {
+                tid,
+                instructions: n,
+            })
+            .collect();
+        t.push(ThreadInfo {
+            tid: 0,
+            instructions: cpu.instructions,
+        });
+        t.sort_by_key(|t| t.tid);
+        t
+    };
+    let top_call_sites = trace
+        .call_sites()
+        .into_iter()
+        .take(20)
+        .map(|((id, caller_pc), calls)| CallSiteInfo {
+            id,
+            name: names::service_name(id).map(str::to_owned),
+            caller_pc,
+            calls,
+        })
+        .collect();
+    let display = display_report(cfg, &mem, &shared, script.as_ref());
+    let (fs_events, fs_events_dropped) = trace.fs_log();
+    let script_report = display.script.as_ref();
+    let outcomes = Outcomes {
+        firmware_execution: !matches!(outcome, Outcome::Fault | Outcome::UnsupportedStop)
+            && cpu.instructions > 0,
+        framebuffer_capture: (cfg.script.is_some() || cfg.screenshot.is_some())
+            .then(|| display.final_capture.is_some()),
+        input_delivery: script_report.map(|s| {
+            s.keys.len() == cfg.script.as_ref().map_or(0, |c| c.keys.len())
+                && s.keys.iter().all(|k| k.delivered_ms.is_some())
+        }),
+        // Every real input changed the screen lastingly; IDLE controls must
+        // not have.
+        input_to_display: script_report.map(|s| {
+            s.keys.len() == cfg.script.as_ref().map_or(0, |c| c.keys.len())
+                && s.keys.iter().all(|k| {
+                    let idle = k.code == 0 && k.name == "IDLE";
+                    (k.stable_change.changed > 0) != idle
+                })
+        }),
+        calculation: None,
+    };
+    let report = RunReport {
+        firmware: cfg.firmware_path.display().to_string(),
+        firmware_sha256: hash,
+        entry: elf.entry,
+        segments: seg_infos,
+        initial_sp: sp,
+        outcome: outcome.as_str().to_owned(),
+        evidence: evidence.clone(),
+        instructions: cpu.instructions,
+        elapsed_secs: start.elapsed().as_secs_f64(),
+        last_pc: cpu.pc(),
+        svc_calls_total,
+        used_services,
+        unsupported_hits,
+        fault: fault_json,
+        heartbeat: heartbeat_events,
+        threads,
+        irq_delivered: shared.irq_delivery_counts(),
+        top_call_sites,
+        outcomes,
+        display,
+        storage: storage_before
+            .as_ref()
+            .map(|b| crate::storage::diff(b, &crate::storage::snapshot(&cfg.data_dir))),
+        fs_events,
+        fs_events_dropped,
+        compiler: trace.compiler.as_ref().map(|o| o.snapshot()),
+        runtime: trace.runtime.as_ref().map(|o| o.snapshot()),
+    };
+    Ok(RunSummary { report, outcome })
+}
+
+/// Owns all guest workers for this run. The spawner keeps only a Weak state
+/// reference, and creation/registration is serialized with the shutdown drain.
+struct GuestWorkers {
+    shared: Arc<SharedState>,
+}
+impl GuestWorkers {
+    fn install(
+        mem: &Arc<GuestMemory>,
+        registry: &Arc<Registry>,
+        shared: &Arc<SharedState>,
+        trace: &Arc<TraceHub>,
+        policy: UnsupportedPolicy,
+        slice: usize,
+    ) -> Self {
+        let weak = Arc::downgrade(shared);
+        let mem = mem.clone();
+        let registry = registry.clone();
+        let trace = trace.clone();
+        shared.set_thread_spawner(Arc::new(move |tid, func, arg, stack_size| {
+            let Some(shared) = weak.upgrade() else {
+                return;
+            };
+            // Lock until the worker has been registered: shutdown cannot miss
+            // an in-flight creation, and no new thread starts after stopping.
+            let mut handles = shared.thread_handles.lock().unwrap();
+            if shared.stopping() {
+                return;
+            }
+            let memory = mem.clone();
+            let registry = registry.clone();
+            let trace = trace.clone();
+            let state = shared.clone();
+            let spawned = std::thread::Builder::new()
+                .name(format!("prime-guest-{tid}"))
+                .spawn(move || {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        run_guest_worker(
+                            memory, registry, &state, trace, policy, tid, func, arg, stack_size,
+                            slice,
+                        )
+                    }));
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(failure)) => state.note_thread_failure(failure),
+                        Err(_) => state.note_thread_failure(crate::services::ThreadFailure {
+                            tid,
+                            reason: StopReason::Fault,
+                            fault: None,
+                            detail: "host worker panicked".into(),
+                        }),
+                    }
+                });
+            match spawned {
+                Ok(handle) => {
+                    handles.insert(tid, handle);
+                }
+                Err(e) => shared.note_thread_failure(crate::services::ThreadFailure {
+                    tid,
+                    reason: StopReason::Fault,
+                    fault: None,
+                    detail: format!("cannot spawn host worker: {e}"),
+                }),
+            }
+        }));
+        Self {
+            shared: shared.clone(),
+        }
+    }
+    fn shutdown(&self) {
+        self.shared.set_stopping();
+        self.shared.thread_spawner.lock().unwrap().take();
+        let handles = std::mem::take(&mut *self.shared.thread_handles.lock().unwrap());
+        // No table/sync lock is held while a worker unwinds its SVC wait.
+        for (tid, handle) in handles {
+            if handle.join().is_err() {
+                self.shared
+                    .note_thread_failure(crate::services::ThreadFailure {
+                        tid,
+                        reason: StopReason::Fault,
+                        fault: None,
+                        detail: "host worker panicked".into(),
+                    });
+            }
+        }
+    }
+}
+impl Drop for GuestWorkers {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
+}
+struct GuestStack {
+    mem: Arc<GuestMemory>,
+    address: u32,
+    shared: std::sync::Weak<SharedState>,
+    tid: u32,
+}
+impl Drop for GuestStack {
+    fn drop(&mut self) {
+        let _gate = self.mem.snapshot_gate.enter();
+        if let Some(shared) = self.shared.upgrade() {
+            shared.thread_stacks.lock().unwrap().remove(&self.tid);
+            shared.finish_guest_thread(self.tid);
+        }
+        self.mem.heap_free(self.address);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_guest_worker(
+    mem: Arc<GuestMemory>,
+    registry: Arc<Registry>,
+    shared: &Arc<SharedState>,
+    trace: Arc<TraceHub>,
+    policy: UnsupportedPolicy,
+    tid: u32,
+    func: u32,
+    arg: u32,
+    stack_size: usize,
+    slice: usize,
+) -> Result<(), crate::services::ThreadFailure> {
+    let fail = |detail: String| {
+        shared.set_stopping();
+        crate::services::ThreadFailure {
+            tid,
+            reason: StopReason::Fault,
+            fault: None,
+            detail,
+        }
+    };
+    // Construction writes the shared allocator before this owner can publish
+    // its first CPU boundary. It must obey the same exclusion as execution.
+    let owner = shared.safe_points.register(tid);
+    let startup_memory = mem.clone();
+    let startup = startup_memory.snapshot_gate.enter();
+    let address = mem
+        .heap_alloc(stack_size)
+        .map_err(|e| fail(e.to_string()))?;
+    let _stack = GuestStack {
+        mem: mem.clone(),
+        address,
+        shared: Arc::downgrade(shared),
+        tid,
+    };
+    shared.thread_stacks.lock().unwrap().insert(tid, address);
+    let mut cpu = CpuThread::new_owned(
+        mem,
+        registry,
+        shared.clone(),
+        trace.clone(),
+        policy,
+        owner,
+        Vec::new(),
+    )
+    .map_err(|e| fail(format!("engine creation: {e}")))?;
+    cpu.set_entry(func, address + stack_size as u32, arg)
+        .map_err(|e| fail(format!("entry setup: {e}")))?;
+    drop(startup);
+    trace.thread_event(format!("thread {tid} running: pc {func:#010X}"));
+    drive_guest_worker(&mut cpu, shared, &trace, tid, slice)
+}
+fn drive_guest_worker(
+    cpu: &mut CpuThread,
+    shared: &Arc<SharedState>,
+    trace: &TraceHub,
+    tid: u32,
+    slice: usize,
+) -> Result<(), crate::services::ThreadFailure> {
+    let fail = |detail: String| {
+        shared.set_stopping();
+        crate::services::ThreadFailure {
+            tid,
+            reason: StopReason::Fault,
+            fault: None,
+            detail,
+        }
+    };
+
+    while !shared.stopping() && !shared.thread_is_exiting() {
+        match cpu.run_slice(slice) {
+            Ok(crate::engine::RunSliceOutcome::Progress) => {
+                shared.note_thread_instructions(tid, cpu.instructions);
+            }
+            Ok(crate::engine::RunSliceOutcome::Stopped(reason)) => {
+                if matches!(
+                    reason,
+                    StopReason::Fault | StopReason::UnsupportedService { .. }
+                ) {
+                    shared.set_stopping();
+                    return Err(crate::services::ThreadFailure {
+                        tid,
+                        reason,
+                        fault: cpu.fault_report().map(Box::new),
+                        detail: format!("{reason:?} at pc {:#010X}", cpu.pc()),
+                    });
+                }
+                break;
+            }
+            Err(e) => return Err(fail(format!("engine error: {e}"))),
+        }
+    }
+    shared.note_thread_instructions(tid, cpu.instructions);
+    trace.thread_event(format!(
+        "thread {tid} finished: {} instructions, pc {:#010X}",
+        cpu.instructions,
+        cpu.pc()
+    ));
+    Ok(())
+}
+
+struct World {
+    registry: Arc<Registry>,
+    mem: Arc<GuestMemory>,
+    shared: Arc<SharedState>,
+    trace: Arc<TraceHub>,
+    sp: u32,
+    workers: GuestWorkers,
+    cpu: CpuThread,
+    segments: Vec<SegmentInfo>,
+}
+fn boot_world(
+    cfg: &RunConfig,
+    elf: &ElfImage,
+    trace: Arc<TraceHub>,
+) -> Result<World, Box<dyn std::error::Error>> {
     // ── Stage 2: guest memory ────────────────────────────────────────
     let mut mem = GuestMemory::new();
     // Null/trap page (ref maps 0x0 with 16 bytes; page granularity here).
@@ -579,87 +1132,14 @@ pub fn run_with_session(
     // hardware far better than a concurrent ISR engine, whose writes raced
     // the running main thread (observed as torn callback pointers during
     // M2 diagnosis).
-    let irq_last = std::sync::Arc::new(std::sync::Mutex::new(std::time::Instant::now()));
-
-    // Guest-thread spawner: a new native thread + own Unicorn engine over
-    // the shared host-backed blocks (reference model, PrimU2 Thread.cpp).
-    {
-        let mem_s = mem.clone();
-        let reg_s = registry.clone();
-        let trace_s = trace.clone();
-        let shared_s = shared.clone();
-        let policy = cfg.on_unsupported;
-        // Guest threads park inside blocking services (GetEvent waits for
-        // input); a slice only completes after this many guest instructions,
-        // so use a fine granularity for spawned threads or their progress
-        // is never reported. 10k keeps per-thread counters current.
-        let slice = cfg.slice_instructions.min(10_000);
-        let spawner: crate::services::ThreadSpawner =
-            std::sync::Arc::new(move |tid: u32, func: u32, arg: u32, stack_size: usize| {
-                let mem = mem_s.clone();
-                let registry = reg_s.clone();
-                let trace = trace_s.clone();
-                let shared = shared_s.clone();
-                let handle = std::thread::spawn(move || {
-                    let stack_va = mem.heap_alloc(stack_size).unwrap_or(0);
-                    if stack_va == 0 {
-                        trace.thread_event(format!("thread {tid}: stack allocation failed"));
-                        return;
-                    }
-                    let sp = stack_va + stack_size as u32;
-                    let Ok(mut cpu) = CpuThread::new(
-                        mem.clone(),
-                        registry.clone(),
-                        shared.clone(),
-                        trace.clone(),
-                        policy,
-                        tid,
-                        Vec::new(),
-                    ) else {
-                        trace.thread_event(format!("thread {tid}: engine creation failed"));
-                        return;
-                    };
-                    // Function pointer bit 0 selects Thumb entry (AAPCS
-                    // interworking convention).
-                    let _ = cpu.set_entry(func, sp, arg);
-                    trace.thread_event(format!(
-                        "thread {tid} running: pc {func:#010X} sp {sp:#010X}"
-                    ));
-                    while !shared.stopping() && !shared.thread_is_exiting() {
-                        match cpu.run_slice(slice) {
-                            Ok(crate::engine::RunSliceOutcome::Progress) => {
-                                shared.note_thread_instructions(tid, cpu.instructions);
-                            }
-                            Ok(crate::engine::RunSliceOutcome::Stopped(reason)) => {
-                                trace.thread_event(format!(
-                                    "thread {tid} stopped: {reason:?} at pc {:#010X}",
-                                    cpu.pc()
-                                ));
-                                break;
-                            }
-                            Err(e) => {
-                                trace.thread_event(format!("thread {tid} engine error: {e}"));
-                                break;
-                            }
-                        }
-                    }
-                    shared.note_thread_instructions(tid, cpu.instructions);
-                    if trace.runtime.as_ref().is_some_and(|r| {
-                        r.terminal_status()
-                            == Some(crate::runtime::ExecutionStatus::GuestExecutionFault)
-                    }) {
-                        shared.set_stopping();
-                    }
-                    trace.thread_event(format!(
-                        "thread {tid} finished: {} instructions, pc {:#010X}",
-                        cpu.instructions,
-                        cpu.pc()
-                    ));
-                });
-                shared_s.register_thread_handle(tid, handle);
-            });
-        shared.set_thread_spawner(spawner);
-    }
+    let workers = GuestWorkers::install(
+        &mem,
+        &registry,
+        &shared,
+        &trace,
+        cfg.on_unsupported,
+        cfg.slice_instructions.min(10_000),
+    );
 
     // ── Stage 4: execution ───────────────────────────────────────────
     let mut cpu = CpuThread::new(
@@ -672,283 +1152,19 @@ pub fn run_with_session(
         cfg.watches.clone(),
     )?;
     cpu.set_entry(elf.entry, sp, 0)?;
+    crate::services::usb::install_worker(&mem, &shared)?;
     trace.stage("cpu", "starting execution (ARM state at ELF entry)");
 
-    let start = Instant::now();
-    let mut heartbeat_events: Option<HeartbeatJson> = None;
-    let outcome: Outcome;
-    let evidence: String;
-    let mut fault_json: Option<FaultJson> = None;
-    // Device-side producers (UI timers, key injection, key script) run on
-    // their own host thread: the main guest thread blocks in long
-    // OSWaitForEvent calls that only the UI pump ends, and the pump only
-    // runs when GetEvent has something to deliver.
-    let device = spawn_device_thread(
-        cfg,
-        mem.clone(),
-        shared.clone(),
-        trace.clone(),
-        session.clone(),
-    );
-
-    let get_event_id = names::service_id_by_name("GetEvent").unwrap();
-
-    loop {
-        // Deliver virtual IRQ ticks between slices (deterministic order).
-        {
-            let mut last = irq_last.lock().unwrap();
-            if last.elapsed() >= Duration::from_millis(cfg.irq_tick_ms) {
-                *last = Instant::now();
-                let due = shared.take_due_isrs();
-                for (irq, isr_va) in due {
-                    if shared.stopping() {
-                        break;
-                    }
-                    let _ = cpu.run_isr(isr_va, irq);
-                    shared.note_irq_delivered(irq);
-                }
-            }
-        }
-        match cpu.run_slice(cfg.slice_instructions)? {
-            crate::engine::RunSliceOutcome::Progress => {}
-            crate::engine::RunSliceOutcome::Stopped(reason) => {
-                match reason {
-                    StopReason::UnsupportedService { id, caller_pc } => {
-                        outcome = Outcome::UnsupportedStop;
-                        evidence = format!(
-                            "strict policy stopped at unimplemented service {id:#07X} ({}) called from {caller_pc:#010X}",
-                            registry.name(id).unwrap_or("unknown"),
-                        );
-                    }
-                    StopReason::Fault => {
-                        outcome = Outcome::Fault;
-                        if let Some(f) = cpu.fault_report() {
-                            evidence = format!("{} at pc={:#010X}", f.kind, f.pc);
-                            fault_json = Some(f.to_json());
-                        } else {
-                            evidence = "guest fault (no report)".into();
-                        }
-                    }
-                    StopReason::Requested if cfg.program.is_some() => {
-                        outcome = Outcome::ProgramComplete;
-                        evidence = "program controller requested shutdown".into();
-                    }
-                    other => {
-                        evidence = format!("stopped: {other:?}");
-                        outcome = Outcome::LimitReached;
-                    }
-                }
-                break;
-            }
-        }
-
-        if let Some(s) = &session {
-            s.capture(&mem, &shared);
-        }
-
-        // Heartbeat probe: count GetEvent calls that returned with a real
-        // batch. The handler bumps the total; we require the guest to have
-        // re-entered it from the same loop, which call-site counters show.
-        let delivered = shared.input_delivered();
-        if delivered >= cfg.heartbeat_min_events {
-            let sites = trace.call_sites();
-            let getev = sites
-                .iter()
-                .filter(|((id, _), _)| *id == get_event_id)
-                .max_by_key(|(_, c)| *c);
-            let chain = shared.getevent_chain();
-            if let Some(((_, caller_pc), calls)) = getev {
-                if *calls >= cfg.heartbeat_min_events as u64 && heartbeat_events.is_none() {
-                    trace.heartbeat(format!(
-                        "firmware event loop verified: GetEvent serviced {delivered} injected key events, re-entered from caller {caller_pc:#010X} {calls} times, no faults"
-                    ));
-                    heartbeat_events = Some(HeartbeatJson {
-                        service: "GetEvent".into(),
-                        caller_pc: *caller_pc,
-                        stack_slots: [chain[1], chain[2]],
-                        thread_id: shared.input_thread(),
-                        events_delivered: delivered,
-                        pump_reentries: *calls,
-                        instructions: cpu.instructions,
-                    });
-                    if cfg.script.is_none() && cfg.program.is_none() && session.is_none() {
-                        outcome = Outcome::Heartbeat;
-                        evidence = format!(
-                            "firmware event loop verified: GetEvent serviced {delivered} injected key events, re-entered from caller {caller_pc:#010X} {calls} times, no faults"
-                        );
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Scripted input (M4) finished on the device thread?
-        let finished = device.result.lock().unwrap().take();
-        match finished {
-            None | Some(Tick::Continue) => {}
-            Some(Tick::Done) => {
-                outcome = if cfg.program.is_some() {
-                    Outcome::ProgramComplete
-                } else {
-                    Outcome::ScriptComplete
-                };
-                evidence = if cfg.program.is_some() {
-                    program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
-                } else {
-                    format!(
-                        "key script completed: {} item(s) delivered and settled",
-                        cfg.script.as_ref().map_or(0, |s| s.keys.len())
-                    )
-                };
-                break;
-            }
-            Some(Tick::Failed(m)) => {
-                outcome = Outcome::ScriptFailed;
-                evidence = format!("key script failed: {m}");
-                break;
-            }
-        }
-
-        if shared.thread_is_exiting() {
-            outcome = Outcome::LimitReached;
-            evidence = "main guest thread called OSExitThread".to_owned();
-            break;
-        }
-        if cpu.instructions >= cfg.max_instructions {
-            outcome = Outcome::LimitReached;
-            evidence = format!("instruction limit reached ({})", cfg.max_instructions);
-            break;
-        }
-        let elapsed = start.elapsed().as_secs_f64();
-        if elapsed >= cfg.max_seconds {
-            outcome = Outcome::LimitReached;
-            evidence = format!("time limit reached ({:.1}s)", cfg.max_seconds);
-            break;
-        }
-    }
-
-    shared.set_stopping();
-    let _ = cpu.take_stop_reason();
-    let script = device.handle.join().unwrap_or(None);
-    let evidence = if cfg.program.is_some() && outcome == Outcome::ProgramComplete {
-        program_completion_evidence(trace.runtime.as_ref().map(|o| o.snapshot()))
-    } else {
-        evidence
-    };
-
-    // ── Report ────────────────────────────────────────────────────────
-    let svc_calls_total: u64 = trace.svc_totals().iter().map(|(_, c)| *c).sum();
-    let implemented: std::collections::HashSet<u32> = registry
-        .entries()
-        .iter()
-        .filter(|e| e.handler.is_some())
-        .map(|e| e.id)
-        .collect();
-    let used_services = registry
-        .used_services()
-        .into_iter()
-        .map(|(id, name, status, calls)| UsedService {
-            id,
-            name: name.map(str::to_owned),
-            status: status.to_owned(),
-            calls,
-        })
-        .collect();
-    let unsupported_hits = trace
-        .call_sites()
-        .into_iter()
-        .filter(|((id, _), _)| !implemented.contains(id))
-        .map(|((id, caller_pc), calls)| UnsupportedHit {
-            id,
-            name: names::service_name(id).map(str::to_owned),
-            caller_pc,
-            calls,
-        })
-        .collect();
-
-    trace.stage("done", format!("outcome: {}", outcome.as_str()));
-    let threads = {
-        let mut t: Vec<ThreadInfo> = shared
-            .thread_instructions
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|(&tid, &n)| ThreadInfo {
-                tid,
-                instructions: n,
-            })
-            .collect();
-        t.push(ThreadInfo {
-            tid: 0,
-            instructions: cpu.instructions,
-        });
-        t.sort_by_key(|t| t.tid);
-        t
-    };
-    let top_call_sites = trace
-        .call_sites()
-        .into_iter()
-        .take(20)
-        .map(|((id, caller_pc), calls)| CallSiteInfo {
-            id,
-            name: names::service_name(id).map(str::to_owned),
-            caller_pc,
-            calls,
-        })
-        .collect();
-    let display = display_report(cfg, &mem, &shared, script.as_ref());
-    let (fs_events, fs_events_dropped) = trace.fs_log();
-    let script_report = display.script.as_ref();
-    let outcomes = Outcomes {
-        firmware_execution: !matches!(outcome, Outcome::Fault | Outcome::UnsupportedStop)
-            && cpu.instructions > 0,
-        framebuffer_capture: (cfg.script.is_some() || cfg.screenshot.is_some())
-            .then(|| display.final_capture.is_some()),
-        input_delivery: script_report.map(|s| {
-            s.keys.len() == cfg.script.as_ref().map_or(0, |c| c.keys.len())
-                && s.keys.iter().all(|k| k.delivered_ms.is_some())
-        }),
-        // Every real input changed the screen lastingly; IDLE controls must
-        // not have.
-        input_to_display: script_report.map(|s| {
-            s.keys.len() == cfg.script.as_ref().map_or(0, |c| c.keys.len())
-                && s.keys.iter().all(|k| {
-                    let idle = k.code == 0 && k.name == "IDLE";
-                    (k.stable_change.changed > 0) != idle
-                })
-        }),
-        calculation: None,
-    };
-    let report = RunReport {
-        firmware: cfg.firmware_path.display().to_string(),
-        firmware_sha256: hash,
-        entry: elf.entry,
+    Ok(World {
+        registry,
+        mem,
+        shared,
+        trace,
+        sp,
+        workers,
+        cpu,
         segments: seg_infos,
-        initial_sp: sp,
-        outcome: outcome.as_str().to_owned(),
-        evidence: evidence.clone(),
-        instructions: cpu.instructions,
-        elapsed_secs: start.elapsed().as_secs_f64(),
-        last_pc: cpu.pc(),
-        svc_calls_total,
-        used_services,
-        unsupported_hits,
-        fault: fault_json,
-        heartbeat: heartbeat_events,
-        threads,
-        irq_delivered: shared.irq_delivery_counts(),
-        top_call_sites,
-        outcomes,
-        display,
-        storage: storage_before
-            .as_ref()
-            .map(|b| crate::storage::diff(b, &crate::storage::snapshot(&cfg.data_dir))),
-        fs_events,
-        fs_events_dropped,
-        compiler: trace.compiler.as_ref().map(|o| o.snapshot()),
-        runtime: trace.runtime.as_ref().map(|o| o.snapshot()),
-    };
-    Ok(RunSummary { report, outcome })
+    })
 }
 
 /// Final framebuffer capture (and screenshot), plus script evidence.
@@ -1031,6 +1247,8 @@ impl FaultReport {
     pub fn to_json(&self) -> FaultJson {
         FaultJson {
             kind: self.kind.clone(),
+            thread_id: self.thread_id,
+            address: self.addr,
             pc: self.pc,
             regs: self.regs,
             cpsr: self.cpsr,
@@ -1052,4 +1270,402 @@ fn sha256_file(path: &Path) -> Option<String> {
         hasher.update(&buf[..n]);
     }
     Some(hasher.finalize_hex())
+}
+
+#[cfg(test)]
+mod worker_tests {
+    use super::*;
+    fn setup() -> (
+        Arc<GuestMemory>,
+        Arc<Registry>,
+        Arc<SharedState>,
+        Arc<TraceHub>,
+    ) {
+        let mut mem = GuestMemory::new();
+        mem.map("code", 0x1000_0000, 4096).unwrap();
+        mem.map("heap", 0x2000_0000, 0x10000).unwrap();
+        mem.set_heap(0x2000_0000, 0x10000);
+        let mut registry = Registry::new();
+        handlers::install(&mut registry);
+        (
+            Arc::new(mem),
+            Arc::new(registry),
+            Arc::new(SharedState::new(PathBuf::new(), "A:/test".into())),
+            Arc::new(TraceHub::new(TraceConfig::default()).unwrap()),
+        )
+    }
+    #[test]
+    fn wall_clock_deadline_wakes_a_host_wait_without_input_or_timers() {
+        let (mem, _, shared, trace) = setup();
+        let cfg = RunConfig {
+            max_seconds: 0.025,
+            ui_timers: false,
+            ..Default::default()
+        };
+        let device = spawn_device_thread(&cfg, mem, shared.clone(), trace, None);
+        let event = crate::services::sync::HostEvent::new(false, false);
+        let started = Instant::now();
+        assert!(!event.wait(u32::MAX, &|| shared.stopping()));
+        assert!(shared.stopping());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        device.handle.join().unwrap();
+    }
+
+    fn wait_finished(shared: &SharedState, tid: u32) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if shared
+                .thread_handles
+                .lock()
+                .unwrap()
+                .get(&tid)
+                .is_some_and(|h| h.is_finished())
+            {
+                return;
+            }
+            assert!(Instant::now() < deadline, "guest worker did not finish");
+            std::thread::yield_now();
+        }
+    }
+    #[test]
+    fn worker_exit_reclaims_stack_joins_and_does_not_keep_run_alive() {
+        let (mem, registry, shared, trace) = setup();
+        let id = names::service_id_by_name("OSExitThread").unwrap();
+        let code: Vec<u8> = [0xe92d0001u32, 0xe92d4000, 0xef000000 | id, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x1000_0000, &code).unwrap();
+        let weak = Arc::downgrade(&shared);
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        shared.spawn_thread(1, 0x1000_0000, 0, 4096);
+        wait_finished(&shared, 1);
+        workers.shutdown();
+        assert!(shared.thread_handles.lock().unwrap().is_empty());
+        assert_eq!(mem.heap_allocated(), 0, "finished stack was leaked");
+        assert!(shared.take_thread_failure().is_none());
+        drop(workers);
+        drop(shared);
+        assert!(weak.upgrade().is_none(), "spawner retained SharedState");
+    }
+    #[test]
+    fn a_queued_worker_cannot_allocate_or_publish_a_stack_inside_a_memory_capture() {
+        let (mem, registry, shared, trace) = setup();
+        let id = names::service_id_by_name("OSExitThread").unwrap();
+        let code: Vec<u8> = [0xe92d0001u32, 0xe92d4000, 0xef000000 | id, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x10000000, &code).unwrap();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        let before = mem.heap_stats();
+        let capture = mem.snapshot_gate.try_snapshot().unwrap();
+        let tid = shared.alloc_thread_id();
+        shared
+            .create_guest_thread(
+                tid,
+                crate::services::ThreadRecord {
+                    entry: 0x10000000,
+                    arg: 0,
+                    stack_size: 4096,
+                },
+                false,
+            )
+            .unwrap();
+        let end = Instant::now() + Duration::from_secs(3);
+        while mem.snapshot_gate.entries_waiting() == 0 {
+            assert!(
+                Instant::now() < end,
+                "Worker did not reach memory exclusion"
+            );
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            mem.heap_stats(),
+            before,
+            "A newly queued host worker changed the captured allocator before owner admission"
+        );
+        assert!(shared.thread_stacks.lock().unwrap().is_empty());
+        drop(capture);
+        wait_finished(&shared, tid);
+        workers.shutdown();
+        assert_eq!(mem.heap_stats().0, before.0);
+    }
+    #[test]
+    fn restored_queued_worker_runs_once_and_finished_workers_are_not_relaunched() {
+        use crate::{memory::image::MemoryImage, services::image::KernelImage};
+        let (mem, registry, _, trace) = setup();
+        let data = tempfile::tempdir().unwrap();
+        std::fs::create_dir(data.path().join("C")).unwrap();
+        let shared = Arc::new(SharedState::new(data.path().into(), "A:/test".into()));
+        let exit = names::service_id_by_name("OSExitThread").unwrap();
+        let code: Vec<u8> = [
+            0xe5901000u32,
+            0xe2811001,
+            0xe5801000,
+            0xe92d0001,
+            0xe92d4000,
+            0xef000000 | exit,
+            0xeafffffe,
+        ]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+        mem.write_bytes(0x10000000, &code).unwrap();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        let pause = shared.safe_points.pause(Duration::from_secs(3)).unwrap();
+        let capture = mem.snapshot_gate.try_snapshot().unwrap();
+        let tid = shared.alloc_thread_id();
+        shared
+            .create_guest_thread(
+                tid,
+                crate::services::ThreadRecord {
+                    entry: 0x10000000,
+                    arg: 0x10000800,
+                    stack_size: 4096,
+                },
+                false,
+            )
+            .unwrap();
+        let end = Instant::now() + Duration::from_secs(3);
+        while !shared.safe_points.registrations_waiting().contains(&tid) {
+            assert!(Instant::now() < end);
+            std::thread::yield_now();
+        }
+        let image =
+            KernelImage::capture_while_guarded(&shared, &mem, &pause, &capture, "worker-roundtrip")
+                .unwrap();
+        let bytes = image.to_bytes().unwrap();
+        let ram = MemoryImage::capture_while_guarded(&mem, &capture, "worker-roundtrip").unwrap();
+        drop(pause);
+        drop(capture);
+        wait_finished(&shared, tid);
+        workers.shutdown();
+        assert_eq!(mem.read_u32(0x10000800).unwrap(), 1);
+
+        let restored_memory = Arc::new(ram.restore("worker-roundtrip").unwrap());
+        let restored = KernelImage::from_bytes(&bytes)
+            .unwrap()
+            .restore(
+                restored_memory.clone(),
+                data.path().into(),
+                "worker-roundtrip",
+            )
+            .unwrap();
+        assert_eq!(restored.pending_starts.len(), 1);
+        assert_eq!(restored.pending_starts[0].0, tid);
+        assert!(restored.owners.is_empty());
+        let restored_shared = Arc::new(restored.shared);
+        let restored_trace = Arc::new(TraceHub::new(TraceConfig::default()).unwrap());
+        let restored_workers = GuestWorkers::install(
+            &restored_memory,
+            &registry,
+            &restored_shared,
+            &restored_trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        drop(restored.startup);
+        for (id, record) in restored.pending_starts {
+            restored_shared.spawn_thread(id, record.entry, record.arg, record.stack_size);
+        }
+        wait_finished(&restored_shared, tid);
+        assert_eq!(restored_memory.read_u32(0x10000800).unwrap(), 1);
+        assert_eq!(restored_memory.heap_stats().0, 0);
+
+        let pause = restored_shared
+            .safe_points
+            .pause(Duration::from_secs(3))
+            .unwrap();
+        let finished = KernelImage::capture(
+            &restored_shared,
+            &restored_memory,
+            &pause,
+            "worker-roundtrip",
+        )
+        .unwrap();
+        let ram = MemoryImage::capture(&restored_memory, "worker-roundtrip").unwrap();
+        drop(pause);
+        let again = finished
+            .restore(
+                Arc::new(ram.restore("worker-roundtrip").unwrap()),
+                data.path().into(),
+                "worker-roundtrip",
+            )
+            .unwrap();
+        assert!(
+            again.pending_starts.is_empty(),
+            "A completed worker cannot become a fresh launch after restore"
+        );
+        assert!(again.owners.is_empty());
+        restored_workers.shutdown();
+    }
+    #[test]
+    fn child_fault_stops_run_without_runtime_observation() {
+        let (mem, registry, shared, trace) = setup();
+        let code: Vec<u8> = [0xe3a01000u32, 0xe5912000, 0xeafffffe]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        mem.write_bytes(0x1000_0000, &code).unwrap();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        shared.spawn_thread(7, 0x1000_0000, 123, 4096);
+        wait_finished(&shared, 7);
+        workers.shutdown();
+        let failure = shared.take_thread_failure().unwrap();
+        assert_eq!(failure.tid, 7);
+        let fault = failure.fault.unwrap();
+        assert_eq!(fault.thread_id, 7);
+        assert_eq!(fault.addr, Some(0));
+        assert_eq!(fault.regs[0], 123);
+        assert_eq!(mem.heap_allocated(), 0);
+    }
+    #[test]
+    fn virtual_usb_driver_executes_blocking_arm_callbacks_and_echoes_exact_packets() {
+        use crate::services::usb::{self, Link};
+        let (mem, registry, shared, trace) = setup();
+        let handle = shared.register_device(r"\\?\USB");
+        // Callback sleeps through a real OS service, then transmits precisely
+        // the bytes passed by the receive driver. No host response generator.
+        let sleep = names::service_id_by_name("OSSleep").unwrap();
+        let ioctl = names::service_id_by_name("DeviceIoControl").unwrap();
+        let mut code = vec![
+            0xe92d4030u32,
+            0xe24dd004,
+            0xe1a04000,
+            0xe1a05001,
+            0xe3a0000a,
+            0, // mov r0,#10; bl sleep
+            0xe24dd010,
+            0xe3a00000,
+            0xe58d0000,
+            0xe58d0004,
+            0xe58d0008,
+            0xe58d000c,
+            0xe1a03005,
+            0xe1a02004,
+            0, // ldr r0,handle
+            0xe3a01c01,
+            0xe2811002,
+            0, // mov r1,#256; add #2; bl ioctl
+            0xe28dd010,
+            0xe28dd004,
+            0xe8bd8030,
+        ];
+        let sleep_stub = code.len();
+        code.extend([0xe92d0001, 0xe92d4000, 0xef000000 | sleep]);
+        let ioctl_stub = code.len();
+        code.extend([0xe92d0001, 0xe92d4000, 0xef000000 | ioctl]);
+        let literal = code.len();
+        code.push(handle);
+        code[5] = 0xeb000000 | ((sleep_stub as u32 - 5 - 2) & 0xffffff);
+        code[17] = 0xeb000000 | ((ioctl_stub as u32 - 17 - 2) & 0xffffff);
+        code[14] = 0xe59f0000 | ((literal as u32 - 14 - 2) * 4);
+        for (index, word) in code.into_iter().enumerate() {
+            mem.write_u32(0x10000300 + index as u32 * 4, word).unwrap();
+        }
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        usb::install_worker(&mem, &shared).unwrap();
+        shared.usb.enable(false, true);
+        shared.usb.callback(false, 0x10000300);
+        shared.usb.connect(Link::Computer);
+        let packets: Vec<Vec<u8>> = [1, 64, 640]
+            .into_iter()
+            .map(|size| (0..size).map(|i| (i % 251) as u8).collect())
+            .collect();
+        for bytes in &packets {
+            shared.usb.receive(false, bytes.clone()).unwrap();
+        }
+        for expected in &packets {
+            let end = Instant::now() + Duration::from_secs(5);
+            loop {
+                if let Some(actual) = shared.usb.read(false) {
+                    assert_eq!(&actual, expected);
+                    break;
+                }
+                assert!(
+                    Instant::now() < end,
+                    "driver did not deliver callback: {:?}",
+                    shared.take_thread_failure()
+                );
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        assert_eq!(shared.usb.status().receive_packets, 0);
+        assert_eq!(shared.usb.status().transmit_packets, 0);
+        workers.shutdown();
+        assert!(shared.take_thread_failure().is_none());
+        assert!(
+            trace
+                .svc_totals()
+                .iter()
+                .any(|(id, calls)| *id == usb::RECEIVE_SVC && *calls >= packets.len() as u64)
+        );
+        assert!(
+            collect_unsupported_hits(&trace, &registry).is_empty(),
+            "The real private USB adapter was mislabeled as an unhandled vendor service"
+        );
+        // A genuinely unregistered service remains visible in the same report.
+        trace.svc(0xF_FFF2, None, 0x1000_0100, 0, false, 0);
+        let gaps = collect_unsupported_hits(&trace, &registry);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].id, 0xF_FFF2);
+        assert_eq!(gaps[0].calls, 1);
+    }
+    #[test]
+    fn shutdown_rejects_new_spawns_and_releases_weak_spawner() {
+        let (mem, registry, shared, trace) = setup();
+        let workers = GuestWorkers::install(
+            &mem,
+            &registry,
+            &shared,
+            &trace,
+            UnsupportedPolicy::Stop,
+            100,
+        );
+        let spawner = shared.thread_spawner.lock().unwrap().clone().unwrap();
+        workers.shutdown();
+        spawner(10, 0x1000_0000, 0, 4096);
+        assert!(shared.thread_handles.lock().unwrap().is_empty());
+        let weak = Arc::downgrade(&shared);
+        drop(workers);
+        drop(shared);
+        assert!(weak.upgrade().is_none());
+        spawner(11, 0x1000_0000, 0, 4096);
+    }
 }

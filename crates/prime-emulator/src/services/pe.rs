@@ -3,8 +3,8 @@
 //! The firmware loads its platform DLLs (`SDKLIB.DLL`, `KRNLLIB.DLL`, ...)
 //! through this service at boot. Conventions follow the reference
 //! (PrimU2 `PELoader.cpp`): sections are mapped into guest memory, imports
-//! are resolved against already-loaded modules, unresolved imports get a
-//! return-zero Thumb stub, exports are recorded for `GetProcAddress`, and
+//! are resolved against already-loaded modules, unresolved imports retain a
+//! named fail-stop ARM trap, exports are recorded for `GetProcAddress`, and
 //! base relocations are applied whenever the image cannot load at its
 //! preferred base.
 
@@ -113,6 +113,8 @@ fn parse_headers(b: &[u8]) -> Result<PeHeaders, PeError> {
 }
 
 /// A loaded guest PE module.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PeModule {
     pub name: String,
     pub guest_path: String,
@@ -121,7 +123,27 @@ pub struct PeModule {
     pub entry_rva: u32,
     pub exports_by_name: HashMap<String, u32>,
     pub exports_by_ordinal: HashMap<u32, u32>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub unresolved_imports: HashMap<u32, UnresolvedImport>,
 }
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnresolvedImport {
+    pub dll: String,
+    pub name: ImportName,
+    pub iat: u32,
+}
+impl UnresolvedImport {
+    pub fn description(&self) -> String {
+        match &self.name {
+            ImportName::Name(name) => format!("{}!{name}", self.dll),
+            ImportName::Ordinal(ordinal) => format!("{}!#{ordinal}", self.dll),
+        }
+    }
+}
+
+pub const IMPORT_TRAP: u32 = 0xe7f0_00f0;
 
 /// Load `bytes` into `mem` as a guest module. `resolve` maps an imported
 /// symbol (dll, name/ordinal) to a guest VA (or None → return-zero stub
@@ -236,6 +258,7 @@ pub fn load_module(
             }
         }
     }
+    let mut unresolved_imports = HashMap::new();
     // Imports: resolve each thunk and rewrite the IAT in guest memory.
     if h.import_dir.0 != 0 {
         let mut desc_rva = h.import_dir.0;
@@ -262,7 +285,24 @@ pub fn load_module(
                         .unwrap_or_default();
                     ImportName::Name(fn_name)
                 };
-                let resolved = resolve(&dll, import).unwrap_or_else(stub_alloc);
+                let resolved = match resolve(&dll, import.clone()) {
+                    Some(address) => address,
+                    None => {
+                        let trap = stub_alloc();
+                        if trap == 0 {
+                            return Err(PeError("unresolved import trap allocation failed".into()));
+                        }
+                        unresolved_imports.insert(
+                            trap,
+                            UnresolvedImport {
+                                dll: dll.clone(),
+                                name: import,
+                                iat: base + first_thunk + i * 4,
+                            },
+                        );
+                        trap
+                    }
+                };
                 mem.write_u32(base + first_thunk + i * 4, resolved)
                     .map_err(|e| PeError(format!("IAT write: {e}")))?;
                 i += 1;
@@ -278,10 +318,18 @@ pub fn load_module(
         entry_rva: h.entry_rva,
         exports_by_name,
         exports_by_ordinal,
+        unresolved_imports,
     })
 }
 
 /// One imported symbol.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(
+    tag = "kind",
+    content = "value",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum ImportName {
     Name(String),
     Ordinal(u32),

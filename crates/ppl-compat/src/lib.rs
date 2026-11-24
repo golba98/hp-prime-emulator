@@ -26,9 +26,11 @@
 pub mod assessment;
 pub mod audit;
 pub mod campaign;
+pub mod capture;
 pub mod cleanup;
 pub mod corpus;
 pub mod diag_parity;
+pub mod differential;
 pub mod evidence;
 pub mod generate;
 pub mod import;
@@ -363,13 +365,23 @@ pub fn run_case_with_settings(c: &Case, settings: ppl_vm::Settings) -> Outcome {
         },
     );
     match m.call_function("ZZT_ONE", Vec::new()) {
-        Ok(v) => Outcome::Value {
-            ty: v.type_code(),
-            // The device program records STRING(v), so the emulator side
-            // must use the same STRING() transformation (a top-level
-            // string is quoted on the hardware).
-            text: v.string_form(m.settings.format()),
-        },
+        Ok(v) => {
+            let ty = v.type_code();
+            // The reference program executes STRING(v), including its real
+            // settings, typographic signs and compound-value formatting.
+            // Value::string_form is an internal display codec, not that builtin.
+            match ppl_vm::builtins::call(&mut m, ppl_compiler::builtins::Builtin::StringFn, vec![v])
+                .and_then(|value| value.expect_str("compatibility STRING record"))
+            {
+                Ok(text) => Outcome::Value {
+                    ty,
+                    text: text.to_string(),
+                },
+                Err(error) => Outcome::Error {
+                    detail: error.to_string(),
+                },
+            }
+        }
         Err(e) => Outcome::Error {
             detail: e.to_string(),
         },
@@ -663,6 +675,44 @@ mod tests {
             "#,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn direct_cases_use_the_actual_firmware_record_string_contract() {
+        let suite: Suite = toml::from_str(
+            r#"
+            suite="record-format"
+            [[case]]
+            id="sign"
+            expr="-0.5"
+            [[case]]
+            id="pair"
+            body="HComplex:=11; RETURN (3,4);"
+            [[case]]
+            id="precision"
+            body="HFormat:=1; HDigits:=2; RETURN {5,-1E20};"
+            [[case]]
+            id="literal"
+            expr='"-0.5"'
+        "#,
+        )
+        .unwrap();
+        let values = run_emulator(&suite);
+        for (name, ty, text) in [
+            ("sign", 0, "−0.5"),
+            ("pair", 3, "(3,4)"),
+            ("precision", 6, "{5.00,−1.00ᴇ20}"),
+            ("literal", 2, "\"-0.5\""),
+        ] {
+            assert_eq!(
+                values[name],
+                Outcome::Value {
+                    ty,
+                    text: text.into()
+                },
+                "{name}"
+            );
+        }
     }
 
     #[test]

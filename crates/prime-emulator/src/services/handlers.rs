@@ -10,7 +10,6 @@
 //! registered "just in case". See M2_SVC_IMPLEMENTATIONS.md for the ledger.
 
 use std::sync::atomic::Ordering;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::fsops;
 use super::system2;
@@ -75,7 +74,7 @@ pub fn install(registry: &mut Registry) {
     //    registers (irq, isr=r2) and returns 1; Mask/Disable/Done return 1.
     //    Note: id 0x1001F's verified SDKLIB export name is InterruptEnable;
     //    PrimU2's enum mislabels it InterruptMask — same id, same handler.)
-    //    Partial: ISRs are recorded but not dispatched yet) ──
+    //    Partial: synchronous slice-boundary dispatch, not hardware preemption) ──
     registry.register_by_name(
         "InterruptInitialize",
         ServiceStatus::PartiallyImplemented,
@@ -84,7 +83,7 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "InterruptEnable",
         ServiceStatus::PartiallyImplemented,
-        interrupt_noop_one,
+        interrupt_enable,
     );
     registry.register_by_name(
         "InterruptDisable",
@@ -94,7 +93,7 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "InterruptDone",
         ServiceStatus::PartiallyImplemented,
-        interrupt_noop_one,
+        interrupt_done,
     );
 
     // ── Threads (fw: OSCreateThread hit during M2 run 2; ref: native
@@ -117,17 +116,17 @@ pub fn install(registry: &mut Registry) {
     registry.register_by_name(
         "OSSuspendThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_suspend_thread,
     );
     registry.register_by_name(
         "OSResumeThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_resume_thread,
     );
     registry.register_by_name(
         "OSWakeUpThread",
         ServiceStatus::PartiallyImplemented,
-        threading::os_thread_stub_one,
+        threading::os_wake_up_thread,
     );
     registry.register_by_name(
         "OSSetThreadPriority",
@@ -235,6 +234,33 @@ pub fn install(registry: &mut Registry) {
         ServiceStatus::PartiallyImplemented,
         system2::set_auto_power_off,
     );
+
+    // Original OS module callbacks, verified against the installed G1 ROM.
+    registry.register_by_name(
+        "GetApplicationHeadInfoA",
+        ServiceStatus::Implemented,
+        super::module_metadata::ansi,
+    );
+    registry.register_by_name(
+        "GetApplicationHeadInfoW",
+        ServiceStatus::Implemented,
+        super::module_metadata::wide,
+    );
+    // The OS's legacy resource exports are genuinely empty. Its real named
+    // BIN/ROMSPC parser is an internal module callback, used by metadata above.
+    for name in [
+        "_FindResourceA",
+        "_FindResourceExA",
+        "_FindResourceW",
+        "_FindResourceExW",
+        "GetResourceCfg",
+    ] {
+        registry.register_by_name(
+            name,
+            ServiceStatus::Implemented,
+            super::module_metadata::legacy_resource_absent,
+        );
+    }
 
     // ── Devices (ref: svc_system.cpp CreateFile/DeviceIoControl/CloseHandle) ──
     registry.register_by_name(
@@ -412,9 +438,7 @@ fn get_current_path(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 /// returns r0.
 fn get_sys_time(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let out = ctx.args.r0;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
+    let now = ctx.shared.rtc.unix_time();
     let secs = now.as_secs();
     let days = secs / 86_400;
     let (y, mo, d, dow) = civil_from_days(days as i64);
@@ -456,116 +480,113 @@ fn civil_from_days(z: i64) -> (i64, u32, u32, u32) {
 
 // ─────────────────────────────── blocking ─────────────────────────────
 
-/// ref: `OSSleep(r0 = ms)` — native sleep of the calling guest thread.
+/// ref: `OSSleep(r0 = ms)` — suspend this guest until its owner timer expires.
 fn os_sleep(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    let ms = ctx.args.r0 as u64;
-    let mut left = ms;
-    while left > 0 {
-        if ctx.shared.stopping() {
-            break;
-        }
-        let step = left.min(25);
-        ctx.bounded_sleep(step);
-        left -= step;
+    let milliseconds = u32::from(ctx.args.r0 as u16);
+    if milliseconds != 0 {
+        let pending = super::pending::PendingService::new(
+            ctx.args,
+            super::pending::Wait::Sleep { milliseconds },
+            ctx.thread_id,
+        );
+        ctx.deferred = Some(pending);
+    } else {
+        // Zero is a scheduling yield, not a timed sleep that WakeUp can end.
+        let _ = ctx.uc.emu_stop();
     }
     Ok(0)
 }
 
 /// ref: `GetEvent(r0 = ui_event_prime_s*)` never returns empty: the firmware
-/// parks in its event pump until an input event exists. Layout verified in
+/// yields its event pump until an input event exists. Layout verified in
 /// PrimU2 ui.h (24-byte header + 8×12-byte multipress events). Partial:
 /// bounded wake on runner shutdown, batch semantics simplified to whatever
 /// is queued (up to 8).
 fn get_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    const EV_SIZE: u32 = 124; // 28-byte header + 8 * 12
-    const MP_OFF: u32 = 28;
     let out = ctx.args.r0;
+    ctx.mem.validate_range(out, 124).map_err(HandlerFault)?;
     ctx.shared.note_getevent_chain([
         ctx.args.caller_pc,
         ctx.args.stack_slots[0],
         ctx.args.stack_slots[1],
     ]);
     ctx.shared.note_getevent_entry();
-    loop {
-        // Timer/system events first (reference: `special_event` precedes
-        // touch and key input). Types >= 0x100 and DEVICE_TIMER are
-        // delivered as their own event type; smaller codes are SYSTEM
-        // events with the code as subtype.
-        if let Some(k) = ctx.shared.pop_system_event() {
-            ctx.mem
-                .write_bytes(out, &vec![0u8; EV_SIZE as usize])
-                .map_err(HandlerFault)?;
-            if k < 0x100 && k != super::UI_EVENT_TYPE_DEVICE_TIMER {
-                ctx.mem
-                    .write_u32(out + 4, super::UI_EVENT_TYPE_SYSTEM)
-                    .map_err(HandlerFault)?;
-                ctx.mem.write_u32(out + 8, k).map_err(HandlerFault)?;
-            } else {
-                ctx.mem.write_u32(out + 4, k).map_err(HandlerFault)?;
-            }
-            ctx.shared.set_getevent_parked(false);
-            return Ok(0);
-        }
-        // Touch before keys (reference order).
-        if let Some(t) = ctx.shared.pop_touch() {
-            ctx.mem
-                .write_bytes(out, &vec![0u8; EV_SIZE as usize])
-                .map_err(HandlerFault)?;
-            ctx.mem
-                .write_u32(out + 4, super::UI_EVENT_TYPE_TOUCH)
-                .map_err(HandlerFault)?;
-            ctx.mem.write_u16(out + 24, 1).map_err(HandlerFault)?;
-            ctx.mem
-                .write_u32(out + MP_OFF, t.status)
-                .map_err(HandlerFault)?;
-            ctx.mem
-                .write_u16(out + MP_OFF + 4, 0)
-                .map_err(HandlerFault)?; // finger_id
-            ctx.mem
-                .write_u16(out + MP_OFF + 6, t.x)
-                .map_err(HandlerFault)?;
-            ctx.mem
-                .write_u16(out + MP_OFF + 8, t.y)
-                .map_err(HandlerFault)?;
-            ctx.shared.set_getevent_parked(false);
-            return Ok(0);
-        }
-        let events = ctx.shared.pop_input_events(8);
-        if !events.is_empty() {
-            ctx.shared.set_getevent_parked(false);
-            // Zero the whole event struct first (ref: `event = {}`).
-            ctx.mem
-                .write_bytes(out, &vec![0u8; EV_SIZE as usize])
-                .map_err(HandlerFault)?;
-            ctx.mem
-                .write_u32(out + 4, UI_EVENT_TYPE_KEY_BATCH)
-                .map_err(HandlerFault)?;
-            ctx.mem
-                .write_u16(out + 24, events.len() as u16)
-                .map_err(HandlerFault)?;
-            for (i, ev) in events.iter().enumerate() {
-                let p = out + MP_OFF + (i as u32) * 12;
-                ctx.mem.write_u32(p, ev.status).map_err(HandlerFault)?;
-                ctx.mem.write_u16(p + 4, 0).map_err(HandlerFault)?; // finger_id
-                ctx.mem
-                    .write_u16(p + 6, ev.key_code0)
-                    .map_err(HandlerFault)?;
-            }
-            ctx.shared.note_input_delivered(ctx.thread_id);
-            return Ok(0);
-        }
-        if ctx.shared.stopping() {
-            // Unwind so the run loop can end the session; the event written
-            // is all-zero (event_type = UI_EVENT_TYPE_INVALID = 0).
-            ctx.mem
-                .write_bytes(out, &vec![0u8; EV_SIZE as usize])
-                .map_err(HandlerFault)?;
-            return Ok(0);
-        }
-        // Nothing queued: the pump is idle until input arrives.
-        ctx.shared.set_getevent_parked(true);
-        ctx.bounded_sleep(25);
+    if let Some(result) =
+        poll_get_event(ctx.mem, ctx.shared, ctx.thread_id, out).map_err(HandlerFault)?
+    {
+        return Ok(result);
     }
+    ctx.shared.set_getevent_parked(true);
+    ctx.deferred = Some(super::pending::PendingService::new(
+        ctx.args,
+        super::pending::Wait::Input { output: out },
+        ctx.thread_id,
+    ));
+    Ok(0)
+}
+
+/// One nonblocking poll of the real input ABI, shared by entry and continuation.
+pub(super) fn poll_get_event(
+    mem: &crate::memory::GuestMemory,
+    shared: &super::SharedState,
+    thread_id: u32,
+    out: u32,
+) -> crate::memory::MemResult<Option<u32>> {
+    const EV_SIZE: u32 = 124;
+    const MP_OFF: u32 = 28;
+    // Timer/system events first (reference: `special_event` precedes
+    // touch and key input). Types >= 0x100 and DEVICE_TIMER are
+    // delivered as their own event type; smaller codes are SYSTEM
+    // events with the code as subtype.
+    if let Some(event) = shared.pop_system_payload() {
+        let k = event.kind;
+        mem.write_bytes(out, &vec![0u8; EV_SIZE as usize])?;
+        if k < 0x100 && k != super::UI_EVENT_TYPE_DEVICE_TIMER {
+            mem.write_u32(out + 4, super::UI_EVENT_TYPE_SYSTEM)?;
+            mem.write_u32(out + 8, k)?;
+        } else {
+            mem.write_u32(out + 4, k)?;
+            mem.write_u32(out + 8, event.subtype)?;
+            mem.write_u32(out + 12, event.value as u32)?;
+        }
+        shared.set_getevent_parked(false);
+        return Ok(Some(0));
+    }
+    // Touch before keys (reference order).
+    if let Some(t) = shared.pop_touch() {
+        mem.write_bytes(out, &vec![0u8; EV_SIZE as usize])?;
+        mem.write_u32(out + 4, super::UI_EVENT_TYPE_TOUCH)?;
+        mem.write_u16(out + 24, 1)?;
+        mem.write_u32(out + MP_OFF, t.status)?;
+        mem.write_u16(out + MP_OFF + 4, 0)?; // finger_id
+        mem.write_u16(out + MP_OFF + 6, t.x)?;
+        mem.write_u16(out + MP_OFF + 8, t.y)?;
+        shared.set_getevent_parked(false);
+        return Ok(Some(0));
+    }
+    let events = shared.pop_input_events(8);
+    if !events.is_empty() {
+        shared.set_getevent_parked(false);
+        // Zero the whole event struct first (ref: `event = {}`).
+        mem.write_bytes(out, &vec![0u8; EV_SIZE as usize])?;
+        mem.write_u32(out + 4, UI_EVENT_TYPE_KEY_BATCH)?;
+        mem.write_u16(out + 24, events.len() as u16)?;
+        for (i, ev) in events.iter().enumerate() {
+            let p = out + MP_OFF + (i as u32) * 12;
+            mem.write_u32(p, ev.status)?;
+            mem.write_u16(p + 4, 0)?; // finger_id
+            mem.write_u16(p + 6, ev.key_code0)?;
+        }
+        shared.note_input_delivered(thread_id);
+        return Ok(Some(0));
+    }
+    if shared.stopping() {
+        // Unwind so the run loop can end the session; the event written
+        // is all-zero (event_type = UI_EVENT_TYPE_INVALID = 0).
+        mem.write_bytes(out, &vec![0u8; EV_SIZE as usize])?;
+        return Ok(Some(0));
+    }
+    Ok(None)
 }
 
 /// fw (M13): `SysPowerOff()` is the end of the firmware's own OFF path,
@@ -577,17 +598,11 @@ fn get_event(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 fn sys_power_off(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     ctx.shared.enter_sleep();
     ctx.trace.thread_event("SysPowerOff: sleeping until ON");
-    loop {
-        if ctx.shared.take_wake() {
-            ctx.trace.thread_event("SysPowerOff: ON pressed, waking");
-            break;
-        }
-        if ctx.shared.stopping() {
-            ctx.shared.leave_sleep();
-            break;
-        }
-        ctx.bounded_sleep(25);
-    }
+    ctx.deferred = Some(super::pending::PendingService::new(
+        ctx.args,
+        super::pending::Wait::PowerOff,
+        ctx.thread_id,
+    ));
     Ok(0)
 }
 
@@ -598,9 +613,19 @@ fn fflushall(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     Ok(ctx.shared.vfs.flush_all() as u32)
 }
 
-/// ref: `BatteryLowCheck()` returns 0 (battery OK; -1 low, -2 critical).
-fn battery_low_check(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    Ok(0)
+/// Original OS 0x3000D2E0: low/critical result, optional asynchronous shutdown.
+fn battery_low_check(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    let battery = ctx.shared.environment.lock().unwrap().battery;
+    let result = super::battery::low_check(battery);
+    if result == -2 && ctx.args.r1 != 0 {
+        ctx.shared
+            .power
+            .lock()
+            .unwrap()
+            .auto
+            .request_critical_shutdown();
+    }
+    Ok(result as u32)
 }
 
 /// ref: `ProgramIsRunningA/W(name)` return a pointer to the running-program
@@ -639,7 +664,7 @@ fn get_event_type(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
 // ─────────────────────────────── interrupts ───────────────────────────
 
 /// ref: `InterruptInitialize(irq = r0, ? = r1, isr = r2)` registers the ISR
-/// and returns 1. Partial: recorded, not dispatched.
+/// and returns 1. The runner dispatches registered, enabled ISRs between slices.
 fn interrupt_initialize(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let irq = ctx.args.r0;
     let isr = ctx.args.r2;
@@ -649,18 +674,23 @@ fn interrupt_initialize(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     Ok(1)
 }
 
-/// ref: InterruptMask / InterruptDisable / InterruptDone return 1.
-fn interrupt_noop_one(_ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
-    Ok(1)
+fn interrupt_enable(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    Ok(u32::from(ctx.shared.enable_isr(ctx.args.r0)))
 }
 
-/// ref: `InterruptDisable(irq = r0)` unregisters the ISR (PrimU2
-/// `InterruptController::UnregisterISR`), preventing further delivery until
-/// the firmware re-registers it with InterruptInitialize.
+/// ISR callbacks run to completion synchronously. Acknowledging a registered
+/// interrupt needs no host wait or fabricated resource handle.
+fn interrupt_done(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
+    Ok(u32::from(
+        ctx.shared.isrs.lock().unwrap().contains_key(&ctx.args.r0),
+    ))
+}
+
+/// Mask delivery while retaining the handler so InterruptEnable can restore it.
 fn interrupt_disable(ctx: &mut SvcCtx) -> Result<u32, HandlerFault> {
     let irq = ctx.args.r0;
-    ctx.shared.unregister_isr(irq);
+    let disabled = ctx.shared.disable_isr(irq);
     ctx.trace
-        .thread_event(format!("guest disabled IRQ {irq} (unregistered)"));
-    Ok(1)
+        .thread_event(format!("guest disabled IRQ {irq} (masked={disabled})"));
+    Ok(u32::from(disabled))
 }

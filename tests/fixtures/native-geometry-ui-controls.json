@@ -1,0 +1,95 @@
+{
+  "provenance": "Genuine isolated virtual G1 screens; no physical verification and no proprietary screenshot bytes included.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "controls": [
+    {
+      "object_name": "GA",
+      "definition": "point(3,4)",
+      "point_marker_pixel": [
+        190,
+        69
+      ]
+    },
+    {
+      "measurement": "distance(GA,0)",
+      "display": "5.",
+      "numeric_value": 5,
+      "show_in_plot_default": false
+    }
+  ],
+  "layout": {
+    "canvas": [
+      320,
+      220
+    ],
+    "symbolic_first_row": 22,
+    "row_step": 27,
+    "symbolic_name_rect": [
+      46,
+      22,
+      85,
+      44
+    ],
+    "symbolic_definition_rect": [
+      87,
+      22,
+      314,
+      44
+    ],
+    "numeric_expression_rect": [
+      45,
+      22,
+      148,
+      44
+    ],
+    "numeric_result_x": 154,
+    "entry_y": 203,
+    "softkey_y": 220,
+    "plot_footer": [
+      "Cmds",
+      "X:0 Y:0"
+    ]
+  },
+  "inference": "Decimal plot window (-15.9,15.9,-10.9,10.9) follows measured marker/axis positions and the independently documented318x218 coordinate span; window values were not read directly from firmware.",
+  "captures": [
+    {
+      "control": "01-geometry-plot",
+      "png_sha256": "adf69e91dc167c46a87803d1075c558db3452ed65ead8b1c43ccedef2d96b0c6"
+    },
+    {
+      "control": "02-geometry-symbolic",
+      "png_sha256": "185c6ca009d79632f4e3de27a917547dac45020531798fa92d0bd0072a0a8df3"
+    },
+    {
+      "control": "03-geometry-numeric",
+      "png_sha256": "1a0dff2e4723721af791c527728ac03586fd2af115fe620459bf58cd10c57b38"
+    },
+    {
+      "control": "05-cmds",
+      "png_sha256": "c5556ac9e3f00b9b8b68d9f206f66aad5c2942435c1296f514d17d3181fe31a9"
+    },
+    {
+      "control": "06-point-menu",
+      "png_sha256": "a165ee29e9eb2e00c866546db43cd462ca51890fbea07099a9c6b36e60fb2b26"
+    },
+    {
+      "control": "07-symbolic-point",
+      "png_sha256": "02fd4ef63a7a9abbac226df16272582760ddebeec0c2710cc05c0d02ab335f17"
+    },
+    {
+      "control": "08-plot-point",
+      "png_sha256": "ad47e748b2984031801de1301f44dfaa08d37607abfdf0ce6afb70b75bea9322"
+    },
+    {
+      "control": "09-measure-distance",
+      "png_sha256": "25fdea0cb37321fa688c2de54c6f37fead2e3b70d032ec259c24958504c962a7"
+    }
+  ],
+  "limits": "Only listed controls/layout measured. No full-screen raster equality, complete command catalog, exact CAS geometry, Home/PPL geometry binding or transformation parity is asserted."
+}

@@ -26,6 +26,75 @@ fn invoke(args: &[&str]) -> (i32, String, String) {
     )
 }
 #[test]
+fn current_and_legacy_numeric_models_work_through_both_production_cli_paths() {
+    let source = "EXPORT DIGITS(X) BEGIN PRINT((X+1)-X); RETURN 1/3; END;";
+    let (status, output, error) = invoke(&[
+        "run",
+        "--code",
+        source,
+        "--numeric-version",
+        "15751",
+        "--args",
+        "1234567890123456789",
+    ]);
+    assert_eq!(status, 0, "{error}");
+    assert_eq!(output.trim(), "1");
+    let (status, output, error) = invoke(&[
+        "run",
+        "--code",
+        source,
+        "--numeric-version",
+        "15157",
+        "--args",
+        "1234567890123456789",
+    ]);
+    assert_eq!(status, 0, "{error}");
+    assert_eq!(output.trim(), "0");
+    for argument in [
+        "[1234567890123456789]",
+        r#"[{"type":"real","value":"1234567890123456789"}]"#,
+    ] {
+        let (status, output, error) = invoke(&[
+            "run",
+            "--code",
+            source,
+            "--engine",
+            "native",
+            "--numeric-version",
+            "15751",
+            "--args",
+            argument,
+            "--json",
+        ]);
+        assert_eq!(status, 0, "{error}");
+        let report: serde_json::Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(
+            report["return_value"],
+            serde_json::json!({"type":"rational","negative":false,"numerator":"1","denominator":"3"})
+        );
+        assert_eq!(report["output"][0]["text"], "1");
+    }
+    let (status, output, _) = invoke(&[
+        "run",
+        "--code",
+        source,
+        "--engine",
+        "firmware",
+        "--numeric-version",
+        "15751",
+        "--json",
+    ]);
+    assert_eq!(status, 8, "{output}");
+    let report: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(report["output"], serde_json::json!([]));
+    assert!(
+        report["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("native VM controls")
+    );
+}
+#[test]
 fn old_and_explicit_native_arguments_remain_distinct() {
     let code = "EXPORT ECHO(X) BEGIN RETURN X; END;";
     let (c, _, e) = invoke(&["run", "-c", code, "--args", "[1,2]"]);
@@ -289,4 +358,82 @@ fn implicit_and_explicit_native_share_utf16be_and_container_validation() {
             String::from_utf8_lossy(&o.stderr)
         );
     }
+}
+
+#[test]
+fn string_version_is_explicit_in_both_native_routes_and_refused_for_firmware() {
+    let code = "EXPORT FORMATVERSION() BEGIN RETURN {STRING(π,7,12),STRING(-7/3,15,3)}; END;";
+    let (status, _, error) = invoke(&["run", "-c", code, "--string-format-version", "15157"]);
+    assert_eq!(status, 0, "{error}");
+    assert!(
+        error.contains("312689/99532") && error.contains("−2−1/3"),
+        "{error}"
+    );
+    let (status, output, error) = invoke(&[
+        "run",
+        "-c",
+        code,
+        "--engine",
+        "native",
+        "--json",
+        "--string-format-version",
+        "15157",
+    ]);
+    assert_eq!(status, 0, "{error}");
+    let report: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(report["return_value"]["value"][0]["value"], "312689/99532");
+    assert_eq!(report["return_value"]["value"][1]["value"], "−2−1/3");
+    for version in ["15157", "15751"] {
+        let (status, output, _) = invoke(&[
+            "run",
+            "-c",
+            code,
+            "--engine",
+            "firmware",
+            "--json",
+            "--string-format-version",
+            version,
+        ]);
+        assert_eq!(status, 8, "{output}");
+        assert!(output.contains("native VM controls"), "{output}");
+    }
+    assert_ne!(
+        invoke(&["run", "-c", code, "--string-format-version", "12345"]).0,
+        0
+    );
+}
+
+#[test]
+fn both_native_cli_paths_preserve_actual_mouse_packet_shape_and_word_metadata() {
+    let source = "EXPORT MOUSECLI() BEGIN LOCAL m:=MOUSE; RETURN {SIZE(m),SIZE(m(1)),B→R(m(1,1)),B→R(m(1,2)),GETBITS(m(1,1)),B→R(GETBASE(m(1,1))),GETBITS(m(1,5))}; END;";
+    let (code, _, error) = invoke(&["run", "-c", source, "--keys", "touch:100:50"]);
+    assert_eq!(code, 0, "{error}");
+    assert!(
+        error
+            .replace(' ', "")
+            .contains("returned{2,5,100,50,-16,0,16}"),
+        "{error}"
+    );
+    let (code, output, error) = invoke(&[
+        "run",
+        "-c",
+        source,
+        "--keys",
+        "touch:100:50",
+        "--engine",
+        "native",
+        "--json",
+    ]);
+    assert_eq!(code, 0, "{output} {error}");
+    let report: serde_json::Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(report["status"], "success");
+    assert_eq!(
+        report["return_value"]["value"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["value"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["2", "5", "100", "50", "-16", "0", "16"]
+    );
 }

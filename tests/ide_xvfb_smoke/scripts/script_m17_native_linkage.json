@@ -1,0 +1,112 @@
+{
+  "dump": "__M17_OUTPUT__/dump.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "new_program",
+      "name": "ROOT"
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL count:=100; EXPORT TOP() BEGIN count:=count+1; RETURN count+LEAF(); END;"
+    },
+    {
+      "step": "new_program",
+      "name": "LEAF"
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL count:=10; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;"
+    },
+    {
+      "step": "new_program",
+      "name": "UNRELATED"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT BROKEN() BEGIN RETURN 1+; END;"
+    },
+    {
+      "step": "select_tab",
+      "index": 0
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "first"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "second"
+    },
+    {
+      "step": "select_tab",
+      "index": 1
+    },
+    {
+      "step": "set_content",
+      "content": "LOCAL count:=40; EXPORT LEAF() BEGIN count:=count+1; RETURN count; END;"
+    },
+    {
+      "step": "select_tab",
+      "index": 0
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "edited"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "__M17_OUTPUT__/linked.png"
+    },
+    {
+      "step": "select_tab",
+      "index": 1
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT LEAF()\nBEGIN\n RETURN 1/0;\nEND;"
+    },
+    {
+      "step": "select_tab",
+      "index": 0
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "foreign_error"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

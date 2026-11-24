@@ -1,0 +1,204 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_editing.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 21
+    },
+    {
+      "step": "snapshot",
+      "label": "keypad_sin"
+    },
+    {
+      "step": "calc_key",
+      "code": 19
+    },
+    {
+      "step": "snapshot",
+      "label": "keypad_sin_deleted"
+    },
+    {
+      "step": "key",
+      "key": "Z",
+      "command": true
+    },
+    {
+      "step": "snapshot",
+      "label": "undo_sin"
+    },
+    {
+      "step": "key",
+      "key": "Z",
+      "command": true,
+      "shift": true
+    },
+    {
+      "step": "snapshot",
+      "label": "redo_delete_sin"
+    },
+    {
+      "step": "type",
+      "text": "sin("
+    },
+    {
+      "step": "snapshot",
+      "label": "typed_sin"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "typed_sin_deleted"
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 14
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_characters_initial.png"
+    },
+    {
+      "step": "snapshot",
+      "label": "characters_open"
+    },
+    {
+      "step": "click_lcd",
+      "x": 145,
+      "y": 42
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_characters_pages.png",
+      "y": 33
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "snapshot",
+      "label": "pages_open"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_characters_greek.png"
+    },
+    {
+      "step": "snapshot",
+      "label": "greek_selected"
+    },
+    {
+      "step": "click_lcd",
+      "x": 10,
+      "y": 149
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_characters_pi.png"
+    },
+    {
+      "step": "snapshot",
+      "label": "pi_selected"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "pi_inserted"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "pi_evaluated"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 14
+    },
+    {
+      "step": "snapshot",
+      "label": "characters_reopened"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 200
+    },
+    {
+      "step": "quit"
+    }
+  ]
+}

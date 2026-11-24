@@ -16,6 +16,26 @@ impl IdeDesktopApp {
             || !self.firmware_runs.is_empty()
             || !self.firmware_imports.is_empty()
     }
+    pub(super) fn apply_firmware_environment(&mut self) {
+        let config = self.state.firmware.environment.clone();
+        if let Err(message) = config.validate() {
+            self.firmware_status = message;
+            return;
+        }
+        let Some(firmware) = self.firmware.as_ref() else {
+            self.firmware_status = "Start the calculator to apply its environment".into();
+            return;
+        };
+        let Some(request) = self.firmware_environment.next.checked_add(1) else {
+            self.firmware_status =
+                "Environment request identifiers exhausted; restart the IDE".into();
+            return;
+        };
+        self.firmware_environment.next = request;
+        self.firmware_environment.pending = Some(request);
+        firmware.send(Command::ConfigureEnvironment { request, config });
+        self.firmware_status = "Updating virtual calculator environment…".into();
+    }
     /// Starts a session unless one is running.
     pub(super) fn ensure_firmware(&mut self, ctx: &egui::Context) {
         if !self.firmware_alive() {
@@ -43,7 +63,39 @@ impl IdeDesktopApp {
     pub(super) fn restart_firmware(&mut self, ctx: &egui::Context) {
         self.begin_firmware_session(ctx);
     }
+    pub(super) fn save_firmware_live(&mut self) {
+        if !self.firmware_alive() || self.firmware_live_save.is_some() {
+            return;
+        }
+        let Some(request) = self.firmware_environment.next.checked_add(1) else {
+            self.firmware_status = "Request identifiers exhausted; restart the IDE".into();
+            return;
+        };
+        self.firmware_environment.next = request;
+        self.firmware_live_save = Some(request);
+        self.firmware_live_save_result = None;
+        self.firmware
+            .as_ref()
+            .unwrap()
+            .send(Command::SaveLive { request });
+        self.firmware_status = "Saving live calculator state…".into();
+    }
+    pub(super) fn resume_firmware_live(&mut self, ctx: &egui::Context) {
+        if self.firmware_reset.is_some() || self.firmware_live_save.is_some() {
+            self.firmware_status =
+                "Wait for the current save or reset to finish before resuming".into();
+            return;
+        }
+        self.begin_firmware_session_mode(ctx, true);
+    }
     fn begin_firmware_session(&mut self, ctx: &egui::Context) {
+        self.begin_firmware_session_mode(ctx, false);
+    }
+    fn begin_firmware_session_mode(&mut self, ctx: &egui::Context, resume_live: bool) {
+        self.firmware_environment.initialized = false;
+        self.firmware_environment.pending = None;
+        self.state.firmware_clipboard_available = false;
+        self.state.firmware_managed_reason = Some("Checking firmware capabilities…".into());
         // The previous helper holds the profile lock; the new session's
         // worker ends it first, so the same calculator profile boots again.
         let previous = self
@@ -52,12 +104,21 @@ impl IdeDesktopApp {
             .or_else(|| self.firmware_retired.take());
         self.reset_firmware_session("The calculator session was replaced");
         self.state.firmware_session = FirmwareSession::Booting;
-        self.firmware_status = "Starting local G1 firmware…".into();
-        self.firmware = Some(crate::ide::firmware::FirmwareClient::start(
-            self.state.firmware.clone(),
-            ctx.clone(),
-            previous,
-        ));
+        self.firmware_status = if resume_live {
+            "Resuming live calculator state…"
+        } else {
+            "Starting local G1 firmware…"
+        }
+        .into();
+        let mut settings = self.state.firmware.clone();
+        if resume_live && let Some(profile) = previous.as_ref().and_then(|p| p.profile()) {
+            settings.profile = profile.display().to_string();
+        }
+        self.firmware = Some(if resume_live {
+            crate::ide::firmware::FirmwareClient::start_resuming(settings, ctx.clone(), previous)
+        } else {
+            crate::ide::firmware::FirmwareClient::start(settings, ctx.clone(), previous)
+        });
     }
     /// Shuts the calculator down: the firmware's OFF saves its state, then
     /// the helper exits in the background; a later Start waits for it
@@ -102,6 +163,9 @@ impl IdeDesktopApp {
         }
         self.firmware_runs.clear();
         self.firmware_imports.clear();
+        self.firmware_live_save = None;
+        self.firmware_live_save_result = None;
+        self.firmware_resumed = false;
         self.firmware_program_running = false;
         self.firmware_stop_requested = false;
         self.firmware_error = None;
@@ -116,6 +180,7 @@ impl IdeDesktopApp {
         self.last_touch = None;
         self.deferred_touch_end = None;
         self.touch_start_time = None;
+        self.touch_sample_time = None;
         self.prev_shift_held = false;
         self.prev_alpha_held = false;
         self.display.texture = None;
@@ -124,6 +189,12 @@ impl IdeDesktopApp {
     /// Stores the active tab as a new program on the firmware calculator,
     /// named after the tab. The session refuses an existing name.
     pub(super) fn import_to_calculator(&mut self, ctx: &egui::Context) {
+        if let Some(reason) = &self.state.firmware_managed_reason {
+            self.console.print_error(reason);
+            self.state.status_message = reason.clone();
+            return;
+        }
+
         let Some(tab) = self.editor.active_tab() else {
             return;
         };
@@ -143,6 +214,12 @@ impl IdeDesktopApp {
         }
     }
     pub(super) fn request_firmware(&mut self, run: bool, ctx: &egui::Context) {
+        if let Some(reason) = &self.state.firmware_managed_reason {
+            self.console.print_error(reason);
+            self.state.status_message = reason.clone();
+            return;
+        }
+
         self.ensure_firmware(ctx);
         let Some(tab) = self.editor.active_tab_mut() else {
             return;
@@ -202,7 +279,98 @@ impl IdeDesktopApp {
         let events = self.firmware.as_ref().map(|f| f.poll()).unwrap_or_default();
         for event in events {
             match event {
+                Event::Hello { .. } => {
+                    if let Some(profile) = self.firmware.as_ref().and_then(|f| f.profile()) {
+                        self.state.firmware.profile = profile.display().to_string();
+                    }
+                }
+                Event::LiveResumed { attachment } => {
+                    self.firmware_resumed = true;
+                    // The restored calculator owns its environment. A later Ready
+                    // event must not replace it with the host's saved defaults.
+                    self.firmware_environment.initialized = true;
+                    self.firmware_environment.pending = None;
+                    self.state.firmware.environment = attachment.environment;
+                    let last_request = attachment.next_request.saturating_sub(1);
+                    self.firmware_request = self.firmware_request.max(last_request);
+                    self.firmware_environment.next =
+                        self.firmware_environment.next.max(last_request);
+                    self.firmware_runs.extend(
+                        attachment
+                            .pending
+                            .iter()
+                            .filter(|p| p.run)
+                            .map(|p| p.request),
+                    );
+                    self.firmware_program_running = attachment
+                        .pending
+                        .iter()
+                        .any(|p| p.run && p.execution_started);
+                    self.state.firmware_session = match attachment.lifecycle {
+                        Lifecycle::Booting => FirmwareSession::Booting,
+                        Lifecycle::Stopping => FirmwareSession::Stopping,
+                        Lifecycle::Sleeping => FirmwareSession::Sleeping,
+                        Lifecycle::Ready if self.firmware_program_running => {
+                            FirmwareSession::Running
+                        }
+                        Lifecycle::Ready => FirmwareSession::Ready,
+                    };
+                    self.firmware_status = if attachment.previous_generation {
+                        "Calculator resumed from the previous live checkpoint"
+                    } else {
+                        "Calculator resumed from its live checkpoint"
+                    }
+                    .into();
+                }
+                Event::Peripherals { state } => self.state.firmware_peripherals = state,
+                Event::Usb {
+                    success, message, ..
+                } => {
+                    if success {
+                        self.console.print_diagnostic(&message);
+                    } else {
+                        self.console.print_error(&message);
+                    }
+                }
+                Event::Environment {
+                    request,
+                    success,
+                    message,
+                    config,
+                } => {
+                    if self.firmware_environment.pending != Some(request) {
+                        continue;
+                    }
+                    self.firmware_environment.pending = None;
+                    self.state.firmware.environment = config;
+                    if success {
+                        self.console.print_diagnostic(&message);
+                    } else {
+                        self.console.print_error(&message);
+                    }
+                    self.firmware_status = message;
+                }
+                Event::Checkpoint { result, .. } => {
+                    use ppl_engine::checkpoint::CheckpointResult;
+                    let message = match result {
+                        CheckpointResult::Saved { .. } => {
+                            "Calculator recovery checkpoint saved".into()
+                        }
+                        CheckpointResult::Deferred { reason } => {
+                            format!("Checkpoint deferred: {reason}")
+                        }
+                        CheckpointResult::Failed { message } => {
+                            format!("Checkpoint failed: {message}")
+                        }
+                    };
+                    self.console.print_diagnostic(&message);
+                    self.firmware_status = message;
+                }
                 Event::Lifecycle { state } => {
+                    if state == Lifecycle::Ready && !self.firmware_environment.initialized {
+                        self.firmware_environment.initialized = true;
+                        self.apply_firmware_environment();
+                    }
                     self.state.firmware_session = match state {
                         Lifecycle::Booting => FirmwareSession::Booting,
                         Lifecycle::Stopping => FirmwareSession::Stopping,
@@ -216,6 +384,9 @@ impl IdeDesktopApp {
                         Lifecycle::Booting => "Booting local G1 firmware…",
                         Lifecycle::Stopping => "Stopping the firmware program…",
                         Lifecycle::Sleeping => "Calculator off (sleeping); ON wakes it",
+                        Lifecycle::Ready if self.firmware_program_running => {
+                            "Running in the local G1 firmware"
+                        }
                         Lifecycle::Ready => "Calculator ready",
                     }
                     .into();
@@ -231,6 +402,25 @@ impl IdeDesktopApp {
                         name.as_deref().unwrap_or("unnamed")
                     ));
                     self.state.firmware_unsupported.push((id, name, caller_pc));
+                }
+                Event::Clipboard { text, .. } => {
+                    self.controller.shared.publish_clipboard(text);
+                    self.firmware_status = "Copied firmware selection to desktop clipboard".into();
+                }
+                Event::Capabilities {
+                    managed_programs,
+                    clipboard_text,
+                    reason,
+                } => {
+                    self.state.firmware_clipboard_available = clipboard_text;
+                    self.state.firmware_managed_reason = if managed_programs {
+                        None
+                    } else {
+                        Some(
+                            reason
+                                .unwrap_or_else(|| "Managed firmware execution unavailable".into()),
+                        )
+                    };
                 }
                 Event::Phase { phase } => {
                     self.state.firmware_input_enabled = phase != "compiling";
@@ -260,6 +450,21 @@ impl IdeDesktopApp {
                     message,
                     check,
                 } => {
+                    if self.firmware_live_save == Some(request) {
+                        self.firmware_live_save = None;
+                        self.firmware_live_save_result = Some(if success {
+                            Ok(())
+                        } else {
+                            Err(message.clone())
+                        });
+                        if success {
+                            self.console.print_diagnostic(&message);
+                        } else {
+                            self.console.print_error(&message);
+                        }
+                        self.firmware_status = message;
+                        continue;
+                    }
                     self.apply_session_check(request, check, &message);
                     self.firmware_imports.remove(&request);
                     self.firmware_program_running = false;
@@ -269,7 +474,7 @@ impl IdeDesktopApp {
                     let was_run = self.firmware_runs.remove(&request);
                     let stopped =
                         was_run && !success && std::mem::take(&mut self.firmware_stop_requested);
-                    if request == self.firmware_request && was_run {
+                    if was_run && self.firmware_runs.is_empty() {
                         self.firmware_state = if success {
                             crate::ide::VmExecutionState::Terminated
                         } else if stopped {
@@ -296,6 +501,9 @@ impl IdeDesktopApp {
                     self.console.print_error(message);
                 }
                 Event::Closed { message } => {
+                    if self.firmware_live_save.take().is_some() {
+                        self.firmware_live_save_result = Some(Err(message.clone()));
+                    }
                     // Requests the closed session never answered reach no verdict.
                     let pending: Vec<u64> = self.firmware_pending.keys().copied().collect();
                     for request in pending {
@@ -321,7 +529,9 @@ impl IdeDesktopApp {
                         self.firmware_state = crate::ide::VmExecutionState::Idle;
                     }
                 }
-                Event::Hello { .. } => {}
+                Event::Inspection { .. }
+                | Event::Execution { .. }
+                | Event::ExecutionStarted { .. } => {}
             }
         }
         if self.state.firmware_backend {
@@ -423,6 +633,7 @@ impl IdeDesktopApp {
             self.last_touch = None;
             self.deferred_touch_end = None;
             self.touch_start_time = None;
+            self.touch_sample_time = None;
             self.prev_shift_held = false;
             self.prev_alpha_held = false;
             return;
@@ -447,8 +658,8 @@ impl IdeDesktopApp {
             let paste = matches!(&event, egui::Event::Paste(_));
             match event {
                 egui::Event::Text(text) | egui::Event::Paste(text) => {
-                    if text.chars().count() > 2048 {
-                        self.firmware_status = "Calculator paste is limited to 2048 characters; paste PPL source into the IDE editor and Import it".into();
+                    if let Err(error) = ppl_engine::session::validate_desktop_text(&text) {
+                        self.firmware_status = error.into();
                         self.console.print_diagnostic(&self.firmware_status);
                         continue;
                     }
@@ -528,6 +739,32 @@ impl IdeDesktopApp {
     pub(super) fn forward_touch(&mut self, ctx: &egui::Context) {
         const MIN_TAP_DURATION: std::time::Duration = std::time::Duration::from_millis(300);
         let now = std::time::Instant::now();
+        const SAMPLE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(16);
+
+        // A stationary finger still produces MOVE samples on the real touch
+        // controller. Firmware menu buttons debounce those samples; a Down/Up
+        // pair alone may highlight a button without activating it. Keep the
+        // stream alive during both a held pointer and our minimum tap interval.
+        if self.state.firmware_backend {
+            if let Some(t) = self.last_touch {
+                let before_release = self.deferred_touch_end.is_none_or(|(_, end)| now < end);
+                if before_release
+                    && self
+                        .touch_sample_time
+                        .is_none_or(|last| now.duration_since(last) >= SAMPLE_INTERVAL)
+                {
+                    if let Some(f) = &self.firmware {
+                        f.send(Command::Touch {
+                            status: 2,
+                            x: t.x as u16,
+                            y: t.y as u16,
+                        });
+                    }
+                    self.touch_sample_time = Some(now);
+                }
+                ctx.request_repaint_after(SAMPLE_INTERVAL);
+            }
+        }
 
         // Flush expired deferred touch-end
         if let Some((t, deadline)) = self.deferred_touch_end {
@@ -544,6 +781,7 @@ impl IdeDesktopApp {
                 self.deferred_touch_end = None;
                 self.last_touch = None;
                 self.touch_start_time = None;
+                self.touch_sample_time = None;
             } else {
                 ctx.request_repaint_after(deadline - now);
             }
@@ -573,6 +811,8 @@ impl IdeDesktopApp {
                 if self.last_touch.is_none() {
                     // New touch down
                     self.touch_start_time = Some(now);
+                    self.touch_sample_time = Some(now);
+                    ctx.request_repaint_after(SAMPLE_INTERVAL);
                     if let Some(f) = &self.firmware {
                         f.send(Command::Touch {
                             status: 1,
@@ -583,6 +823,7 @@ impl IdeDesktopApp {
                     self.last_touch = Some(t);
                 } else if self.last_touch != Some(t) {
                     // Touch moved / dragged
+                    self.touch_sample_time = Some(now);
                     if let Some(f) = &self.firmware {
                         f.send(Command::Touch {
                             status: 2,
@@ -611,6 +852,7 @@ impl IdeDesktopApp {
                         }
                         self.last_touch = None;
                         self.touch_start_time = None;
+                        self.touch_sample_time = None;
                     }
                 }
             }
@@ -738,6 +980,39 @@ mod session_tests {
         );
         let sent: Vec<_> = commands.try_iter().collect();
         assert!(matches!(sent.as_slice(), [Command::Text { text, .. }] if text.len() == 500));
+    }
+
+    #[test]
+    fn desktop_text_uses_the_firmware_utf16_budget_and_refuses_whole_invalid_packets() {
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.state.calc_input_focus = true;
+        let allowed = "λ😀\n".repeat(2000);
+        for text in [
+            allowed.clone(),
+            "before\0after".into(),
+            "😀".repeat(ppl_engine::session::MAX_TEXT_UTF16_UNITS / 2 + 1),
+        ] {
+            let _ = ctx.run(
+                egui::RawInput {
+                    focused: true,
+                    events: vec![egui::Event::Paste(text.clone())],
+                    ..Default::default()
+                },
+                |ctx| app.forward_calc_keys(ctx),
+            );
+            let sent = commands.try_iter().collect::<Vec<_>>();
+            if text == allowed {
+                assert!(
+                    matches!(sent.as_slice(), [Command::Text { text, paste: true }] if text == &allowed)
+                );
+            } else {
+                assert!(sent.is_empty(), "Invalid text must not be partly forwarded");
+                assert!(app.firmware_status.contains("no text was queued"));
+            }
+        }
     }
 
     #[test]
@@ -996,5 +1271,303 @@ mod session_tests {
         assert_eq!(commands.try_iter().count(), 0);
         // The firmware session itself is kept for the next switch back.
         assert!(app.firmware.is_some());
+    }
+    #[test]
+    fn committed_firmware_text_reaches_the_platform_clipboard_queue_exactly() {
+        let mut app = firmware_app();
+        let (client, events, _) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        events
+            .send(Event::Capabilities {
+                managed_programs: true,
+                clipboard_text: true,
+                reason: None,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(app.state.firmware_clipboard_available);
+        assert!(app.controller.shared.take_dialog_clipboard().is_none());
+        for (generation, text) in [(1, "π×ⅈ\r\nEXPORT T()"), (2, ""), (3, "same"), (4, "same")]
+        {
+            events
+                .send(Event::Clipboard {
+                    generation,
+                    text: text.into(),
+                })
+                .unwrap();
+            app.poll_firmware();
+            assert_eq!(
+                app.controller.shared.take_dialog_clipboard().as_deref(),
+                Some(text)
+            );
+            assert!(app.controller.shared.take_dialog_clipboard().is_none());
+        }
+        events
+            .send(Event::Capabilities {
+                managed_programs: true,
+                clipboard_text: false,
+                reason: None,
+            })
+            .unwrap();
+        events
+            .send(Event::Status {
+                message: "Unsupported clipboard record".into(),
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(!app.state.firmware_clipboard_available);
+        assert!(app.controller.shared.take_dialog_clipboard().is_none());
+    }
+
+    #[test]
+    fn stationary_lcd_taps_stream_samples_until_the_minimum_release() {
+        use std::time::{Duration, Instant};
+        let ctx = egui::Context::default();
+        let mut app = firmware_app();
+        let (client, _, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.display.last_display_rect =
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(320.0, 240.0));
+        let pos = egui::pos2(294.5, 230.5);
+        let frame = |app: &mut IdeDesktopApp, events| {
+            let _ = ctx.run(
+                egui::RawInput {
+                    focused: true,
+                    events,
+                    ..Default::default()
+                },
+                |ctx| app.forward_touch(ctx),
+            );
+        };
+        frame(
+            &mut app,
+            vec![
+                egui::Event::PointerMoved(pos),
+                egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+        );
+        assert!(matches!(
+            commands.try_recv(),
+            Ok(Command::Touch {
+                status: 1,
+                x: 294,
+                y: 230
+            })
+        ));
+        app.touch_sample_time = Some(Instant::now() - Duration::from_millis(20));
+        frame(&mut app, vec![]);
+        assert!(matches!(
+            commands.try_recv(),
+            Ok(Command::Touch {
+                status: 2,
+                x: 294,
+                y: 230
+            })
+        ));
+        frame(
+            &mut app,
+            vec![egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        );
+        assert!(app.deferred_touch_end.is_some());
+        assert!(commands.try_recv().is_err());
+        app.touch_sample_time = Some(Instant::now() - Duration::from_millis(20));
+        frame(&mut app, vec![]);
+        assert!(matches!(
+            commands.try_recv(),
+            Ok(Command::Touch { status: 2, .. })
+        ));
+        let (touch, _) = app.deferred_touch_end.unwrap();
+        app.deferred_touch_end = Some((touch, Instant::now() - Duration::from_millis(1)));
+        frame(&mut app, vec![]);
+        assert!(matches!(
+            commands.try_recv(),
+            Ok(Command::Touch {
+                status: 8,
+                x: 294,
+                y: 230
+            })
+        ));
+        frame(&mut app, vec![]);
+        assert!(commands.try_recv().is_err());
+        assert!(app.last_touch.is_none());
+    }
+    #[test]
+    fn environment_replies_are_correlated_without_terminating_running_programs() {
+        let mut app = firmware_app();
+        let (client, events, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.firmware_program_running = true;
+        app.state.firmware_session = FirmwareSession::Running;
+        app.firmware_request = 7;
+        app.firmware_runs.insert(7);
+        app.state.firmware.environment.battery.adc = 800;
+        app.apply_firmware_environment();
+        let command = commands.try_recv().unwrap();
+        let Command::ConfigureEnvironment { request, config } = command else {
+            panic!("expected actual configuration command")
+        };
+        assert_ne!(request, 7);
+        assert_eq!(config.battery.adc, 800);
+        let previous = ppl_engine::environment::EnvironmentConfig::default();
+        events
+            .send(Event::Environment {
+                request: request - 1,
+                success: true,
+                message: "stale".into(),
+                config: previous,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert_eq!(app.state.firmware.environment, config);
+        events
+            .send(Event::Environment {
+                request,
+                success: true,
+                message: "applied".into(),
+                config: config.clone(),
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(app.firmware_program_running);
+        assert_eq!(app.firmware_request, 7);
+        assert!(app.firmware_runs.contains(&7));
+        assert_eq!(app.state.firmware_session, FirmwareSession::Running);
+        assert!(app.firmware_environment.pending.is_none());
+    }
+    #[test]
+    fn live_save_result_is_independent_of_a_waiting_run_and_duplicate_clicks() {
+        let mut app = firmware_app();
+        let (client, events, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        app.firmware_program_running = true;
+        app.state.firmware_session = FirmwareSession::Running;
+        app.firmware_request = 7;
+        app.firmware_runs.insert(7);
+        app.save_firmware_live();
+        let Command::SaveLive { request } = commands.try_recv().unwrap() else {
+            panic!("expected SaveLive");
+        };
+        assert_ne!(request, 7);
+        assert_eq!(app.firmware_request, 7);
+        app.save_firmware_live();
+        assert!(commands.try_recv().is_err());
+        events
+            .send(Event::Result {
+                request,
+                success: true,
+                message: "Live state saved".into(),
+                check: None,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(app.firmware_program_running);
+        assert_eq!(app.state.firmware_session, FirmwareSession::Running);
+        assert!(app.firmware_runs.contains(&7));
+        assert_eq!(app.firmware_live_save_result, Some(Ok(())));
+        assert!(app.firmware_live_save.is_none());
+        app.save_firmware_live();
+        let Command::SaveLive { request } = commands.try_recv().unwrap() else {
+            panic!();
+        };
+        events
+            .send(Event::Result {
+                request,
+                success: false,
+                message: "Unsafe boundary".into(),
+                check: None,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert_eq!(
+            app.firmware_live_save_result,
+            Some(Err("Unsafe boundary".into()))
+        );
+        assert!(app.firmware_program_running && app.firmware_runs.contains(&7));
+        app.save_firmware_live();
+        events
+            .send(Event::Closed {
+                message: "Helper ended".into(),
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert_eq!(
+            app.firmware_live_save_result,
+            Some(Err("Helper ended".into()))
+        );
+        assert!(app.firmware_live_save.is_none());
+    }
+    #[test]
+    fn restored_environment_and_pending_run_survive_ready_and_complete_without_tab_verdict() {
+        use ppl_engine::session::{ResumeAttachment, ResumeRequest};
+        let mut app = firmware_app();
+        let (client, events, commands) = FirmwareClient::for_test(None);
+        app.firmware = Some(client);
+        let mut environment = ppl_engine::environment::EnvironmentConfig::default();
+        environment.battery.adc = 800;
+        events
+            .send(Event::LiveResumed {
+                attachment: ResumeAttachment {
+                    next_request: (1 << 63) + 5,
+                    lifecycle: Lifecycle::Ready,
+                    environment: environment.clone(),
+                    previous_generation: false,
+                    pending: vec![
+                        ResumeRequest {
+                            request: 7,
+                            run: true,
+                            source: Some("run source".into()),
+                            program: None,
+                            entry: None,
+                            source_sha256: None,
+                            execution_started: true,
+                        },
+                        ResumeRequest {
+                            request: 8,
+                            run: false,
+                            source: Some("check source".into()),
+                            program: None,
+                            entry: None,
+                            source_sha256: None,
+                            execution_started: false,
+                        },
+                    ],
+                },
+            })
+            .unwrap();
+        events
+            .send(Event::Lifecycle {
+                state: Lifecycle::Ready,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(commands.try_recv().is_err());
+        assert!(app.firmware_resumed && app.firmware_environment.initialized);
+        assert_eq!(app.state.firmware.environment, environment);
+        assert_eq!(app.firmware_runs, [7].into_iter().collect());
+        assert!(app.firmware_pending.is_empty());
+        assert_eq!(app.firmware_environment.next, (1 << 63) + 4);
+        assert_eq!(app.state.firmware_session, FirmwareSession::Running);
+        events
+            .send(Event::Result {
+                request: 7,
+                success: true,
+                message: "returned".into(),
+                check: None,
+            })
+            .unwrap();
+        app.poll_firmware();
+        assert!(!app.firmware_program_running);
+        assert!(app.firmware_runs.is_empty());
+        assert_eq!(app.firmware_state, crate::ide::VmExecutionState::Terminated);
     }
 }

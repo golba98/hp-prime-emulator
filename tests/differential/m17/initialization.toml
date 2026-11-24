@@ -1,0 +1,51 @@
+schema_version=2
+id="m17_initialization_timing"
+[programs.ZZT_M17PROBE]
+source='''EXPORT M17RESET() BEGIN A:=0; RETURN A; END;
+EXPORT M17PROBE() BEGIN RETURN A; END;
+'''
+[programs.ZZT_M17INIT]
+source='''M17MAKE() BEGIN A:=A+1; RETURN 10; END;
+LOCAL count:=M17MAKE();
+EXPORT M17INCREMENT() BEGIN count:=count+1; RETURN {count,A}; END;
+'''
+[[steps]]
+action="import"
+id="probe_module"
+program="ZZT_M17PROBE"
+[[steps]]
+action="run_program"
+id="reset"
+program="ZZT_M17PROBE"
+entry="M17RESET"
+[[steps]]
+action="import"
+id="target_module"
+program="ZZT_M17INIT"
+[[steps]]
+action="run_program"
+id="after_import"
+program="ZZT_M17PROBE"
+entry="M17PROBE"
+[[steps]]
+action="run_program"
+id="first"
+program="ZZT_M17INIT"
+entry="M17INCREMENT"
+[[steps]]
+action="run_program"
+id="second"
+program="ZZT_M17INIT"
+entry="M17INCREMENT"
+[[expect]]
+step="reset"
+path="/return_value"
+value={type="real",value="0"}
+[[expect]]
+step="after_import"
+path="/return_value"
+value={type="real",value="1"}
+[[expect]]
+step="second"
+path="/return_value"
+value={type="list",value=[{type="real",value="12"},{type="real",value="1"}]}

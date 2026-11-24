@@ -1,0 +1,248 @@
+{
+  "provenance": "Original isolated virtual G1 firmware screens; no physical verification and no vendor image/font bytes bundled.",
+  "guide": "https://h10032.www1.hp.com/ctg/Manual/c05332710.pdf",
+  "firmware": {
+    "version": "2.4.2",
+    "revision": 15751,
+    "build_date": "2026-09-09",
+    "elf_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39"
+  },
+  "tests": [
+    "tests/ide_xvfb_smoke/scripts/script_native_side_spreadsheet_grid.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_spreadsheet_grid_reopen.json",
+    "tests/ide_xvfb_smoke/assert_native_spreadsheet_grid.py",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_worksheet.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_spreadsheet_forms.json",
+    "tests/ide_xvfb_smoke/scripts/script_native_side_spreadsheet_forms_reopen.json",
+    "tests/ide_xvfb_smoke/assert_native_spreadsheet_forms.py"
+  ],
+  "controls": [
+    {
+      "operation": "grid",
+      "column_width": 65,
+      "row_height": 17,
+      "row_header_width": 17,
+      "column_header_bottom": 36,
+      "entry_y": 203,
+      "softkey_y": 220,
+      "capture": "04-grid",
+      "png_sha256": "32ce8b59e5ae3959b0114577e95db8e12527727e77822a8b01f82890629f3597"
+    },
+    {
+      "operation": "Format menu",
+      "root_width": 129,
+      "visible_rows": 8,
+      "row_height": 21,
+      "capture": "05-format",
+      "png_sha256": "8b9aae13b5acaf42d96d1003bc806c2d93b6927780dbfe433f8e112f70f54724"
+    },
+    {
+      "operation": "number format choices",
+      "items": [
+        "Auto",
+        "Standard",
+        "Fixed",
+        "Scientific",
+        "Engineering",
+        "Floating",
+        "Rounded"
+      ],
+      "capture": "06-number-format",
+      "png_sha256": "99713e22b804f1f6d8ad168c1bea61bea5e15649194e7fcc49ebbb1e54f6c04c"
+    },
+    {
+      "operation": "select Fixed",
+      "cell": "A1",
+      "input": "1",
+      "display": "1.000000",
+      "digits": 6,
+      "capture": "09-fixed-digits",
+      "png_sha256": "1c64860310344f2ce0bc87362aa9140604e5a6d7dc7a281735a0a78a591aa433"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1",
+      "precondition": "A1 contains entered value1",
+      "result": "1",
+      "capture": "10-home-qualified-read",
+      "png_sha256": "6cedc9150ab2fdaf0c0bea5e2ae0a0cb3e6f0bb90774722f37c6eb503b350170"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.$A$1",
+      "canonical_expression": "Spreadsheet.A1",
+      "precondition": "A1 contains entered value1",
+      "result": "1",
+      "capture": "11-home-absolute-read",
+      "png_sha256": "80ceafa5c4f5cbb2c7338e1c3facc405e403a975741b7d137d761a57f05609ff"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1:=7",
+      "result": "7",
+      "capture": "12-home-qualified-write",
+      "png_sha256": "1eacb87837dc439b30daa8b8cefaba2d631c9fc2e7d58216ae0ab6b458d8077f"
+    },
+    {
+      "operation": "open Spreadsheet Numeric",
+      "A1_display": "7.000000",
+      "C1_display": "10",
+      "precondition": "A1 Fixed6; A2=3; C1 formula=SUM(A1:A2)",
+      "capture": "13-grid-qualified-written",
+      "png_sha256": "6e81de278ed2ad015ccfc4ef2f44ff574110f97670ad439015d24112b5bd18d0"
+    },
+    {
+      "operation": "CAS evaluate",
+      "expression": "Spreadsheet.A1",
+      "canonical_expression": "A1",
+      "result": "7",
+      "capture": "14-cas-qualified-read",
+      "png_sha256": "d87bdd6f0fa432867f539ab9301da22cdb5585dbb1dea15ab6d59d79af0b27a1"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1",
+      "precondition": "Fresh worksheet from restarted virtual firmware; no assumption of app-state persistence",
+      "result": "0",
+      "capture": "01-seed-read",
+      "png_sha256": "4b12d035105f9a04de98b0b78b914907fb63f6dab6d222a43623372f10320576"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "spreadsheet.A1",
+      "error": "Syntax Error",
+      "capture": "02-lower-app",
+      "png_sha256": "97e6a4d13d5988811da3a0455ba182e98d14f3e353c83dec21a173ac97d41b4d"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1:=7",
+      "result": "7",
+      "capture": "07-control-set-seven",
+      "png_sha256": "36b1ffb94569e9e5fbba1a10f7e1a57cf9ee8d57ccbc53da18437c8b91e3cc68"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.a1",
+      "precondition": "A1 assigned7",
+      "result": "7",
+      "capture": "08-lower-cell-clean",
+      "png_sha256": "6bc7d52d4c0081f2d0920eee14f855a74d5207ef686017fea757ab310601565c"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.Z101",
+      "precondition": "Fresh worksheet only A1 populated; target cell not extended through GUI",
+      "error": "Syntax Error",
+      "limitation": "Observed admission in this fresh app only; does not establish global row/column bounds",
+      "capture": "09-empty-cell-clean",
+      "png_sha256": "0b41edc95bffed515f82602d62a06b70a5c7dd9d44cf06a182c3df88e868baf3"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1(3)",
+      "precondition": "A1 assigned7; default Auto format",
+      "result": "-1",
+      "capture": "10-format-attribute-clean",
+      "png_sha256": "8ea97a725189de23d3bcdd96f97b9183c5da5bc780be5e407f9eceb68a2f0f71"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.B1",
+      "precondition": "Fresh worksheet B1 empty",
+      "result": "0",
+      "capture": "11-near-empty-cell",
+      "png_sha256": "96af1b0c0a11641e9d49d74a04405557f940812d28e9d37412bf80df06300562"
+    },
+    {
+      "operation": "Home evaluate",
+      "expression": "Spreadsheet.A1(1)",
+      "precondition": "A1 contains entered value7",
+      "result": "7",
+      "capture": "12-formula-attribute-value-cell",
+      "png_sha256": "887214c19d208e1debb90fc89c5b9aa8f1a985faf22c4b7287a793407e4e395a"
+    }
+  ],
+  "limitations": [
+    "Qualified reads/writes are reference controls for the pending backend bridge, not currently implemented Native behavior.",
+    "Number Format root/menu geometry is measured; no full raster equivalence claim.",
+    "Qualified probe captures03/04/05 were blocked by an earlier popup and are rejected. Name-attribute write/read attempt did not complete a valid control; excluded. That second reference session exited1 after an idle-boundary timeout and was stopped. First reference session stopped0.",
+    "Unpopulated far-cell admission requires further controls before adopting bounds or treating every empty cell as zero.",
+    "Forms reference stopped0. Captures06/07 overshot Escape into Home and are rejected. Range Sort/Textbook controls are not implemented; offered palette remains a subset."
+  ],
+  "form_controls": [
+    {
+      "title": "Go To",
+      "field_rect": [
+        92,
+        88,
+        314,
+        111
+      ],
+      "label": "Target:",
+      "description": "Enter a cell reference or range",
+      "initial": "",
+      "capture": "01-goto-form",
+      "png_sha256": "efaea2065954b30bc4103a4e3385a1c369933dd23ee1962b8b175db6f7a9ff65"
+    },
+    {
+      "input": "A1:B2",
+      "capture": "02-goto-range-draft",
+      "png_sha256": "fa38a71237591837d121a4cb0fcf0c511e80c6c09a022b511d3df59cda2e0fc9"
+    },
+    {
+      "active_cell": "A1",
+      "range": "A1:B2",
+      "active_fill_rgb": [
+        173,
+        204,
+        255
+      ],
+      "other_selection_rgb": [
+        194,
+        222,
+        254
+      ],
+      "capture": "03-goto-range",
+      "png_sha256": "a02ba6aeb4a1392fb3b3e693974df26a04ce7eddfe852e09a0eaa820a5c985d3"
+    },
+    {
+      "observed": "Range Format menu omits Name; first entry Number Format. Capture shows selected Number Format submenu, not a Name form.",
+      "capture": "04-name-form",
+      "png_sha256": "8e9f9ef66b86135fd5bbfe0bed494904beaf8767fec641062962df007e051ced"
+    },
+    {
+      "observed": "Whole-column menu includes Name and places Column width before Show quotes.",
+      "capture": "05-column-format-menu",
+      "png_sha256": "ba30755395d43b7c2a1457029cf8ea1d946142eabe0a8bdac6e34c7eae3f208b"
+    },
+    {
+      "title": "Name",
+      "label": "Name:",
+      "description": "Enter name for cell, row or column",
+      "capture": "08-name-form-clean",
+      "png_sha256": "5711ba11d07cbc85048ea9c55ee38445d018f62335e3aee8b0d7f4668ad706e3"
+    },
+    {
+      "title": "Column \u2194",
+      "label": "Column \u2194:",
+      "description": "Enter column(s) width",
+      "initial": "-1",
+      "capture": "09-width-form",
+      "png_sha256": "7cdbc3ecec99dabf6f68e572eec6e0e50940e228f3869c373a3d5844a78c08e1"
+    },
+    {
+      "observed": "Whole-row Format menu includes Row height.",
+      "capture": "10-row-format-menu",
+      "png_sha256": "aa6a93803ef8aa179a0a244a7c9cb374f155c461f62059704e265bf81e3bb8e6"
+    },
+    {
+      "title": "Row \u2195",
+      "label": "Row \u2195:",
+      "description": "Enter row(s) height",
+      "initial": "-1",
+      "capture": "11-height-form",
+      "png_sha256": "8481e0556a841d9bd8b3205a5aee0383a5a2542710c107b53b0c9113ab4c82d8"
+    }
+  ]
+}

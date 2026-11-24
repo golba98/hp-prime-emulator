@@ -1,0 +1,247 @@
+{
+  "source_commit": "bb6827822c06c6aaba4995e85896b1ee91716d74",
+  "environment": {
+    "TMPDIR": "/home/k9-vortex/.cache/prime-m17-runtime-tmp",
+    "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m17-runtime-target",
+    "CARGO_BUILD_JOBS": "4",
+    "CARGO_NET_OFFLINE": "true",
+    "PRIME_TEST_FIRMWARE": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/armfir.elf",
+    "PRIME_TEST_OS_ROM": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/PRIME_OS.ROM",
+    "PRIME_TEST_INIT_DATA": "/home/k9-vortex/.local/share/hp-prime-emulator/firmware/initial-data",
+    "PRIME_TEST_EVIDENCE": "/home/k9-vortex/.cache/prime-m17-checkpoint-evidence/build-controls/failed-profiles",
+    "PRIME_CHECKPOINT_TRACE": "1"
+  },
+  "results": [
+    {
+      "label": "o0-1",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_recovery",
+        "normal_off_restores_collections_after_cas_in_fresh_processes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 93.7112154639999,
+      "test_seconds": [
+        "92.36"
+      ],
+      "admissions": [
+        {
+          "elapsed_ms": 605.492197,
+          "id": 11,
+          "idle": {
+            "covered_ms": 498.423253,
+            "idle_samples": 195,
+            "required_share": 0.8,
+            "required_window_ms": 500,
+            "samples": 243,
+            "share": 0.8024691358024691
+          }
+        }
+      ],
+      "helper_sha256": "51772bc241a49a159df17ea8ee5af143ed0ef025b0811e8aedf157423ef444cd"
+    },
+    {
+      "label": "o0-2",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_recovery",
+        "normal_off_restores_collections_after_cas_in_fresh_processes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 90.19574005600043,
+      "test_seconds": [
+        "90.08"
+      ],
+      "admissions": [
+        {
+          "elapsed_ms": 625.479802,
+          "id": 11,
+          "idle": {
+            "covered_ms": 499.868298,
+            "idle_samples": 196,
+            "required_share": 0.8,
+            "required_window_ms": 500,
+            "samples": 244,
+            "share": 0.8032786885245902
+          }
+        }
+      ],
+      "helper_sha256": "51772bc241a49a159df17ea8ee5af143ed0ef025b0811e8aedf157423ef444cd"
+    },
+    {
+      "label": "o2-1",
+      "command": [
+        "cargo",
+        "--config",
+        "profile.dev.package.unicorn-engine-sys.opt-level=2",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_recovery",
+        "normal_off_restores_collections_after_cas_in_fresh_processes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 181.68509873100083,
+      "test_seconds": [
+        "80.51"
+      ],
+      "admissions": [
+        {
+          "elapsed_ms": 447.399722,
+          "id": 11,
+          "idle": {
+            "covered_ms": 422.752862,
+            "idle_samples": 165,
+            "required_share": 0.8,
+            "required_window_ms": 500,
+            "samples": 205,
+            "share": 0.8048780487804879
+          }
+        }
+      ],
+      "helper_sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30"
+    },
+    {
+      "label": "o2-2",
+      "command": [
+        "cargo",
+        "--config",
+        "profile.dev.package.unicorn-engine-sys.opt-level=2",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_recovery",
+        "normal_off_restores_collections_after_cas_in_fresh_processes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 79.34477451899875,
+      "test_seconds": [
+        "79.25"
+      ],
+      "admissions": [
+        {
+          "elapsed_ms": 432.421402,
+          "id": 11,
+          "idle": {
+            "covered_ms": 400.06753499999996,
+            "idle_samples": 149,
+            "required_share": 0.8,
+            "required_window_ms": 500,
+            "samples": 178,
+            "share": 0.8370786516853933
+          }
+        }
+      ],
+      "helper_sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30"
+    },
+    {
+      "label": "o2-3",
+      "command": [
+        "cargo",
+        "--config",
+        "profile.dev.package.unicorn-engine-sys.opt-level=2",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "firmware_recovery",
+        "normal_off_restores_collections_after_cas_in_fresh_processes",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 83.01941136300047,
+      "test_seconds": [
+        "82.92"
+      ],
+      "admissions": [
+        {
+          "elapsed_ms": 457.970683,
+          "id": 11,
+          "idle": {
+            "covered_ms": 434.603329,
+            "idle_samples": 164,
+            "required_share": 0.8,
+            "required_window_ms": 500,
+            "samples": 205,
+            "share": 0.8
+          }
+        }
+      ],
+      "helper_sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30"
+    },
+    {
+      "label": "o2-unit",
+      "command": [
+        "cargo",
+        "--config",
+        "profile.dev.package.unicorn-engine-sys.opt-level=2",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 6.085346565998407,
+      "test_seconds": [
+        "0.50"
+      ],
+      "admissions": [],
+      "helper_sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30"
+    },
+    {
+      "label": "o2-sync",
+      "command": [
+        "cargo",
+        "--config",
+        "profile.dev.package.unicorn-engine-sys.opt-level=2",
+        "test",
+        "-p",
+        "prime-emulator",
+        "--test",
+        "sync_lifecycle"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 0.6720549099991331,
+      "test_seconds": [
+        "0.00"
+      ],
+      "admissions": [],
+      "helper_sha256": "8cfa8676ccf0c02846e31a41e1c38c7d4b8ec2a5a2c471efb4a4f7804d2b4a30"
+    }
+  ],
+  "scope": "Matched-source host native-backend build experiment; not physical parity or a universal quiescence guarantee.",
+  "summary": {
+    "o0_trials": 2,
+    "o2_trials": 3,
+    "o0_test_median_seconds": 91.22,
+    "o2_test_median_seconds": 80.51,
+    "change_percent": -11.740846305634722,
+    "guest_timers_changed": false,
+    "checkpoint_threshold_changed": false,
+    "rust_debug_settings_changed": false
+  }
+}

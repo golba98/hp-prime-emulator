@@ -1,0 +1,442 @@
+--- a/hw/display/exynos4210_fimd.c
++++ b/hw/display/exynos4210_fimd.c
+@@ -28,6 +28,7 @@
+ #include "ui/console.h"
+ #include "ui/pixel_ops.h"
+ #include "qemu/bswap.h"
++#include "qemu/log.h"
+ 
+ /* Debug messages configuration */
+ #define EXYNOS4210_FIMD_DEBUG              0
+@@ -120,11 +121,11 @@
+ 
+ /* Frame buffer address registers */
+ #define FIMD_VIDWADD0_START         0x0064
+-#define FIMD_VIDWADD0_END           0x006C
++#define FIMD_VIDWADD0_END           0x0070
+ #define FIMD_VIDWADD1_START         0x007C
+-#define FIMD_VIDWADD1_END           0x0084
++#define FIMD_VIDWADD1_END           0x0088
+ #define FIMD_VIDWADD2_START         0x0094
+-#define FIMD_VIDWADD2_END           0x009C
++#define FIMD_VIDWADD2_END           0x0098
+ #define FIMD_VIDWADD2_PAGEWIDTH     0x1FFF
+ #define FIMD_VIDWADD2_OFFSIZE       0x1FFF
+ #define FIMD_VIDWADD2_OFFSIZE_SHIFT 13
+@@ -134,7 +135,7 @@
+ 
+ /* Window color key registers */
+ #define FIMD_WKEYCON_START          0xB0
+-#define FIMD_WKEYCON_END            0xCC
++#define FIMD_WKEYCON_END            0xB4
+ #define FIMD_WKEYCON0_COMPKEY       0x00FFFFFF
+ #define FIMD_WKEYCON0_CTL_SHIFT     24
+ #define FIMD_WKEYCON0_DIRCON        (1 << 24)
+@@ -745,7 +746,7 @@
+         memcpy(&data, src, sizeof(data)); \
+         src += 8; \
+         fimd_swap_data(swap, &data); \
+-        for (i = (64 / (N) - 1); i >= 0; i--) { \
++        for (i = (64 / (N) - 1); i >= 0 && (64 / (N) - 1 - i) < width; i--) { \
+             w->pixel_to_rgb(w->palette[(data >> ((N) * i)) & \
+                                    ((1ULL << (N)) - 1)], &p); \
+             p.a = w->get_alpha(w, p.a); \
+@@ -774,7 +775,7 @@
+         memcpy(&data, src, sizeof(data)); \
+         src += 8; \
+         fimd_swap_data(swap, &data); \
+-        for (i = (64 / (N) - 1); i >= 0; i--) { \
++        for (i = (64 / (N) - 1); i >= 0 && (64 / (N) - 1 - i) < width; i--) { \
+             w->pixel_to_rgb((data >> ((N) * i)) & ((1ULL << (N)) - 1), &p); \
+             p.a = w->get_alpha(w, p.a); \
+             if (blend) { \
+@@ -1070,70 +1071,38 @@
+         w->fb_len = 0;
+     }
+ 
+-    fb_start_addr = w->buf_start[fimd_get_buffer_id(w)];
+-    
+-    fb_mapped_len = (w->virtpage_width + w->virtpage_offsize) *
+-            (w->rightbot_y - w->lefttop_y + 1);
+-    
+-    if (!fb_mapped_len)
+-        fb_mapped_len = ((w->buf_end[fimd_get_buffer_id(w)] & 0x00FFFFFF) - (fb_start_addr & 0x00FFFFFF)) & 0x00FFFFFF; 
+-    
+-    w->fb_len = fb_mapped_len;
+-    
+-    /*fb_start_addr = w->buf_start[fimd_get_buffer_id(w)];
+-     Total number of bytes of virtual screen used by current window /
+-     fb_mapped_len = (w->virtpage_width + w->virtpage_offsize) *
+-            (w->rightbot_y - w->lefttop_y + 1);
+-
+-     if (fb_mapped_len == 0)
+-     {
+-         uint32_t width = ((s->vidtcon[2] >> FIMD_VIDTCON2_HOR_SHIFT) &
+-             FIMD_VIDTCON2_SIZE_MASK) + 1;
+-         uint32_t height = ((s->vidtcon[2] >> FIMD_VIDTCON2_VER_SHIFT) &
+-             FIMD_VIDTCON2_SIZE_MASK) + 1;
+-         uint32_t bpp;
+-
+-         switch (WIN_BPP_MODE(w))
+-         {
+-         case 0:
+-             bpp = 1;
+-             break;
+-         case 1:
+-             bpp = 2;
+-             break;
+-         case 2:
+-             bpp = 4;
+-             break;
+-         case 3:
+-         case 4:
+-             bpp = 8;
+-             break;
+-         case 5:
+-         case 6:
+-         case 7:
+-             bpp = 16;
+-             break;
+-         default:
+-             bpp = 32;
+-             break;
+-         }
+-
+-         fb_mapped_len = (width * height * bpp) / 8;
+-     } */
+-     
+-    /* TODO: add .exit and unref the region there.  Not needed yet since sysbus
+-     * does not support hot-unplug.
+-     */
+-     printf("start: %llx, len: %llx\n", fb_start_addr, fb_mapped_len);
+     if (w->mem_section.mr) {
+         memory_region_set_log(w->mem_section.mr, false, DIRTY_MEMORY_VGA);
+         memory_region_unref(w->mem_section.mr);
+-    }
+-
++        w->mem_section.mr = NULL;
++    }
++    fb_start_addr = w->buf_start[fimd_get_buffer_id(w)];
++    /* Bounds are model safety, not a claim about invalid hardware modes.
++     * Pixel routines consume complete 64-bit groups; reject short rows and
++     * inverted/off-screen rectangles before mapping or drawing host memory. */
++    {
++        unsigned width = (s->vidtcon[2] & 0x7ff) + 1;
++        unsigned height = ((s->vidtcon[2] >> 11) & 0x7ff) + 1;
++        unsigned mode = WIN_BPP_MODE(w);
++        unsigned bpp = mode < 4 ? 1U << mode : mode == 4 ? 8 : mode < 8 ? 16 : 32;
++        unsigned pixels = w->rightbot_x - w->lefttop_x + 1;
++        unsigned row = ((pixels * bpp + 63) / 64) * 8;
++        if (mode > 13 || w->lefttop_x > w->rightbot_x ||
++            w->lefttop_y > w->rightbot_y || w->rightbot_x >= width ||
++            w->rightbot_y >= height || w->virtpage_width < row) {
++            qemu_log_mask(LOG_GUEST_ERROR, "FIMD: unsupported framebuffer geometry\n");
++            return;
++        }
++    }
++    fb_mapped_len = (w->virtpage_width + w->virtpage_offsize) *
++                   (w->rightbot_y - w->lefttop_y + 1);
++    w->fb_len = fb_mapped_len;
+     w->mem_section = memory_region_find(sysbus_address_space(sbd),
+                                         fb_start_addr, w->fb_len);
+-    assert(w->mem_section.mr);
+-    assert(w->mem_section.offset_within_address_space == fb_start_addr);
++    if (!w->mem_section.mr ||
++        w->mem_section.offset_within_address_space != fb_start_addr) {
++        goto error_return;
++    }
+     DPRINT_TRACE("Window %u framebuffer changed: address=0x%08llx, len=0x%llx\n",
+             win, fb_start_addr, w->fb_len);
+ 
+@@ -1160,7 +1129,9 @@
+     return;
+ 
+ error_return:
+-    memory_region_unref(w->mem_section.mr);
++    if (w->mem_section.mr) {
++        memory_region_unref(w->mem_section.mr);
++    }
+     w->mem_section.mr = NULL;
+     w->mem_section.size = int128_zero();
+     w->host_fb_addr = NULL;
+@@ -1255,6 +1226,12 @@
+     for (i = 0; i < NUM_OF_WINDOWS; i++) {
+         w = &s->window[i];
+         if ((w->wincon & FIMD_WINCON_ENWIN) && w->host_fb_addr) {
++            if (w->lefttop_x > w->rightbot_x || w->lefttop_y > w->rightbot_y ||
++                w->rightbot_x >= global_width || w->rightbot_y >= global_height ||
++                !w->draw_line || !w->pixel_to_rgb || !w->get_alpha ||
++                WIN_BPP_MODE(w) > 13) {
++                continue;
++            }
+             scrn_height = w->rightbot_y - w->lefttop_y + 1;            
+             scrn_width = w->virtpage_width;
+             
+@@ -1322,6 +1299,15 @@
+     /* Set all display controller registers to 0 */
+     memset(&s->vidcon, 0, (uint8_t *)&s->window - (uint8_t *)&s->vidcon);
+     for (w = 0; w < NUM_OF_WINDOWS; w++) {
++        if (s->window[w].host_fb_addr) {
++            cpu_physical_memory_unmap(s->window[w].host_fb_addr,
++                                     s->window[w].fb_len, 0, 0);
++        }
++        if (s->window[w].mem_section.mr) {
++            memory_region_set_log(s->window[w].mem_section.mr, false,
++                                  DIRTY_MEMORY_VGA);
++            memory_region_unref(s->window[w].mem_section.mr);
++        }
+         memset(&s->window[w], 0, sizeof(Exynos4210fimdWindow));
+         s->window[w].blendeq = 0xC2;
+         exynos4210_fimd_update_win_bppmode(s, w);
+@@ -1329,6 +1315,9 @@
+         fimd_update_get_alpha(s, w);
+     }
+ 
++    qemu_irq_lower(s->irq[0]);
++    qemu_irq_lower(s->irq[1]);
++    qemu_irq_lower(s->irq[2]);
+     g_free(s->ifb);
+     s->ifb = NULL;
+ 
+@@ -1392,7 +1381,7 @@
+             val &= ~FIMD_WINCON_BUFSTATUS;
+             break;
+         case FIMD_WINCON_BUF1_SEL:
+-            val |= FIMD_WINCON_BUF1_SEL;
++            val |= FIMD_WINCON_BUF1_STAT;
+             break;
+         default:
+             break;
+@@ -1420,7 +1409,7 @@
+     //    s->winchmap = val;
+     //    break;
+     case FIMD_VIDOSD_START ... FIMD_VIDOSD_END:
+-        w = (offset - FIMD_VIDOSD_START) >> 4;
++        w = (offset - FIMD_VIDOSD_START) / 12;
+         i = ((offset - FIMD_VIDOSD_START) / 4) % 3;
+         switch (i) {
+         case 0:
+@@ -1429,9 +1418,7 @@
+                                       FIMD_VIDOSD_COORD_MASK;
+             s->window[w].lefttop_y = (val >> FIMD_VIDOSD_VER_SHIFT) &
+                                       FIMD_VIDOSD_COORD_MASK;
+-            if (s->window[w].lefttop_y != old_value) {
+-                fimd_update_memory_section(s, w);
+-            }
++            fimd_update_memory_section(s, w);
+             break;
+         case 1:
+             old_value = s->window[w].rightbot_y;
+@@ -1439,9 +1426,7 @@
+                                        FIMD_VIDOSD_COORD_MASK;
+             s->window[w].rightbot_y = (val >> FIMD_VIDOSD_VER_SHIFT) &
+                                        FIMD_VIDOSD_COORD_MASK;
+-            if (s->window[w].rightbot_y != old_value) {
+-                fimd_update_memory_section(s, w);
+-            }
++            fimd_update_memory_section(s, w);
+             break;
+         case 2:
+             if (w == 0) {
+@@ -1484,9 +1469,10 @@
+             s->window[w].buf_end[i] = val;
+             fimd_update_memory_section(s, w);
+         }
++        s->window[w].buf_end[i] = val;
+         break;
+     case FIMD_VIDWADD2_START ... FIMD_VIDWADD2_END:
+-        w = (((offset - FIMD_VIDWADD2_START) >> 2) & 1);
++        w = (offset - FIMD_VIDWADD2_START) >> 2;
+         if (((val & FIMD_VIDWADD2_PAGEWIDTH) != s->window[w].virtpage_width) ||
+             (((val >> FIMD_VIDWADD2_OFFSIZE_SHIFT) & FIMD_VIDWADD2_OFFSIZE) !=
+                         s->window[w].virtpage_offsize)) {
+@@ -1658,7 +1644,7 @@
+     //case FIMD_WINCHMAP:
+     //    return s->winchmap;
+     case FIMD_VIDOSD_START ... FIMD_VIDOSD_END:
+-        w = (offset - FIMD_VIDOSD_START) >> 4;
++        w = (offset - FIMD_VIDOSD_START) / 12;
+         i = ((offset - FIMD_VIDOSD_START) / 4 ) % 3;
+         switch (i) {
+         case 0:
+--- a/hw/arm/s3c2416_gpio.c
++++ b/hw/arm/s3c2416_gpio.c
+@@ -89,6 +89,7 @@
+     uint32_t PDSMCON;
+ 
+     uint64_t keyboard;
++    bool key_down[Q_KEY_CODE__MAX];
+ } s3c2416_gpio_state;
+ 
+ static void S3C2416_gpio_intc_set(void *opaque, int n, int level);
+@@ -780,19 +781,22 @@
+     assert(evt->type == INPUT_EVENT_KIND_KEY);
+     qcode = qemu_input_key_value_to_qcode(key->key);
+ 
+-    if (qcode >= Q_KEY_CODE__MAX)
++    if (qcode < 0 || qcode >= Q_KEY_CODE__MAX)
+         return;
+     
++    s->key_down[qcode] = key->down;
++    s->keyboard = 0;
++    for (int i = 0; i < Q_KEY_CODE__MAX; i++) {
++        if (s->key_down[i]) {
++            s->keyboard |= hp_prime_keymap[i];
++        }
++    }
+     if (key->down) {
+-        s->keyboard |= hp_prime_keymap[qcode];
+-        for (int i =0; i < 8; i++)
+-        {
+-            if ((s->keyboard >> (i*8)) & 0xFF) {
++        for (int i = 0; i < 8; i++) {
++            if ((s->keyboard >> (i * 8)) & 0xff) {
+                 S3C2416_gpio_intc_set(s, i + 8, 1);
+             }
+         }
+-    } else {
+-        s->keyboard &= ~hp_prime_keymap[qcode];
+     }
+ }
+ 
+@@ -843,6 +847,13 @@
+     sysbus_init_irq(sbd, &s->irq[4]);
+     sysbus_init_irq(sbd, &s->irq[5]);
+ 
++    qemu_input_handler_register((DeviceState *)s,
++                                &hp_prime_keyboard_handler);
++};
++
++static void s3c2416_gpio_reset(DeviceState *dev)
++{
++    s3c2416_gpio_state *s = S3C2416_GPIO(dev);
+     s->GPACON = 0xFFFFFF;
+     s->GPADAT = 0x0;
+     s->GPBCON = 0x0;
+@@ -902,15 +913,24 @@
+ 
+     s->keyboard = 0;
+ 
+-    qemu_input_handler_register((DeviceState *)s,
+-                                &hp_prime_keyboard_handler);
+-};
++    memset(s->key_down, 0, sizeof(s->key_down));
++    for (int i = 0; i < 6; i++) {
++        qemu_irq_lower(s->irq[i]);
++    }
++}
++
++static void s3c2416_gpio_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->reset = s3c2416_gpio_reset;
++}
+ 
+ static const TypeInfo s3c2416_gpio_type = {
+     .name = TYPE_S3C2416_GPIO,
+     .parent = TYPE_SYS_BUS_DEVICE,
+     .instance_size = sizeof(s3c2416_gpio_state),
+-    .instance_init = s3c2416_gpio_init
++    .instance_init = s3c2416_gpio_init,
++    .class_init = s3c2416_gpio_class_init
+ };
+ 
+ static void s3c2416_gpio_register(void)
+--- a/hw/input/nt11002.c
++++ b/hw/input/nt11002.c
+@@ -148,11 +148,11 @@
+ 	switch (s->addr)
+ 	{
+ 		case 0x0000:
+-			return s->point_data[s->i2c_cycle];
++			return s->i2c_cycle < sizeof(s->point_data) ? s->point_data[s->i2c_cycle] : 0xff;
+ 		case 0xFFFF:
+-			return buf2[s->i2c_cycle];
++			return s->i2c_cycle < ARRAY_SIZE(buf2) ? buf2[s->i2c_cycle] : 0xff;
+ 		case 0x0A0D:
+-			return buf3[s->i2c_cycle];
++			return s->i2c_cycle < ARRAY_SIZE(buf3) ? buf3[s->i2c_cycle] : 0xff;
+ 		default:
+ 			break;
+ 	}
+@@ -168,7 +168,7 @@
+ 	switch(s->reg)
+ 	{
+ 		case 0x78:
+-			out = ver[s->i2c_cycle];
++			out = s->i2c_cycle < ARRAY_SIZE(ver) ? ver[s->i2c_cycle] : 0xff;
+ 			s->addr = 0;
+ 			break;
+ 		case 0x00:
+@@ -178,7 +178,7 @@
+ 			break;
+ 	}
+ 	
+-	s->i2c_cycle++;
++	if (s->i2c_cycle != UINT8_MAX) { s->i2c_cycle++; }
+ 	
+ 	//printf("nt11002: RX 0x%X\n", out);
+     return out;
+@@ -199,15 +199,17 @@
+ 			if (!s->i2c_cycle) {
+ 				s->addr = 0;
+ 			}
+-			else {
+-				s->addr |= (data << ((2 - s->i2c_cycle) * 8));
+-			}
++			else if (s->i2c_cycle <= 2) {
++                s->addr |= data << ((2 - s->i2c_cycle) * 8);
++            } else {
++                return -1;
++            }
+ 			break;
+ 		default:
+ 			break;
+ 	}
+ 	
+-	s->i2c_cycle++;
++	if (s->i2c_cycle != UINT8_MAX) { s->i2c_cycle++; }
+ 	
+     return 0;
+ }
+@@ -222,8 +224,10 @@
+ 	s->ppressure = s->pressure;
+ 	s->pressure = !!buttons_state;
+ 	
+-	s->x = (x * X_MAX) / 0x8000;
+-	s->y = (y * Y_MAX) / 0x8000;
++    x = MAX(0, MIN(x, 0x7fff));
++    y = MAX(0, MIN(y, 0x7fff));
++    s->x = (x * X_MAX) / 0x8000;
++    s->y = (y * Y_MAX) / 0x8000;
+ 	
+ 	
+ 	if (s->ppressure == s->pressure)
+@@ -265,6 +269,17 @@
+ 
+ }
+ 
++static void nt11002_reset(DeviceState *dev)
++{
++    nt11002_state *s = NT11002(dev);
++    timer_del(s->timer);
++    s->reg = s->i2c_cycle = s->i2c_dir = s->status = 0;
++    s->addr = s->x = s->y = 0;
++    s->pressure = s->ppressure = 0;
++    memset(s->point_data, 0xff, sizeof(s->point_data));
++    qemu_irq_lower(s->nirq);
++}
++
+ static int nt11002_init(I2CSlave *i2c)
+ {
+     nt11002_state *s = NT11002(i2c);
+@@ -286,7 +301,8 @@
+ 
+ static void nt11002_class_init(ObjectClass *klass, void *data)
+ {
+-    //DeviceClass *dc = DEVICE_CLASS(klass);
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->reset = nt11002_reset;
+     I2CSlaveClass *k = I2C_SLAVE_CLASS(klass);
+ 
+     k->init = nt11002_init;

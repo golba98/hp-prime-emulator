@@ -1,10 +1,14 @@
 //! Text rendering for TEXTOUT_P, PRINT and dialogs.
 //!
-//! The HP system font is proprietary and is not bundled. DejaVu Sans
-//! (Bitstream Vera licence, see `assets/DejaVuSans-LICENSE.txt`) is rasterised
-//! without anti-aliasing at the pixel size for each TEXTOUT font code. Glyph
-//! shapes and advance widths therefore differ from the calculator; the
-//! compatibility matrix lists text output as APPROXIMATE.
+//! A bundled DejaVu face keeps a fresh installation usable. Callers can
+//! select validated Prime Sans faces from their locally installed G1 resource
+//! archive. The selected renderer uses bounded, thread-local face state and
+//! the independently verified G1 scan-conversion/coverage contract. Vendor
+//! font bytes are never bundled; selection errors propagate to the caller.
+
+pub mod prime;
+mod raster;
+pub use prime::with_prime_fonts;
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -34,18 +38,38 @@ struct Glyph {
     ymin: i32,
     advance: f32,
     bitmap: Vec<u8>,
+    antialias: bool,
 }
 
-type GlyphKey = (char, u32);
+type GlyphKey = (u32, u32);
 
 fn glyph(c: char, px: f32) -> std::sync::Arc<Glyph> {
+    if let Some(glyph) = prime::active_glyph(c, px) {
+        return glyph;
+    }
+    fallback_glyph(c as u32, px)
+}
+
+fn unit_glyph(unit: u16, px: f32) -> std::sync::Arc<Glyph> {
+    if let Some(glyph) = prime::active_unit_glyph(unit, px) {
+        return glyph;
+    }
+    fallback_glyph(u32::from(unit), px)
+}
+
+fn fallback_glyph(codepoint: u32, px: f32) -> std::sync::Arc<Glyph> {
     static CACHE: OnceLock<Mutex<HashMap<GlyphKey, std::sync::Arc<Glyph>>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let key = (c, px.to_bits());
+    let key = (codepoint, px.to_bits());
     if let Some(g) = cache.lock().unwrap().get(&key) {
         return g.clone();
     }
-    let (m, bitmap) = font().rasterize(c, px);
+    let (m, bitmap) = match char::from_u32(codepoint) {
+        Some(c) => font().rasterize(c, px),
+        // The real face's missing glyph, without inventing a Unicode scalar
+        // or converting the requested16-bit unit to a replacement character.
+        None => font().rasterize_indexed(0, px),
+    };
     let g = std::sync::Arc::new(Glyph {
         width: m.width,
         height: m.height,
@@ -53,6 +77,7 @@ fn glyph(c: char, px: f32) -> std::sync::Arc<Glyph> {
         ymin: m.ymin,
         advance: m.advance_width,
         bitmap,
+        antialias: false,
     });
     cache.lock().unwrap().insert(key, g.clone());
     g
@@ -71,13 +96,34 @@ pub const DEFAULT_PX: f32 = 12.0;
 
 /// Line height (ascent + descent) at `px`.
 pub fn line_height(px: f32) -> i64 {
+    if let Some((height, _)) = prime::active_metrics(px) {
+        return height;
+    }
     let lm = font()
         .horizontal_line_metrics(px)
         .expect("horizontal metrics");
     (lm.ascent - lm.descent).ceil() as i64
 }
 
+/// G1 TEXTOUT cell heights are logical font metrics, distinct from FreeType's
+/// recommended multiline spacing. Original controls cover every font code.
+pub fn calculator_cell_height(px: f32) -> i64 {
+    match px.round() as u32 {
+        10 => 10,
+        12 => 12,
+        14 => 16,
+        16 => 20,
+        18 => 22,
+        20 => 24,
+        22 => 26,
+        _ => line_height(px),
+    }
+}
+
 fn ascent(px: f32) -> i64 {
+    if let Some((_, ascent)) = prime::active_metrics(px) {
+        return ascent;
+    }
     font()
         .horizontal_line_metrics(px)
         .expect("horizontal metrics")
@@ -89,6 +135,24 @@ fn ascent(px: f32) -> i64 {
 pub fn measure(text: &str, px: f32) -> i64 {
     text.chars()
         .map(|c| glyph(c, px).advance)
+        .sum::<f32>()
+        .round() as i64
+}
+
+/// Measure a calculator UTF16 buffer without replacing isolated units. HP's
+/// numeric formatter measures each16-bit font index, including missing glyphs.
+/// This does not turn the buffer into displayable Unicode or change its units.
+pub fn measure_utf16_units(units: &[u16], px: f32) -> i64 {
+    units
+        .iter()
+        .map(|unit| {
+            prime::active_unit_advance(*unit, px).unwrap_or_else(|| {
+                char::from_u32(u32::from(*unit)).map_or_else(
+                    || font().metrics_indexed(0, px).advance_width,
+                    |character| glyph(character, px).advance,
+                )
+            })
+        })
         .sum::<f32>()
         .round() as i64
 }
@@ -107,37 +171,138 @@ pub fn draw_text(
     max_width: Option<i64>,
     bg: Option<Color>,
 ) -> i64 {
-    let lh = line_height(px);
+    let mut end = x;
+    for (row, line) in text.split('\n').enumerate() {
+        end = draw_line(
+            g,
+            line.chars().map(|c| glyph(c, px)),
+            x,
+            y.saturating_add((row as i64).saturating_mul(line_height(px))),
+            px,
+            color,
+            max_width,
+            bg,
+            false,
+        );
+    }
+    end
+}
+
+/// Render calculator16-bit font indices directly, including isolated surrogate
+/// units. A valid surrogate pair remains two indices, as in the original G1.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_utf16_units(
+    g: &mut Grob,
+    units: &[u16],
+    x: i64,
+    y: i64,
+    px: f32,
+    color: Color,
+    max_width: Option<i64>,
+    bg: Option<Color>,
+) -> i64 {
+    let mut end = x;
+    for (row, line) in units.split(|u| *u == 10).enumerate() {
+        end = draw_line(
+            g,
+            line.iter().map(|u| unit_glyph(*u, px)),
+            x,
+            y.saturating_add((row as i64).saturating_mul(calculator_cell_height(px))),
+            px,
+            color,
+            max_width,
+            bg,
+            true,
+        );
+    }
+    end
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_line(
+    g: &mut Grob,
+    glyphs: impl Iterator<Item = std::sync::Arc<Glyph>> + Clone,
+    x: i64,
+    y: i64,
+    px: f32,
+    color: Color,
+    max_width: Option<i64>,
+    bg: Option<Color>,
+    clip_pixels: bool,
+) -> i64 {
+    let start_x = x;
     let asc = ascent(px);
-    let mut pen_y = y;
-    let mut end_x = x;
-    for line in text.split('\n') {
-        let w = measure(line, px);
-        let limit = max_width.map(|m| x + m).unwrap_or(i64::MAX);
-        if let Some(bg) = bg {
-            g.fill_rect(x, pen_y, (x + w).min(limit) - 1, pen_y + lh - 1, bg);
+    let width = glyphs.clone().map(|gl| gl.advance).sum::<f32>().round() as i64;
+    let limit = max_width.map(|m| x.saturating_add(m)).unwrap_or(i64::MAX);
+    // Explicit zero creates an empty drawing region, but returns the complete
+    // measured end. Omitting the argument creates an unrestricted region.
+    if clip_pixels && max_width == Some(0) {
+        return x.saturating_add(width);
+    }
+    if let Some(bg) = bg {
+        if clip_pixels {
+            g.fill_rect(
+                x.saturating_sub(1),
+                y.saturating_sub(1),
+                x.saturating_add(width).min(limit),
+                y.saturating_add(calculator_cell_height(px))
+                    .saturating_sub(1),
+                bg,
+            );
+        } else {
+            g.fill_rect(
+                x,
+                y,
+                x.saturating_add(width).min(limit).saturating_sub(1),
+                y.saturating_add(line_height(px)).saturating_sub(1),
+                bg,
+            );
         }
-        let mut pen = x as f32;
-        for c in line.chars() {
-            let gl = glyph(c, px);
-            if (pen + gl.advance).round() as i64 > limit {
-                break;
-            }
-            let base_x = pen.round() as i64 + gl.xmin as i64;
-            let base_y = pen_y + asc - gl.height as i64 - gl.ymin as i64;
-            for row in 0..gl.height {
-                for col in 0..gl.width {
-                    if gl.bitmap[row * gl.width + col] >= 128 {
-                        g.set(base_x + col as i64, base_y + row as i64, color);
+    }
+    let mut pen = x as f32;
+    for gl in glyphs {
+        if (!clip_pixels && (pen + gl.advance).round() as i64 > limit)
+            || (clip_pixels && pen.round() as i64 >= limit)
+        {
+            break;
+        }
+        let base_x = (pen.round() as i64).saturating_add(gl.xmin as i64);
+        let base_y = y
+            .saturating_add(asc)
+            .saturating_sub(gl.height as i64)
+            .saturating_sub(gl.ymin as i64);
+        // The G1 clips bitmap columns against the remaining advance width
+        // before applying the glyph's left bearing. Thus ink can extend past
+        // the returned end when that bearing is positive.
+        let columns = if clip_pixels {
+            gl.width
+                .min(limit.saturating_sub(pen.round() as i64).max(0) as usize)
+        } else {
+            gl.width
+        };
+        for row in 0..gl.height {
+            for col in 0..columns {
+                let coverage = gl.bitmap[row * gl.width + col];
+                let x = base_x.saturating_add(col as i64);
+                let y = base_y.saturating_add(row as i64);
+                if gl.antialias {
+                    if coverage != 0 {
+                        if let Some(background) = g.get(x, y) {
+                            g.set(x, y, prime::blend(background, color, coverage));
+                        }
                     }
+                } else if coverage >= 128 {
+                    g.set(x, y, color);
                 }
             }
-            pen += gl.advance;
         }
-        end_x = pen.round() as i64;
-        pen_y += lh;
+        pen += gl.advance;
     }
-    end_x
+    if clip_pixels {
+        start_x.saturating_add(width).min(limit)
+    } else {
+        pen.round() as i64
+    }
 }
 
 /// Renders the PRINT terminal: black text on white, newest lines kept

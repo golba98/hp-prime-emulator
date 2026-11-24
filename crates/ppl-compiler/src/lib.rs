@@ -4,7 +4,11 @@ pub mod builtins;
 pub mod bytecode;
 pub mod catalog;
 mod compile;
+mod expression_source;
+pub use expression_source::{SourceError, ppl_expression_source};
 pub mod highlight;
+mod symbolic;
+pub use symbolic::entry_source as cas_entry_source;
 
 pub use bytecode::{Chunk, CompiledProgram, Const, GlobalInit, GlobalSlot, Op, Setting};
 pub use compile::{CompileOptions, compile, is_system_variable};

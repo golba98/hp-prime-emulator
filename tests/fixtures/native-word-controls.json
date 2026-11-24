@@ -1,0 +1,223 @@
+{
+  "reference": "Original15751 virtual firmware, self-authored PPL sources and decoded STRING returns; not physical15157 evidence",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "signed-word-reference-signed_metadata",
+      "source": "EXPORT WORDMETA() BEGIN Bits:=32; Signed:=0; RETURN STRING({STRING(#FF:-8h),GETBITS(#FF:-8h),TYPE(#FF:-8h),B→R(#FF:-8h),STRING(#FF:8h),GETBITS(#FF:8h)}); END;",
+      "entry": "WORDMETA",
+      "source_sha256": "3515ba080393e0e8ddf821083216bae0686f1f7fc8e9d58cc9c851c3fac3e3cc",
+      "expected": "{\"#FF:-8h\",−8,1,255,\"#FF:8h\",8}"
+    },
+    {
+      "name": "signed-word-reference-context",
+      "source": "EXPORT WORDCTX() BEGIN Bits:=8; Signed:=1; RETURN STRING({STRING(#FFh),GETBITS(#FFh),STRING(EXPR(\"#FFh\")),GETBITS(EXPR(\"#FFh\")),STRING(#FF:-8h),GETBITS(#FF:-8h)}); END;",
+      "entry": "WORDCTX",
+      "source_sha256": "4f9416ceaf486a66962e335611abafaccaf859198ca4edf777245f81d0cbb617",
+      "expected": "{\"#FF:32h\",32,\"#FFh\",−8,\"#FFh\",−8}"
+    },
+    {
+      "name": "signed-word-reference-conversion",
+      "source": "EXPORT WORDCONV() BEGIN Bits:=32; Signed:=0; RETURN STRING({STRING(R→B(-1,8)),GETBITS(R→B(-1,8)),STRING(R→B(-1,-8)),GETBITS(R→B(-1,-8)),B→R(R→B(-1,-8))}); END;",
+      "entry": "WORDCONV",
+      "source_sha256": "81f4389522cd72421452e3ce0c6d0077c739b3fb54d0d4f30b0fb591dff3b957",
+      "expected": "{\"#0:8h\",8,\"#−1:-8h\",−8,−1}"
+    },
+    {
+      "name": "signed-word-reference-arithmetic",
+      "source": "EXPORT WORDOPS() BEGIN Bits:=32; Signed:=0; RETURN STRING({STRING(#FE:-8h+#01:-8h),GETBITS(#FE:-8h+#01:-8h),STRING(#FF:-8h/#02:-8h),STRING(#FF:8h/#02:8h),#FF:-8h<#01:-8h,#FF:8h<#01:8h,#FF:-8h==#FF:8h,STRING(#FF:-8h+1),STRING(#01:8h+#FE:-8h),GETBITS(#01:8h+#FE:-8h)}); END;",
+      "entry": "WORDOPS",
+      "source_sha256": "d52ebbf539cedc0c3c5c1fc105199f0064a7879ef76c46798a85d554dd6c0771",
+      "expected": "{\"#FF:-8h\",−8,\"#7F:-8h\",\"#7F:8h\",#0:-8h,#0:8h,1,\"256\",\"#FF:8h\",8}"
+    },
+    {
+      "name": "signed-word-reference-display_modes",
+      "source": "EXPORT WORDDISP() BEGIN Bits:=8; Signed:=0; LOCAL r:={STRING(#FF:-8h),STRING(#FF:8h),STRING(#FFh)}; Signed:=1; RETURN STRING(CONCAT(r,{STRING(#FF:-8h),STRING(#FF:8h),STRING(#FFh)})); END;",
+      "entry": "WORDDISP",
+      "source_sha256": "695bb4ce1c5f2858d420269ee0c530ff7b863897da878f5c2262fa4ef2617958",
+      "expected": "{\"#FF:-8h\",\"#FFh\",\"#FF:32h\",\"#FFh\",\"#FF:8h\",\"#FF:32h\"}"
+    },
+    {
+      "name": "signed-word-extra-reference-conversion_grid",
+      "source": "EXPORT WORDCGRID() BEGIN Bits:=32; Signed:=0; LOCAL vals:={-300,-129,-128,-1,0,127,128,255,256,300},out:={},k,v; FOR k FROM 1 TO 10 DO v:=vals(k); out:=CONCAT(out,{{v,STRING(R→B(v,8)),B→R(R→B(v,8)),STRING(R→B(v,-8)),B→R(R→B(v,-8))}}); END; RETURN STRING(out); END;",
+      "entry": "WORDCGRID",
+      "source_sha256": "5fc328ad6def7aa2ef274c79b6ccaba71a347a938898671715b94aef777b41b4",
+      "expected": "{{−300,\"#0:8h\",0,\"#−100:-8h\",−256},{−129,\"#0:8h\",0,\"#−81:-8h\",−129},{−128,\"#0:8h\",0,\"#−80:-8h\",−128},{−1,\"#0:8h\",0,\"#−1:-8h\",−1},{0,\"#0:8h\",0,\"#0:-8h\",0},{127,\"#7F:8h\",127,\"#7F:-8h\",127},{128,\"#80:8h\",128,\"#80:-8h\",128},{255,\"#FF:8h\",255,\"#FF:-8h\",255},{256,\"#FF:8h\",255,\"#FF:-8h\",255},{300,\"#FF:8h\",255,\"#FF:-8h\",255}}"
+    },
+    {
+      "name": "signed-word-extra-reference-word_wrap",
+      "source": "EXPORT WORDWRAP() BEGIN Bits:=32; Signed:=0; RETURN STRING({STRING(#FF:8h+#1:8h),STRING(#0:8h-#1:8h),STRING(-#1:8h),STRING(#FF:-8h+#1:-8h),STRING(#0:-8h-#1:-8h),B→R(#0:-8h-#1:-8h),STRING(-#1:-8h),B→R(-#1:-8h)}); END;",
+      "entry": "WORDWRAP",
+      "source_sha256": "433210784c4e3c3899933a4203bd7017baf4a40d2aef6340d8166c057be22acb",
+      "expected": "{\"#0:8h\",\"#FF:8h\",\"#FF:8h\",\"#0:-8h\",\"#−1:-8h\",−1,\"#−1:-8h\",−1}"
+    },
+    {
+      "name": "signed-word-extra-reference-negative_ops",
+      "source": "EXPORT NEGOPS() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-5,-8); RETURN STRING({STRING(v),STRING(v/#2:-8h),STRING(v+#2:-8h),STRING(v-#2:-8h),STRING(v*#2:-8h),STRING(v<#0:-8h),STRING(v==R→B(-5,-8)),STRING(v+1),B→R(v)}); END;",
+      "entry": "NEGOPS",
+      "source_sha256": "575fd00d0a442ac0463147d8c600a10f0aa01fdc35a49280a692680c65562cb5",
+      "expected": "{\"#−5:-8h\",\"#−2:-8h\",\"#−3:-8h\",\"#−7:-8h\",\"#−A:-8h\",\"#1:-8h\",\"1\",\"−4\",−5}"
+    },
+    {
+      "name": "signed-word-width-reference-width0",
+      "source": "EXPORT WIDTH0() BEGIN Bits:=32; Signed:=0; LOCAL v:=#1FF:8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH0",
+      "source_sha256": "dbed6d4ba66575117a7ae48902991c54a341a77475df9cead4025082df71c223",
+      "expected": "{\"#FF:8h\",8,255,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width1",
+      "source": "EXPORT WIDTH1() BEGIN Bits:=32; Signed:=0; LOCAL v:=#1FF:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH1",
+      "source_sha256": "be2d5d30d359671a2df6494380692e3faa0bd7fc7f42931837c912dac12d29be",
+      "expected": "{\"#FF:-8h\",−8,255,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width5",
+      "source": "EXPORT WIDTH5() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-1,-63); RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH5",
+      "source_sha256": "3461280499d79bd67a3bfbdd21c15eed38e3da831ddf18fd08d0c9818d0630e6",
+      "expected": "{\"#−1:-63h\",−63,−1,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width6",
+      "source": "EXPORT WIDTH6() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-256,-8)*#2:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH6",
+      "source_sha256": "38e6cddb00c09fab952e0a1a5fae71d416211428de692599af7aa80110e6ee9e",
+      "expected": "{\"#−100:-8h\",−8,−256,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width7",
+      "source": "EXPORT WIDTH7() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-257,-8)+#0:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH7",
+      "source_sha256": "2c8f52cadbfaa166178b6f80bfb746ecd05b5cb623bfe2ab7a9f919222c448c2",
+      "expected": "{\"#−100:-8h\",−8,−256,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width8",
+      "source": "EXPORT WIDTH8() BEGIN Bits:=32; Signed:=0; LOCAL v:=#0:-8h-#0:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH8",
+      "source_sha256": "3d140dde3e499c6199617f71fc1441798aa6f680e490e54a1eef62944e85e6a6",
+      "expected": "{\"#0:-8h\",−8,0,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width9",
+      "source": "EXPORT WIDTH9() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-128,-8)*#2:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH9",
+      "source_sha256": "e288df5d93d0704c59c12591a693b6bd2c91e14859de3d6431b8498b0d6e8351",
+      "expected": "{\"#−100:-8h\",−8,−256,1}"
+    },
+    {
+      "name": "signed-word-width-reference-width10",
+      "source": "EXPORT WIDTH10() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(-128,-8)*#4:-8h; RETURN STRING({STRING(v),GETBITS(v),B→R(v),TYPE(v)}); END;",
+      "entry": "WIDTH10",
+      "source_sha256": "f2f2a04bfaf1946d11fd9311b359afe3cb745524ccc553a90abeadd622f89ed4",
+      "expected": "{\"#−100:-8h\",−8,−256,1}"
+    },
+    {
+      "name": "signed-word-builtins-reference-base_codes",
+      "source": "EXPORT BASES() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN STRING({GETBASE(#FFh),GETBASE(#FF),GETBASE(R→B(255,8)),STRING(#FF),STRING(R→B(255,8))}); END;",
+      "entry": "BASES",
+      "source_sha256": "d52972e6f93046bff120b670aec431967418098de8a78e599589683f81158054",
+      "expected": "{#4h,#0h,#0h,\"#FFh\",\"#FF:8h\"}"
+    },
+    {
+      "name": "signed-word-builtins-reference-base_dynamic",
+      "source": "EXPORT BASEDYN() BEGIN Bits:=32; Signed:=0; LOCAL v:=R→B(255,8),w:=#FF; Base:=2; LOCAL r:={GETBASE(v),STRING(v),GETBASE(w),STRING(w),STRING(#FFh)}; Base:=0; RETURN STRING(CONCAT(r,{STRING(v),STRING(w),STRING(#FFh)})); END;",
+      "entry": "BASEDYN",
+      "source_sha256": "bab50f1d99162cf86e0968e7d74681bfcb5e1602ea282468056eadcbf93c6216",
+      "expected": "{#0b,\"#255:8d\",#0b,\"#255d\",\"#FFh\",\"#11111111:8b\",\"#11111111b\",\"#FFh\"}"
+    },
+    {
+      "name": "signed-word-builtins-reference-set_base",
+      "source": "EXPORT BASESET() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL b,r,out:={}; FOR b FROM 0 TO 5 DO IFERR r:={b,GETBASE(SETBASE(#FF:-8h,b)),GETBITS(SETBASE(#FF:-8h,b)),STRING(SETBASE(#FF:-8h,b))}; THEN r:={b,\"error\"}; END; out:=CONCAT(out,{r}); END; RETURN STRING(out); END;",
+      "entry": "BASESET",
+      "source_sha256": "db13e6632e08d3cf294bed9c021639fdeb172b2ad431e0e07c070cad95b2dc59",
+      "expected": "{{0,#0h,−8,\"#FF:-8h\"},{1,#1h,−8,\"#11111111:-8b\"},{2,#2h,−8,\"#377:-8o\"},{3,#3h,−8,\"#255:-8d\"},{4,#4h,−8,\"#FF:-8h\"},{5,\"error\"}}"
+    },
+    {
+      "name": "signed-word-builtins-reference-set_bits",
+      "source": "EXPORT BITSSET() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL vals:={-64,-63,-8,-1,0,1,8,63,64,65},k,b,r,out:={}; FOR k FROM 1 TO 10 DO b:=vals(k); IFERR r:={b,GETBITS(SETBITS(#FF:-8h,b)),STRING(SETBITS(#FF:-8h,b)),B→R(SETBITS(#FF:-8h,b))}; THEN r:={b,\"error\"}; END; out:=CONCAT(out,{r}); END; RETURN STRING(out); END;",
+      "entry": "BITSSET",
+      "source_sha256": "0b88714e7d5e92620e98867df9ee6f9e0bf074b2ab54e7deab1b8f56e51ef225",
+      "expected": "{{−64,\"error\"},{−63,−63,\"#FF:-63h\",255},{−8,−8,\"#FF:-8h\",255},{−1,−1,\"#1:-1h\",1},{0,\"error\"},{1,1,\"#1:1h\",1},{8,8,\"#FF:8h\",255},{63,63,\"#FF:63h\",255},{64,64,\"#FF:64h\",255},{65,\"error\"}}"
+    },
+    {
+      "name": "signed-word-builtins-reference-default_setters",
+      "source": "EXPORT DEFSET() BEGIN Base:=3; Bits:=8; Signed:=1; LOCAL v:=#FFh; RETURN STRING({GETBASE(SETBASE(v)),GETBITS(SETBITS(v)),STRING(SETBASE(v)),STRING(SETBITS(v)),GETBITS(R→B(-1)),STRING(R→B(-1))}); END;",
+      "entry": "DEFSET",
+      "source_sha256": "a6fc853b51f521401a36fe512fd2ff0268952b96e600f2be833d76d1f99351d5",
+      "expected": "{#0h,−8,\"#FF:32h\",\"#FFh\",−8,\"#−1h\"}"
+    },
+    {
+      "name": "signed-word-operations-reference-mixed_type",
+      "source": "EXPORT MIXCTRL() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL r,out:={}; IFERR r:={TYPE(#FFh+1),STRING(#FFh+1)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(1+#FFh),STRING(1+#FFh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#FFh/2),STRING(#FFh/2)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#FFh^2),STRING(#FFh^2)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#3h^#65h),STRING(#3h^#65h)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#2h^R→B(-1,-8)),STRING(#2h^R→B(-1,-8))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#2h^#2h),STRING(#2h^#2h)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#FFh<1),STRING(#FFh<1)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#FFh<#1h),STRING(#FFh<#1h)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#FFh==#FFh),STRING(#FFh==#FFh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(SETBITS(-300,-8)),STRING(SETBITS(-300,-8))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(SETBASE(-300,4)),STRING(SETBASE(-300,4))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(B→R(12)),STRING(B→R(12))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); RETURN STRING(out); END;",
+      "entry": "MIXCTRL",
+      "source_sha256": "e2dfce261db5974fb8737716349bf3e483d7b6806d96d39810aebaf1078e9a46",
+      "expected": "{{0,\"256\"},{0,\"256\"},{0,\"127.5\"},{0,\"65025\"},{1,\"#6DA83B73h\"},{0,\"0.5\"},{1,\"#4h\"},{0,\"0\"},{1,\"#0h\"},{0,\"1\"},{1,\"#−2C:-8h\"},{1,\"#FFFFFED4h\"},{0,\"12\"}}"
+    },
+    {
+      "name": "word-logic-real-bits-reference-logic",
+      "source": "EXPORT WLOGIC() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL r,out:={}; IFERR r:={TYPE(#F0h AND #0Fh),STRING(#F0h AND #0Fh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#F0h OR #0Fh),STRING(#F0h OR #0Fh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(#F0h XOR #0Fh),STRING(#F0h XOR #0Fh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(NOT #FFh),STRING(NOT #FFh)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(NOT #0h),STRING(NOT #0h)}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITSL(-5,1)),STRING(BITSL(-5,1))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITSR(-5,1)),STRING(BITSR(-5,1))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITNOT(0)),STRING(BITNOT(0))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITAND(-5,3)),STRING(BITAND(-5,3))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITNOT(1e12)),STRING(BITNOT(1e12))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITAND(1e12,3)),STRING(BITAND(1e12,3))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITSL(R→B(-5,-8),64)),STRING(BITSL(R→B(-5,-8),64))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(BITSL(R→B(-5,-8),128)),STRING(BITSL(R→B(-5,-8),128))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); IFERR r:={TYPE(R→B(#FFh,-8)),STRING(R→B(#FFh,-8))}; THEN r:=\"error\"; END; out:=CONCAT(out,{r}); RETURN STRING(out); END;",
+      "entry": "WLOGIC",
+      "source_sha256": "5935e6c968fefb74c59c4f713c681c1dfbcb2b65e49b036c183da7a1223d5d7d",
+      "expected": "{{1,\"#0h\"},{1,\"#FFh\"},{1,\"#FFh\"},{1,\"#FFFFFF00h\"},{1,\"#FFFFFFFFh\"},{0,\"1.84467440737ᴇ19\"},{0,\"9.22337203685ᴇ18\"},{0,\"549755813887\"},\"error\",{0,\"99511627775\"},{0,\"0\"},{1,\"#0:-8h\"},{1,\"#0:-8h\"},{1,\"#FF:-8h\"}}"
+    },
+    {
+      "name": "word-logic-real-bits-reference-short_circuit",
+      "source": "EXPORT WSHORT() BEGIN A:=0; LOCAL r:={}; r:=CONCAT(r,{0 AND (A:=A+1),A}); r:=CONCAT(r,{1 OR (A:=A+1),A}); r:=CONCAT(r,{#0h AND (A:=A+1),A}); RETURN STRING(r); END;",
+      "entry": "WSHORT",
+      "source_sha256": "9240b61cd0d5acbe5cc102ded10a980a0daf9d7aa245fd74305bf76409a235ee",
+      "expected": "{0,0,1,0,#0h,0}"
+    },
+    {
+      "name": "word-lazy-reference-variables",
+      "source": "BUMP() BEGIN A:=A+1; RETURN #0Fh; END; LOGPARAM(x,y) BEGIN RETURN x OR y; END; EXPORT LAZYWORD() BEGIN Base:=3; Bits:=32; Signed:=0; A:=0; LOCAL v:=#F0h,r:={}; r:=CONCAT(r,{v OR #0Fh,LOGPARAM(v,#0Fh),v OR BUMP(),A}); A:=0; r:=CONCAT(r,{#FFFFFFFFh OR BUMP(),A}); A:=0; r:=CONCAT(r,{R→B(-1,-8) OR BUMP(),A}); A:=0; r:=CONCAT(r,{v AND BUMP(),A,TYPE(v OR 1),STRING(v OR 1),TYPE(v AND 1),STRING(v AND 1)}); RETURN STRING(r); END;",
+      "entry": "LAZYWORD",
+      "source_sha256": "6ae909b398660cc4145317bef699a8316166608af47936d68a2ed69cf63b3371",
+      "expected": "{#FFh,#FFh,#FFh,1,#FFFFFFFFh,0,#−1:-8h,0,#0h,1,0,\"1\",0,\"1\"}"
+    },
+    {
+      "name": "word-default-width-reference-getter_tiny",
+      "source": "EXPORT WGETTINY() BEGIN Base:=3; Bits:=1; Signed:=0; LOCAL v:=GETBASE(#FFh); RETURN STRING({STRING(v),GETBITS(v),B→R(v),v+#0:1h}); END;",
+      "entry": "WGETTINY",
+      "source_sha256": "b995c8d559b0a5e8666d74b3c20f764e1c904ef82e02cbeb53644e040e2c0a2e",
+      "expected": "{\"#0h\",1,0,#0h}"
+    },
+    {
+      "name": "word-consumers-settings-reference-settings",
+      "source": "EXPORT WSETTINGS() BEGIN LOCAL out:={},r,k; FOR k FROM 1 TO 9 DO Base:=3; Bits:=32; Signed:=0; IFERR IF k==1 THEN Base:=-1; END; IF k==2 THEN Base:=4; END; IF k==3 THEN Bits:=0; END; IF k==4 THEN Bits:=65; END; IF k==5 THEN Signed:=2; END; IF k==6 THEN Bits:=64; Signed:=1; END; IF k==7 THEN Signed:=1; Bits:=64; END; IF k==8 THEN Bits:=63; Signed:=1; END; IF k==9 THEN Bits:=8; Signed:=1; END; r:=\"ok\"; THEN r:=\"error\"; END; out:=CONCAT(out,{{k,r,Base,Bits,Signed}}); END; RETURN STRING(out); END;",
+      "entry": "WSETTINGS",
+      "source_sha256": "0b2a7428e1355f05c88475d3c4fecc28ee83e44976cee67e5d5789a06043eef7",
+      "expected": "{{1,\"error\",3,32,0},{2,\"error\",3,32,0},{3,\"error\",3,32,0},{4,\"error\",3,32,0},{5,\"ok\",3,32,1},{6,\"error\",3,64,0},{7,\"error\",3,32,1},{8,\"ok\",3,63,1},{9,\"ok\",3,8,1}}"
+    },
+    {
+      "name": "word-consumers-settings-reference-conversion_rounding",
+      "source": "EXPORT WROUND() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL vals:={-2.9,-2.5,-1.9,-0.9,0.5,1.5,1.9,2.5,2.9},k,out:={}; FOR k FROM 1 TO 9 DO out:=CONCAT(out,{{vals(k),STRING(R→B(vals(k),-8))}}); END; RETURN STRING(out); END;",
+      "entry": "WROUND",
+      "source_sha256": "03c700b7c51fdf33e946f4499dd45664cbeb8ad5bc8afa3de82f54e61aefd73a",
+      "expected": "{{−2.9,\"#−3:-8h\"},{−2.5,\"#−3:-8h\"},{−1.9,\"#−2:-8h\"},{−0.9,\"#−1:-8h\"},{0.5,\"#1:-8h\"},{1.5,\"#2:-8h\"},{1.9,\"#2:-8h\"},{2.5,\"#3:-8h\"},{2.9,\"#3:-8h\"}}"
+    },
+    {
+      "name": "word-consumers-settings-reference-real_wide_bits",
+      "source": "EXPORT WBITSWIDE() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN STRING({BITOR(549755813888,1),BITXOR(549755813888,1),BITAND(549755813888,549755813888)}); END;",
+      "entry": "WBITSWIDE",
+      "source_sha256": "f9441b958249ccfe9ad58970db564e4985297cbcf0d979b35d47db0d1b797d15",
+      "expected": "{549755813889,549755813889,549755813888}"
+    },
+    {
+      "name": "matrix_color",
+      "source": "EXPORT WCONSUME() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL v:=R→B(-1,-8),m:=[[0,0]],r; m(1,1):=v; m(1,2):=#FFh; DIMGROB_P(G1,1,1,#112233h); PIXON_P(G1,0,0,v); r:=GETPIX_P(G1,0,0); RETURN STRING({TYPE(m(1,1)),m(1,1),TYPE(m(1,2)),m(1,2),r}); END;",
+      "entry": "WCONSUME",
+      "source_sha256": "2f2c48bee1cd3dc4251b26c1512a44f587db788e588a9a77b78d2adaaaee631d",
+      "expected": "{0,−1,0,255,#1h}"
+    },
+    {
+      "name": "vector_types",
+      "source": "EXPORT WVTYPE() BEGIN Base:=3; Bits:=32; Signed:=0; LOCAL v:=[0,0,#FF0000h],m:=[[#FFh,1]],n:=[R→B(-1,-8),0]; RETURN STRING({TYPE(v(3)),v(3),TYPE(m(1,1)),m(1,1),TYPE(n(1)),n(1)}); END;",
+      "entry": "WVTYPE",
+      "source_sha256": "427c8c137670de724cf2816912e7386a6e4cdb87206cb015290e210483b48a98",
+      "expected": "{0,16711680,0,255,0,−1}"
+    }
+  ]
+}

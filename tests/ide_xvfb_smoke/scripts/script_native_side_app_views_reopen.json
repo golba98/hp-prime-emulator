@@ -1,0 +1,47 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_app_views_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_app",
+      "name": "Statistics 2Var"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 100
+    },
+    {
+      "step": "new_program",
+      "name": "APPVIEWS"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT APPVIEWS() BEGIN STARTAPP(\"Statistics 2Var\");  RETURN STARTVIEW(8,1); END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "stats2_reopened"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_app_views_stats2_reopened.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -230,3 +230,19 @@ Add focused tests for protocol/output contracts and use temporary directories
 for generated data. Document optional private fixtures and skips explicitly.
 New documentation needs a precise `.gitignore` exception; never broadly unignore
 private research assets.
+
+## Cloud builds from public source
+
+On a Debian/Ubuntu worker with Rust installed, run `bash scripts/cloud/setup.sh`
+to install the compiler, Unicorn build dependencies and Xvfb. Run
+`bash scripts/cloud/check.sh` for formatting, Clippy, a workspace build, workspace
+tests and an actual Native calculator input flow under Xvfb. Use a space-free
+`CARGO_TARGET_DIR`; the default is `/tmp/hp-prime-cloud-target`.
+
+The check isolates configuration and disables IDE device access. It uses bundled
+fonts and does not configure firmware, installed calculator resources or a CAS
+helper. Tests guarded by optional asset environment variables do not exercise
+firmware when those variables are absent. Firmware evidence, installed font/help
+resources, save/resume against real firmware and physical calculator tests remain
+local. Giac integration requires a separately built public Giac helper as
+documented in `tools/giac-helper/README.md`.

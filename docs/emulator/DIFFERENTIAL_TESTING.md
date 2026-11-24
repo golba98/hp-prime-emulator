@@ -1,0 +1,283 @@
+# Unified PPL differential testing
+
+Implemented schema 1 and stateful schema 2. This extends `ppl-compat`; existing `ppl compare`
+suites, hardware evidence, interpretation history and the 77 physical references
+are unchanged. Live HLE execution uses isolated profiles; physical evidence collection remains separately guarded. FullSystem PPL scenarios remain unavailable; isolated synthetic ARM machine tests are separate.
+
+## Running scenarios
+
+```sh
+ppl differential tests/differential/arithmetic.toml --backend native
+ppl differential tests/differential/arithmetic.toml --backend native,firmware-hle --output comparison.json
+ppl differential tests/differential/state.toml --backend native
+ppl differential tests/differential/graphics.toml --backend native,firmware-hle
+```
+
+Firmware uses the existing user-supplied asset resolution (flags, PPL variables,
+then configuration); `--firmware`, `--os-rom`, `--factory-a`, `--init-data` and
+`--firmware-runner` may be specified. Execution uses disposable profiles created
+by the existing engine, never an existing calculator save or a USB device.
+
+The output is structured JSON. Exit 0 means all required backends completed and
+all comparisons passed; 1 means disagreement, unavailable required backend,
+unsupported capability or missing observations; 2 means invalid input or report
+I/O failure. No comparisons is a failure. Optional unavailable backends remain
+explicit in the report and cannot produce an otherwise empty passing run.
+
+## Fixture contract
+
+Schema 1 retains its single `[program]` source/file contract and original hashes.
+Schema 2 adds `[programs.ZZT_NAME]` source/file entries and the actions `import`,
+`run_program`, `probe`, `edit`, `start` and `await`. Existing key/touch,
+capture and power actions remain available according to backend capability.
+Initial settings/setup execute through PPL in HLE; unsupported RNG seeding is
+refused. Fixtures under `tests/differential/m16` are executable examples.
+
+Schema 2 records a sorted source manifest for every initial and edited revision.
+Its `source_sha256` is the manifest digest, and provenance additionally exposes
+individual source hashes. Changing a second program or an edit invalidates
+identity even when the default program is empty.
+
+| Adapter | Implemented behavior | Explicit limits |
+|---|---|---|
+| Native | Retained named modules, sequential execution, authored probes, edits, settings, framebuffer | Exported function/variable linkage supported; asynchronous physical input and firmware power semantics unsupported |
+| Firmware HLE | Genuine retained named programs; source-bound execution; Start/Await/key/touch; program-output graphics; OFF/fresh restart | Known observer profile required; numeric arguments; arbitrary in-place Check refused |
+| Physical capture | Qualified historical replay and sealed stateful capture bundles | New live USB collector unimplemented; manual input confirmations and retained artifacts required |
+| Full system | Explicit Unavailable result | Independent synthetic ARM hardware diagnostics; PPL and kernel execution unavailable |
+
+Named HLE loading assigns source directly to its catalog program through firmware.
+RunStored never silently reimports or invokes Check. Fresh-process dispatch
+rebinds by checking the actual firmware context's source before body entry.
+That execution proof is distinct from a compiler verdict.
+
+Start acknowledges real body entry. Key/touch acknowledgments explicitly mean
+`delivery_level=queued`; terminal fixture results must prove semantic consumption.
+Await correlates the terminal result. Cleanup preserves pending releases and
+waits for consumed input and idle before another invocation. Program-output
+captures refer to the return frame, not an arbitrary later Home screen.
+
+Authored probes return a typed list with one element per declared variable name.
+They are executions, not pure memory inspections. Matrix scenarios support both explicit dimension/cell projections and the verified direct matrix, vector, complex and integer codecs. Unknown representations remain unobserved.
+
+Native Run reuses the existing VM `SessionContext`, preserving module globals,
+calculator globals, settings and GROB state by exact source identity. It does
+not introduce a second VM or interpreter. Initial HAngle/HFormat/HDigits are
+validated; an optional zero-argument `setup_entry` executes authored PPL before
+the steps. Other initial effects belong in that setup routine, not host-memory
+injection. Native observations distinguish unknown variables from actual zero.
+
+Arguments use the existing tagged JSON values, for example
+`args = [{type="real",value="1.23456789012"}]`. Decimal strings preserve precision.
+Expected results use tagged values too: a real is not a string, integer width
+and matrix dimensions remain meaningful, and list ordering is exact.
+
+`[[expect]]` selects a step id and JSON pointer into that observation:
+
+```toml
+[[expect]]
+step = "run"
+path = "/return_value"
+value = { type="real", value="42" }
+```
+
+Backend constraints may name a required firmware build or ELF hash. Native
+cannot satisfy firmware identity constraints. The current one-shot HLE report
+identifies the ELF hash but has no verified build-number field: build-number
+constraints are explicitly unsupported. `firmware_sha256` constraints validate
+the configured ELF before execution. Never infer a firmware version from its
+filename. `optional=true` permits an unavailable backend without counting it as
+executed or matched.
+
+## Comparison and provenance
+
+The `Backend` trait is the extension seam. Each adapter returns observations,
+source/fixture identity, evidence origin, firmware hash when available and raw
+engine reports. The coordinator checks identity and unique step observations,
+evaluates expectations, and compares semantic observations between completed
+backends. Mismatches identify backend, reference backend, step, JSON pointer,
+expected value, actual value and reason. Timing and backend metadata are not
+semantic observations.
+
+There is no generic error-equals-error rule. Different error text/kinds,
+missing fields, undeclared observation gaps and changed source hashes fail.
+Expected runtime errors must be explicit status expectations. A successful
+firmware execution with an undecoded result remains `unobserved`; the adapter
+retains its raw representation and does not parse the display message.
+
+Images default to exact RGB pixels, with dimensions and pixel counts checked.
+The library's `compare_images` can explicitly compare RGB565 display encoding;
+this is not a visual similarity tolerance. It reports changed count and first
+coordinate. Pairwise image discrepancies produce a bounded summary rather than
+one mismatch per pixel. There are no implicit clock/status-bar masks or text
+normalizations. Per-fixture image masks and reference-PNG expectations are not
+implemented yet.
+
+A backend match is not labelled physical `VERIFIED`. Local firmware and Native
+results retain their own origin. This framework does not promote HLE execution
+to full-system emulation or infer physical coverage from passing mocks.
+
+## Qualified physical replay
+
+```sh
+ppl differential \
+  --replay-suite tests/compat/cases/core.toml \
+  --replay-evidence tests/compat/evidence/core/ZZT_NAME.json \
+  --replay-manifest tests/compat/runs/ZZT_NAME.json
+```
+
+Use actual existing capture names; the placeholder above is illustrative.
+Replay reuses `assessment::qualify`: source and generator identity, manifest,
+G1 build 15157 identity, raw artifact hash, transcript and captured settings must
+all agree. The validated capture type has private construction fields. A locally
+produced report or an arbitrary `physical` label cannot enter this path.
+
+Interpretation revisions and source observations are applied through the existing
+append-only provenance registry. Disputed interpretations fail rather than being
+counted as matching; original observations remain visible alongside corrections.
+
+The report's scope is **legacy TYPE/STRING only**. IFERR recordings establish
+only an error category, so replay does not claim error-detail parity for them.
+Values compare exactly. It does not use legacy display normalization or modify
+the historical classifications. This stricter result can differ from existing
+Partial/transcription classifications without changing that evidence. New scenario captures use the separately sealed bundle workflow below; live USB collection remains unimplemented.
+
+## Tests and next integration
+
+Regression tests cover retained Native globals, setup/settings, scalar/list type
+and order distinctions, exact error differences, source binding, missing or
+duplicate observations, unknown variables, unavailable/unsupported backends,
+actual drawing coordinates and image encoding/dimensions. All committed
+scenarios execute their declared Native expectations. Existing compatibility
+and physical-evidence tests remain part of the required regression suite.
+
+M16 adds actual-firmware scenarios for alternating modules and edits,
+cross-program calls, CAS, errors followed by successful execution, graphics,
+OFF/restart persistence and sequential key/touch waits. Their fixture durations
+include boot/import/shutdown and are not launch-latency measurements.
+See `M16_STATEFUL_EXECUTION.md` and the integrated M16 report.
+
+## New physical scenario bundles
+
+`ppl capture prepare/seal/validate/compare` works offline and never opens USB.
+Bundles freeze all source revisions, planned actions, confirmed delivery,
+observations and checksummed raw artifacts. Manual physical attestations require
+matching retained raw identity replies; controlled mocks cannot become physical
+verification. Manual attestation is not cryptographic proof of authenticity.
+See `PHYSICAL_SCENARIO_CAPTURE.md` for commands and trust limits.
+Legacy TYPE/STRING replay retains its narrower independent provenance.
+
+## First actual firmware comparison
+
+A real local-firmware smoke of the rational-difference fixture found Native's
+12-digit decimal `0.333333333333` versus firmware's exact rational `1/3`.
+The structured report identifies `/return_value/value/0`; it keeps the rational
+numerator/denominator and does not equate it to a decimal merely because a
+calculator display can round them similarly. This is a known representation /
+compatibility distinction, not a failed harness test or physical verification.
+The common arithmetic fixture uses exact integer-valued arithmetic so it can
+also serve as a positive cross-backend control.
+
+## M16 live stateful adapter
+
+Schema 2 and the genuine named-program HLE session adapter are implemented. See
+[M16 stateful execution](M16_STATEFUL_EXECUTION.md) for source-manifest identity,
+authored probes, asynchronous input, restart semantics, actual firmware fixtures
+and explicit unsupported capabilities. Schema 1 and historical physical replay
+retain their original scope.
+
+## M17 multi-module execution and retained diagnostics
+
+Native resolves exported functions through one linked bytecode image. Calls
+share a VM stack, calculator globals, settings and execution limits; private
+variables remain bound to the owning source revision. Import/Edit initializes
+the installed module, matching the observed firmware installation timing.
+Unrelated broken sources do not block a valid dependency closure. Missing,
+private and ambiguous exports fail explicitly. See [Native linkage](M17_NATIVE_LINKAGE.md)
+for limitations and source-bound call traces.
+
+The same fixtures run against Native and the real retained HLE session:
+
+```sh
+ppl differential tests/differential/m17/initialization.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/linkage.toml --backend native,firmware-hle
+ppl differential tests/differential/m17/typed_values.toml --backend native,firmware-hle
+cargo test -p ppl-compat --test m17_differential
+```
+
+The integration test's real-firmware case requires PRIME_TEST_FIRMWARE,
+PRIME_TEST_INIT_DATA and PRIME_TEST_RUNNER, with PRIME_TEST_OS_ROM when needed.
+Without those resources only Native is exercised; an ungated workspace pass
+does not establish firmware verification. PRIME_M17_EVIDENCE_DIR optionally
+retains structured comparisons. Integrated local-firmware verification passed
+12 initialization, 22 linkage and17 typed-value assertions, including an edited dependency.
+This is firmware-versus-Native evidence, not new physical verification.
+
+HLE raw reports preserve each job's bounded debug bundle before its disposable
+profile is removed. The capture verifies request and source identity, schema,
+file kind and size; failures remain explicitly unavailable. These diagnostics
+are metadata and never normalize errors or change semantic comparison. Register
+capture still requires tracing; a valid bundle need not contain registers.
+
+The FullSystem scenario adapter remains unavailable. Actual execution of the
+separate self-authored ARM926 smoke on qemuPrime's hp-prime model does not imply
+calculator kernel boot or PPL execution capability.
+
+Controlled firmware captures now establish matrices/vectors, complex numbers
+and integer variants, including nested values. The typed scenario preserves
+vector identity, dimensions, element types, complex components, integer width
+and base. Seven deliberate mismatch controls verify their exact JSON paths.
+See [typed values](M17_TYPED_VALUES.md) for captured layouts and unsupported
+representations. Codec replay of local-firmware bytes is classified separately
+from executing the current HLE; neither is a new physical capture.
+
+## Modifier and checkpoint controls
+
+[Modifier checkpoint controls](M17_MODIFIER_CHECKPOINT_CONTROLS.md) provide an
+isolated, resource-bound headless runner for neutral, Shift, one-shot Alpha and
+Alpha-lock states. It retains exact key actions, real framebuffer masks,
+inspection, checkpoint outcomes and normal-OFF cleanup. Ten mock/protocol tests
+run without firmware or hardware. Real local-firmware controls established the
+Shift-latched OFF bug and verify its correction while preserving Alpha lock.
+These captures are HLE evidence, not physical verification.
+
+Transport projection is explicit: missing raw representations/call histories
+are forensic metadata, while omitted images, output, diagnostics, return values
+or unknown future semantic scopes make an observation unobserved. A truncated
+reply cannot become a successful empty output or fake runtime error. Three
+adapter controls and actual oversized-packet tests enforce this distinction.
+
+Final M17 fixtures and regression results are recorded in
+[the M17 report](M17_RUNTIME_FIDELITY_FULL_SYSTEM.md). FullSystem PPL remains
+unavailable despite the independent executed ARM research smoke.
+
+## M18 synthetic execution boundaries
+
+`ppl full-system info/run` discovers and executes isolated hardware research
+cases. Their case/machine/build/image identities and proof categories are checked
+before results are accepted. They do not enter PPL comparison as a successful
+FullSystem calculator backend. Real ARM execution, paused-CPU qtest checks,
+synthetic Unicorn continuation, local HLE results and historical physical replay
+remain separate observations. No synthetic result may claim a physical capture
+or proprietary kernel boot. Existing PPL fixture schemas are unchanged.
+
+M18 adds `tests/differential/m18/ascii_imaginary.toml` and
+`exported_variables.toml`. Coordinator runs against the actual rebuilt helper
+pass 14 and 29 assertions, respectively. They preserve scalar/list/matrix types,
+module ownership, repeated state and edited-source identities. Firmware list
+subtype0x16/2 is admitted only after controlled representation/projection captures;
+unknown forms still fail observation. Alongside M17's three scenarios, the five
+actual Native/HLE comparisons pass94 assertions without mismatches. No new
+physical-device capture is included.
+
+FullSystem wrapper artifacts are under `OUTPUT/run`, inside an atomically
+reserved private output directory. Failed admission cannot borrow another run's
+container ID. Structured hardware reports require actual guest entry, step,
+terminal state and case-specific mailbox/UART observations; empty objects with
+an execution flag are rejected. This is validation of trusted local tooling,
+not cryptographic attestation of arbitrary externally supplied results.
+
+## M19 boot hardware and storage
+
+M19 adds nested-complex and full-width integer boundary comparisons: 101 genuine retained Native/HLE assertions including the preserved 94. Unknown CAS wrappers stay bounded and Unsupported. Hardware guest cases are separate from PPL differential results and physical classifications. See the [M19 report](M19_BOOT_HARDWARE_AND_STORAGE.md) for evidence categories, limits and final verification.
+
+Run `ppl differential tests/differential/m19/typed_boundaries.toml --backend native,firmware-hle` with the usual local asset options to reproduce the new boundary scenario. Bounded unknown CAS captures and corruption controls are retained in the M19 typed fixture; no unverified pointer traversal was added. Duplicate-export import-order observations are evidence, not a complete replacement/rebinding specification.

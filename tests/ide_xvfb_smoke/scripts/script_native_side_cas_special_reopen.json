@@ -1,0 +1,90 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_cas_special_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "type",
+      "text": "STRING(special)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "home_undefined_readback"
+    },
+    {
+      "step": "calc_key",
+      "code": 10
+    },
+    {
+      "step": "type",
+      "text": "persisted"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_undefined_readback"
+    },
+    {
+      "step": "type",
+      "text": "negative"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 20000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_negative_readback"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

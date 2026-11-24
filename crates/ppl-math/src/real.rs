@@ -17,6 +17,9 @@ use std::fmt;
 
 use crate::MathError;
 
+mod origin;
+pub use origin::{NumericVersion, RealOrigin};
+
 /// Significant decimal digits kept by a real.
 pub const DIGITS: u32 = 12;
 /// Largest decimal exponent of the leading digit.
@@ -59,18 +62,42 @@ pub struct Real {
     /// Coefficient without trailing zeros; zero only for the value zero.
     mant: u64,
     exp: i32,
+    /// Calculator presentation travels with the numeric value; it does not
+    /// participate in numeric comparison or change the decimal coefficient.
+    presentation: RealPresentation,
+    origin: RealOrigin,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum RealPresentation {
+    #[default]
+    Decimal,
+    Sexagesimal,
 }
 
 impl Real {
+    pub const fn max_finite(negative: bool) -> Self {
+        Self {
+            neg: negative,
+            mant: MANT_LIMIT - 1,
+            exp: MAX_EXP10 - DIGITS as i32 + 1,
+            presentation: RealPresentation::Decimal,
+            origin: RealOrigin::Decimal,
+        }
+    }
     pub const ZERO: Real = Real {
         neg: false,
         mant: 0,
         exp: 0,
+        presentation: RealPresentation::Decimal,
+        origin: RealOrigin::LegacyBcd,
     };
     pub const ONE: Real = Real {
         neg: false,
         mant: 1,
         exp: 0,
+        presentation: RealPresentation::Decimal,
+        origin: RealOrigin::LegacyBcd,
     };
 
     /// Builds a real from an exact coefficient, rounding to 12 digits.
@@ -92,6 +119,17 @@ impl Real {
         exp: i64,
         sticky: bool,
     ) -> Result<Real, MathError> {
+        match Self::from_parts_strict(neg, coeff, exp, sticky) {
+            Err(MathError::Overflow) => crate::overflow_result(neg),
+            result => result,
+        }
+    }
+    fn from_parts_strict(
+        neg: bool,
+        coeff: u128,
+        exp: i64,
+        sticky: bool,
+    ) -> Result<Real, MathError> {
         if coeff == 0 {
             return Ok(Real::ZERO);
         }
@@ -108,6 +146,8 @@ impl Real {
             neg,
             mant,
             exp: exp as i32,
+            presentation: RealPresentation::Decimal,
+            origin: RealOrigin::LegacyBcd,
         })
     }
 
@@ -123,11 +163,16 @@ impl Real {
             neg,
             mant,
             exp: exp as i32,
+            presentation: RealPresentation::Decimal,
+            origin: RealOrigin::LegacyBcd,
         }
     }
 
     /// Multiplies by `10^k` exactly (only the range can fail).
     pub fn scale10(self, k: i32) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_scale10(k) {
+            return result;
+        }
         if self.mant == 0 {
             return Ok(self);
         }
@@ -148,10 +193,10 @@ impl Real {
             return Err(MathError::Undefined);
         }
         if v.is_infinite() {
-            return Err(MathError::Overflow);
+            return crate::overflow_result(v.is_sign_negative());
         }
         if v == 0.0 {
-            return Ok(Real::ZERO);
+            return Ok(Real::ZERO.decimal());
         }
         // `{:.16e}` prints the binary value correctly rounded to 17 digits.
         // `parse` keeps 13 of them and rounds on the 13th, which is exact for
@@ -169,12 +214,31 @@ impl Real {
             .collect();
         if digits.len() == 17 && &digits[12..] == "50000" {
             let exact = format!("{:.800e}", v);
-            return Real::parse(&exact).ok_or(MathError::Undefined);
+            return Real::parse(&exact)
+                .map(Real::decimal)
+                .ok_or(MathError::Undefined);
         }
-        Real::parse(&s).ok_or(MathError::Undefined)
+        Real::parse(&s)
+            .map(Real::decimal)
+            .ok_or(MathError::Undefined)
     }
 
     pub fn to_f64(self) -> f64 {
+        let exact = match self.origin {
+            RealOrigin::Rational {
+                numerator,
+                denominator,
+            } => Some(numerator as f64 / denominator as f64),
+            RealOrigin::PiMultiple {
+                numerator,
+                denominator,
+            } => Some((numerator as f64 / denominator as f64) * std::f64::consts::PI),
+            _ => None,
+        };
+        if let Some(value) = exact {
+            return if self.neg { -value } else { value };
+        }
+
         if self.mant == 0 {
             return 0.0;
         }
@@ -247,11 +311,20 @@ impl Real {
         }
         // Keep the guard digit and whether later digits are nonzero. Dropping
         // that tail would turn a just-above-half literal into an exact tie.
-        Real::from_parts_wide_sticky(neg, coeff, exp, sticky).ok()
+        Real::from_parts_strict(neg, coeff, exp, sticky).ok()
     }
 
     pub fn is_zero(self) -> bool {
         self.mant == 0
+    }
+
+    pub fn presentation(self) -> RealPresentation {
+        self.presentation
+    }
+
+    pub fn with_presentation(mut self, presentation: RealPresentation) -> Self {
+        self.presentation = presentation;
+        self
     }
 
     pub fn is_negative(self) -> bool {
@@ -290,10 +363,26 @@ impl Real {
     }
 
     pub fn is_integer(self) -> bool {
+        match self.origin {
+            RealOrigin::Rational {
+                numerator,
+                denominator,
+            } => return numerator % denominator == 0,
+            RealOrigin::PiMultiple { .. } => return false,
+            _ => {}
+        }
+
         self.mant == 0 || self.exp >= 0
     }
 
     pub fn to_i64(self) -> Option<i64> {
+        if matches!(
+            self.origin,
+            RealOrigin::Rational { .. } | RealOrigin::PiMultiple { .. }
+        ) {
+            return self.to_i128().and_then(|n| i64::try_from(n).ok());
+        }
+
         if !self.is_integer() || self.exp10() > 18 {
             return None;
         }
@@ -302,7 +391,44 @@ impl Real {
         i64::try_from(v).ok()
     }
 
+    /// Exact integer conversion for word operations; no binary float and no
+    /// narrowing through i64 at the unsigned64-bit boundary.
+    pub fn to_i128(self) -> Option<i128> {
+        match self.origin {
+            RealOrigin::Rational {
+                numerator,
+                denominator,
+            } => {
+                if numerator % denominator != 0 {
+                    return None;
+                }
+                let magnitude = i128::from(numerator / denominator);
+                return Some(if self.neg { -magnitude } else { magnitude });
+            }
+            RealOrigin::PiMultiple { .. } => return None,
+            _ => {}
+        }
+
+        if !self.is_integer() || self.exp10() > 38 {
+            return None;
+        }
+        let magnitude =
+            (self.mant as u128).checked_mul(*POW10_U128.get(self.exp.max(0) as usize)?)?;
+        if self.neg {
+            if magnitude == 1u128 << 127 {
+                Some(i128::MIN)
+            } else {
+                i128::try_from(magnitude).ok().map(|value| -value)
+            }
+        } else {
+            i128::try_from(magnitude).ok()
+        }
+    }
+
     pub fn add(self, o: Real) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_binary(o, origin::Binary::Add) {
+            return result;
+        }
         if self.mant == 0 {
             return Ok(o);
         }
@@ -334,6 +460,9 @@ impl Real {
     }
 
     pub fn mul(self, o: Real) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_binary(o, origin::Binary::Mul) {
+            return result;
+        }
         if self.mant == 0 || o.mant == 0 {
             return Ok(Real::ZERO);
         }
@@ -345,6 +474,9 @@ impl Real {
     }
 
     pub fn div(self, o: Real) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_binary(o, origin::Binary::Div) {
+            return result;
+        }
         if o.mant == 0 {
             return Err(MathError::DivisionByZero);
         }
@@ -365,6 +497,9 @@ impl Real {
 
     /// Total order on values (zero has no sign).
     pub fn cmp_value(self, o: Real) -> Ordering {
+        if let Some(ordering) = self.origin_cmp(o) {
+            return ordering;
+        }
         let sa = if self.mant == 0 {
             0
         } else if self.neg {
@@ -400,6 +535,9 @@ impl Real {
 
     /// Integer part toward negative infinity.
     pub fn floor(self) -> Real {
+        if let Some(value) = self.origin_integer(-1) {
+            return value;
+        }
         let t = self.trunc();
         if self.neg && t.cmp_value(self) != Ordering::Equal {
             t.sub(Real::ONE).unwrap_or(t)
@@ -409,6 +547,9 @@ impl Real {
     }
 
     pub fn ceil(self) -> Real {
+        if let Some(value) = self.origin_integer(1) {
+            return value;
+        }
         let t = self.trunc();
         if !self.neg && t.cmp_value(self) != Ordering::Equal {
             t.add(Real::ONE).unwrap_or(t)
@@ -419,6 +560,9 @@ impl Real {
 
     /// Integer part toward zero (`IP`).
     pub fn trunc(self) -> Real {
+        if let Some(value) = self.origin_integer(0) {
+            return value;
+        }
         if self.is_integer() {
             return self;
         }
@@ -438,6 +582,9 @@ impl Real {
     /// Rounds to `places` decimal places, half away from zero. Negative
     /// `places` rounds to significant digits, as `ROUND` does on the Prime.
     pub fn round_places(self, places: i32) -> Real {
+        if let Some(value) = self.origin_round(places, true) {
+            return value;
+        }
         match self.quantize(places, true) {
             Some((q, e)) => Real::from_parts_wide(self.neg, q, e).unwrap_or(self),
             None => self,
@@ -446,6 +593,9 @@ impl Real {
 
     /// Truncates to `places` decimal places (`TRUNCATE`).
     pub fn truncate_places(self, places: i32) -> Real {
+        if let Some(value) = self.origin_round(places, false) {
+            return value;
+        }
         match self.quantize(places, false) {
             Some((q, e)) => Real::from_parts_wide(self.neg, q, e).unwrap_or(self),
             None => self,
@@ -482,6 +632,9 @@ impl Real {
     /// Raises to an integer power exactly when the coefficient fits in 128
     /// bits, otherwise through logarithms.
     pub fn powi(self, n: i64) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_powi(n) {
+            return result;
+        }
         if n == 0 {
             if self.mant == 0 {
                 return Err(MathError::Undefined);
@@ -520,6 +673,9 @@ impl Real {
     }
 
     pub fn pow(self, y: Real) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_pow(y) {
+            return result;
+        }
         if let Some(n) = y.to_i64() {
             return self.powi(n);
         }
@@ -542,6 +698,9 @@ impl Real {
     }
 
     pub fn sqrt(self) -> Result<Real, MathError> {
+        if let Some(result) = self.origin_sqrt() {
+            return result;
+        }
         if self.neg && self.mant != 0 {
             return Err(MathError::NonReal);
         }
@@ -688,14 +847,20 @@ fn parse_exponent(e: &str) -> Option<i64> {
     Some(if neg { -v } else { v })
 }
 
-fn ten_pow(l: f64) -> Result<Real, MathError> {
-    if !l.is_finite() {
-        return Err(MathError::Overflow);
+pub(crate) fn ten_pow(l: f64) -> Result<Real, MathError> {
+    if l.is_nan() {
+        return Err(MathError::Undefined);
+    }
+    if l == f64::NEG_INFINITY {
+        return Ok(Real::ZERO);
+    }
+    if l == f64::INFINITY {
+        return crate::overflow_result(false);
     }
     let int = l.floor();
     let frac = l - int;
     if int > MAX_EXP10 as f64 + 1.0 {
-        return Err(MathError::Overflow);
+        return crate::overflow_result(false);
     }
     if int < MIN_EXP10 as f64 - 2.0 {
         return Ok(Real::ZERO);
@@ -729,12 +894,20 @@ pub enum NumFormat {
     Fixed(u8),
     Scientific(u8),
     Engineering(u8),
+    Floating(u8),
+    Rounded(u8),
 }
 
 /// Formatting options shared by every real formatter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FormatOptions {
     pub format: NumFormat,
+    pub angle: crate::AngleMode,
+    pub digit_grouping: Option<crate::DigitGrouping>,
+    pub complex_format: crate::ComplexFormat,
+    pub int_bits: u8,
+    pub int_signed: bool,
+    pub int_base: crate::IntBase,
     /// Exponent marker. The calculator shows `ᴇ` (U+1D07); ASCII `E` is the
     /// host default (unverified which one STRING() produces).
     pub exp_char: char,
@@ -744,18 +917,40 @@ impl Default for FormatOptions {
     fn default() -> Self {
         FormatOptions {
             format: NumFormat::Standard,
+            angle: crate::AngleMode::Radians,
             exp_char: 'E',
+            digit_grouping: None,
+            complex_format: crate::ComplexFormat::Algebraic,
+            int_bits: crate::int::DEFAULT_BITS,
+            int_signed: false,
+            int_base: crate::IntBase::Hex,
         }
     }
 }
 
 impl Real {
     pub fn format(self, opts: FormatOptions) -> String {
-        match opts.format {
+        if self.presentation == RealPresentation::Sexagesimal {
+            return crate::sexagesimal::format(self);
+        }
+        let raw = match opts.format {
             NumFormat::Standard => self.format_standard(opts.exp_char),
             NumFormat::Fixed(n) => self.format_fixed(n as i32, opts.exp_char),
             NumFormat::Scientific(n) => self.format_sci(n as i32, opts.exp_char, false),
             NumFormat::Engineering(n) => self.format_sci(n as i32, opts.exp_char, true),
+            NumFormat::Floating(n) => self.format_floating(n as i32, opts.exp_char),
+            NumFormat::Rounded(n) => {
+                let raw = self.format_fixed(n as i32, opts.exp_char);
+                if raw.contains(opts.exp_char) {
+                    raw
+                } else {
+                    trim_fraction_zeros(raw, opts.exp_char)
+                }
+            }
+        };
+        match opts.digit_grouping {
+            Some(grouping) => grouping.display(&raw, opts.exp_char),
+            None => raw,
         }
     }
 
@@ -783,9 +978,15 @@ impl Real {
     }
 
     fn format_fixed(self, places: i32, e: char) -> String {
+        let requested = places.clamp(0, DIGITS as i32 - 1);
+        let places = if self.is_zero() {
+            requested
+        } else {
+            requested.min((DIGITS as i32 - 1 - self.exp10()).max(0))
+        };
         let r = self.round_places(places);
-        if r.mant != 0 && r.exp10() >= DIGITS as i32 {
-            return self.format_sci(DIGITS as i32 - 1, e, false);
+        if !self.is_zero() && (r.is_zero() || r.exp10() >= DIGITS as i32) {
+            return self.format_sci(requested, e, false);
         }
         let sign = if r.neg && r.mant != 0 { "-" } else { "" };
         // `r` is a multiple of 10^-places, so `r × 10^places` is the
@@ -806,7 +1007,29 @@ impl Real {
         }
     }
 
+    fn format_floating(self, places: i32, e: char) -> String {
+        let places = places.clamp(0, DIGITS as i32 - 1);
+        let exponent = self.exp10();
+        let raw = if exponent > places {
+            self.format_sci(places, e, false)
+        } else {
+            let fractional = if exponent < 0 {
+                places + 1
+            } else {
+                places - exponent
+            };
+            let fixed = self.format_fixed(fractional, e);
+            if fixed.contains(e) || self.round_places(fractional).exp10() > places {
+                self.format_sci(places, e, false)
+            } else {
+                fixed
+            }
+        };
+        trim_fraction_zeros(raw, e)
+    }
+
     fn format_sci(self, places: i32, e: char, eng: bool) -> String {
+        let places = places.clamp(0, DIGITS as i32 - 1);
         if self.mant == 0 {
             return if places > 0 {
                 format!("0.{}{}0", "0".repeat(places as usize), e)
@@ -827,19 +1050,35 @@ impl Real {
             e10 -= shift;
             int_digits += shift;
         }
+        let fraction_digits = (places + 1 - int_digits).max(0);
         let mut s = r.mant.to_string();
-        let need = (int_digits + places) as usize;
+        let need = (int_digits + fraction_digits) as usize;
         while s.len() < need {
             s.push('0');
         }
         let sign = if r.neg { "-" } else { "" };
         let (a, b) = s.split_at(int_digits as usize);
-        let b = &b[..(places as usize).min(b.len())];
+        let b = &b[..(fraction_digits as usize).min(b.len())];
         if b.is_empty() {
             format!("{sign}{a}{e}{e10}")
         } else {
             format!("{sign}{a}.{b}{e}{e10}")
         }
+    }
+}
+
+fn trim_fraction_zeros(raw: String, exponent: char) -> String {
+    let (mantissa, suffix) = raw
+        .split_once(exponent)
+        .map_or((raw.as_str(), None), |(m, e)| (m, Some(e)));
+    let mantissa = if mantissa.contains('.') {
+        mantissa.trim_end_matches('0').trim_end_matches('.')
+    } else {
+        mantissa
+    };
+    match suffix {
+        Some(suffix) => format!("{mantissa}{exponent}{suffix}"),
+        None => mantissa.to_owned(),
     }
 }
 
@@ -853,7 +1092,9 @@ fn sci_body(s: &str, e10: i32, e: char) -> String {
 
 impl fmt::Display for Real {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.format(FormatOptions::default()))
+        // Canonical numeric transport is independent of presentation. Memory,
+        // Giac and diagnostic codecs store the decimal and metadata separately.
+        f.write_str(&self.format_standard('E'))
     }
 }
 
@@ -922,11 +1163,13 @@ mod tests {
         let o = |f| FormatOptions {
             format: f,
             exp_char: 'E',
+            angle: crate::AngleMode::Radians,
+            ..Default::default()
         };
         assert_eq!(r("3.14159").format(o(NumFormat::Fixed(2))), "3.14");
         assert_eq!(r("5").format(o(NumFormat::Fixed(3))), "5.000");
         assert_eq!(r("12345").format(o(NumFormat::Scientific(2))), "1.23E4");
-        assert_eq!(r("12345").format(o(NumFormat::Engineering(2))), "12.30E3");
+        assert_eq!(r("12345").format(o(NumFormat::Engineering(2))), "12.3E3");
     }
 
     #[test]

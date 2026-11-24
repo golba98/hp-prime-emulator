@@ -1,0 +1,73 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/firmware_environment/environment.json",
+  "steps": [
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "backend",
+      "engine": "firmware"
+    },
+    {
+      "step": "wait_session",
+      "state": "ready",
+      "timeout_ms": 180000
+    },
+    {
+      "step": "wait_environment",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "initial"
+    },
+    {
+      "step": "click_ui_control",
+      "name": "firmware_environment"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "click_ui_control",
+      "name": "battery_voltage"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "click_ui_control",
+      "name": "battery_charging"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "click_ui_control",
+      "name": "battery_apply"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "wait_environment",
+      "timeout_ms": 15000
+    },
+    {
+      "step": "snapshot",
+      "label": "changed"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/firmware_environment/changed.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+--- /dev/null
++++ b/hw/arm/s3c2416_timer.c
+@@ -0,0 +1,202 @@
++/*
++ * S3C2416 16-bit PWM countdown/interrupt subset.
++ * Copyright (c) 2026 HP Prime emulator contributors.
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ *
++ * Register layout follows S3C2416X chapter 12 / Linux samsung,s3c2410-pwm.
++ * External clocks, DMA, waveform/dead-zone output and clock-tree changes
++ * are deliberately unsupported. PCLK is an explicit board input.
++ */
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qemu/main-loop.h"
++#include "hw/sysbus.h"
++#include "hw/ptimer.h"
++#include "hw/qdev-properties.h"
++
++#define TYPE_S3C2416_PWM "s3c2416-pwm"
++#define S3C2416_PWM(obj) OBJECT_CHECK(S3C2416PWM, (obj), TYPE_S3C2416_PWM)
++#define START(i) (1u << ((i) ? 4 + 4 * (i) : 0))
++#define MANUAL(i) (START(i) << 1)
++#define RELOAD(i) (START(i) << ((i) == 4 ? 2 : 3))
++
++typedef struct S3C2416PWM S3C2416PWM;
++typedef struct {
++    S3C2416PWM *parent;
++    unsigned id;
++    ptimer_state *timer;
++    qemu_irq irq;
++    uint32_t count_buffer, compare_buffer;
++    bool clock_supported;
++} PWMChannel;
++struct S3C2416PWM {
++    SysBusDevice parent_obj;
++    MemoryRegion iomem;
++    uint32_t pclk_hz;
++    uint32_t config[2], control;
++    PWMChannel channel[5];
++};
++
++static void update_frequency(S3C2416PWM *s, unsigned i)
++{
++    PWMChannel *c = &s->channel[i];
++    unsigned mux = (s->config[1] >> (4 * i)) & 15;
++    unsigned prescale = ((s->config[0] >> (i < 2 ? 0 : 8)) & 255) + 1;
++    bool supported = mux < 4 && !(s->config[1] & 0x00f00000);
++    c->clock_supported = supported;
++    if (!supported) {
++        ptimer_stop(c->timer);
++        qemu_log_mask(LOG_UNIMP, "s3c2416-pwm: channel %u external clock/DMA unsupported\n", i);
++        return;
++    }
++    unsigned frequency = s->pclk_hz / (prescale * (2u << mux));
++    if (!frequency) {
++        c->clock_supported = false;
++        ptimer_stop(c->timer);
++        qemu_log_mask(LOG_UNIMP, "s3c2416-pwm: configured PCLK cannot supply channel %u\n", i);
++        return;
++    }
++    ptimer_set_freq(c->timer, frequency);
++    if (s->control & START(i)) {
++        ptimer_run(c->timer, 1);
++    }
++}
++
++static void tick(void *opaque)
++{
++    PWMChannel *c = opaque;
++    S3C2416PWM *s = c->parent;
++    if (!(s->control & START(c->id)) || !c->clock_supported) {
++        return; /* A queued bottom half cannot revive a stopped/reset channel. */
++    }
++    qemu_irq_pulse(c->irq); /* INTC latches the request; no Exynos TINT_CSTAT. */
++    if (s->control & RELOAD(c->id)) {
++        ptimer_set_count(c->timer, c->count_buffer + 1);
++        ptimer_run(c->timer, 1);
++    } else {
++        s->control &= ~START(c->id);
++    }
++}
++
++static int decode(hwaddr offset, unsigned *kind)
++{
++    unsigned i;
++    for (i = 0; i < 5; i++) {
++        if (offset == 0x0c + 12 * i) { *kind = 0; return i; }
++        if (i < 4 && offset == 0x10 + 12 * i) { *kind = 1; return i; }
++        if (offset == (i == 4 ? 0x40 : 0x14 + 12 * i)) { *kind = 2; return i; }
++    }
++    return -1;
++}
++
++static uint64_t pwm_read(void *opaque, hwaddr offset, unsigned size)
++{
++    S3C2416PWM *s = opaque;
++    unsigned kind;
++    int i;
++    uint64_t count;
++    if (offset == 0 || offset == 4) { return s->config[offset / 4]; }
++    if (offset == 8) { return s->control; }
++    i = decode(offset, &kind);
++    if (i >= 0) {
++        if (kind == 0) { return s->channel[i].count_buffer; }
++        if (kind == 1) { return s->channel[i].compare_buffer; }
++        count = ptimer_get_count(s->channel[i].timer);
++        return count ? (count - 1) & 0xffff : 0;
++    }
++    qemu_log_mask(LOG_GUEST_ERROR, "s3c2416-pwm: unsupported read offset 0x%" HWADDR_PRIx "\n", offset);
++    return 0;
++}
++
++static void pwm_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
++{
++    S3C2416PWM *s = opaque;
++    unsigned kind, i;
++    int channel;
++    if (offset == 0 || offset == 4) {
++        s->config[offset / 4] = value & (offset ? 0x00ffffff : 0x00ffffff);
++        for (i = 0; i < 5; i++) { update_frequency(s, i); }
++        return;
++    }
++    if (offset == 8) {
++        uint32_t old = s->control;
++        s->control = value & 0x007fff1f;
++        for (i = 0; i < 5; i++) {
++            PWMChannel *c = &s->channel[i];
++            if (!(s->control & START(i))) { ptimer_stop(c->timer); }
++            if ((s->control & MANUAL(i)) && !(old & MANUAL(i))) {
++                ptimer_set_count(c->timer, c->count_buffer + 1);
++            }
++            if ((s->control & START(i)) && c->clock_supported) {
++                ptimer_run(c->timer, 1);
++            }
++        }
++        return;
++    }
++    channel = decode(offset, &kind);
++    if (channel >= 0 && kind < 2) {
++        if (kind == 0) { s->channel[channel].count_buffer = value & 0xffff; }
++        else { s->channel[channel].compare_buffer = value & 0xffff; }
++        return;
++    }
++    qemu_log_mask(LOG_GUEST_ERROR, "s3c2416-pwm: unsupported/read-only write offset 0x%" HWADDR_PRIx "\n", offset);
++}
++
++static void pwm_reset(DeviceState *dev)
++{
++    S3C2416PWM *s = S3C2416_PWM(dev);
++    unsigned i;
++    s->control = 0;
++    s->config[0] = s->config[1] = 0;
++    for (i = 0; i < 5; i++) {
++        PWMChannel *c = &s->channel[i];
++        ptimer_stop(c->timer);
++        ptimer_set_count(c->timer, 0);
++        c->count_buffer = c->compare_buffer = 0;
++        qemu_irq_lower(c->irq);
++        update_frequency(s, i);
++    }
++}
++
++static const MemoryRegionOps pwm_ops = {
++    .read = pwm_read, .write = pwm_write, .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 4, .max_access_size = 4, .unaligned = false },
++};
++
++static void pwm_init(Object *obj)
++{
++    S3C2416PWM *s = S3C2416_PWM(obj);
++    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
++    unsigned i;
++    for (i = 0; i < 5; i++) {
++        PWMChannel *c = &s->channel[i];
++        c->parent = s; c->id = i;
++        c->timer = ptimer_init(qemu_bh_new(tick, c), PTIMER_POLICY_NO_COUNTER_ROUND_DOWN);
++        sysbus_init_irq(dev, &c->irq);
++    }
++    memory_region_init_io(&s->iomem, obj, &pwm_ops, s, TYPE_S3C2416_PWM, 0x1000);
++    sysbus_init_mmio(dev, &s->iomem);
++}
++
++static const VMStateDescription pwm_vmstate = {
++    .name = TYPE_S3C2416_PWM,
++    .unmigratable = 1, /* Never silently omit timer state from a VM snapshot. */
++};
++
++static Property pwm_properties[] = {
++    DEFINE_PROP_UINT32("pclk-hz", S3C2416PWM, pclk_hz, 66000000),
++    DEFINE_PROP_END_OF_LIST(),
++};
++static void pwm_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    dc->reset = pwm_reset; dc->props = pwm_properties;
++    dc->vmsd = &pwm_vmstate;
++}
++static const TypeInfo pwm_type = {
++    .name = TYPE_S3C2416_PWM, .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(S3C2416PWM), .instance_init = pwm_init,
++    .class_init = pwm_class_init,
++};
++static void register_types(void) { type_register_static(&pwm_type); }
++type_init(register_types)
+--- a/hw/arm/s3c2416.c
++++ b/hw/arm/s3c2416.c
+@@ -158 +158 @@
+-    sysbus_create_varargs("exynos4210.pwm", 0x51000000,
++    sysbus_create_varargs("s3c2416-pwm", 0x51000000,
+--- a/hw/arm/Makefile.objs
++++ b/hw/arm/Makefile.objs
+@@ -22 +22 @@
+-obj-$(CONFIG_S3C2416) += s3c2416.o s3c2416_gpio.o s3c2416_sysc.o s3c2416_memc.o s3c2416_pwm.o s3c2416_wtcon.o
+\ No newline at end of file
++obj-$(CONFIG_S3C2416) += s3c2416.o s3c2416_gpio.o s3c2416_sysc.o s3c2416_memc.o s3c2416_timer.o s3c2416_wtcon.o
+\ No newline at end of file

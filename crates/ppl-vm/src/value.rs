@@ -4,6 +4,7 @@
 //! which gives PPL's by-value semantics for assignment and argument
 //! passing without copying on every read.
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::rc::Rc;
 
@@ -13,10 +14,14 @@ use crate::error::{ErrorKind, RuntimeError};
 
 #[derive(Clone, Debug)]
 pub enum Value {
+    Symbolic(Rc<ppl_cas::CasValue>),
     Real(Real),
     Int(HpInt),
     Complex(Complex),
     Str(Rc<str>),
+    /// HP strings are sequences of 16-bit units. Only ill-formed Unicode needs
+    /// this representation; ordinary text retains the existing cheap str path.
+    RawString(Rc<[u16]>),
     List(Rc<Vec<Value>>),
     Matrix(Rc<Matrix>),
     /// Reference to graphics variable G0–G9.
@@ -65,6 +70,8 @@ pub mod type_code {
     pub const MATRIX: i64 = 4;
     pub const LIST: i64 = 6;
     pub const GRAPHIC: i64 = 8;
+    pub const CAS: i64 = 8;
+    pub const UNIT: i64 = 9;
 }
 
 impl Value {
@@ -88,6 +95,35 @@ impl Value {
         Value::Str(s.into())
     }
 
+    pub fn from_utf16(units: impl Into<Vec<u16>>) -> Value {
+        let units = units.into();
+        match String::from_utf16(&units) {
+            Ok(text) => Value::str(text),
+            Err(_) => Value::RawString(units.into()),
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::Str(_) | Self::RawString(_))
+    }
+
+    pub fn string_units(&self) -> Option<Cow<'_, [u16]>> {
+        match self {
+            Self::Str(text) => Some(Cow::Owned(text.encode_utf16().collect())),
+            Self::RawString(units) => Some(Cow::Borrowed(units)),
+            _ => None,
+        }
+    }
+
+    pub fn expect_string_units(&self, what: &str) -> Result<Cow<'_, [u16]>, RuntimeError> {
+        self.string_units().ok_or_else(|| {
+            RuntimeError::new(
+                ErrorKind::BadArgType,
+                format!("{what}: expected a string, got {}", self.type_name()),
+            )
+        })
+    }
+
     pub fn list(v: Vec<Value>) -> Value {
         Value::List(Rc::new(v))
     }
@@ -97,10 +133,11 @@ impl Value {
             Value::Real(_) => "real",
             Value::Int(_) => "integer",
             Value::Complex(_) => "complex",
-            Value::Str(_) => "string",
+            Value::Str(_) | Value::RawString(_) => "string",
             Value::List(_) => "list",
             Value::Matrix(_) => "matrix",
             Value::Grob(_) => "graphic",
+            Value::Symbolic(_) => "symbolic",
         }
     }
 
@@ -108,11 +145,18 @@ impl Value {
         match self {
             Value::Real(_) => type_code::REAL,
             Value::Int(_) => type_code::INTEGER,
-            Value::Str(_) => type_code::STRING,
+            Value::Str(_) | Value::RawString(_) => type_code::STRING,
             Value::Complex(_) => type_code::COMPLEX,
             Value::Matrix(_) => type_code::MATRIX,
             Value::List(_) => type_code::LIST,
             Value::Grob(_) => type_code::GRAPHIC,
+            Value::Symbolic(value) => match value.as_ref() {
+                ppl_cas::CasValue::Infinity(_) => type_code::REAL,
+                ppl_cas::CasValue::Unit(_) => type_code::UNIT,
+                ppl_cas::CasValue::Matrix { .. } => type_code::MATRIX,
+                ppl_cas::CasValue::List(_) | ppl_cas::CasValue::Vector(_) => type_code::LIST,
+                _ => type_code::CAS,
+            },
         }
     }
 
@@ -124,10 +168,18 @@ impl Value {
     /// honours `Signed` here).
     pub fn as_real(&self) -> Option<Real> {
         match self {
+            Value::Symbolic(v) => match v.as_ref() {
+                ppl_cas::CasValue::Integer(s) | ppl_cas::CasValue::Decimal(s) => Real::parse(s),
+                ppl_cas::CasValue::Rational {
+                    numerator,
+                    denominator,
+                } => Real::parse(numerator)?.div(Real::parse(denominator)?).ok(),
+                _ => None,
+            },
             Value::Real(r) => Some(*r),
             // `from_u64`, not `as i64`: a 64-bit word with the top bit set
             // must not turn negative.
-            Value::Int(i) => Some(Real::from_u64(i.unsigned())),
+            Value::Int(i) => Some(i.to_real()),
             Value::Complex(c) if c.im.is_zero() => Some(c.re),
             _ => None,
         }
@@ -157,6 +209,12 @@ impl Value {
     pub fn expect_str(&self, what: &str) -> Result<Rc<str>, RuntimeError> {
         match self {
             Value::Str(s) => Ok(s.clone()),
+            Value::RawString(_) => Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                format!(
+                    "{what} requires Unicode text; this HP string contains isolated UTF-16 units"
+                ),
+            )),
             other => Err(RuntimeError::new(
                 ErrorKind::BadArgType,
                 format!("{what}: expected a string, got {}", other.type_name()),
@@ -177,8 +235,14 @@ impl Value {
     /// PPL truth: non-zero numbers are true.
     pub fn truthy(&self) -> Result<bool, RuntimeError> {
         match self {
+            Value::Symbolic(value) => crate::cas::numeric_truth(value).ok_or_else(|| {
+                RuntimeError::new(
+                    ErrorKind::BadArgType,
+                    "A symbolic condition must evaluate to a number",
+                )
+            }),
             Value::Real(r) => Ok(!r.is_zero()),
-            Value::Int(i) => Ok(i.unsigned() != 0),
+            Value::Int(i) => Ok(i.numeric_value() != 0),
             Value::Complex(c) => Ok(!(c.re.is_zero() && c.im.is_zero())),
             other => Err(RuntimeError::new(
                 ErrorKind::BadArgType,
@@ -191,6 +255,8 @@ impl Value {
     pub fn approx_bytes(&self) -> usize {
         match self {
             Value::Str(s) => 16 + s.len(),
+            Value::RawString(s) => 16 + s.len() * 2,
+            Value::Symbolic(v) => 32 + v.expression().len(),
             Value::List(l) => 16 + l.iter().map(Value::approx_bytes).sum::<usize>(),
             Value::Matrix(m) => 32 + m.data.len() * 24,
             _ => 24,
@@ -217,8 +283,11 @@ impl Value {
 
     fn write_display(&self, out: &mut String, opts: FormatOptions, nested: bool) {
         match self {
+            Value::Symbolic(v) => out.push_str(&v.to_string()),
             Value::Real(r) => out.push_str(&r.format(opts)),
-            Value::Int(i) => out.push_str(&i.to_string()),
+            Value::Int(i) => {
+                out.push_str(&i.format_for(opts.int_bits, opts.int_signed, opts.int_base))
+            }
             Value::Complex(c) => out.push_str(&c.format(opts)),
             Value::Str(s) => {
                 if nested {
@@ -234,6 +303,29 @@ impl Value {
                     out.push('"');
                 } else {
                     out.push_str(s);
+                }
+            }
+            Value::RawString(units) => {
+                // A Rust/OS text boundary cannot carry isolated surrogates.
+                // Show their exact units explicitly, never substitute U+FFFD.
+                if nested {
+                    out.push('"');
+                }
+                for decoded in char::decode_utf16(units.iter().copied()) {
+                    match decoded {
+                        Ok(ch) => {
+                            if nested && ch == '"' {
+                                out.push('\\');
+                            }
+                            out.push(ch);
+                        }
+                        Err(unit) => {
+                            let _ = write!(out, "\\u{:04X}", unit.unpaired_surrogate());
+                        }
+                    }
+                }
+                if nested {
+                    out.push('"');
                 }
             }
             Value::List(items) => {
@@ -280,7 +372,8 @@ impl Value {
     /// across real/integer/complex).
     pub fn equals(&self, other: &Value) -> bool {
         match (self, other) {
-            (Value::Str(a), Value::Str(b)) => a == b,
+            (Value::Int(a), Value::Int(b)) => a.numeric_value() == b.numeric_value(),
+            (a, b) if a.is_string() && b.is_string() => a.string_units() == b.string_units(),
             (Value::List(a), Value::List(b)) => {
                 a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| x.equals(y))
             }
@@ -290,6 +383,7 @@ impl Value {
                     && a.data.iter().zip(&b.data).all(|(x, y)| x.equals(y))
             }
             (Value::Grob(a), Value::Grob(b)) => a == b,
+            (Value::Symbolic(a), Value::Symbolic(b)) => a == b,
             (Value::Complex(a), b) | (b, Value::Complex(a)) => match b {
                 Value::Complex(c) => a == c,
                 other => other.as_real().is_some_and(|r| a.im.is_zero() && a.re == r),
@@ -306,6 +400,8 @@ pub fn default_format() -> FormatOptions {
     FormatOptions {
         format: NumFormat::Standard,
         exp_char: 'E',
+        angle: ppl_math::AngleMode::Radians,
+        ..Default::default()
     }
 }
 
@@ -337,11 +433,11 @@ mod tests {
         use ppl_math::IntBase;
         let o = default_format();
         let max64 = Value::Int(HpInt::new(-1, 64, IntBase::Hex));
-        assert_eq!(max64.display(o), "#FFFFFFFFFFFFFFFFh");
+        assert_eq!(max64.display(o), "#FFFFFFFFFFFFFFFF:64h");
         // Was -1: the word was reinterpreted as i64.
         assert_eq!(max64.as_real().unwrap().to_string(), "1.84467440737E19");
         let top = Value::Int(HpInt::new(1i128 << 63, 64, IntBase::Dec));
-        assert_eq!(top.display(o), "#9223372036854775808d");
+        assert_eq!(top.display(o), "#9223372036854775808:64d");
         assert!(!top.as_real().unwrap().is_negative());
         // UNVERIFIED on G1: -5 in a 32-bit word converts as 4294967291
         // (unsigned, like its display), not -5, even with `Signed` on.

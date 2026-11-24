@@ -1,0 +1,77 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_raster.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "RASTERCONTROL"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RASTERCONTROL() BEGIN HAngle:=1; RECT_P(0,0,319,239,#FFFFFFh,#FFFFFFh); ARC_P(3,3,{3,2},30,150,{#80FF0000h,#800000FFh}); RETURN {STRING(-7/3,15,3)==\"−2 1/3\",STRING(1/3,8,3)==\"1/3\"}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "sector"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_sector.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RASTERCONTROL() BEGIN HAngle:=1; RECT_P(0,0,319,239,#FFFFFFh,#FFFFFFh); ARC_P(3,3,3,{#FF0000h,#FF000000h}); RETURN {STRING(-7/3,15,3)==\"−2 1/3\",STRING(1/3,8,3)==\"1/3\"}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "circle"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_circle.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT RASTERCONTROL() BEGIN HAngle:=1; RECT_P(0,0,319,239,#FFFFFFh,#FFFFFFh); LINE_P(-3,-8,5,12,0); RETURN {STRING(-7/3,15,3)==\"−2 1/3\",STRING(1/3,8,3)==\"1/3\"}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "clipped"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_raster_clipped.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

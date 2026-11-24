@@ -1,0 +1,35 @@
+schema_version = 1
+id = "retained-calculator-state"
+[program]
+source = "LOCAL COUNT:=0; EXPORT SETUP() BEGIN A:=9; END; EXPORT INC() BEGIN COUNT:=COUNT+1; A:=A+1; RETURN COUNT; END;"
+[initial]
+setup_entry = "SETUP"
+settings = { HAngle=1, HFormat=0, HDigits=4 }
+[[steps]]
+action = "run"
+id = "first"
+entry = "INC"
+[[steps]]
+action = "run"
+id = "second"
+entry = "INC"
+[[steps]]
+action = "observe"
+id = "state"
+names = ["COUNT","A","HAngle"]
+[[expect]]
+step = "first"
+path = "/return_value/value"
+value = "1"
+[[expect]]
+step = "second"
+path = "/return_value/value"
+value = "2"
+[[expect]]
+step = "state"
+path = "/variables/A/value"
+value = "11"
+[[expect]]
+step = "state"
+path = "/variables/COUNT/value"
+value = "2"

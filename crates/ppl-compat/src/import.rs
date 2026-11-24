@@ -268,7 +268,7 @@ fn classify_text(path: &str, text: &str) -> (FileClass, Vec<String>) {
     let prog = prog.expect("checked above");
     let exports: Vec<String> = prog.exported().map(|(_, f)| f.name.clone()).collect();
     // 3. compiled: which unsupported built-ins does it call?
-    let missing = unsupported_builtins(text);
+    let missing = unsupported_builtins(&prog);
     if missing.is_empty() {
         (FileClass::PplCompatible, exports)
     } else {
@@ -276,39 +276,31 @@ fn classify_text(path: &str, text: &str) -> (FileClass, Vec<String>) {
     }
 }
 
-/// Names of unsupported built-ins referenced by word-boundary in `text`.
-fn unsupported_builtins(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    for spec in ppl_compiler::builtins::BUILTINS {
-        if spec.status == ppl_compiler::builtins::Status::Unsupported
-            && text_match_builtin(text, spec.name)
-            && !out.iter().any(|n| n == spec.name)
-        {
-            out.push(spec.name.to_string());
+/// Inspect executed bytecode references, including the documented command
+/// catalog. Mentioning a command in a string/comment is not a dependency.
+fn unsupported_builtins(program: &ppl_compiler::CompiledProgram) -> Vec<String> {
+    let mut names = std::collections::BTreeSet::new();
+    for chunk in program
+        .functions
+        .iter()
+        .chain(std::iter::once(&program.init))
+    {
+        for instruction in &chunk.code {
+            match instruction {
+                ppl_compiler::Op::Unsupported { name, .. } => {
+                    names.insert(program.names[*name as usize].clone());
+                }
+                ppl_compiler::Op::Builtin { id, .. } | ppl_compiler::Op::BuiltinRef { id, .. } => {
+                    let spec = ppl_compiler::builtins::spec(*id);
+                    if spec.status == ppl_compiler::builtins::Status::Unsupported {
+                        names.insert(spec.name.to_string());
+                    }
+                }
+                _ => {}
+            }
         }
     }
-    out
-}
-
-/// Whole-word, case-insensitive occurrence of a built-in name.
-fn text_match_builtin(text: &str, name: &str) -> bool {
-    let hay = text.to_ascii_uppercase();
-    let needle = name.to_ascii_uppercase();
-    let mut at = 0;
-    while let Some(rel) = hay[at..].find(&needle) {
-        let start = at + rel;
-        let end = start + needle.len();
-        let before_ok = start == 0
-            || !hay.as_bytes()[start - 1].is_ascii_alphanumeric()
-                && hay.as_bytes()[start - 1] != b'_';
-        let after_ok = end >= hay.len()
-            || !hay.as_bytes()[end].is_ascii_alphanumeric() && hay.as_bytes()[end] != b'_';
-        if before_ok && after_ok {
-            return true;
-        }
-        at = end;
-    }
-    false
+    names.into_iter().collect()
 }
 
 fn read_limited<R: Read>(r: &mut R, cap: u64) -> Result<Vec<u8>, String> {
@@ -513,11 +505,20 @@ mod tests {
     fn classifies_parse_error_and_unsupported() {
         let (class, _) = classify_ppl("bad.ppl", b"EXPORT (\nBEGIN");
         assert!(matches!(class, FileClass::PplParseError { .. }));
-        let (class, _) = classify_ppl("u.ppl", b"EXPORT MYU()\nBEGIN\n  STARTAPP(\"x\");\nEND;");
+        let (class, _) = classify_ppl("u.ppl", b"EXPORT MYU()\nBEGIN\n  SOLVE(X^2-4,X,1);\nEND;");
         match class {
-            FileClass::PplUnsupportedBuiltins { missing } => assert!(!missing.is_empty()),
+            FileClass::PplUnsupportedBuiltins { missing } => assert_eq!(missing, vec!["SOLVE"]),
             other => panic!("expected unsupported built-ins, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn native_services_and_command_mentions_are_not_falsely_classified_unsupported() {
+        let (class, _) = classify_ppl(
+            "ok.ppl",
+            b"EXPORT MAIN() BEGIN STARTAPP(\"Function\"); RETURN \"SOLVE(X)\"; END;",
+        );
+        assert!(matches!(class, FileClass::PplCompatible));
     }
 
     #[test]
@@ -588,8 +589,17 @@ mod tests {
 
     #[test]
     fn whole_word_builtin_match() {
-        assert!(text_match_builtin("x:=STARTAPP(\"a\");", "STARTAPP"));
-        assert!(!text_match_builtin("MYSTARTAPP()", "STARTAPP"));
-        assert!(!text_match_builtin("STARTAPPS()", "STARTAPP"));
+        let (class, _) = classify_ppl(
+            "unsupported.ppl",
+            b"EXPORT MAIN() BEGIN SOLVE(X^2-4,X,1); END;",
+        );
+        assert!(matches!(class, FileClass::PplUnsupportedBuiltins { .. }));
+        for name in ["MYSOLVE", "SOLVES"] {
+            let source = format!(
+                "EXPORT {name}() BEGIN RETURN 3; END; EXPORT MAIN() BEGIN RETURN {name}(); END;"
+            );
+            let (class, _) = classify_ppl("supported.ppl", source.as_bytes());
+            assert!(matches!(class, FileClass::PplCompatible));
+        }
     }
 }

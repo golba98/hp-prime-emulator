@@ -1,0 +1,5278 @@
+{
+  "source_commit": "8d7535e",
+  "native_builtins": [
+    {
+      "name": "ABS",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SQRT",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SQ",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "EXP",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "LN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "LOG",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ALOG",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "EXPM1",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "LNP1",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SIN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "COS",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "TAN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ASIN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ACOS",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ATAN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "CSC",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SEC",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "COT",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SINH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "COSH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "TANH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ASINH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ACOSH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ATANH",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "FLOOR",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "CEILING",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ROUND",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "TRUNCATE",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "IP",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "FP",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "SIGN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "MAX",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "MIN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "COMB",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "PERM",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "RANDOM",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "RANDINT",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "RANDNORM",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "RANDSEED",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "MANT",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "XPON",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "RE",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "IM",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "CONJ",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "ARG",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "APPROX",
+      "category": "Math",
+      "status": "Approximate"
+    },
+    {
+      "name": "EXACT",
+      "category": "Math",
+      "status": "Unsupported"
+    },
+    {
+      "name": "\u2192HMS",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "HMS\u2192",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "NTHROOT",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "FACTORIAL",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "MEAN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "MEDIAN",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "STDDEV",
+      "category": "Math",
+      "status": "Approximate"
+    },
+    {
+      "name": "IFTE",
+      "category": "Math",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITAND",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITOR",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITXOR",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITNOT",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITSL",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "BITSR",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "R\u2192B",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "B\u2192R",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "SETBASE",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "GETBASE",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "SETBITS",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "GETBITS",
+      "category": "Bits",
+      "status": "Implemented"
+    },
+    {
+      "name": "ASC",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "CHAR",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "DIM",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "INSTRING",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "LEFT",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "RIGHT",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "MID",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "ROTATE",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "STRING",
+      "category": "Strings",
+      "status": "Approximate"
+    },
+    {
+      "name": "UPPER",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "LOWER",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "REPLACE",
+      "category": "Strings",
+      "status": "Implemented"
+    },
+    {
+      "name": "EXPR",
+      "category": "Strings",
+      "status": "Approximate"
+    },
+    {
+      "name": "CONCAT",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "MAKELIST",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "SIZE",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "SORT",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "REVERSE",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "POS",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "\u03a3LIST",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "\u220fLIST",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "\u0394LIST",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "EQ",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "HEAD",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "TAIL",
+      "category": "Lists",
+      "status": "Implemented"
+    },
+    {
+      "name": "APPEND",
+      "category": "Lists",
+      "status": "Approximate"
+    },
+    {
+      "name": "MAKEMAT",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "DET",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "TRN",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "IDENMAT",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "RANK",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "COLNORM",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "ROWNORM",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "INVERSE",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "ADDROW",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "ADDCOL",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "DELROW",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "DELCOL",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "REDIM",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "DOT",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "CROSS",
+      "category": "Matrices",
+      "status": "Implemented"
+    },
+    {
+      "name": "EDITMAT",
+      "category": "Matrices",
+      "status": "Approximate"
+    },
+    {
+      "name": "RECT_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "RECT",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "LINE_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "LINE",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "PIXON_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "PIXON",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "PIXOFF_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "PIXOFF",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "GETPIX_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "GETPIX",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "CIRCLE_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "CIRCLE",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "FILLCIRCLE_P",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "ARC_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "ARC",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "TEXTOUT_P",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "TEXTOUT",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "BLIT_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "BLIT",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "DIMGROB_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "DIMGROB",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "SUBGROB_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "SUBGROB",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "INVERT_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "FILLPOLY_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "TRIANGLE_P",
+      "category": "Graphics",
+      "status": "Approximate"
+    },
+    {
+      "name": "GROBW_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "GROBH_P",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "RGB",
+      "category": "Graphics",
+      "status": "Implemented"
+    },
+    {
+      "name": "PRINT",
+      "category": "Io",
+      "status": "Implemented"
+    },
+    {
+      "name": "MSGBOX",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "INPUT",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "CHOOSE",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "GETKEY",
+      "category": "Io",
+      "status": "Implemented"
+    },
+    {
+      "name": "ISKEYDOWN",
+      "category": "Io",
+      "status": "Implemented"
+    },
+    {
+      "name": "WAIT",
+      "category": "Io",
+      "status": "Implemented"
+    },
+    {
+      "name": "MOUSE",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "DISP",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "FREEZE",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "DRAWMENU",
+      "category": "Io",
+      "status": "Approximate"
+    },
+    {
+      "name": "EDITLIST",
+      "category": "Io",
+      "status": "Unsupported"
+    },
+    {
+      "name": "TICKS",
+      "category": "Time",
+      "status": "Implemented"
+    },
+    {
+      "name": "TIME",
+      "category": "Time",
+      "status": "Implemented"
+    },
+    {
+      "name": "DATE",
+      "category": "Time",
+      "status": "Implemented"
+    },
+    {
+      "name": "TYPE",
+      "category": "System",
+      "status": "Implemented"
+    },
+    {
+      "name": "EVAL",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "STARTAPP",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "STARTVIEW",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "RECALL",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "NOTES",
+      "category": "System",
+      "status": "Implemented"
+    },
+    {
+      "name": "PROGRAMS",
+      "category": "System",
+      "status": "Implemented"
+    },
+    {
+      "name": "AFILES",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "HVARS",
+      "category": "System",
+      "status": "Unsupported"
+    },
+    {
+      "name": "CAS",
+      "category": "Cas",
+      "status": "Unsupported"
+    }
+  ],
+  "firmware_services": [
+    {
+      "id": "0x10000",
+      "name": "OSCreateThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10001",
+      "name": "OSTerminateThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10002",
+      "name": "OSSetThreadPriority",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10003",
+      "name": "OSGetThreadPriority",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10004",
+      "name": "OSSuspendThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10005",
+      "name": "OSResumeThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10006",
+      "name": "OSWakeUpThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10007",
+      "name": "OSExitThread",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10008",
+      "name": "OSSleep",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10009",
+      "name": "OSCreateSemaphore",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000a",
+      "name": "OSWaitForSemaphore",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000b",
+      "name": "OSReleaseSemaphore",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000c",
+      "name": "OSCloseSemaphore",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000d",
+      "name": "OSCreateEvent",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000e",
+      "name": "OSWaitForEvent",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1000f",
+      "name": "OSSetEvent",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10010",
+      "name": "OSResetEvent",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10011",
+      "name": "OSCloseEvent",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10012",
+      "name": "OSInitCriticalSection",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10013",
+      "name": "OSEnterCriticalSection",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10014",
+      "name": "OSLeaveCriticalSection",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10015",
+      "name": "OSDeleteCriticalSection",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10016",
+      "name": "OSSetLastError",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10017",
+      "name": "OSGetLastError",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10018",
+      "name": "OSCreateMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10019",
+      "name": "OSPostMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1001a",
+      "name": "OSSendMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1001b",
+      "name": "OSPeekMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1001c",
+      "name": "OSGetMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1001d",
+      "name": "OSCloseMsgQue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1001e",
+      "name": "InterruptInitialize",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1001f",
+      "name": "InterruptEnable",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10020",
+      "name": "InterruptDisable",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10021",
+      "name": "InterruptDone",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10022",
+      "name": "InterruptSetMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10023",
+      "name": "DisableAutoSync",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10024",
+      "name": "EnableAutoSync",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10025",
+      "name": "getvect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10026",
+      "name": "setvect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10027",
+      "name": "GetLCDContrast",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10028",
+      "name": "SetLCDContrast",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10029",
+      "name": "LCDOn",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1002a",
+      "name": "LCDOff",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1002b",
+      "name": "CheckLCDOn",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1002c",
+      "name": "Buzzer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1002d",
+      "name": "KeyBeep",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1002e",
+      "name": "SetTimer1IntHandler",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1002f",
+      "name": "SetAutoPowerOff",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10030",
+      "name": "GetTimer1IntHandler",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10031",
+      "name": "RemapMemory",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10032",
+      "name": "SysPowerOff",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10033",
+      "name": "SetSysKeyState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10034",
+      "name": "GetSysKeyState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10035",
+      "name": "GetBatteryType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10036",
+      "name": "BatteryLowCheck",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10037",
+      "name": "lmalloc",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10038",
+      "name": "lcalloc",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10039",
+      "name": "lrealloc",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1003a",
+      "name": "_lfree",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1003b",
+      "name": "GetPenEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1003c",
+      "name": "CheckPenEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1003d",
+      "name": "ClearPenEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1003e",
+      "name": "PutSystemEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1003f",
+      "name": "GetEvent",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10040",
+      "name": "GetPendEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10041",
+      "name": "SetEventType",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10042",
+      "name": "GetEventType",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10043",
+      "name": "PutEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10044",
+      "name": "PutEventExt",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10045",
+      "name": "GetLastEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10046",
+      "name": "TestPendEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10047",
+      "name": "ClearPendEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10048",
+      "name": "ClearPenState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10049",
+      "name": "ClearEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1004a",
+      "name": "ClearAllEvents",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1004b",
+      "name": "TestKeyEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1004c",
+      "name": "SetSystemVariable",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1004d",
+      "name": "GetCharWidth",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1004e",
+      "name": "GetFontHeight",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1004f",
+      "name": "GetFontType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10050",
+      "name": "GetStringLength",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10051",
+      "name": "SetFontType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10052",
+      "name": "WriteAlignString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10053",
+      "name": "WriteChar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10054",
+      "name": "WriteString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10055",
+      "name": "WriteStringInWindow",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10056",
+      "name": "WriteStringInWindowEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10057",
+      "name": "Printf",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10058",
+      "name": "PrintfXY",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10059",
+      "name": "ShowGraphic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005a",
+      "name": "SizeofGraphic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005b",
+      "name": "InitGraphic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005c",
+      "name": "CreateIcon",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005d",
+      "name": "SetCursorSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005e",
+      "name": "GetCursorSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1005f",
+      "name": "SetCursorPosition",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10060",
+      "name": "GetCursorPosition",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10061",
+      "name": "SetCursorType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10062",
+      "name": "GetCursorType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10063",
+      "name": "CursorLock",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10064",
+      "name": "CursorUnlock",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10065",
+      "name": "SetTransparentColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10066",
+      "name": "GetTransparentColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10067",
+      "name": "rgbSetBkColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10068",
+      "name": "rgbSetColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10069",
+      "name": "rgbGetBkColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006a",
+      "name": "rgbGetColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006b",
+      "name": "SetPenStyle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006c",
+      "name": "GetPenStyle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006d",
+      "name": "GetPenSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006e",
+      "name": "SetPenSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1006f",
+      "name": "GetPixel",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10070",
+      "name": "SetPixel",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10071",
+      "name": "GetImage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10072",
+      "name": "PutImage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10073",
+      "name": "SetDrawArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10074",
+      "name": "GetDrawArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10075",
+      "name": "DrawLine",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10076",
+      "name": "DrawRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10077",
+      "name": "FillRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10078",
+      "name": "DrawRoundRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10079",
+      "name": "DrawCircle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007a",
+      "name": "FillCircle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007b",
+      "name": "DrawEllipse",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007c",
+      "name": "FillEllipse",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007d",
+      "name": "InverseSetArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007e",
+      "name": "ClearScreen",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1007f",
+      "name": "ClearSetArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10080",
+      "name": "ScrollDown",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10081",
+      "name": "ScrollLeft",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10082",
+      "name": "ScrollRight",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10083",
+      "name": "ScrollUp",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10084",
+      "name": "GetRealLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10085",
+      "name": "SetToRealLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10086",
+      "name": "SetToVirtualLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10087",
+      "name": "CreateVirtualLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10088",
+      "name": "DeleteVirtualLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10089",
+      "name": "_BitBlt",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1008a",
+      "name": "__fillrect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1008b",
+      "name": "SetActiveLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1008c",
+      "name": "SetRealLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1008d",
+      "name": "GetActiveLCD",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1008e",
+      "name": "CreateCompatibleLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1008f",
+      "name": "CreateCompatibleImage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10090",
+      "name": "DeleteLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10091",
+      "name": "SelectLCDObject",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10092",
+      "name": "DeleteLCDObject",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10093",
+      "name": "SetDCObject",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10094",
+      "name": "GetWindowSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10095",
+      "name": "GetImageSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10096",
+      "name": "GetImageSizeExt",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10097",
+      "name": "ImageData",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10098",
+      "name": "SizeofImage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10099",
+      "name": "FreeImage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009a",
+      "name": "Delay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009b",
+      "name": "PenDelay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009c",
+      "name": "GetPenSilenceArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009d",
+      "name": "SetPenSilenceArea",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009e",
+      "name": "WarningBeep",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1009f",
+      "name": "LockSystem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a0",
+      "name": "UnlockSystem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a1",
+      "name": "CopyToClipBoard",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a2",
+      "name": "CopyFromClipBoard",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a3",
+      "name": "ClearClipBoard",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a4",
+      "name": "GetClipBoardTextLength",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a5",
+      "name": "GetSysTime",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100a6",
+      "name": "SetSysTime",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a7",
+      "name": "PopupWaitingMsg",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a8",
+      "name": "CloseWaitingMsg",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100a9",
+      "name": "GetLanguageType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100aa",
+      "name": "SetLanguageType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ab",
+      "name": "SetChineseFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ac",
+      "name": "GetChineseFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ad",
+      "name": "SetShiftState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ae",
+      "name": "SetCapsState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100af",
+      "name": "GetShiftState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b0",
+      "name": "GetCapsState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b1",
+      "name": "Tradional2Simple",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b2",
+      "name": "Simple2Tradional",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b3",
+      "name": "SetEPTSLastChar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b4",
+      "name": "PlayAllVoice",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b5",
+      "name": "StopAllVoice",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b6",
+      "name": "PauseAllVoice",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b7",
+      "name": "ContinueAllVoice",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b8",
+      "name": "GetAllVoiceState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100b9",
+      "name": "RecordVoiceEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ba",
+      "name": "PlaybackVoiceEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100bb",
+      "name": "SetAudioHandler",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100bc",
+      "name": "ConvCharToUnicode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100bd",
+      "name": "ConvStrToUnicode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100be",
+      "name": "CompSecretkey",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100bf",
+      "name": "ClearSecretkey",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c0",
+      "name": "SetUserFontHandle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c1",
+      "name": "GetMasterIDInfo",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100c2",
+      "name": "ReadFollowMe",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c3",
+      "name": "GetPrivateState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c4",
+      "name": "SetPrivateState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c5",
+      "name": "_afnsplit",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100c6",
+      "name": "_afnmerge",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100c7",
+      "name": "_afcreate",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c8",
+      "name": "_afcreateSz",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100c9",
+      "name": "_afopen",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ca",
+      "name": "_fclose",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100cb",
+      "name": "_filesize",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100cc",
+      "name": "__fflush",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100cd",
+      "name": "_fflushall",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100ce",
+      "name": "_rewind",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100cf",
+      "name": "__fseek",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100d0",
+      "name": "_ftell",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100d1",
+      "name": "_feof",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d2",
+      "name": "_fgetc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d3",
+      "name": "_fgets",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d4",
+      "name": "_fread",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100d5",
+      "name": "_fputc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d6",
+      "name": "_fputs",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d7",
+      "name": "_fwrite",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100d8",
+      "name": "_afindfirst",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100d9",
+      "name": "_afindnext",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100da",
+      "name": "_findclose",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100db",
+      "name": "_afgetattr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100dc",
+      "name": "_afsetattr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100dd",
+      "name": "_aremove",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100de",
+      "name": "_arename",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100df",
+      "name": "_afcopy",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e0",
+      "name": "_amkdir",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e1",
+      "name": "_armdir",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e2",
+      "name": "_achdir",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e3",
+      "name": "_agetcurdir",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e4",
+      "name": "_isformateddisk",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e5",
+      "name": "_getfattype",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e6",
+      "name": "_setdisk",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e7",
+      "name": "_getdisk",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e8",
+      "name": "_getdiskchar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100e9",
+      "name": "_setdiskchar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ea",
+      "name": "_getdisknum",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100eb",
+      "name": "FSGetDiskRoomState",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100ec",
+      "name": "_OpenFile",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100ed",
+      "name": "_OpenFileEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ee",
+      "name": "_OpenFileW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ef",
+      "name": "_CloseFile",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100f0",
+      "name": "_ReadFile",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100f1",
+      "name": "_FseekFile",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100f2",
+      "name": "_FileSize",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100f3",
+      "name": "_OpenSubFile",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x100f4",
+      "name": "_TellFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100f5",
+      "name": "DBSave",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100f6",
+      "name": "DBSaveAll",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100f7",
+      "name": "DBOpenUserFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100f8",
+      "name": "DBCreate",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100f9",
+      "name": "DBCreateSZ",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100fa",
+      "name": "DBOpen",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100fb",
+      "name": "DBClose",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100fc",
+      "name": "DBRemove",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100fd",
+      "name": "DBEmpty",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100fe",
+      "name": "DBOptimize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x100ff",
+      "name": "DBRepair",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10100",
+      "name": "DBGetNewRecordPID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10101",
+      "name": "DBGetNewRecordID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10102",
+      "name": "DBCreateNewRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10103",
+      "name": "DBInsertRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10104",
+      "name": "DBModifyRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10105",
+      "name": "DBRemoveRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10106",
+      "name": "DBReadRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10107",
+      "name": "DBGetRecordTime",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10108",
+      "name": "DBGetRecordDate",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10109",
+      "name": "DBGetRecordPid",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010a",
+      "name": "DBGetCurRecordCount",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010b",
+      "name": "DBOverLoadSortFunc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010c",
+      "name": "DBGetRecPidState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010d",
+      "name": "DBGetDBState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010e",
+      "name": "_GetSystemDirectory",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1010f",
+      "name": "_GetTempPath",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10110",
+      "name": "_GetPrivateProfileInt",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10111",
+      "name": "_GetPrivateProfileString",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10112",
+      "name": "_WritePrivateProfileString",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10113",
+      "name": "GetTadCityNo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10114",
+      "name": "RunApplicationA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10115",
+      "name": "GetApplicationNameA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10116",
+      "name": "LoadProgramA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10117",
+      "name": "FreeProgram",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10118",
+      "name": "ExecuteProgram",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10119",
+      "name": "GetCurrentPathA",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1011a",
+      "name": "ProgramIsRunningA",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1011b",
+      "name": "FindApplications",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1011c",
+      "name": "FreeFindApplications",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1011d",
+      "name": "GetApplicationInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1011e",
+      "name": "CreateAppView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1011f",
+      "name": "TextPicker",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10120",
+      "name": "GetMonDays",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10121",
+      "name": "GetWeekDay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10122",
+      "name": "ConvSolarToLunar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10123",
+      "name": "ConvLunarToSolar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10124",
+      "name": "GetLeapMonth",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10125",
+      "name": "CreateEdit",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10126",
+      "name": "EDInitEdit",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10127",
+      "name": "EDDraw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10128",
+      "name": "EDDrawText",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10129",
+      "name": "EDHandleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012a",
+      "name": "InsertTextField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012b",
+      "name": "ReplaceEditBuffer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012c",
+      "name": "SetEditCmdFunc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012d",
+      "name": "GetEditCmdFunc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012e",
+      "name": "SetEditFunctionMenuState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1012f",
+      "name": "DatePicker",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10130",
+      "name": "CreateBoolDateField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10131",
+      "name": "CreateBoolMenuField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10132",
+      "name": "CreateBoolField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10133",
+      "name": "CreateBoolTextField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10134",
+      "name": "CreateTimeField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10135",
+      "name": "CreateDateField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10136",
+      "name": "CreateDoubleTimeField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10137",
+      "name": "CreateNumericField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10138",
+      "name": "PDATEFIELD_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10139",
+      "name": "PDATEFIELD_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013a",
+      "name": "PDATEFIELD_setState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013b",
+      "name": "PNUMERICFIELD_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013c",
+      "name": "PBOOLFIELD_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013d",
+      "name": "MessageBox",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013e",
+      "name": "CreateMessageBox",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1013f",
+      "name": "NumericPicker",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10140",
+      "name": "SetNumPkValidHandle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10141",
+      "name": "CreateDetailView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10142",
+      "name": "PDETAILVIEW_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10143",
+      "name": "NumericToStr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10144",
+      "name": "StrToNumeric",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10145",
+      "name": "AllocBlock",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10146",
+      "name": "FreeBlock",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10147",
+      "name": "RelatedKeyButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10148",
+      "name": "RelatedKeyButtonEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10149",
+      "name": "UnRelatedKeyButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014a",
+      "name": "CreateButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014b",
+      "name": "ChangeButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014c",
+      "name": "InsertButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014d",
+      "name": "CreateStatic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014e",
+      "name": "PBUTTON_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1014f",
+      "name": "InsertImageClip",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10150",
+      "name": "CreatePageArrow",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10151",
+      "name": "InsertPgUpDn",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10152",
+      "name": "CreateHorPageArrow",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10153",
+      "name": "CreateControlMenu",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10154",
+      "name": "CreateMenuField",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10155",
+      "name": "CreateNumberSet",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10156",
+      "name": "CreateStackedList",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10157",
+      "name": "CreateSlider",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10158",
+      "name": "CreateProgress",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10159",
+      "name": "CreateRadioButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015a",
+      "name": "PPROGRESSetPos",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015b",
+      "name": "PPROGRESSetRange",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015c",
+      "name": "PSLIDER_SetPos",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015d",
+      "name": "PSLIDER_SetRange",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015e",
+      "name": "PSLIDER_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1015f",
+      "name": "IsRadioButtonCheck",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10160",
+      "name": "CheckDeskRadioButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10161",
+      "name": "PNUMBERSET_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10162",
+      "name": "PMENUFIELD_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10163",
+      "name": "PMENUFIELD_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10164",
+      "name": "PCONTROLMENU_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10165",
+      "name": "PCONTROLMENU_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10166",
+      "name": "PVIEW_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10167",
+      "name": "PVIEW_EraseBackGround",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10168",
+      "name": "PVIEW_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10169",
+      "name": "PVIEW_setState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016a",
+      "name": "PGROUP_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016b",
+      "name": "PGROUP_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016c",
+      "name": "PGROUP_insert",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016d",
+      "name": "PGROUP_redraw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016e",
+      "name": "PGROUP_setCurrent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1016f",
+      "name": "PGROUP_setState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10170",
+      "name": "PGROUP_execute",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10171",
+      "name": "PGROUP_preView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10172",
+      "name": "CreateDeskBox",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10173",
+      "name": "PDESKBOX_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10174",
+      "name": "PDESKBOX_drawTitle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10175",
+      "name": "PDESKBOX_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10176",
+      "name": "PDESKBOX_redraw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10177",
+      "name": "Destroy",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10178",
+      "name": "DeskBox_construct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10179",
+      "name": "DrawDeskBoxBound",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017a",
+      "name": "ChangeCommandMenu",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017b",
+      "name": "SetDeskBoxReturn",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017c",
+      "name": "ExecView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017d",
+      "name": "SetExitWordVal",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017e",
+      "name": "GetExitWordVal",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1017f",
+      "name": "SetCurModeWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10180",
+      "name": "GetCurModeWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10181",
+      "name": "InsertTitleBarButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10182",
+      "name": "Delete",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10183",
+      "name": "DisableCommand",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10184",
+      "name": "EnableCommand",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10185",
+      "name": "InverseSetAreaArc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10186",
+      "name": "InverseSetAreaColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10187",
+      "name": "InverseSetAreaArcColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10188",
+      "name": "SendMessage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10189",
+      "name": "SendMessageExt",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018a",
+      "name": "GetPreView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018b",
+      "name": "SetFocuseItem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018c",
+      "name": "SetTabOrder",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018d",
+      "name": "GetDeskEntry",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018e",
+      "name": "GetDeskItem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1018f",
+      "name": "QueryByCommand",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10190",
+      "name": "GetMaxScrX",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10191",
+      "name": "GetMaxScrY",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10192",
+      "name": "GetDeskClientRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10193",
+      "name": "InvalidateRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10194",
+      "name": "InsertSplitViewFrame",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10195",
+      "name": "CreateSplitView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10196",
+      "name": "InsertSplitView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10197",
+      "name": "PSPLITVIEW_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10198",
+      "name": "PSPLITVIEW_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10199",
+      "name": "PSPLITVIEW_setState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019a",
+      "name": "InsertMultiPage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019b",
+      "name": "PPAGE_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019c",
+      "name": "PPAGE_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019d",
+      "name": "PMPAGE_insertPage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019e",
+      "name": "PMPAGE_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1019f",
+      "name": "ConverNumToStr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a0",
+      "name": "ConverTimeToStr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a1",
+      "name": "DateToString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a2",
+      "name": "TimeToString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a3",
+      "name": "ZfxGetWeekDay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a4",
+      "name": "WriteNumber",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a5",
+      "name": "ConverDateToStr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a6",
+      "name": "PopUpList",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a7",
+      "name": "PressAtRange",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a8",
+      "name": "PressAtButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101a9",
+      "name": "PressAtButtonInv",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101aa",
+      "name": "PressAtButtonIconAddr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ab",
+      "name": "PressAtButtonIcon",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ac",
+      "name": "IsSystemItemID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ad",
+      "name": "WaitingMessageBox",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ae",
+      "name": "CreateCalendar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101af",
+      "name": "PCALENDAR_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b0",
+      "name": "PCALENDAR_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b1",
+      "name": "CreateScrollBar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b2",
+      "name": "InsertScrollBar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b3",
+      "name": "InsertScrollBarPosition",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b4",
+      "name": "PSCROLLBAR_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b5",
+      "name": "PSCROLLBAR_redraw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b6",
+      "name": "PSCROLLBAR_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b7",
+      "name": "ChangeScrollBarValue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b8",
+      "name": "ChangeScrollBarStep",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101b9",
+      "name": "SetScrollBarValue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ba",
+      "name": "SetScrollBarStep",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101bb",
+      "name": "CreateLister",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101bc",
+      "name": "PLISTER_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101bd",
+      "name": "PLISTER_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101be",
+      "name": "PLISTER_writeItem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101bf",
+      "name": "PLISTER_penDownAct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c0",
+      "name": "PLISTER_changeFocuseAct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c1",
+      "name": "ChangeListRowHeight",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c2",
+      "name": "ChangeListItemSum",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c3",
+      "name": "CreateLongLister",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c4",
+      "name": "PLONGLISTER_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c5",
+      "name": "PLONGLISTER_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c6",
+      "name": "PLONGLISTER_changeFocuseAct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c7",
+      "name": "PLONGLISTER_writeItem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c8",
+      "name": "PLONGLISTER_penDownAct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101c9",
+      "name": "ChangeLongListItemSum",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ca",
+      "name": "ChangeLongListRowHeight",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101cb",
+      "name": "SetSysColorConfig",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101cc",
+      "name": "GetSysColorConfig",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101cd",
+      "name": "GetSysColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ce",
+      "name": "SetSysColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101cf",
+      "name": "SetDefaultSysIconCfg",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d0",
+      "name": "DrawGradientRect",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d1",
+      "name": "TimePicker",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d2",
+      "name": "_GetOpenFileName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d3",
+      "name": "_GetSaveFileName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d4",
+      "name": "_GetNextFileName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d5",
+      "name": "InsertFileFilter",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d6",
+      "name": "PFILEFILTER_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d7",
+      "name": "PFILEFILTER_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d8",
+      "name": "PFILEFILTER_chgColumnText",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101d9",
+      "name": "PFILEFILTER_setPathInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101da",
+      "name": "PFILEFILTER_getFillMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101db",
+      "name": "PFILEFILTER_setFillMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101dc",
+      "name": "PFILEFILTER_getItemName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101dd",
+      "name": "PFILEFILTER_writeColumn0",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101de",
+      "name": "GetFileExecuteFunction",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101df",
+      "name": "_EditFileName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e0",
+      "name": "IME_GetHandActiveState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e1",
+      "name": "IME_GetCtrlSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e2",
+      "name": "IME_ActiveCtrl",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e3",
+      "name": "IME_IsActiveInputer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e4",
+      "name": "IME_SetDefault",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e5",
+      "name": "IME_GetLXResult",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e6",
+      "name": "IME_SetHandFilter",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e7",
+      "name": "IME_GetHandFilter",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e8",
+      "name": "IME_IsFuncKey",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101e9",
+      "name": "IME_SearchKeyMap",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ea",
+      "name": "IME_IsSelectKey",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101eb",
+      "name": "IME_SaveUserInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ec",
+      "name": "IME_ReadUserInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ed",
+      "name": "IME_IsEmptyFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ee",
+      "name": "IME_SetHandWrtConfig",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ef",
+      "name": "IME_SetHandWrtStudyFlag",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f0",
+      "name": "IME_SetRecognizeFlag",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f1",
+      "name": "IME_GetCtrl",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f2",
+      "name": "IME_GetCtrlState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f3",
+      "name": "IME_GetViewInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f4",
+      "name": "SCcorrection",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f5",
+      "name": "SCwildcard",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f6",
+      "name": "SCverify",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f7",
+      "name": "InitialSpelling",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f8",
+      "name": "SCopenDatabase",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101f9",
+      "name": "SCcloseDatabase",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101fa",
+      "name": "SCGetMaxWordLen",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101fb",
+      "name": "GetTotalItem",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101fc",
+      "name": "GetMaxBlockSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101fd",
+      "name": "GetKeyWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101fe",
+      "name": "GetAllContent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x101ff",
+      "name": "GetSaveAddress",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10200",
+      "name": "GetAlpExit",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10201",
+      "name": "SetAlpExit",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10202",
+      "name": "SetDictFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10203",
+      "name": "GetDictFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10204",
+      "name": "UniversalCrossSearch",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10205",
+      "name": "UniversalDictList",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10206",
+      "name": "UniversalDictListForAll",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10207",
+      "name": "UniversalCardList",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10208",
+      "name": "SearchEveryWay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10209",
+      "name": "GetAddDictPosInList",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020a",
+      "name": "GetCurrentCardDictNum",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020b",
+      "name": "SearchCurrentCardDictInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020c",
+      "name": "ReleaseCardDictInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020d",
+      "name": "PRICHVIEW_SetBufferAttrib",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020e",
+      "name": "PRICHVIEW_SpeechForRich",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1020f",
+      "name": "IsDictOuYu",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10210",
+      "name": "CreateRichView",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10211",
+      "name": "AddScrollBarToRichview",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10212",
+      "name": "ChangeScrollBarToRichview",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10213",
+      "name": "ChangeScrollBarPos",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10214",
+      "name": "SetDisplayMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10215",
+      "name": "SetShowSearchLayer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10216",
+      "name": "SetWindowState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10217",
+      "name": "GetWindowState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10218",
+      "name": "GetBaseLine",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10219",
+      "name": "SetBaseLine",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021a",
+      "name": "BackupWindowState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021b",
+      "name": "RestoreWindowState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021c",
+      "name": "PRICHVIEW_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021d",
+      "name": "PRICHVIEW_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021e",
+      "name": "GetMarkString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1021f",
+      "name": "GetRichWindowState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10220",
+      "name": "SetShowMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10221",
+      "name": "PRICHVIEW_ShowSearchLayer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10222",
+      "name": "PRICHVIEW_SetStateForUser",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10223",
+      "name": "PRICHVIEW_WriteString",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10224",
+      "name": "RichViewSetColor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10225",
+      "name": "SetTotalLine",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10226",
+      "name": "ShowRichContentOnly",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10227",
+      "name": "PRICHVIEW_SetCttsType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10228",
+      "name": "SetDefLineEditorInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10229",
+      "name": "LineEditor",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022a",
+      "name": "LineEditor_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022b",
+      "name": "DictEditor_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022c",
+      "name": "LEModuleForUser",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022d",
+      "name": "LineEditor_ModuleForUser",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022e",
+      "name": "LEDictWiseSearch",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1022f",
+      "name": "IsWildCard",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10230",
+      "name": "LEditor_draw",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10231",
+      "name": "LINEEDITOR_changeFocuseAct",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10232",
+      "name": "LEDSK_handleEvent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10233",
+      "name": "LineEditorCompareStr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10234",
+      "name": "LineEditorWiseSearch",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10235",
+      "name": "SearchDict",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10236",
+      "name": "GetSearchDictShortName",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10237",
+      "name": "GetCurrentMainDictNum",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10238",
+      "name": "PRICHVIEW_OKSpeechForRich",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10239",
+      "name": "GetIndexHcaOffset",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023a",
+      "name": "GetIndexIconOffset",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023b",
+      "name": "GetAppIndexIconOffset",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023c",
+      "name": "LoadHCAToGraphicByIdx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023d",
+      "name": "LoadHCAToGraphicHeadByIdx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023e",
+      "name": "GetIndexHCAHeight",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1023f",
+      "name": "GetIndexHCAWidth",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10240",
+      "name": "ShowHCAByOffset",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10241",
+      "name": "SetHCATransparentMode",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10242",
+      "name": "ReleaseHcaCache",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10243",
+      "name": "ResetCache",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10244",
+      "name": "SetLibDataindexOffset",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10245",
+      "name": "GetLibAddrFromID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10246",
+      "name": "ShowBookProFromFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10247",
+      "name": "RunBook",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10248",
+      "name": "ShowBook",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10249",
+      "name": "ShowBookPreview",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024a",
+      "name": "ShowBookEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024b",
+      "name": "USBMassStorageRun",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024c",
+      "name": "SetPassThroughCallBack",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024d",
+      "name": "ctts_predict",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024e",
+      "name": "ctts_nounce",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1024f",
+      "name": "SetAllVoiceState",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10250",
+      "name": "OpenPCMCodec",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10251",
+      "name": "ClosePCMCodec",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10252",
+      "name": "AudioPlayBackPause",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10253",
+      "name": "AudioPlayBackContinue",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10254",
+      "name": "PlayWaveData",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10255",
+      "name": "StopWaveDataPlay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10256",
+      "name": "PauseWaveDataPlay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10257",
+      "name": "ContinueWaveDataPlay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10258",
+      "name": "RecordAdpcmEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10259",
+      "name": "StopADPCMRecord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025a",
+      "name": "IsWaveDataPlayStopped",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025b",
+      "name": "PlayMP3Data",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025c",
+      "name": "StopMP3DataPlay",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025d",
+      "name": "PausePlayMP3Data",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025e",
+      "name": "ContinuePlayMP3Data",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1025f",
+      "name": "InitBestlkHandle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10260",
+      "name": "SetBestlkVoiceHandle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10261",
+      "name": "IME_RegistInputer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10262",
+      "name": "SetLanguageAttr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10263",
+      "name": "SetDialectAttr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10264",
+      "name": "SetLineEditorAttr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10265",
+      "name": "SetBookLibDataHFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10266",
+      "name": "SetBookVocLibDataHFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10267",
+      "name": "IME_SetGlobalVar",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10268",
+      "name": "IME_Functions",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10269",
+      "name": "LE_SupportMultiLangFunc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026a",
+      "name": "ShowBookFromHANDLE",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026b",
+      "name": "_wfnsplit",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026c",
+      "name": "_wfnmerge",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026d",
+      "name": "_wfcreate",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026e",
+      "name": "_wfcreateSz",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1026f",
+      "name": "__wfopen",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10270",
+      "name": "_wfindfirst",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10271",
+      "name": "_wfindnext",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10272",
+      "name": "_wfgetattr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10273",
+      "name": "_wfsetattr",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10274",
+      "name": "__wremove",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10275",
+      "name": "_wrename",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10276",
+      "name": "_wfcopy",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10277",
+      "name": "_wmkdir",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10278",
+      "name": "_wrmdir",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10279",
+      "name": "_wchdir",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x1027a",
+      "name": "_wgetcurdir",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1027b",
+      "name": "_afsettime",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1027c",
+      "name": "_wfsettime",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1027d",
+      "name": "_afullpath",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1027e",
+      "name": "_wfullpath",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1027f",
+      "name": "RunApplicationW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10280",
+      "name": "GetApplicationNameW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10281",
+      "name": "LoadProgramW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10282",
+      "name": "GetCurrentPathW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10283",
+      "name": "ProgramIsRunningW",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10284",
+      "name": "LoadHFileProgramW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10285",
+      "name": "LoadHFileProgramA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10286",
+      "name": "_LoadLibraryA",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10287",
+      "name": "_GetModuleFileNameA",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10288",
+      "name": "_GetModuleHandleA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10289",
+      "name": "GetApplicationProcA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028a",
+      "name": "StayResidentProgramA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028b",
+      "name": "UnStayResidentProgramA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028c",
+      "name": "CheckProgramIsStayResident",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028d",
+      "name": "_FindResourceA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028e",
+      "name": "_FindResourceExA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1028f",
+      "name": "_LoadLibraryW",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10290",
+      "name": "_GetModuleFileNameW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10291",
+      "name": "_GetModuleHandleW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10292",
+      "name": "GetApplicationProcW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10293",
+      "name": "_FindResourceW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10294",
+      "name": "_FindResourceExW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10295",
+      "name": "StayResidentProgramW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10296",
+      "name": "UnStayResidentProgramW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x10297",
+      "name": "_FreeLibrary",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10298",
+      "name": "_GetProcAddress",
+      "status": "Implemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x10299",
+      "name": "_SizeofResource",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029a",
+      "name": "_OpenResourceItemFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029b",
+      "name": "_CloseResourceItemFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029c",
+      "name": "GetCardSN",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029d",
+      "name": "GetCardSize",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029e",
+      "name": "GetThaiWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x1029f",
+      "name": "LoadThaiGrammarLib",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a0",
+      "name": "FreeThaiGrammarLib",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a1",
+      "name": "WriteComDebugMsg",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x102a2",
+      "name": "CreateIconButton",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a3",
+      "name": "LoadImageFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a4",
+      "name": "GetResourceCfg",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a5",
+      "name": "GetSystemDefaultLangID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a6",
+      "name": "SetSystemDefaultLangID",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a7",
+      "name": "CreateFile",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x102a8",
+      "name": "DeleteFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102a9",
+      "name": "ReadFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102aa",
+      "name": "WriteFile",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102ab",
+      "name": "SetFilePointer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102ac",
+      "name": "DeviceIoControl",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x102ad",
+      "name": "CloseHandle",
+      "status": "PartiallyImplemented",
+      "has_handler": true
+    },
+    {
+      "id": "0x102ae",
+      "name": "DictLastWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102af",
+      "name": "GetTransBuffer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b0",
+      "name": "DictIsYuanYinPhonetic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b1",
+      "name": "InsertButtonTeam",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b2",
+      "name": "CreateSearchInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b3",
+      "name": "FreeSearchInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b4",
+      "name": "DefProcessContent",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b5",
+      "name": "DefInsertPic",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b6",
+      "name": "DefGetWholeWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b7",
+      "name": "DefAddALine",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b8",
+      "name": "PRICHVIEW_GetFlagLength",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102b9",
+      "name": "PRICHVIEW_FilterMark",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102ba",
+      "name": "AddNewWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102bb",
+      "name": "GetMaxSearchLayer",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102bc",
+      "name": "FormatMessage",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102bd",
+      "name": "SetFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102be",
+      "name": "GetFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102bf",
+      "name": "GetFontWidth",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c0",
+      "name": "GetStringLengthEx",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c1",
+      "name": "SetFontStyle",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c2",
+      "name": "RegisterUserFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c3",
+      "name": "UnRegisterUserFont",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c4",
+      "name": "SetCurrentVideoDevice",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c5",
+      "name": "SetSupportDoubleLCD",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c6",
+      "name": "_GetDriverType",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c7",
+      "name": "EditControlFunc",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c8",
+      "name": "GetMasterSerialNumber",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102c9",
+      "name": "GetMasterVendorInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102ca",
+      "name": "PRICHVIEW_SetDisplayPosition",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102cb",
+      "name": "GetApplicationHeadInfoA",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102cc",
+      "name": "GetApplicationHeadInfoW",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102cd",
+      "name": "_FreeFindResInfo",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102ce",
+      "name": "GetWholeWord",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102cf",
+      "name": "LoadWordGrammarLib",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d0",
+      "name": "FreeWordGrammarLib",
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d1",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d2",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d3",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d4",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d5",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d6",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d7",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d8",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102d9",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102da",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102db",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102dc",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102dd",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102de",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102df",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e0",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e1",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e2",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e3",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e4",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    },
+    {
+      "id": "0x102e5",
+      "name": null,
+      "status": "NotInvestigated",
+      "has_handler": false
+    }
+  ],
+  "notes": [
+    "Static registration inventory: an unregistered service is not proof that a user-facing flow fails.",
+    "Implemented is a code-table classification, not new physical verification."
+  ]
+}

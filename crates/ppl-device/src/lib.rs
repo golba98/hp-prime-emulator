@@ -76,6 +76,7 @@ pub mod run;
 pub mod screenshot;
 pub mod session;
 pub mod transport;
+pub mod virtual_device;
 
 pub use guard::{
     ControlObject, DEFAULT_CONTROL, DEFAULT_SETTINGS_ANCHOR, GUARD_MAX_AGE, MAX_NAME_LEN,
@@ -232,7 +233,7 @@ impl Prime {
         Ok(prime)
     }
 
-    /// Wraps an already-open transport (used by tests with a mock).
+    /// Wraps an already-open physical or virtual transport.
     pub fn with_transport(detected: Detected, t: Box<dyn Transport>) -> Prime {
         Prime {
             _lock: None,

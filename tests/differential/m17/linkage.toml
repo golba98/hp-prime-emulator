@@ -1,0 +1,95 @@
+schema_version=2
+id="m17_linkage"
+[programs.ZZT_M17LEAF]
+source='''LOCAL count:=10;
+EXPORT M17RESET() BEGIN A:=0; RETURN A; END;
+EXPORT M17LEAF(x) BEGIN count:=count+1; A:=A+x; RETURN count; END;
+EXPORT M17LSTATE() BEGIN RETURN {count,A}; END;
+'''
+[programs.ZZT_M17MIDDLE]
+source='''EXPORT M17MIDDLE(x) BEGIN RETURN M17LEAF(x); END;'''
+[programs.ZZT_M17ROOT]
+source='''LOCAL count:=100;
+EXPORT M17ROOT(x) BEGIN count:=count+1; RETURN M17MIDDLE(x)+count; END;
+EXPORT M17RSTATE() BEGIN RETURN {count,A}; END;
+'''
+[[steps]]
+action="import"
+id="leaf"
+program="ZZT_M17LEAF"
+[[steps]]
+action="import"
+id="middle"
+program="ZZT_M17MIDDLE"
+[[steps]]
+action="import"
+id="root"
+program="ZZT_M17ROOT"
+[[steps]]
+action="run_program"
+id="reset"
+program="ZZT_M17LEAF"
+entry="M17RESET"
+[[steps]]
+action="run_program"
+id="first"
+program="ZZT_M17ROOT"
+entry="M17ROOT"
+args=[{type="real",value="3"}]
+[[steps]]
+action="run_program"
+id="second"
+program="ZZT_M17ROOT"
+entry="M17ROOT"
+args=[{type="real",value="5"}]
+[[steps]]
+action="probe"
+id="leaf_state"
+program="ZZT_M17LEAF"
+entry="M17LSTATE"
+names=["leaf_private","shared_A"]
+[[steps]]
+action="probe"
+id="root_state"
+program="ZZT_M17ROOT"
+entry="M17RSTATE"
+names=["root_private","shared_A"]
+[[expect]]
+step="first"
+path="/return_value"
+value={type="real",value="112"}
+[[expect]]
+step="second"
+path="/return_value"
+value={type="real",value="114"}
+[[expect]]
+step="leaf_state"
+path="/variables/leaf_private"
+value={type="real",value="12"}
+[[expect]]
+step="root_state"
+path="/variables/root_private"
+value={type="real",value="102"}
+[[expect]]
+step="root_state"
+path="/variables/shared_A"
+value={type="real",value="8"}
+[[steps]]
+action="edit"
+id="edit_leaf"
+program="ZZT_M17LEAF"
+source='''LOCAL count:=40;
+EXPORT M17RESET() BEGIN A:=0; RETURN A; END;
+EXPORT M17LEAF(x) BEGIN count:=count+1; A:=A+x; RETURN count; END;
+EXPORT M17LSTATE() BEGIN RETURN {count,A}; END;
+'''
+[[steps]]
+action="run_program"
+id="after_edit"
+program="ZZT_M17ROOT"
+entry="M17ROOT"
+args=[{type="real",value="2"}]
+[[expect]]
+step="after_edit"
+path="/return_value"
+value={type="real",value="144"}

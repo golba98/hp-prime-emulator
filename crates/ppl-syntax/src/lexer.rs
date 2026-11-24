@@ -151,6 +151,10 @@ pub enum Tok {
     Star,
     Slash,
     Caret,
+    Angle,
+    Degree,
+    Minute,
+    Second,
     Eq,
     EqEq,
     Ne,
@@ -199,6 +203,10 @@ impl Tok {
             Tok::Star => "*",
             Tok::Slash => "/",
             Tok::Caret => "^",
+            Tok::Angle => "∠",
+            Tok::Degree => "°",
+            Tok::Minute => "′",
+            Tok::Second => "″",
             Tok::Eq => "=",
             Tok::EqEq => "==",
             Tok::Ne => "≠",
@@ -319,6 +327,13 @@ impl Lexer<'_> {
                 self.number(start);
                 continue;
             }
+            // Conversion functions include both leading and trailing arrows
+            // (→HMS, HMS→), as well as internal arrows (B→R, R→B).
+            if c == '→' && self.peek(1).is_some_and(is_ident_start) {
+                self.pos += 1;
+                self.ident(start);
+                continue;
+            }
             if is_ident_start(c) {
                 self.ident(start);
                 continue;
@@ -383,10 +398,20 @@ impl Lexer<'_> {
         loop {
             match self.peek(0) {
                 Some(c) if is_ident_continue(c) => self.pos += 1,
-                // `B→R`, `R→B`: arrow inside a name.
-                Some('→') if self.peek(1).is_some_and(is_ident_start) => self.pos += 1,
+                // Absolute worksheet cells are qualified app identifiers,
+                // not interpolation or a new kind of global variable.
+                Some('$') if self.src[start..self.offset()].starts_with("Spreadsheet.") => {
+                    self.pos += 1;
+                }
+                Some('→') => self.pos += 1,
                 // `CAS.diff`, `Finance.TVM`: qualified names.
                 Some('.') if self.peek(1).is_some_and(is_ident_start) => self.pos += 1,
+                Some('.')
+                    if self.peek(1) == Some('$')
+                        && &self.src[start..self.offset()] == "Spreadsheet" =>
+                {
+                    self.pos += 1;
+                }
                 _ => break,
             }
         }
@@ -550,10 +575,15 @@ impl Lexer<'_> {
         }
         self.pos += 1;
         let body_start = self.offset();
-        while self
-            .peek(0)
-            .is_some_and(|c| c.is_ascii_alphanumeric() || c == ':')
-        {
+        while let Some(character) = self.peek(0) {
+            let sign_position =
+                self.offset() == body_start || self.src[body_start..self.offset()].ends_with(':');
+            if !(character.is_ascii_alphanumeric()
+                || character == ':'
+                || (sign_position && matches!(character, '-' | '−')))
+            {
+                break;
+            }
             self.pos += 1;
         }
         let body = self.src[body_start..self.offset()].to_string();
@@ -592,6 +622,10 @@ impl Lexer<'_> {
             '*' | '×' | '·' => (Tok::Star, 1),
             '/' | '÷' => (Tok::Slash, 1),
             '^' => (Tok::Caret, 1),
+            '∠' | '∡' => (Tok::Angle, 1),
+            '°' => (Tok::Degree, 1),
+            '′' => (Tok::Minute, 1),
+            '″' => (Tok::Second, 1),
             '=' if two(self, '=') => (Tok::EqEq, 2),
             '=' => (Tok::Eq, 1),
             '≠' => (Tok::Ne, 1),

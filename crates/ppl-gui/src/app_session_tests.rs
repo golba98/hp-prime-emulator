@@ -94,8 +94,14 @@ fn fixture(source: &str) -> (IdeDesktopApp, egui::Context) {
 }
 
 fn run(app: &mut IdeDesktopApp, ctx: &egui::Context) {
+    let previous_run = app.state.native.run_id;
     app.handle_action(IdeAction::RunProgram, ctx);
-    wait(app, ctx, |a| a.controller.operation_active());
+    // A short program can finish during the frame that starts its worker.
+    // Bind the observation to this run and accept its handled completion too.
+    wait(app, ctx, |a| {
+        a.state.native.run_id != previous_run
+            && (a.controller.operation_active() || a.state.native.outcome_handled)
+    });
 }
 
 fn complete(app: &mut IdeDesktopApp, ctx: &egui::Context) {

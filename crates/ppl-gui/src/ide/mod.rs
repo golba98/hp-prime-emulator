@@ -18,8 +18,32 @@ pub mod keypad;
 pub mod layout;
 pub mod menu;
 pub mod native;
+pub mod native_app_models;
+pub mod native_app_ui;
+pub mod native_app_views;
+pub mod native_application_access;
+pub mod native_apps;
+pub(crate) mod native_equations;
+pub mod native_fonts;
+pub mod native_geometry;
+pub mod native_graph_context;
+pub mod native_inference;
+pub mod native_inference_plots;
+pub mod native_inference_ui;
+pub mod native_integer;
+pub mod native_lcd_capture;
+pub mod native_model_plots;
+pub mod native_plot_controls;
+pub mod native_plot_view;
+pub mod native_profile;
+pub mod native_readonly;
+pub mod native_regression;
+pub mod native_statistics;
+pub mod native_tools;
+pub mod native_user_keys;
 pub mod problems;
 pub mod programs;
+pub mod research;
 pub mod send;
 pub mod status;
 pub mod syntax;
@@ -56,6 +80,7 @@ pub struct PersistentPanelState {
     pub smooth_display: bool,
     pub firmware_backend: bool,
     pub firmware: firmware::FirmwareSettings,
+    pub full_system_build_root: String,
     pub show_explorer: bool,
     pub show_calculator: bool,
     pub show_bottom_dock: bool,
@@ -92,6 +117,7 @@ impl Default for PersistentPanelState {
             smooth_display: false,
             firmware_backend: false,
             firmware: firmware::FirmwareSettings::default(),
+            full_system_build_root: String::new(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
@@ -255,6 +281,7 @@ pub enum IdeAction {
     StepOver,
     StepOut,
     ToggleBreakpoint(usize),
+    SelectDebugFrame(usize),
     CheckSyntax,
     ManagePrograms,
     /// Save, check and send the active program to the calculator.
@@ -286,6 +313,11 @@ pub enum IdeAction {
     FirmwareShutDown,
     /// End the session and boot a fresh one on the same profile.
     FirmwareRestart,
+    /// Save the complete live calculator without powering it off.
+    FirmwareSaveLive,
+    /// Restore the last explicit live checkpoint in a new helper.
+    FirmwareResumeLive,
+    FirmwareEnvironmentApply,
     /// Store the active tab as a new program on the firmware calculator.
     ImportToCalculator,
     /// Ask to reset the calculator's memory (confirmation dialog).
@@ -294,6 +326,7 @@ pub enum IdeAction {
     FirmwareResetConfirmed,
     ShowShortcuts,
     ShowAboutDialog,
+    ShowResearchDiagnostics,
     ShowSettingsDialog,
     ShowNewProgramDialog,
     ShowGoToLineDialog,
@@ -345,8 +378,12 @@ pub struct IdeAppState {
     pub smooth_display: bool,
     pub firmware_backend: bool,
     pub firmware: firmware::FirmwareSettings,
+    pub full_system_build_root: String,
     pub key_transitions: Vec<(i64, bool)>,
     pub firmware_input_enabled: bool,
+    pub firmware_managed_reason: Option<String>,
+    pub firmware_clipboard_available: bool,
+    pub firmware_peripherals: ppl_engine::environment::PeripheralState,
     pub firmware_session: FirmwareSession,
     /// Unsupported OS services the current session substituted:
     /// (service id, name, caller pc), first hit of each call site.
@@ -395,6 +432,7 @@ pub struct IdeAppState {
     pub status_message: String,
     /// Line the debugger is paused on (0 = none); highlights in the editor.
     pub paused_line: usize,
+    pub paused_tab: Option<editor::TabId>,
     /// When true, PC keyboard input is routed to the VM (calculator focus)
     /// instead of the code editor.
     pub calc_input_focus: bool,
@@ -408,6 +446,8 @@ pub struct IdeAppState {
 
     // Queue of pending actions
     pub pending_actions: Vec<IdeAction>,
+    /// Transient visible widget bounds for opt-in pointer automation.
+    pub automation_ui_controls: std::collections::BTreeMap<String, egui::Rect>,
 }
 
 impl Default for IdeAppState {
@@ -421,6 +461,7 @@ impl Default for IdeAppState {
             smooth_display: false,
             firmware_backend: false,
             firmware: firmware::FirmwareSettings::default(),
+            full_system_build_root: String::new(),
             show_explorer: true,
             show_calculator: true,
             show_bottom_dock: true,
@@ -446,15 +487,20 @@ impl Default for IdeAppState {
             display_scale: 1.0,
             status_message: "Ready".to_string(),
             paused_line: 0,
+            paused_tab: None,
             calc_input_focus: false,
             editor_font_size: default_editor_font_size(),
             key_events: Vec::new(),
             key_transitions: Vec::new(),
             firmware_input_enabled: true,
+            firmware_managed_reason: None,
+            firmware_clipboard_available: false,
+            firmware_peripherals: Default::default(),
             firmware_session: FirmwareSession::Off,
             firmware_unsupported: Vec::new(),
             keys_down: HashSet::new(),
             pending_actions: Vec::new(),
+            automation_ui_controls: Default::default(),
         }
     }
 }
@@ -468,6 +514,7 @@ impl IdeAppState {
             smooth_display: self.smooth_display,
             firmware_backend: self.firmware_backend,
             firmware: self.firmware.clone(),
+            full_system_build_root: self.full_system_build_root.clone(),
             show_explorer: self.show_explorer,
             show_calculator: self.show_calculator,
             show_bottom_dock: self.show_bottom_dock,
@@ -495,6 +542,7 @@ impl IdeAppState {
         self.smooth_display = p.smooth_display;
         self.firmware_backend = p.firmware_backend;
         self.firmware = p.firmware.clone();
+        self.full_system_build_root = p.full_system_build_root.clone();
         self.show_explorer = p.show_explorer;
         self.show_calculator = p.show_calculator;
         self.show_bottom_dock = p.show_bottom_dock;
@@ -575,3 +623,6 @@ impl IdeAppState {
         self.keys_down.clear();
     }
 }
+
+#[cfg(test)]
+mod native_plot_view_tests;

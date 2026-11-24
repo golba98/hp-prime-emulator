@@ -1,0 +1,1168 @@
+{
+  "schema_version": 1,
+  "origin": "local-firmware",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "scenario": "tests/differential/m17/typed_values.toml",
+  "scenario_sha256": "c32e97f05eceb99eb52e67ffcdfe51bab30ce7ce21fb226565b4e5f4ac836346",
+  "physical_verification": false,
+  "cases": [
+    {
+      "id": "M17TYPES",
+      "source_sha256": "e25ee584ff17868205d27e6a8225649f6b83f5a71fb5e18780aa7172839164aa",
+      "representation": {
+        "captured_bytes": 238,
+        "coherent": true,
+        "complete": true,
+        "logical_items": 15,
+        "nodes": [
+          {
+            "address": 541680752,
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              5,
+              0,
+              0,
+              0,
+              96,
+              84,
+              73,
+              32,
+              48,
+              114,
+              74,
+              32,
+              240,
+              111,
+              74,
+              32,
+              176,
+              117,
+              74,
+              32,
+              96,
+              103,
+              74,
+              32
+            ],
+            "children": [
+              1,
+              5,
+              6,
+              7,
+              8
+            ],
+            "path": [],
+            "unavailable": null
+          },
+          {
+            "address": 541676640,
+            "bytes": [
+              1,
+              0,
+              22,
+              0,
+              1,
+              0,
+              0,
+              0,
+              128,
+              162,
+              73,
+              32
+            ],
+            "children": [
+              2
+            ],
+            "path": [
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541696640,
+            "bytes": [
+              1,
+              0,
+              22,
+              1,
+              2,
+              0,
+              0,
+              0,
+              48,
+              172,
+              73,
+              32,
+              64,
+              88,
+              74,
+              32
+            ],
+            "children": [
+              3,
+              4
+            ],
+            "path": [
+              1,
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541699120,
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              216,
+              68,
+              32,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              1,
+              1,
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541743168,
+            "bytes": [
+              2,
+              0,
+              18,
+              8,
+              6,
+              0,
+              0,
+              0,
+              110,
+              0,
+              101,
+              0,
+              115,
+              0,
+              116,
+              0,
+              101,
+              0,
+              100,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              1,
+              1,
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541749808,
+            "bytes": [
+              2,
+              0,
+              20,
+              8,
+              2,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4
+            ],
+            "children": [],
+            "path": [
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541749232,
+            "bytes": [
+              2,
+              0,
+              20,
+              1,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3
+            ],
+            "children": [],
+            "path": [
+              3
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541750704,
+            "bytes": [
+              1,
+              0,
+              19,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              16,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3
+            ],
+            "children": [],
+            "path": [
+              4
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541747040,
+            "bytes": [
+              2,
+              0,
+              145,
+              8,
+              197,
+              254,
+              230,
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              5
+            ],
+            "unavailable": null
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "list",
+                "value": [
+                  {
+                    "type": "real",
+                    "value": "1"
+                  },
+                  {
+                    "type": "string",
+                    "value": "nested"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "columns": 2,
+            "rows": 2,
+            "type": "matrix",
+            "value": [
+              {
+                "type": "real",
+                "value": "1"
+              },
+              {
+                "type": "real",
+                "value": "2"
+              },
+              {
+                "type": "real",
+                "value": "3"
+              },
+              {
+                "type": "real",
+                "value": "4"
+              }
+            ],
+            "vector": false
+          },
+          {
+            "columns": 3,
+            "rows": 1,
+            "type": "matrix",
+            "value": [
+              {
+                "type": "real",
+                "value": "1"
+              },
+              {
+                "type": "real",
+                "value": "2"
+              },
+              {
+                "type": "real",
+                "value": "3"
+              }
+            ],
+            "vector": true
+          },
+          {
+            "imaginary": "3",
+            "real": "2",
+            "type": "complex"
+          },
+          {
+            "bits": 8,
+            "literal": "#FFh",
+            "signed": "-1",
+            "type": "integer",
+            "unsigned": "255"
+          }
+        ]
+      }
+    },
+    {
+      "id": "M17DECIMALS",
+      "source_sha256": "e25ee584ff17868205d27e6a8225649f6b83f5a71fb5e18780aa7172839164aa",
+      "representation": {
+        "captured_bytes": 148,
+        "coherent": true,
+        "complete": true,
+        "logical_items": 8,
+        "nodes": [
+          {
+            "address": 541762528,
+            "bytes": [
+              0,
+              0,
+              22,
+              32,
+              5,
+              0,
+              0,
+              0,
+              64,
+              164,
+              74,
+              32,
+              32,
+              164,
+              74,
+              32,
+              112,
+              122,
+              74,
+              32,
+              240,
+              129,
+              74,
+              32,
+              0,
+              130,
+              74,
+              32
+            ],
+            "children": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "path": [],
+            "unavailable": null
+          },
+          {
+            "address": 541762624,
+            "bytes": [
+              1,
+              0,
+              20,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              37,
+              145,
+              255,
+              15,
+              0,
+              0,
+              0,
+              0,
+              80,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541762592,
+            "bytes": [
+              1,
+              0,
+              19,
+              255,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              37,
+              1,
+              0,
+              0,
+              16,
+              255,
+              255,
+              255,
+              255,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              80,
+              2
+            ],
+            "children": [],
+            "path": [
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541751920,
+            "bytes": [
+              2,
+              0,
+              113,
+              8,
+              132,
+              2,
+              128,
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              3
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541753840,
+            "bytes": [
+              2,
+              0,
+              49,
+              8,
+              0,
+              0,
+              0,
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              4
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541753856,
+            "bytes": [
+              2,
+              0,
+              81,
+              8,
+              0,
+              0,
+              0,
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              5
+            ],
+            "unavailable": null
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "columns": 3,
+            "rows": 1,
+            "type": "matrix",
+            "value": [
+              {
+                "type": "real",
+                "value": "-12.5"
+              },
+              {
+                "type": "real",
+                "value": "0.25"
+              },
+              {
+                "type": "real",
+                "value": "0"
+              }
+            ],
+            "vector": true
+          },
+          {
+            "imaginary": "-0.25",
+            "real": "-12.5",
+            "type": "complex"
+          },
+          {
+            "bits": 8,
+            "literal": "#255d",
+            "signed": "-1",
+            "type": "integer",
+            "unsigned": "255"
+          },
+          {
+            "bits": 8,
+            "literal": "#11111111b",
+            "signed": "-1",
+            "type": "integer",
+            "unsigned": "255"
+          },
+          {
+            "bits": 8,
+            "literal": "#377o",
+            "signed": "-1",
+            "type": "integer",
+            "unsigned": "255"
+          }
+        ]
+      }
+    },
+    {
+      "id": "M17CMATRIX",
+      "source_sha256": "e25ee584ff17868205d27e6a8225649f6b83f5a71fb5e18780aa7172839164aa",
+      "representation": {
+        "captured_bytes": 48,
+        "coherent": true,
+        "complete": true,
+        "logical_items": 2,
+        "nodes": [
+          {
+            "address": 541765312,
+            "bytes": [
+              0,
+              0,
+              148,
+              1,
+              2,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              145
+            ],
+            "children": [],
+            "path": [],
+            "unavailable": null
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": {
+        "columns": 2,
+        "rows": 1,
+        "type": "matrix",
+        "value": [
+          {
+            "imaginary": "3",
+            "real": "2",
+            "type": "complex"
+          },
+          {
+            "imaginary": "-1",
+            "real": "4",
+            "type": "complex"
+          }
+        ],
+        "vector": false
+      }
+    },
+    {
+      "id": "M17MAT2",
+      "source_sha256": "a4c02e43c285ee24d73cc1113953befba60dde7fb431c87fc87d5f54aba09a05",
+      "source": "EXPORT M17MATRIX() BEGIN LOCAL m:=[[1,2],[3,4]]; RETURN {m,m(1,1),m(1,2),m(2,1),m(2,2)}; END;\nEXPORT M17COMPLEX() BEGIN LOCAL z:=2+3*i; RETURN {z,RE(z),IM(z),STRING(z)}; END;\nEXPORT M17INTEGER() BEGIN RETURN {#FF:8h,#FFh,#123456789ABCDEF0:64h}; END;\nEXPORT M17COMPLEX2() BEGIN LOCAL z:=-12.5-0.25*i; RETURN {z,RE(z),IM(z),STRING(z)}; END;\nEXPORT M17MAT2() BEGIN LOCAL m:=[[-12.5,0.25,0],[1e100,-1e-100,9.12345678901]]; RETURN {m,m(1,1),m(1,2),m(1,3),m(2,1),m(2,2),m(2,3)}; END;\nEXPORT M17VECTORS() BEGIN RETURN {[1,2,3],[[4,5,6]],[[7],[8],[9]],[[0]]}; END;\nEXPORT M17CMAT() BEGIN RETURN [[2+3*i,4-i]]; END;\nEXPORT M17BASES() BEGIN RETURN {#FF:8h,#255:8d,#11111111:8b,#377:8o,-#1:8h,#1:1h,#FFFF:16h,#1:63h}; END;\n",
+      "representation": {
+        "schema_version": 1,
+        "coherent": true,
+        "complete": true,
+        "captured_bytes": 196,
+        "logical_items": 13,
+        "nodes": [
+          {
+            "address": 541678128,
+            "path": [],
+            "bytes": [
+              0,
+              0,
+              22,
+              32,
+              7,
+              0,
+              0,
+              0,
+              176,
+              172,
+              73,
+              32,
+              96,
+              90,
+              73,
+              32,
+              128,
+              90,
+              73,
+              32,
+              192,
+              156,
+              192,
+              48,
+              144,
+              90,
+              73,
+              32,
+              176,
+              140,
+              73,
+              32,
+              192,
+              140,
+              73,
+              32
+            ],
+            "children": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541699248,
+            "path": [
+              1
+            ],
+            "bytes": [
+              1,
+              0,
+              20,
+              32,
+              2,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              37,
+              145,
+              255,
+              15,
+              0,
+              0,
+              0,
+              0,
+              80,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              100,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              156,
+              15,
+              0,
+              0,
+              0,
+              0,
+              0,
+              145,
+              0,
+              16,
+              144,
+              120,
+              86,
+              52,
+              18,
+              9
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541678176,
+            "path": [
+              2
+            ],
+            "bytes": [
+              1,
+              0,
+              16,
+              255,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              37,
+              1
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541678208,
+            "path": [
+              3
+            ],
+            "bytes": [
+              1,
+              0,
+              16,
+              1,
+              255,
+              255,
+              255,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              80,
+              2
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 817929408,
+            "path": [
+              4
+            ],
+            "bytes": [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541678224,
+            "path": [
+              5
+            ],
+            "bytes": [
+              1,
+              0,
+              16,
+              1,
+              100,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541691056,
+            "path": [
+              6
+            ],
+            "bytes": [
+              1,
+              0,
+              16,
+              255,
+              156,
+              255,
+              255,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            "children": [],
+            "unavailable": null
+          },
+          {
+            "address": 541691072,
+            "path": [
+              7
+            ],
+            "bytes": [
+              1,
+              0,
+              16,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              16,
+              144,
+              120,
+              86,
+              52,
+              18,
+              9
+            ],
+            "children": [],
+            "unavailable": null
+          }
+        ],
+        "unavailable": null
+      },
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "matrix",
+            "rows": 2,
+            "columns": 3,
+            "vector": false,
+            "value": [
+              {
+                "type": "real",
+                "value": "-12.5"
+              },
+              {
+                "type": "real",
+                "value": "0.25"
+              },
+              {
+                "type": "real",
+                "value": "0"
+              },
+              {
+                "type": "real",
+                "value": "1e100"
+              },
+              {
+                "type": "real",
+                "value": "-1e-100"
+              },
+              {
+                "type": "real",
+                "value": "9.12345678901"
+              }
+            ]
+          },
+          {
+            "type": "real",
+            "value": "-12.5"
+          },
+          {
+            "type": "real",
+            "value": "0.25"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "1e100"
+          },
+          {
+            "type": "real",
+            "value": "-1e-100"
+          },
+          {
+            "type": "real",
+            "value": "9.12345678901"
+          }
+        ]
+      }
+    }
+  ]
+}

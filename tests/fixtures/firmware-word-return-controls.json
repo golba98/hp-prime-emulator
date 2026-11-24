@@ -1,0 +1,125 @@
+{
+  "provenance": "Self-authored signed/system-base word returns. Expected mathematical values established by independent B→R, GETBITS, GETBASE and STRING controls in native-word-controls.json. Typed return metadata must additionally pass the actual firmware test; no proprietary captures bundled.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "wpositive",
+      "entry": "WPOSITIVE",
+      "source": "EXPORT WPOSITIVE() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN #FF:-8h; END;",
+      "source_sha256": "6cb05e364af53a19a38aa33da143bcdda020af199909fa43893c303ffca11b3f",
+      "expected": {
+        "type": "integer",
+        "literal": "#FF:-8h",
+        "bits": 8,
+        "unsigned": "255",
+        "signed": "-1",
+        "signed_word": true,
+        "numeric": "255"
+      }
+    },
+    {
+      "name": "wnegative",
+      "entry": "WNEGATIVE",
+      "source": "EXPORT WNEGATIVE() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN #-5:-8h; END;",
+      "source_sha256": "b6565a7942ec7caa15f0ddae57623c723398690fa05e4726034230887087dea2",
+      "expected": {
+        "type": "integer",
+        "literal": "#-5:-8h",
+        "bits": 8,
+        "unsigned": "251",
+        "signed": "-5",
+        "signed_word": true,
+        "numeric": "-5"
+      }
+    },
+    {
+      "name": "wsysnegative",
+      "entry": "WSYSNEGATIVE",
+      "source": "EXPORT WSYSNEGATIVE() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN R→B(-1,-8); END;",
+      "source_sha256": "9dc198cd8ac86e545e9019798f1296701621a11898ce365dd23758d09d24faeb",
+      "expected": {
+        "type": "integer",
+        "literal": "#-1:-8d",
+        "bits": 8,
+        "unsigned": "255",
+        "signed": "-1",
+        "signed_word": true,
+        "numeric": "-1",
+        "system_base": true
+      }
+    },
+    {
+      "name": "wsyspositive",
+      "entry": "WSYSPOSITIVE",
+      "source": "EXPORT WSYSPOSITIVE() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN R→B(255,8); END;",
+      "source_sha256": "21cd7cd7c33308ac92ac4bae3b27b41c3338f602078db573c7e90fd46f60bc16",
+      "expected": {
+        "type": "integer",
+        "literal": "#255d",
+        "bits": 8,
+        "unsigned": "255",
+        "signed": "-1",
+        "system_base": true
+      }
+    },
+    {
+      "name": "wsigned63",
+      "entry": "WSIGNED63",
+      "source": "EXPORT WSIGNED63() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN R→B(-1,-63); END;",
+      "source_sha256": "c51c37474147e499e8e73b514d45d872be4873f793a0a8985f59969d9b9f1f25",
+      "expected": {
+        "type": "integer",
+        "literal": "#-1:-63d",
+        "bits": 63,
+        "unsigned": "9223372036854775807",
+        "signed": "-1",
+        "signed_word": true,
+        "numeric": "-1",
+        "system_base": true
+      }
+    },
+    {
+      "name": "wfull64",
+      "entry": "WFULL64",
+      "source": "EXPORT WFULL64() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN #FFFFFFFFFFFFFFFF:64h; END;",
+      "source_sha256": "b42ad2cd5214cce255810ea61d415c214d6d1b620345eee342c0281ff8d4aa52",
+      "expected": {
+        "type": "integer",
+        "literal": "#FFFFFFFFFFFFFFFFh",
+        "bits": 64,
+        "unsigned": "18446744073709551615",
+        "signed": "-1"
+      }
+    },
+    {
+      "name": "wsysdefault",
+      "entry": "WSYSDEFAULT",
+      "source": "EXPORT WSYSDEFAULT() BEGIN Base:=3; Bits:=32; Signed:=0; RETURN R→B(42); END;",
+      "source_sha256": "4743b5042fc959c7a415427d23a9c66ecbd439219c6c4f2a13d7cec140175172",
+      "expected": {
+        "type": "integer",
+        "literal": "#42d",
+        "bits": 32,
+        "unsigned": "42",
+        "signed": "42",
+        "system_base": true
+      }
+    },
+    {
+      "name": "wbasegetter",
+      "entry": "WBASEGETTER",
+      "source": "EXPORT WBASEGETTER() BEGIN Base:=3; Bits:=32; Signed:=0; Bits:=8; Signed:=1; RETURN GETBASE(#FFh); END;",
+      "source_sha256": "9fbef6e5d00a56a303a9604ab2117443d0671d899a56d9e19ae2f339da796f76",
+      "expected": {
+        "type": "integer",
+        "literal": "#4:-8d",
+        "bits": 8,
+        "unsigned": "4",
+        "signed": "4",
+        "signed_word": true,
+        "numeric": "4",
+        "system_base": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_presentation_reopen.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "snapshot",
+      "label": "restored"
+    },
+    {
+      "step": "calc_key",
+      "code": 10
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_cas"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_reopened_cas.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "snapshot",
+      "label": "restored_home"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

@@ -4,13 +4,14 @@
 //! matrix says otherwise):
 //! * string `+` anything concatenates the display forms;
 //! * lists combine element by element, and with scalars by broadcasting;
-//! * integer ⊕ integral real stays an integer in the integer's base;
+//! * word/word operations preserve the left word metadata; mixed real
+//!   operands promote to real (original installed G1 controls);
 //! * complex operands promote the other side to complex.
 
 use std::cmp::Ordering;
 use std::rc::Rc;
 
-use ppl_math::{Complex, HpInt, Real};
+use ppl_math::{Complex, HpInt, Real, RealPresentation};
 use ppl_syntax::ast::BinOp;
 
 use crate::error::{ErrorKind, RtResult, RuntimeError};
@@ -29,7 +30,7 @@ fn bad_type(op: &str, a: &Value, b: &Value) -> RuntimeError {
 }
 
 pub fn norm_complex(c: Complex) -> Value {
-    if c.im.is_zero() {
+    if c.im.is_zero() && c.presentation() == ppl_math::ComplexPresentation::Rectangular {
         Value::Real(c.re)
     } else {
         Value::Complex(c)
@@ -37,6 +38,29 @@ pub fn norm_complex(c: Complex) -> Value {
 }
 
 pub fn binary(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> {
+    if let (Value::Int(left), Value::Int(right)) = (a, b) {
+        let result = match op {
+            BinOp::Lt => {
+                Some(left.with_value(i128::from(left.numeric_value() < right.numeric_value())))
+            }
+            BinOp::Le => {
+                Some(left.with_value(i128::from(left.numeric_value() <= right.numeric_value())))
+            }
+            BinOp::Gt => {
+                Some(left.with_value(i128::from(left.numeric_value() > right.numeric_value())))
+            }
+            BinOp::Ge => {
+                Some(left.with_value(i128::from(left.numeric_value() >= right.numeric_value())))
+            }
+            BinOp::And => Some(left.and(*right)),
+            BinOp::Or => Some(left.or(*right)),
+            BinOp::Xor => Some(left.xor(*right)),
+            _ => None,
+        };
+        if let Some(result) = result {
+            return Ok(Value::Int(result));
+        }
+    }
     match op {
         BinOp::Eq => Ok(Value::from_bool(a.equals(b))),
         BinOp::Ne => Ok(Value::from_bool(!a.equals(b))),
@@ -47,14 +71,27 @@ pub fn binary(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> 
         BinOp::And => Ok(Value::from_bool(a.truthy()? && b.truthy()?)),
         BinOp::Or => Ok(Value::from_bool(a.truthy()? || b.truthy()?)),
         BinOp::Xor => Ok(Value::from_bool(a.truthy()? != b.truthy()?)),
-        BinOp::Add if matches!(a, Value::Str(_)) || matches!(b, Value::Str(_)) => {
+        BinOp::Add if a.is_string() || b.is_string() => {
             if matches!(a, Value::List(_)) || matches!(b, Value::List(_)) {
                 return arith(op, a, b, s);
             }
             let fmt = s.format();
-            let mut out = a.display(fmt);
-            out.push_str(&b.display(fmt));
-            Ok(Value::str(out))
+            let a = a
+                .string_units()
+                .map(|u| u.into_owned())
+                .unwrap_or_else(|| a.display(fmt).encode_utf16().collect());
+            let b = b
+                .string_units()
+                .map(|u| u.into_owned())
+                .unwrap_or_else(|| b.display(fmt).encode_utf16().collect());
+            // The G1 concatenation path uses terminated copies, although DIM,
+            // ASC and substring commands retain embedded NUL units.
+            let out = a
+                .into_iter()
+                .take_while(|u| *u != 0)
+                .chain(b.into_iter().take_while(|u| *u != 0))
+                .collect::<Vec<_>>();
+            Ok(Value::from_utf16(out))
         }
         _ => arith(op, a, b, s),
     }
@@ -62,7 +99,12 @@ pub fn binary(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> 
 
 pub fn compare(a: &Value, b: &Value) -> RtResult<Ordering> {
     match (a, b) {
-        (Value::Str(x), Value::Str(y)) => Ok(x.cmp(y)),
+        (Value::Int(left), Value::Int(right)) => {
+            Ok(left.numeric_value().cmp(&right.numeric_value()))
+        }
+        (x, y) if x.is_string() && y.is_string() => {
+            Ok(x.string_units().unwrap().cmp(&y.string_units().unwrap()))
+        }
         _ => match (a.as_real(), b.as_real()) {
             (Some(x), Some(y)) => Ok(x.cmp_value(y)),
             _ => Err(bad_type("<", a, b)),
@@ -117,24 +159,15 @@ fn int_of(v: &Value) -> Option<HpInt> {
 }
 
 fn scalar(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> {
-    // Integer arithmetic when one side is an HP integer and the other is
-    // an integer-valued number.
+    if op == BinOp::Polar {
+        let magnitude = a.expect_real("polar magnitude")?;
+        let angle = b.expect_real("polar angle")?;
+        return crate::builtins::math::polar(magnitude, angle, s).map(Value::Complex);
+    }
+    // A real operand remains real; word/word arithmetic is independently
+    // exact across all64 bits and preserves the left word's metadata.
     if let (Some(x), Some(y)) = (int_of(a), int_of(b)) {
         return int_op(op, x, y);
-    }
-    if let Some(x) = int_of(a) {
-        if let Some(r) = b.as_real().filter(|r| r.is_integer()) {
-            if let Some(v) = r.to_i64() {
-                return int_op(op, x, HpInt::new(v as i128, x.bits(), x.base));
-            }
-        }
-    }
-    if let Some(y) = int_of(b) {
-        if let Some(r) = a.as_real().filter(|r| r.is_integer()) {
-            if let Some(v) = r.to_i64() {
-                return int_op(op, HpInt::new(v as i128, y.bits(), y.base), y);
-            }
-        }
     }
     if matches!(a, Value::Complex(_)) || matches!(b, Value::Complex(_)) {
         let to_c = |v: &Value| match v {
@@ -144,11 +177,20 @@ fn scalar(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> {
         let (Some(x), Some(y)) = (to_c(a), to_c(b)) else {
             return Err(bad_type(op.symbol(), a, b));
         };
-        return complex_op(op, x, y).map(norm_complex);
+        return complex_op(op, x, y).map(Value::Complex);
     }
     let (Some(x), Some(y)) = (a.as_real(), b.as_real()) else {
         return Err(bad_type(op.symbol(), a, b));
     };
+    let presentation = if x.presentation() == RealPresentation::Sexagesimal
+        || (op != BinOp::Pow && y.presentation() == RealPresentation::Sexagesimal)
+    {
+        RealPresentation::Sexagesimal
+    } else {
+        RealPresentation::Decimal
+    };
+    let x = x.with_presentation(RealPresentation::Decimal);
+    let y = y.with_presentation(RealPresentation::Decimal);
     let r = match op {
         BinOp::Add => x.add(y)?,
         BinOp::Sub => x.sub(y)?,
@@ -171,7 +213,7 @@ fn scalar(op: BinOp, a: &Value, b: &Value, s: &Settings) -> RtResult<Value> {
         }
         _ => return Err(bad_type(op.symbol(), a, b)),
     };
-    Ok(Value::Real(r))
+    Ok(Value::Real(r.with_presentation(presentation)))
 }
 
 /// `a MOD b` with the sign of `b` (floored), so `-7 MOD 3 = 2`.
@@ -184,19 +226,20 @@ pub fn real_mod(x: Real, y: Real) -> RtResult<Real> {
 }
 
 fn int_op(op: BinOp, x: HpInt, y: HpInt) -> RtResult<Value> {
+    if op == BinOp::Pow && y.numeric_value() < 0 {
+        return x
+            .to_real()
+            .pow(y.to_real())
+            .map(Value::Real)
+            .map_err(Into::into);
+    }
     Ok(Value::Int(match op {
         BinOp::Add => x.add(y),
         BinOp::Sub => x.sub(y),
         BinOp::Mul => x.mul(y),
         BinOp::Div | BinOp::IntDiv => x.div(y)?,
         BinOp::Mod => x.rem(y)?,
-        BinOp::Pow => {
-            let mut acc = HpInt::new(1, x.bits(), x.base);
-            for _ in 0..y.unsigned().min(64) {
-                acc = acc.mul(x);
-            }
-            acc
-        }
+        BinOp::Pow => x.pow(y.numeric_value() as u64),
         _ => {
             return Err(RuntimeError::new(
                 ErrorKind::BadArgType,
@@ -223,10 +266,13 @@ fn complex_op(op: BinOp, x: Complex, y: Complex) -> RtResult<Complex> {
 }
 
 pub fn complex_pow(x: Complex, y: Complex) -> RtResult<Complex> {
+    if y.im.is_zero() && y.re == Real::ONE.div(Real::from_i64(2))? {
+        return Ok(x.sqrt()?);
+    }
     let (a, b) = (x.re.to_f64(), x.im.to_f64());
     let (c, d) = (y.re.to_f64(), y.im.to_f64());
     if a == 0.0 && b == 0.0 {
-        return Ok(Complex::new(Real::ZERO, Real::ZERO));
+        return Ok(Complex::new(Real::ZERO, Real::ZERO).with_presentation(x.presentation()));
     }
     let r = a.hypot(b);
     let t = b.atan2(a);
@@ -236,7 +282,8 @@ pub fn complex_pow(x: Complex, y: Complex) -> RtResult<Complex> {
     Ok(Complex::new(
         Real::from_f64(mag * ang.cos())?,
         Real::from_f64(mag * ang.sin())?,
-    ))
+    )
+    .with_presentation(x.presentation()))
 }
 
 pub fn map_matrix(m: &Matrix, mut f: impl FnMut(&Value) -> RtResult<Value>) -> RtResult<Value> {

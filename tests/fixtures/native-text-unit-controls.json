@@ -1,0 +1,141 @@
+{
+  "provenance": "Self-authored original15751 firmware programs. Complete320x240 RGB frames at actual WAIT(0), exact returned text ends and Home settings. No raw vendor captures/fonts bundled.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "unitref",
+      "entry": "UNITREF",
+      "source": "EXPORT UNITREF() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(\"AB\",10,10,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(55296)+\"B\",10,30,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(56320)+\"B\",10,50,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(55357)+CHAR(56832)+\"B\",10,70,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(128512)+\"B\",10,90,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(0)+\"B\",10,110,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(9)+\"B\",10,130,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(13)+\"B\",10,150,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(10)+\"B\",10,170,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A\"+CHAR(65279)+\"B\",10,190,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN r; END;",
+      "source_sha256": "6412e2fc69bf6cf8cfd30528c901351758f5bdba4007a42e1a5204f6217132cd",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        28,
+        42,
+        42,
+        56,
+        42,
+        28,
+        42,
+        28,
+        28,
+        42
+      ],
+      "rgb_sha256": "f83e220a7f623d42a14e9c964b4f1575e5eac59213efd304a5d6b4ebd86031dd"
+    },
+    {
+      "name": "textval",
+      "entry": "TEXTVAL",
+      "source": "EXPORT TEXTVAL() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(12345,10,10,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P({\"A\",\"B\"},10,35,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P([[1,2],[3,4]],10,60,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P((-1,2),10,85,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(1E20,10,110,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"A,B\",10,135,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(55296),10,160,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(55357)+CHAR(56832),10,185,3,#FFFFFFh); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN {r,HSeparator,HFormat,HDigits}; END;",
+      "source_sha256": "86c51a2945f84b8a4523830f1f945db852ee340c694e573fe0fac792d06d90a8",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        [
+          53,
+          70,
+          86,
+          54,
+          40,
+          32,
+          24,
+          38
+        ],
+        0,
+        0,
+        8
+      ],
+      "rgb_sha256": "6a8937482e20941f70a9e5960074823884f934fee042eff66afabecffde504be"
+    },
+    {
+      "name": "menu_units",
+      "entry": "MENUREF",
+      "source": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\"+CHAR(55296)+\"B\",\"A\"+CHAR(56320)+\"B\",\"A\"+CHAR(55357)+CHAR(56832)+\"B\",CHAR(55296),CHAR(65279),CHAR(0)}); WAIT(0); RETURN {r,TYPE(r)}; END;",
+      "source_sha256": "1fd1a3086bb38c3d95266b83c25a338e153bdd92bcb2c9b25e2724efff271c4f",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        1,
+        0
+      ],
+      "rgb_sha256": "8d3fa9b912c9c5c5fd272e70c6b065915cc0bb14461062561266c2536f1d010b"
+    },
+    {
+      "name": "widths",
+      "entry": "TEXTMORE",
+      "source": "EXPORT TEXTMORE() BEGIN RECT_P(#112233h); LOCAL k,w:={-1,0,1,5,8,9,10,13,14,15,17,18,19,22,23,24,25,26,30},x,r:={}; FOR k FROM 1 TO 19 DO IFERR x:=TEXTOUT_P(\"A\"+CHAR(55296)+\"B\",10,5+12*(k-1),3,#FFFFFFh,w(k),#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); END; WAIT(0); RETURN r; END;",
+      "source_sha256": "1fa0ec483836611670ac2aa86477d2f5a016e916d7e02e96a0b62a9f1995b18d",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        "error",
+        42,
+        11,
+        15,
+        18,
+        19,
+        20,
+        23,
+        24,
+        25,
+        27,
+        28,
+        29,
+        32,
+        33,
+        34,
+        35,
+        36,
+        40
+      ],
+      "rgb_sha256": "855a7cba35743aa21a867fb8532256af04cf7928248f256491ed56c069a17b02"
+    },
+    {
+      "name": "clear",
+      "entry": "TEXTCLEAR",
+      "source": "EXPORT TEXTCLEAR() BEGIN RECT_P(#112233h); LOCAL x,r:={}; IFERR x:=TEXTOUT_P(\"AB\",10,5,3,#FFFFFFh,0,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,24,3,#FFFFFFh,32,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,43,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,62,3,#FFFFFFh,100,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"\",10,81,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"\",10,100,3,#FFFFFFh,0,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(CHAR(0),10,119,3,#FFFFFFh,50,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,138,3,#FFFFFFh,0.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,157,3,#FFFFFFh,1.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,176,3,#FFFFFFh,2.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,195,3,#FFFFFFh,-0.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); IFERR x:=TEXTOUT_P(\"AB\",10,214,3,#FFFFFFh,-1.5,#224466h); THEN x:=\"error\"; END; r:=CONCAT(r,{x}); WAIT(0); RETURN r; END;",
+      "source_sha256": "f6272c90aa582729e0661968689a1411855e3740b25b89639ff2599d537c8695",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        28,
+        28,
+        28,
+        28,
+        10,
+        10,
+        10,
+        "error",
+        "error",
+        "error",
+        "error",
+        "error"
+      ],
+      "rgb_sha256": "140d7b54f79543eb0503aabf4364ec5e082e2ebfb14be7fb34d9da0c0866d4f6"
+    },
+    {
+      "name": "background",
+      "entry": "TEXTBACK",
+      "source": "EXPORT TEXTBACK() BEGIN RECT_P(#112233h); LOCAL f,x,r:={}; FOR f FROM 1 TO 7 DO x:=TEXTOUT_P(\"A\",10,5+30*(f-1),f,#FFFFFFh,100,#224466h); r:=CONCAT(r,{x}); END; WAIT(0); RETURN r; END;",
+      "source_sha256": "a751803a761aacdbb6fa92782ad3150849f03847521e4e8299e6613a398c2a98",
+      "settings": {
+        "hdigits": 8
+      },
+      "expected": [
+        16,
+        17,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "rgb_sha256": "0acb0f7741f9b3346bd913bf65c9688214c35467dd7f37db012e11aaed01be29"
+    }
+  ]
+}

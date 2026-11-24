@@ -1,0 +1,126 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_formatted.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "A:=1°22′30″"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "dms_typed"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 18
+    },
+    {
+      "step": "snapshot",
+      "label": "dms_decimal"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 18
+    },
+    {
+      "step": "snapshot",
+      "label": "dms_restored"
+    },
+    {
+      "step": "type",
+      "text": "L1:={A,2°}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "dms_collection"
+    },
+    {
+      "step": "type",
+      "text": "HAngle:=1"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "degrees"
+    },
+    {
+      "step": "type",
+      "text": "B:=2∡90"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_typed"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 40
+    },
+    {
+      "step": "snapshot",
+      "label": "polar_rectangular"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_side_formatted.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

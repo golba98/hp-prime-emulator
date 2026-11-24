@@ -25,7 +25,41 @@ pub(crate) fn arg<'a>(args: &'a [Value], i: usize, cmd: &str) -> RtResult<&'a Va
 pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
     use Builtin as B;
     let name = spec(b).name;
+    if args.iter().any(|v| matches!(v, Value::Symbolic(_)))
+        && spec(b).category == ppl_compiler::builtins::Category::Math
+    {
+        let function = if b == B::Approx {
+            "evalf"
+        } else if b == B::Exact {
+            "exact"
+        } else {
+            spec(b).name
+        };
+        return crate::cas::evaluate_math(
+            m,
+            &format!(
+                "{}({})",
+                function.to_ascii_lowercase(),
+                args.iter()
+                    .map(crate::cas::expression)
+                    .collect::<RtResult<Vec<_>>>()?
+                    .join(",")
+            ),
+        );
+    }
     match b {
+        B::Do1VStats | B::SetSample | B::SetFreq => {
+            let request = crate::host::AppVariableRequest {
+                app: m.active_app.clone(),
+                name: name.to_owned(),
+                indices: args.iter().map(crate::PortableValue::from).collect(),
+                value: None,
+            };
+            let context = m.presentation_snapshot();
+            m.host
+                .app_variable_with_context(request, context)
+                .map(|value| value.to_value())
+        }
         B::Abs
         | B::Sqrt
         | B::Sq
@@ -159,6 +193,7 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
         | B::InvertP
         | B::FillpolyP
         | B::TriangleP
+        | B::Triangle
         | B::GrobwP
         | B::GrobhP
         | B::Rgb => graphics::call(m, b, name, &args),
@@ -174,7 +209,10 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
         | B::Ticks
         | B::Time
         | B::Date => io::call(m, b, name, &args),
-        B::Type => Ok(Value::from_i64(arg(&args, 0, name)?.type_code())),
+        B::Type => Ok(Value::from_i64(crate::cas::type_code(
+            m,
+            arg(&args, 0, name)?,
+        )?)),
         // `Notes` / `Programs` system variables: with no argument, the list
         // of object names; with one, the content (empty when absent — the
         // Prime does not raise for a missing object).
@@ -205,20 +243,151 @@ pub fn call(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<Value> {
             ErrorKind::InvalidInput,
             format!("{name} needs a variable argument"),
         )),
-        B::Eval => Err(RuntimeError::new(
-            ErrorKind::Unsupported,
-            "EVAL requires symbolic evaluation unavailable in Native mode; run this program in G1 Firmware mode",
-        )),
-        B::Startapp => Err(RuntimeError::new(
-            ErrorKind::Unsupported,
-            "STARTAPP requires calculator application state and views; run this program in G1 Firmware mode",
-        )),
+        B::Eval => {
+            let value = arg(&args, 0, name)?;
+            // EVAL evaluates algebra values. Strings are data (EXPR and
+            // CAS(string) are the explicit text-evaluation operations).
+            if matches!(value, Value::Symbolic(_)) {
+                crate::cas::evaluate(m, &crate::cas::expression(value)?)
+            } else if let Value::List(items) = value {
+                let mut result = Vec::with_capacity(items.len());
+                for item in items.iter() {
+                    result.push(call(m, B::Eval, vec![item.clone()])?);
+                }
+                Ok(Value::list(result))
+            } else {
+                Ok(value.clone())
+            }
+        }
+        B::Exact => {
+            let value = arg(&args, 0, name)?;
+            // Scalar strings are the explicit exact-conversion source form.
+            // A string inside a list/vector remains data, as the typed
+            // expression renderer below preserves its quotation.
+            let source = if value.is_string() {
+                value.expect_str(name)?.to_string()
+            } else {
+                crate::cas::expression(value)?
+            };
+            crate::cas::evaluate_exact(m, &format!("exact(({source}))"))
+        }
+        B::CasCall => {
+            if args.len() != 1 {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "CAS expects one symbolic expression or source string",
+                ));
+            }
+            let source = crate::cas::expression(&args[0])?;
+            crate::cas::evaluate_ppl_cas(m, &source)
+        }
+        B::Startapp => {
+            let Value::Str(app) = arg(&args, 0, name)? else {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgType,
+                    "STARTAPP needs an app name",
+                ));
+            };
+            let context = m.presentation_snapshot();
+            let outcome = m.host.calculator_view_with_context(
+                crate::host::CalculatorView::StartApp(app.to_string()),
+                context,
+            )?;
+            if outcome.changed {
+                m.active_app = app.to_string();
+                for (name, value) in outcome.globals {
+                    m.store_home_value(&name, value.to_value())?;
+                }
+            }
+            Ok(Value::from_i64(i64::from(outcome.changed)))
+        }
+        B::Startview => {
+            let number = arg(&args, 0, name)?.expect_i64(name)?;
+            let draw = args
+                .get(1)
+                .map(|v| v.expect_i64(name))
+                .transpose()?
+                .unwrap_or(0)
+                != 0;
+            let context = m.presentation_snapshot();
+            let outcome = m.host.calculator_view_with_context(
+                crate::host::CalculatorView::StartView { number, draw },
+                context,
+            )?;
+            if outcome.changed {
+                for (name, value) in outcome.globals {
+                    m.store_home_value(&name, value.to_value())?;
+                }
+            }
+            Ok(Value::from_i64(i64::from(outcome.changed)))
+        }
         B::Editmat => io::editmat(m, &args),
-        B::Exact | B::Editlist | B::Startview | B::Recall | B::Afiles | B::Hvars | B::CasCall => {
-            Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                format!("{name} is not implemented by this emulator"),
-            ))
+        B::Editlist => io::editlist(m, &args),
+        B::Hvars => {
+            let values = m
+                .home_variables
+                .iter()
+                .filter(|(name, _)| !ppl_compiler::is_system_variable(name))
+                .collect::<Vec<_>>();
+            if args.is_empty() {
+                return Ok(Value::list(
+                    values
+                        .iter()
+                        .map(|(name, _)| Value::str(name.as_str()))
+                        .collect(),
+                ));
+            }
+            let value = match &args[0] {
+                Value::Str(name) => m.home_variables.get(name.as_ref()),
+                other => {
+                    let index = other.expect_i64("HVars")?;
+                    if index < 1 {
+                        None
+                    } else {
+                        values.get((index - 1) as usize).map(|(_, v)| *v)
+                    }
+                }
+            }
+            .ok_or_else(|| {
+                RuntimeError::new(ErrorKind::Undefined, "HVars: variable does not exist")
+            })?;
+            if args.len() == 2 {
+                if args[1].expect_i64("HVars")? != 2 {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        "HVars metadata selector must be 2",
+                    ));
+                }
+                Ok(crate::cas::function_parameters(value)
+                    .map(|names| Value::list(names.into_iter().map(Value::str).collect()))
+                    .unwrap_or_else(Value::zero))
+            } else {
+                Ok(value.clone())
+            }
+        }
+        B::Afiles => {
+            let files = m.app_files.get(&m.active_app);
+            if args.is_empty() {
+                Ok(Value::list(
+                    files
+                        .into_iter()
+                        .flat_map(|f| f.keys().map(|name| Value::str(name.as_str())))
+                        .collect(),
+                ))
+            } else {
+                let Value::Str(name) = &args[0] else {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgType,
+                        "AFiles needs a file name",
+                    ));
+                };
+                files
+                    .and_then(|f| f.get(name.as_ref()))
+                    .map(|v| v.to_value())
+                    .ok_or_else(|| {
+                        RuntimeError::new(ErrorKind::Undefined, "AFiles: file does not exist")
+                    })
+            }
         }
     }
 }
@@ -229,11 +398,18 @@ pub fn call_ref(m: &mut Machine, b: Builtin, args: Vec<Value>) -> RtResult<(Valu
     match b {
         Builtin::Input => io::input(m, &args),
         Builtin::Choose => io::choose(m, &args),
-        Builtin::Editmat => {
+        Builtin::LineP | Builtin::Line | Builtin::TriangleP | Builtin::Triangle => {
+            graphics::call_ref(m, b, args)
+        }
+        Builtin::Editmat | Builtin::Editlist => {
             let values = args[0].expect_list("EDITMAT")?;
             let mut direct = vec![values[0].clone()];
             direct.extend_from_slice(&args[1..]);
-            let result = io::editmat(m, &direct)?;
+            let result = if b == Builtin::Editmat {
+                io::editmat(m, &direct)?
+            } else {
+                io::editlist(m, &direct)?
+            };
             Ok((result.clone(), vec![result]))
         }
         other => Err(RuntimeError::new(

@@ -8,6 +8,10 @@
 //!
 //! Nothing here opens a window, so every primitive is unit-testable.
 
+mod arc;
+mod ellipse;
+mod raster;
+pub mod softkeys;
 pub mod text;
 
 pub mod incremental;
@@ -169,6 +173,30 @@ impl Grob {
         }
     }
 
+    /// Prime LINE_P integer raster, with original endpoint ordering, odd-span
+    /// error bias and clipped phase. Work is bounded by the visible major axis.
+    pub fn calculator_line(&mut self, a: (i64, i64), b: (i64, i64), color: Color) {
+        raster::line(self, a, b, color);
+    }
+
+    /// ARC's pixel-radius pair and optional edge/fill sector form.
+    pub fn ellipse_arc(
+        &mut self,
+        center: (i64, i64),
+        radii: (i64, i64),
+        angles: (f64, f64),
+        edge: Color,
+        fill: Option<Color>,
+    ) -> Result<(), &'static str> {
+        ellipse::draw(self, center, radii, angles, edge, fill)
+    }
+
+    /// Calculator RECT/RECT_P rasterization with a single transparency blend
+    /// per pixel and work bounded by the visible GROB.
+    pub fn calculator_rect(&mut self, a: (i64, i64), b: (i64, i64), edge: Color, fill: Color) {
+        raster::rectangle(self, a, b, edge, fill)
+    }
+
     /// Midpoint circle outline.
     pub fn circle(&mut self, xc: i64, yc: i64, r: i64, c: Color) {
         if r < 0 {
@@ -210,24 +238,7 @@ impl Grob {
 
     /// Arc from `a1` to `a2` radians, counter-clockwise as seen on screen.
     pub fn arc(&mut self, xc: i64, yc: i64, r: i64, a1: f64, a2: f64, c: Color) {
-        if r < 0 {
-            return;
-        }
-        let (start, mut end) = (a1, a2);
-        while end < start {
-            end += std::f64::consts::TAU;
-        }
-        let steps = ((end - start).abs() * r as f64 * 2.0).ceil().max(1.0) as i64;
-        let mut last = None;
-        for i in 0..=steps {
-            let a = start + (end - start) * i as f64 / steps as f64;
-            let x = xc + (r as f64 * a.cos()).round() as i64;
-            let y = yc - (r as f64 * a.sin()).round() as i64;
-            if last != Some((x, y)) {
-                self.set(x, y, c);
-                last = Some((x, y));
-            }
-        }
+        arc::draw(self, xc, yc, r, a1, a2, c);
     }
 
     /// Even-odd scanline polygon fill (pixel centres).
@@ -282,7 +293,7 @@ impl Grob {
     }
 
     /// Copies `src` region `[sx1,sx2)×[sy1,sy2)` scaled into the destination
-    /// region `[dx1,dx2)×[dy1,dy2)` with nearest-neighbour sampling. Source
+    /// region `[dx1,dx2)×[dy1,dy2)` with center-sampled nearest neighbours. Source
     /// pixels equal to `transparent` are skipped.
     #[allow(clippy::too_many_arguments)]
     pub fn blit(
@@ -295,23 +306,28 @@ impl Grob {
     ) {
         let (dx1, dy1, dx2, dy2) = dst;
         let (sx1, sy1, sx2, sy2) = s;
-        let (dw, dh) = (dx2 - dx1, dy2 - dy1);
-        let (sw, sh) = (sx2 - sx1, sy2 - sy1);
+        let (dw, dh) = (
+            i128::from(dx2) - i128::from(dx1),
+            i128::from(dy2) - i128::from(dy1),
+        );
+        let (sw, sh) = (
+            i128::from(sx2) - i128::from(sx1),
+            i128::from(sy2) - i128::from(sy1),
+        );
         if dw <= 0 || dh <= 0 || sw <= 0 || sh <= 0 {
             return;
         }
-        for y in 0..dh {
-            let ty = dy1 + y;
-            if ty < 0 || ty >= self.h as i64 {
-                continue;
-            }
-            let syy = sy1 + y * sh / dh;
-            for x in 0..dw {
-                let tx = dx1 + x;
-                if tx < 0 || tx >= self.w as i64 {
-                    continue;
-                }
-                let sxx = sx1 + x * sw / dw;
+        // Clip iteration, not the sampling origin. Wide unsigned products keep
+        // all i64-coordinate rectangles safe without walking off-screen pixels.
+        let sample = |position: i64, origin: i64, span: i128, extent: i128, start: i64| {
+            let offset = (i128::from(position) - i128::from(origin)) as u128;
+            let source = (offset * span as u128 + span as u128 / 2) / extent as u128;
+            (i128::from(start) + source as i128) as i64
+        };
+        for ty in dy1.max(0)..dy2.min(self.h as i64) {
+            let syy = sample(ty, dy1, sh, dh, sy1);
+            for tx in dx1.max(0)..dx2.min(self.w as i64) {
+                let sxx = sample(tx, dx1, sw, dw, sx1);
                 let Some(p) = src.get(sxx, syy) else { continue };
                 if transparent.is_some_and(|t| t & 0x00FF_FFFF == p) {
                     continue;
@@ -320,7 +336,18 @@ impl Grob {
                     self.px[ty as usize * self.w + tx as usize] = p;
                 } else {
                     let i = ty as usize * self.w + tx as usize;
-                    self.px[i] = blend(self.px[i], p, alpha as u32);
+                    // G1 bitmap blending uses eight-bit channel products;
+                    // alpha0 and255 retain their exact endpoint behavior.
+                    self.px[i] = if alpha == 0 {
+                        self.px[i]
+                    } else {
+                        let mix = |shift: u32| {
+                            (((p >> shift) & 255) * u32::from(alpha)
+                                + ((self.px[i] >> shift) & 255) * (255 - u32::from(alpha)))
+                                >> 8
+                        };
+                        mix(16) << 16 | mix(8) << 8 | mix(0)
+                    };
                 }
             }
         }
@@ -683,6 +710,33 @@ mod tests {
         let mut dst2 = Grob::screen();
         dst2.blit((0, 0, 20, 20), &src, (0, 0, 20, 20), Some(BLACK), 255);
         assert_eq!(dst2.get(0, 0), Some(WHITE));
+    }
+
+    #[test]
+    fn blit_clips_extreme_rectangles_before_work_and_samples_their_centers() {
+        let mut source = Grob::new(2, 2, 0);
+        source.set(0, 0, 0xff0000);
+        source.set(1, 0, 0x00ff00);
+        source.set(0, 1, 0x0000ff);
+        source.set(1, 1, 0x123456);
+        let mut target = Grob::new(8, 8, 0xffffff);
+        target.blit(
+            (i64::MIN, i64::MIN, i64::MAX, i64::MAX),
+            &source,
+            (0, 0, 2, 2),
+            None,
+            255,
+        );
+        assert!(target.pixels().iter().all(|&p| p == 0x123456));
+        let before = target.pixels().to_vec();
+        target.blit(
+            (i64::MIN, i64::MIN, -1, -1),
+            &source,
+            (0, 0, 2, 2),
+            None,
+            255,
+        );
+        assert_eq!(target.pixels(), before);
     }
 
     #[test]

@@ -13,6 +13,16 @@ use crate::error::{ErrorKind, RuntimeError};
 #[derive(Clone, Debug)]
 pub enum Dialog {
     Matrix(MatrixDialog),
+    List {
+        title: String,
+        items: Vec<String>,
+        error: Option<String>,
+        focus: usize,
+    },
+    MessageChoice {
+        text: String,
+        ok_cancel: bool,
+    },
     Message {
         text: String,
     },
@@ -22,6 +32,9 @@ pub enum Dialog {
         current: usize,
     },
     Input {
+        /// PPL INPUT needs edited/untouched distinction. Simpler host forms
+        /// may retain the textual `Entered` response contract.
+        report_edits: bool,
         title: String,
         fields: Vec<InputField>,
         /// Shown when the previous entry was rejected; the dialog stays
@@ -40,6 +53,7 @@ pub struct MatrixDialog {
     pub column_headers: Vec<String>,
     pub rows: usize,
     pub cols: usize,
+    pub vector: bool,
     pub cells: Vec<String>,
     pub read_only: bool,
     pub error: Option<String>,
@@ -56,12 +70,22 @@ pub struct InputField {
     /// Allowed types are exactly `[2]`: the entry is stored as a string
     /// verbatim instead of being evaluated (no quotes needed).
     pub string_only: bool,
+    /// Interactive widget semantics; editor values remain textual until VM validation.
+    pub control: InputControl,
     /// Explicit reset value, formatted for this field.
     pub reset_text: Option<String>,
     /// Horizontal percentages of the 320-pixel screen and a zero-based line.
     pub position: Option<InputPosition>,
     /// Page title selected by the VM from INPUT's optional title list.
     pub page_title: Option<String>,
+}
+
+/// Documented INPUT control descriptors.
+#[derive(Clone, Debug, PartialEq)]
+pub enum InputControl {
+    Edit,
+    Checkbox { group: Option<usize> },
+    Choice { items: Vec<String> },
 }
 
 /// Maximum documented INPUT control lines per page.
@@ -84,6 +108,14 @@ pub enum DialogResult {
     Chosen(usize),
     /// Text typed for each input field.
     Entered(Vec<String>),
+    /// INPUT fields: `None` was untouched; `Some` was edited, even if the
+    /// resulting text equals its initial value. Legacy `Entered` means edited.
+    InputEntered(Vec<Option<String>>),
+    MatrixEdited {
+        rows: usize,
+        cols: usize,
+        cells: Vec<String>,
+    },
 }
 
 /// Touch/mouse state in pixel coordinates.
@@ -93,6 +125,36 @@ pub struct Touch {
     pub y: i64,
 }
 
+/// A pointer classification supplied by the input owner. These are the HP
+/// MOUSE type codes, independent of OS touch-event flag bits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum MouseKind {
+    New = 0,
+    Completed = 1,
+    Drag = 2,
+    Stretch = 3,
+    Rotate = 4,
+    LongClick = 5,
+}
+
+/// An authoritative pointer sample, including the original contact position.
+/// The calculator exposes signed16-bit coordinate words and unsigned16-bit
+/// kind words; an input owner must preserve that origin across moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MouseContact {
+    pub x: i16,
+    pub y: i16,
+    pub origin_x: i16,
+    pub origin_y: i16,
+    pub kind: MouseKind,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MouseState {
+    pub pointers: [Option<MouseContact>; 2],
+}
+
 /// What a host shows on screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DisplayMode {
@@ -100,11 +162,76 @@ pub enum DisplayMode {
     Terminal,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct CalculatorViewOutcome {
+    pub changed: bool,
+    pub globals: std::collections::BTreeMap<String, crate::PortableValue>,
+}
+
+/// Typed access to authoritative app state. `value` distinguishes assignment
+/// from reading; indices are the app's attribute/index arguments.
+#[derive(Clone, Debug)]
+pub struct AppVariableRequest {
+    pub app: String,
+    pub name: String,
+    pub indices: Vec<crate::PortableValue>,
+    pub value: Option<crate::PortableValue>,
+}
+
 pub trait Host {
+    /// MOUSE reads two pointer packets. A position alone cannot establish the
+    /// original position or gesture kind. Legacy hosts remain valid while idle
+    /// and reject active MOUSE rather than inventing that missing metadata.
+    fn mouse_state(&mut self) -> Result<MouseState, RuntimeError> {
+        if self.touch()?.is_some() {
+            return Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                "This host supplies pointer positions only; MOUSE requires pointer origins and event kinds",
+            ));
+        }
+        Ok(MouseState::default())
+    }
+
+    /// Access an app variable against this operation's live, uncommitted Home
+    /// and installed-program state. Hosts must reject unavailable app services.
+    fn app_variable_with_context(
+        &mut self,
+        _request: AppVariableRequest,
+        _context: crate::SessionSnapshot,
+    ) -> Result<crate::PortableValue, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "This host does not provide calculator application variables",
+        ))
+    }
+    /// Present the live operation state, before the session commits its result.
+    /// Older/headless hosts retain their existing acknowledgement behavior.
+    fn calculator_view_with_context(
+        &mut self,
+        request: CalculatorView,
+        _context: crate::SessionSnapshot,
+    ) -> Result<CalculatorViewOutcome, RuntimeError> {
+        self.calculator_view(request)
+            .map(|changed| CalculatorViewOutcome {
+                changed,
+                ..Default::default()
+            })
+    }
+    /// Native app/view state changes. A graphical host acknowledges actual presentation.
+    fn calculator_view(&mut self, _request: CalculatorView) -> Result<bool, RuntimeError> {
+        Err(RuntimeError::new(
+            ErrorKind::Unsupported,
+            "This host does not provide calculator application state; use the Native desktop app or G1 Firmware mode",
+        ))
+    }
     /// One `PRINT` line.
     fn print(&mut self, text: &str);
     fn clear_terminal(&mut self) {}
     /// The screen changed; `terminal` is set when the terminal view is shown.
+    /// The running operation explicitly changed its visible terminal/G0 view.
+    /// Re-presenting retained state or drawing a temporary host dialog does
+    /// not request a persistent program-output screen.
+    fn output_requested(&mut self) {}
     fn present(&mut self, _screen: &Grob, _terminal: Option<&[String]>) {}
     /// `GETKEY`: next key code, or `None` (-1) when no key is pressed.
     fn poll_key(&mut self) -> Result<Option<i64>, RuntimeError>;
@@ -121,6 +248,11 @@ pub trait Host {
     fn interrupt_flag(&self) -> Option<Arc<AtomicBool>> {
         None
     }
+}
+#[derive(Clone, Debug)]
+pub enum CalculatorView {
+    StartApp(String),
+    StartView { number: i64, draw: bool },
 }
 
 /// One scripted INPUT dialog response for headless runs.
@@ -197,6 +329,36 @@ impl HeadlessHost {
 }
 
 impl Host for HeadlessHost {
+    fn mouse_state(&mut self) -> Result<MouseState, RuntimeError> {
+        // A scripted Touch is one explicit contact event, as for WAIT(-1).
+        // It does not describe a held gesture or invent subsequent motion.
+        let Some(ScriptEvent::Touch(x, y)) = self.keys.front() else {
+            return Ok(MouseState::default());
+        };
+        let coordinate = |value| {
+            i16::try_from(value).map_err(|_| {
+                RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "Scripted pointer coordinate exceeds signed16-bit range",
+                )
+            })
+        };
+        let (x, y) = (coordinate(*x)?, coordinate(*y)?);
+        self.keys.pop_front();
+        Ok(MouseState {
+            pointers: [
+                Some(MouseContact {
+                    x,
+                    y,
+                    origin_x: x,
+                    origin_y: y,
+                    kind: MouseKind::New,
+                }),
+                None,
+            ],
+        })
+    }
+
     fn print(&mut self, text: &str) {
         if self.echo {
             println!("{text}");
@@ -287,7 +449,30 @@ impl Host for HeadlessHost {
                 }
                 Ok(DialogResult::Entered(cells))
             }
-            Dialog::Message { text } => {
+            Dialog::List {
+                title,
+                items,
+                error,
+                ..
+            } => {
+                if let Some(error) = error {
+                    self.dialogs.push(format!("EDITLIST-ERROR: {error}"));
+                }
+                self.dialogs.push(format!("EDITLIST: {title}"));
+                let mut out = Vec::new();
+                for _ in items {
+                    match self
+                        .inputs
+                        .pop_front()
+                        .ok_or_else(|| self.exhausted("EDITLIST"))?
+                    {
+                        ScriptedInput::Text(text) => out.push(text),
+                        ScriptedInput::Cancel => return Ok(DialogResult::Cancelled),
+                    }
+                }
+                Ok(DialogResult::Entered(out))
+            }
+            Dialog::Message { text } | Dialog::MessageChoice { text, .. } => {
                 self.dialogs.push(format!("MSGBOX: {text}"));
                 Ok(DialogResult::Ok)
             }

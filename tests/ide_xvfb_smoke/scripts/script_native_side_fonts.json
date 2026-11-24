@@ -1,0 +1,121 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_fonts.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "font_home"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_font_home.png"
+    },
+    {
+      "step": "type",
+      "text": "2+3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "font_result"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_font_result.png"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 16
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "font_palette"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_font_palette.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 41
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "snapshot",
+      "label": "font_settings"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_font_settings.png"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "new_program",
+      "name": "FONTGUI"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT FONTGUI() BEGIN RECT_P(0,0,319,239,16777215,16777215); TEXTOUT_P(\"AbgX\",10,20,2,0); RETURN 17; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "font_program"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_font_program.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

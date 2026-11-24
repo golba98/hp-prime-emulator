@@ -19,6 +19,8 @@ use crate::rng::Rng;
 use crate::settings::{AngleMode, Settings};
 use crate::value::{Matrix, Value};
 
+mod expression;
+
 /// Host-side protections. These are **not** calculator limits; they stop
 /// runaway programs on the development machine.
 #[derive(Clone, Debug)]
@@ -79,10 +81,28 @@ pub trait Debugger {
 }
 
 pub struct Machine {
+    pub cas_context: ppl_cas::CasSession,
+    pub active_app: String,
+    pub app_settings: std::collections::BTreeMap<String, crate::AppSettings>,
+    pub app_numeric_settings: std::collections::BTreeMap<String, crate::AppNumericSettings>,
+    pub app_files: std::collections::BTreeMap<
+        String,
+        std::collections::BTreeMap<String, crate::PortableValue>,
+    >,
+    pub home_variables: std::collections::BTreeMap<String, Value>,
+    pub(crate) legacy_type_cache: std::collections::BTreeMap<String, i64>,
     prog: Rc<CompiledProgram>,
+    pub(crate) linked: Option<(crate::LinkedProgram, Vec<bool>)>,
+    pub(crate) root_identity: Option<crate::SourceIdentity>,
+    pub(crate) catalog_states: std::collections::BTreeMap<String, crate::session::ModuleState>,
+    dynamic_dependencies: std::collections::BTreeMap<usize, Vec<usize>>,
+    initializing_modules: std::collections::BTreeSet<usize>,
     consts: Vec<Value>,
     pub(crate) globals: Vec<Value>,
     setting_slots: Vec<Option<Setting>>,
+    /// Temporary expression slots which refer to a suspended caller's locals.
+    captured_globals: std::collections::BTreeMap<usize, usize>,
+    expression_scopes: std::collections::BTreeMap<usize, expression::Scope>,
     stack: Vec<Value>,
     frames: Vec<Frame>,
     tries: Vec<TryRec>,
@@ -115,6 +135,125 @@ enum Flow {
 }
 
 impl Machine {
+    /// Initialize graph/inspection workers from an immutable calculator snapshot
+    /// before executing any code. Never replace a live module from inside a call.
+    pub fn seed_object_stores(
+        &mut self,
+        notes: &std::collections::BTreeMap<String, String>,
+        programs: &std::collections::BTreeMap<String, String>,
+    ) -> RtResult<()> {
+        if !self.frames.is_empty() {
+            return Err(RuntimeError::new(
+                ErrorKind::InvalidInput,
+                "Object stores can only be seeded before execution",
+            ));
+        }
+        self.notes = notes.clone();
+        self.programs = programs.clone();
+        Ok(())
+    }
+    pub fn remaining_time(&self) -> Option<Duration> {
+        self.limits
+            .max_time
+            .map(|limit| limit.saturating_sub(self.started.elapsed()))
+    }
+
+    pub fn cas_home_values(&self) -> std::collections::BTreeMap<String, ppl_cas::CasValue> {
+        let mut home = self
+            .home_variables
+            .iter()
+            .filter_map(|(name, value)| {
+                crate::cas::to_cas(value).map(|value| (name.clone(), value))
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for (index, (slot, value)) in self.prog.globals.iter().zip(&self.globals).enumerate() {
+            let owned = self
+                .linked
+                .as_ref()
+                .map_or(!slot.program_var, |(image, _)| {
+                    image.global_owners[index].is_none()
+                });
+            if owned
+                && !matches!(slot.init, ppl_compiler::GlobalInit::Setting(_))
+                && let Some(value) = crate::cas::to_cas(value)
+            {
+                home.insert(slot.name.clone(), value);
+            }
+        }
+        home
+    }
+    pub fn store_home_value(&mut self, name: &str, value: Value) -> RtResult<()> {
+        if let Some(setting) = crate::AppNumericSettings::setting(name) {
+            let mut next = self.numeric_settings();
+            next.set(setting, &value)?;
+            self.app_numeric_settings
+                .insert(self.active_app.clone(), next);
+            return Ok(());
+        }
+        let value = crate::statistics_columns::coerce(name, value)?;
+        if let Some(slot) = self
+            .prog
+            .globals
+            .iter()
+            .enumerate()
+            .find_map(|(index, slot)| {
+                let owned = self
+                    .linked
+                    .as_ref()
+                    .map_or(!slot.program_var, |(image, _)| {
+                        image.global_owners[index].is_none()
+                    });
+                (slot.name == name && owned).then_some(index)
+            })
+        {
+            self.store_global(slot, value.clone())?;
+        }
+        self.home_variables.insert(name.into(), value);
+        Ok(())
+    }
+    /// Immutable calculator-owned values for a presentation requested during a run.
+    pub fn presentation_snapshot(&self) -> crate::SessionSnapshot {
+        let mut globals = self
+            .home_variables
+            .iter()
+            .map(|(name, value)| (name.clone(), crate::PortableValue::from(value)))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for (i, slot) in self.prog.globals.iter().enumerate() {
+            let shared = self
+                .linked
+                .as_ref()
+                .map_or(!slot.program_var, |(image, _)| {
+                    image.global_owners[i].is_none()
+                });
+            if shared {
+                globals.insert(
+                    slot.name.clone(),
+                    crate::PortableValue::from(&self.load_global(i)),
+                );
+            }
+        }
+        crate::SessionSnapshot {
+            active_app: self.active_app.clone(),
+            app_settings: self.app_settings.clone(),
+            app_numeric_settings: self.app_numeric_settings.clone(),
+            app_files: self.app_files.clone(),
+            cas: self.cas_context.clone(),
+            settings: self.settings.clone(),
+            globals,
+            generation: 0,
+            last_value: None,
+            notes: self.notes.clone(),
+            programs: self.programs.clone(),
+        }
+    }
+    pub fn calculator_global(&self, name: &str) -> Option<&Value> {
+        self.prog
+            .globals
+            .iter()
+            .position(|slot| slot.name == name)
+            .map(|slot| &self.globals[slot])
+            .or_else(|| self.home_variables.get(name))
+    }
     pub fn new(
         prog: Rc<CompiledProgram>,
         host: Box<dyn Host>,
@@ -124,25 +263,14 @@ impl Machine {
         let consts = prog
             .consts
             .iter()
-            .map(|c| match c {
-                Const::Real(r) => Value::Real(*r),
-                Const::Int(i) => Value::Int(*i),
-                Const::Complex(c) => Value::Complex(*c),
-                Const::Str(s) => Value::str(s.as_str()),
-            })
+            .map(|value| expression::constant_value(value, settings.numeric_version))
             .collect();
         let mut grobs = vec![None; 10];
         grobs[0] = Some(Grob::screen());
         let globals = prog
             .globals
             .iter()
-            .map(|g| match &g.init {
-                GlobalInit::Zero | GlobalInit::Setting(_) => Value::zero(),
-                GlobalInit::EmptyList => Value::list(Vec::new()),
-                GlobalInit::ZeroMatrix => Value::Matrix(Rc::new(Matrix::zeros(1, 1))),
-                GlobalInit::ComplexZero => Value::Complex(Complex::new(Real::ZERO, Real::ZERO)),
-                GlobalInit::Grob(n) => Value::Grob(*n),
-            })
+            .map(|g| expression::initial_value(&g.init))
             .collect();
         let setting_slots = prog
             .globals
@@ -154,10 +282,21 @@ impl Machine {
             .collect();
         let interrupt = host.interrupt_flag();
         Machine {
+            cas_context: Default::default(),
+            active_app: "Function".into(),
+            app_settings: Default::default(),
+            app_numeric_settings: Default::default(),
+            app_files: Default::default(),
+            home_variables: Default::default(),
+            legacy_type_cache: Default::default(),
             prog,
+            linked: None,
+            initializing_modules: Default::default(),
             consts,
             globals,
             setting_slots,
+            captured_globals: Default::default(),
+            expression_scopes: Default::default(),
             stack: Vec::with_capacity(256),
             frames: Vec::new(),
             tries: Vec::new(),
@@ -178,7 +317,37 @@ impl Machine {
             output_chars: 0,
             interrupt,
             init_done: false,
+            root_identity: None,
+            catalog_states: Default::default(),
+            dynamic_dependencies: Default::default(),
         }
+    }
+
+    pub fn new_linked(
+        image: crate::LinkedProgram,
+        host: Box<dyn Host>,
+        settings: Settings,
+        limits: Limits,
+    ) -> Self {
+        let states = vec![false; image.modules.len()];
+        let mut machine = Self::new(image.program.clone(), host, settings, limits);
+        machine.linked = Some((image, states));
+        machine
+    }
+    /// Install reachable dependencies in deterministic catalog order before
+    /// the root's file initializers. Already initialized units are not repeated.
+    pub fn initialize_dependencies(&mut self) -> RtResult<()> {
+        let Some((image, _)) = &self.linked else {
+            return Ok(());
+        };
+        let root = image.root;
+        let count = image.modules.len();
+        for module in 0..count {
+            if module != root {
+                self.initialize_module(module)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn program(&self) -> &CompiledProgram {
@@ -222,11 +391,35 @@ impl Machine {
 
     /// `(function, span)` for each active frame, innermost first.
     pub fn call_stack(&self) -> Vec<(String, Span)> {
+        self.call_stack_frames()
+            .into_iter()
+            .map(|frame| (frame.function, frame.span))
+            .collect()
+    }
+
+    /// Original source/revision and span for every frame, innermost first.
+    /// Single-source machines have no linked module identity.
+    pub fn call_stack_frames(&self) -> Vec<TraceFrame> {
         self.frames
             .iter()
             .rev()
-            .map(|f| (self.fn_name(f.func).to_string(), self.frame_span(f)))
+            .map(|frame| TraceFrame {
+                module: self.frame_source(frame).cloned(),
+                function: self.fn_name(frame.func).to_owned(),
+                span: self.frame_span(frame),
+            })
             .collect()
+    }
+
+    fn frame_source(&self, frame: &Frame) -> Option<&crate::SourceIdentity> {
+        if let Some(scope) = self.expression_scopes.get(&frame.func) {
+            return Some(&scope.source);
+        }
+        let (image, _) = self.linked.as_ref()?;
+        image
+            .function_owners
+            .get(frame.func)
+            .map(|&m| &image.modules[m])
     }
 
     /// Local variable names and values of the frame `depth` levels up.
@@ -246,6 +439,37 @@ impl Machine {
 
     /// Program-level variables and calculator variables used by the program.
     pub fn globals(&self) -> Vec<(String, Value)> {
+        self.globals_for_frame(0)
+    }
+
+    /// Shared calculator slots and the selected frame's own file variables.
+    pub fn globals_for_frame(&self, depth: usize) -> Vec<(String, Value)> {
+        if depth > 0 && depth >= self.frames.len() {
+            return Vec::new();
+        }
+        if let Some((image, _)) = &self.linked {
+            let owner = self
+                .frames
+                .iter()
+                .rev()
+                .nth(depth)
+                .and_then(|f| image.function_owners.get(f.func))
+                .copied()
+                .unwrap_or(image.root);
+            let mut visible = std::collections::BTreeMap::new();
+            for private in [false, true] {
+                for (i, slot) in self.prog.globals.iter().enumerate() {
+                    if if private {
+                        image.global_owners[i] == Some(owner)
+                    } else {
+                        image.global_owners[i].is_none() || slot.exported
+                    } {
+                        visible.insert(slot.name.clone(), self.load_global(i));
+                    }
+                }
+            }
+            return visible.into_iter().collect();
+        }
         self.prog
             .globals
             .iter()
@@ -282,6 +506,9 @@ impl Machine {
 
     /// Runs file-level variable initialisers once.
     pub fn run_init(&mut self) -> RtResult<()> {
+        if let Some((image, _)) = &self.linked {
+            return self.initialize_module(image.root);
+        }
         if self.init_done {
             return Ok(());
         }
@@ -290,9 +517,50 @@ impl Machine {
         if result.is_err() {
             self.init_done = false;
         }
+        // A file initializer can itself use EXPR and upgrade this formerly
+        // unlinked machine. Its real success/failure still owns the root flag.
+        if let Some((image, states)) = &mut self.linked {
+            states[image.root] = self.init_done;
+        }
         result
     }
 
+    fn initialize_module(&mut self, module: usize) -> RtResult<()> {
+        let (func, initialized) = {
+            let (image, states) = self.linked.as_ref().expect("linked call");
+            (image.initializers[module], states[module])
+        };
+        if initialized {
+            return Ok(());
+        }
+        self.linked.as_mut().unwrap().1[module] = true;
+        self.initializing_modules.insert(module);
+        let result = (|| {
+            if let Some(dependencies) = self.dynamic_dependencies.get(&module).cloned() {
+                for dependency in dependencies {
+                    if dependency != module {
+                        self.initialize_module(dependency)?;
+                    }
+                }
+            }
+            self.execute(func, vec![]).map(|_| ())
+        })();
+        self.initializing_modules.remove(&module);
+        if result.is_err() {
+            self.linked.as_mut().unwrap().1[module] = false;
+        }
+        result
+    }
+    pub fn current_source(&self) -> Option<&crate::SourceIdentity> {
+        self.frame_source(self.frames.last()?)
+    }
+    pub fn arithmetic_settings(&self) -> Settings {
+        self.app_settings
+            .get(&self.active_app)
+            .cloned()
+            .unwrap_or_default()
+            .arithmetic(&self.settings)
+    }
     pub fn call_function(&mut self, name: &str, args: Vec<Value>) -> RtResult<Value> {
         let idx = self.prog.function_index(name).ok_or_else(|| {
             RuntimeError::new(ErrorKind::Undefined, format!("no function named {name}"))
@@ -304,6 +572,13 @@ impl Machine {
     }
 
     fn execute(&mut self, func: usize, args: Vec<Value>) -> RtResult<Value> {
+        // Both original G1 builds saturate runtime real arithmetic. Parsing
+        // and standalone math validation remain strict outside this scope.
+        ppl_math::with_overflow_policy(ppl_math::OverflowPolicy::Saturate, || {
+            self.execute_in_numeric_context(func, args)
+        })
+    }
+    fn execute_in_numeric_context(&mut self, func: usize, args: Vec<Value>) -> RtResult<Value> {
         let chunk = self.chunk(func);
         if func != INIT_FN && args.len() != chunk.params as usize {
             return Err(RuntimeError::new(
@@ -380,6 +655,7 @@ impl Machine {
                             .map(|f| TraceFrame {
                                 function: self.fn_name(f.func).to_string(),
                                 span: self.frame_span(f),
+                                module: self.frame_source(f).cloned(),
                             })
                             .collect();
                     }
@@ -441,6 +717,9 @@ impl Machine {
     }
 
     pub(crate) fn present_now(&mut self) {
+        if self.screen_dirty {
+            self.host.output_requested();
+        }
         let terminal = if self.display == DisplayMode::Terminal {
             Some(self.terminal.as_slice())
         } else {
@@ -477,15 +756,78 @@ impl Machine {
         Ok(())
     }
 
+    fn prepare_global(&mut self, slot: usize) -> RtResult<()> {
+        if self.prog.globals[slot].external {
+            return Err(RuntimeError::new(
+                ErrorKind::Undefined,
+                format!(
+                    "external variable {} requires a linked module catalog",
+                    self.prog.globals[slot].name
+                ),
+            ));
+        }
+        if self.prog.globals[slot].exported
+            && let Some((image, _)) = &self.linked
+        {
+            let owner = image.global_owners[slot].expect("exported file variable owner");
+            let current = self
+                .frames
+                .last()
+                .and_then(|frame| image.function_owners.get(frame.func))
+                .copied();
+            if self.initializing_modules.contains(&owner) && current != Some(owner) {
+                return Err(RuntimeError::new(
+                    ErrorKind::Unsupported,
+                    "cross-module variable initializer cycle has unverified firmware semantics; execute this catalog in firmware mode",
+                ));
+            }
+            self.initialize_module(owner)?;
+        }
+        Ok(())
+    }
+
+    fn numeric_settings(&self) -> crate::AppNumericSettings {
+        self.app_numeric_settings
+            .get(&self.active_app)
+            .cloned()
+            .unwrap_or_else(|| crate::AppNumericSettings::for_app(&self.active_app))
+    }
     fn load_global(&self, slot: usize) -> Value {
+        if let Some(&local) = self.captured_globals.get(&slot) {
+            return self.stack[local].clone();
+        }
         match self.setting_slots.get(slot).copied().flatten() {
+            Some(
+                s @ (Setting::NumStart
+                | Setting::NumStep
+                | Setting::NumZoom
+                | Setting::NumType
+                | Setting::NumIndep),
+            ) => self.numeric_settings().get(s),
             Some(s) => {
                 let st = &self.settings;
+                let app = self
+                    .app_settings
+                    .get(&self.active_app)
+                    .cloned()
+                    .unwrap_or_default();
                 Value::from_i64(match s {
+                    Setting::NumStart
+                    | Setting::NumStep
+                    | Setting::NumZoom
+                    | Setting::NumType
+                    | Setting::NumIndep => {
+                        unreachable!()
+                    }
+                    Setting::AAngle => app.angle,
+                    Setting::AFormat => app.format,
+                    Setting::ADigits => app.digits,
+                    Setting::AComplex => app.complex,
                     Setting::HAngle => st.angle.code(),
                     Setting::HFormat => st.hformat,
+                    Setting::HSeparator => st.digit_grouping.code(),
                     Setting::HDigits => st.hdigits,
-                    Setting::HComplex => st.complex_results as i64,
+                    Setting::HComplex => st.complex_code(),
                     Setting::Base => match st.int_base {
                         ppl_math::IntBase::Bin => 0,
                         ppl_math::IntBase::Oct => 1,
@@ -501,11 +843,67 @@ impl Machine {
     }
 
     fn store_global(&mut self, slot: usize, v: Value) -> RtResult<()> {
+        if let Some(&local) = self.captured_globals.get(&slot) {
+            self.stack[local] = v;
+            return Ok(());
+        }
+        if let Some(
+            s @ (Setting::NumStart
+            | Setting::NumStep
+            | Setting::NumZoom
+            | Setting::NumType
+            | Setting::NumIndep),
+        ) = self.setting_slots.get(slot).copied().flatten()
+        {
+            let mut next = self.numeric_settings();
+            next.set(s, &v)?;
+            self.app_numeric_settings
+                .insert(self.active_app.clone(), next);
+            return Ok(());
+        }
+        let name = &self.prog.globals[slot].name;
+        let home_owned = self
+            .linked
+            .as_ref()
+            .map_or(!self.prog.globals[slot].program_var, |(image, _)| {
+                image.global_owners[slot].is_none()
+            });
+        let v = if home_owned {
+            crate::statistics_columns::coerce(name, v)?
+        } else {
+            v
+        };
+        if home_owned && self.home_variables.contains_key(name) {
+            self.home_variables.insert(name.clone(), v.clone());
+        }
         match self.setting_slots.get(slot).copied().flatten() {
             Some(s) => {
                 let n = v.expect_i64("setting")?;
                 let st = &mut self.settings;
                 match s {
+                    Setting::NumStart
+                    | Setting::NumStep
+                    | Setting::NumZoom
+                    | Setting::NumType
+                    | Setting::NumIndep => {
+                        unreachable!()
+                    }
+                    Setting::AAngle | Setting::AFormat | Setting::ADigits | Setting::AComplex => {
+                        let name = match s {
+                            Setting::AAngle => "aangle",
+                            Setting::AFormat => "aformat",
+                            Setting::ADigits => "adigits",
+                            Setting::AComplex => "acomplex",
+                            _ => unreachable!(),
+                        };
+                        let mut app = self
+                            .app_settings
+                            .get(&self.active_app)
+                            .cloned()
+                            .unwrap_or_default();
+                        app.set_code(name, n)?;
+                        self.app_settings.insert(self.active_app.clone(), app);
+                    }
                     Setting::HAngle => {
                         st.angle = AngleMode::from_code(n).ok_or_else(|| {
                             RuntimeError::new(ErrorKind::BadArgValue, "HAngle must be 0, 1 or 2")
@@ -513,23 +911,17 @@ impl Machine {
                     }
                     Setting::HFormat => {
                         let d = st.hdigits;
-                        st.set_format(n, d)
+                        st.try_set_format(n, d)?
                     }
                     Setting::HDigits => {
                         let f = st.hformat;
-                        st.set_format(f, n)
+                        st.try_set_format(f, n)?
                     }
-                    Setting::HComplex => st.complex_results = n != 0,
-                    Setting::Base => {
-                        st.int_base = match n {
-                            0 => ppl_math::IntBase::Bin,
-                            1 => ppl_math::IntBase::Oct,
-                            2 => ppl_math::IntBase::Dec,
-                            _ => ppl_math::IntBase::Hex,
-                        }
-                    }
-                    Setting::Bits => st.int_bits = n.clamp(1, 64) as u8,
-                    Setting::Signed => st.int_signed = n != 0,
+                    Setting::HComplex => st.set_complex_code(n)?,
+                    Setting::HSeparator => st.set_separator(n)?,
+                    Setting::Base => st.set_integer_base(n)?,
+                    Setting::Bits => st.set_integer_bits(n)?,
+                    Setting::Signed => st.set_integer_signed(n != 0)?,
                 }
                 Ok(())
             }
@@ -568,39 +960,107 @@ impl Machine {
                 self.stack[frame.base + s as usize] = v;
             }
             Op::LoadGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.load_global(g as usize);
                 self.stack.push(v);
             }
             Op::StoreGlobal(g) => {
+                self.prepare_global(g as usize)?;
                 let v = self.pop();
                 self.store_global(g as usize, v)?;
             }
             Op::Pop => {
                 self.pop();
             }
+            Op::AppVariable { name, argc, store } => {
+                let qualified = &prog.names[name as usize];
+                // An unqualified app name follows the live caller app. A
+                // qualified owner changes the addressed model, not the caller's
+                // active app/settings carried by the presentation snapshot.
+                let (app, name) = qualified
+                    .split_once('.')
+                    .unwrap_or((&self.active_app, qualified));
+                let (app, name) = (app.to_owned(), name.to_owned());
+                let value = store.then(|| crate::PortableValue::from(&self.pop()));
+                let indices = self
+                    .pop_n(argc as usize)
+                    .iter()
+                    .map(crate::PortableValue::from)
+                    .collect();
+                let request = crate::host::AppVariableRequest {
+                    app,
+                    name,
+                    indices,
+                    value,
+                };
+                let context = self.presentation_snapshot();
+                let result = self.host.app_variable_with_context(request, context)?;
+                self.stack.push(result.to_value());
+            }
+            Op::CasVariable { name, store } => {
+                let name = &prog.names[name as usize];
+                let source = if store {
+                    format!("{name}:={}", crate::cas::expression(&self.pop())?)
+                } else {
+                    name.clone()
+                };
+                let answer = self.cas_context.last_value.clone();
+                let result = crate::cas::evaluate_namespace(self, &source);
+                self.cas_context.last_value = answer;
+                let value = result?;
+                if !store {
+                    self.stack.push(value);
+                }
+            }
             Op::Dup => {
                 let v = self.stack.last().expect("dup").clone();
                 self.stack.push(v);
             }
+            Op::DupFrom(depth) => {
+                let index = self.stack.len() - 1 - depth as usize;
+                self.stack.push(self.stack[index].clone());
+            }
             Op::Bin(b) => {
                 let r = self.pop();
                 let l = self.pop();
-                let v = ops::binary(b, &l, &r, &self.settings)?;
+                let v = if matches!(l, Value::Symbolic(_)) || matches!(r, Value::Symbolic(_)) {
+                    crate::cas::binary(self, b, &l, &r)?
+                } else {
+                    ops::binary(b, &l, &r, &self.arithmetic_settings())?
+                };
                 self.check_value(&v)?;
                 self.stack.push(v);
             }
             Op::Neg => {
                 let v = self.pop();
-                self.stack.push(ops::negate(&v)?);
+                let value = if matches!(v, Value::Symbolic(_)) {
+                    crate::cas::evaluate(self, &format!("-({})", crate::cas::expression(&v)?))?
+                } else {
+                    ops::negate(&v)?
+                };
+                self.stack.push(value);
             }
             Op::Not => {
                 let v = self.pop();
-                self.stack.push(Value::from_bool(!v.truthy()?));
+                self.stack.push(match v {
+                    Value::Int(word) => Value::Int(word.not()),
+                    other => Value::from_bool(!other.truthy()?),
+                });
             }
             Op::Sqrt => {
                 let v = self.pop();
-                let r = builtins::math::sqrt(self, &v)?;
+                let r = if matches!(v, Value::Symbolic(_)) {
+                    crate::cas::evaluate(self, &format!("sqrt({})", crate::cas::expression(&v)?))?
+                } else {
+                    builtins::math::sqrt(self, &v)?
+                };
                 self.stack.push(r);
+            }
+            Op::Sexagesimal => {
+                let value = self.pop().expect_real("hexagesimal literal")?;
+                self.stack.push(Value::Real(
+                    value.with_presentation(ppl_math::RealPresentation::Sexagesimal),
+                ));
             }
             Op::Factorial => {
                 let v = self.pop();
@@ -612,7 +1072,12 @@ impl Machine {
             Op::Square | Op::Cube => {
                 let v = self.pop();
                 let e = Value::from_i64(if op == Op::Square { 2 } else { 3 });
-                let r = ops::binary(ppl_syntax::ast::BinOp::Pow, &v, &e, &self.settings)?;
+                let r = ops::binary(
+                    ppl_syntax::ast::BinOp::Pow,
+                    &v,
+                    &e,
+                    &self.arithmetic_settings(),
+                )?;
                 self.stack.push(r);
             }
             Op::Jump(t) => self.frames.last_mut().unwrap().ip = t as usize,
@@ -621,9 +1086,83 @@ impl Machine {
                     self.frames.last_mut().unwrap().ip = t as usize;
                 }
             }
+            Op::LogicJump { or, target } => {
+                let left = self.stack.last().expect("compiled logic operand");
+                let decided = match left {
+                    Value::Int(word) => {
+                        if or {
+                            word.not().numeric_value() == 0
+                        } else {
+                            word.numeric_value() == 0
+                        }
+                    }
+                    other => other.truthy()? == or,
+                };
+                if decided {
+                    if !matches!(left, Value::Int(_)) {
+                        *self.stack.last_mut().unwrap() = Value::from_bool(or);
+                    }
+                    self.frames.last_mut().unwrap().ip = target as usize;
+                }
+            }
             Op::Call { func, argc } => {
                 let args = self.pop_n(argc as usize);
                 self.push_frame(func as usize, args)?;
+            }
+            Op::CallExternal { name, .. } => {
+                return Err(RuntimeError::new(
+                    ErrorKind::Undefined,
+                    format!(
+                        "external {} requires a linked module catalog",
+                        prog.names[name as usize]
+                    ),
+                ));
+            }
+            Op::CallLinked { func, argc } => {
+                let args = self.pop_n(argc as usize);
+                if self.chunk(func as usize).params as usize != args.len() {
+                    return Err(RuntimeError::new(
+                        ErrorKind::InvalidInput,
+                        "external argument count changed",
+                    ));
+                }
+                let module = self
+                    .linked
+                    .as_ref()
+                    .expect("linked image")
+                    .0
+                    .function_owners[func as usize];
+                self.initialize_module(module)?;
+                self.push_frame(func as usize, args)?;
+            }
+            Op::CasCompose { argc } => {
+                let marker = self.pop().expect_str("CAS template marker")?;
+                let source = self.pop().expect_str("CAS template")?;
+                let values = self.pop_n(argc as usize);
+                let expression = crate::cas::compose(&source, &marker, &values)?;
+                self.stack
+                    .push(Value::Symbolic(Rc::new(ppl_cas::CasValue::Symbolic(
+                        expression,
+                    ))));
+            }
+            Op::CasCall { assignment, source } => {
+                let argument = self.pop();
+                let value = if assignment {
+                    // G1 exposes this as an ordinary string and leaves both
+                    // environments unchanged; IFERR must not intercept it.
+                    Value::str(RuntimeError::kind(ErrorKind::BadArgType).to_string())
+                } else if source {
+                    let source = argument.expect_str("CAS source")?;
+                    crate::cas::evaluate_ppl_cas(self, &source)?
+                } else {
+                    builtins::call(
+                        self,
+                        ppl_compiler::builtins::Builtin::CasCall,
+                        vec![argument],
+                    )?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
             }
             Op::Builtin { id, argc } => {
                 let args = self.pop_n(argc as usize);
@@ -667,10 +1206,11 @@ impl Machine {
                 self.stack.push(Value::list(items));
             }
             Op::MakeVector(n) => {
-                let items = self.pop_n(n as usize);
-                for v in &items {
-                    numeric_entry(v)?;
-                }
+                let items = self
+                    .pop_n(n as usize)
+                    .into_iter()
+                    .map(numeric_entry)
+                    .collect::<RtResult<Vec<_>>>()?;
                 self.stack.push(Value::Matrix(Rc::new(Matrix {
                     rows: 1,
                     cols: n as usize,
@@ -679,10 +1219,11 @@ impl Machine {
                 })));
             }
             Op::MakeMatrix { rows, cols } => {
-                let items = self.pop_n((rows * cols) as usize);
-                for v in &items {
-                    numeric_entry(v)?;
-                }
+                let items = self
+                    .pop_n((rows * cols) as usize)
+                    .into_iter()
+                    .map(numeric_entry)
+                    .collect::<RtResult<Vec<_>>>()?;
                 self.stack.push(Value::Matrix(Rc::new(Matrix {
                     rows: rows as usize,
                     cols: cols as usize,
@@ -693,12 +1234,30 @@ impl Machine {
             Op::MakeComplex => {
                 let im = self.pop().expect_real("complex")?;
                 let re = self.pop().expect_real("complex")?;
-                self.stack.push(ops::norm_complex(Complex::new(re, im)));
+                // Both original G1 builds retain the explicit complex type,
+                // including a zero imaginary component. Matrices normalize
+                // their cells separately through numeric_entry.
+                self.stack
+                    .push(Value::Complex(Complex::new(re.decimal(), im.decimal())));
             }
             Op::Index(n) => {
                 let idx = self.pop_n(n as usize);
                 let base = self.pop();
-                let v = index_value(&base, &idx, self)?;
+                let v = if matches!(base, Value::Symbolic(_)) {
+                    crate::cas::evaluate_math(
+                        self,
+                        &format!(
+                            "({})({})",
+                            crate::cas::expression(&base)?,
+                            idx.iter()
+                                .map(crate::cas::expression)
+                                .collect::<RtResult<Vec<_>>>()?
+                                .join(",")
+                        ),
+                    )?
+                } else {
+                    index_value(&base, &idx, self)?
+                };
                 self.stack.push(v);
             }
             Op::StoreIndexLocal { slot, n } => {
@@ -710,12 +1269,91 @@ impl Machine {
                 self.stack.push(v);
             }
             Op::StoreIndexGlobal { slot, n } => {
+                self.prepare_global(slot as usize)?;
                 let v = self.pop();
                 let idx = self.pop_n(n as usize);
                 let max = self.limits.max_collection_len;
-                let target = &mut self.globals[slot as usize];
-                store_index(target, &idx, v.clone(), max)?;
+                let mut target = self.load_global(slot as usize);
+                store_index(&mut target, &idx, v.clone(), max)?;
+                self.store_global(slot as usize, target)?;
                 self.stack.push(v);
+            }
+            Op::StoreHomeParameters => {
+                let parameters = self.pop();
+                let selector = self.pop();
+                let index = self.pop();
+                if selector.expect_i64("HVars")? != 2 {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        "HVars metadata selector must be 2",
+                    ));
+                }
+                let name = match index {
+                    Value::Str(name) => name.to_string(),
+                    other => {
+                        let n = other.expect_i64("HVars")?;
+                        if n < 1 {
+                            return Err(RuntimeError::kind(ErrorKind::BadArgValue));
+                        }
+                        self.home_variables
+                            .keys()
+                            .filter(|name| !ppl_compiler::is_system_variable(name))
+                            .nth((n - 1) as usize)
+                            .cloned()
+                            .ok_or_else(|| RuntimeError::kind(ErrorKind::Undefined))?
+                    }
+                };
+                let value = self
+                    .home_variables
+                    .get(&name)
+                    .ok_or_else(|| RuntimeError::kind(ErrorKind::Undefined))?
+                    .clone();
+                let function =
+                    crate::cas::with_parameters(&value, &parameters.expect_list("HVars")?)?;
+                self.store_home_value(&name, function)?;
+                self.stack.push(parameters);
+            }
+            Op::StoreHomeVariable | Op::StoreAppFile => {
+                let value = self.pop();
+                let index = self.pop();
+                if op == Op::StoreAppFile {
+                    let Value::Str(name) = index else {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgType,
+                            "AFiles needs a file name",
+                        ));
+                    };
+                    self.app_files
+                        .entry(self.active_app.clone())
+                        .or_default()
+                        .insert(name.to_string(), crate::PortableValue::from(&value));
+                } else {
+                    let name = match index {
+                        Value::Str(name) => name.to_string(),
+                        other => {
+                            let n = other.expect_i64("HVars")?;
+                            if n < 1 {
+                                return Err(RuntimeError::kind(ErrorKind::BadArgValue));
+                            }
+                            self.home_variables
+                                .keys()
+                                .filter(|n| !ppl_compiler::is_system_variable(n))
+                                .nth((n - 1) as usize)
+                                .cloned()
+                                .ok_or_else(|| RuntimeError::kind(ErrorKind::BadArgValue))?
+                        }
+                    };
+                    self.home_variables.insert(name.clone(), value.clone());
+                    if let Some(slot) = self
+                        .prog
+                        .globals
+                        .iter()
+                        .position(|s| s.name == name && !s.program_var)
+                    {
+                        self.store_global(slot, value.clone())?;
+                    }
+                }
+                self.stack.push(value);
             }
             Op::StoreNote | Op::StoreProgram => {
                 let v = self.pop();
@@ -728,6 +1366,19 @@ impl Machine {
                     Value::Str(s) => s.to_string(),
                     other => other.display(self.settings.format()),
                 };
+                if op == Op::StoreProgram
+                    && self.linked.as_ref().is_some_and(|(image, _)| {
+                        image
+                            .modules
+                            .iter()
+                            .any(|m| m.name.eq_ignore_ascii_case(&name))
+                    })
+                {
+                    return Err(RuntimeError::new(
+                        ErrorKind::Unsupported,
+                        "replacing an executable catalog module during a call is unsupported; edit between invocations",
+                    ));
+                }
                 let store = if op == Op::StoreNote {
                     &mut self.notes
                 } else {
@@ -803,21 +1454,30 @@ impl Machine {
                 ErrorKind::ResourceLimit(ResourceKind::Memory),
                 format!("string of {} bytes", s.len()),
             )),
+            Value::RawString(units) if units.len() > self.limits.max_string_bytes / 2 => {
+                Err(RuntimeError::new(
+                    ErrorKind::ResourceLimit(ResourceKind::Memory),
+                    format!("string of {} UTF-16 units", units.len()),
+                ))
+            }
             Value::List(l) => self.check_len(l.len()),
             _ => Ok(()),
         }
     }
-
-    /// Evaluates an expression typed as text (INPUT fields, EXPR, CLI
-    /// arguments) in a fresh machine sharing this machine's settings.
-    pub fn eval_text(&self, text: &str) -> RtResult<Value> {
-        eval_text_with(text, &self.settings)
-    }
 }
 
-fn numeric_entry(v: &Value) -> RtResult<()> {
+pub(crate) fn numeric_entry(v: Value) -> RtResult<Value> {
     match v {
-        Value::Real(_) | Value::Int(_) | Value::Complex(_) => Ok(()),
+        Value::Int(number) => Ok(Value::Real(number.to_real())),
+        Value::Real(value) if value.origin() != ppl_math::RealOrigin::LegacyBcd => {
+            Ok(Value::Real(value.decimal()))
+        }
+        Value::Complex(value) if value.im.is_zero() => Ok(Value::Real(value.re.decimal())),
+        Value::Complex(value) => Ok(Value::Complex(
+            Complex::new(value.re.decimal(), value.im.decimal())
+                .with_presentation(value.presentation()),
+        )),
+        Value::Real(_) => Ok(v),
         other => Err(RuntimeError::new(
             ErrorKind::BadArgType,
             format!("matrix elements must be numbers, got {}", other.type_name()),
@@ -829,8 +1489,14 @@ fn numeric_entry(v: &Value) -> RtResult<()> {
 pub fn eval_text_with(text: &str, settings: &Settings) -> RtResult<Value> {
     let src = format!("EXPORT __EVAL()\nBEGIN\nRETURN {text};\nEND;");
     let file = ppl_syntax::SourceFile::new("<expr>", src);
-    let (prog, diags) =
-        ppl_compiler::compile_source(&file, &ppl_compiler::CompileOptions::default());
+    let (prog, diags) = ppl_compiler::compile_source(
+        &file,
+        &ppl_compiler::CompileOptions {
+            default_int_base: settings.int_base,
+            default_int_width: settings.integer_width_code(),
+            ..Default::default()
+        },
+    );
     let Some(prog) = prog else {
         let msg = diags
             .errors()

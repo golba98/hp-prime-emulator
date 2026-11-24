@@ -14,8 +14,12 @@
 
 pub mod appsuite;
 pub mod calcverify;
+pub mod checkpoint;
 pub mod checkprog;
+pub mod clipboard;
+pub mod clock;
 pub mod compiler;
+pub mod cpu_state;
 pub mod direct;
 pub mod display;
 pub mod engine;
@@ -23,6 +27,7 @@ pub mod firmware;
 pub mod framediff;
 pub mod guest_call;
 pub mod hpprgm;
+mod image_time;
 pub mod import;
 pub mod keys;
 pub mod memory;
@@ -32,11 +37,13 @@ pub mod runner;
 pub mod runprog;
 pub mod runtime;
 pub mod runtime_value;
+pub mod safepoint;
 pub mod script;
 pub mod services;
 pub mod session;
 pub mod sha256;
 pub mod storage;
+pub mod synthetic_snapshot;
 pub mod trace;
 pub mod verify;
 

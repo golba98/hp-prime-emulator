@@ -1,12 +1,26 @@
 //! Bounded editing-key repeat, driven by the existing session tick.
 use std::time::{Duration, Instant};
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct KeyRepeat {
+    #[serde(with = "crate::image_time")]
     active: Option<(u16, Instant)>,
     repress: Option<u16>,
 }
 impl KeyRepeat {
+    pub fn validate_image(&self) -> Result<(), String> {
+        if self
+            .active
+            .is_some_and(|(key, _)| !matches!(key, 2..=5 | 0x0c))
+            || self
+                .repress
+                .is_some_and(|key| self.active.is_none_or(|(held, _)| key != held))
+        {
+            return Err("Key-repeat image has an invalid key/repress state".into());
+        }
+        Ok(())
+    }
     pub fn press(&mut self, code: u16, now: Instant) {
         self.repress = None;
         // Device scan codes: arrows and backspace only. Never repeat launch,

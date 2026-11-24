@@ -58,7 +58,7 @@ cargo run --bin ppl -- device screenshot screen.png
 ## Non-Negotiable Rules
 
 1. **Git Restrictions:**
-   - The canonical project is `/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator`. Work only in your explicitly assigned checkout and branch; never switch branches in another agent's checkout.
+   - Use the assigned repository checkout. Work only in your explicitly assigned checkout and branch; never switch branches in another agent's checkout.
    - Never commit, push, merge, reset, or create pull requests without explicit user authorization.
 2. **Physical Hardware Safety:**
    - Connected HP Prime G1 is a real physical device.
@@ -73,6 +73,28 @@ cargo run --bin ppl -- device screenshot screen.png
 
 - Temporary worktrees require a concrete isolation need and registration of owner, branch and task. Completed work returns to the canonical project through Git after explicit handoff.
 - Before writes, consult `docs/development/worktree-ownership.md` and shared Git metadata `agent-claims/`. Claim a checkout by atomic directory creation; record owner, task, branch and checkpoint in `claim.json`. Never overwrite or steal an existing claim based on inactivity or missing processes.
-- Never modify an active agent's checkout. Claude owns runtime parity until a committed checkpoint and explicit handoff; Codex owns canonical consolidation.
+- Never modify another active agent's checkout; require an explicit handoff before integration.
 - Cleanup requires a clean status, preserved branch history, explicit owner release, and verified preservation of unique ignored/untracked evidence. Recheck ownership and open files immediately before removal; uncertainty blocks removal.
 - No push or merge into `main` without explicit user authorization. Ownership records are cooperative coordination, not enforcement against concurrent writes.
+
+## Documentation and publication policy
+
+Before creating documentation, identify its intended reader and lasting purpose.
+Internal plans, handoffs, scratch investigations, session summaries, completion
+reports and supporting evidence belong in ignored root `.private/`. Read relevant
+private context when available; a fresh public clone must work without it.
+Keep `.private/CONTEXT.md` short and current, never an append-only transcript.
+Update existing public guides when behavior or supported workflows change. Add a
+new public page only for a distinct lasting documentation need. Task completion
+does not require a Markdown report. Preserve useful context without repetitive
+reports or transcripts. Keep curated research, provenance, failures and known
+limitations public where they help users and contributors.
+
+Never publish internal notes in commits, PR descriptions, issues, release notes,
+logs or uploaded artifacts. Never force-add ignored notes or bypass publication
+checks. Review new public Markdown explicitly in
+`scripts/maintenance/public-documentation.json`, and run
+`python3 scripts/maintenance/check_documentation.py` before publication. Inspect
+the outgoing changes and package contents yourself: local hooks can be bypassed,
+and CI runs after push, so neither can undo disclosure. Ignoring notes is a local
+convention, not access control or backup; fresh clones contain no private notes.

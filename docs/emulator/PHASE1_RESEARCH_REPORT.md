@@ -106,7 +106,6 @@ logged and ranked — not a GUI, not a full calculator.
 - `docs/emulator/PPL_COMPILER_RESEARCH.md` — deliverable D
 - `docs/emulator/SVC_COVERAGE.md` — deliverable E
 - `docs/emulator/EMULATION_ARCHITECTURE.md` — deliverable F
-- `docs/emulator/PHASE2_IMPLEMENTATION_PLAN.md` — deliverable G
 - this file — deliverable H
 
 Research artifacts (gitignored, `scratch/research/`): upstream checkouts,

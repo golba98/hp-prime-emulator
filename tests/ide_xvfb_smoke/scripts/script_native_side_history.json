@@ -1,0 +1,332 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_history.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "1+2"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "type",
+      "text": "4*"
+    },
+    {
+      "step": "snapshot",
+      "label": "draft"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "snapshot",
+      "label": "selected_result"
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "copied_result"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "evaluated_copy"
+    },
+    {
+      "step": "type",
+      "text": "[[0,1,2,3,4,5,6,7,8,9,10,11],[100,101,102,103,104,105,106,107,108,109,110,111],[200,201,202,203,204,205,206,207,208,209,210,211],[300,301,302,303,304,305,306,307,308,309,310,311],[400,401,402,403,404,405,406,407,408,409,410,411],[500,501,502,503,504,505,506,507,508,509,510,511],[600,601,602,603,604,605,606,607,608,609,610,611],[700,701,702,703,704,705,706,707,708,709,710,711],[800,801,802,803,804,805,806,807,808,809,810,811],[900,901,902,903,904,905,906,907,908,909,910,911],[1000,1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1011],[1100,1101,1102,1103,1104,1105,1106,1107,1108,1109,1110,1111]]"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_result"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_preview.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "show_matrix"
+    },
+    {
+      "step": "type",
+      "text": "99"
+    },
+    {
+      "step": "snapshot",
+      "label": "viewer_ignores_typing"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_matrix.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "snapshot",
+      "label": "scrolled_matrix"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_matrix_scrolled.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "show_closed"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "type",
+      "text": "7+"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "snapshot",
+      "label": "selected_expression"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 2
+    },
+    {
+      "step": "snapshot",
+      "label": "oldest_expression"
+    },
+    {
+      "step": "click_lcd",
+      "x": 240,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "copied_expression"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "final_result"
+    },
+    {
+      "step": "type",
+      "text": "{[[1,2],[3,4]],\"SQRT(9)\",#FFh}"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "nested_result"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "nested_show"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_nested.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "type",
+      "text": "99*"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 2
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "deleted_result"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_history_deleted_result.png"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "deleted_expression"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "deleted_result_persisted"
+    },
+    {
+      "step": "quit"
+    }
+  ]
+}

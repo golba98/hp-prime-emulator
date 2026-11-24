@@ -1,0 +1,455 @@
+{
+  "schema_version": 1,
+  "origin": "local-firmware",
+  "physical_verification": false,
+  "helper_sha256": "20bd0ba769256b941bb311e07417739026d1692df722ad783a2a54a097809165",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "raw_capture": "/home/k9-vortex/Development/4-Rust/3-HP Prime Emulator/artifacts/m19/retained-controls/capture.json",
+  "source": "EXPORT M19RAT() BEGIN RETURN CAS(\"1/3\"); END;\nEXPORT M19SYM() BEGIN RETURN CAS(\"x+1\"); END;\nEXPORT M19NEST() BEGIN RETURN {{1+2*i,3-4*i},{5}}; END;\nEXPORT M19INT() BEGIN RETURN #FFFFFFFFFFFFFFFF:64h; END;\n",
+  "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+  "cases": [
+    {
+      "id": "M19RAT",
+      "command": {
+        "request": 2,
+        "name": "ZZT_M19TYPES",
+        "command": "run_stored",
+        "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+        "entry": "M19RAT",
+        "arguments": ""
+      },
+      "binding": "stored_source_dispatch",
+      "body_entered": true,
+      "completed": true,
+      "representation": {
+        "captured_bytes": 32,
+        "coherent": true,
+        "complete": false,
+        "logical_items": 0,
+        "nodes": [
+          {
+            "address": 541752816,
+            "bytes": [
+              0,
+              0,
+              24,
+              2,
+              0,
+              0,
+              0,
+              0,
+              192,
+              45,
+              197,
+              48,
+              224,
+              156,
+              192,
+              48,
+              152,
+              160,
+              192,
+              48,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [],
+            "unavailable": "unverified runtime value tag 0x18/0x2"
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": null,
+      "unsupported": "return: unverified runtime value tag 0x18/0x2"
+    },
+    {
+      "id": "M19SYM",
+      "command": {
+        "request": 3,
+        "name": "ZZT_M19TYPES",
+        "command": "run_stored",
+        "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+        "entry": "M19SYM",
+        "arguments": ""
+      },
+      "binding": "stored_source_dispatch",
+      "body_entered": true,
+      "completed": true,
+      "representation": {
+        "captured_bytes": 32,
+        "coherent": true,
+        "complete": false,
+        "logical_items": 0,
+        "nodes": [
+          {
+            "address": 541759456,
+            "bytes": [
+              0,
+              0,
+              24,
+              2,
+              0,
+              0,
+              0,
+              0,
+              192,
+              43,
+              197,
+              48,
+              208,
+              151,
+              74,
+              32,
+              224,
+              156,
+              192,
+              48,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [],
+            "unavailable": "unverified runtime value tag 0x18/0x2"
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": null,
+      "unsupported": "return: unverified runtime value tag 0x18/0x2"
+    },
+    {
+      "id": "M19NEST",
+      "command": {
+        "request": 4,
+        "name": "ZZT_M19TYPES",
+        "command": "run_stored",
+        "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+        "entry": "M19NEST",
+        "arguments": ""
+      },
+      "binding": "stored_source_dispatch",
+      "body_entered": true,
+      "completed": true,
+      "representation": {
+        "captured_bytes": 132,
+        "coherent": true,
+        "complete": true,
+        "logical_items": 5,
+        "nodes": [
+          {
+            "address": 541759200,
+            "bytes": [
+              0,
+              0,
+              22,
+              0,
+              2,
+              0,
+              0,
+              0,
+              240,
+              150,
+              74,
+              32,
+              0,
+              151,
+              74,
+              32
+            ],
+            "children": [
+              1,
+              4
+            ],
+            "path": [],
+            "unavailable": null
+          },
+          {
+            "address": 541759216,
+            "bytes": [
+              1,
+              0,
+              22,
+              0,
+              2,
+              0,
+              0,
+              0,
+              80,
+              154,
+              74,
+              32,
+              112,
+              154,
+              74,
+              32
+            ],
+            "children": [
+              2,
+              3
+            ],
+            "path": [
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541760080,
+            "bytes": [
+              1,
+              0,
+              19,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              16,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2
+            ],
+            "children": [],
+            "path": [
+              1,
+              1
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541760112,
+            "bytes": [
+              1,
+              0,
+              19,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              16,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4
+            ],
+            "children": [],
+            "path": [
+              1,
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541759232,
+            "bytes": [
+              1,
+              0,
+              22,
+              0,
+              1,
+              0,
+              0,
+              0,
+              32,
+              118,
+              74,
+              32
+            ],
+            "children": [
+              5
+            ],
+            "path": [
+              2
+            ],
+            "unavailable": null
+          },
+          {
+            "address": 541750816,
+            "bytes": [
+              2,
+              0,
+              31,
+              1,
+              0,
+              196,
+              73,
+              32,
+              5,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "children": [],
+            "path": [
+              2,
+              1
+            ],
+            "unavailable": null
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "list",
+            "value": [
+              {
+                "imaginary": "2",
+                "real": "1",
+                "type": "complex"
+              },
+              {
+                "imaginary": "-4",
+                "real": "3",
+                "type": "complex"
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "real",
+                "value": "5"
+              }
+            ]
+          }
+        ]
+      },
+      "unsupported": null
+    },
+    {
+      "id": "M19INT",
+      "command": {
+        "request": 5,
+        "name": "ZZT_M19TYPES",
+        "command": "run_stored",
+        "source_sha256": "774edd27d1af502dab3a4406998456d4efcbe08d4fd97672bb50c6ea4fc9c3fc",
+        "entry": "M19INT",
+        "arguments": ""
+      },
+      "binding": "stored_source_dispatch",
+      "body_entered": true,
+      "completed": true,
+      "representation": {
+        "captured_bytes": 16,
+        "coherent": true,
+        "complete": true,
+        "logical_items": 0,
+        "nodes": [
+          {
+            "address": 541751648,
+            "bytes": [
+              1,
+              0,
+              145,
+              64,
+              84,
+              0,
+              0,
+              0,
+              255,
+              255,
+              255,
+              255,
+              255,
+              255,
+              255,
+              255
+            ],
+            "children": [],
+            "path": [],
+            "unavailable": null
+          }
+        ],
+        "schema_version": 1,
+        "unavailable": null
+      },
+      "expected": {
+        "bits": 64,
+        "literal": "#FFFFFFFFFFFFFFFFh",
+        "signed": "-1",
+        "type": "integer",
+        "unsigned": "18446744073709551615"
+      },
+      "unsupported": null
+    }
+  ]
+}

@@ -1,0 +1,4667 @@
+{
+  "provenance": "Self-authored programs executed by original installed G1 in disposable local profiles. Only decoded values or independently parsed STRING captures are retained. The latter sources omit only the outer STRING for Native typed comparison. No physical hardware or vendor payloads included.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "cases": [
+    {
+      "name": "blit-sampling-reference-default",
+      "reference_source": "EXPORT BSAMP0() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "bdbc523d12b6c7b24b0ea300c6514ffc7ea5b69df4592cbcdc44f3b3014022ff",
+      "source": "EXPORT BSAMP0() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP0",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-source_start",
+      "reference_source": "EXPORT BSAMP1() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "88f577be373f7ee5ba9f45a73bce0b31e6bc33aaa57b986bc06501d2a2f27f6b",
+      "source": "EXPORT BSAMP1() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP1",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-bounds",
+      "reference_source": "EXPORT BSAMP2() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "1f8d3d598e95e4934d246b4732187f4ca1dd502983d7b2f44b295461491a6743",
+      "source": "EXPORT BSAMP2() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP2",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-one",
+      "reference_source": "EXPORT BSAMP3() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0,1,1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "9766f753503f51f6ddd71125fab642edcc722e353db724c672e44c5a2af14e00",
+      "source": "EXPORT BSAMP3() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,0,0,1,1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP3",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-scale",
+      "reference_source": "EXPORT BSAMP4() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,7,7,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "ddb7ae3bcdd1c66e541976c1927e7efa78df6910e36118ec4b98451c28022ffb",
+      "source": "EXPORT BSAMP4() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,7,7,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP4",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-shrink",
+      "reference_source": "EXPORT BSAMP5() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,2,2,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "67bb62d34b0de25c54e5e19ac54b9d690b4440d9bdb4b033d64ed1f46afd538f",
+      "source": "EXPORT BSAMP5() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,2,2,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP5",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-reverse",
+      "reference_source": "EXPORT BSAMP7() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,3,3,0,0,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "55a31fe8eaedfdbfc88ac1b5419bb61225d6a3c38adff7e817585fc0fed8a4cb",
+      "source": "EXPORT BSAMP7() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,3,3,0,0,G1,0,0,3,3); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP7",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-reference-sub",
+      "reference_source": "EXPORT BSAMP8() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=SUBGROB_P(G1,0,0,2,2,G2); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "reference_source_sha256": "9593940d7ca0da99104e54b06205894c78075729cb8db652838b39f8635ac06f",
+      "source": "EXPORT BSAMP8() BEGIN DIMGROB_P(G1,3,3); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 2 DO FOR x FROM 0 TO 2 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=SUBGROB_P(G1,0,0,2,2,G2); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BSAMP8",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-extra-reference-even_shrink",
+      "reference_source": "EXPORT BEXT0() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,2,2,G1,0,0,6,6); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN STRING({r,GROBW_P(G2),GROBH_P(G2),out}); END;",
+      "reference_source_sha256": "25194a55db0a266787222f75b69afd916aa81993a20f188e4bd14c2a090def58",
+      "source": "EXPORT BEXT0() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,2,2,G1,0,0,6,6); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BEXT0",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "205"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "502"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "505"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-extra-reference-clipped",
+      "reference_source": "EXPORT BEXT1() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,-2,-2,5,5,G1,0,0,6,6); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN STRING({r,GROBW_P(G2),GROBH_P(G2),out}); END;",
+      "reference_source_sha256": "63c1c4cd3fab301e95cb94dbf28b195c18172658d51a3b59654f235a7bfc97f4",
+      "source": "EXPORT BEXT1() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,-2,-2,5,5,G1,0,0,6,6); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BEXT1",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "304"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "304"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "305"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "306"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "403"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "405"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "406"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "403"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "405"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "406"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "503"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "504"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "504"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "505"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "506"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "603"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "604"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "604"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "605"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "606"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-extra-reference-alpha",
+      "reference_source": "EXPORT BEXT2() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,3,3,G1,0,0,3,3,-1,128); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN STRING({r,GROBW_P(G2),GROBH_P(G2),out}); END;",
+      "reference_source_sha256": "a7af0f3f9c8860a2e7c3f8ffa737fbb00a5b6056d409d4dfb55ac11d3cd2f1ab",
+      "source": "EXPORT BEXT2() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,3,3,G1,0,0,3,3,-1,128); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BEXT2",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "error"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-extra-reference-clip_source",
+      "reference_source": "EXPORT BEXT3() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,6,6,G1,-1,-1,5,5); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN STRING({r,GROBW_P(G2),GROBH_P(G2),out}); END;",
+      "reference_source_sha256": "51055e69f0c84d34804e2cf1539a1a3bfb806ba4f920f5dff6679f9297574141",
+      "source": "EXPORT BEXT3() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,0,0,6,6,G1,-1,-1,5,5); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BEXT3",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "101"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "102"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "103"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "104"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "105"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "201"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "204"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "205"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "301"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "304"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "305"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "401"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "402"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "403"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "405"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "501"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "502"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "503"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "504"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "505"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-sampling-extra-reference-start_only",
+      "reference_source": "EXPORT BEXT4() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,1,1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN STRING({r,GROBW_P(G2),GROBH_P(G2),out}); END;",
+      "reference_source_sha256": "6cad97a2ac8017c398151730b4ae606910ceed415027d7b2f7fb1e337269060a",
+      "source": "EXPORT BEXT4() BEGIN DIMGROB_P(G1,6,6); LOCAL x,y,r,out:={}; FOR y FROM 0 TO 5 DO FOR x FROM 0 TO 5 DO PIXON_P(G1,x,y,100*(y+1)+x+1); END; END; DIMGROB_P(G2,8,8); RECT_P(G2,0); IFERR r:=BLIT_P(G2,G1,1,1); THEN r:=\"error\"; END; FOR y FROM 0 TO GROBH_P(G2)-1 DO FOR x FROM 0 TO GROBW_P(G2)-1 DO out:=CONCAT(out,{GETPIX_P(G2,x,y)}); END; END; RETURN {r,GROBW_P(G2),GROBH_P(G2),out}; END;",
+      "entry": "BEXT4",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "1"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "real",
+            "value": "8"
+          },
+          {
+            "type": "list",
+            "value": [
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "202"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "203"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "204"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "205"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "206"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "302"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "303"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "304"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "305"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "306"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "402"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "403"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "404"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "405"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "406"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "502"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "503"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "504"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "505"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "506"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "602"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "603"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "604"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "605"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "606"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              },
+              {
+                "type": "integer",
+                "bits": 32,
+                "unsigned": "0"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "blit-alpha-v3-reference-alphas",
+      "reference_source": "EXPORT BALPHA() BEGIN DIMGROB_P(G1,1,1); PIXON_P(G1,0,0,RGB(255,129,1)); DIMGROB_P(G2,1,1); LOCAL a,k,values:={0,1,127,128,254,255},out:={}; FOR k FROM 1 TO 6 DO a:=values(k); PIXON_P(G2,0,0,RGB(2,10,200)); BLIT_P(G2,0,0,1,1,G1,0,0,1,1,16777215,a); out:=CONCAT(out,{GETPIX_P(G2,0,0)}); END; RETURN out; END;",
+      "reference_source_sha256": "c43204e429c79cd335340997dc3c9901c5701e69d27f02230676d8de1194f266",
+      "source": "EXPORT BALPHA() BEGIN DIMGROB_P(G1,1,1); PIXON_P(G1,0,0,RGB(255,129,1)); DIMGROB_P(G2,1,1); LOCAL a,k,values:={0,1,127,128,254,255},out:={}; FOR k FROM 1 TO 6 DO a:=values(k); PIXON_P(G2,0,0,RGB(2,10,200)); BLIT_P(G2,0,0,1,1,G1,0,0,1,1,16777215,a); out:=CONCAT(out,{GETPIX_P(G2,0,0)}); END; RETURN out; END;",
+      "entry": "BALPHA",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "133832"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "133830"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "8340580"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "8406371"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16613377"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16744705"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color0",
+      "reference_source": "EXPORT COL0() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,-1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "112a9972af1273af39f77e9ba6d239d2059a2ca4f1c2044a4c998cdb29712d53",
+      "source": "EXPORT COL0() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,-1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL0",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color1",
+      "reference_source": "EXPORT COL1() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,-2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "5f92674d6ebc9ab44518a70c4758afe298eec8dbf1fa468123b9c1d1877d471b",
+      "source": "EXPORT COL1() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,-2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL1",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color2",
+      "reference_source": "EXPORT COL2() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,1.5); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "bd6b0d7008b75dc3c87ef6aee42382e4d85375bee107f542df71e416c305bb91",
+      "source": "EXPORT COL2() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,1.5); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL2",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "\"error\""
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16777215"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color3",
+      "reference_source": "EXPORT COL3() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,1E20); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "d27f8e91a87fee2a435dc23e96dde294d8ab89a3328654eb14eae1996b1131aa",
+      "source": "EXPORT COL3() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,1E20); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL3",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "\"error\""
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16777215"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color4",
+      "reference_source": "EXPORT COL4() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,4294967295); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "b65976984c9a760c6ce90e98cacf1ba91c38ac46b3741a38021d745ca4abee98",
+      "source": "EXPORT COL4() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,4294967295); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL4",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16777215"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-color-string-reference-color5",
+      "reference_source": "EXPORT COL5() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,4294967296); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "reference_source_sha256": "049fa93471c492f8817686d68881020bead44002306f4dfbd0ca44707161e87b",
+      "source": "EXPORT COL5() BEGIN DIMGROB_P(G1,1,1); LOCAL r; IFERR r:=PIXON_P(G1,0,0,4294967296); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r),GETPIX_P(G1,0,0)}; END;",
+      "entry": "COL5",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "2"
+          },
+          {
+            "type": "string",
+            "value": "\"error\""
+          },
+          {
+            "type": "integer",
+            "bits": 32,
+            "unsigned": "16777215"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return0",
+      "reference_source": "EXPORT GRET0() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=RECT_P(G1,0); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "1a241abfc2aa91502ac2a0c27be2d1969c86b86d3a9ea019066eecb6a5fe7f58",
+      "source": "EXPORT GRET0() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=RECT_P(G1,0); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET0",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return1",
+      "reference_source": "EXPORT GRET1() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=LINE_P(G1,0,0,2,2,255); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "e8c6e9a397b1c4ea73b2f53335a682397a2c16edabdd9b69e957a4fef11e8dc8",
+      "source": "EXPORT GRET1() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=LINE_P(G1,0,0,2,2,255); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET1",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return2",
+      "reference_source": "EXPORT GRET2() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=PIXON_P(G1,0,0,255); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "06797c8b2ffa690dc40aefb6c7ea469faf917744ea3248dfdca1fdfe8c0ce8d2",
+      "source": "EXPORT GRET2() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=PIXON_P(G1,0,0,255); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET2",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return3",
+      "reference_source": "EXPORT GRET3() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=PIXOFF_P(G1,0,0); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "9e0cc6083d9d394d454dcdfcb72db5458f2fc40e08195ba8c3a41278ca57d923",
+      "source": "EXPORT GRET3() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=PIXOFF_P(G1,0,0); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET3",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return4",
+      "reference_source": "EXPORT GRET4() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=ARC_P(G1,3,3,2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "873f8b35bcdc733b62e75c844977859af8a7394f9a0712793ddd71f39245c3dd",
+      "source": "EXPORT GRET4() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=ARC_P(G1,3,3,2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET4",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return6",
+      "reference_source": "EXPORT GRET6() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=DIMGROB_P(G1,8,8); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "ed7a95191c2f21a04142e5ea0d6dcc77456b9fb7611495d0d4805bfc444538d8",
+      "source": "EXPORT GRET6() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=DIMGROB_P(G1,8,8); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET6",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return7",
+      "reference_source": "EXPORT GRET7() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=BLIT_P(G2,G1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "f78ef57266d3c748196749dfa4535d3bd13f4aac55d94ac4125a27d0134d1d34",
+      "source": "EXPORT GRET7() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=BLIT_P(G2,G1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET7",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return8",
+      "reference_source": "EXPORT GRET8() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=SUBGROB_P(G1,G2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "e5250f2b9de99d07579e44afa7defa5d497efc466bebd7c3f94697028958116b",
+      "source": "EXPORT GRET8() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=SUBGROB_P(G1,G2); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET8",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return9",
+      "reference_source": "EXPORT GRET9() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=INVERT_P(G1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "144d36c5980489b01f632026e12a471e7521eca220be2063f1c8a79d27705694",
+      "source": "EXPORT GRET9() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=INVERT_P(G1); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET9",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-return-reference-return11",
+      "reference_source": "EXPORT GRET11() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=DRAWMENU({\"A\",\"B\"}); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "reference_source_sha256": "5364208da1667d95d46551d84aec785dfdf37307b935b0aa9530a5d271edd7ea",
+      "source": "EXPORT GRET11() BEGIN DIMGROB_P(G1,8,8); DIMGROB_P(G2,8,8); LOCAL r; IFERR r:=DRAWMENU({\"A\",\"B\"}); THEN r:=\"error\"; END; RETURN {TYPE(r),STRING(r)}; END;",
+      "entry": "GRET11",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "string",
+            "value": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "graphics-word-display-reference-words",
+      "reference_source": "EXPORT WORDDISP() BEGIN Bits:=32; RETURN {STRING(#FFFFFFFFFFFFFFFF:64h),STRING(#FF:8h),STRING(#FF:24h),TYPE(B→R(#FFh)),TYPE(IP(#FFh))}; END;",
+      "reference_source_sha256": "825b6a7019fed734f2ca6d8ddb85ff764a4d828fc5129fd7414fa4b32a7d0e34",
+      "source": "EXPORT WORDDISP() BEGIN Bits:=32; RETURN {STRING(#FFFFFFFFFFFFFFFF:64h),STRING(#FF:8h),STRING(#FF:24h),TYPE(B→R(#FFh)),TYPE(IP(#FFh))}; END;",
+      "entry": "WORDDISP",
+      "expected": {
+        "type": "list",
+        "value": [
+          {
+            "type": "string",
+            "value": "#FFFFFFFFFFFFFFFF:64h"
+          },
+          {
+            "type": "string",
+            "value": "#FF:8h"
+          },
+          {
+            "type": "string",
+            "value": "#FF:24h"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          },
+          {
+            "type": "real",
+            "value": "0"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,371 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_menus.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "split"
+    },
+    {
+      "step": "new_program",
+      "name": "MENUREF"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"ABC\",\"\",\"DEF\"); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "three"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_three.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"ABC\",\"\",\"DEF\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "list"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_list.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"One\",\"Two\",\"Three\",\"Four\",\"Five\",\"Six\"); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "six"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_six.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(\"π√∑\",\"A very long label\",\"G1\",\"x²\",\"2/3\",\"ⅈ\"); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "unicode"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_unicode.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "empty_list"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_empty_list.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\",\"B\",\"C\",\"D\",\"E\",\"F\",\"G\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "seven_list"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_seven_list.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A\",\"B\"},2,1/3,(-1,2),#FFh}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "nested"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_nested.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU(12345); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "num"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_num.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A very long label\",\"abcdefghijkl\",\"12345678901234567890\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "long"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_long.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"A\"+CHAR(10)+\"B\",\"AB\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "newline"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_newline.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A\",\"B\"},{1,2},{{1,2},{3,4}},[1,2],[[1,2],[3,4]],\"A,B\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "collections"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_collections.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({\"AB\"+CHAR(0)+\"CD\",\"A\"+CHAR(13)+\"B\",\"A\"+CHAR(9)+\"B\",\"A\"+CHAR(10)+\"B\",\"AB\",\"A,B\"}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "controls"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_controls.png"
+    },
+    {
+      "step": "set_content",
+      "content": "EXPORT MENUREF() BEGIN RECT_P(#112233h); LOCAL r:=DRAWMENU({{\"A,B\",\"C\"},{\"A\"+CHAR(34)+\"B\",\"C\"},{(1,2),(3,4)},{{\"A\"},\"B\"}}); WAIT(0); RETURN {r,TYPE(r)}; END;"
+    },
+    {
+      "step": "run"
+    },
+    {
+      "step": "wait_ms",
+      "ms": 400
+    },
+    {
+      "step": "click_calculator_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 10000
+    },
+    {
+      "step": "snapshot",
+      "label": "strings"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_menu_strings.png"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

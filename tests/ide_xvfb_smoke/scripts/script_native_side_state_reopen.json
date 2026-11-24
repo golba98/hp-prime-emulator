@@ -1,0 +1,5 @@
+{"dump":"/tmp/ppl-ide-e2e/native_side_state_reopen.json","steps":[
+{"step":"backend","engine":"native"},{"step":"layout","mode":"calculator"},{"step":"snapshot","label":"reopened"},
+{"step":"native_home"},{"step":"calc_focus"},{"step":"type","text":"L1(2)+M1(1,1)+A"},{"step":"key","key":"Enter"},{"step":"wait_idle","timeout_ms":5000},{"step":"snapshot","label":"restored_values"},
+{"step":"native_cas","expression":"Ans*3"},{"step":"wait_idle","timeout_ms":10000},{"step":"snapshot","label":"restored_cas"},
+{"step":"native_home"},{"step":"native_catalog"},{"step":"calc_key","code":30},{"step":"wait_idle","timeout_ms":5000},{"step":"snapshot","label":"restored_program"},{"step":"exit"}]}

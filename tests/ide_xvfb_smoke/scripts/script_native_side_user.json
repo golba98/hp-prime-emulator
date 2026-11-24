@@ -1,0 +1,108 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_user.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "2+3"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "native_object",
+      "kind": "program",
+      "name": "USERKEYS",
+      "content": "KEY K_Sin() BEGIN A:=A+1; RETURN \"7\"; END;"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        3,
+        21
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "temporary"
+    },
+    {
+      "step": "calc_key",
+      "code": 46
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        3,
+        41,
+        3,
+        21
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "calc_key",
+      "code": 21
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "persistent"
+    },
+    {
+      "step": "calc_keys",
+      "codes": [
+        41,
+        3
+      ],
+      "gap_ms": 100
+    },
+    {
+      "step": "calc_key",
+      "code": 30
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "evaluated"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

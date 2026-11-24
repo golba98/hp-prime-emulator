@@ -1,0 +1,125 @@
+{
+  "provenance": "Self-authored programs imported into a fresh disposable original G1 profile, then sequentially called only through EXPR source strings. Actual return values recorded; no physical hardware or vendor bytes.",
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "programs": [
+    {
+      "name": "DYNA_MODULE",
+      "source": "LOCAL count:=100; EXPORT DYNA(x) BEGIN count:=count+x; PRINT(count); RETURN count; END;"
+    },
+    {
+      "name": "DYNB_MODULE",
+      "source": "LOCAL count:=10; EXPORT DYNB(x) BEGIN RETURN {EXPR(\"count:=count+x\"),EXPR(\"DYNA(x)\"),count}; END;"
+    },
+    {
+      "name": "DYNG_MODULE",
+      "source": "EXPORT DYNCOUNT:=7; EXPORT DYNG() BEGIN RETURN DYNCOUNT; END;"
+    }
+  ],
+  "cases": [
+    {
+      "name": "first",
+      "source": "EXPORT DYNONE() BEGIN LOCAL n:=3; RETURN {EXPR(\"DYNA(n)\"),EXPR(\"DYNA(n)\")}; END;",
+      "source_sha256": "4585101e8949f45e1f9786045099c3ecc5345a4b50d6d0af77c8e5c17a3b3560",
+      "entry": "DYNONE",
+      "expected": [
+        103,
+        106
+      ]
+    },
+    {
+      "name": "nested",
+      "source": "EXPORT DYNNEST() BEGIN LOCAL n:=4; RETURN {EXPR(\"EXPR(\\\"DYNB(n)\\\")\"),EXPR(\"DYNA(n)\")}; END;",
+      "source_sha256": "6fe457512aab80ddb70adb6bfb293311b7e783e930397582dc0aa3d39801ad28",
+      "entry": "DYNNEST",
+      "expected": [
+        [
+          14,
+          110,
+          14
+        ],
+        114
+      ]
+    },
+    {
+      "name": "bad_syntax",
+      "source": "EXPORT DYNBAD() BEGIN LOCAL v; IFERR EXPR(\"DYNA(1)+(\"); THEN v:=\"syntax\"; END; RETURN {v,EXPR(\"DYNA(0)\")}; END;",
+      "source_sha256": "e69914b9d38eb7fac0a8f383541f62e4af40d3e16b0a3fcaa90aedc896fea407",
+      "entry": "DYNBAD",
+      "expected": [
+        "syntax",
+        114
+      ]
+    },
+    {
+      "name": "failed_run",
+      "source": "EXPORT DYNFAIL() BEGIN LOCAL v; IFERR EXPR(\"DYNA(2)+1/0\"); THEN v:=\"runtime\"; END; RETURN {v,EXPR(\"DYNA(0)\")}; END;",
+      "source_sha256": "1c593d9c812f1c9431b11c4864c5c147fe07346da6da4c74ad30de82bfa37751",
+      "entry": "DYNFAIL",
+      "expected": [
+        "runtime",
+        116
+      ]
+    },
+    {
+      "name": "export_global",
+      "source": "EXPORT DYNVAR() BEGIN RETURN {EXPR(\"DYNCOUNT\"),EXPR(\"DYNCOUNT:=DYNCOUNT+3\"),EXPR(\"DYNG()\")}; END;",
+      "source_sha256": "18e04c720b2aa98c878b2eb57bb64feb89b37edd52334beb9d974841b4e36da0",
+      "entry": "DYNVAR",
+      "expected": [
+        7,
+        10,
+        10
+      ]
+    },
+    {
+      "name": "grammar0",
+      "source": "EXPORT GRAM0() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"A:=1;A+2\"); THEN r:=\"error\"; END; RETURN {r,A}; END;",
+      "source_sha256": "d6500f745e0b5c1786529ff23c96d29b8fbf208fd5ab9173425f78e5a79d9da2",
+      "entry": "GRAM0",
+      "expected": [
+        3,
+        1
+      ]
+    },
+    {
+      "name": "grammar1",
+      "source": "EXPORT GRAM1() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"LOCAL n:=3; n+1\"); THEN r:=\"error\"; END; RETURN {r,A}; END;",
+      "source_sha256": "4163d4f818717d2cf07beead7be5568053093500583bec8a60af0fe9ba0b63e1",
+      "entry": "GRAM1",
+      "expected": [
+        4,
+        0
+      ]
+    },
+    {
+      "name": "grammar2",
+      "source": "EXPORT GRAM2() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"BEGIN A:=4;A+1 END\"); THEN r:=\"error\"; END; RETURN {r,A}; END;",
+      "source_sha256": "353a7ae94c99edd19a0c35e5e60d3c49f3856ea4c9588ae1b27a03fdfa57f8de",
+      "entry": "GRAM2",
+      "expected": [
+        "error",
+        0
+      ]
+    },
+    {
+      "name": "grammar3",
+      "source": "EXPORT GRAM3() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"IF 1 THEN A:=4; END; A\"); THEN r:=\"error\"; END; RETURN {r,A}; END;",
+      "source_sha256": "27ba3d59c8e67f68c91018b7e424dbcc4c1d829abec31e9491fbc52c3693f4d4",
+      "entry": "GRAM3",
+      "expected": [
+        4,
+        4
+      ]
+    },
+    {
+      "name": "grammar4",
+      "source": "EXPORT GRAM4() BEGIN A:=0; LOCAL r; IFERR r:=EXPR(\"1; END; EXPORT EVIL() BEGIN RETURN 99; END; //\"); THEN r:=\"error\"; END; RETURN {r,A}; END;",
+      "source_sha256": "7249de103849660109afb7c20760ba2eb48a857cac20352ede546cc46ce7fbf9",
+      "entry": "GRAM4",
+      "expected": [
+        "error",
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_presentation.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "type",
+      "text": "(1)/(2)"
+    },
+    {
+      "step": "snapshot",
+      "label": "textbook_draft"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_textbook_entry.png"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "click_lcd",
+      "x": 305,
+      "y": 112
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "snapshot",
+      "label": "entry_choices"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_choices.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_selected"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_draft"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_algebraic_entry.png"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_result"
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "calc_key",
+      "code": 20
+    },
+    {
+      "step": "type",
+      "text": "3+1/2"
+    },
+    {
+      "step": "snapshot",
+      "label": "plain_power"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "power_result"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_textbook_history.png"
+    },
+    {
+      "step": "type",
+      "text": "[[0],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10],[11]]"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_result"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "wait_ms",
+      "ms": 250
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_settings_before_display.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 190,
+      "y": 230
+    },
+    {
+      "step": "wait_ms",
+      "ms": 120
+    },
+    {
+      "step": "click_lcd",
+      "x": 148,
+      "y": 85
+    },
+    {
+      "step": "snapshot",
+      "label": "display_disabled"
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "snapshot",
+      "label": "linear_history"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_linear_history.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_show"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_matrix_show.png"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "snapshot",
+      "label": "matrix_scrolled"
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_matrix_scrolled.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "key",
+      "key": "Escape"
+    },
+    {
+      "step": "calc_key",
+      "code": 21
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_empty_call"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_atomic_delete"
+    },
+    {
+      "step": "key",
+      "key": "Z",
+      "command": true
+    },
+    {
+      "step": "snapshot",
+      "label": "algebraic_undo"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "type",
+      "text": "7+"
+    },
+    {
+      "step": "calc_key",
+      "code": 10
+    },
+    {
+      "step": "type",
+      "text": "(x^2+1)/(2*x)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_result"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_presentation_cas_show.png"
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_show"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "snapshot",
+      "label": "home_restored"
+    },
+    {
+      "step": "exit"
+    }
+  ]
+}

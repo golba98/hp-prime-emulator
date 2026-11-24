@@ -1,0 +1,28 @@
+schema_version=2
+id="m19_typed_boundaries"
+[programs.ZZT_M19TYPES]
+source='''EXPORT M19NEST() BEGIN RETURN {{1+2*i,3-4*i},{5}}; END;
+EXPORT M19INT() BEGIN RETURN #FFFFFFFFFFFFFFFF:64h; END;
+'''
+[[steps]]
+action="import"
+id="import"
+program="ZZT_M19TYPES"
+[[steps]]
+action="run_program"
+id="nested"
+program="ZZT_M19TYPES"
+entry="M19NEST"
+[[steps]]
+action="run_program"
+id="integer"
+program="ZZT_M19TYPES"
+entry="M19INT"
+[[expect]]
+step="integer"
+path="/return_value"
+value={type="integer",bits=64,literal="#FFFFFFFFFFFFFFFFh",signed="-1",unsigned="18446744073709551615"}
+[[expect]]
+step="nested"
+path="/return_value"
+value={type="list",value=[{type="list",value=[{type="complex",real="1",imaginary="2"},{type="complex",real="3",imaginary="-4"}]},{type="list",value=[{type="real",value="5"}]}]}

@@ -49,6 +49,7 @@ pub fn check(
         source.clone(),
         Operation::Check,
         native::Options {
+            modules: Default::default(),
             entry: None,
             args: "[]".into(),
             json_arguments: true,

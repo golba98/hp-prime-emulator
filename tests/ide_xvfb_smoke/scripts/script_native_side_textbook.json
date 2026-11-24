@@ -1,0 +1,205 @@
+{
+  "dump": "/tmp/ppl-ide-e2e/native_side_textbook.json",
+  "steps": [
+    {
+      "step": "backend",
+      "engine": "native"
+    },
+    {
+      "step": "layout",
+      "mode": "calculator"
+    },
+    {
+      "step": "native_home"
+    },
+    {
+      "step": "calc_focus"
+    },
+    {
+      "step": "calc_key",
+      "code": 41
+    },
+    {
+      "step": "calc_key",
+      "code": 20
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_degree_down_stays"
+    },
+    {
+      "step": "key",
+      "key": "ArrowRight"
+    },
+    {
+      "step": "type",
+      "text": "8"
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_entry"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_up_stays_in_body"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_radicand"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_nthroot_entry.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 19,
+      "y": 211
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_pointer_body"
+    },
+    {
+      "step": "key",
+      "key": "Delete"
+    },
+    {
+      "step": "type",
+      "text": "27"
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_pointer_edited"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "nthroot_result"
+    },
+    {
+      "step": "calc_key",
+      "code": 10
+    },
+    {
+      "step": "type",
+      "text": "(x^2+1)/(2*x)"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_rational"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "snapshot",
+      "label": "cas_show"
+    },
+    {
+      "step": "window_screenshot",
+      "path": "/tmp/ppl-ide-e2e/native_cas_rational_show.png"
+    },
+    {
+      "step": "click_lcd",
+      "x": 295,
+      "y": 230
+    },
+    {
+      "step": "calc_key",
+      "code": 5
+    },
+    {
+      "step": "snapshot",
+      "label": "home_restored"
+    },
+    {
+      "step": "calc_key",
+      "code": 42
+    },
+    {
+      "step": "calc_key",
+      "code": 18
+    },
+    {
+      "step": "type",
+      "text": "2"
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_entry"
+    },
+    {
+      "step": "key",
+      "key": "ArrowUp"
+    },
+    {
+      "step": "key",
+      "key": "Backspace"
+    },
+    {
+      "step": "type",
+      "text": "3"
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_numerator"
+    },
+    {
+      "step": "key",
+      "key": "ArrowDown"
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_denominator"
+    },
+    {
+      "step": "key",
+      "key": "Enter"
+    },
+    {
+      "step": "wait_idle",
+      "timeout_ms": 5000
+    },
+    {
+      "step": "snapshot",
+      "label": "fraction_result"
+    },
+    {
+      "step": "quit"
+    }
+  ]
+}

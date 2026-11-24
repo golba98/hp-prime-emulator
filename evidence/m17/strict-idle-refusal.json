@@ -1,0 +1,8 @@
+{
+  "event": "checkpoint",
+  "id": 11,
+  "result": {
+    "status": "failed",
+    "message": "firmware OFF did not produce a durable checkpoint before the deadline; previous generations retained (checkpoint stage=awaiting_strict_idle_admission, off_sent=false, power sequence=None, main waits 154→318, main waiting=true, main UI blocked=true, input pump parked=true, queued input=0, local keys=0, delivered keys={}, touch=0, sleeping=false, sleep generation=0, saved sleep=None, save worker=false, save result=None, idle={\"covered_ms\":499.13410000000005,\"idle_samples\":176,\"required_share\":0.8,\"required_window_ms\":500,\"samples\":242,\"share\":0.7272727272727273})"
+  }
+}

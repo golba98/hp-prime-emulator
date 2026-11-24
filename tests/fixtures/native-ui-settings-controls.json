@@ -1,0 +1,25 @@
+{
+  "provenance": "Original G1 firmware Home font selection; tight unmasked RGB24 glyph region. No physical device verification.",
+  "controls": [
+    {
+      "font_px": 12,
+      "text": "123456.789",
+      "tight_size": [
+        65,
+        9
+      ],
+      "tight_rgb24_sha256": "0499d52974dae7541c34d828e8ae38294b363deb349d2952e2c55f354822966a"
+    },
+    {
+      "font_px": 16,
+      "text": "123456.789",
+      "tight_size": [
+        84,
+        12
+      ],
+      "tight_rgb24_sha256": "a09d9f894ec4e9c22d7fa263d8f25584b5af8621c6a7aa6f56e840fa0821e7b1"
+    }
+  ],
+  "firmware_sha256": "ad9779ff72db39fe4e9977ce7c4324f39aad1bb00c849c0aab067dc5bfc2fb39",
+  "resource_sha256": "cf50aa599e236a10d24761f15217c5c97473603f208fb4ba14b4cd84c36b8edf"
+}

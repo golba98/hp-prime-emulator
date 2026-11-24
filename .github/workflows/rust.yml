@@ -35,6 +35,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang libclang-dev cmake libudev-dev pkg-config
+      - name: Expose locked zlib headers to bundled FreeType on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # freetype-sys 0.23 compiles libpng but its published archive omits
+          # the hard-coded libz-sys submodule. Use its actual locked dependency.
+          $metadata = cargo metadata --locked --format-version 1 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $zlib = @($metadata.packages | Where-Object { $_.name -eq 'libz-sys' })
+          if ($zlib.Count -ne 1) { throw "Expected one locked libz-sys package" }
+          $headers = Join-Path (Split-Path $zlib[0].manifest_path) 'src/zlib'
+          if (-not (Test-Path (Join-Path $headers 'zlib.h'))) { throw "Missing locked zlib headers" }
+          "CFLAGS=-I$headers" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Check

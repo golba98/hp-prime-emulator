@@ -14,10 +14,12 @@ use std::time::Instant;
 
 use crate::{
     compiler::{self, CheckObservation, RawPosition},
-    guest_call::{Arg, Call, CallPlan, Returned, Step},
+    guest_call::{Arg, Call, Returned, Step},
     memory::GuestMemory,
     sha256,
 };
+
+pub mod image;
 
 /// `operator new(size)`.
 const NEW: u32 = 0x3080_0124;
@@ -54,7 +56,8 @@ const CODE_RANGES: [(u32, u32); 6] = [
 const CODE_SHA256: &str = "1baf6b54b9502e7cacb0beeb1ca07ec9f2206d472d71a44bb141ad53318c997b";
 
 /// What a direct Check produced, before validation.
-#[derive(Debug, Default, Clone, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Outcome {
     pub error: Option<String>,
     pub return_value: Option<u32>,
@@ -88,7 +91,8 @@ fn arm_immediate(insn: u32) -> u32 {
     (insn & 0xff).rotate_right(((insn >> 8) & 0xf) * 2)
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum Stage {
     ClearSources,
     ClearSecond,
@@ -102,12 +106,14 @@ enum Stage {
 }
 
 pub struct Plan {
+    binding: image::Binding,
     ctx: u32,
     text_va: u32,
     stage: Stage,
     item: u32,
     copy: u32,
     started: Option<Instant>,
+    elapsed_ms: f64,
     out: Arc<Mutex<Option<Outcome>>>,
     o: Outcome,
 }
@@ -115,20 +121,28 @@ pub struct Plan {
 impl Plan {
     /// A plan to set program context `ctx`'s source to the NUL-terminated
     /// UTF-16 text at `text_va` and compile it. The result lands in `out`.
-    pub fn new(ctx: u32, text_va: u32, out: Arc<Mutex<Option<Outcome>>>) -> Plan {
-        Plan {
+    pub fn new(
+        ctx: u32,
+        text_va: u32,
+        request: u64,
+        source: &str,
+        out: Arc<Mutex<Option<Outcome>>>,
+    ) -> Result<Plan, String> {
+        Ok(Plan {
+            binding: image::Binding::new(request, source)?,
             ctx,
             text_va,
             stage: Stage::ClearSources,
             item: 0,
             copy: 0,
             started: None,
+            elapsed_ms: 0.0,
             out,
             o: Outcome {
                 text_va: Some(text_va),
                 ..Default::default()
             },
-        }
+        })
     }
 
     fn fail(&mut self, e: impl Into<String>) -> Step {
@@ -152,8 +166,8 @@ fn v(x: u32) -> Arg {
     Arg::Value(x)
 }
 
-impl CallPlan for Plan {
-    fn next(&mut self, mem: &GuestMemory, last: Option<Returned>) -> Step {
+impl Plan {
+    pub(crate) fn next(&mut self, mem: &GuestMemory, last: Option<Returned>) -> Step {
         if let Some(r) = &last {
             self.o
                 .calls
@@ -241,8 +255,11 @@ impl CallPlan for Plan {
                     Ok(text) => self.o.message = Some(text),
                     Err(e) => return self.fail(format!("message: {e}")),
                 }
-                let total = self.started.map(|t| t.elapsed().as_secs_f64() * 1000.0);
-                self.o.calls.push(("Total".into(), total.unwrap_or(0.0)));
+                let total = self.elapsed_ms
+                    + self
+                        .started
+                        .map_or(0.0, |t| t.elapsed().as_secs_f64() * 1000.0);
+                self.o.calls.push(("Total".into(), total));
                 self.finish()
             }
             (stage, _) => self.fail(format!("guest call sequence broke at {stage:?}")),

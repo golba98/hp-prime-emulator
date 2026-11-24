@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "scope": "synthetic_unicorn_arm926_reconstructable_svc",
+  "kernel_boot_verified": false,
+  "physical_hardware_verified": false,
+  "firmware_live_restore_ready": false,
+  "calculator_firmware_executed": false,
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "prime-emulator",
+    "--lib",
+    "--",
+    "--nocapture"
+  ],
+  "environment": {
+    "CARGO_TARGET_DIR": "/home/k9-vortex/.cache/prime-m19-hardware-target"
+  },
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "unicorn_crate": "unicorn-engine2.1.5",
+  "test_binary": "/home/k9-vortex/.cache/prime-m19-hardware-target/debug/deps/prime_emulator-88c9ad6a464c8852",
+  "test_binary_sha256": "642f7df054fcfc8608ebbdad07ab458728a50b3cee4adbe57d8753f08d421f2c",
+  "log": "/home/k9-vortex/.cache/prime-m19-resumable-library-final.log",
+  "log_sha256": "6798d05be1e261fe872644402a93ab74d5187b2a7cebeb23eb8ac9502c14afe3",
+  "library_tests_passed": 151,
+  "synthetic_snapshot_tests_passed": 22,
+  "resumable_svc_tests_passed": 8,
+  "programs": [
+    {
+      "case": "wait",
+      "program_identity": "85ed5992667b80742586e0c8328042e69f3a7fefc647b8035fd61c825395b3d2",
+      "runtime_version_packed": 33621247,
+      "post_svc_pc": "0x10000004",
+      "instructions_at_block": 1,
+      "fresh_child_resume_and_uninterrupted_comparison_passed": true
+    },
+    {
+      "case": "receive",
+      "program_identity": "11c3b9a435a2c188e7d1c99e0dc00c3328a51d75bbb886acbcb88be9685d502b",
+      "runtime_version_packed": 33621247,
+      "post_svc_pc": "0x10000004",
+      "instructions_at_block": 1,
+      "fresh_child_resume_and_uninterrupted_comparison_passed": true
+    }
+  ],
+  "negative_controls": [
+    "unsupported_svc",
+    "corrupt_pending_operation_pc_arguments",
+    "invalid_output_bounds",
+    "timer_deadline_disagreement",
+    "changed_executable",
+    "resource_rebinding_failure",
+    "reused_binding_epoch",
+    "captured_owner_ticket",
+    "wrong_request",
+    "double_completion",
+    "corrupt_truncated_wrong_format_files",
+    "failed_publication",
+    "terminated_staging_writer",
+    "terminated_private_restore"
+  ],
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "prime-emulator",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "status": "passed",
+    "log_sha256": "6910ffd5e5d48c40d3879fa5d8ce6dba44f5f0700065f20a1f30b1485cd16467"
+  },
+  "source_sha256": {
+    "crates/prime-emulator/src/synthetic_snapshot.rs": "cf3e7af6e29aaf114ad1b651170c8fc69137d90e59a5f3801bfb14b6cbfd4281",
+    "crates/prime-emulator/src/synthetic_snapshot/resumable.rs": "adc902cef5a1edfdda38e945f2d6742981d1367234f614753590a3c83da7814d",
+    "crates/prime-emulator/src/synthetic_snapshot/resumable/tests.rs": "fdc65d21e1e99f38d2d44a7994b44a6497ffc2d4b5a00c379df657b37458fce4"
+  },
+  "prior_failed_validation": {
+    "existing_test": "safepoint::tests::an_abandoned_pause_expires_instead_of_sticking_an_engine",
+    "result": "one initial full-library run150passed1failed; unchanged focused test passed; subsequent full library151passed",
+    "test_deadline_ms": 30,
+    "production_or_test_timing_changed": false,
+    "initial_clippy": "incompatible_msrv_is_multiple_of_replaced_with_modulo"
+  }
+}

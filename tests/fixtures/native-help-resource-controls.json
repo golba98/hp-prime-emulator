@@ -1,0 +1,150 @@
+{
+  "provenance": "Hashes and structural metadata from independently decoding the user-installed G1 Help topics and interface string groups. Original ARM reader306c0944 and decoder30611218 establish group IDs/counts, skipped padding bytes and CR filtering. No vendor prose, compressed data, images or fonts bundled. No physical calculator verification claim.",
+  "archive_sha256": "cf50aa599e236a10d24761f15217c5c97473603f208fb4ba14b4cd84c36b8edf",
+  "books": [
+    {
+      "language": 4,
+      "resource": 71,
+      "topics": 2351,
+      "spans": 3851,
+      "text_units": 1055259,
+      "decoded_sha256": "ebe44a3f45d5f8bd3b1aa52e22c42d0c47dc009633be501b487533d241d2431a",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 49992,
+      "groups_sha256": "7ace515df86d24fb3f831603d2fe80e7d5c94965d1c6f7b44aabfde6dbbb5546"
+    },
+    {
+      "language": 1,
+      "resource": 72,
+      "topics": 2351,
+      "spans": 4775,
+      "text_units": 968046,
+      "decoded_sha256": "74af5a36f78726c86cfdb06367c2a8c4ce6324e6d6f16a49a01348c63d4be8ad",
+      "selected": [
+        {
+          "id": 1,
+          "name": "Main",
+          "spans": [
+            9,
+            1454
+          ],
+          "sha256": "e846f8a4da758caaf8891fd7982db25a4438c190e07a1029592ed36d527bb45c"
+        },
+        {
+          "id": 978,
+          "name": "DRAWMENU",
+          "spans": [
+            16,
+            620,
+            33
+          ],
+          "sha256": "00c8f6fb75370ebddaae0568398ba83963f3f989505a1a1c287951b3f53889d8"
+        },
+        {
+          "id": 1274,
+          "name": "SIN",
+          "spans": [
+            4,
+            287,
+            116
+          ],
+          "sha256": "8026c8a8cc8a6d79cdce17b60af59babbbb26c8ffe75a7c600a1590960f60ae3"
+        },
+        {
+          "id": 1279,
+          "name": "TEXTOUT_P",
+          "spans": [
+            9,
+            1210,
+            97
+          ],
+          "sha256": "a2fd6f6e52c88d138b88cdf5a7efa39157b2a1b7d67e0cce9e1ae2245c6f5d10"
+        }
+      ],
+      "groups": 41,
+      "group_strings": 3771,
+      "group_text_units": 46219,
+      "groups_sha256": "0a63d3378a663e497b12205b631f8b4dd7c40e7c2e992ce14102183fb5178bc9"
+    },
+    {
+      "language": 5,
+      "resource": 73,
+      "topics": 2351,
+      "spans": 3848,
+      "text_units": 1008415,
+      "decoded_sha256": "6fe06843107d370683212eb05483d52f5ca7474d5c5dcd591d08782adc92e0ed",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 52249,
+      "groups_sha256": "32e675e9de2a8adc74c738e1ece575b7f79d079fb0daa3b4f233328ab5fa0309"
+    },
+    {
+      "language": 3,
+      "resource": 74,
+      "topics": 2351,
+      "spans": 3849,
+      "text_units": 1042169,
+      "decoded_sha256": "192f4fce3a157c23bf1e822d17e583edd2a29666480a625809a1eca5632bbe58",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 51450,
+      "groups_sha256": "2293d8ecb5e7cf2e545777756765c035447f7c2be975b86a18993ddf6958c2b2"
+    },
+    {
+      "language": 8,
+      "resource": 75,
+      "topics": 2351,
+      "spans": 3848,
+      "text_units": 488446,
+      "decoded_sha256": "1ae3542ad0d705e264af8611b78605e3e31c8a8cf3680c13b91aec638eb7da63",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 21349,
+      "groups_sha256": "2d13cd925f67cb4bd300ae1e31cbb2d0417bff5a2ceb351bc421c595b999666a"
+    },
+    {
+      "language": 6,
+      "resource": 76,
+      "topics": 2351,
+      "spans": 3851,
+      "text_units": 1030359,
+      "decoded_sha256": "4e59ceca5ad100d7b10d670255faee07a86bd7e45bb9ce6fcf3ecc0be5f077f8",
+      "selected": [],
+      "groups": 36,
+      "group_strings": 3732,
+      "group_text_units": 50613,
+      "groups_sha256": "ca7bcbd93e34b931c4b6f7d0e59230ce0c6eecb8d365e247394a5d008e404ad7"
+    },
+    {
+      "language": 7,
+      "resource": 77,
+      "topics": 2351,
+      "spans": 3846,
+      "text_units": 978744,
+      "decoded_sha256": "07445406a694f00d4a1f3bf7465779a122c44ce786e423ef90056c6c7ed14965",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 50171,
+      "groups_sha256": "4657c0e1b238496a2758bd3e28491a245f645ede0efaaa6fc45da496b6cb0209"
+    },
+    {
+      "language": 2,
+      "resource": 78,
+      "topics": 2351,
+      "spans": 3848,
+      "text_units": 390657,
+      "decoded_sha256": "2d7b184d3366abf864f65eff298d496546d3d76cbf78f89dde416c0266e48dba",
+      "selected": [],
+      "groups": 34,
+      "group_strings": 3613,
+      "group_text_units": 14786,
+      "groups_sha256": "ade64bd28c6e92f10aaaa72e644d6770fb7d85a540c5235e3b2e545045ae2b1d"
+    }
+  ]
+}

@@ -1,13 +1,13 @@
 //! Terminal, dialogs, keyboard, touch and time.
 
 use ppl_compiler::builtins::Builtin;
-use ppl_graphics::{BLACK, WHITE, rgb, text};
+use ppl_graphics::{BLACK, WHITE, text};
 
 use super::arg;
 use crate::error::{ErrorKind, RtResult, RuntimeError};
 use crate::host::{
-    Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputField, InputPosition,
-    MatrixDialog,
+    Dialog, DialogResult, DisplayMode, INPUT_LINES_PER_PAGE, InputControl, InputField,
+    InputPosition, MatrixDialog,
 };
 use crate::machine::Machine;
 use crate::value::Value;
@@ -40,7 +40,13 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         B::Msgbox => {
             let text = text_of(m, arg(args, 0, name)?);
             let screen = m.screen().clone();
-            let r = m.blocking(|h| h.dialog(&Dialog::Message { text }, &screen))?;
+            let ok_cancel = args
+                .get(1)
+                .map(|v| v.expect_real(name).map(|n| !n.is_zero()))
+                .transpose()?
+                .unwrap_or(false);
+            let r =
+                m.blocking(|h| h.dialog(&Dialog::MessageChoice { text, ok_cancel }, &screen))?;
             Ok(Value::from_bool(r != DialogResult::Cancelled))
         }
         B::Getkey => {
@@ -66,38 +72,58 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
             Ok(Value::from_i64(k.unwrap_or(-1)))
         }
         B::Mouse => {
-            // Hardware-compatible shape: with no touch active, MOUSE()
-            // returns an empty list — real programs (e.g. the FIREWORKS
-            // fixture) guard with `SIZE(m) > 0` before indexing m[1,1],
-            // so an idle MOUSE must never look non-empty (regression:
-            // it used to return [[],[]], which crashed such programs).
-            let t = m.blocking(|h| h.touch())?;
-            let Some(t) = t else {
-                return Ok(Value::list(Vec::new()));
+            let index = args
+                .first()
+                .map(|value| {
+                    if !matches!(value, Value::Real(_) | Value::Int(_)) {
+                        return Err(RuntimeError::kind(ErrorKind::InvalidInput));
+                    }
+                    let number = value.expect_real(name)?;
+                    if !number.is_integer() {
+                        return Err(RuntimeError::kind(ErrorKind::InvalidInput));
+                    }
+                    let index = number
+                        .to_i64()
+                        .filter(|index| (0..10).contains(index))
+                        .ok_or_else(|| RuntimeError::kind(ErrorKind::InvalidInput))?;
+                    Ok(index as usize)
+                })
+                .transpose()?;
+            let state = m.blocking(|host| host.mouse_state())?;
+            let word = |value: i16, signed| {
+                Value::Int(
+                    ppl_math::HpInt::new_with_width(
+                        i128::from(value),
+                        if signed { -16 } else { 16 },
+                        m.settings.int_base,
+                    )
+                    .expect("bounded pointer word")
+                    .with_system_base(true),
+                )
             };
-            let finger = Value::list(vec![
-                Value::from_i64(t.x),
-                Value::from_i64(t.y),
-                Value::from_i64(t.x),
-                Value::from_i64(t.y),
-                Value::zero(),
-            ]);
-            let both = Value::list(vec![finger, Value::list(Vec::new())]);
-            match args.first() {
-                Some(i) => {
-                    let idx = i.expect_i64(name)?;
-                    let Value::List(l) = &both else {
-                        unreachable!()
-                    };
-                    let Value::List(f) = &l[0] else {
-                        unreachable!()
-                    };
-                    Ok(f.get((idx - 1).max(0) as usize)
-                        .cloned()
-                        .unwrap_or(Value::from_i64(-1)))
-                }
-                None => Ok(both),
+            let pointers = state.pointers.map(|pointer| {
+                pointer.map(|p| {
+                    [
+                        word(p.x, true),
+                        word(p.y, true),
+                        word(p.origin_x, true),
+                        word(p.origin_y, true),
+                        word(p.kind as i16, false),
+                    ]
+                })
+            });
+            if let Some(index) = index {
+                return Ok(pointers[index / 5]
+                    .as_ref()
+                    .map(|pointer| pointer[index % 5].clone())
+                    .unwrap_or_else(|| Value::from_i64(-1)));
             }
+            Ok(Value::list(
+                pointers
+                    .into_iter()
+                    .map(|pointer| Value::list(pointer.map(Vec::from).unwrap_or_default()))
+                    .collect(),
+            ))
         }
         B::Disp => {
             // DISP(row, text): rows are 24 px high, 1–9 (approximation).
@@ -115,34 +141,32 @@ pub fn call(m: &mut Machine, b: Builtin, name: &str, args: &[Value]) -> RtResult
         B::Freeze => {
             m.display = DisplayMode::Graphics;
             m.present_now();
+            m.blocking(|host| host.wait_key(None))?;
             Ok(Value::zero())
         }
         B::Drawmenu => {
-            // Six 53-pixel soft-key slots on the bottom 20 rows (approximation).
-            let labels: Vec<String> = args.iter().map(|v| text_of(m, v)).collect();
-            let px = 12.0;
-            let g = m.grobs[0].as_mut().unwrap();
-            for i in 0..6i64 {
-                let x1 = i * 53;
-                let x2 = if i == 5 { 319 } else { x1 + 51 };
-                g.fill_rect(x1, 220, x2, 239, rgb(0x40, 0x40, 0x40));
-                if let Some(l) = labels.get(i as usize) {
-                    let w = text::measure(l, px);
-                    text::draw_text(
-                        g,
-                        l,
-                        x1 + ((x2 - x1 + 1) - w).max(0) / 2,
-                        222,
-                        px,
-                        WHITE,
-                        Some(x2 - x1),
-                        None,
-                    );
-                }
-            }
+            let values = match args {
+                [Value::List(items)] => items.as_slice(),
+                _ => args,
+            };
+            let labels = values
+                .iter()
+                .take(6)
+                .map(|value| {
+                    if value.is_string() {
+                        return Ok(value.expect_string_units("DRAWMENU label")?.into_owned());
+                    }
+                    super::strings::menu_label(m, value)?
+                        .expect_string_units("DRAWMENU label")
+                        .map(|units| units.into_owned())
+                })
+                .collect::<RtResult<Vec<_>>>()?;
+            let borrowed = labels.iter().map(Vec::as_slice).collect::<Vec<_>>();
+            ppl_graphics::softkeys::draw_units(m.grobs[0].as_mut().unwrap(), &borrowed)
+                .map_err(|error| RuntimeError::new(ErrorKind::Unsupported, error.to_string()))?;
             m.display = DisplayMode::Graphics;
             m.screen_dirty = true;
-            Ok(Value::zero())
+            Ok(Value::from_i64(1))
         }
         B::Ticks => {
             let t = m.host.now_ms();
@@ -179,32 +203,186 @@ fn str_list(m: &Machine, v: Option<&Value>, n: usize) -> Vec<String> {
     }
 }
 
-/// The allowed TYPE codes of one INPUT field (`[2]` in `{{A,[2]}}`);
-/// empty means any type. The compiler passes `0` for a field without a
-/// type list, and `-1` in a list also allows every type.
-fn allowed_types(spec: &Value) -> Vec<i64> {
-    let codes: Vec<i64> = match spec {
-        Value::Matrix(mx) => mx
-            .data
-            .iter()
-            .filter_map(|v| v.expect_i64("INPUT").ok())
-            .collect(),
-        Value::List(l) => l
-            .iter()
-            .filter_map(|v| v.expect_i64("INPUT").ok())
-            .collect(),
-        _ => Vec::new(),
+/// Parse an explicitly supplied edit-field descriptor. Scalar and nonnumeric
+/// list descriptors can denote other firmware controls; never turn them into
+/// unrestricted text inputs. Omitted descriptors are handled separately.
+fn allowed_types(spec: &Value) -> RtResult<Vec<i64>> {
+    let unsupported = || {
+        RuntimeError::new(
+            ErrorKind::Unsupported,
+            "Native INPUT supports edit fields with a vector/list of TYPE codes; checkbox, radio and choice descriptors require G1 Firmware mode",
+        )
     };
+    let values = match spec {
+        Value::Matrix(mx) if mx.vector => mx.data.as_slice(),
+        Value::Matrix(_) => {
+            return Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                "INPUT TYPE codes require a one-dimensional vector, not a matrix",
+            ));
+        }
+        Value::List(values) => values.as_slice(),
+        _ => return Err(unsupported()),
+    };
+    let mut codes = Vec::with_capacity(values.len());
+    for value in values {
+        let number = value
+            .expect_real("INPUT TYPE code")
+            .map_err(|_| unsupported())?;
+        if number != number.trunc() {
+            return Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                "INPUT TYPE codes must be integers; fractional codes are not rounded",
+            ));
+        }
+        let code = number.to_i64().ok_or_else(|| {
+            RuntimeError::new(ErrorKind::BadArgValue, "INPUT TYPE code is out of range")
+        })?;
+        if !matches!(code, -1..=9) {
+            return Err(RuntimeError::new(
+                ErrorKind::Unsupported,
+                format!("Native INPUT does not support TYPE code {code}; use G1 Firmware mode"),
+            ));
+        }
+        if !codes.contains(&code) {
+            codes.push(code);
+        }
+    }
     if codes.contains(&-1) {
-        Vec::new()
-    } else {
-        codes
+        codes.clear();
+    }
+    Ok(codes)
+}
+
+/// Preserve omitted edit descriptors, typed vectors, checkbox groups and choice lists.
+fn input_specs(
+    m: &Machine,
+    value: &Value,
+    count: usize,
+) -> RtResult<(Vec<Vec<i64>>, Vec<InputControl>)> {
+    let fields = value.expect_list("INPUT field descriptors")?;
+    if fields.len() != count {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgValue,
+            "INPUT field descriptor count does not match its variables",
+        ));
+    }
+    let mut allowed = Vec::with_capacity(count);
+    let mut controls = Vec::with_capacity(count);
+    let mut radio_end = 0;
+    let mut radio_start = 0;
+    for (index, field) in fields.iter().enumerate() {
+        let optional = field.expect_list("INPUT optional field descriptor")?;
+        let (types, mut control) = match optional.as_slice() {
+            [] => (Vec::new(), InputControl::Edit),
+            [Value::Real(number)] => {
+                if *number > ppl_math::Real::ONE {
+                    let n = number
+                        .to_i64()
+                        .filter(|_| *number == number.trunc())
+                        .and_then(|n| usize::try_from(n).ok())
+                        .filter(|n| index.checked_add(*n).is_some_and(|end| end <= count))
+                        .ok_or_else(|| {
+                            RuntimeError::new(
+                                ErrorKind::BadArgValue,
+                                "INPUT radio group exceeds its fields or has a fractional size",
+                            )
+                        })?;
+                    if index < radio_end {
+                        return Err(RuntimeError::new(
+                            ErrorKind::BadArgValue,
+                            "INPUT radio groups overlap",
+                        ));
+                    }
+                    radio_start = index;
+                    radio_end = index + n;
+                }
+                (Vec::new(), InputControl::Checkbox { group: None })
+            }
+            [Value::List(items)] => {
+                if items.is_empty() {
+                    return Err(RuntimeError::new(
+                        ErrorKind::BadArgValue,
+                        "INPUT choose field needs at least one item",
+                    ));
+                }
+                (
+                    Vec::new(),
+                    InputControl::Choice {
+                        items: items.iter().map(|v| text_of(m, v)).collect(),
+                    },
+                )
+            }
+            [spec] => (allowed_types(spec)?, InputControl::Edit),
+            _ => {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "INPUT optional field descriptor is malformed",
+                ));
+            }
+        };
+        if index < radio_end {
+            if !matches!(control, InputControl::Checkbox { .. }) {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "INPUT radio group requires consecutive checkbox controls",
+                ));
+            }
+            control = InputControl::Checkbox {
+                group: Some(radio_start),
+            };
+        }
+        allowed.push(types);
+        controls.push(control);
+    }
+    Ok((allowed, controls))
+}
+
+fn control_value(
+    m: &mut Machine,
+    text: &str,
+    current: &Value,
+    allowed: &[i64],
+    control: &InputControl,
+) -> RtResult<Value> {
+    match control {
+        InputControl::Edit => field_value(m, text, current, allowed),
+        InputControl::Checkbox { .. } => {
+            let value = m
+                .eval_text(text)
+                .map_err(|error| field_error(error, "Checkbox requires 0 or 1"))?;
+            let value = value
+                .expect_real("INPUT checkbox")
+                .map_err(|error| field_error(error, "Checkbox requires 0 or 1"))?;
+            if value != ppl_math::Real::ZERO && value != ppl_math::Real::ONE {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "Checkbox requires 0 or 1",
+                ));
+            }
+            Ok(Value::real(value))
+        }
+        InputControl::Choice { items } => {
+            let value = m
+                .eval_text(text)
+                .map_err(|error| field_error(error, "Choose a valid item"))?;
+            let index = value
+                .expect_i64("INPUT choice")
+                .map_err(|error| field_error(error, "Choose a valid item"))?;
+            if index < 1 || index as usize > items.len() {
+                return Err(RuntimeError::new(
+                    ErrorKind::BadArgValue,
+                    "Choose a valid item",
+                ));
+            }
+            Ok(Value::from_i64(index))
+        }
     }
 }
 
 /// The value typed into one field, or the message the dialog shows when
 /// the entry is rejected.
-fn field_value(m: &Machine, text: &str, current: &Value, allowed: &[i64]) -> Result<Value, String> {
+fn field_value(m: &mut Machine, text: &str, current: &Value, allowed: &[i64]) -> RtResult<Value> {
     // A string-only field stores the text verbatim and never evaluates it
     // (HP: "the input will be shown WITHOUT the quotes and save directly as
     // a string"). UNVERIFIED on G1: an empty string-only entry yields "".
@@ -214,19 +392,32 @@ fn field_value(m: &Machine, text: &str, current: &Value, allowed: &[i64]) -> Res
     if text.trim().is_empty() {
         return Ok(current.clone());
     }
-    let v = m.eval_text(text).map_err(|e| {
-        // The field already shows the text: keep only the reason.
-        let prefix = format!("cannot evaluate `{text}`: ");
-        let reason = e.detail.strip_prefix(&prefix).unwrap_or(&e.detail);
-        format!("Syntax error: {reason}")
-    })?;
-    if !allowed.is_empty() && !allowed.contains(&v.type_code()) {
-        return Err(format!(
-            "Invalid input: a {} is not allowed here",
-            v.type_name()
+    let v = if text == current.string_form(m.settings.format()) {
+        current.clone()
+    } else {
+        m.eval_text(text).map_err(|e| {
+            // The field already shows the text: keep only the reason.
+            let prefix = format!("cannot evaluate `{text}`: ");
+            let reason = e.detail.strip_prefix(&prefix).unwrap_or(&e.detail);
+            let message = format!("Syntax error: {reason}");
+            field_error(e, &message)
+        })?
+    };
+    if !allowed.is_empty() && !allowed.contains(&crate::cas::type_code(m, &v)?) {
+        return Err(RuntimeError::new(
+            ErrorKind::BadArgType,
+            format!("Invalid input: a {} is not allowed here", v.type_name()),
         ));
     }
     Ok(v)
+}
+
+/// Host stops retain their kind and trace, and must never become a re-prompt.
+fn field_error(mut error: RuntimeError, message: &str) -> RuntimeError {
+    if error.kind.catchable() {
+        error.detail = message.to_owned();
+    }
+    error
 }
 
 /// Validate the documented on-screen layout subset before opening a dialog.
@@ -293,19 +484,14 @@ fn input_positions(value: Option<&Value>, count: usize) -> RtResult<Vec<Option<I
 
 /// `INPUT(var | {vars}, [title], [labels], [help], [reset], [initial])`.
 /// `args[0]` holds the current values of the referenced variables and
-/// `args[1]` (added by the compiler) each field's allowed types.
+/// `args[1]` (added by the compiler) preserves each optional field descriptor.
 /// A rejected entry reopens the dialog with an error instead of stopping
 /// the program, the way the calculator keeps its form open.
 /// Hidden arguments 2 and 3 preserve scalar/list form and field positions.
 pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
     let current = args[0].expect_list("INPUT")?;
     let n = current.len();
-    let allowed: Vec<Vec<i64>> = match args.get(1) {
-        Some(Value::List(l)) => (0..n)
-            .map(|i| l.get(i).map(allowed_types).unwrap_or_default())
-            .collect(),
-        _ => vec![Vec::new(); n],
-    };
+    let (allowed, controls) = input_specs(m, arg(args, 1, "INPUT")?, n)?;
     let scalar = args
         .get(2)
         .is_some_and(|v| v.expect_i64("INPUT").ok() == Some(1));
@@ -322,13 +508,24 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
         match value {
             None => Ok(None),
             Some(v) if scalar => Ok(Some(vec![v.clone()])),
-            Some(Value::List(values)) if values.len() == n => {
-                Ok(Some(values.iter().cloned().collect()))
+            Some(Value::List(values)) if values.len() <= n => {
+                let mut defaults = current.to_vec();
+                for (target, value) in defaults.iter_mut().zip(values.iter()) {
+                    *target = value.clone();
+                }
+                Ok(Some(defaults))
             }
-            Some(_) => Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                "Native INPUT supports one reset/initial value per field; other default-list forms require Firmware mode",
+            Some(Value::List(_)) => Err(RuntimeError::new(
+                ErrorKind::BadArgValue,
+                "INPUT reset/initial list exceeds the number of fields",
             )),
+            Some(value) => {
+                let mut defaults = current.to_vec();
+                if let Some(first) = defaults.first_mut() {
+                    *first = value.clone();
+                }
+                Ok(Some(defaults))
+            }
         }
     };
     let reset = defaults(args.get(7))?;
@@ -351,6 +548,8 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
         .collect();
     let mut error = None;
     let mut focus = 0;
+    let mut edited = vec![false; n];
+    let mut validated: Vec<Option<Value>> = vec![None; n];
     loop {
         let fields = (0..n)
             .map(|i| InputField {
@@ -358,6 +557,7 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
                 help: helps[i].clone(),
                 current: texts[i].clone(),
                 string_only: allowed[i] == [2],
+                control: controls[i].clone(),
                 position: positions[i],
                 page_title: titles
                     .get(positions[i].map_or(i, |p| p.line) / INPUT_LINES_PER_PAGE)
@@ -372,33 +572,77 @@ pub fn input(m: &mut Machine, args: &[Value]) -> RtResult<(Value, Vec<Value>)> {
             })
             .collect();
         let dialog = Dialog::Input {
+            report_edits: true,
             title: title.clone(),
             fields,
             error: error.take(),
             focus,
         };
         let screen = m.screen().clone();
-        let DialogResult::Entered(entered) = m.blocking(|h| h.dialog(&dialog, &screen))? else {
-            return Ok((Value::zero(), current.iter().cloned().collect()));
+        let entered = match m.blocking(|h| h.dialog(&dialog, &screen))? {
+            DialogResult::Entered(values) => values.into_iter().map(Some).collect(),
+            DialogResult::InputEntered(values) if values.len() == n => values,
+            DialogResult::InputEntered(_) => {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "INPUT host returned incomplete field metadata",
+                ));
+            }
+            _ => return Ok((Value::zero(), current.iter().cloned().collect())),
         };
+        // Preserve every edit before validating any field. A failure in the
+        // first field must not discard text entered in later fields.
+        for (i, value) in entered.iter().enumerate().take(n) {
+            if let Some(typed) = value {
+                texts[i] = typed.clone();
+                edited[i] = true;
+                validated[i] = None;
+            }
+        }
         let mut out = Vec::with_capacity(n);
-        for (i, text) in texts.iter_mut().enumerate() {
-            let Some(typed) = entered.get(i) else {
-                out.push(current[i].clone());
+        for (i, text) in texts.iter().enumerate() {
+            if let Some(value) = &validated[i] {
+                out.push(value.clone());
                 continue;
-            };
-            *text = typed.clone();
-            match field_value(m, typed, &current[i], &allowed[i]) {
-                Ok(v) => out.push(v),
-                Err(msg) => {
-                    error = Some(msg);
+            } else if !edited[i] {
+                out.push(
+                    initial
+                        .as_ref()
+                        .map_or(&current[i], |values| &values[i])
+                        .clone(),
+                );
+                continue;
+            }
+            match control_value(m, text, &current[i], &allowed[i], &controls[i]) {
+                Ok(v) => {
+                    validated[i] = Some(v.clone());
+                    out.push(v);
+                }
+                Err(failure) => {
+                    if !failure.kind.catchable() {
+                        return Err(failure);
+                    }
+                    error = Some(failure.detail);
                     focus = i;
                     break;
                 }
             }
         }
         if out.len() == n {
-            return Ok((Value::from_i64(1), out));
+            let mut selected = std::collections::BTreeSet::new();
+            for (i, control) in controls.iter().enumerate() {
+                if let InputControl::Checkbox { group: Some(group) } = control {
+                    if !out[i].expect_real("INPUT checkbox")?.is_zero() && !selected.insert(*group)
+                    {
+                        error = Some("Only one radio option may be selected".into());
+                        focus = i;
+                        break;
+                    }
+                }
+            }
+            if error.is_none() {
+                return Ok((Value::from_i64(1), out));
+            }
         }
     }
 }
@@ -488,6 +732,7 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         column_headers,
         rows: matrix.rows,
         cols: matrix.cols,
+        vector: matrix.vector,
         cells: matrix
             .data
             .iter()
@@ -503,9 +748,20 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         if read_only {
             return Ok(original.clone());
         }
-        let entered = match response {
+        let (rows, cols, entered) = match response {
             DialogResult::Cancelled => return Ok(original.clone()),
-            DialogResult::Entered(entered) if entered.len() == matrix.data.len() => entered,
+            DialogResult::Entered(entered) if entered.len() == matrix.data.len() => {
+                (matrix.rows, matrix.cols, entered)
+            }
+            DialogResult::MatrixEdited { rows, cols, cells }
+                if rows > 0
+                    && cols > 0
+                    && rows.checked_mul(cols) == Some(cells.len())
+                    && cells.len() <= 1_000_000
+                    && (!matrix.vector || rows == 1) =>
+            {
+                (rows, cols, cells)
+            }
             _ => {
                 return Err(RuntimeError::new(
                     ErrorKind::InvalidInput,
@@ -513,22 +769,29 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
                 ));
             }
         };
+        dialog.rows = rows;
+        dialog.cols = cols;
         dialog.cells = entered;
         dialog.error = None;
-        let mut edited = (**matrix).clone();
+        let mut edited = crate::value::Matrix::zeros(rows, cols);
+        edited.vector = matrix.vector;
         for (index, cell) in dialog.cells.iter().enumerate() {
             let value = if cell.trim().is_empty() {
-                Err("Enter a numeric expression; Native EDITMAT cannot remove cells".into())
+                Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "Enter a numeric expression",
+                ))
             } else {
-                field_value(m, cell, &matrix.data[index], &[0, 1, 3])
+                field_value(m, cell, &Value::zero(), &[0, 1, 3])
             };
             match value {
-                Ok(Value::Int(value)) => {
-                    edited.data[index] = Value::real(ppl_math::Real::from_u64(value.unsigned()))
-                }
+                Ok(Value::Int(value)) => edited.data[index] = Value::real(value.to_real()),
                 Ok(value) => edited.data[index] = value,
-                Err(message) => {
-                    dialog.error = Some(message);
+                Err(failure) => {
+                    if !failure.kind.catchable() {
+                        return Err(failure);
+                    }
+                    dialog.error = Some(failure.detail);
                     dialog.focus = index;
                     break;
                 }
@@ -536,6 +799,58 @@ pub fn editmat(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
         }
         if dialog.error.is_none() {
             return Ok(Value::Matrix(std::rc::Rc::new(edited)));
+        }
+    }
+}
+
+/// Interactive list editor; the original list survives cancellation without partial writes.
+pub fn editlist(m: &mut Machine, args: &[Value]) -> RtResult<Value> {
+    let original = arg(args, 0, "EDITLIST")?;
+    let values = original.expect_list("EDITLIST")?;
+    let mut items: Vec<String> = values
+        .iter()
+        .map(|v| v.string_form(m.settings.format()))
+        .collect();
+    let screen = m.screen().clone();
+    let mut error = None;
+    let mut focus = 0;
+    loop {
+        let dialog = Dialog::List {
+            title: "List".into(),
+            items: items.clone(),
+            error: error.take(),
+            focus,
+        };
+        match m.blocking(|h| h.dialog(&dialog, &screen))? {
+            DialogResult::Cancelled => return Ok(original.clone()),
+            DialogResult::Entered(entered) => {
+                items = entered;
+                let mut result = Vec::with_capacity(items.len());
+                let mut valid = true;
+                for (index, item) in items.iter().enumerate() {
+                    match field_value(m, item, &Value::zero(), &[]) {
+                        Ok(value) => result.push(value),
+                        Err(failure) => {
+                            if !failure.kind.catchable() {
+                                return Err(failure);
+                            }
+                            error = Some(failure.detail);
+                            focus = index;
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                if valid {
+                    return Ok(Value::list(result));
+                }
+            }
+            _ => {
+                return Err(RuntimeError::new(
+                    ErrorKind::InvalidInput,
+                    "EDITLIST host returned an invalid result",
+                ));
+            }
         }
     }
 }

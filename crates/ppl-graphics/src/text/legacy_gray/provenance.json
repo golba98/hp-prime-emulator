@@ -1,0 +1,12 @@
+{
+  "upstream": "https://github.com/freetype/freetype/tree/VER-2-8",
+  "license": "FTL (see FTL.TXT and LICENSE.TXT)",
+  "files": {
+    "ftgrays.c": "40cd045cc9fab40cf56d14f6cf5990636799578c8e0b61b15eea535d396dd3dc",
+    "ftgrays.h": "2bab980dc50fbcc42a31b87e58a31a23fdf9f06a49466ca3355839af9b72e50e",
+    "ftimage.h": "eeb5dd96b80337b915b7bd23f6f4c6e6b108dc4f79a06b2317fa8e9ea0606f79",
+    "FTL.TXT": "4a9a548027a2c1d37788519dea833294c9c81f1ebc280e817f41f50d0c642d78",
+    "LICENSE.TXT": "fd056de4196903a676208ef58cfddafc7d583d1f28fa2e44c309cf84a59e62fb"
+  },
+  "modifications": "Upstream files are unmodified. adapter.c supplies bounded copied outlines to a separate raster object on each call; no legacy font parser or font data is included."
+}

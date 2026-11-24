@@ -1,0 +1,279 @@
+Side emulator gap audit — 2026-11-11
+Checkout: feat/g1-usability-overhaul, HEAD 8d7535e.
+Scope: the calculator beside the IDE, Native Home/PPL and its G1 Firmware alternative.
+
+The shell draws every one of the 51 keys. The main shortfall is behavior behind
+those keys and views. Native defaults to a small Home/PPL environment; firmware
+has substantially more calculator behavior. A Native gap must not be reported
+as absent from both engines.
+
+Evidence labels:
+REPRODUCED: this audit drove the rebuilt desktop binary under private Xvfb.
+CODE: current source has the restriction or lacks the relevant route/state.
+COVERAGE: implementation/verification is incomplete; not proof a flow fails.
+Source paths below are relative to the repository root.
+
+1. [Native, CODE] Apps and app views are absent.
+   NativeView contains only Home, Catalog, ProgramOutput and Error. Apps, Symb,
+   Plot, Num and View are disabled while idle. There is no native app library,
+   app symbolic/numeric/plot view or associated app setup UI.
+   Source: crates/ppl-gui/src/ide/native.rs:34,211.
+
+2. [Native, CODE] CAS and its settings UI are absent.
+   CAS key is disabled. CAS/EVAL/EXACT do not supply a symbolic engine.
+   Firmware mode is the existing route to firmware CAS.
+   Source: crates/ppl-gui/src/ide/native.rs:211;
+   crates/ppl-vm/src/builtins/mod.rs:205.
+
+3. [Native, CODE] Calculator settings have no idle keypad route.
+   Shift+Home returns Home; there is no native Home Settings view. Other shifted
+   setup legends do not have corresponding native views. PPL settings variables
+   exist separately; their existence does not supply these screens.
+   Source: crates/ppl-gui/src/app_native.rs:307;
+   crates/ppl-gui/src/ide/native.rs:34.
+
+4. [Native, CODE] Help/Info and User-key mode have no idle UI.
+   Help is outside supports_key; NativeView has no help or user-key screen.
+   Source: crates/ppl-gui/src/ide/native.rs:211.
+
+5. [Native, CODE] Vars, Toolbox and Templates are absent.
+   No idle variable browser, command browser, structured math template picker,
+   character palette, units picker or memory manager is routed from their keys.
+   Source: crates/ppl-gui/src/ide/native.rs:211;
+   crates/ppl-gui/src/app_native.rs:300-378.
+
+6. [Native, REPRODUCED/CODE] Alpha does not enable letter entry on the keypad.
+   Alpha and Vars/A clicks leave Home input empty. Alpha is disabled by
+   supports_key; NativeUiState has shifted but no alpha mode/case state.
+   Desktop text entry does work and is a separate path.
+   Source: crates/ppl-gui/src/ide/native.rs:116,211.
+
+7. [Native, CODE] Sixteen primary keys are disabled at idle Home.
+   Apps, Symb, Help, Plot, Left, Right, View, CAS, Num, Vars, Toolbox,
+   Templates, x/t/theta/n, fraction, Alpha, On.
+   These are still painted like normal keys; only the hover text explains the
+   disabled state. Down is accepted but has no Home handler (see item 13).
+   Source: crates/ppl-gui/src/ide/native.rs:211;
+   crates/ppl-gui/src/ide/keypad.rs:99,303.
+
+8. [Native, REPRODUCED/CODE] Shifted scientific functions are disconnected.
+   Shift+SIN inserts SIN(, not ASIN(. The handler clears shifted before token
+   selection. The same route ignores ASIN/ACOS/ATAN, exp, 10^x and sqrt legends.
+   Source: crates/ppl-gui/src/app_native.rs:316-353.
+
+9. [Native, CODE] Most other secondary legends have no implementation.
+   Shift+1 opens Programs, but list/matrix/notes catalogs, store, pi, i,
+   comparisons, reciprocal, factorial, nth root, absolute value, Base, Copy,
+   Paste, Clear and approximate evaluation are not routed as those functions.
+   Some are expressible by desktop typing or PPL; the missing part is keypad UI.
+   Source: crates/ppl-gui/src/app_native.rs:300-378;
+   crates/ppl-gui/src/ide/keypad/definitions.rs.
+
+10. [Native, REPRODUCED] Space and Ans are mapped inconsistently with the skin.
+    Clicking the space key inserts Ans; clicking Shift+Plus inserts + even
+    though the skin labels that secondary action Ans. Desktop Space enters a
+    literal space through the text path, so keyboard and virtual keypad differ.
+    Source: crates/ppl-gui/src/app_native.rs:336;
+    crates/ppl-gui/src/keymap.rs:59;
+    crates/ppl-gui/src/ide/keypad/definitions.rs:bottom row.
+
+11. [Native, REPRODUCED/CODE] Parentheses and sign entry are incomplete.
+    Clicking ( ), 2, ( ) produces (2(. There is no paired-delimiter editor or
+    keypad closing-parenthesis path. +/- appends '-' rather than changing the
+    sign of an editable operand. Fraction key has no native template action.
+    Source: crates/ppl-gui/src/dialog.rs:118;
+    crates/ppl-gui/src/app_native.rs:340.
+
+12. [Native, REPRODUCED/CODE] Home has no cursor, selection or edit history.
+    Type 12, Left, 3 -> 123. Input is a String; insertion only pushes at its end,
+    and Backspace only pops the final character. No cursor movement, in-place
+    editing, select/cut/copy, undo/redo or long-line horizontal scroll state.
+    The framebuffer renderer clips the input to 308 pixels.
+    Source: crates/ppl-gui/src/app_native.rs:294,329;
+    crates/ppl-gui/src/ide/native.rs:113,288.
+
+13. [Native, REPRODUCED/CODE] History navigation is incomplete.
+    After 1+1 and 2+2, Up, Up, Down all leave input at 2+2. Up always clones
+    history.back(); Down has no Home action. Only the newest four history
+    entries are drawn; up to 200 are retained but older ones are inaccessible
+    through the Home view. There is no history result selection/copy/reuse UI.
+    Source: crates/ppl-gui/src/app_native.rs:331;
+    crates/ppl-gui/src/ide/native.rs:180,258.
+
+14. [Native, REPRODUCED/CODE] Clipboard paste is ignored.
+    Pasting 45 into input 123 leaves 123. route_native_keyboard handles Text,
+    not Paste. The same router owns INPUT/EDITMAT/CHOOSE interaction while active,
+    so it has no clipboard paste delivery path for calculator dialogs either.
+    Source: crates/ppl-gui/src/app_native.rs:382-521.
+
+15. [Native, REPRODUCED/CODE] LCD touch does not operate idle native views.
+    With SECOND selected, tapping FIRST leaves SECOND selected. There is no
+    native catalog/history/input hit-testing. Touch is only forwarded into the
+    shared VM touch state; it does not navigate NativeUiState.
+    Source: crates/ppl-gui/src/app_firmware.rs:573;
+    crates/ppl-gui/src/ide/native.rs:243.
+
+16. [Native, CODE] Calculator dialogs are keyboard-only.
+    MSGBOX/CHOOSE/INPUT/EDITMAT expose handle(KeyPress) and render(), without a
+    touch handler. Clicking fields, list choices, cells or painted buttons is
+    not wired to the modal state machines. Program MOUSE input is separate.
+    Source: crates/ppl-gui/src/dialog.rs:57;
+    crates/ppl-gui/src/host.rs:modal dialog loop.
+
+17. [Native, REPRODUCED/CODE] ON does not break a running program.
+    A running WAIT loop remains Running after the actual ON key is clicked.
+    Native routing forwards ON to the key queue; it does not call Stop/interrupt.
+    Firmware ON has a separate break path. Native Stop/Shift+F5 does work.
+    Source: crates/ppl-gui/src/app_native.rs:283;
+    crates/ppl-gui/src/app_firmware.rs:423;
+    crates/ppl-gui/src/host.rs:101.
+
+18. [Native, CODE] There is no native ON/OFF lifecycle or saved calculator image.
+    ON is disabled at idle, and Shift+ON has no sleep/save action. IDE persistent
+    state saves panel/configuration fields, not NativeUiState history or VM
+    globals. Native execution state persists within the session, not as a
+    calculator memory image across IDE restarts.
+    Source: crates/ppl-gui/src/ide/mod.rs:48;
+    crates/ppl-gui/src/app.rs:1652;
+    crates/ppl-gui/src/ide/native.rs:211.
+
+19. [Native, CODE] Programs is an open-tab export list, not a calculator catalog.
+    refresh_native_catalog scans exported functions in open IDE tabs. Closed
+    files and independently stored program objects do not populate it. Catalog
+    actions are Up/Down/Enter; create/edit/rename/delete/search and independent
+    program storage are not available within the calculator catalog itself.
+    IDE program editing and physical-device program management exist separately.
+    Source: crates/ppl-gui/src/app_native.rs:41,363,700.
+
+20. [Native, CODE] Lists, matrices and notes lack standalone calculator editors.
+    There are no List/Matrix/Notes native views. EDITLIST is unsupported.
+    EDITMAT exists as a program-requested fixed-size modal, so matrix editing
+    must not be described as entirely absent.
+    Source: crates/ppl-gui/src/ide/native.rs:34;
+    crates/ppl-vm/src/builtins/mod.rs:217.
+
+21. [Native, CODE] EDITMAT cannot change matrix shape.
+    Existing cells and paging work, but no insert/delete row or column,
+    dimension editing, or touch editing is implemented.
+    Source: crates/ppl-gui/src/dialog/matrix.rs:10,32,50.
+
+22. [Native, CODE] INPUT supports only part of the calculator's control model.
+    Checkbox, radio and choice descriptors are explicitly rejected. TYPE codes
+    outside -1,0,1,2,3,4,6,8,9 are rejected. Only one reset/initial value per field
+    is supported; other default-list forms require firmware.
+    Source: crates/ppl-vm/src/builtins/io.rs:185,217,374.
+
+23. [Native, CODE] Nine declared commands are entirely unsupported.
+    EXACT, EDITLIST, EVAL, STARTAPP, STARTVIEW, RECALL, AFILES, HVARS, CAS.
+    These raise errors; the parser recognizing their names is not implementation.
+    Source: crates/ppl-compiler/src/builtins.rs;
+    crates/ppl-vm/src/builtins/mod.rs:205-222.
+
+24. [Native, COVERAGE/CODE] Twenty-seven commands are marked Approximate.
+    APPROX, STDDEV, STRING, EXPR, APPEND, EDITMAT, RECT, LINE, PIXON, PIXOFF,
+    GETPIX, CIRCLE, FILLCIRCLE_P, ARC, TEXTOUT_P, TEXTOUT, BLIT, DIMGROB,
+    SUBGROB, TRIANGLE_P, MSGBOX, INPUT, CHOOSE, MOUSE, DISP, FREEZE, DRAWMENU.
+    Specific missing forms include LINE's 3D points/lines, DIMGROB(G,list)
+    pixel-data input, and TRIANGLE_P forms outside scalar x/y/color arguments.
+    Approximate is the table's status, not a claim every form fails.
+    Source: crates/ppl-compiler/src/builtins.rs;
+    crates/ppl-vm/src/builtins/graphics.rs:142,258,331.
+
+25. [Native, CODE] The Home display lacks calculator status and softkey state.
+    The screen draws a title, history and a plain input line. No native
+    Shift/Alpha annunciator, angle/number-format status or context-sensitive
+    calculator softkey menu exists in this renderer. Structured textbook
+    expression/result layout is also absent: text is rendered as strings.
+    Source: crates/ppl-gui/src/ide/native.rs:243-386.
+
+26. [Both, CODE] A held virtual key does not generate host repeat events.
+    VirtualKeypad captures one press and one release. Native Home editing and
+    catalog navigation process queued presses, with no held-key repeat loop.
+    Firmware may repeat keys internally; this is a Native UI limitation, not
+    evidence that firmware key holding fails.
+    Source: crates/ppl-gui/src/ide/keypad.rs:84-145.
+
+27. [Firmware, CODE] Desktop paste/typing has deliberate restrictions.
+    Paste rejects ^, newlines and unsupported characters before delivery.
+    Desktop text recognizes a limited character set, paired delimiters it
+    created itself, and exact firmware Alpha/Shift indicator glyphs. Unknown
+    status bars stop typing. Existing templates require physical navigation.
+    Source: crates/prime-emulator/src/session/typing.rs:110-245;
+    crates/ppl-gui/src/app_firmware.rs:494.
+
+28. [Firmware, CODE/COVERAGE] Firmware selection cannot be copied out as text.
+    The IDE forwards Text/Paste and key transitions, not firmware-selected text
+    to the system clipboard. Screen PNG saving exists. Complete dialog/catalog
+    desktop behavior and additional firmware-build typing coverage remain
+    unverified; no new firmware interaction test was performed in this audit.
+    Source: crates/ppl-gui/src/app_firmware.rs:489-570;
+    docs/emulator/USABILITY_PERFORMANCE_PARITY_OVERHAUL.md:300-315.
+
+29. [Firmware, CODE] Live whole-calculator save/resume is absent.
+    Recovery stores durable OFF checkpoints and restarts the firmware; it does
+    not serialize live CPU/thread/host state. Synthetic snapshot facilities are
+    separate and do not provide a live calculator save-state button.
+    Source: crates/prime-emulator/src/recovery.rs:1.
+
+30. [Firmware, COVERAGE] The OS interface is far from fully implemented.
+    Static registry: 742 service slots; 48 Implemented, 31 PartiallyImplemented,
+    663 NotInvestigated/no handler. Full slot-by-slot inventory is attached as
+    implementation-inventory.json. No-handler slots are coverage gaps; many
+    are not used by common calculator flows. Do not turn 663 into a count of
+    demonstrated broken features. The GUI uses ZeroReturn and reports observed
+    unsupported call sites, so some unimplemented paths continue with 0.
+    Source: crates/prime-emulator/src/services/{names,mod,handlers}.rs;
+    crates/prime-emulator/src/session.rs:1373;
+    crates/ppl-gui/src/ide/calculator.rs:88.
+
+31. [Firmware, CODE] Several registered OS services are still stubs/partial.
+    Suspend/Resume/WakeUp thread calls return 1 without the corresponding thread
+    behavior. Interrupt enable/done return 1; registered ISR dispatch is not
+    provided by this HLE route. SetAutoPowerOff returns 0. Debug printf logs
+    the format string without formatting arguments. These are distinct from
+    synthetic full-system hardware tests.
+    Source: crates/prime-emulator/src/services/threading.rs:73;
+    crates/prime-emulator/src/services/handlers.rs:75,643;
+    crates/prime-emulator/src/services/system2.rs:120,162.
+
+32. [Firmware, CODE] Device/environment behavior is simulated in several paths.
+    Battery status is fixed (full/not charging); USB/USBHOST/INDICATOR IOCTL
+    paths simply succeed. Unknown devices return synthetic FF-filled output.
+    Storage-capacity reporting fills only an observed field of the OS struct.
+    These do not supply a faithful physical battery/link/device environment.
+    Source: crates/prime-emulator/src/services/system2.rs:138,287-402.
+
+33. [Test tooling, CODE] calc_key is misleading for Native input tests.
+    The automation comment says it follows keypad behavior in either backend,
+    but AutoStep::CalcKey invokes send_calc_transition, whose Native branch
+    only updates held keys and never routes a press to Native Home. This audit
+    used real click_calculator_key pointer events, separated by 80ms, for the
+    final keypad evidence. Tests based on calc_key alone can miss UI behavior.
+    Source: crates/ppl-gui/src/ide/automation.rs:114,666;
+    crates/ppl-gui/src/app_firmware.rs:423-443.
+
+Validation and limits
+- cargo build -p ppl-cli --bin ppl: passed on the current checkout.
+- cargo test -p ppl-gui --lib: 322 passed, 0 failed, 2 ignored.
+- Two actual desktop Xvfb scenarios, with explicit PPL_IDE_NO_DEVICE=1,
+  isolated XDG configuration, current rebuilt debug binary: passed execution.
+- Thirteen observation assertions confirm the input/history/key/touch/ON
+  evidence and successful Home evaluations (1+1=2 and 2+2=4).
+- dump.json and interaction-dump.json retain snapshots; script.json and
+  interaction-script.json reproduce them. side-panel.png is a real GUI capture.
+- implementation-inventory.json lists every declared native builtin and all
+  742 firmware service slots with their current registration classification.
+- No fixes or repository source edits were made. Nothing committed or pushed.
+  No physical hardware was accessed and no physical parity is claimed.
+- This is a broad code and Native interaction audit, not a proof that every
+  firmware app, PPL overload or calculator pixel matches physical hardware.
+  The complete absence list for an entire HP Prime requires additional
+  independent specification-based and physical differential testing.
+
+Suggested implementation order
+1. Repair Native input: paste, cursor/editing, history, Shift/Alpha, labels,
+   delimiters and ON interrupt. Add focused behavior regressions for these.
+2. Wire touch for native views and modals; add variables/templates/settings.
+3. Add independent program/list/matrix/note catalogs and native persistence.
+4. Expand INPUT/EDITMAT and unsupported PPL forms, with firmware comparisons.
+5. Treat CAS/app emulation, live snapshots and OS coverage as larger projects.

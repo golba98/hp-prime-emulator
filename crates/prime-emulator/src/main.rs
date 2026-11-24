@@ -31,10 +31,15 @@ struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 enum Cmd {
+    /// Print every OS service slot and its actual static registration status.
+    ServiceInventory,
     /// Load and execute a firmware ELF.
     Run(RunArgs),
     /// Long-lived local IDE calculator session (versioned stdin/stdout protocol).
     Session {
+        /// Resume the last intact full live-machine image; refuse absence or incompatibility.
+        #[arg(long)]
+        resume_live: bool,
         #[arg(long)]
         firmware: std::path::PathBuf,
         #[arg(long)]
@@ -385,12 +390,27 @@ struct RunArgs {
 fn main() {
     let args = Args::parse();
     let code = match args.cmd {
+        Cmd::ServiceInventory => {
+            use prime_emulator::services::{Registry, handlers};
+            let mut registry = Registry::new();
+            handlers::install(&mut registry);
+            let entries = registry.entries().iter().map(|entry| serde_json::json!({
+                "id":entry.id,"name":entry.name,"status":entry.status.as_str(),"handler":entry.handler.is_some()
+            })).collect::<Vec<_>>();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({"version":1,"services":entries}))
+                    .unwrap()
+            );
+            0
+        }
         Cmd::Run(a) => run(a),
         Cmd::Session {
+            resume_live,
             firmware,
             os_rom,
             data_dir,
-        } => prime_emulator::session::run(firmware, os_rom, data_dir),
+        } => prime_emulator::session::run_with_resume(firmware, os_rom, data_dir, resume_live),
         Cmd::CheckProgram(a) => check_program(a),
         Cmd::RunProgram(a) => run_program(a),
         Cmd::VerifyCalc(a) => verify_calc(a),
@@ -848,6 +868,7 @@ fn run(a: RunArgs) -> i32 {
         let _ = std::fs::create_dir_all(fw);
     }
     let cfg = RunConfig {
+        resume_live: false,
         heap_budget_bytes: a.heap_budget_mib.map(|n| usize::from(n) * 1024 * 1024),
         firmware_path: a.firmware,
         os_rom_path: a.os_rom,

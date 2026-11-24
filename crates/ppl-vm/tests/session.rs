@@ -206,3 +206,114 @@ fn argument_evaluation_reads_calculator_state_without_temporary_ans_or_history()
         PortableValue::Real(ppl_math::Real::from_i64(7))
     );
 }
+
+#[test]
+fn home_user_variables_and_app_files_share_durable_calculator_memory() {
+    let mut session = SessionContext::default();
+    home(&mut session, "HVars(\"custom\"):=9");
+    assert_eq!(number(home(&mut session, "HVars(\"custom\")")), 9);
+    assert_eq!(number(home(&mut session, "custom:=custom+1")), 10);
+    assert_eq!(number(home(&mut session, "HVars(1)")), 10);
+    home(&mut session, "AFiles(\"data\"):={1,2,3}");
+    assert_eq!(
+        home(&mut session, "AFiles(\"data\")").display(Default::default()),
+        "{1,2,3}"
+    );
+    let image = session.memory_json();
+    let mut restored = SessionContext::default();
+    restored.restore_memory(&image).unwrap();
+    assert_eq!(number(home(&mut restored, "custom")), 10);
+    assert_eq!(
+        home(&mut restored, "AFiles(\"data\")").display(Default::default()),
+        "{1,2,3}"
+    );
+    restored.active_app = "Parametric".into();
+    assert_eq!(
+        home(&mut restored, "AFiles()").display(Default::default()),
+        "{}"
+    );
+    assert_eq!(
+        restored
+            .evaluate_home(
+                "AFiles(\"data\")",
+                Box::new(HeadlessHost::new()),
+                Limits::default()
+            )
+            .result
+            .unwrap_err()
+            .kind,
+        ppl_vm::ErrorKind::Undefined
+    );
+}
+
+#[test]
+fn private_module_writes_do_not_overwrite_named_home_memory() {
+    let mut session = SessionContext::default();
+    session
+        .set_variable("counter", PortableValue::Real(ppl_math::Real::from_i64(99)))
+        .unwrap();
+    let source = "LOCAL counter:=1; EXPORT MAIN() BEGIN counter:=counter+1; RETURN counter; END;";
+    assert_eq!(
+        number(program(&mut session, "PRIVATE", source).result.unwrap()),
+        2
+    );
+    assert_eq!(number(home(&mut session, "counter")), 99);
+    session
+        .set_variable("HAngle", PortableValue::Real(ppl_math::Real::ONE))
+        .unwrap();
+    assert_eq!(session.settings.angle, ppl_vm::AngleMode::Degrees);
+    assert_eq!(number(home(&mut session, "HAngle")), 1);
+    assert!(!session.delete_variable("HAngle"));
+}
+
+#[test]
+fn installed_program_calls_work_inside_home_expressions_after_restart() {
+    let mut session = SessionContext::default();
+    session
+        .set_variable("custom", PortableValue::Real(ppl_math::Real::from_i64(3)))
+        .unwrap();
+    session
+        .store_program(
+            "SAVED",
+            "LOCAL count:=0; EXPORT SAVED(x) BEGIN count:=count+1; RETURN x+A+count; END;".into(),
+        )
+        .unwrap();
+    home(&mut session, "A:=2");
+    assert_eq!(number(home(&mut session, "custom+SAVED(4)")), 10);
+    assert_eq!(number(home(&mut session, "SAVED(SAVED(0))")), 9);
+    let image = session.memory_json();
+    let mut restored = SessionContext::default();
+    restored.restore_memory(&image).unwrap();
+    assert_eq!(number(home(&mut restored, "1+SAVED(0)")), 7);
+    assert_eq!(number(home(&mut restored, "Ans")), 7);
+    assert!(!restored.snapshot().globals.contains_key("count"));
+}
+#[test]
+fn calculator_object_rename_delete_and_copy_are_durable() {
+    let mut session = SessionContext::default();
+    session
+        .store_program("OLD", "EXPORT FIVE() BEGIN RETURN 5; END;".into())
+        .unwrap();
+    session.store_program("TAKEN", "source".into()).unwrap();
+    assert!(session.rename_program("OLD", "TAKEN").is_err());
+    session.rename_program("OLD", "NEW").unwrap();
+    session.store_note("Draft", "note".into()).unwrap();
+    session.rename_note("Draft", "Final").unwrap();
+    session
+        .set_variable(
+            "L1",
+            PortableValue::List(vec![PortableValue::Real(ppl_math::Real::ONE)]),
+        )
+        .unwrap();
+    let image = session.memory_json();
+    let mut restored = SessionContext::default();
+    restored.restore_memory(&image).unwrap();
+    assert!(!restored.snapshot().programs.contains_key("OLD"));
+    assert_eq!(number(home(&mut restored, "FIVE()+1")), 6);
+    assert_eq!(restored.snapshot().notes["Final"], "note");
+    assert!(restored.delete_note("Final"));
+    assert!(!restored.delete_note("Final"));
+    assert!(restored.delete_program("NEW"));
+    assert!(restored.delete_variable("L1"));
+    assert!(!restored.snapshot().globals.contains_key("L1"));
+}
