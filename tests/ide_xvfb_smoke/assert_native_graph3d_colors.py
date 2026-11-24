@@ -54,6 +54,7 @@ def main(root):
     bottom = pixels("lower")
     assert top_before[(0, 0, 215)] > 300 and top_before[(215, 0, 0)] > 300
     assert top_after[(108, 0, 108)] > 300 and (0, 0, 215) not in top_after
+    # The underside uses the second color and a different directional light.
     assert bottom[(143, 0, 0)] > 300 and bottom[(143, 0, 143)] > 300
     assert ImageChops.difference(plot("lower"), plot("reopened")).getbbox() is None
     print("Graph 3D Plot recolors both filled faces and restores the typed surfaces and camera")

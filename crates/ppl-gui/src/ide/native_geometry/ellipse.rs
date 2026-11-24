@@ -3,7 +3,7 @@ use super::{
     primitives::{delta, line_circle_intersections, midpoint},
 };
 use serde::{Deserialize, Serialize};
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 const STEPS: usize = 192;
 const STEP: f64 = TAU / STEPS as f64;
@@ -22,6 +22,8 @@ pub struct Ellipse {
     axis: Point2,
     major: f64,
     minor: f64,
+    #[serde(default)]
+    pub(super) equation_phase: Option<f64>,
     #[serde(default)]
     orientation_reversed: bool,
     /// Point On uses the original ellipse after a transformation.
@@ -56,14 +58,15 @@ impl Ellipse {
             }
         };
         Ok(Self {
+            equation_phase: None,
+            orientation_reversed: false,
+            element_reference: None,
             foci,
             size,
             center: midpoint(a, b)?,
             axis,
             major: number(major)?,
             minor: number(minor)?,
-            orientation_reversed: false,
-            element_reference: None,
         })
     }
 
@@ -82,6 +85,7 @@ impl Ellipse {
         result.minor = self.minor;
         result.orientation_reversed = self.orientation_reversed ^ about_line;
         result.element_reference = Some(self.original_element_reference());
+        result.equation_phase = self.equation_phase;
         Ok(result)
     }
 
@@ -99,6 +103,7 @@ impl Ellipse {
             axis: self.axis.rotate(Point2 { x: 0., y: 0. }, degrees)?,
             major: self.major,
             minor: self.minor,
+            equation_phase: self.equation_phase,
             orientation_reversed: self.orientation_reversed,
             element_reference: Some(self.original_element_reference()),
         })
@@ -141,6 +146,7 @@ impl Ellipse {
             },
             major: number(self.major * magnitude)?,
             minor: number(self.minor * magnitude)?,
+            equation_phase: self.equation_phase,
             orientation_reversed: self.orientation_reversed,
             element_reference: Some(self.original_element_reference()),
         })
@@ -151,7 +157,6 @@ impl Ellipse {
             .clone()
             .unwrap_or_else(|| Box::new(self.clone()))
     }
-
     fn world(&self, x: f64, y: f64) -> Point2 {
         Point2 {
             x: self.center.x + (x * self.axis.x - y * self.axis.y),
@@ -178,6 +183,37 @@ impl Ellipse {
         }
     }
 
+    pub(super) fn tangent(&self, p: Point2, constrained: bool) -> Result<super::Shape, String> {
+        use super::{Shape, primitives as g};
+        if self.minor == 0. {
+            return Err("A tangent needs a nondegenerate ellipse".into());
+        }
+        let d = self.local_vector(delta(self.center, p));
+        let at = Point2 {
+            x: d.x / self.major,
+            y: d.y / self.minor,
+        };
+        let unit = Shape::Circle {
+            center: Point2 { x: 0., y: 0. },
+            radius: 1.,
+        };
+        let lines = if constrained {
+            g::tangent_at(&unit, at)?
+        } else {
+            g::tangent(unit, Shape::Point(at))?
+        };
+        let world = |q: Point2| point(self.world(q.x * self.major, q.y * self.minor));
+        match lines {
+            Shape::Line { a, b, extent } => g::line(world(a)?, world(b)?, extent),
+            Shape::Lines(lines) => Ok(Shape::Lines(
+                lines
+                    .into_iter()
+                    .map(|[a, b]| Ok([world(a)?, world(b)?]))
+                    .collect::<Result<_, String>>()?,
+            )),
+            _ => Err("Expected tangent lines".into()),
+        }
+    }
     pub fn vertices(&self) -> impl Iterator<Item = Point2> + '_ {
         (0..=STEPS).map(|i| self.at(i as f64 * STEP))
     }
@@ -227,9 +263,51 @@ impl Ellipse {
         self.major * (TAU * (1. - correction) / arithmetic)
     }
 
+    pub(super) fn locus_source(&self, t: &str) -> String {
+        use super::canonical;
+        let phase = self.equation_phase.unwrap_or(0.);
+        let a = self.at(phase);
+        let b = self.at(phase + FRAC_PI_2);
+        let component = |c: f64, u: f64, v: f64| {
+            format!(
+                "({}+(({})*(1-{t}^2)+({})*2*{t})/(1+{t}^2))",
+                canonical(c),
+                canonical(u - c),
+                canonical(v - c)
+            )
+        };
+        format!(
+            "({}+i*{})",
+            component(self.center.x, a.x, b.x),
+            component(self.center.y, a.y, b.y)
+        )
+    }
+    pub(super) fn equation_source(&self, phase: f64) -> String {
+        use super::canonical;
+        let (sin, cos) = phase.sin_cos();
+        let cos_term = self.world(self.major * cos, self.minor * sin);
+        let sin_term = self.world(-self.major * sin, self.minor * cos);
+        let component = |c: f64, a: f64, b: f64| {
+            format!(
+                "({}+({})*COS(x)+({})*SIN(x))",
+                canonical(c),
+                canonical(a - c),
+                canonical(b - c)
+            )
+        };
+        format!(
+            "plotparam({}+i*{},x,0,{})",
+            component(self.center.x, cos_term.x, sin_term.x),
+            component(self.center.y, cos_term.y, sin_term.y),
+            canonical(TAU)
+        )
+    }
     pub(super) fn element(&self, slope: f64) -> Result<Point2, String> {
         if let Some(reference) = &self.element_reference {
             return reference.element(slope);
+        }
+        if let Some(phase) = self.equation_phase {
+            return point(self.at(2. * slope.atan() + phase));
         }
         let anchor = self.anchor();
         if self.minor == 0. {
@@ -315,6 +393,9 @@ impl Ellipse {
             } else {
                 lo = left;
             }
+        }
+        if let Some(phase) = self.equation_phase {
+            return number((((lo + hi) / 2. - phase) / 2.).tan());
         }
         let a = self.local_vector(delta(self.center, self.anchor()));
         let anchor_angle = (a.y / self.minor).atan2(a.x / self.major);

@@ -8,34 +8,44 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-pub(super) fn reads_x(expr: &Expr) -> bool {
+pub(super) fn reads_variable(expr: &Expr, variable: &str) -> bool {
     match &expr.kind {
-        ExprKind::Ident(name) => name == "x",
+        ExprKind::Ident(name) => name == variable,
         ExprKind::Binary(_, a, b)
         | ExprKind::ComplexPair(a, b)
         | ExprKind::Assign(a, b)
-        | ExprKind::Store(a, b) => reads_x(a) || reads_x(b),
-        ExprKind::Unary(_, arg) | ExprKind::Postfix(_, arg) | ExprKind::Quoted(arg) => reads_x(arg),
-        ExprKind::Call(base, args) | ExprKind::Index(base, args) => {
-            reads_x(base) || args.iter().any(reads_x)
+        | ExprKind::Store(a, b) => reads_variable(a, variable) || reads_variable(b, variable),
+        ExprKind::Unary(_, arg) | ExprKind::Postfix(_, arg) | ExprKind::Quoted(arg) => {
+            reads_variable(arg, variable)
         }
-        ExprKind::List(args) | ExprKind::Bracket(args) => args.iter().any(reads_x),
+        ExprKind::Call(base, args) | ExprKind::Index(base, args) => {
+            reads_variable(base, variable) || args.iter().any(|a| reads_variable(a, variable))
+        }
+        ExprKind::List(args) | ExprKind::Bracket(args) => {
+            args.iter().any(|a| reads_variable(a, variable))
+        }
         _ => false,
     }
 }
 
 // The original evaluates affine plotfunc definitions to segments. Only
 // simplify expressions whose syntax establishes that property.
-fn degree(expr: &Expr) -> Option<u8> {
-    if !reads_x(expr) {
+pub(super) fn degree_in(expr: &Expr, variable: &str) -> Option<u8> {
+    if !reads_variable(expr, variable) {
         return Some(0);
     }
     match &expr.kind {
-        ExprKind::Ident(name) if name == "x" => Some(1),
-        ExprKind::Unary(UnOp::Neg, arg) => degree(arg),
-        ExprKind::Binary(BinOp::Add | BinOp::Sub, a, b) => Some(degree(a)?.max(degree(b)?)),
-        ExprKind::Binary(BinOp::Mul, a, b) => degree(a)?.checked_add(degree(b)?),
-        ExprKind::Binary(BinOp::Div, a, b) if degree(b)? == 0 => degree(a),
+        ExprKind::Ident(name) if name == variable => Some(1),
+        ExprKind::Unary(UnOp::Neg, arg) => degree_in(arg, variable),
+        ExprKind::Binary(BinOp::Add | BinOp::Sub, a, b) => {
+            Some(degree_in(a, variable)?.max(degree_in(b, variable)?))
+        }
+        ExprKind::Binary(BinOp::Mul, a, b) => {
+            degree_in(a, variable)?.checked_add(degree_in(b, variable)?)
+        }
+        ExprKind::Binary(BinOp::Div, a, b) if degree_in(b, variable)? == 0 => {
+            degree_in(a, variable)
+        }
         _ => None,
     }
 }
@@ -54,7 +64,7 @@ pub(super) fn build(
     let settings = snapshot.geometry_plot_settings();
     let [xmin, xmax, ymin, ymax] = settings.derived_bounds().map(|n| n.to_f64());
     let extent = number(settings.pix_size.to_f64() * 320.)?;
-    if degree(&expr).is_some_and(|n| n <= 1) {
+    if degree_in(&expr, "x").is_some_and(|n| n <= 1) {
         let mut evaluator = Evaluator::geometry_function(&expression, snapshot, cancel)?;
         let x0 = number(xmin - extent / 4.)?;
         let x1 = number(xmin + extent * 1.25)?;
@@ -169,7 +179,7 @@ fn algebraic_value_and_slope(
     x: f64,
     constant: &impl Fn(&Expr) -> Result<f64, String>,
 ) -> Result<(f64, f64), String> {
-    if !reads_x(expr) {
+    if !reads_variable(expr, "x") {
         return Ok((constant(expr)?, 0.));
     }
     let unsupported = || "Tangent needs a polynomial or rational Function Graph".to_owned();
@@ -195,7 +205,7 @@ fn algebraic_value_and_slope(
                     let value = u / v;
                     (value, (du - value * dv) / v)
                 }
-                BinOp::Pow if !reads_x(right) && v.fract() == 0. => {
+                BinOp::Pow if !reads_variable(right, "x") && v.fract() == 0. => {
                     value_and_slope_of_power(u, du, v)
                 }
                 _ => return Err(unsupported()),
@@ -204,4 +214,52 @@ fn algebraic_value_and_slope(
         _ => return Err(unsupported()),
     };
     Ok((number(value)?, number(slope)?))
+}
+
+/// Use the same evaluator and angle settings as the plotted curve. Successive
+/// centered differences remove their leading curvature error by extrapolation.
+pub(super) fn tangent(
+    expression: &str,
+    x: f64,
+    snapshot: &SessionSnapshot,
+    cancel: Arc<AtomicBool>,
+) -> Result<Shape, String> {
+    let mut evaluator = Evaluator::geometry_function(expression, snapshot, cancel)?;
+    let p = at(&mut evaluator, x)?;
+    let mut step = x.abs().max(1.) / 32.;
+    let mut previous: Option<(f64, f64)> = None;
+    let mut extrapolated: Option<f64> = None;
+    for _ in 0..16 {
+        let left = at(&mut evaluator, x - step)?;
+        let right = at(&mut evaluator, x + step)?;
+        let backward = (p.y - left.y) / step;
+        let forward = (right.y - p.y) / step;
+        let slope = (backward + forward) / 2.;
+        if let Some((old_backward, old_forward)) = previous {
+            let coarse = (old_backward + old_forward) / 2.;
+            let refined: f64 = slope + (slope - coarse) / 3.;
+            let scale = refined.abs().max(1.);
+            if extrapolated.is_some_and(|old| (refined - old).abs() <= 1e-8 * scale)
+                && ((2. * forward - old_forward) - (2. * backward - old_backward)).abs()
+                    <= 1e-7 * scale
+            {
+                let refined = ppl_math::Real::from_f64(refined)
+                    .map_err(|error| error.to_string())?
+                    .to_f64();
+                let dx = x.abs().max(1.);
+                return primitives::line(
+                    p,
+                    Point2 {
+                        x: x + dx,
+                        y: p.y + dx * refined,
+                    },
+                    Extent::Line,
+                );
+            }
+            extrapolated = Some(refined);
+        }
+        previous = Some((backward, forward));
+        step /= 2.;
+    }
+    Err("No finite tangent could be resolved at this point".into())
 }

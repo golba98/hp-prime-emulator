@@ -11,7 +11,45 @@ use crate::ops::{self, map_numeric, norm_complex};
 use crate::settings::{AngleMode, Settings};
 use crate::value::{Matrix, Value};
 
+mod polynomial_roots;
 mod prediction;
+
+/// SUM and AVERAGE flatten list arguments, while matrices are single operands.
+pub fn sheet_aggregate(
+    args: &[Value],
+    settings: &Settings,
+    average: bool,
+    mut check: impl FnMut() -> RtResult<()>,
+) -> RtResult<Value> {
+    let mut pending = vec![args.iter()];
+    let mut sum = None;
+    let mut count = 0i64;
+    let mut visits = 0usize;
+    while let Some(items) = pending.last_mut() {
+        visits += 1;
+        if visits % 128 == 0 {
+            check()?;
+        }
+        match items.next() {
+            None => {
+                pending.pop();
+            }
+            Some(Value::List(nested)) => pending.push(nested.iter()),
+            Some(value) => {
+                sum = Some(match sum {
+                    None => value.clone(),
+                    Some(previous) => ops::binary(BinOp::Add, &previous, value, settings)?,
+                });
+                count += 1;
+            }
+        }
+    }
+    let sum = sum.unwrap_or_else(Value::zero);
+    if !average || count == 1 {
+        return Ok(sum);
+    }
+    ops::binary(BinOp::Div, &sum, &Value::from_i64(count), settings)
+}
 
 fn real_map(v: &Value, f: impl Fn(Real) -> RtResult<Real>) -> RtResult<Value> {
     map_numeric(v, &mut |x| Ok(Value::Real(f(x.expect_real("argument")?)?)))

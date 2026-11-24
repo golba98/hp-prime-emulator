@@ -125,7 +125,8 @@ fn assigned_source(value: &P) -> Result<String, RuntimeError> {
     if source.is_empty() || source.len() > 4096 {
         return Err(invalid("Geometry definition needs 1 to 4096 bytes"));
     }
-    let (_, diagnostics) = ppl_syntax::parse_expression(&source);
+    let (_, diagnostics) =
+        ppl_syntax::parse_expression(&crate::ide::native_geometry::plot_syntax(&source));
     if diagnostics.has_errors() {
         return Err(invalid(
             diagnostics.errors().next().unwrap().message.clone(),
@@ -272,6 +273,7 @@ pub fn access(
                     book.objects.clear();
                     book.current_values.clear();
                     book.current_point_curves.clear();
+                    book.current_curves.clear();
                 }
                 [a] | [a, _] => {
                     let a = integer(a)?;
@@ -285,6 +287,7 @@ pub fn access(
                     for object in book.objects.drain(a as usize - 1..b as usize) {
                         book.current_values.remove(&object.name);
                         book.current_point_curves.remove(&object.name);
+                        book.current_curves.remove(&object.name);
                     }
                 }
                 _ => return Err(invalid("Invalid Geometry deletion arguments")),
@@ -298,6 +301,7 @@ pub fn access(
             let object = requested_object(&book, &name[1..], request)?;
             let name = object.name.clone();
             book.current_point_curves.remove(&name);
+            book.current_curves.remove(&name);
             book.current_values
                 .insert(name, CachedObject::Portable(value.clone()));
             value.clone()

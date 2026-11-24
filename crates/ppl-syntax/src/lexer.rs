@@ -242,6 +242,35 @@ fn find_ci(hay: &str, needle: &str) -> Option<usize> {
         .position(|w| w.eq_ignore_ascii_case(n))
 }
 
+// Quoted worksheet expressions carry cell ranges verbatim through the compiler.
+// An unquoted colon still has its normal PPL diagnostic.
+fn quoted_cell_reference(source: &str) -> Option<usize> {
+    fn cell(source: &str) -> Option<usize> {
+        let bytes = source.as_bytes();
+        let mut pos = usize::from(bytes.first() == Some(&b'$'));
+        let letters = pos;
+        while bytes.get(pos).is_some_and(u8::is_ascii_alphabetic) {
+            pos += 1;
+        }
+        if !(1..=2).contains(&(pos - letters)) {
+            return None;
+        }
+        pos += usize::from(bytes.get(pos) == Some(&b'$'));
+        let digits = pos;
+        while bytes.get(pos).is_some_and(u8::is_ascii_digit) {
+            pos += 1;
+        }
+        (pos > digits && !source[pos..].starts_with(is_ident_continue)).then_some(pos)
+    }
+    let first = cell(source)?;
+    let tail = &source[first..];
+    let tail = tail.trim_start_matches([' ', '\t']);
+    if let Some(second) = tail.strip_prefix(':') {
+        let second = second.trim_start_matches([' ', '\t']);
+        return Some(source.len() - second.len() + cell(second)?);
+    }
+    source[..first].contains('$').then_some(first)
+}
 fn is_ident_start(c: char) -> bool {
     c == '_' || c.is_alphabetic() && !matches!(c, 'π' | 'ⅈ' | 'ℯ')
 }
@@ -251,7 +280,7 @@ fn is_ident_continue(c: char) -> bool {
 }
 
 pub fn lex(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
-    lex_inner(src, diags, false)
+    lex_inner(src, diags, LexMode::Source)
 }
 
 /// Like [`lex`], but also emits a [`Tok::Comment`] token for every `//`
@@ -259,16 +288,26 @@ pub fn lex(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
 /// Unterminated strings recover at their opening line for highlighting;
 /// compiler lexing instead consumes the literal through EOF.
 pub fn lex_with_trivia(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
-    lex_inner(src, diags, true)
+    lex_inner(src, diags, LexMode::Trivia)
 }
 
-fn lex_inner(src: &str, diags: &mut Diagnostics, trivia: bool) -> Vec<Token> {
+pub(crate) fn lex_quoted(src: &str, diags: &mut Diagnostics) -> Vec<Token> {
+    lex_inner(src, diags, LexMode::Quoted)
+}
+#[derive(Clone, Copy, PartialEq)]
+enum LexMode {
+    Source,
+    Trivia,
+    Quoted,
+}
+
+fn lex_inner(src: &str, diags: &mut Diagnostics, mode: LexMode) -> Vec<Token> {
     let mut lx = Lexer {
         src,
         chars: src.char_indices().collect(),
         pos: 0,
         out: Vec::new(),
-        trivia,
+        mode,
     };
     lx.run(diags);
     lx.out
@@ -279,7 +318,7 @@ struct Lexer<'a> {
     chars: Vec<(usize, char)>,
     pos: usize,
     out: Vec<Token>,
-    trivia: bool,
+    mode: LexMode,
 }
 
 impl Lexer<'_> {
@@ -317,7 +356,7 @@ impl Lexer<'_> {
                     }
                     self.pos += 1;
                 }
-                if self.trivia {
+                if self.mode == LexMode::Trivia {
                     self.push(Tok::Comment, start);
                 }
                 continue;
@@ -332,6 +371,14 @@ impl Lexer<'_> {
             if c == '→' && self.peek(1).is_some_and(is_ident_start) {
                 self.pos += 1;
                 self.ident(start);
+                continue;
+            }
+            if self.mode == LexMode::Quoted
+                && (c == '$' || c.is_ascii_alphabetic())
+                && let Some(length) = quoted_cell_reference(&self.src[start..])
+            {
+                self.pos += length; // Cell coordinates and their separator are ASCII.
+                self.push(Tok::Ident(self.src[start..self.offset()].into()), start);
                 continue;
             }
             if is_ident_start(c) {
@@ -441,14 +488,14 @@ impl Lexer<'_> {
                 // Firmware consumes an unterminated multiline literal up
                 // to EOF. The highlighting lexer alone recovers at the
                 // opening line so subsequent code can still be coloured.
-                if self.trivia {
+                if self.mode == LexMode::Trivia {
                     self.pos = open_pos + 1;
                     while self.peek(0).is_some_and(|c| c != '\n') {
                         self.pos += 1;
                     }
                 }
                 let end = self.offset();
-                let at = if self.trivia {
+                let at = if self.mode == LexMode::Trivia {
                     Span::new(start, end.max(start + 1))
                 } else {
                     Span::new(end, end)

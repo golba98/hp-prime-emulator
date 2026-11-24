@@ -144,9 +144,21 @@ struct Projection {
 
 impl Projection {
     fn new(height: usize, [yaw, pitch]: [f64; 2], camera: CameraModel) -> Self {
+        // On a fresh plot the flat plane covers 227 LCD columns and is
+        // centred at (159,109). The native controls occupy the top 44 rows.
+        let (center, scale) = match camera {
+            CameraModel::G1 => (
+                [WIDTH as f64 * 0.5 + 1., height as f64 * 0.5 - 22.],
+                height as f64 * 0.47,
+            ),
+            CameraModel::Legacy => (
+                [WIDTH as f64 * 0.5, height as f64 * 0.5],
+                WIDTH.min(height) as f64 * 0.25,
+            ),
+        };
         Self {
-            center: [WIDTH as f64 * 0.5, height as f64 * 0.5],
-            scale: WIDTH.min(height) as f64 * 0.25,
+            center,
+            scale,
             yaw: yaw.to_radians().sin_cos(),
             pitch: pitch.to_radians().sin_cos(),
             camera,
@@ -199,7 +211,7 @@ impl Projection {
         // Planar controls at the default and rotated G1 views follow
         // separate camera-space light directions for the two face colors.
         let front = light_level(0.99 * (-right + up + depth) / 3_f64.sqrt());
-        let back = light_level(0.196 * up);
+        let back = light_level(0.194 * up);
         // Positive screen Y points down, so the G1 front has negative area.
         [face_color(colors[1], back), face_color(colors[0], front)]
     }
@@ -401,7 +413,8 @@ mod tests {
                 }],
             };
             raster.fill(&projection, &book, &mesh);
-            let color = raster.colors[87 * WIDTH + WIDTH / 2];
+            let color = raster.colors
+                [projection.center[1] as usize * WIDTH + projection.center[0] as usize];
             assert_eq!(color.r(), 0);
             assert!(color.b().abs_diff(measured) <= 1, "{slope_x} {slope_y}");
             assert_eq!(color.g(), if front { 0 } else { color.b() });
@@ -422,6 +435,40 @@ mod tests {
         assert_eq!(Book::default().camera, CameraModel::G1);
     }
 
+    #[test]
+    fn tilted_planes_match_independent_virtual_g1_face_and_intensity_controls() {
+        let book = Book::default();
+        let p = Projection::new(174, book.rotation, book.camera);
+        for (x, y, expected) in [
+            (0., 0., [0, 0, 215]),
+            (0.5, 0., [0, 149, 149]),
+            (-1., 0., [0, 0, 172]),
+            (0., 0.5, [0, 0, 245]),
+            (0., -0.5, [0, 151, 151]),
+            (0.2, 0.7, [0, 0, 252]),
+            (0.25, 0.5, [0, 0, 247]),
+        ] {
+            let mut raster = Raster::new(174);
+            let mesh = Mesh {
+                resolution: 2,
+                grids: vec![SurfaceGrid {
+                    index: 0,
+                    heights: [-x - y, x - y, -x + y, x + y]
+                        .map(|z| Some(z * 4.))
+                        .to_vec(),
+                }],
+            };
+            raster.fill(&p, &book, &mesh);
+            let pixel = raster.colors[p.center[1] as usize * WIDTH + p.center[0] as usize];
+            let actual = [pixel.r(), pixel.g(), pixel.b()];
+            for (a, b) in actual.into_iter().zip(expected) {
+                assert!(
+                    u8::abs_diff(a, b) <= 1,
+                    "{x}, {y}: {actual:?} expected {expected:?}"
+                );
+            }
+        }
+    }
     #[test]
     fn triangles_clip_at_both_height_bounds() {
         let projection = Projection::new(174, [0., 30.], CameraModel::Legacy);

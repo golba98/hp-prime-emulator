@@ -1,5 +1,7 @@
 //! Geometry's LCD forms and interactive construction state.
+mod slider;
 mod view;
+mod wizard;
 use super::{MathTarget, NativeTools, Page, Request};
 use crate::ide::{
     native::expression::EditCommand as E,
@@ -40,6 +42,9 @@ pub(super) struct Panel {
     menu: Option<Menu>,
     picker_candidates: Vec<String>,
     tangent_curve: Option<String>,
+    wizard: Option<wizard::Slopefield>,
+    sliders: slider::Controls,
+    field_solution: Option<(String, String, String)>,
     tool: Option<Command>,
     command_text: CommandText,
     args: Vec<String>,
@@ -54,6 +59,7 @@ pub(super) struct Panel {
     pub(super) memory_revision: Option<u64>,
     pub(super) scene_generation: Option<u64>,
     pub(super) live_context: Option<(u64, ppl_vm::SessionSnapshot)>,
+    angle_turn: f64,
     settings: Option<ppl_vm::GeometryPlotSettings>,
     setup_index: usize,
 }
@@ -115,6 +121,8 @@ struct Menu {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Need {
+    Transformable,
+    Mirror,
     Point,
     PointOnCurve,
     ReflectionAxis,
@@ -141,22 +149,24 @@ impl Need {
                 | Self::TranslationObject
         )
     }
-    fn accepts(self, shape: &Shape, function_graph: bool) -> bool {
+    fn accepts(self, shape: &Shape, allow_sampled_curve: bool) -> bool {
         match self {
+            Self::Mirror => matches!(shape, Shape::Point(_) | Shape::Line { .. }),
+            Self::Transformable => !matches!(
+                shape,
+                Shape::Undefined
+                    | Shape::EmptyConic(_)
+                    | Shape::Sequence(_)
+                    | Shape::Parametric(_)
+                    | Shape::Function { .. }
+                    | Shape::Number { .. }
+            ),
             Self::Point | Self::PointOnCurve => matches!(shape, Shape::Point(_)),
             Self::ReflectionAxis => matches!(shape, Shape::Point(_) | Shape::Line { .. }),
             Self::ReflectionObject
             | Self::DilationObject
             | Self::RotationObject
-            | Self::TranslationObject => matches!(
-                shape,
-                Shape::Point(_)
-                    | Shape::Line { .. }
-                    | Shape::Circle { .. }
-                    | Shape::Arc(_)
-                    | Shape::Ellipse(_)
-                    | Shape::Polygon(_)
-            ),
+            | Self::TranslationObject => Self::Transformable.accepts(shape, false),
             Self::TranslationSegment => matches!(
                 shape,
                 Shape::Line {
@@ -170,8 +180,14 @@ impl Need {
             Self::Curve => {
                 matches!(
                     shape,
-                    Shape::Line { .. } | Shape::Circle { .. } | Shape::Arc(_) | Shape::Ellipse(_)
-                ) || function_graph && matches!(shape, Shape::Function { .. })
+                    Shape::Line { .. }
+                        | Shape::Circle { .. }
+                        | Shape::Arc(_)
+                        | Shape::Ellipse(_)
+                        | Shape::Parabola(_)
+                        | Shape::Hyperbola(_)
+                ) || allow_sampled_curve
+                    && matches!(shape, Shape::Function { .. } | Shape::Parametric(_))
             }
             Self::Shape => matches!(
                 shape,
@@ -179,6 +195,8 @@ impl Need {
                     | Shape::Circle { .. }
                     | Shape::Arc(_)
                     | Shape::Ellipse(_)
+                    | Shape::Parabola(_)
+                    | Shape::Hyperbola(_)
                     | Shape::Polygon(_)
             ),
         }
@@ -202,8 +220,23 @@ impl Command {
         match self.function {
             "element" => Some(Need::Curve),
             "tangent" => Some(Need::PointOnCurve),
-            "reflection" | "rotation" | "homothety" | "translation" | "projection" | "polygon"
-            | "rectangle" | "parallelogram" => self.need(operand),
+            "reflection"
+            | "rotation"
+            | "homothety"
+            | "translation"
+            | "similarity"
+            | "projection"
+            | "inversion"
+            | "reciprocation"
+            | "polygon"
+            | "rectangle"
+            | "parallelogram"
+            | "isosceles_triangle"
+            | "right_triangle"
+            | "rhombus"
+            | "square"
+            | "equilateral_triangle"
+            | "isopolygon" => self.need(operand),
             _ => None,
         }
     }
@@ -301,14 +334,34 @@ const POLYGONS: &[Command] = &[
         needs: &[Need::Point, Need::Point, Need::Point],
     },
     Command {
+        label: "Equilateral Triangle",
+        function: "equilateral_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Isosceles Triangle",
+        function: "isosceles_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Right Triangle",
+        function: "right_triangle",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
         label: "Quadrilateral",
         function: "quadrilateral",
         needs: &[Need::Point, Need::Point, Need::Point, Need::Point],
     },
     Command {
-        label: "Polygon",
-        function: "polygon",
-        needs: &[],
+        label: "Parallelogram",
+        function: "parallelogram",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Rhombus",
+        function: "rhombus",
+        needs: &[Need::Point, Need::Point],
     },
     Command {
         label: "Rectangle",
@@ -316,9 +369,19 @@ const POLYGONS: &[Command] = &[
         needs: &[Need::Point, Need::Point, Need::Point],
     },
     Command {
-        label: "Parallelogram",
-        function: "parallelogram",
-        needs: &[Need::Point, Need::Point, Need::Point],
+        label: "Polygon",
+        function: "polygon",
+        needs: &[],
+    },
+    Command {
+        label: "Regular Polygon",
+        function: "isopolygon",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Square",
+        function: "square",
+        needs: &[Need::Point, Need::Point],
     },
 ];
 const CURVES: &[Command] = &[
@@ -347,6 +410,114 @@ const CURVES: &[Command] = &[
         function: "ellipse",
         needs: &[Need::Point, Need::Point, Need::Point],
     },
+    Command {
+        label: "Excircle",
+        function: "excircle",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Parabola",
+        function: "parabola",
+        needs: &[Need::Point, Need::Line],
+    },
+    Command {
+        label: "Hyperbola",
+        function: "hyperbola",
+        needs: &[Need::Point, Need::Point, Need::Point],
+    },
+    Command {
+        label: "Conic",
+        function: "conic",
+        needs: &[],
+    },
+    Command {
+        label: "Parametric",
+        function: "plotparam",
+        needs: &[],
+    },
+    Command {
+        label: "Polar",
+        function: "plotpolar",
+        needs: &[],
+    },
+    Command {
+        label: "Locus",
+        function: "locus",
+        needs: &[Need::Point, Need::PointOnCurve],
+    },
+    Command {
+        label: "Sequence",
+        function: "plotseq",
+        needs: &[],
+    },
+    Command {
+        label: "Implicit",
+        function: "plotimplicit",
+        needs: &[],
+    },
+    Command {
+        label: "Slopefield",
+        function: "plotfield",
+        needs: &[],
+    },
+    Command {
+        label: "ODE",
+        function: "plotode",
+        needs: &[],
+    },
+    Command {
+        label: "List",
+        function: "plotlist",
+        needs: &[],
+    },
+];
+const PLOT_CATEGORY: usize = 11;
+const PLOTS: &[Command] = &[
+    Command {
+        label: "Function",
+        function: "plotfunc",
+        needs: &[],
+    },
+    Command {
+        label: "Parametric",
+        function: "plotparam",
+        needs: &[],
+    },
+    Command {
+        label: "Polar",
+        function: "plotpolar",
+        needs: &[],
+    },
+    Command {
+        label: "Sequence",
+        function: "plotseq",
+        needs: &[],
+    },
+    Command {
+        label: "Implicit",
+        function: "plotimplicit",
+        needs: &[],
+    },
+    Command {
+        label: "Slopefield",
+        function: "plotfield",
+        needs: &[],
+    },
+    Command {
+        label: "ODE",
+        function: "plotode",
+        needs: &[],
+    },
+    Command {
+        label: "List",
+        function: "plotlist",
+        needs: &[],
+    },
+    Command {
+        label: "Slider",
+        function: "parameter",
+        needs: &[],
+    },
 ];
 const TRANSFORMS: &[Command] = &[
     Command {
@@ -370,9 +541,24 @@ const TRANSFORMS: &[Command] = &[
         needs: &[Need::TranslationObject, Need::TranslationSegment],
     },
     Command {
+        label: "Similarity",
+        function: "similarity",
+        needs: &[Need::Point, Need::Transformable],
+    },
+    Command {
         label: "Projection",
         function: "projection",
-        needs: &[Need::Line, Need::Point],
+        needs: &[Need::Curve, Need::Point],
+    },
+    Command {
+        label: "Inversion",
+        function: "inversion",
+        needs: &[Need::Point, Need::Point],
+    },
+    Command {
+        label: "Reciprocation",
+        function: "reciprocation",
+        needs: &[Need::Circle, Need::Mirror],
     },
 ];
 const MEASURES: &[Command] = &[
@@ -434,6 +620,7 @@ fn commands(category: usize) -> &'static [Command] {
         4 => CURVES,
         5 => TRANSFORMS,
         6 => MEASURES,
+        PLOT_CATEGORY => PLOTS,
         _ => &[],
     }
 }
@@ -584,6 +771,14 @@ impl NativeTools {
             )
     }
     pub fn geometry_apply_context(&mut self, context: &ppl_vm::SessionSnapshot, committed: u64) {
+        self.geometry_panel.angle_turn = context
+            .app_settings
+            .get("Geometry")
+            .cloned()
+            .unwrap_or_default()
+            .effective(&context.settings)
+            .angle
+            .full_turn();
         if context.active_app != "Geometry" {
             return;
         }
@@ -595,6 +790,14 @@ impl NativeTools {
         self.geometry_panel.refresh = true;
     }
     pub(super) fn geometry_sync_context(&mut self, snapshot: &ppl_vm::SessionSnapshot) {
+        self.geometry_panel.angle_turn = snapshot
+            .app_settings
+            .get("Geometry")
+            .cloned()
+            .unwrap_or_default()
+            .effective(&snapshot.settings)
+            .angle
+            .full_turn();
         if self.geometry_panel.memory_revision != Some(snapshot.generation) {
             self.geometry_panel.memory_revision = Some(snapshot.generation);
             self.geometry_panel.live_context = None;
@@ -752,6 +955,17 @@ impl NativeTools {
         }
     }
     pub fn geometry_text(&mut self, text: &str) -> Option<Vec<Request>> {
+        if self.is_geometry_page()
+            && let Some(wizard) = &self.geometry_panel.wizard
+        {
+            return Some(vec![
+                Request::EditMath(MathTarget::Slopefield {
+                    index: wizard.selected,
+                    clear: true,
+                }),
+                Request::TypeText(text.into()),
+            ]);
+        }
         if self.is_geometry_page() && self.page == Some(Page::PlotSetup) {
             if self.geometry_panel.busy {
                 return Some(vec![]);
@@ -786,22 +1000,30 @@ impl NativeTools {
     }
     fn geometry_categories(&self) -> Vec<usize> {
         match self.page {
-            Some(Page::Symbolic) => (1..=5).collect(),
+            Some(Page::Symbolic) => vec![1, 2, 3, 4, PLOT_CATEGORY, 5],
             Some(Page::Numeric) => (1..=6).collect(),
-            _ => (0..=6).collect(),
+            _ => vec![0, 1, 2, 3, 4, PLOT_CATEGORY, 5, 6],
         }
     }
-    fn trace_selected(&self, book: &Book, scene: Option<&Scene>) -> bool {
-        self.geometry_panel.selected.as_deref().is_some_and(|name| {
-            book.can_move_point(name) && scene.is_some_and(|scene| scene.is_point(name))
-        })
+    fn trace_selected(&self, scene: Option<&Scene>) -> bool {
+        self.geometry_panel
+            .selected
+            .as_deref()
+            .is_some_and(|name| scene.is_some_and(|scene| scene.is_point(name)))
     }
     fn geometry_menu_items(&self, category: Option<usize>) -> Vec<String> {
         match category {
             None => self
                 .geometry_categories()
                 .into_iter()
-                .map(|c| CATEGORIES[c].into())
+                .map(|c| {
+                    if c == PLOT_CATEGORY {
+                        "Plot"
+                    } else {
+                        CATEGORIES[c]
+                    }
+                    .into()
+                })
                 .collect(),
             Some(7) => [
                 "Hide / Show",
@@ -946,10 +1168,35 @@ impl NativeTools {
             self.dirty();
             return vec![];
         }
+        self.geometry_panel.field_solution = None;
+        if category == PLOT_CATEGORY && menu.index == 8 && self.page == Some(Page::Plot) {
+            self.geometry_new_slider();
+            self.dirty();
+            return vec![];
+        }
+        if category == PLOT_CATEGORY && menu.index == 5 && self.page == Some(Page::Plot) {
+            self.geometry_panel.tool = None;
+            self.geometry_panel.wizard = Some(wizard::Slopefield::new(&self.trace_window()));
+            self.dirty();
+            return vec![];
+        }
         let Some(command) = commands(category).get(menu.index).copied() else {
             return vec![];
         };
-        if self.page == Some(Page::Plot) && command.function == "plotfunc" {
+        if self.page == Some(Page::Plot)
+            && matches!(
+                command.function,
+                "plotfunc"
+                    | "conic"
+                    | "plotparam"
+                    | "plotpolar"
+                    | "plotseq"
+                    | "plotimplicit"
+                    | "plotfield"
+                    | "plotode"
+                    | "plotlist"
+            )
+        {
             self.geometry_panel.tool = None;
             self.geometry_panel.clear_operands();
             let name = self
@@ -962,7 +1209,7 @@ impl NativeTools {
             self.dirty();
             return vec![Request::EditMath(MathTarget::GeometryObject {
                 name,
-                preset: Some("plotfunc()".into()),
+                preset: Some(format!("{}()", command.function)),
                 insert: None,
             })];
         }
@@ -1066,6 +1313,18 @@ impl NativeTools {
             ("single_inter", [a, b]) => format!("single_inter({a},{b},{})", point_source(p)),
             ("circle", [center, edge]) => format!("circle({center},{edge}-{center})"),
             ("translation", [object, segment]) => format!("translation({segment},{object})"),
+            ("isosceles_triangle" | "rhombus", [a, b]) => {
+                let angle = match self.geometry_panel.angle_turn {
+                    360. => "60",
+                    400. => "200/3",
+                    _ => "π/3",
+                };
+                format!("{}({a},{b},{angle})", command.function)
+            }
+            ("right_triangle", [a, b]) => format!("right_triangle({a},{b},1)"),
+            ("isopolygon", [a, b]) => format!("isopolygon({a},{b},6)"),
+            ("similarity", [center, object]) => format!("similarity({center},2,0,{object})"),
+            ("inversion", [center, object]) => format!("inversion({center},1,{object})"),
             (name, _) => format!("{name}({})", args.join(",")),
         })
     }
@@ -1087,7 +1346,7 @@ impl NativeTools {
         };
         if let Some(need) = need {
             if let Some((name, shape)) = self.geometry_hovered_operand(command, p, scene)
-                && need.accepts(shape, command.function == "element")
+                && need.accepts(shape, matches!(command.function, "element" | "projection"))
             {
                 args.push(format!("G{name}"));
             } else if need.allows_new_point() {
@@ -1152,18 +1411,21 @@ impl NativeTools {
             }
         };
         let name = book.next_name();
-        let (name, source) = if command.function == "parallelogram" {
-            // Validate the derived corner and its polygon in the same Geometry edit.
-            let corner = format!("vertices(G{name},3)");
-            book.objects.push(Object {
+        if matches!(
+            command.function,
+            "inversion"
+                | "similarity"
+                | "isosceles_triangle"
+                | "rhombus"
+                | "right_triangle"
+                | "isopolygon"
+        ) {
+            return vec![Request::EditMath(MathTarget::GeometryObject {
                 name,
-                source,
-                ..Default::default()
-            });
-            (book.next_name(), corner)
-        } else {
-            (name, source)
-        };
+                preset: Some(source),
+                insert: None,
+            })];
+        }
         vec![Request::Calculate(
             crate::ide::native_app_ui::Calculation::GeometryEdit {
                 book: Box::new(book),
@@ -1214,6 +1476,15 @@ impl NativeTools {
         true
     }
     fn geometry_confirm(&mut self, picked_object: Option<&str>) -> Vec<Request> {
+        if let Some((expr, x, y)) = &self.geometry_panel.field_solution {
+            let p = self.construction_pointer();
+            let source = format!(
+                "plotode({expr},[{x},{y}],[{},{}])",
+                geo::canonical(p.x),
+                geo::canonical(p.y)
+            );
+            return self.create_wizard_object(source);
+        }
         let p = self.construction_pointer();
         if let Some(command) = self.geometry_panel.tool {
             if command.function == "point" {
@@ -1246,6 +1517,18 @@ impl NativeTools {
                 self.geometry_hovered_operand(command, p, scene.as_ref())
             };
             if command.function == "polygon" {
+                if hovered
+                    .as_ref()
+                    .is_some_and(|(name, _)| self.geometry_panel.args.first() == Some(name))
+                {
+                    if index >= 3 {
+                        return self.geometry_finish_command(command, scene.as_ref(), None);
+                    }
+                    self.error =
+                        Some("Select at least three vertices before closing the polygon".into());
+                    self.dirty();
+                    return vec![];
+                }
                 let repeated = self.geometry_panel.polygon_last_pointer == Some(p)
                     || hovered
                         .as_ref()
@@ -1292,7 +1575,7 @@ impl NativeTools {
                 return vec![];
             }
             let name = if let Some((name, shape)) = hovered {
-                if !need.accepts(shape, command.function == "element") {
+                if !need.accepts(shape, matches!(command.function, "element" | "projection")) {
                     self.error = Some(format!("Select a {need:?}"));
                     return vec![];
                 }
@@ -1355,6 +1638,17 @@ impl NativeTools {
             return Some(vec![]);
         }
         if self.geometry_panel.busy {
+            return Some(vec![]);
+        }
+        if let Some(result) = self.slider_key(action) {
+            return Some(result);
+        }
+        if self.geometry_panel.wizard.is_some() {
+            return self.slopefield_action(action);
+        }
+        if self.geometry_panel.field_solution.is_some() && action == A::Back {
+            self.geometry_panel.field_solution = None;
+            self.dirty();
             return Some(vec![]);
         }
         if action == A::Tool(crate::ide::native::keys::Tool::Menu) {

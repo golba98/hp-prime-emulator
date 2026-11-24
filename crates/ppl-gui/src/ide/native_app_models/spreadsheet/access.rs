@@ -44,9 +44,30 @@ impl Spreadsheet {
             .transpose()?
             .unwrap_or(0);
         if let Some(value) = &request.value {
+            let sheet = self.write_attribute(&request.name, field, value)?;
             return Ok(AccessResult {
                 value: value.clone(),
-                sheet: Some(self.write_attribute(&request.name, field, value)?),
+                sheet: Some(sheet),
+            });
+        }
+        if field == 0
+            && let Some(address) = self.address(&request.name)
+            && let Some(body) = self
+                .cells
+                .get(&address.name())
+                .and_then(|s| reports::body(s))
+        {
+            let invalid = |e: String| RuntimeError::new(ErrorKind::InvalidInput, e);
+            let mut evaluator =
+                Evaluator::new(self, snapshot, cancel, geometry).map_err(invalid)?;
+            evaluator.visiting.insert(address.name());
+            let table = evaluator.report(body, address).map_err(invalid)?;
+            let value = PortableValue::from(&table.anchor);
+            let mut next = self.clone();
+            let changed = next.store_report(address, table, true).map_err(invalid)?;
+            return Ok(AccessResult {
+                value,
+                sheet: changed.then_some(next),
             });
         }
         Ok(AccessResult {

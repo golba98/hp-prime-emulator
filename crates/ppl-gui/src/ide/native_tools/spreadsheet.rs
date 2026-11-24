@@ -195,9 +195,13 @@ fn color_style(fill: bool, value: u32) -> CellFormat {
     style
 }
 
+struct WorksheetFrame {
+    values: serde_json::Value,
+    refreshed: Option<Spreadsheet>,
+}
 pub(super) struct Job {
     key: CalculationKey,
-    rx: mpsc::Receiver<Result<serde_json::Value, String>>,
+    rx: mpsc::Receiver<Result<WorksheetFrame, String>>,
     cancel: Arc<AtomicBool>,
 }
 impl Drop for Job {
@@ -1036,11 +1040,14 @@ impl NativeTools {
                     let job = self.spreadsheet_panel.job.take().unwrap();
                     if job.key == key {
                         match result {
-                            Ok(values) => {
+                            Ok(frame) => {
+                                if let Some(sheet) = frame.refreshed {
+                                    self.memory.models.spreadsheet = sheet;
+                                }
                                 self.memory
                                     .models
                                     .results
-                                    .insert("Spreadsheet".into(), values);
+                                    .insert("Spreadsheet".into(), frame.values);
                                 self.error = None;
                             }
                             Err(e) => self.error = Some(e),
@@ -1071,7 +1078,17 @@ impl NativeTools {
             let (tx, rx) = mpsc::channel();
             let repaint = ctx.clone();
             std::thread::spawn(move || {
-                let _ = tx.send(sheet.calculate_for_view(&snapshot, flag, geometry, viewport));
+                let result = (|| {
+                    let mut sheet = sheet;
+                    let changed =
+                        sheet.refresh_reports(&snapshot, flag.clone(), geometry.clone())?;
+                    let values = sheet.calculate_for_view(&snapshot, flag, geometry, viewport)?;
+                    Ok(WorksheetFrame {
+                        values,
+                        refreshed: changed.then_some(sheet),
+                    })
+                })();
+                let _ = tx.send(result);
                 repaint.request_repaint();
             });
             self.spreadsheet_panel.job = Some(Job { key, rx, cancel });

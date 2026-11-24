@@ -26,6 +26,7 @@ pub(super) struct Panel {
     job: Option<Job>,
     mesh: Option<Mesh>,
     surfaces: plot_render::SurfaceLayer,
+    drag_origin: Option<(egui::Pos2, [f64; 2])>,
     numeric_draft: Option<numeric_setup::Draft>,
     navigation: numeric_navigation::Navigation,
     trace: plot_trace::Trace,
@@ -331,10 +332,44 @@ impl NativeTools {
                     174.
                 };
                 let size = vec2((lcd.width() - 4. * scale).max(1.), height * scale);
-                let (response, painter) = ui.allocate_painter(size, egui::Sense::drag());
-                if response.dragged() {
-                    let delta = ui.input(|input| input.pointer.delta()) / scale.max(0.01);
-                    self.graph3d_rotate([f64::from(delta.x), -f64::from(delta.y)]);
+                // Keep the raster on the same LCD rows after a toolbar interaction
+                // and a cold Plot entry. Legacy profiles retain their saved framing.
+                let (response, painter) =
+                    if self.memory.graph3d.camera == crate::ide::native_graph3d::CameraModel::G1 {
+                        let rect = egui::Rect::from_min_size(
+                            egui::pos2(ui.cursor().left(), lcd.top() + 44. * scale),
+                            size,
+                        );
+                        (
+                            ui.allocate_rect(rect, egui::Sense::drag()),
+                            ui.painter_at(rect),
+                        )
+                    } else {
+                        ui.allocate_painter(size, egui::Sense::drag())
+                    };
+                if response.drag_started() {
+                    self.graph3d_panel.drag_origin = ui
+                        .input(|i| i.pointer.press_origin())
+                        .map(|p| (p, self.memory.graph3d.rotation));
+                }
+                if (response.dragged() || response.drag_stopped())
+                    && let Some((origin, angles)) = self.graph3d_panel.drag_origin
+                    && let Some(pointer) = response.interact_pointer_pos()
+                {
+                    // The displacement starts at the press, even when the first
+                    // pointer event in this frame arrived from outside the plot.
+                    let delta = (pointer - origin) / scale;
+                    let camera = [
+                        (angles[0] + 0.3 * f64::from(delta.x)).rem_euclid(360.),
+                        (angles[1] + 0.3 * f64::from(delta.y)).clamp(-85., 85.),
+                    ];
+                    if self.memory.graph3d.rotation != camera {
+                        self.memory.graph3d.rotation = camera;
+                        self.dirty();
+                    }
+                }
+                if response.drag_stopped() {
+                    self.graph3d_panel.drag_origin = None;
                 }
                 self.graph3d_panel.surfaces.paint(
                     &painter,
