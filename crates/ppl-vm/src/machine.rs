@@ -23,6 +23,8 @@ use crate::value::{Matrix, Value};
 mod app_variables;
 mod expression;
 
+const APPEND_STRING_QUOTIENT_DIAGNOSTIC: &str = "string / Error: Bad Argument Value";
+
 /// Host-side protections. These are **not** calculator limits; they stop
 /// runaway programs on the development machine.
 #[derive(Clone, Debug)]
@@ -1550,6 +1552,30 @@ impl Machine {
                 self.check_value(&value)?;
                 self.stack.push(value);
             }
+            Op::AppendCallbackAdd => {
+                let right = self.pop();
+                let status = self.pop();
+                let left = self.pop();
+                let value = if status.expect_i64("APPEND callback status")? == 0 {
+                    self.binary_value(BinOp::Add, &left, &right)?
+                } else {
+                    left
+                };
+                self.check_value(&value)?;
+                self.stack.extend([value, status]);
+            }
+            Op::AppendCallbackQuotientAdd => {
+                let right = self.pop();
+                let left = self.pop();
+                let value = if matches!(&left, Value::Str(text) if text.as_ref() == APPEND_STRING_QUOTIENT_DIAGNOSTIC)
+                {
+                    left
+                } else {
+                    self.binary_value(BinOp::Add, &left, &right)?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
             Op::StddevExact {
                 argc,
                 encoded_vector,
@@ -2002,7 +2028,7 @@ impl Machine {
                 (Value::Real(_), Value::Str(_)) | (Value::Str(_), Value::Real(_))
             )
         {
-            Ok(Value::str("string / Error: Bad Argument Value"))
+            Ok(Value::str(APPEND_STRING_QUOTIENT_DIAGNOSTIC))
         } else {
             self.binary_value(BinOp::Div, numerator, denominator)
         }

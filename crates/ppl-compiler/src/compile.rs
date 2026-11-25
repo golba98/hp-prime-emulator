@@ -2367,7 +2367,16 @@ impl<'a> Compiler<'a> {
                         payload.span,
                     );
                 } else {
-                    let callback_payload = self.append_callback_operand(payload, 0);
+                    let callback_payload = if let ExprKind::Binary(BinOp::Add, left, right) = &payload.kind
+                        && matches!(right.kind, ExprKind::Number(_))
+                        && self.try_append_callback_operand(left, 0)
+                    {
+                        self.expr(right);
+                        self.cur.emit(Op::AppendCallbackAdd, payload.span);
+                        true
+                    } else {
+                        self.append_callback_operand(payload, 0)
+                    };
                     let literal_payload = matches!(payload.kind, ExprKind::Str(_));
                     self.cur.emit(
                         Op::AppendCollection {
@@ -2475,6 +2484,14 @@ impl<'a> Compiler<'a> {
     }
 
     fn append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {
+        if self.try_append_callback_operand(expression, preceding) {
+            return true;
+        }
+        self.expr(expression);
+        false
+    }
+
+    fn try_append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {
         if let ExprKind::Call(callee, args) = &expression.kind
             && let ExprKind::Ident(name) = &callee.kind
             && let Some(id) = self.fn_map.get(name).copied()
@@ -2484,7 +2501,18 @@ impl<'a> Compiler<'a> {
             let span = expression.span;
             self.check_local_call(name, id, args.len(), span);
             for (index, arg) in args.iter().enumerate() {
-                if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &arg.kind {
+                let (quotient, addend) = match &arg.kind {
+                    ExprKind::Binary(BinOp::Add, quotient, addend)
+                        if matches!(addend.kind, ExprKind::Number(_))
+                            && matches!(&quotient.kind, ExprKind::Binary(BinOp::Div, numerator, denominator)
+                                if matches!(numerator.kind, ExprKind::Str(_))
+                                    || matches!(denominator.kind, ExprKind::Str(_))) =>
+                    {
+                        (quotient.as_ref(), Some(addend.as_ref()))
+                    }
+                    _ => (arg, None),
+                };
+                if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &quotient.kind {
                     self.expr(numerator);
                     self.expr(denominator);
                     self.cur.emit(
@@ -2493,8 +2521,12 @@ impl<'a> Compiler<'a> {
                             literal_operands: matches!(numerator.kind, ExprKind::Number(_))
                                 && matches!(denominator.kind, ExprKind::Number(_)),
                         },
-                        arg.span,
+                        quotient.span,
                     );
+                    if let Some(addend) = addend {
+                        self.expr(addend);
+                        self.cur.emit(Op::AppendCallbackQuotientAdd, arg.span);
+                    }
                 } else {
                     self.expr(arg);
                 }
@@ -2515,7 +2547,6 @@ impl<'a> Compiler<'a> {
             self.cur.patch_jump(handler, self.cur.here());
             return true;
         }
-        self.expr(expression);
         false
     }
 

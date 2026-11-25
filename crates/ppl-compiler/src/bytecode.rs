@@ -121,6 +121,12 @@ pub enum Op {
         preceding: u16,
         literal_operands: bool,
     },
+    /// Adds a literal to a callback result while retaining its fault status.
+    /// Stack: value, status, literal → value, status.
+    AppendCallbackAdd,
+    /// Adds a literal to a callback argument after evaluating its quotient.
+    /// A string quotient diagnostic is carried into the callback as-is.
+    AppendCallbackQuotientAdd,
     /// Direct lowercase stddev can produce exact series or weighted matrix results.
     StddevExact {
         argc: u8,

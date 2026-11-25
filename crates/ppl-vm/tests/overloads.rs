@@ -145,18 +145,30 @@ fn lowercase_append_matches_original_computed_string_payloads() {
 }
 
 #[test]
+fn append_adds_a_literal_to_a_successful_callback_result_once() {
+    let mut program = Run::new(
+        "<append callback addition>",
+        "EXPORT TEST() BEGIN D:=0; RETURN {append([1,2],ADDEND()+4),D}; END; \
+         ADDEND() BEGIN D:=D+1; RETURN 3; END;",
+    );
+    assert_eq!(text(&program.call("TEST", &[]).unwrap()), "{[1,2,7],1}");
+}
+
+#[test]
 fn append_callback_guard_preserves_non_program_stops() {
     for base in ["[1,2]", "[[1,2],[3,4]]"] {
-        let mut program = Run::new(
-            "<append callback stop>",
-            &format!(
-                "EXPORT TEST() BEGIN RETURN append({base},STOPNOW()); END; STOPNOW() BEGIN KILL; END;"
-            ),
-        );
-        assert_eq!(
-            program.call("TEST", &[]).unwrap_err().kind,
-            ppl_vm::ErrorKind::Killed
-        );
+        for payload in ["STOPNOW()", "STOPNOW()+1"] {
+            let mut program = Run::new(
+                "<append callback stop>",
+                &format!(
+                    "EXPORT TEST() BEGIN RETURN append({base},{payload}); END; STOPNOW() BEGIN KILL; END;"
+                ),
+            );
+            assert_eq!(
+                program.call("TEST", &[]).unwrap_err().kind,
+                ppl_vm::ErrorKind::Killed
+            );
+        }
     }
 }
 
