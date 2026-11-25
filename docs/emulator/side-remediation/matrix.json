@@ -1695,7 +1695,38 @@
       "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
       "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
     },
-    "current_source": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
+    "current_source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
+    "runtime_follow_up": {
+      "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
+      "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-9b7e8ff.tar.gz",
+      "sha256": "08a22378c588f53737cdc2c524163b3ffbeb0ed3bdeb9b9f0c9dbf40684f5488",
+      "workspace_harness": {"ok": 3071, "failed": 0, "ignored": 6},
+      "giac_harness": {"ok": 1485, "failed": 0, "ignored": 2},
+      "scope": "The Rust harness counts may include early returns for absent optional assets. The same optional asset gates remain open.",
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "sessions_unexecuted": 0,
+        "initial_assertion_groups_passed": 120,
+        "initial_assertion_groups_failed": 1,
+        "isolated_rerun_assertion_groups_passed": 1,
+        "isolated_rerun_assertion_groups_failed": 0,
+        "rerun_reason": "The initial Statistics Defn snapshot showed the Zoom menu still open when the script moved the trace. A fresh-profile serial run of the original create and reopen scenarios passed unchanged."
+      },
+      "other_acceptance": "The extracted package passed numerical and Giac checks, PPL input, waits, key retrieval, drawing, matrices and debugger stepping. Formatting, Clippy, Windows GNU cross-check, both forced restarts and all 21 input assertions at each of 1x, 1.5x and 2x passed.",
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "criterion_workloads_run": 38,
+        "two_round_fibonacci_time_change_percent": 0.1,
+        "paired_fibonacci_time_change_percent_from_prior_candidate": -9.6,
+        "paired_fibonacci_time_change_percent_from_main": 12.6,
+        "standalone_fibonacci_median_wall_ms": {"main": 5.84, "d63d5b5": 6.11, "9b7e8ff": 5.74},
+        "standalone_rounds_per_build": 12,
+        "two_round_list_append_time_change_percent": 10.5,
+        "scope": "Fibonacci improved against the preceding candidate. Its comparison against main varied by run. Indexed list append remains a performance follow-up."
+      }
+    },
     "linux_release_archive": {
       "source": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
       "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-d63d5b5.tar.gz",
