@@ -175,39 +175,42 @@ fn append_text_assignment<'a>(
     if target != "HAngle" && !matches!(target.as_bytes(), [b'A'..=b'Z']) {
         return Ok(None);
     }
-    if let Some((numerator, denominator)) = expression.split_once('/') {
+    let payload = if let Some((numerator, denominator)) = expression.split_once('/') {
         let (Some(Value::Real(numerator)), Some(Value::Real(denominator))) = (
             append_text_atom(machine, numerator.trim()),
             append_text_atom(machine, denominator.trim()),
         ) else {
             return Ok(None);
         };
-        let quotient = if denominator.is_zero() {
+        if denominator.is_zero() {
             (!numerator.is_zero()).then(|| {
                 cas::from_cas(ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive))
             })
         } else {
             numerator.quotient_if_integer(denominator)?.map(Value::Real)
-        };
-        let result = match quotient {
-            Some(payload) => TextAssignment {
-                target: Some(target),
-                payload,
-            },
-            None => TextAssignment {
-                target: None,
-                payload: Value::str(RuntimeError::kind(ErrorKind::BadArgType).to_string()),
-            },
-        };
-        return Ok(Some(result));
-    }
-    match append_text_payload(machine, expression)? {
-        Some(payload @ Value::Real(_)) => Ok(Some(TextAssignment {
+        }
+    } else {
+        match append_text_payload(machine, expression)? {
+            Some(payload @ Value::Real(_)) => Some(payload),
+            Some(Value::Symbolic(value))
+                if target != "HAngle"
+                    && matches!(value.as_ref(), ppl_cas::CasValue::Symbolic(_)) =>
+            {
+                None
+            }
+            _ => return Ok(None),
+        }
+    };
+    Ok(Some(match payload {
+        Some(payload) => TextAssignment {
             target: Some(target),
             payload,
-        })),
-        _ => Ok(None),
-    }
+        },
+        None => TextAssignment {
+            target: None,
+            payload: Value::str(RuntimeError::kind(ErrorKind::BadArgType).to_string()),
+        },
+    }))
 }
 
 fn append_text_atom(machine: &Machine, text: &str) -> Option<Value> {

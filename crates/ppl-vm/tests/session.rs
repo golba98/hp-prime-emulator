@@ -84,6 +84,34 @@ fn append_angle_assignment_updates_home_without_a_program_setting_slot() {
 }
 
 #[test]
+fn append_symbolic_assignment_diagnostic_survives_reopen_without_storing_the_rhs() {
+    let mut session = SessionContext::default();
+    home(&mut session, "A:=7");
+    program(
+        &mut session,
+        "append-diagnostic.ppl",
+        r#"EXPORT MAIN() BEGIN L1:=append([1,2],"A:=zztscope"); RETURN 0; END;"#,
+    )
+    .result
+    .unwrap();
+    assert_eq!(number(home(&mut session, "A")), 7);
+
+    let mut reopened = SessionContext::default();
+    reopened.restore_memory(&session.memory_json()).unwrap();
+    assert_eq!(number(home(&mut reopened, "A")), 7);
+    let Value::List(items) = home(&mut reopened, "L1") else {
+        panic!("APPEND diagnostic did not reopen as a list");
+    };
+    assert_eq!(items.len(), 3);
+    assert_eq!(number(items[0].clone()), 1);
+    assert_eq!(number(items[1].clone()), 2);
+    assert_eq!(
+        items[2].expect_str("test").unwrap().as_ref(),
+        "Error: Bad argument type"
+    );
+}
+
+#[test]
 fn modules_initialize_once_and_are_isolated_by_source_and_revision() {
     let mut session = SessionContext::default();
     let source = "LOCAL count:=10; EXPORT MAIN() BEGIN count:=count+1; RETURN count; END;";
