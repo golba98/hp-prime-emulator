@@ -1625,7 +1625,8 @@
         "ca8d41e fixes linked STDDEV source diagnostics and restores a compact instruction stream",
         "adceb15 matches G1 packed pixel-grob format selection at exact plane capacity",
         "c4cf2f2 preserves small components and principal signs in numerical complex roots and axial quotients",
-        "05e2949 uses a direct store for literal local zero-index appends"
+        "05e2949 uses a direct store for literal local zero-index appends",
+        "a8b979a branches directly from FOR and MAKELIST loop comparisons"
       ],
       "25": [
         "190df21 aligns integer-scale calculator rendering to physical pixels"
@@ -1698,7 +1699,7 @@
       "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
       "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
     },
-    "current_source": "05e294939cfb569c5e87ac13e1b5abb047d180fe",
+    "current_source": "a8b979a3f2427e9a7b683387070090661343f882",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
       "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
@@ -2005,6 +2006,101 @@
         "makelist_direct_median_change_from_main_percent": 10.6,
         "makelist_direct_previous_median_change_from_main_percent": 6.4,
         "assessment": "The direct store reduced list append time in the standalone and Criterion comparisons. The six-round MAKELIST comparison measured a 3.7% median increase from the preceding candidate with varied paired timings. The standalone patch comparison measured a 0.8% increase. PPL line drawing, the summing loop and the real arithmetic chain remained slower than main in the longer comparisons."
+      }
+    },
+    "loop_guard_follow_up": {
+      "source": "a8b979a3f2427e9a7b683387070090661343f882",
+      "previous_source": "05e294939cfb569c5e87ac13e1b5abb047d180fe",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-a8b979a.tar.gz",
+      "sha256": "eb3eb041fb740b9a0399a1266dba4fa0e803b9eec84856475d079f6a7c49a321",
+      "implementation": "FOR and MAKELIST compile the counter comparison and exit jump as one instruction. The VM compares the existing operands with the shared comparator and the linker follows both control-flow paths.",
+      "focused_verification": "The 98 linked, semantics and parity tests passed. The new linked regression checks both reachable reads and both runtime paths. Packaged PPL checks descending FOR, empty and stepped MAKELIST, and counter restoration in both numeric modes.",
+      "workspace_harness": {
+        "ok": 3077,
+        "failed": 0,
+        "ignored": 6
+      },
+      "workspace_benchmark_smoke_workloads": 38,
+      "giac_harness": {
+        "ok": 1489,
+        "failed": 0,
+        "ignored": 2
+      },
+      "scope": "Reported ok counts include early returns for missing optional original resources. Formatting, warnings-denied Clippy and the GNU Windows cross-check passed. Native Windows, original resources and hosted CI stay open.",
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "sessions_unexecuted": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "forced_restart_checks_passed": 2,
+        "input_assertions_passed_per_scale": {
+          "1x": 21,
+          "1.5x": 21,
+          "2x": 21
+        }
+      },
+      "package_smoke": "The extracted executable passed numerical and exact Giac results, debugger stepping, input, key handling, drawing, typed matrices, cross-module diagnostics and the existing numerical complex controls. The five stored compatibility suites replayed with 44 verified, five failed, four partial and 64 unverified cases.",
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "criterion_workloads_run": 38,
+        "method": "Two alternating quick rounds followed by three longer paired comparisons on pinned cores. List append, MAKELIST, summing and real arithmetic use the same three builds in rotated order.",
+        "standalone_patch_rounds_per_build": 9,
+        "standalone_paired_time_changes_percent": {
+          "list_append_10k": {
+            "previous_from_main": -5.3,
+            "experiment_from_previous": -6.6,
+            "experiment_from_main": -12.2
+          },
+          "makelist_10k": {
+            "previous_from_main": 7.9,
+            "experiment_from_previous": -5.7,
+            "experiment_from_main": 3.5
+          },
+          "for_sum_100k": {
+            "previous_from_main": 6.7,
+            "experiment_from_previous": -5.1,
+            "experiment_from_main": -1.5
+          },
+          "fib_20": {
+            "previous_from_main": -1.6,
+            "experiment_from_previous": 0.2,
+            "experiment_from_main": -2.2
+          },
+          "real_chain_10k": {
+            "previous_from_main": 9.0,
+            "experiment_from_previous": -4.3,
+            "experiment_from_main": 4.3
+          }
+        },
+        "selected_two_round_time_changes_percent": {
+          "collections/list_append_10k": -11.5,
+          "collections/makelist_10k": 1.4,
+          "compile/fireworks": 0.5,
+          "graphics_grob/grob_fill_circle_x200": -59.0,
+          "graphics_grob/grob_line_x200": -38.4,
+          "graphics_ppl/ppl_fillcircle_p_x200": -31.8,
+          "graphics_ppl/ppl_line_p_x200": 5.9,
+          "vm/fib_20": 1.2,
+          "vm/for_sum_100k": 1.4,
+          "vm/real_chain_10k": 1.4
+        },
+        "selected_longer_median_time_changes_percent": {
+          "collections/list_append_10k": -12.7,
+          "collections/makelist_10k": 2.1,
+          "compile/fireworks": 2.1,
+          "graphics_ppl/ppl_line_p_x200": 5.3,
+          "vm/fib_20": 3.4,
+          "vm/for_sum_100k": 4.2,
+          "vm/real_chain_10k": 0.5
+        },
+        "selected_longer_time_changes_from_previous_percent": {
+          "collections/list_append_10k": -8.9,
+          "collections/makelist_10k": -3.7,
+          "vm/for_sum_100k": -3.6,
+          "vm/real_chain_10k": -3.0
+        },
+        "assessment": "The direct loop exit reduced list append, MAKELIST, summing and real arithmetic elapsed time against the preceding candidate in the longer comparisons. MAKELIST and the summing loop remained slower than main. PPL line drawing also retained a slower median against main."
       }
     },
     "linux_release_archive": {
