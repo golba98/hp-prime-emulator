@@ -2268,6 +2268,37 @@
         "default_native_profile": "$XDG_DATA_HOME/hp-prime-emulator/native/state-v1.json",
         "desktop_acceptance": "With the helper discovered beside ppl and in XDG data, the installed executable passed exact CAS values, typed strings, undefined and infinity, failed-assignment rollback, CAS softkey simplification and separate-process reopen. A second XDG run used the default Native profile and restored its saved state with PPL_NATIVE_PROFILE unset."
       },
+      "ubuntu_2404_minimum_runtime": {
+        "package_source": "1f7b1d0fb904437036b83bd90821177145ac00f8",
+        "archive_sha256": "c52677cc406ab39114e15fc3abad5890242ec1feaeb3da599426381372bf7121",
+        "image": "docker.io/library/ubuntu:24.04",
+        "base_image_digest": "sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+        "glibc_runtime": "2.39",
+        "distribution_package_versions": {
+          "libc6": "2.39-0ubuntu8.12",
+          "libgcc-s1": "14.2.0-4ubuntu2~24.04.1",
+          "libgiac-dev": "1.9.0.93+dfsg2-2",
+          "libgiac0t64": "1.9.0.93+dfsg2-2",
+          "libudev1": "255.4-1ubuntu8.19",
+          "xvfb": "2:21.1.12-1ubuntu1.9",
+          "zlib1g": "1:1.3.dfsg-3.1ubuntu2.3"
+        },
+        "method": "Installed Ubuntu build and X11 dependencies into one disposable container. Disconnected its network before copying the verified release archive and selected source fixtures. The installed executable and separately compiled helper used the container libraries with LD_LIBRARY_PATH unset.",
+        "runtime_checks": "The archive passed its checksum, both ldd dependency checks, PPL syntax, numerical return 49, debugger stop and resume, and exact Giac roots −2 and 2 with sibling helper discovery.",
+        "desktop_scenarios": [
+          "cas_special",
+          "cas_special_reopen",
+          "function_numeric_exact",
+          "function_numeric_exact_reopen"
+        ],
+        "desktop_sessions_passed": 4,
+        "desktop_sessions_failed": 0,
+        "desktop_sessions_skipped": 0,
+        "desktop_assertion_groups_passed": 2,
+        "desktop_assertion_groups_failed": 0,
+        "desktop_assertion_groups_skipped": 0,
+        "desktop_acceptance": "Native CAS and Function Numeric passed against the installed binary under Xvfb. Both journeys restored their typed state after a separate process opened the default XDG profile."
+      },
       "test_execution_audit": {
         "integration_revision": "b101858ee58c3284f2a3d102bfd92671230214dc",
         "method": "Ran both test commands with RUST_TEST_NOCAPTURE=1. Compared logged gates against the environment and checked the source guards and test names for 27 silent workspace returns and four silent Giac-suite returns. The default workspace run had no Giac helper selected.",
