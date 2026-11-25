@@ -124,11 +124,27 @@ impl Grob {
     }
 
     fn hline(&mut self, x1: i64, x2: i64, y: i64, c: Color) {
+        if y < 0 || y as usize >= self.h {
+            return;
+        }
         let (a, b) = if x1 <= x2 { (x1, x2) } else { (x2, x1) };
         let a = a.max(0);
         let b = b.min(self.w as i64 - 1);
-        for x in a..=b {
-            self.set(x, y, c);
+        if a > b {
+            return;
+        }
+        let row = y as usize * self.w;
+        let pixels = &mut self.px[row + a as usize..=row + b as usize];
+        let color = c & 0x00ff_ffff;
+        let alpha = 255 - (c >> 24);
+        match alpha {
+            0 => {}
+            255 => pixels.fill(color),
+            _ => {
+                for pixel in pixels {
+                    *pixel = blend(*pixel, color, alpha);
+                }
+            }
         }
     }
 
@@ -157,6 +173,9 @@ impl Grob {
 
     /// Bresenham line, both endpoints included.
     pub fn line(&mut self, x1: i64, y1: i64, x2: i64, y2: i64, c: Color) {
+        if self.w == 0 || self.h == 0 {
+            return;
+        }
         let (dx, dy) = (
             i128::from(x2).abs_diff(i128::from(x1)),
             i128::from(y2).abs_diff(i128::from(y1)),
@@ -164,6 +183,38 @@ impl Grob {
         let (sx, sy): (i128, i128) = (if x1 < x2 { 1 } else { -1 }, if y1 < y2 { 1 } else { -1 });
         if dx == 0 && dy == 0 {
             self.set(x1, y1, c);
+            return;
+        }
+        // The normal drawing path is already bounded when the entire walk
+        // is no longer than a framebuffer dimension.
+        let span = dx.max(dy);
+        if span <= self.w.max(self.h) as u128 && span <= (i64::MAX / 4) as u128 {
+            let inside =
+                |x: i64, y: i64| x >= 0 && (x as usize) < self.w && y >= 0 && (y as usize) < self.h;
+            let opaque_inside = c >> 24 == 0 && inside(x1, y1) && inside(x2, y2);
+            let (dx, dy) = (dx as i64, -(dy as i64));
+            let (sx, sy) = (sx as i64, sy as i64);
+            let (mut x, mut y) = (x1, y1);
+            let mut error = dx + dy;
+            loop {
+                if opaque_inside {
+                    self.px[y as usize * self.w + x as usize] = c;
+                } else {
+                    self.set(x, y, c);
+                }
+                if (x, y) == (x2, y2) {
+                    break;
+                }
+                let next = 2 * error;
+                if next >= dy {
+                    error += dy;
+                    x += sx;
+                }
+                if next <= dx {
+                    error += dx;
+                    y += sy;
+                }
+            }
             return;
         }
         // Reconstruct Bresenham at each visible major-axis position instead

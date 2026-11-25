@@ -3,7 +3,23 @@ use crate::{Color, Grob};
 use std::collections::BTreeSet;
 
 pub(crate) fn outline(grob: &mut Grob, xc: i64, yc: i64, radius: i64, color: Color) {
-    if radius < 0 {
+    if radius < 0 || grob.width() == 0 || grob.height() == 0 {
+        return;
+    }
+    let r = i128::from(radius);
+    let (left, right) = (i128::from(xc) - r, i128::from(xc) + r);
+    let (top, bottom) = (i128::from(yc) - r, i128::from(yc) + r);
+    if right < 0 || left >= grob.width() as i128 || bottom < 0 || top >= grob.height() as i128 {
+        return;
+    }
+    if r <= grob.width().max(grob.height()) as i128
+        && radius <= i64::MAX / 4
+        && left >= i128::from(i64::MIN)
+        && right <= i128::from(i64::MAX)
+        && top >= i128::from(i64::MIN)
+        && bottom <= i128::from(i64::MAX)
+    {
+        outline_midpoint(grob, xc, yc, radius, color);
         return;
     }
     let radius = radius as u128;
@@ -45,21 +61,45 @@ pub(crate) fn outline(grob: &mut Grob, xc: i64, yc: i64, radius: i64, color: Col
     }
 }
 
+fn outline_midpoint(grob: &mut Grob, xc: i64, yc: i64, r: i64, color: Color) {
+    let (mut x, mut y, mut error) = (r, 0, 1 - r);
+    while x >= y {
+        for (dx, dy) in [
+            (x, y),
+            (y, x),
+            (-y, x),
+            (-x, y),
+            (-x, -y),
+            (-y, -x),
+            (y, -x),
+            (x, -y),
+        ] {
+            grob.set(xc + dx, yc + dy, color);
+        }
+        y += 1;
+        if error < 0 {
+            error += 2 * y + 1;
+        } else {
+            x -= 1;
+            error += 2 * (y - x) + 1;
+        }
+    }
+}
+
 pub(crate) fn fill(grob: &mut Grob, xc: i64, yc: i64, radius: i64, color: Color) {
-    if radius < 0 {
+    if radius < 0 || grob.width() == 0 || grob.height() == 0 {
         return;
     }
+    let top = (i128::from(yc) - i128::from(radius)).max(0);
+    let bottom = (i128::from(yc) + i128::from(radius)).min(grob.height() as i128 - 1);
     let radius = radius as u128;
-    for y in 0..grob.height() {
-        let offset = (y as i128 - i128::from(yc)).unsigned_abs();
-        if offset > radius {
-            continue;
-        }
+    for y in top..=bottom {
+        let offset = (y - i128::from(yc)).unsigned_abs();
         let half = (radius * radius - offset * offset).isqrt() as i128;
         let first = (i128::from(xc) - half).max(0);
         let last = (i128::from(xc) + half).min(grob.width() as i128 - 1);
-        for x in first..=last {
-            grob.set(x as i64, y as i64, color);
+        if first <= last {
+            grob.hline(first as i64, last as i64, y as i64, color);
         }
     }
 }
@@ -113,17 +153,19 @@ mod tests {
     fn clipped_fill_matches_integer_disk() {
         for r in 0..40 {
             for (xc, yc) in [(-10, 17), (0, 0), (17, 15), (40, 39)] {
-                let mut expected = Grob::new(37, 31, WHITE);
-                for y in 0..31 {
-                    for x in 0..37 {
-                        if (x - xc) * (x - xc) + (y - yc) * (y - yc) <= r * r {
-                            expected.set(x, y, BLACK);
+                for color in [BLACK, 0x800000ff, 0xff00ff00] {
+                    let mut expected = Grob::new(37, 31, WHITE);
+                    for y in 0..31 {
+                        for x in 0..37 {
+                            if (x - xc) * (x - xc) + (y - yc) * (y - yc) <= r * r {
+                                expected.set(x, y, color);
+                            }
                         }
                     }
+                    let mut actual = Grob::new(37, 31, WHITE);
+                    actual.fill_circle(xc, yc, r, color);
+                    assert_eq!(actual, expected);
                 }
-                let mut actual = Grob::new(37, 31, WHITE);
-                actual.fill_circle(xc, yc, r, BLACK);
-                assert_eq!(actual, expected);
             }
         }
     }
@@ -144,6 +186,10 @@ mod tests {
         off.circle(0, 0, -1, BLACK);
         off.fill_circle(0, 0, -1, BLACK);
         assert!(off.pixels().iter().all(|p| *p == WHITE));
-        Grob::new(0, 0, WHITE).circle(0, 0, 0, BLACK);
+        let mut empty = Grob::new(0, usize::MAX, WHITE);
+        empty.circle(0, 0, i64::MAX, BLACK);
+        empty.fill_circle(0, 0, i64::MAX, BLACK);
+        empty.line(0, 0, 0, i64::MAX, BLACK);
+        assert!(empty.pixels().is_empty());
     }
 }
