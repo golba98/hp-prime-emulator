@@ -594,10 +594,14 @@ fn call_inner(
                 // Local firmware controls PACKED/GEOM/PACKFMT establish that
                 // this is a fourth-argument raw-data overload. Each entry
                 // contributes one 64-bit word, least-significant pixel first.
-                // A full 32-bit plane selects ARGB32; shorter data uses RGB555
-                // with bit 15 transparent. Missing pixels retain white.
+                // The pixel form selects ARGB32 at the exact plane capacity.
+                // Other counts use RGB555 with bit 15 transparent.
                 let count = (w * h) as usize;
-                let wide = words.len() >= count.div_ceil(2);
+                let plane_words = count.div_ceil(2);
+                let wide = match b {
+                    B::DimgrobP => words.len() == plane_words,
+                    _ => words.len() >= plane_words,
+                };
                 let per_word = if wide { 2 } else { 4 };
                 let mut graphic = Grob::new(w as usize, h as usize, WHITE);
                 let packed = words
