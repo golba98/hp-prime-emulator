@@ -3,6 +3,7 @@
 use ppl_math::{Complex, HpInt, Real};
 use ppl_syntax::Span;
 use ppl_syntax::ast::BinOp;
+use std::num::NonZeroU32;
 
 use crate::builtins::Builtin;
 
@@ -125,16 +126,13 @@ pub enum Op {
         encoded_vector: bool,
         evaluated_matrices: bool,
         row_mismatch_diagnostic: bool,
-        /// Constant indices for identifiers, or `None` entries for literal lists.
-        list_sources: Option<[Option<u32>; 2]>,
+        list_sources: Option<NonZeroU32>,
     },
     /// Materialized numeric matrix operands with source-encoded complex pairs.
     StddevEncodedComplexMatrix,
     /// Two lists of evaluated cells, callback status and diagnostic source.
-    /// The shape fields are the kind, row count and column count.
     StddevInlineCollection {
-        data: [u32; 3],
-        weights: [u32; 3],
+        shapes: NonZeroU32,
         encoded_weights: bool,
     },
     /// Two evaluated operands and a diagnostic string for mixed matrix source forms.
@@ -208,6 +206,21 @@ pub enum Op {
     Stmt,
 }
 
+/// Source information used by the specialized STDDEV instructions.
+#[derive(Clone, Debug)]
+pub enum StddevMetadata {
+    /// An identifier name, or no name for a literal list.
+    ListSources([Option<String>; 2]),
+    /// Kind, row count and column count for the observations and weights.
+    InlineShapes([[u32; 3]; 2]),
+}
+
+#[cfg(test)]
+#[test]
+fn stddev_metadata_keeps_the_instruction_stream_compact() {
+    assert!(std::mem::size_of::<Op>() <= 12);
+}
+
 /// One compiled function.
 #[derive(Clone, Debug)]
 pub struct Chunk {
@@ -218,6 +231,7 @@ pub struct Chunk {
     /// Lexical visibility of each local slot, in instruction positions.
     pub local_scopes: Vec<std::ops::Range<u32>>,
     pub code: Vec<Op>,
+    pub stddev_metadata: Vec<StddevMetadata>,
     /// Source span for each instruction (same length as `code`).
     pub spans: Vec<Span>,
     pub exported: bool,
@@ -225,6 +239,15 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    pub(crate) fn add_stddev_metadata(&mut self, metadata: StddevMetadata) -> NonZeroU32 {
+        self.stddev_metadata.push(metadata);
+        NonZeroU32::new(self.stddev_metadata.len() as u32).expect("STDDEV metadata index")
+    }
+
+    pub fn stddev_metadata(&self, index: NonZeroU32) -> &StddevMetadata {
+        &self.stddev_metadata[index.get() as usize - 1]
+    }
+
     pub fn local_visible(&self, slot: usize, instruction: usize) -> bool {
         self.local_scopes
             .get(slot)

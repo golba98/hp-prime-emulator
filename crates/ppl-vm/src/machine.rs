@@ -1541,18 +1541,13 @@ impl Machine {
                             && data.cols != 0 && weights.cols != 0)
                 {
                     diagnostic
-                } else if let Some(value) = list_sources.and_then(|sources| {
-                    stddev_list_length_diagnostic(
-                        &args,
-                        sources.map(|index| {
-                            index.map(|index| {
-                                let Value::Str(source) = &self.consts[index as usize] else {
-                                    unreachable!("stddev list source is a string constant");
-                                };
-                                source.as_ref()
-                            })
-                        }),
-                    )
+                } else if let Some(value) = list_sources.and_then(|index| {
+                    let ppl_compiler::bytecode::StddevMetadata::ListSources(sources) =
+                        self.chunk(frame.func).stddev_metadata(index)
+                    else {
+                        unreachable!("expected STDDEV list sources");
+                    };
+                    stddev_list_length_diagnostic(&args, sources.each_ref().map(Option::as_deref))
                 }) {
                     value
                 } else if let Some(value) =
@@ -1582,10 +1577,14 @@ impl Machine {
                 self.stack.push(value);
             }
             Op::StddevInlineCollection {
-                data,
-                weights,
+                shapes,
                 encoded_weights,
             } => {
+                let &ppl_compiler::bytecode::StddevMetadata::InlineShapes(shapes) =
+                    self.chunk(frame.func).stddev_metadata(shapes)
+                else {
+                    unreachable!("expected STDDEV collection shapes");
+                };
                 let diagnostic = self.pop();
                 let failed = self.pop().truthy()?;
                 let args = self.pop_n(2);
@@ -1599,7 +1598,7 @@ impl Machine {
                     builtins::stddev_exact::inline_collection(
                         self,
                         [data_cells, weight_cells],
-                        [data, weights],
+                        shapes,
                         diagnostic,
                     )?
                 };

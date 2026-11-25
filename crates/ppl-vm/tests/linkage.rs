@@ -49,6 +49,34 @@ fn initialize(s: &mut SessionContext, sources: &BTreeMap<String, ModuleSource>, 
 fn n(v: Value) -> i64 {
     v.expect_i64("test").unwrap()
 }
+
+#[test]
+fn linked_stddev_retains_names_from_the_defining_module() {
+    let sources = modules(&[
+        (
+            "A",
+            "EXPORT TOP() BEGIN LOCAL padding:={11,22,33,44,55}; RETURN LISTSTATS(); END;",
+        ),
+        (
+            "B",
+            "EXPORT LISTSTATS() BEGIN LOCAL data:={1,3}, weights:={1}; RETURN stddev(data,weights); END;",
+        ),
+    ]);
+    let result = call(
+        &mut SessionContext::default(),
+        &sources,
+        "A",
+        "TOP",
+        Vec::new(),
+    )
+    .result
+    .unwrap();
+    assert_eq!(
+        result.expect_str("STDDEV diagnostic").unwrap().as_ref(),
+        "stddev(data,weights) \n Error: Bad Argument Value"
+    );
+}
+
 #[test]
 fn three_program_calls_share_globals_and_isolate_private_values() {
     let sources = modules(&[

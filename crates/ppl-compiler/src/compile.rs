@@ -522,6 +522,7 @@ fn empty_chunk(name: &str, span: Span) -> Chunk {
         local_names: Vec::new(),
         local_scopes: Vec::new(),
         code: Vec::new(),
+        stddev_metadata: Vec::new(),
         spans: Vec::new(),
         exported: false,
         span,
@@ -2435,7 +2436,7 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    fn stddev_list_sources(&mut self, args: &[Expr]) -> Option<[Option<u32>; 2]> {
+    fn stddev_list_sources(&mut self, args: &[Expr]) -> Option<std::num::NonZeroU32> {
         let [data, weights] = args else {
             return None;
         };
@@ -2444,9 +2445,10 @@ impl<'a> Compiler<'a> {
             ExprKind::Ident(name) => Some(Some(name.clone())),
             _ => None,
         };
+        let sources = [source(data)?, source(weights)?];
         Some(
-            [source(data)?, source(weights)?]
-                .map(|name| name.map(|name| self.constant_index(Const::Str(name)))),
+            self.cur
+                .add_stddev_metadata(StddevMetadata::ListSources(sources)),
         )
     }
 
@@ -2816,10 +2818,12 @@ impl<'a> Compiler<'a> {
         }
         self.cur.emit(Op::LoadLocal(failure), span);
         self.constant(Const::Str(diagnostic), span);
+        let shapes = self.cur.add_stddev_metadata(StddevMetadata::InlineShapes(
+            shapes.map(|shape| shape.map(|dimension| dimension as u32)),
+        ));
         self.cur.emit(
             Op::StddevInlineCollection {
-                data: shapes[0].map(|n| n as u32),
-                weights: shapes[1].map(|n| n as u32),
+                shapes,
                 encoded_weights,
             },
             span,

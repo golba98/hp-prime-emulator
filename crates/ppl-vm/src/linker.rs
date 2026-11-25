@@ -487,6 +487,7 @@ fn empty_init() -> Chunk {
         local_names: vec![],
         local_scopes: vec![],
         code: vec![Op::Zero, Op::Return],
+        stddev_metadata: vec![],
         spans: vec![ppl_syntax::Span::default(); 2],
         exported: false,
         span: ppl_syntax::Span::default(),

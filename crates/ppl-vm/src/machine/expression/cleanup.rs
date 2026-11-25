@@ -68,6 +68,7 @@ impl Machine {
                 local_names: vec![],
                 local_scopes: vec![],
                 code: vec![Op::Zero, Op::Return],
+                stddev_metadata: vec![],
                 spans: vec![Span::default(); 2],
                 exported: false,
                 span: Span::default(),
