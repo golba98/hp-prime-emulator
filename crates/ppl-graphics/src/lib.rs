@@ -862,6 +862,32 @@ mod tests {
     }
 
     #[test]
+    fn opaque_calculator_line_writes_the_clipped_samples() {
+        let color = rgb(23, 104, 217);
+        let lines = [
+            ((-2, 1), (10, 1)),
+            ((4, 7), (4, -2)),
+            ((6, -2), (0, 4)),
+            ((-12, -8), (7, 3)),
+            ((i64::MIN, i64::MIN), (i64::MAX, i64::MAX)),
+            ((3, 2), (3, 2)),
+        ];
+        for size in [(7, 3), (0, 3), (7, 0)] {
+            for (a, b) in lines {
+                let mut actual = Grob::new(size.0, size.1, WHITE);
+                let mut expected = actual.clone();
+                Grob::try_calculator_line_pixels(size, a, b, |x, y| {
+                    expected.set_calculator_line_pixel(x, y, color);
+                    Ok::<(), std::convert::Infallible>(())
+                })
+                .unwrap();
+                actual.calculator_line(a, b, color);
+                assert_eq!(actual, expected, "{size:?}, {a:?} to {b:?}");
+            }
+        }
+    }
+
+    #[test]
     fn circles_and_polygons() {
         let mut g = Grob::screen();
         g.fill_circle(100, 100, 20, rgb(255, 0, 0));

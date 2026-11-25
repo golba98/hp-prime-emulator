@@ -2,11 +2,23 @@
 use crate::{Color, Grob};
 
 pub(crate) fn line(grob: &mut Grob, a: (i64, i64), b: (i64, i64), color: Color) {
-    line_pixels((grob.width(), grob.height()), a, b, |x, y| {
-        line_point(grob, i128::from(x), i128::from(y), color);
-        Ok::<(), std::convert::Infallible>(())
-    })
-    .unwrap();
+    let size = (grob.width(), grob.height());
+    if color >> 24 == 0 {
+        // The raster visitor supplies only visible samples. An opaque line
+        // can write them directly without clipping or blending them again.
+        let pixels = grob.pixels_mut();
+        line_pixels(size, a, b, |x, y| {
+            pixels[y as usize * size.0 + x as usize] = color;
+            Ok::<(), std::convert::Infallible>(())
+        })
+        .unwrap();
+    } else {
+        line_pixels(size, a, b, |x, y| {
+            line_point(grob, i128::from(x), i128::from(y), color);
+            Ok::<(), std::convert::Infallible>(())
+        })
+        .unwrap();
+    }
 }
 
 pub(super) fn line_pixels<E>(
