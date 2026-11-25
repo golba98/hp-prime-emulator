@@ -2239,6 +2239,35 @@
         }
       },
       "package_smoke": "The extracted executable passed numerical and exact Giac results, debugger stepping, input, key handling, drawing, typed matrices, cross-module diagnostics and the existing numerical complex controls. The five stored compatibility suites replayed with 44 verified, five failed, four partial and 64 unverified cases.",
+      "clean_install_acceptance": {
+        "package_source": "1f7b1d0fb904437036b83bd90821177145ac00f8",
+        "sha256": "c52677cc406ab39114e15fc3abad5890242ec1feaeb3da599426381372bf7121",
+        "host": "Debian GNU/Linux 13 x86-64, glibc 2.41",
+        "highest_imported_glibc_symbol_version": "2.39",
+        "method": "Verified the archive checksum and REVISION, then installed the extracted binary into a new user-owned bin directory with isolated HOME and XDG directories. The numerical and debugger checks ran with the library path override unset. Built the helper from tools/giac-helper at the package source revision with Debian libgiac-dev 1.9.0.93+dfsg2-3 from the runner’s user-owned dependency prefix.",
+        "numerical_and_debugger_result": "49",
+        "helper_placements": {
+          "explicit": "PPL_CAS_HELPER",
+          "sibling": "~/.local/bin/ppl-giac-helper",
+          "xdg": "$XDG_DATA_HOME/hp-prime-emulator/cas/ppl-giac-helper",
+          "home": "~/.local/share/hp-prime-emulator/cas/ppl-giac-helper with XDG_DATA_HOME unset",
+          "path": "ppl-giac-helper on PATH"
+        },
+        "symbolic_result_in_each_placement": [
+          "-2",
+          "2"
+        ],
+        "missing_helper_exit": 3,
+        "missing_helper_diagnostic": "CAS helper unavailable with instructions for selecting PPL_CAS_HELPER.",
+        "desktop_sessions_passed": 6,
+        "desktop_sessions_failed": 0,
+        "desktop_sessions_skipped": 0,
+        "desktop_assertion_groups_passed": 3,
+        "desktop_assertion_groups_failed": 0,
+        "desktop_assertion_groups_skipped": 0,
+        "default_native_profile": "$XDG_DATA_HOME/hp-prime-emulator/native/state-v1.json",
+        "desktop_acceptance": "With the helper discovered beside ppl and in XDG data, the installed executable passed exact CAS values, typed strings, undefined and infinity, failed-assignment rollback, CAS softkey simplification and separate-process reopen. A second XDG run used the default Native profile and restored its saved state with PPL_NATIVE_PROFILE unset."
+      },
       "test_execution_audit": {
         "integration_revision": "b101858ee58c3284f2a3d102bfd92671230214dc",
         "method": "Ran both test commands with RUST_TEST_NOCAPTURE=1. Compared logged gates against the environment and checked the source guards and test names for 27 silent workspace returns and four silent Giac-suite returns. The default workspace run had no Giac helper selected.",
