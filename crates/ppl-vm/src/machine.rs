@@ -688,21 +688,23 @@ impl Machine {
             ));
         }
         let stop_depth = self.frames.len();
-        self.push_frame(func, args)?;
+        let argc = args.len();
+        self.stack.extend(args);
+        self.push_frame(func, argc)?;
         self.run_loop(stop_depth)
     }
 
-    fn push_frame(&mut self, func: usize, args: Vec<Value>) -> RtResult<()> {
+    /// Evaluated arguments already occupy the first slots of the new frame.
+    fn push_frame(&mut self, func: usize, argc: usize) -> RtResult<()> {
+        let base = self.stack.len() - argc;
         if self.frames.len() >= self.limits.max_depth {
+            self.stack.truncate(base);
             return Err(RuntimeError::new(
                 ErrorKind::ResourceLimit(ResourceKind::Depth),
                 format!("call depth exceeded {}", self.limits.max_depth),
             ));
         }
-        let base = self.stack.len();
         let locals = self.chunk(func).locals as usize;
-        let argc = args.len();
-        self.stack.extend(args);
         for _ in argc..locals {
             self.stack.push(Value::zero());
         }
@@ -1396,8 +1398,7 @@ impl Machine {
                 }
             }
             Op::Call { func, argc } => {
-                let args = self.pop_n(argc as usize);
-                self.push_frame(func as usize, args)?;
+                self.push_frame(func as usize, argc as usize)?;
             }
             Op::CallExternal { name, .. } => {
                 return Err(RuntimeError::new(
@@ -1423,7 +1424,8 @@ impl Machine {
                     .0
                     .function_owners[func as usize];
                 self.initialize_module(module)?;
-                self.push_frame(func as usize, args)?;
+                self.stack.extend(args);
+                self.push_frame(func as usize, argc as usize)?;
             }
             Op::CasCompose { argc } => {
                 let marker = self.pop().expect_str("CAS template marker")?;

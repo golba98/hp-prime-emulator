@@ -1,6 +1,6 @@
 use ppl_compiler::{CompileOptions, compile_source};
 use ppl_syntax::SourceFile;
-use ppl_vm::{AngleMode, HeadlessHost, Limits, Machine, Settings, Value};
+use ppl_vm::{AngleMode, ErrorKind, HeadlessHost, Limits, Machine, ResourceKind, Settings, Value};
 use std::rc::Rc;
 
 fn run_ppl(code: &str) -> (Vec<String>, Value, Machine) {
@@ -540,6 +540,55 @@ fn test_helper_and_recursive_functions() {
     "#;
     let (lines, _, _) = run_ppl(code);
     assert_eq!(lines, vec!["7", "120", "12"]);
+}
+
+#[test]
+fn local_call_arguments_and_pending_operands_survive_nested_frames() {
+    let source = SourceFile::new(
+        "<local calls>",
+        r#"
+        pack(a,b)
+        BEGIN
+          LOCAL unassigned;
+          RETURN a*10+b+unassigned;
+        END;
+
+        nest(n)
+        BEGIN
+          IF n==0 THEN RETURN 0; END;
+          RETURN 100+pack(n,nest(n-1));
+        END;
+
+        EXPORT ENTRY(n)
+        BEGIN
+          RETURN 1000+nest(n)+pack(2,3);
+        END;
+        "#
+        .to_string(),
+    );
+    let (program, diagnostics) = compile_source(&source, &CompileOptions::default());
+    assert!(!diagnostics.has_errors(), "{diagnostics:?}");
+    let mut machine = Machine::new(
+        Rc::new(program.unwrap()),
+        Box::new(HeadlessHost::new()),
+        Settings::default(),
+        Limits {
+            max_depth: 5,
+            ..Limits::default()
+        },
+    );
+
+    for n in [2, 8, 2] {
+        let result = machine.call_function("ENTRY", vec![Value::from_i64(n)]);
+        if n == 8 {
+            assert_eq!(
+                result.unwrap_err().kind,
+                ErrorKind::ResourceLimit(ResourceKind::Depth)
+            );
+        } else {
+            assert_eq!(result.unwrap().expect_i64("result").unwrap(), 1253);
+        }
+    }
 }
 
 // ============================================================================
