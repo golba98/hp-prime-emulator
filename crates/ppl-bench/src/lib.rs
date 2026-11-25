@@ -212,12 +212,6 @@ END;
 pub const REAL_CHAIN_N: u64 = 10_000;
 
 /// Real (12-digit BCD) mul / div / sqrt chain: Σ √i·1.37/3.11·2.5.
-///
-/// `SQRT` is applied to the integer loop counter on purpose: at the time of
-/// writing `Real::sqrt` overflows its `u128` intermediate for 12-digit
-/// mantissas with an odd exponent (e.g. `SQRT(5.12345678901)`), panicking in
-/// debug builds and returning a wrong value in release builds. See the
-/// ignored `sqrt_full_mantissa_odd_exponent` test below.
 pub const REAL_CHAIN: Workload = Workload {
     name: "real_chain_10k",
     source: r#"

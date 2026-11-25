@@ -2620,6 +2620,64 @@
           "graphics_ppl/ppl_line_p_x200": -0.4,
           "graphics_ppl/ppl_textout_p_x200": -1.2
         },
+        "pinned_vm_recheck": {
+          "method": "Seven pairs per workload on logical CPU 4. Alternated main-first and candidate-first order using the same optimized Criterion binaries as the release comparison.",
+          "criterion_args": "--bench <workload> --exact --warm-up-time 1 --measurement-time 3 --sample-size 20",
+          "raw_estimates_verified": 28,
+          "workloads": {
+            "vm/for_sum_100k": {
+              "paired_time_changes_percent": [
+                -1.36,
+                3.29,
+                0.63,
+                -2.66,
+                -1.64,
+                -6.19,
+                -0.74
+              ],
+              "median_time_change_percent": -1.36
+            },
+            "vm/real_chain_10k": {
+              "paired_time_changes_percent": [
+                5.38,
+                -15.34,
+                3.84,
+                7.11,
+                -1.17,
+                -0.85,
+                4.06
+              ],
+              "median_time_change_percent": 3.84
+            }
+          },
+          "matching_preceding_archive_typed_results_by_numeric_mode": {
+            "for_sum_100k": {
+              "15157": "5000050000",
+              "15751": "5000050000"
+            },
+            "real_chain_10k": {
+              "15157": "734245.618253",
+              "15751": "734245.618253"
+            }
+          },
+          "full_mantissa_root_inputs": [
+            "5.12345678901",
+            "5.12345678901E-31",
+            "5.12345678901E31"
+          ],
+          "full_mantissa_root_results_by_numeric_mode": {
+            "15157": [
+              "2.26350542058",
+              "7.15783262518E-16",
+              "7.15783262518E15"
+            ],
+            "15751": [
+              "2.26350542058",
+              "7.15783262518E-16",
+              "7.15783262518E15"
+            ]
+          }
+        },
         "assessment": "The longer comparisons put PPL line, filled-circle and text drawing 31.5%, 29.9% and 13.8% below main in median elapsed time. Their changes from the preceding candidate were −0.4%, +0.1% and −1.2%. Longer follow-ups for the two most variable quick workloads measured the matrix determinant 1.1% above main and the 24,772-line editor edit 2.7% below main. The 100,000-iteration sum and real arithmetic chain were 3.4% and 3.0% above main. Verified 227 saved Criterion estimates for 38 quick workloads and 11 longer workloads."
       }
     },
