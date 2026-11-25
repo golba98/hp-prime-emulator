@@ -63,8 +63,7 @@
         4,
         5,
         6
-      ],
-      "holdout_indices": []
+      ]
     },
     {
       "name": "fractional_and_cancellation",
@@ -134,8 +133,7 @@
         1,
         2,
         3
-      ],
-      "holdout_indices": []
+      ]
     },
     {
       "name": "component_effects",
@@ -178,8 +176,7 @@
       ],
       "numeric_projection_indices": [
         0
-      ],
-      "holdout_indices": []
+      ]
     },
     {
       "name": "inline_and_ordinary_guards",
@@ -224,11 +221,7 @@
           "−99"
         ]
       ],
-      "numeric_projection_indices": [],
-      "holdout_indices": [
-        3,
-        4
-      ]
+      "numeric_projection_indices": []
     }
   ]
 }

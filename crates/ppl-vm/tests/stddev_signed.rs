@@ -325,12 +325,6 @@ fn verify(fixture: &str) {
                     }
                 }
             }
-            if let Some(indices) = case["holdout_indices"].as_array() {
-                for index in indices {
-                    let index = index.as_u64().unwrap() as usize;
-                    expected[index] = actual[index].clone();
-                }
-            }
             if let Some(indices) = case["numeric_tolerance_indices"].as_array() {
                 for index in indices {
                     let index = index.as_u64().unwrap() as usize;
