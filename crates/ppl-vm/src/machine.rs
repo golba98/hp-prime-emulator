@@ -1913,16 +1913,17 @@ impl Machine {
             Op::TryEnd => {
                 self.tries.pop();
             }
-            Op::ForTest { down } => {
+            Op::ForExit { down, target } => {
                 let limit = self.pop();
-                let var = self.pop();
-                let ord = ops::compare(&var, &limit)?;
-                let go = if down {
-                    ord != std::cmp::Ordering::Less
+                let counter = self.pop();
+                let past_limit = if down {
+                    std::cmp::Ordering::Less
                 } else {
-                    ord != std::cmp::Ordering::Greater
+                    std::cmp::Ordering::Greater
                 };
-                self.stack.push(Value::from_bool(go));
+                if ops::compare(&counter, &limit)? == past_limit {
+                    self.frames.last_mut().unwrap().ip = target as usize;
+                }
             }
             Op::AppendLocal(slot) => {
                 let v = self.pop();

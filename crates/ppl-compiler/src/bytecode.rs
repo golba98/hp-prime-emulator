@@ -197,9 +197,10 @@ pub enum Op {
         preceding: u8,
     },
     TryEnd,
-    /// Loop guard: stack: var, limit → pushes 1 to continue, 0 to stop.
-    ForTest {
+    /// Pops the counter and limit and jumps when the counter passes the limit.
+    ForExit {
         down: bool,
+        target: u32,
     },
     /// Stack: value → appends to the list held in a local (MAKELIST).
     AppendLocal(u16),
@@ -272,7 +273,8 @@ impl Chunk {
             | Op::TryBegin(t)
             | Op::TryStddevCell(t)
             | Op::TryAppendCallback { handler: t, .. }
-            | Op::LogicJump { target: t, .. } => *t = target,
+            | Op::LogicJump { target: t, .. }
+            | Op::ForExit { target: t, .. } => *t = target,
             other => panic!("patching non-jump {other:?}"),
         }
     }

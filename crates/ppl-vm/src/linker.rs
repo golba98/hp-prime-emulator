@@ -88,7 +88,8 @@ impl LinkedProgram {
                     Op::JumpIfFalse(target)
                     | Op::TryBegin(target)
                     | Op::TryStddevCell(target)
-                    | Op::LogicJump { target, .. } => {
+                    | Op::LogicJump { target, .. }
+                    | Op::ForExit { target, .. } => {
                         positions.push(target as usize);
                         positions.push(position + 1);
                     }

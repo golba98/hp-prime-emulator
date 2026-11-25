@@ -51,6 +51,32 @@ fn n(v: Value) -> i64 {
 }
 
 #[test]
+fn linked_loop_guard_keeps_both_dependency_paths_reachable() {
+    let sources = modules(&[(
+        "ROOT",
+        "EXPORT TOP(lo,hi) BEGIN LOCAL k; FOR k FROM lo TO hi DO RETURN A+1; END; RETURN B+2; END;",
+    )]);
+    let linked = link_sources(&sources, "ROOT").unwrap();
+    let dependencies = linked.calculator_dependencies("TOP").unwrap();
+    assert_eq!(dependencies.reads, ["A".into(), "B".into()].into());
+    assert!(dependencies.writes.is_empty());
+
+    let mut session = SessionContext::default();
+    for (lo, hi, expected) in [(1, 1, 1), (2, 1, 2)] {
+        let result = call(
+            &mut session,
+            &sources,
+            "ROOT",
+            "TOP",
+            vec![Value::from_i64(lo), Value::from_i64(hi)],
+        )
+        .result
+        .unwrap();
+        assert_eq!(n(result), expected);
+    }
+}
+
+#[test]
 fn linked_stddev_retains_names_from_the_defining_module() {
     let sources = modules(&[
         (

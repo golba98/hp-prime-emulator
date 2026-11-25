@@ -1352,8 +1352,7 @@ impl<'a> Compiler<'a> {
         let top = self.cur.here();
         self.load(v, var.span);
         self.cur.emit(Op::LoadLocal(to_slot), span);
-        self.cur.emit(Op::ForTest { down }, span);
-        let jf = self.cur.emit(Op::JumpIfFalse(0), span);
+        let jf = self.cur.emit(Op::ForExit { down, target: 0 }, span);
         self.loops.push(LoopCtx {
             breaks: Vec::new(),
             continues: Vec::new(),
@@ -3365,8 +3364,13 @@ impl<'a> Compiler<'a> {
         let top = self.cur.here();
         self.load(v, span);
         self.cur.emit(Op::LoadLocal(end), span);
-        self.cur.emit(Op::ForTest { down: false }, span);
-        let jf = self.cur.emit(Op::JumpIfFalse(0), span);
+        let jf = self.cur.emit(
+            Op::ForExit {
+                down: false,
+                target: 0,
+            },
+            span,
+        );
         self.expr(&args[0]);
         self.cur.emit(Op::AppendLocal(acc), span);
         self.load(v, span);
