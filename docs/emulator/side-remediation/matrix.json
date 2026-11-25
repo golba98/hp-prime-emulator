@@ -1604,7 +1604,7 @@
   "continuation_acceptance": "Incomplete:30 implemented,3 partial,0 unresolved. Findings1(app completeness),24(overloads/graphics/formatting) and25(display parity) remain required engineering. The all33 objective is not complete.",
   "verified_counts_scope": "Historical original audit counts. Current continuation results and hashes are in verification.json.continuation.results.",
   "release_candidate": {
-    "source_checkpoint": "65db1fccaf42ea514ce717f8d8e38fb3964a9528",
+    "source_checkpoint": "ca8d41e0771d6180f865d055375333b1ea51b9b4",
     "scope": "Statuses apply to the original finding criteria. The verified label for these scoped rows reflects recorded original evidence and applicable Native regressions. Firmware rows still need a current run with the original runtime assets. Whole-app, overload and display parity remain partial.",
     "implementation_references": {
       "1": [
@@ -1612,34 +1612,76 @@
         "2158e60 isolates the lighting profile",
         "2b51077 preserves typed tangent slope",
         "25e6839 reuses Advanced Graphing coordinates",
-        "f0e3280 routes Zoom taps to the Statistics menu"
+        "f0e3280 routes Zoom taps to the Statistics menu",
+        "190df21 aligns Screen Only rendering and measures Spreadsheet font sizing in LCD coordinates",
+        "d63d5b5 resolves near-pole trigonometric Geometry tangent slopes and uses the effective app angle"
       ],
       "18": [
         "65db1fc makes forced-termination verification independent of the optional procfs children file"
+      ],
+      "24": [
+        "dcf5551 bounds raster drawing work and restores ordinary line and fill performance",
+        "ca8d41e fixes linked STDDEV source diagnostics and restores a compact instruction stream",
+        "adceb15 matches G1 packed pixel-grob format selection at exact plane capacity"
+      ],
+      "25": [
+        "190df21 aligns integer-scale calculator rendering to physical pixels"
       ]
     },
     "acceptance": {
       "applications": "Build and select the matching Giac helper, set PPL_BIN to the release binary, and run bash tests/ide_xvfb_smoke/run_native_side.sh. Expect live PPL/plot data and separate-process restore. The chart, lighting, dependent trace and report assertions target the relevant controls individually.",
       "persistence": "With PPL_BIN and PPL_CAS_HELPER selected, run python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py and python3 tests/ide_xvfb_smoke/assert_native_statistics_one_crash_restart.py. Each test requires the isolated child to exit from SIGKILL and a fresh child to restore the saved typed state.",
-      "firmware": "With local original firmware assets in PRIME_TEST_FIRMWARE, PRIME_TEST_INIT_DATA and PRIME_TEST_OS_ROM, run cargo test --locked -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture. Set PRIME_TEST_RUNNER to the local runner for cargo test --locked -p ppl-compat --test checkpoint_scenarios -- --nocapture. Verify execution of the asset-dependent assertions.",
+      "firmware": "With local original firmware assets in PRIME_TEST_FIRMWARE, PRIME_TEST_INIT_DATA and PRIME_TEST_OS_ROM, run cargo build --locked --release -p prime-emulator and cargo test --locked -p prime-emulator --all-targets -- --test-threads=1 --nocapture. Set PRIME_TEST_RUNNER to the local runner for cargo test --locked -p ppl-compat --test checkpoint_scenarios -- --nocapture. Verify execution of the asset-dependent assertions for text, clipboard, live storage, OS contracts and virtual devices.",
       "runtime": "Run cargo test --locked --workspace --all-targets --no-fail-fast. With the matching helper in PPL_CAS_HELPER, run cargo test --locked -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration --no-fail-fast.",
-      "install": "On Linux, run cargo install --locked --path crates/ppl-cli into a user-owned prefix, then run ppl gui. The tested Linux x86-64 archive requires glibc 2.39 or later and libudev.so.1. Build and select the separate helper for symbolic calculations. Windows Native build and tests are covered by the Windows CI job when it is available."
+      "install": "On Linux, run cargo install --locked --path crates/ppl-cli into a user-owned prefix, then run ppl gui. The tested Linux x86-64 archive requires glibc 2.39 or later, libudev.so.1, libz.so.1 and libgcc_s.so.1. Build and select the separate helper for symbolic calculations. Windows Native build and tests are covered by the Windows CI job when it is available.",
+      "original_native_resources": "Set PRIME_TEST_FONT_RESOURCE and PRIME_TEST_HELP_RESOURCE to lawful local assets. Run bash tests/ide_xvfb_smoke/run_native_side.sh with the released PPL_BIN and matching PPL_CAS_HELPER. Expect the font, menu, raw text and cold Help clauses to run and pass.",
+      "physical_type_and_string": "Replay ppl compare tests/compat/cases/core.toml --no-report and the matching g1_smoke.toml. Use tests/compat/cases/g1_string_resolution_v1.toml with the documented owner-assisted note capture to confirm actual character codes and length for disputed quoted values."
     },
     "linux_validation": {
       "workspace": {
-        "passed": 3065,
+        "passed": 3068,
         "failed": 0,
         "ignored": 6,
         "benchmark_smoke_checks": 38,
-        "rerun_reason": "The initial concurrent run exceeded the existing editor timing threshold. The unchanged condition passed in the targeted retry and in the full rerun."
+        "rerun_reason": "The initial concurrent run exceeded the existing editor timing threshold. The unchanged condition passed in the targeted retry and in the full rerun.",
+        "skipped_full_assertions_in_rust_ok_count": 85,
+        "skipped_optional_subchecks": 2,
+        "scope": "Of the 85 early returns, 84 require original resources and one requires the Giac helper covered in the feature run."
       },
       "giac_integration": {
-        "passed": 1480,
+        "passed": 1482,
         "failed": 0,
         "ignored": 2,
-        "scope": "Feature-enabled CAS, VM and GUI test targets with the matching system Giac helper."
+        "scope": "Feature-enabled CAS, VM and GUI test targets with the matching system Giac helper.",
+        "skipped_full_assertions_in_rust_ok_count": 10,
+        "resource_skip_scope": "Six font/resource tests and four installed Help tests lacked original assets."
       },
-      "firmware_resources": "Optional runtime asset and physical hardware acceptance remains open."
+      "firmware_resources": "Optional runtime asset and physical hardware acceptance remains open.",
+      "python": {
+        "passed": 112,
+        "failed": 0,
+        "skipped": 2,
+        "scope": "Repository maintenance and emulator scripts. Two private evidence checks were skipped."
+      },
+      "focused_after_checkpoint": {
+        "adceb15": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "command": "cargo test --locked -p ppl-vm --test graphics3d"
+        },
+        "d63d5b5": {
+          "passed": 8,
+          "failed": 0,
+          "ignored": 0,
+          "command": "cargo test --locked -p ppl-gui tangent"
+        }
+      },
+      "tooling_at_checkpoint": [
+        "cargo fmt --all -- --check",
+        "cargo clippy --locked --workspace --all-targets -- -D warnings",
+        "python3 scripts/maintenance/check_documentation.py --revision HEAD"
+      ]
     },
     "external_gates": [
       "Firmware sessions with lawful G1 assets",
@@ -1647,6 +1689,39 @@
       "Hosted Linux and Windows CI at the integration head",
       "Owner review and publication of updated public Markdown"
     ],
-    "future_toolkit_cli": "Review an optional HP Prime Development Toolkit integration that consumes the emulator CLI's typed JSON diagnostics and execution results. The Toolkit is a separate project."
+    "future_toolkit_cli": "Review an optional HP Prime Development Toolkit integration that consumes the emulator CLI's typed JSON diagnostics and execution results. The Toolkit is a separate project.",
+    "windows_gnu_validation": {
+      "status": "Passed",
+      "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
+      "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
+    },
+    "current_source": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
+    "physical_replay_at_checkpoint": {
+      "core": {
+        "verified": 40,
+        "failed": 4,
+        "partial": 4,
+        "unverified": 24
+      },
+      "g1_smoke": {
+        "verified": 4,
+        "failed": 1
+      },
+      "strings_baseconv": {
+        "unverified": 20
+      },
+      "g1_assessment_v1": {
+        "unverified": 8
+      },
+      "g1_string_resolution_v1": {
+        "unverified": 12
+      },
+      "scope": "Stored TYPE/STRING observations. The disagreements involve quote, imaginary glyph, exponent and minus representations. Fresh device confirmation is open."
+    },
+    "remaining_engineering": {
+      "1": "Some Graph 3D and Geometry tools, cross-app values, Spreadsheet calculations and app-specific plots need further parity work. Geometry ODE sampling and some repeated Spreadsheet PredX roots are recorded differences.",
+      "24": "Exact complex radicals, remaining collection overloads, CAS callback/string behavior and raster/syntax edge cases require further parity work.",
+      "25": "Remaining result layouts, softkey presentation and original font metrics require additional reference captures and implementation."
+    }
   }
 }
