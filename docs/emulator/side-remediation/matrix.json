@@ -1714,7 +1714,7 @@
         "isolated_rerun_assertion_groups_failed": 0,
         "rerun_reason": "The initial Statistics Defn snapshot showed the Zoom menu still open when the script moved the trace. A fresh-profile serial run of the original create and reopen scenarios passed unchanged."
       },
-      "other_acceptance": "The extracted package passed numerical and Giac checks, PPL input, waits, key retrieval, drawing, matrices and debugger stepping. Formatting, Clippy, Windows GNU cross-check, both forced restarts and all 21 input assertions at each of 1x, 1.5x and 2x passed.",
+      "other_acceptance": "The extracted package passed numerical and Giac checks, PPL input, waits, key retrieval, drawing, matrices and debugger stepping. The locked Linux workspace release build, formatting, Clippy, Windows GNU cross-check, both forced restarts and all 21 input assertions at each of 1x, 1.5x and 2x passed.",
       "performance": {
         "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
         "criterion_workloads_run": 38,
@@ -1724,7 +1724,14 @@
         "standalone_fibonacci_median_wall_ms": {"main": 5.84, "d63d5b5": 6.11, "9b7e8ff": 5.74},
         "standalone_rounds_per_build": 12,
         "two_round_list_append_time_change_percent": 10.5,
-        "scope": "Fibonacci improved against the preceding candidate. Its comparison against main varied by run. Indexed list append remains a performance follow-up."
+        "three_longer_round_median_time_changes_percent_from_main": {
+          "list_append_10k": 11.7,
+          "real_chain_10k": 7.0,
+          "compile_fireworks": -9.7,
+          "for_sum_100k": 6.9
+        },
+        "standalone_list_append_median_wall_ms": {"main": 2.63, "9b7e8ff": 2.60, "experimental_index_change": 2.58},
+        "scope": "Fibonacci improved against the preceding candidate. Its comparison against main varied by run. Criterion still measured slower list append in the longer comparison. The separate pinned harness did not reproduce that slowdown or establish an improvement from an alternative local index implementation, so that implementation was left out."
       }
     },
     "linux_release_archive": {
