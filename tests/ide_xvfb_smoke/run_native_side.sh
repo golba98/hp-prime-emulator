@@ -99,6 +99,7 @@ for scenario in input history history_reopen textbook textbook_radicals textbook
   if [[ "$scenario" == gallery* ]]; then profile=gallery; fi
   if [[ "$scenario" == graph3d* ]]; then profile=graph3d; fi
   if [[ "$scenario" == graph3d_setup* ]]; then profile=graph3d_setup; fi
+  if [[ "$scenario" == graph3d_illumination ]]; then profile=graph3d_illumination; fi
   if [[ "$scenario" == graph3d_plot_zoom* ]]; then profile=graph3d_plot_zoom;
   elif [[ "$scenario" == graph3d_colors* ]]; then profile=graph3d_colors;
   elif [[ "$scenario" == graph3d_plot_definition* ]]; then profile=graph3d_plot_definition;

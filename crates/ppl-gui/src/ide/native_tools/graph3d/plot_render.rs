@@ -93,13 +93,13 @@ impl SurfaceLayer {
                 .all(|(coordinate, [low, high])| (low..=high).contains(coordinate))
         {
             let radius = (area.width() * 0.008).clamp(3., 8.);
-            painter.circle_stroke(screen(point), radius, Stroke::new(1.5, Color32::WHITE));
+            painter.circle_stroke(screen(point), radius, Stroke::new(1.5_f32, Color32::WHITE));
         }
     }
 }
 
 fn paint_axes(painter: &Painter, book: &Book, screen: impl Fn(Point) -> Pos2) {
-    let axis = Stroke::new(1., Color32::from_rgb(100, 114, 132));
+    let axis = Stroke::new(1.0_f32, Color32::from_rgb(100, 114, 132));
     for axis_index in 0..3 {
         let others = [(axis_index + 1) % 3, (axis_index + 2) % 3];
         for a in book.bounds[others[0]] {
