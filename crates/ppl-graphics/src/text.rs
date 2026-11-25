@@ -280,6 +280,11 @@ fn draw_line(
         } else {
             gl.width
         };
+        if !gl.antialias && color >> 24 == 0 {
+            draw_opaque_glyph(g, &gl, (base_x, base_y), columns, color);
+            pen += gl.advance;
+            continue;
+        }
         for row in 0..gl.height {
             for col in 0..columns {
                 let coverage = gl.bitmap[row * gl.width + col];
@@ -302,6 +307,40 @@ fn draw_line(
         start_x.saturating_add(width).min(limit)
     } else {
         pen.round() as i64
+    }
+}
+
+fn draw_opaque_glyph(
+    g: &mut Grob,
+    glyph: &Glyph,
+    (x, y): (i64, i64),
+    columns: usize,
+    color: Color,
+) {
+    let stride = g.width();
+    let left = x.max(0);
+    let top = y.max(0);
+    let right = x.saturating_add(columns as i64).min(stride as i64);
+    let bottom = y.saturating_add(glyph.height as i64).min(g.height() as i64);
+    if left >= right || top >= bottom {
+        return;
+    }
+    let width = (right - left) as usize;
+    let height = (bottom - top) as usize;
+    let source_column = (left - x) as usize;
+    let source_row = (top - y) as usize;
+    let pixels = g.pixels_mut();
+    for row in 0..height {
+        let source = (source_row + row) * glyph.width + source_column;
+        let target = (top as usize + row) * stride + left as usize;
+        for (pixel, &coverage) in pixels[target..target + width]
+            .iter_mut()
+            .zip(&glyph.bitmap[source..source + width])
+        {
+            if coverage >= 128 {
+                *pixel = color;
+            }
+        }
     }
 }
 
@@ -333,6 +372,34 @@ pub fn render_terminal(lines: &[String]) -> Grob {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opaque_glyph_preserves_coverage_when_clipped() {
+        let glyph = Glyph {
+            width: 4,
+            height: 3,
+            xmin: 0,
+            ymin: 0,
+            advance: 4.,
+            bitmap: vec![255, 255, 255, 255, 255, 127, 128, 255, 0, 255, 0, 255],
+            antialias: false,
+        };
+        let color = crate::rgb(23, 61, 17);
+        let white = crate::WHITE;
+        let mut upper_left = Grob::new(3, 2, white);
+        draw_opaque_glyph(&mut upper_left, &glyph, (-1, -1), 3, color);
+        assert_eq!(
+            upper_left.pixels(),
+            &[white, color, white, color, white, white]
+        );
+
+        let mut lower_right = Grob::new(3, 2, white);
+        draw_opaque_glyph(&mut lower_right, &glyph, (2, 1), 3, color);
+        assert_eq!(
+            lower_right.pixels(),
+            &[white, white, white, white, white, color]
+        );
+    }
 
     #[test]
     fn renders_dark_pixels_and_returns_end() {
