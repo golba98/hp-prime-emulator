@@ -1630,7 +1630,8 @@
         "a8b979a branches directly from FOR and MAKELIST loop comparisons",
         "9088811 writes already-clipped opaque calculator line pixels directly",
         "1f7b1d0 clips opaque bitmap glyphs before writing pixels",
-        "b4f2f7f validates and persists literal APPEND Home angle assignments"
+        "b4f2f7f validates and persists literal APPEND Home angle assignments",
+        "f35f898 preserves the typed diagnostic for literal APPEND symbolic Home assignments"
       ],
       "25": [
         "190df21 aligns integer-scale calculator rendering to physical pixels"
@@ -1744,7 +1745,7 @@
       },
       "native_verification": "On Windows, run .\\ppl.exe --version, then .\\ppl.exe run --engine native examples/SQUARE.ppl --entry SQUARE --args \"[7]\" --json from the checkout and expect typed real 49. Open .\\ppl.exe gui and verify a clean start and a separate-process reopen."
     },
-    "current_source": "b4f2f7f4ac8f19f26878ca903cb567f1a79af9c3",
+    "current_source": "f35f89884b8721541d85a26f4cf50ee1d06cf405",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
       "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
@@ -2772,6 +2773,116 @@
         }
       },
       "scope": "Formatting and workspace Clippy with warnings denied passed. Rust harness totals include early returns for unavailable original resources. The 23 reproduced APPEND differences, hosted CI, native Windows and owner review remain open."
+    },
+    "append_symbolic_assignment_follow_up": {
+      "source": "f35f89884b8721541d85a26f4cf50ee1d06cf405",
+      "previous_source": "b4f2f7f4ac8f19f26878ca903cb567f1a79af9c3",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-f35f898.tar.gz",
+      "sha256": "f356244fae86d88a43a524d2022773de83cb83001d7dbb2b41bbc7c0ca88f7bb",
+      "finding": 24,
+      "implementation": "Literal lowercase append turns the unresolved symbolic right-hand side of a Home assignment into a typed Bad argument type string. That result follows the existing collection and persistence path. The assignment target keeps its previous value.",
+      "original_control": {
+        "fixture": "tests/fixtures/native-append-assignment-payload-controls.json",
+        "case": "assignment_guards_and_faults",
+        "zero_based_row": 3
+      },
+      "desktop_reproduction": "In a clean profile, set A to 7 and run a PPL program with L1:=append([1,2],\"A:=zztscope\"); RETURN L1;. Read A, close the emulator and launch a separate process using the same profile. Read L1 and A again. Run with numeric versions 15157 and 15751.",
+      "before": "The prior Linux candidate raised Bad argument type. A wrapped IFERR returned a real sentinel and a fresh process reopened with an empty L1.",
+      "after": "Both numeric modes return and reopen the typed list {1,2,\"Error: Bad argument type\"} with typed real A equal to 7. The separate Home angle start and reopen probes also passed in each mode.",
+      "append_replay": {
+        "fixture_files": 10,
+        "program_invocations": 68,
+        "exact_rows_per_mode": 208,
+        "differing_rows_per_mode": 22
+      },
+      "stddev_replay": {
+        "program_invocations": 318,
+        "exact_rows": 1605,
+        "rows_matching_existing_numeric_comparisons": 41,
+        "unexpected_rows": 0
+      },
+      "workspace_harness": {
+        "ok": 3082,
+        "failed": 0,
+        "ignored": 6
+      },
+      "workspace_benchmark_smoke_workloads": 38,
+      "giac_harness": {
+        "ok": 1492,
+        "failed": 0,
+        "ignored": 2
+      },
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "additional_assignment_sessions_passed": 4,
+        "additional_angle_sessions_passed": 4,
+        "forced_restart_checks_passed": 2,
+        "initial_run": {
+          "sessions_passed": 224,
+          "sessions_failed": 1,
+          "sessions_unexecuted": 1,
+          "assertion_groups_passed": 120,
+          "assertion_groups_failed": 1
+        },
+        "clipboard_retry": {
+          "session_names": [
+            "spreadsheet_clipboard",
+            "spreadsheet_clipboard_reopen"
+          ],
+          "sessions_passed": 2,
+          "sessions_failed": 0,
+          "assertion": "assert_native_spreadsheet_clipboard.py",
+          "assertion_groups_passed": 1,
+          "assertion_groups_failed": 0
+        }
+      },
+      "packaged_runtime": "The extracted archive passed source and archive checks, numerical evaluation, symbolic solve with the Giac helper, the interactive debugger, INPUT, WAIT, GETKEY, graphics, and cross-module STDDEV diagnostics.",
+      "ubuntu_2404_runtime_smoke": "The extracted archive passed checksum, dependency loading and typed real 49 in an isolated glibc 2.39 container with networking disconnected.",
+      "windows_gnu_check": "cargo check --locked --offline --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu passed. An actual Windows desktop remains to be verified.",
+      "compatibility_replay": {
+        "failed": 5,
+        "partial": 4,
+        "unverified": 64,
+        "verified": 44
+      },
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "procedure": "Three alternating pairs per workload on the same logical core with 1 s warmup, 2 s measurement and 20 samples. Compare Criterion median time.",
+        "raw_estimates_verified": 18,
+        "workloads": {
+          "collections/list_append_10k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              -14.78,
+              -8.55,
+              -5.86
+            ],
+            "median_time_change_percent": -8.55
+          },
+          "vm/for_sum_100k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              0.33,
+              -2.81,
+              -9.98
+            ],
+            "median_time_change_percent": -2.81
+          },
+          "vm/real_chain_10k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              -0.61,
+              3.86,
+              3.5
+            ],
+            "median_time_change_percent": 3.5
+          }
+        }
+      },
+      "scope": "Formatting and workspace Clippy with warnings denied passed. Rust harness totals include early returns for unavailable original resources. The 22 reproduced APPEND differences, hosted CI, native Windows and owner review remain open."
     },
     "linux_release_archive": {
       "source": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
