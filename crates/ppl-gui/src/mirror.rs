@@ -1461,9 +1461,11 @@ mod tests {
         app.set_notice("Saved screenshot.png");
         assert!(app.dynamic_title().contains("Saved screenshot.png"));
 
-        // Capture status with worker metrics
-        let mock = MockMirrorSource::new("Mock G1").with_solid_frames(&[0x111111]);
-        let worker = MirrorWorkerHandle::spawn(mock, 10.0, None);
+        // Provide fixed metrics so concurrent capture cannot change the title.
+        let worker = MirrorWorkerHandle {
+            state: Arc::new(MirrorSharedState::new()),
+            thread: None,
+        };
         {
             let mut m = worker.state.metrics.lock().unwrap();
             m.rolling_fps = 5.0;
