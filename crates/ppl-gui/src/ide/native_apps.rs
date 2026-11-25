@@ -1398,7 +1398,19 @@ impl ImplicitRelation {
         Ok((relation, source))
     }
     fn value(&mut self, x: f64, y: f64) -> Result<Option<SurfaceValue>, String> {
-        let result = self.evaluator.at_xy_value(x, y);
+        self.value_at_coordinates(ppl_math::Real::from_f64(x), ppl_math::Real::from_f64(y))
+    }
+    fn value_at_coordinates(
+        &mut self,
+        x: Result<ppl_math::Real, ppl_math::MathError>,
+        y: Result<ppl_math::Real, ppl_math::MathError>,
+    ) -> Result<Option<SurfaceValue>, String> {
+        let result = match (x, y) {
+            (Ok(x), Ok(y)) => self
+                .evaluator
+                .at_coordinates(ppl_vm::Value::Real(x), ppl_vm::Value::Real(y)),
+            (Err(error), _) | (_, Err(error)) => Err(error.into()),
+        };
         if matches!(&result,Ok(ppl_vm::Value::Complex(c)) if !c.im.is_zero()) {
             return Ok(None);
         }
@@ -1535,14 +1547,19 @@ fn region_runs(
 ) -> Result<CurveSamples, String> {
     let dx = (window.xmax - window.xmin) / nx as f64;
     let dy = (window.ymax - window.ymin) / ny as f64;
+    let x_samples: Vec<_> = (0..nx)
+        .map(|col| ppl_math::Real::from_f64(window.xmin + (col as f64 + 0.5) * dx))
+        .collect();
     let mut segments = Vec::new();
     for row in 0..ny {
         check_cancel(cancel)?;
         let y = window.ymax - (row as f64 + 0.5) * dy;
+        let y_sample = ppl_math::Real::from_f64(y);
         let mut start = None;
-        for col in 0..nx {
-            let x = window.xmin + (col as f64 + 0.5) * dx;
-            let inside = relation.value(x, y)?.is_some_and(|v| relation.truth(v));
+        for (col, &x_sample) in x_samples.iter().enumerate() {
+            let inside = relation
+                .value_at_coordinates(x_sample, y_sample)?
+                .is_some_and(|v| relation.truth(v));
             if inside {
                 start.get_or_insert(col);
             } else if let Some(first) = start.take() {
@@ -1589,12 +1606,16 @@ fn contours(
 ) -> Result<CurveSamples, String> {
     let dx = (window.xmax - window.xmin) / nx as f64;
     let dy = (window.ymax - window.ymin) / ny as f64;
+    // Every column uses the same decimal coordinate in every row.
+    let x_samples: Vec<_> = (0..=nx)
+        .map(|col| ppl_math::Real::from_f64(window.xmin + col as f64 * dx))
+        .collect();
     let mut grid = Vec::with_capacity((nx + 1) * (ny + 1));
     for row in 0..=ny {
         check_cancel(cancel)?;
-        let y = window.ymin + row as f64 * dy;
-        for col in 0..=nx {
-            grid.push(relation.value(window.xmin + col as f64 * dx, y)?);
+        let y_sample = ppl_math::Real::from_f64(window.ymin + row as f64 * dy);
+        for &x_sample in &x_samples {
+            grid.push(relation.value_at_coordinates(x_sample, y_sample)?);
         }
     }
     let mut output = Vec::new();
