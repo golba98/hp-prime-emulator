@@ -29,9 +29,11 @@ script['steps'].append({'step': 'wait_ms', 'ms': 30000})
 create = out / 'create.json'
 create.write_text(json.dumps(script, indent=2))
 helper = Path(os.environ.get('PPL_CAS_HELPER', str(Path(os.environ.get('PPL_BIN', 'target/debug/ppl')).parent / 'ppl-giac-helper')))
+pid_file = out / 'gui.pid'
 env = dict(os.environ, PPL_IDE_NO_DEVICE='1', PPL_CONFIG='/dev/null',
            PPL_NATIVE_PROFILE=str(out / 'profile'), XDG_CONFIG_HOME=str(out / 'config'),
-           XDG_DATA_HOME=str(out / 'data'), PPL_IDE_LOG_DIR=str(out / 'create-log'))
+           XDG_DATA_HOME=str(out / 'data'), PPL_IDE_LOG_DIR=str(out / 'create-log'),
+           PPL_IDE_PID_FILE=str(pid_file))
 if helper.is_file():
     env['PPL_CAS_HELPER'] = str(helper.resolve())
 binaries = {}
@@ -45,18 +47,6 @@ for label, binary in [('ppl', Path(env.get('PPL_BIN', 'target/debug/ppl'))), ('g
 (out / 'binaries.json').write_text(json.dumps(binaries, indent=2))
 for name in ['PPL_PRIME_FONT_RESOURCE', 'PPL_FACTORY_A', 'PPL_FIRMWARE_INIT_DATA']:
     env.pop(name, None)
-
-
-def descendants(pid):
-    try:
-        children = Path(f'/proc/{pid}/task/{pid}/children').read_text().split()
-    except FileNotFoundError:
-        return []
-    result = []
-    for child in children:
-        result.append(int(child))
-        result.extend(descendants(int(child)))
-    return result
 
 
 def ready(state):
@@ -91,16 +81,10 @@ with (out / 'runner.log').open('w') as log:
             assert time.monotonic() < deadline, 'Statistics state never reached durable crash checkpoint'
             time.sleep(.03)
         (out / 'before-kill.json').write_text(json.dumps(durable, indent=2))
-        pids = []
-        for pid in descendants(process.pid):
-            try:
-                if Path(f'/proc/{pid}/comm').read_text().strip() == 'ppl':
-                    pids.append(pid)
-            except FileNotFoundError:
-                pass
-        assert len(pids) == 1, pids
-        os.kill(pids[0], signal.SIGKILL)
-        assert process.wait(timeout=10) != 0, 'Crash must not be a graceful GUI exit'
+        pid = int(pid_file.read_text())
+        assert pid > 1 and pid != process.pid and process.poll() is None, pid
+        os.kill(pid, signal.SIGKILL)
+        assert process.wait(timeout=10) == 128 + signal.SIGKILL, 'expected a SIGKILL exit'
     finally:
         if process.poll() is None:
             process.terminate()
@@ -114,6 +98,7 @@ for step in reopen['steps']:
 reopen_path = out / 'reopen.json'
 reopen_path.write_text(json.dumps(reopen, indent=2))
 env['PPL_IDE_LOG_DIR'] = str(out / 'reopen-log')
+env.pop('PPL_IDE_PID_FILE')
 subprocess.run(['bash', str(HERE / 'run_ide_auto.sh'), str(reopen_path), '45'],
                cwd=ROOT, env=env, check=True)
 report = json.loads((out / 'reopened.json').read_text())

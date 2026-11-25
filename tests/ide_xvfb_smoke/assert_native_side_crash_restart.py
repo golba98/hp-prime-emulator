@@ -31,13 +31,8 @@ script['steps']=[step for step in script['steps'] if step['step']!='exit']+[{'st
 path=out/'create.json';path.write_text(json.dumps(script))
 helper=Path(os.environ.get('PPL_CAS_HELPER',str(Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))/'hp-prime-emulator/cas/ppl-giac-helper')))
 if helper.is_file():os.environ['PPL_CAS_HELPER']=str(helper)
-env=dict(os.environ,PPL_IDE_NO_DEVICE='1',PPL_NATIVE_PROFILE=str(out/'memory'),XDG_CONFIG_HOME=str(out/'config'),XDG_DATA_HOME=str(out/'data'),PPL_IDE_LOG_DIR=str(out/'create-log'))
-def descendants(pid):
-    try: children=Path(f'/proc/{pid}/task/{pid}/children').read_text().split()
-    except FileNotFoundError:return []
-    found=[]
-    for child in children:found.append(int(child));found.extend(descendants(int(child)))
-    return found
+pid_file = out / 'gui.pid'
+env=dict(os.environ,PPL_IDE_NO_DEVICE='1',PPL_NATIVE_PROFILE=str(out/'memory'),XDG_CONFIG_HOME=str(out/'config'),XDG_DATA_HOME=str(out/'data'),PPL_IDE_LOG_DIR=str(out/'create-log'),PPL_IDE_PID_FILE=str(pid_file))
 with (out/'runner.log').open('w') as log:
     process=subprocess.Popen(['bash',str(HERE/'run_ide_auto.sh'),str(path),'60'],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
     deadline=time.monotonic()+25
@@ -52,13 +47,14 @@ with (out/'runner.log').open('w') as log:
             if ready:break
             if time.monotonic()>deadline:raise AssertionError('durable calculator objects never reached crash checkpoint')
             time.sleep(.03)
-        pids=[pid for pid in descendants(process.pid) if Path(f'/proc/{pid}/comm').read_text().strip()=='ppl']
-        assert len(pids)==1,pids
-        os.kill(pids[0],signal.SIGKILL)
-        assert process.wait(timeout=10)!=0,'crash must not be a graceful GUI exit'
+        pid = int(pid_file.read_text())
+        assert pid > 1 and pid != process.pid and process.poll() is None, pid
+        os.kill(pid, signal.SIGKILL)
+        assert process.wait(timeout=10) == 128 + signal.SIGKILL, 'expected a SIGKILL exit'
     finally:
         if process.poll() is None:process.terminate();process.wait(timeout=10)
 env['PPL_IDE_LOG_DIR']=str(out/'reopen-log')
+env.pop('PPL_IDE_PID_FILE')
 reopen_script=json.loads((HERE/'scripts/script_native_side_state_reopen.json').read_text())
 reopen_script['steps'][-1:-1]=[
     {'step':'native_object','kind':'variable','name':'Base','content':'0'},

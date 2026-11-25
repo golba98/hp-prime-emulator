@@ -3,6 +3,7 @@
 # to exit. Usage: run_ide_auto.sh <script.json> [timeout_secs]
 # Environment: PPL_XVFB_SCREEN (default 1280x900x24) sets the virtual screen;
 # WINIT_X11_SCALE_FACTOR (e.g. 1.5, 2) emulates a high-DPI display.
+# PPL_IDE_PID_FILE can record the GUI PID for an isolated crash/reopen test.
 set -u
 SCREEN="${PPL_XVFB_SCREEN:-1280x900x24}"
 LOG_DIR="${PPL_IDE_LOG_DIR:-/tmp/ppl-ide-e2e}"
@@ -53,7 +54,12 @@ PPL_BIN="${PPL_BIN:-${TARGET_DIR:-./target}/release/ppl}"
 # advances while it is focused.
 python3 tests/ide_xvfb_smoke/x11_focus.py "HP Prime PPL Emulator" "$TIMEOUT" &
 FOCUS_PID=$!
-timeout "$TIMEOUT" "$PPL_BIN" gui >"$LOG_DIR/ide_run.log" 2>&1
+timeout "$TIMEOUT" bash -c '
+  if [[ -n "${PPL_IDE_PID_FILE:-}" ]]; then
+    printf "%s\n" "$$" >"$PPL_IDE_PID_FILE" || exit 1
+  fi
+  exec "$@"
+' ppl-ide-run "$PPL_BIN" gui >"$LOG_DIR/ide_run.log" 2>&1
 CODE=$?
 kill "$FOCUS_PID" 2>/dev/null
 T1=$(date +%s)
