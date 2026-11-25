@@ -243,12 +243,16 @@ fn decode(j: &Json, depth: usize, remaining: &mut usize) -> Result<PortableValue
                 if rows.checked_mul(cols) != Some(data.len()) || (vector && rows != 1) {
                     return Err("Matrix dimensions do not match data".into());
                 }
+                // Native APPEND can store positive infinity in a numeric vector.
                 if data.iter().any(|v| {
                     !matches!(
                         v,
                         PortableValue::Real(_)
                             | PortableValue::Integer(_)
                             | PortableValue::Complex(_)
+                            | PortableValue::Symbolic(ppl_cas::CasValue::Infinity(
+                                ppl_cas::InfinitySign::Positive
+                            ))
                     )
                 }) {
                     return Err("Matrix cells must be numeric".into());

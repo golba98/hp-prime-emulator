@@ -243,6 +243,24 @@ fn portable_matrix_dimensions_vector_flags_and_value_copies_survive_transfer() {
 }
 
 #[test]
+fn append_positive_infinity_vector_survives_profile_reopen() {
+    let mut session = SessionContext::default();
+    home(&mut session, "M1:=append([1,2],.5/0)");
+    let mut reopened = SessionContext::default();
+    reopened.restore_memory(&session.memory_json()).unwrap();
+    assert_eq!(number(home(&mut reopened, "TYPE(M1)")), 4);
+    assert_eq!(number(home(&mut reopened, "TYPE(M1(3))")), 0);
+    assert_eq!(
+        home(&mut reopened, "M1").display(Default::default()),
+        "[1,2,+Inf]"
+    );
+
+    let mut invalid = ppl_vm::session::encode_value(&session.snapshot().globals["M1"]);
+    invalid["value"][2] = serde_json::json!({"kind": "string", "value": "text"});
+    assert!(ppl_vm::session::decode_value(&invalid).is_err());
+}
+
+#[test]
 fn argument_evaluation_reads_calculator_state_without_temporary_ans_or_history() {
     let mut session = SessionContext::default();
     home(&mut session, "5");

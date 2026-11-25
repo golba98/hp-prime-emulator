@@ -112,6 +112,11 @@ pub(crate) fn append_nonfinite_quotient(
     append_item(machine, &args, Some(&args[1]))
 }
 
+pub(crate) fn append_vector_infinity(machine: &Machine, vector: &Matrix) -> RtResult<Value> {
+    let infinity = cas::from_cas(ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive));
+    append_vector(machine, vector, infinity)
+}
+
 pub(crate) fn append_callback_division_error(
     machine: &mut Machine,
     base: Value,

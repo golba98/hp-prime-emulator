@@ -103,6 +103,28 @@ fn lowercase_append_matches_original_direct_quotient_results() {
 }
 
 #[test]
+fn lowercase_append_nested_quotients_preserve_finite_values_and_call_resolution() {
+    assert_eq!(
+        run(
+            "B:=8; C:=2; RETURN {append([1,2],B/C+2),append([1,2],sqrt(B/C)), \
+            append([1,2],(B/C,0)),append([1,2],.5/2)};"
+        )
+        .unwrap(),
+        "{[1,2,6],[1,2,2],[1,2,4],[1,2,0.25]}"
+    );
+    assert_eq!(
+        run("LOCAL sqrt:={9}; B:=2; C:=2; RETURN append([1,2],sqrt(B/C));").unwrap(),
+        "[1,2,9]"
+    );
+    assert_eq!(
+        run("B:=8; C:=0; RETURN append([1,2],(B/C,1));")
+            .unwrap_err()
+            .kind,
+        ppl_vm::ErrorKind::DivisionByZero
+    );
+}
+
+#[test]
 fn lowercase_append_matches_original_callback_division_faults() {
     verify_append(
         include_str!("../../../tests/fixtures/native-append-callback-division-controls.json"),

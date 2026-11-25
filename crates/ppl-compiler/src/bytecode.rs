@@ -125,9 +125,13 @@ pub enum Op {
     /// Stack: base, numerator, denominator → appended collection.
     AppendQuotient {
         literal_operands: bool,
+        leading_dot_numerator: bool,
         callback_operands: [bool; 2],
         encoded_base: bool,
     },
+    /// Evaluate a nested APPEND quotient or append infinity and skip the remaining operations.
+    /// Stack: base, numerator, denominator → base, quotient or appended collection.
+    AppendNestedQuotient(u32),
     /// Evaluate a complete quotient argument of an immediate APPEND callback.
     /// Stack: base, preceding operands, numerator, denominator → base, preceding operands, value.
     AppendCallbackArgumentQuotient {
@@ -291,6 +295,7 @@ impl Chunk {
         match &mut self.code[at] {
             Op::Jump(t)
             | Op::JumpIfFalse(t)
+            | Op::AppendNestedQuotient(t)
             | Op::TryBegin(t)
             | Op::TryStddevCell(t)
             | Op::TryAppendCallback { handler: t, .. }

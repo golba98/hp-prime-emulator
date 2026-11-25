@@ -197,13 +197,7 @@
           "+Inf"
         ]
       ],
-      "holdout_indices": [
-        3,
-        4,
-        5,
-        6,
-        7
-      ]
+      "holdout_indices": []
     },
     {
       "name": "effect_order_and_existing_boundaries",
@@ -518,9 +512,7 @@
           "+Inf"
         ]
       ],
-      "holdout_indices": [
-        1
-      ]
+      "holdout_indices": []
     }
   ]
 }

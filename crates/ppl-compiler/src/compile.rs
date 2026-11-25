@@ -281,6 +281,34 @@ fn stddev_literal_real(expr: &Expr) -> Option<Real> {
     }
 }
 
+fn append_literal_quotient_diagnostic(base: &Expr, payload: &Expr) -> Option<String> {
+    fn operand(expr: &Expr) -> Option<&str> {
+        match &expr.kind {
+            ExprKind::Number(source) if Real::parse(source).is_some() => Some(source),
+            ExprKind::Binary(BinOp::Div, numerator, denominator)
+                if matches!(&numerator.kind, ExprKind::Number(source)
+                    if Real::parse(source).is_some_and(Real::is_integer))
+                    && matches!(&denominator.kind, ExprKind::Number(source)
+                        if Real::parse(source).is_some_and(Real::is_zero)) =>
+            {
+                Some("undef")
+            }
+            _ => None,
+        }
+    }
+
+    if !matches!(
+        (&base.kind, &payload.kind),
+        (ExprKind::Number(_), ExprKind::Binary(BinOp::Div, ..))
+            | (ExprKind::Binary(BinOp::Div, ..), ExprKind::Number(_))
+    ) {
+        return None;
+    }
+    let (base, payload) = (operand(base)?, operand(payload)?);
+    let suffix = builtins::APPEND_ARGUMENT_DIAGNOSTIC_SUFFIX;
+    Some(format!("append({base},{payload}){suffix}"))
+}
+
 fn is_app_variable(name: &str) -> bool {
     // App qualifiers are case sensitive. Additional app namespaces require
     // their own verified variable contract; ordinary dotted functions and CAS
@@ -2179,25 +2207,7 @@ impl<'a> Compiler<'a> {
                 let ci = builtins::lookup_case_insensitive(name);
                 if let Some(s) = ci {
                     if s.status != Status::Unsupported {
-                        let d = self.compat_note(
-                            "lowercase-command",
-                            callee.span,
-                            if name == "stddev" {
-                                "Native implements only some forms of the calculator's lowercase stddev command".into()
-                            } else if name == "append" {
-                                "Native supports selected collection forms of lowercase append (APPEND)".into()
-                            } else {
-                                format!(
-                                    "`{name}` calls the CAS command on the calculator; \
-                                     the emulator runs the Home command {} instead",
-                                    s.name
-                                )
-                            },
-                        );
-                        d.hint = Some(
-                            "results can differ where the CAS and Home versions differ".into(),
-                        );
-                        d.unverified = true;
+                        self.lowercase_builtin_note(name, s.name, callee.span);
                     }
                 }
                 ci
@@ -2366,18 +2376,28 @@ impl<'a> Compiler<'a> {
                 if self.append_callback_diagnostic(base, payload, span) {
                     return;
                 }
+                if let Some(diagnostic) = append_literal_quotient_diagnostic(base, payload) {
+                    self.constant(Const::Str(diagnostic), span);
+                    return;
+                }
                 let encoded_base =
                     source_encoded_matrix(base) || source_encoded_vector(base).is_some();
                 self.expr(base);
+                if self.append_nested_quotient(payload, encoded_base, span) {
+                    return;
+                }
                 if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &payload.kind {
                     let numerator_call = self.append_callback_operand(numerator, 0);
                     let denominator_call =
                         self.append_callback_operand(denominator, 1 + u8::from(numerator_call));
                     let literal_operands = matches!(numerator.kind, ExprKind::Number(_))
                         && matches!(denominator.kind, ExprKind::Number(_));
+                    let leading_dot_numerator = literal_operands
+                        && matches!(&numerator.kind, ExprKind::Number(source) if source.starts_with('.'));
                     self.cur.emit(
                         Op::AppendQuotient {
                             literal_operands,
+                            leading_dot_numerator,
                             callback_operands: [numerator_call, denominator_call],
                             encoded_base,
                         },
@@ -2500,12 +2520,97 @@ impl<'a> Compiler<'a> {
         );
     }
 
+    fn lowercase_builtin_note(&mut self, name: &str, builtin_name: &str, span: Span) {
+        let message = match name {
+            "stddev" => {
+                "Native implements only some forms of the calculator's lowercase stddev command"
+                    .into()
+            }
+            "append" => {
+                "Native supports selected collection forms of lowercase append (APPEND)".into()
+            }
+            _ => format!(
+                "`{name}` calls the CAS command on the calculator; the emulator runs the Home command {builtin_name} instead"
+            ),
+        };
+        let note = self.compat_note("lowercase-command", span, message);
+        note.hint = Some("results can differ where the CAS and Home versions differ".into());
+        note.unverified = true;
+    }
+
     fn append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {
         if self.try_append_callback_operand(expression, preceding) {
             return true;
         }
         self.expr(expression);
         false
+    }
+
+    fn append_nested_quotient(&mut self, payload: &Expr, encoded_base: bool, span: Span) -> bool {
+        // The infinity path can skip these operations without skipping user code.
+        let (quotient, operand, operation) = match &payload.kind {
+            ExprKind::Binary(BinOp::Add, left, right) if matches!(&right.kind, ExprKind::Number(source) if Real::parse(source).is_some()) => {
+                (left.as_ref(), Some(right.as_ref()), Op::Bin(BinOp::Add))
+            }
+            ExprKind::ComplexPair(real, imaginary)
+                if matches!(&imaginary.kind, ExprKind::Number(source)
+                    if Real::parse(source).is_some_and(Real::is_zero)) =>
+            {
+                (real.as_ref(), Some(imaginary.as_ref()), Op::MakeComplex)
+            }
+            ExprKind::Call(callee, args)
+                if let [quotient] = args.as_slice()
+                    && matches!(quotient.kind, ExprKind::Binary(BinOp::Div, ..))
+                    && let ExprKind::Ident(name) = &callee.kind
+                    && name.eq_ignore_ascii_case("SQRT")
+                    && !self.fn_map.contains_key(name)
+                    && !self.opts.external_functions.contains_key(name)
+                    && !self.opts.ambiguous_externals.contains(name)
+                    && !self.is_app_access(name)
+                    && self.resolve_var(name).is_none() =>
+            {
+                (
+                    quotient,
+                    None,
+                    Op::Builtin {
+                        id: Builtin::Sqrt,
+                        argc: 1,
+                    },
+                )
+            }
+            _ => return false,
+        };
+        let ExprKind::Binary(BinOp::Div, numerator, denominator) = &quotient.kind else {
+            return false;
+        };
+        if matches!(numerator.kind, ExprKind::Number(_))
+            && matches!(denominator.kind, ExprKind::Number(_))
+        {
+            return false;
+        }
+        if let ExprKind::Call(callee, _) = &payload.kind
+            && let ExprKind::Ident(name) = &callee.kind
+            && name != "SQRT"
+        {
+            self.lowercase_builtin_note(name, "SQRT", callee.span);
+        }
+        self.expr(numerator);
+        self.expr(denominator);
+        let jump = self.cur.emit(Op::AppendNestedQuotient(0), quotient.span);
+        if let Some(operand) = operand {
+            self.expr(operand);
+        }
+        self.cur.emit(operation, payload.span);
+        self.cur.emit(
+            Op::AppendCollection {
+                literal_payload: false,
+                callback_payload: false,
+                encoded_base,
+            },
+            span,
+        );
+        self.cur.patch_jump(jump, self.cur.here());
+        true
     }
 
     fn try_append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {

@@ -1501,6 +1501,7 @@ impl Machine {
             }
             Op::AppendQuotient {
                 literal_operands,
+                leading_dot_numerator,
                 callback_operands: [numerator_call, denominator_call],
                 encoded_base,
             } => {
@@ -1510,6 +1511,13 @@ impl Machine {
                 let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
                 let result = if let Some(fault) = numerator_fault.or(denominator_fault) {
                     self.append_callback_fault(base, encoded_base, fault)?
+                } else if leading_dot_numerator
+                    && let Value::Matrix(vector) = &base
+                    && vector.vector
+                    && matches!(numerator, Value::Real(value) if !value.is_integer() && !value.is_negative())
+                    && matches!(denominator, Value::Real(value) if value.is_zero())
+                {
+                    builtins::lists::append_vector_infinity(self, vector)?
                 } else if collection_base
                     && let (Value::Real(numerator), Value::Real(denominator)) =
                         (&numerator, &denominator)
@@ -1542,6 +1550,23 @@ impl Machine {
                 self.check_value(&result)?;
                 self.stack.push(result);
             }
+            Op::AppendNestedQuotient(target) => {
+                let denominator = self.pop();
+                let numerator = self.pop();
+                let base = &self.stack[self.stack.len() - 1];
+                let value = if matches!(base, Value::List(_) | Value::Matrix(_))
+                    && is_positive_integral_zero_quotient(&numerator, &denominator)
+                {
+                    let base = self.pop();
+                    let value = builtins::lists::append_nonfinite_quotient(self, base, false)?;
+                    self.frames.last_mut().unwrap().ip = target as usize;
+                    value
+                } else {
+                    self.binary_value(BinOp::Div, &numerator, &denominator)?
+                };
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
             Op::AppendCallbackArgumentQuotient {
                 preceding,
                 literal_operands,
@@ -1553,12 +1578,7 @@ impl Machine {
                 let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
                 let value = if collection_base
                     && !literal_operands
-                    && let (Value::Real(numerator), Value::Real(denominator)) =
-                        (&numerator, &denominator)
-                    && numerator.is_integer()
-                    && !numerator.is_negative()
-                    && !numerator.is_zero()
-                    && denominator.is_zero()
+                    && is_positive_integral_zero_quotient(&numerator, &denominator)
                 {
                     crate::cas::from_cas(ppl_cas::CasValue::Infinity(
                         ppl_cas::InfinitySign::Positive,
@@ -2119,6 +2139,12 @@ impl Machine {
             _ => Ok(()),
         }
     }
+}
+
+fn is_positive_integral_zero_quotient(numerator: &Value, denominator: &Value) -> bool {
+    matches!((numerator, denominator), (Value::Real(numerator), Value::Real(denominator))
+        if numerator.is_integer() && !numerator.is_negative() && !numerator.is_zero()
+            && denominator.is_zero())
 }
 
 fn stddev_list_length_diagnostic(args: &[Value], sources: [Option<&str>; 2]) -> Option<Value> {
