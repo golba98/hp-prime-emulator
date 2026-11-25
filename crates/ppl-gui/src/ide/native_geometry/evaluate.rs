@@ -385,9 +385,7 @@ impl Evaluator<'_> {
     fn tangent_at(&self, curve: &Shape, p: Point2) -> Result<Shape, String> {
         if let Shape::Function { expression, .. } = curve {
             match super::function::tangent_at(expression, p, self.snapshot, self.cancel.clone()) {
-                Err(message)
-                    if message == "Tangent needs a polynomial or rational Function Graph" =>
-                {
+                Err(message) if message == super::function::UNSUPPORTED_TANGENT => {
                     super::function::tangent(expression, p.x, self.snapshot, self.cancel.clone())
                 }
                 result => result,
