@@ -1703,6 +1703,26 @@
       "build": "cargo install --locked --path crates/ppl-cli --root <isolated-prefix>",
       "acceptance": "The extracted executable passed the numeric, CAS, debugger, INPUT, WAIT, GETKEY, drawing, matrix and cross-module STDDEV checks. The extracted desktop passed program save, close, reopen and run. Geometry returned three numeric tangent slopes and identified both undefined pole cases.",
       "forced_termination": "Both checked-in SIGKILL and independent-process restore scripts passed with the current binary. Persistence covered general values and presentation metadata, and Statistics data, result caches and saved plot settings.",
+      "current_rust_validation": {
+        "workspace": {
+          "command": "cargo test --locked --workspace --all-targets --no-fail-fast",
+          "rust_harness_ok": 3070,
+          "failed": 0,
+          "ignored": 6,
+          "benchmark_smoke_workloads_passed": 38
+        },
+        "giac": {
+          "command": "PPL_CAS_HELPER=<matching-helper> cargo test --locked -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration --no-fail-fast",
+          "rust_harness_ok": 1484,
+          "failed": 0,
+          "ignored": 2
+        },
+        "asset_gates": "The Rust harness ok count includes tests that return early when the required local hardware or installed assets are absent. These optional paths remain unverified. Three default-workspace ignored checks were run explicitly and passed: Xvfb rendering and exit, analysis latency, and display capture and encoding."
+      },
+      "desktop_input_scaling": {
+        "scales": [1, 1.5, 2],
+        "assertions_passed_per_scale": 21
+      },
       "focused_desktop_rerun": {
         "sessions_passed": 7,
         "sessions_failed": 0,
