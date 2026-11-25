@@ -1614,7 +1614,8 @@
         "25e6839 reuses Advanced Graphing coordinates",
         "f0e3280 routes Zoom taps to the Statistics menu",
         "190df21 aligns Screen Only rendering and measures Spreadsheet font sizing in LCD coordinates",
-        "d63d5b5 resolves near-pole trigonometric Geometry tangent slopes and uses the effective app angle"
+        "d63d5b5 resolves near-pole trigonometric Geometry tangent slopes and uses the effective app angle",
+        "116d502 preserves distinct Spreadsheet quadratic PredX roots across the decimal range"
       ],
       "18": [
         "65db1fc makes forced-termination verification independent of the optional procfs children file"
@@ -1696,7 +1697,7 @@
       "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
       "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
     },
-    "current_source": "c4cf2f25fe9c891da3e9ffa70e0917cc128b76a1",
+    "current_source": "116d5023b9195e9b391695d8779fdb10163c9c9c",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
       "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
@@ -1840,6 +1841,76 @@
           "makelist_10k": 1.7,
           "real_chain_10k": 0.2
         }
+      }
+    },
+    "spreadsheet_quadratic_follow_up": {
+      "source": "116d5023b9195e9b391695d8779fdb10163c9c9c",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-116d502.tar.gz",
+      "sha256": "e3b62947048163b21fbfe4ff1173eb5cf2c4a523b8b963f65caa54041ef0ec64",
+      "implementation": "Quadratic PredX scales the discriminant terms independently and retains each root as a mantissa and exponent until selection. This preserves distinct roots when the coefficient magnitudes span hundreds of decimal orders.",
+      "previous_source": "c4cf2f25fe9c891da3e9ffa70e0917cc128b76a1",
+      "prior_reproduction": "The preceding release returned Unsupported for PredX(9,0,1E-400,-3E-200,1) in the VM session and native Spreadsheet. The new result is 3.8196601125E-201.",
+      "workspace_harness": {
+        "ok": 3075,
+        "failed": 0,
+        "ignored": 6
+      },
+      "workspace_benchmark_smoke_workloads": 38,
+      "giac_harness": {
+        "ok": 1487,
+        "failed": 0,
+        "ignored": 2
+      },
+      "giac_initial_harness": {
+        "ok": 1486,
+        "failed": 1,
+        "ignored": 2
+      },
+      "giac_rerun": "The first run failed the pre-existing graph cancellation timing assertion while the optimized executable linked. A focused retry and the full feature suite passed with the original assertion after linking completed.",
+      "harness_scope": "Reported ok counts include early returns for missing optional original resources. The matching Giac feature suite, warnings-denied Clippy and Windows GNU cross-check ran locally. Native Windows, original assets and hosted CI remain open.",
+      "focused_verification": "Nine Spreadsheet tests passed, including six wide-range cases and a true no-real-root control in both numeric modes. Existing ordinary and repeated-root selection tests passed. Additional repeated-root hardware parity remains open.",
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "sessions_unexecuted": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "wide_quadratic_worksheet_cases_passed": 6,
+        "wide_quadratic_cases_passed_after_cold_reopen": 6,
+        "forced_restart_checks_passed": 2,
+        "input_assertions_passed_per_scale": {
+          "1x": 21,
+          "1.5x": 21,
+          "2x": 21
+        }
+      },
+      "package_smoke": "Extracted Linux executable passed syntax, numerical and exact Giac results, debugger stepping, input, key handling, drawing, typed matrix return and cross-module diagnostics. Five recorded compatibility suites replayed with 44 verified, five failed, four partial and 64 unverified cases.",
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "criterion_workloads_run": 38,
+        "method": "Two alternating quick rounds on one pinned core. Selected workloads used three alternating longer comparisons on separate pinned cores with twenty samples per build.",
+        "selected_two_round_time_changes_percent": {
+          "collections/list_append_10k": 3.1,
+          "compile/fireworks": 11.5,
+          "graphics_grob/grob_fill_circle_x200": -69.4,
+          "graphics_grob/grob_line_x200": -37.8,
+          "graphics_ppl/ppl_fillcircle_p_x200": -27.1,
+          "graphics_ppl/ppl_line_p_x200": 7.4,
+          "parser/fireworks": 6.4,
+          "vm/fib_20": 2.1,
+          "vm/for_sum_100k": 5.2,
+          "vm/real_chain_10k": 1.2
+        },
+        "selected_longer_median_time_changes_percent": {
+          "collections/list_append_10k": 11.2,
+          "compile/fireworks": -10.5,
+          "graphics_ppl/ppl_line_p_x200": 5.8,
+          "parser/fireworks": -2.5,
+          "vm/fib_20": -1.1,
+          "vm/for_sum_100k": 6.3,
+          "vm/real_chain_10k": 2.3
+        },
+        "assessment": "The longer comparisons reproduced higher elapsed times for list append, PPL LINE_P and the summing loop. List append showed the largest persistent difference in those runs. These workloads exercise VM and drawing paths outside Spreadsheet prediction. The performance differences remain open."
       }
     },
     "linux_release_archive": {
