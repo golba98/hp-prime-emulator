@@ -81,6 +81,21 @@ pub fn index_value(base: &Value, idx: &[Value], _m: &Machine) -> RtResult<Value>
     }
 }
 
+pub(crate) fn append_list(
+    items: &mut Rc<Vec<Value>>,
+    value: Value,
+    max_len: usize,
+) -> RtResult<()> {
+    if items.len() >= max_len {
+        return Err(RuntimeError::new(
+            ErrorKind::ResourceLimit(ResourceKind::Memory),
+            "list too long",
+        ));
+    }
+    Rc::make_mut(items).push(value);
+    Ok(())
+}
+
 /// Writes `v` at `idx` inside `target` (copy-on-write). Writing one past
 /// the end of a list, or at index 0, appends.
 pub fn store_index(target: &mut Value, idx: &[Value], v: Value, max_len: usize) -> RtResult<()> {
@@ -97,19 +112,16 @@ pub fn store_index(target: &mut Value, idx: &[Value], v: Value, max_len: usize) 
         Value::List(items) => {
             let i = index_arg(&idx[0])?;
             let len = items.len();
-            let items = Rc::make_mut(items);
             if i >= 1 && (i as usize) <= len {
-                return store_index(&mut items[i as usize - 1], &idx[1..], v, max_len);
+                return store_index(
+                    &mut Rc::make_mut(items)[i as usize - 1],
+                    &idx[1..],
+                    v,
+                    max_len,
+                );
             }
             if (i == 0 || i as usize == len + 1) && idx.len() == 1 {
-                if len >= max_len {
-                    return Err(RuntimeError::new(
-                        ErrorKind::ResourceLimit(ResourceKind::Memory),
-                        "list too long",
-                    ));
-                }
-                items.push(v);
-                return Ok(());
+                return append_list(items, v, max_len);
             }
             Err(out_of_range(i, len))
         }

@@ -11,7 +11,7 @@ use ppl_math::{Complex, Real};
 use ppl_syntax::{Span, ast::BinOp};
 
 use crate::builtins;
-use crate::collections::{index_value, store_index};
+use crate::collections::{append_list, index_value, store_index};
 use crate::error::{ErrorKind, ResourceKind, RtResult, RuntimeError, TraceFrame};
 use crate::host::{DisplayMode, Host};
 use crate::ops;
@@ -1749,6 +1749,17 @@ impl Machine {
                 store_index(target, &idx, v.clone(), max)?;
                 self.stack.push(v);
             }
+            Op::StoreIndexZeroLocal(slot) => {
+                let value = self.pop();
+                let max = self.limits.max_collection_len;
+                let target = &mut self.stack[frame.base + slot as usize];
+                if let Value::List(items) = target {
+                    append_list(items, value.clone(), max)?;
+                } else {
+                    store_index(target, &[Value::zero()], value.clone(), max)?;
+                }
+                self.stack.push(value);
+            }
             Op::StoreIndexGlobal { slot, n } => {
                 self.prepare_global(slot as usize)?;
                 let v = self.pop();
@@ -1917,14 +1928,8 @@ impl Machine {
                 let v = self.pop();
                 let max = self.limits.max_collection_len;
                 let target = &mut self.stack[frame.base + slot as usize];
-                if let Value::List(l) = target {
-                    if l.len() >= max {
-                        return Err(RuntimeError::new(
-                            ErrorKind::ResourceLimit(ResourceKind::Memory),
-                            "list too long",
-                        ));
-                    }
-                    Rc::make_mut(l).push(v);
+                if let Value::List(items) = target {
+                    append_list(items, v, max)?;
                 }
             }
             Op::Kill => return Err(RuntimeError::kind(ErrorKind::Killed)),

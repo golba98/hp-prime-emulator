@@ -1514,6 +1514,16 @@ impl<'a> Compiler<'a> {
                     );
                     return;
                 }
+                if let VarRef::Local(slot) = v
+                    && matches!(idx.as_slice(), [Expr { kind: ExprKind::Number(index), .. }] if index == "0")
+                {
+                    self.expr(value);
+                    self.cur.emit(Op::StoreIndexZeroLocal(slot), target.span);
+                    if !want_value {
+                        self.cur.emit(Op::Pop, span);
+                    }
+                    return;
+                }
                 for i in idx {
                     self.expr(i);
                 }

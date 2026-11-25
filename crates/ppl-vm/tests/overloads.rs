@@ -20,6 +20,49 @@ fn append_preserves_vector_and_does_not_mutate_original() {
 }
 
 #[test]
+fn local_zero_index_store_preserves_assignment_semantics() {
+    use ppl_math::NumericVersion;
+    use ppl_vm::{ErrorKind, ResourceKind};
+
+    let mut program = Run::new(
+        "<local zero index>",
+        r#"
+EXPORT STORE() BEGIN
+    LOCAL L:={8}, Alias:=L, Count:=0;
+    LOCAL Assigned:=(L(0):=(Count:=Count+1));
+    LOCAL Empty;
+    Empty(0):=7;
+    RETURN {Assigned,L,Alias,Count,Empty};
+END;
+EXPORT VECTORSTORE() BEGIN
+    LOCAL M:=[1,2];
+    M(0):=9;
+END;
+EXPORT LIMITSTORE() BEGIN
+    LOCAL L:={8};
+    L(0):=1;
+    RETURN SIZE(L);
+END;
+"#,
+    );
+    for version in [NumericVersion::Legacy15157, NumericVersion::Current15751] {
+        program.machine.settings.numeric_version = version;
+        assert_eq!(
+            text(&program.call("STORE", &[]).unwrap()),
+            "{1,{8,1},{8},1,{7}}"
+        );
+        assert_eq!(
+            program.call("VECTORSTORE", &[]).unwrap_err().kind,
+            ErrorKind::InvalidDimension
+        );
+    }
+    program.machine.limits.max_collection_len = 1;
+    let error = program.call("LIMITSTORE", &[]).unwrap_err();
+    assert_eq!(error.kind, ErrorKind::ResourceLimit(ResourceKind::Memory));
+    assert_eq!(error.detail, "list too long");
+}
+
+#[test]
 fn lowercase_append_matches_original_collection_shapes_and_types() {
     verify_append(
         include_str!("../../../tests/fixtures/native-append-collection-controls.json"),

@@ -170,6 +170,8 @@ pub enum Op {
         slot: u16,
         n: u8,
     },
+    /// Stack: value → writes at index zero, then pushes the assigned value.
+    StoreIndexZeroLocal(u16),
     StoreIndexGlobal {
         slot: u32,
         n: u8,
