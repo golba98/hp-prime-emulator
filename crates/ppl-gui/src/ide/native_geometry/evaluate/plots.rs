@@ -242,6 +242,9 @@ impl Evaluator<'_> {
                 x: self.real(a, source)?,
                 y: self.real(b, source)?,
             };
+            if eval(p.x, p.y)?.is_none() {
+                return Err("ODE slope is undefined at the initial point".into());
+            }
             let mut left = integrate(p, window.xmin.min(p.x), &mut eval)?;
             left.reverse();
             left.extend(

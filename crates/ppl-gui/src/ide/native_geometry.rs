@@ -1705,6 +1705,15 @@ mod tests {
     }
 
     #[test]
+    fn geometry_ode_reports_an_undefined_initial_slope() {
+        let result = scene(&book(&[("A", "plotode(1/x,[x=-2..2,y],[0,1])")]));
+        assert_eq!(
+            result.objects[0].value.as_ref().unwrap_err(),
+            "ODE slope is undefined at the initial point"
+        );
+    }
+
+    #[test]
     fn implicit_contours_join_and_recompute_on_geometry_dependency_changes() {
         let mut b = book(&[
             ("A", "point(1,0)"),
