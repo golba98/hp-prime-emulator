@@ -149,9 +149,7 @@
           "1"
         ]
       ],
-      "holdout_indices": [
-        4
-      ]
+      "holdout_indices": []
     },
     {
       "name": "matrix_quotient",

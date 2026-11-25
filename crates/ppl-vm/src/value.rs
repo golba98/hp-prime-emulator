@@ -109,6 +109,13 @@ impl Value {
         }
     }
 
+    pub(crate) fn is_positive_infinity(&self) -> bool {
+        matches!(self, Self::Symbolic(value) if matches!(
+            value.as_ref(),
+            ppl_cas::CasValue::Infinity(ppl_cas::InfinitySign::Positive)
+        ))
+    }
+
     pub fn is_string(&self) -> bool {
         matches!(self, Self::Str(_) | Self::RawString(_))
     }

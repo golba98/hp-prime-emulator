@@ -119,6 +119,7 @@ pub enum Op {
     /// Stack: base, preceding operands, numerator, denominator → base, preceding operands, value.
     AppendCallbackArgumentQuotient {
         preceding: u16,
+        literal_operands: bool,
     },
     /// Direct lowercase stddev can produce exact series or weighted matrix results.
     StddevExact {

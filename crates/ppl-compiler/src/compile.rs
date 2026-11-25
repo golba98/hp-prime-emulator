@@ -2490,6 +2490,8 @@ impl<'a> Compiler<'a> {
                     self.cur.emit(
                         Op::AppendCallbackArgumentQuotient {
                             preceding: u16::from(preceding) + index.min(255) as u16,
+                            literal_operands: matches!(numerator.kind, ExprKind::Number(_))
+                                && matches!(denominator.kind, ExprKind::Number(_)),
                         },
                         arg.span,
                     );

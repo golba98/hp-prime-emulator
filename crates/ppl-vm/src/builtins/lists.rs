@@ -33,17 +33,26 @@ struct TextAssignment<'a> {
     payload: Value,
 }
 
+pub(crate) enum AppendPayload {
+    Literal,
+    Evaluated,
+    Callback,
+}
+
 pub(crate) fn append_collection(
     machine: &mut Machine,
     args: &[Value],
-    literal_payload: bool,
+    payload: AppendPayload,
     encoded_base: bool,
 ) -> RtResult<Value> {
     let Ok(args) = <&[Value; 2]>::try_from(args) else {
         return call(machine, Builtin::Append, "APPEND", args);
     };
     let [base, item] = args;
-    if !literal_payload && matches!(item, Value::Str(_)) {
+    let literal_payload = matches!(payload, AppendPayload::Literal);
+    if (!literal_payload && matches!(item, Value::Str(_)))
+        || (matches!(payload, AppendPayload::Callback) && item.is_positive_infinity())
+    {
         if encoded_base && let Value::Matrix(array) = base {
             machine.check_len(array.data.len().saturating_add(4))?;
             let entries = array
@@ -112,7 +121,7 @@ pub(crate) fn append_callback_division_error(
     append_collection(
         machine,
         &[base, Value::str("Error: X/0")],
-        false,
+        AppendPayload::Evaluated,
         encoded_matrix,
     )
 }

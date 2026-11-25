@@ -11,6 +11,7 @@ use ppl_math::{Complex, Real};
 use ppl_syntax::{Span, ast::BinOp};
 
 use crate::builtins;
+use crate::builtins::lists::AppendPayload;
 use crate::collections::{append_list, index_value, store_index};
 use crate::error::{ErrorKind, ResourceKind, RtResult, RuntimeError, TraceFrame};
 use crate::host::{DisplayMode, Host};
@@ -1468,12 +1469,14 @@ impl Machine {
                 let value = if let Some(fault) = fault {
                     self.append_callback_fault(base, encoded_base, fault)?
                 } else {
-                    builtins::lists::append_collection(
-                        self,
-                        &[base, item],
-                        literal_payload,
-                        encoded_base,
-                    )?
+                    let payload = if callback_payload {
+                        AppendPayload::Callback
+                    } else if literal_payload {
+                        AppendPayload::Literal
+                    } else {
+                        AppendPayload::Evaluated
+                    };
+                    builtins::lists::append_collection(self, &[base, item], payload, encoded_base)?
                 };
                 self.check_value(&value)?;
                 self.stack.push(value);
@@ -1486,9 +1489,10 @@ impl Machine {
                 let (denominator, denominator_fault) = self.pop_append_operand(denominator_call)?;
                 let (numerator, numerator_fault) = self.pop_append_operand(numerator_call)?;
                 let base = self.pop();
+                let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
                 let result = if let Some(fault) = numerator_fault.or(denominator_fault) {
                     self.append_callback_fault(base, encoded_base, fault)?
-                } else if matches!(base, Value::List(_) | Value::Matrix(_))
+                } else if collection_base
                     && let (Value::Real(numerator), Value::Real(denominator)) =
                         (&numerator, &denominator)
                     && numerator.is_integer()
@@ -1500,26 +1504,49 @@ impl Machine {
                         literal_operands || numerator.is_zero(),
                     )?
                 } else {
-                    let item = self.append_quotient_value(
-                        matches!(base, Value::List(_) | Value::Matrix(_)),
-                        &numerator,
-                        &denominator,
-                    )?;
+                    let item = if collection_base
+                        && numerator_call
+                        && numerator.is_positive_infinity()
+                        && matches!(denominator, Value::Real(value) if !value.is_zero() && !value.is_negative())
+                    {
+                        numerator
+                    } else {
+                        self.append_quotient_value(collection_base, &numerator, &denominator)?
+                    };
                     self.check_value(&item)?;
-                    builtins::lists::append_collection(self, &[base, item], false, encoded_base)?
+                    let payload = if numerator_call || denominator_call {
+                        AppendPayload::Callback
+                    } else {
+                        AppendPayload::Evaluated
+                    };
+                    builtins::lists::append_collection(self, &[base, item], payload, encoded_base)?
                 };
                 self.check_value(&result)?;
                 self.stack.push(result);
             }
-            Op::AppendCallbackArgumentQuotient { preceding } => {
+            Op::AppendCallbackArgumentQuotient {
+                preceding,
+                literal_operands,
+            } => {
                 let denominator = self.pop();
                 let numerator = self.pop();
                 let base = &self.stack[self.stack.len() - 1 - usize::from(preceding)];
-                let value = self.append_quotient_value(
-                    matches!(base, Value::List(_) | Value::Matrix(_)),
-                    &numerator,
-                    &denominator,
-                )?;
+                let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
+                let value = if collection_base
+                    && !literal_operands
+                    && let (Value::Real(numerator), Value::Real(denominator)) =
+                        (&numerator, &denominator)
+                    && numerator.is_integer()
+                    && !numerator.is_negative()
+                    && !numerator.is_zero()
+                    && denominator.is_zero()
+                {
+                    crate::cas::from_cas(ppl_cas::CasValue::Infinity(
+                        ppl_cas::InfinitySign::Positive,
+                    ))
+                } else {
+                    self.append_quotient_value(collection_base, &numerator, &denominator)?
+                };
                 self.check_value(&value)?;
                 self.stack.push(value);
             }
@@ -1996,7 +2023,7 @@ impl Machine {
                 builtins::lists::append_collection(
                     self,
                     &[base, Value::str(message)],
-                    false,
+                    AppendPayload::Evaluated,
                     encoded_base,
                 )
             }
