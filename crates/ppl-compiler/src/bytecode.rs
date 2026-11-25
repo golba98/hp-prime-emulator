@@ -23,6 +23,14 @@ pub enum Const {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AppendCallbackContext {
+    Collection { preceding: u8 },
+    Base,
+    AfterBaseCallback,
+    ScalarBase { diagnose_quotient: bool },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Op {
     Const(u32),
     Zero,
@@ -108,6 +116,11 @@ pub enum Op {
         callback_payload: bool,
         encoded_base: bool,
     },
+    /// Completes an APPEND whose recorded diagnostic retains both source operands.
+    AppendCallbackDiagnostic {
+        base_callback: bool,
+        diagnose_quotient: bool,
+    },
     /// Direct lowercase APPEND with an unquoted quotient as the payload.
     /// Stack: base, numerator, denominator → appended collection.
     AppendQuotient {
@@ -120,6 +133,7 @@ pub enum Op {
     AppendCallbackArgumentQuotient {
         preceding: u16,
         literal_operands: bool,
+        diagnose_scalar: bool,
     },
     /// Adds a literal to a callback result while retaining its fault status.
     /// Stack: value, status, literal → value, status.
@@ -201,7 +215,7 @@ pub enum Op {
     TryAppendCallback {
         handler: u32,
         argc: u8,
-        preceding: u8,
+        context: AppendCallbackContext,
     },
     TryEnd,
     /// Pops the counter and limit and jumps when the counter passes the limit.

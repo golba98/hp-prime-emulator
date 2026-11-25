@@ -242,9 +242,7 @@
           "\"Error: Bad argument type\""
         ]
       ],
-      "holdout_indices": [
-        3
-      ]
+      "holdout_indices": []
     }
   ]
 }

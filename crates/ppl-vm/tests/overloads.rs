@@ -170,6 +170,18 @@ fn append_callback_guard_preserves_non_program_stops() {
             );
         }
     }
+
+    let mut program = Run::new(
+        "<append base callback stop>",
+        "EXPORT TEST() BEGIN D:=0; RETURN append(STOPNOW(),PAYLOAD()); END; \
+         EXPORT TRACE() BEGIN RETURN D; END; \
+         STOPNOW() BEGIN D:=1; KILL; END; PAYLOAD() BEGIN D:=2; RETURN 3; END;",
+    );
+    assert_eq!(
+        program.call("TEST", &[]).unwrap_err().kind,
+        ppl_vm::ErrorKind::Killed
+    );
+    assert_eq!(text(&program.call("TRACE", &[]).unwrap()), "1");
 }
 
 #[test]

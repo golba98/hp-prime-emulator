@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+use ppl_compiler::bytecode::AppendCallbackContext;
 use ppl_compiler::{CompiledProgram, Const, GlobalInit, Op, Setting};
 use ppl_graphics::Grob;
 use ppl_math::{Complex, Real};
@@ -71,7 +72,7 @@ struct TryRec {
 enum TryKind {
     IfErr,
     StddevCell,
-    AppendCallback { collection_base: bool },
+    AppendCallback { enabled: bool },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -107,8 +108,8 @@ impl TryKind {
                 error,
                 ErrorKind::DivisionByZero | ErrorKind::InvalidDimension | ErrorKind::BadArgType
             ),
-            Self::AppendCallback { collection_base } => {
-                collection_base && AppendCallbackFault::from_error(error).is_some()
+            Self::AppendCallback { enabled } => {
+                enabled && AppendCallbackFault::from_error(error).is_some()
             }
         }
     }
@@ -1468,17 +1469,32 @@ impl Machine {
             } => {
                 let (item, fault) = self.pop_append_operand(callback_payload)?;
                 let base = self.pop();
-                let value = if let Some(fault) = fault {
-                    self.append_callback_fault(base, encoded_base, fault)?
+                let payload = if callback_payload {
+                    AppendPayload::Callback
+                } else if literal_payload {
+                    AppendPayload::Literal
                 } else {
-                    let payload = if callback_payload {
-                        AppendPayload::Callback
-                    } else if literal_payload {
-                        AppendPayload::Literal
-                    } else {
-                        AppendPayload::Evaluated
-                    };
-                    builtins::lists::append_collection(self, &[base, item], payload, encoded_base)?
+                    AppendPayload::Evaluated
+                };
+                let value = self.append_evaluated(base, item, fault, payload, encoded_base)?;
+                self.check_value(&value)?;
+                self.stack.push(value);
+            }
+            Op::AppendCallbackDiagnostic {
+                base_callback,
+                diagnose_quotient,
+            } => {
+                let diagnostic = self.pop();
+                let (item, fault) = self.pop_append_operand(true)?;
+                let (base, base_fault) = self.pop_append_operand(base_callback)?;
+                let quotient_diagnostic = diagnose_quotient
+                    && matches!(&item, Value::Str(message) if message.as_ref() == APPEND_STRING_QUOTIENT_DIAGNOSTIC);
+                let value = if base_fault.is_some()
+                    || (!base_callback && (fault.is_some() || quotient_diagnostic))
+                {
+                    diagnostic
+                } else {
+                    self.append_evaluated(base, item, fault, AppendPayload::Callback, false)?
                 };
                 self.check_value(&value)?;
                 self.stack.push(value);
@@ -1529,6 +1545,7 @@ impl Machine {
             Op::AppendCallbackArgumentQuotient {
                 preceding,
                 literal_operands,
+                diagnose_scalar,
             } => {
                 let denominator = self.pop();
                 let numerator = self.pop();
@@ -1547,7 +1564,11 @@ impl Machine {
                         ppl_cas::InfinitySign::Positive,
                     ))
                 } else {
-                    self.append_quotient_value(collection_base, &numerator, &denominator)?
+                    self.append_quotient_value(
+                        collection_base || diagnose_scalar,
+                        &numerator,
+                        &denominator,
+                    )?
                 };
                 self.check_value(&value)?;
                 self.stack.push(value);
@@ -1947,16 +1968,27 @@ impl Machine {
             Op::TryAppendCallback {
                 handler,
                 argc,
-                preceding,
+                context,
             } => {
                 let stack_len = self.stack.len() - usize::from(argc);
-                let base = &self.stack[stack_len - 1 - usize::from(preceding)];
-                let collection_base = matches!(base, Value::List(_) | Value::Matrix(_));
+                let enabled = match context {
+                    AppendCallbackContext::Base | AppendCallbackContext::ScalarBase { .. } => true,
+                    AppendCallbackContext::Collection { preceding } => matches!(
+                        self.stack[stack_len - 1 - usize::from(preceding)],
+                        Value::List(_) | Value::Matrix(_)
+                    ),
+                    AppendCallbackContext::AfterBaseCallback => {
+                        matches!(self.stack[stack_len - 2], Value::List(_) | Value::Matrix(_))
+                            || self.stack[stack_len - 1]
+                                .expect_i64("APPEND base callback status")?
+                                != 0
+                    }
+                };
                 self.tries.push(TryRec {
                     frame_depth: self.frames.len(),
                     stack_len,
                     handler: handler as usize,
-                    kind: TryKind::AppendCallback { collection_base },
+                    kind: TryKind::AppendCallback { enabled },
                 });
             }
             Op::TryEnd => {
@@ -2004,6 +2036,21 @@ impl Machine {
         Ok(Flow::Next)
     }
 
+    fn append_evaluated(
+        &mut self,
+        base: Value,
+        item: Value,
+        fault: Option<AppendCallbackFault>,
+        payload: AppendPayload,
+        encoded_base: bool,
+    ) -> RtResult<Value> {
+        if let Some(fault) = fault {
+            self.append_callback_fault(base, encoded_base, fault)
+        } else {
+            builtins::lists::append_collection(self, &[base, item], payload, encoded_base)
+        }
+    }
+
     fn pop_append_operand(
         &mut self,
         callback: bool,
@@ -2018,11 +2065,11 @@ impl Machine {
 
     fn append_quotient_value(
         &mut self,
-        collection_base: bool,
+        allow_string_diagnostic: bool,
         numerator: &Value,
         denominator: &Value,
     ) -> RtResult<Value> {
-        if collection_base
+        if allow_string_diagnostic
             && matches!(
                 (numerator, denominator),
                 (Value::Real(_), Value::Str(_)) | (Value::Str(_), Value::Real(_))

@@ -506,6 +506,19 @@ impl Format {
                 out.push(0xe003);
                 terminated(out)
             }
+            Value::Str(value)
+                if value.starts_with("append(")
+                    && value
+                        .ends_with(ppl_compiler::builtins::APPEND_ARGUMENT_DIAGNOSTIC_SUFFIX) =>
+            {
+                let suffix = ppl_compiler::builtins::APPEND_ARGUMENT_DIAGNOSTIC_SUFFIX;
+                let source = &value[..value.len() - suffix.len()];
+                // STRING escapes the diagnostic's break, while SIZE sees one unit.
+                Value::str(format!("{source}{}", suffix.replace('\n', "\\n")))
+                    .string_form(self.options)
+                    .encode_utf16()
+                    .collect()
+            }
             Value::RawString(units) => {
                 let mut out = vec![u16::from(b'"')];
                 for unit in units.iter().copied() {

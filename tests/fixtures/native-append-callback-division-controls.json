@@ -314,10 +314,7 @@
           "+Inf"
         ]
       ],
-      "holdout_indices": [
-        5,
-        6
-      ]
+      "holdout_indices": []
     }
   ]
 }

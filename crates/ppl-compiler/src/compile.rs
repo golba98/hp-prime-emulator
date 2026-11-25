@@ -487,6 +487,20 @@ struct LocalInfo {
     scope: std::ops::Range<u32>,
 }
 
+#[derive(Clone, Copy)]
+struct AppendCallback<'a> {
+    name: &'a str,
+    id: u32,
+    args: &'a [Expr],
+    span: Span,
+}
+
+fn literal_string_quotient(expression: &Expr) -> bool {
+    matches!(&expression.kind, ExprKind::Binary(BinOp::Div, numerator, denominator)
+        if matches!(numerator.kind, ExprKind::Str(_))
+            || matches!(denominator.kind, ExprKind::Str(_)))
+}
+
 struct Compiler<'a> {
     opts: CompileOptions,
     punctuation: &'a [Punctuation],
@@ -2348,10 +2362,13 @@ impl<'a> Compiler<'a> {
             Builtin::Makelist if args.len() >= 4 => self.makelist(args, span),
             Builtin::Append if name == "append" && args.len() == 2 => {
                 let base = &args[0];
+                let payload = &args[1];
+                if self.append_callback_diagnostic(base, payload, span) {
+                    return;
+                }
                 let encoded_base =
                     source_encoded_matrix(base) || source_encoded_vector(base).is_some();
                 self.expr(base);
-                let payload = &args[1];
                 if let ExprKind::Binary(BinOp::Div, numerator, denominator) = &payload.kind {
                     let numerator_call = self.append_callback_operand(numerator, 0);
                     let denominator_call =
@@ -2492,21 +2509,100 @@ impl<'a> Compiler<'a> {
     }
 
     fn try_append_callback_operand(&mut self, expression: &Expr, preceding: u8) -> bool {
+        let Some(callback) = self.local_append_callback(expression) else {
+            return false;
+        };
+        self.emit_append_callback(callback, AppendCallbackContext::Collection { preceding });
+        true
+    }
+
+    fn local_append_callback<'e>(&mut self, expression: &'e Expr) -> Option<AppendCallback<'e>> {
         if let ExprKind::Call(callee, args) = &expression.kind
             && let ExprKind::Ident(name) = &callee.kind
             && let Some(id) = self.fn_map.get(name).copied()
             && !self.is_app_access(name)
             && self.resolve_var(name).is_none()
         {
-            let span = expression.span;
-            self.check_local_call(name, id, args.len(), span);
-            for (index, arg) in args.iter().enumerate() {
+            Some(AppendCallback {
+                name,
+                id,
+                args,
+                span: expression.span,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn append_callback_diagnostic(&mut self, base: &Expr, payload: &Expr, span: Span) -> bool {
+        let base_callback = match base.kind {
+            ExprKind::Number(_) => None,
+            ExprKind::Call(..) => match self.local_append_callback(base) {
+                Some(callback) => Some(callback),
+                None => return false,
+            },
+            _ => return false,
+        };
+        let Some(payload_callback) = self.local_append_callback(payload) else {
+            return false;
+        };
+        let (Ok(base_source), Ok(payload_source)) = (
+            crate::expression_source::ppl_expression_source(base),
+            crate::expression_source::ppl_expression_source(payload),
+        ) else {
+            return false;
+        };
+        let diagnose_quotient =
+            base_callback.is_none() && payload_callback.args.iter().any(literal_string_quotient);
+        let context = if let Some(callback) = base_callback {
+            self.emit_append_callback(callback, AppendCallbackContext::Base);
+            AppendCallbackContext::AfterBaseCallback
+        } else {
+            self.expr(base);
+            AppendCallbackContext::ScalarBase { diagnose_quotient }
+        };
+        self.emit_append_callback(payload_callback, context);
+        self.constant(
+            Const::Str(format!(
+                "append({base_source},{payload_source}){}",
+                builtins::APPEND_ARGUMENT_DIAGNOSTIC_SUFFIX,
+            )),
+            span,
+        );
+        self.cur.emit(
+            Op::AppendCallbackDiagnostic {
+                base_callback: base_callback.is_some(),
+                diagnose_quotient,
+            },
+            span,
+        );
+        true
+    }
+
+    fn emit_append_callback(
+        &mut self,
+        callback: AppendCallback<'_>,
+        context: AppendCallbackContext,
+    ) {
+        let AppendCallback {
+            name,
+            id,
+            args,
+            span,
+        } = callback;
+        self.check_local_call(name, id, args.len(), span);
+        let (preceding, diagnose_scalar) = match context {
+            AppendCallbackContext::Collection { preceding } => (Some(preceding), false),
+            AppendCallbackContext::Base => (None, false),
+            AppendCallbackContext::AfterBaseCallback => (Some(1), false),
+            AppendCallbackContext::ScalarBase { diagnose_quotient } => (Some(0), diagnose_quotient),
+        };
+        for (index, arg) in args.iter().enumerate() {
+            if let Some(preceding) = preceding {
                 let (quotient, addend) = match &arg.kind {
                     ExprKind::Binary(BinOp::Add, quotient, addend)
                         if matches!(addend.kind, ExprKind::Number(_))
-                            && matches!(&quotient.kind, ExprKind::Binary(BinOp::Div, numerator, denominator)
-                                if matches!(numerator.kind, ExprKind::Str(_))
-                                    || matches!(denominator.kind, ExprKind::Str(_))) =>
+                            && literal_string_quotient(quotient) =>
                     {
                         (quotient.as_ref(), Some(addend.as_ref()))
                     }
@@ -2520,6 +2616,7 @@ impl<'a> Compiler<'a> {
                             preceding: u16::from(preceding) + index.min(255) as u16,
                             literal_operands: matches!(numerator.kind, ExprKind::Number(_))
                                 && matches!(denominator.kind, ExprKind::Number(_)),
+                            diagnose_scalar: diagnose_scalar && literal_string_quotient(quotient),
                         },
                         quotient.span,
                     );
@@ -2530,24 +2627,24 @@ impl<'a> Compiler<'a> {
                 } else {
                     self.expr(arg);
                 }
+            } else {
+                self.expr(arg);
             }
-            let argc = args.len().min(255) as u8;
-            let handler = self.cur.emit(
-                Op::TryAppendCallback {
-                    handler: 0,
-                    argc,
-                    preceding,
-                },
-                span,
-            );
-            self.cur.emit(Op::Call { func: id, argc }, span);
-            self.cur.emit(Op::TryEnd, span);
-            self.cur.emit(Op::Zero, span);
-            // The VM has already supplied the operand and status on failure.
-            self.cur.patch_jump(handler, self.cur.here());
-            return true;
         }
-        false
+        let argc = args.len().min(255) as u8;
+        let handler = self.cur.emit(
+            Op::TryAppendCallback {
+                handler: 0,
+                argc,
+                context,
+            },
+            span,
+        );
+        self.cur.emit(Op::Call { func: id, argc }, span);
+        self.cur.emit(Op::TryEnd, span);
+        self.cur.emit(Op::Zero, span);
+        // The VM has already supplied the operand and status on failure.
+        self.cur.patch_jump(handler, self.cur.here());
     }
 
     fn stddev_callback_source(&mut self, expression: &Expr) -> bool {

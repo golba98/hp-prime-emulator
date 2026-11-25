@@ -9,6 +9,9 @@
 //! unimplemented forms raise "unsupported" at run time). None are
 //! hardware-verified yet.
 
+/// Suffix for source-bearing lowercase APPEND diagnostics.
+pub const APPEND_ARGUMENT_DIAGNOSTIC_SUFFIX: &str = " \n Error: Bad Argument Value";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Category {
     Math,
