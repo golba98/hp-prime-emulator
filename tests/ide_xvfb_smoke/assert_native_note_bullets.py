@@ -20,10 +20,13 @@ def marker_rows(label):
     with Image.open(root / f"note_bullets_{label}.png") as capture:
         assert capture.size == (320, 240), label
         image = capture.convert("RGB")
-        # The first 10 LCD pixels of the editor are a marker gutter.
-        body_top = 97 if label in ("saved", "restored", "cleared") else 72
+        # Sample the marker gutter within the editor. The Bullets toolbar
+        # starts below it, at a different height when the saved note is listed.
+        body_top, body_bottom = (
+            (97, 154) if label in ("saved", "restored", "cleared") else (72, 129)
+        )
         active = [
-            y for y in range(body_top, 141)
+            y for y in range(body_top, body_bottom)
             if sum(max(image.getpixel((x, y))) < 150 for x in range(2, 9)) >= 2
         ]
     groups = []
