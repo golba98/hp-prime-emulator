@@ -1622,7 +1622,8 @@
       "24": [
         "dcf5551 bounds raster drawing work and restores ordinary line and fill performance",
         "ca8d41e fixes linked STDDEV source diagnostics and restores a compact instruction stream",
-        "adceb15 matches G1 packed pixel-grob format selection at exact plane capacity"
+        "adceb15 matches G1 packed pixel-grob format selection at exact plane capacity",
+        "c4cf2f2 preserves small components and principal signs in numerical complex roots and axial quotients"
       ],
       "25": [
         "190df21 aligns integer-scale calculator rendering to physical pixels"
@@ -1695,7 +1696,7 @@
       "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
       "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
     },
-    "current_source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
+    "current_source": "c4cf2f25fe9c891da3e9ffa70e0917cc128b76a1",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
       "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
@@ -1732,6 +1733,113 @@
         },
         "standalone_list_append_median_wall_ms": {"main": 2.63, "9b7e8ff": 2.60, "experimental_index_change": 2.58},
         "scope": "Fibonacci improved against the preceding candidate. Its comparison against main varied by run. Criterion still measured slower list append in the longer comparison. The separate pinned harness did not reproduce that slowdown or establish an improvement from an alternative local index implementation, so that implementation was left out."
+      }
+    },
+    "complex_numeric_follow_up": {
+      "source": "c4cf2f25fe9c891da3e9ffa70e0917cc128b76a1",
+      "prior_comparison_source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
+      "implementation": "Complex square roots retain the principal sign and recover the small component from the original imaginary input. Division by a purely real or imaginary complex value divides both components independently. Math and PPL regression tests cover cancellation, magnitude separation and sign.",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-c4cf2f2.tar.gz",
+      "sha256": "ce0ace7cfae7fae3cca804768dd3bf7208414faad45d9fb59a5be15479bca701",
+      "workspace_harness": {
+        "ok": 3074,
+        "failed": 0,
+        "ignored": 6
+      },
+      "giac_harness": {
+        "ok": 1486,
+        "failed": 0,
+        "ignored": 2
+      },
+      "scope": "Harness counts include early returns for absent optional assets. The Windows GNU cross-check, formatting and warnings-denied Clippy passed. Native Windows, hardware and original asset acceptance remain open.",
+      "numeric_reference": {
+        "numeric_modes": [
+          "15157",
+          "15751"
+        ],
+        "decimal_reference_precision": 90,
+        "component_relative_error_threshold": "1e-11",
+        "tested_per_mode": {
+          "roots": 144,
+          "axial_divisions": 144
+        },
+        "previous_matches_per_mode": {
+          "roots": 50,
+          "axial_divisions": 140
+        },
+        "current_matches_per_mode": {
+          "roots": 144,
+          "axial_divisions": 144
+        },
+        "exact_typed_cli_regressions_per_mode": 6
+      },
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "sessions_unexecuted": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "scope": "The installed optimized executable matched the archive bytes. All checked-in scenarios and assertion invocations ran with their original timeouts. The Statistics Definition create and reopen ran serially in their own fresh profile."
+      },
+      "other_acceptance": "The extracted package passed the numerical, Giac, input, wait, key retrieval, drawing, matrix, cross-module diagnostic and debugger checks. Both forced restart checks passed. All 21 input assertions passed at each of 1x, 1.5x and 2x. The five stored compatibility suites reproduced 44 verified, five failed, four partial and 64 unverified cases. Fresh physical evidence remains open.",
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "criterion_workloads_run": 38,
+        "method": "Two alternating quick rounds on one pinned core, followed by three alternating rounds on separate pinned cores for selected workloads. Longer rounds used one second of warm-up, two seconds of measurement and twenty samples per build. Negative time changes indicate improvements.",
+        "selected_two_round_median_time_changes_percent": {
+          "collections/list_append_10k": 16.2,
+          "collections/makelist_10k": 22.7,
+          "compile/fireworks": 6.2,
+          "editor/frame_after_edit_6220_lines": -18.7,
+          "graphics_grob/grob_fill_circle_x200": -68.8,
+          "graphics_grob/grob_line_x200": -39.8,
+          "graphics_ppl/ppl_fillcircle_p_x200": -26.7,
+          "parser/fireworks": 5.8,
+          "vm/fib_20": 2.5,
+          "vm/for_sum_100k": 30.4,
+          "vm/real_chain_10k": 13.9
+        },
+        "three_longer_round_median_time_changes_percent": {
+          "collections/list_append_10k": 9.8,
+          "collections/makelist_10k": 5.2,
+          "compile/fireworks": -14.8,
+          "parser/fireworks": -0.7,
+          "vm/fib_20": -0.7,
+          "vm/for_sum_100k": 12.1,
+          "vm/real_chain_10k": 5.2
+        },
+        "assessment": "Paired standalone trials reproduced slower timings against main on four real-valued and collection workloads. Separating ordinary and encoded binary instructions in a scratch build produced slightly slower timings than the candidate. The cause of the benchmark differences remains open.",
+        "standalone_trials_per_build": 8,
+        "standalone_median_wall_ms": {
+          "for_sum_100k": {
+            "main": 28.653,
+            "candidate": 31.094
+          },
+          "list_append_10k": {
+            "main": 2.577,
+            "candidate": 2.712
+          },
+          "makelist_10k": {
+            "main": 2.756,
+            "candidate": 2.889
+          },
+          "real_chain_10k": {
+            "main": 6.913,
+            "candidate": 7.236
+          }
+        },
+        "standalone_paired_wall_time_changes_percent": {
+          "for_sum_100k": 6.4,
+          "list_append_10k": 4.6,
+          "makelist_10k": 5.8,
+          "real_chain_10k": 4.1
+        },
+        "scratch_dispatch_experiment_time_change_percent_from_candidate": {
+          "for_sum_100k": 0.7,
+          "list_append_10k": 0.1,
+          "makelist_10k": 1.7,
+          "real_chain_10k": 0.2
+        }
       }
     },
     "linux_release_archive": {
