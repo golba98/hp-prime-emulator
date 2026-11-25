@@ -137,6 +137,28 @@ fn polynomial_inverse_matches_the_original_quadratic_selection() {
 }
 
 #[test]
+fn quadratic_inverse_preserves_roots_across_decimal_scales() {
+    let mut context = spreadsheet();
+    let cases = [
+        ("PredX(9,0,1E-400,-3E-200,1)", "3.8196601125E-201"),
+        ("PredX(9,0,1E-400,3E-200,1)", "-3.8196601125E-201"),
+        ("PredX(9,0,1E400,-3E200,1)", "3.8196601125E199"),
+        ("PredX(9,0,1E-400,0,-1)", "1E-200"),
+        ("PredX(9,0,1E-420,-1,1E-400)", "1E-420"),
+        ("PredX(9,0,1,-1E-172,1E-360)", "1E172"),
+    ];
+    for version in [NumericVersion::Legacy15157, NumericVersion::Current15751] {
+        context.settings.numeric_version = version;
+        for (source, expected) in cases {
+            expect_real(&mut context, source, expected);
+        }
+        let error = evaluate(&mut context, "PredX(9,0,1E-400,-1E-200,1)").unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Undefined);
+        assert_eq!(error.detail, "Extremum found");
+    }
+}
+
+#[test]
 fn polynomial_inverse_matches_original_monotone_cubics() {
     let mut context = spreadsheet();
     for (source, expected) in [

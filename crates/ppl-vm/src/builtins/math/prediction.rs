@@ -246,54 +246,55 @@ fn quadratic_x(a: Real, b: Real, c: Real) -> RtResult<Real> {
     } else {
         b.cmp_value(a.neg()).is_lt()
     };
-    // A common decimal scale keeps the discriminant in range even when
-    // the coefficients are too large or small to square directly.
-    let exponent = [a, b, c]
-        .into_iter()
-        .filter(|coefficient| !coefficient.is_zero())
-        .map(Real::exp10)
-        .max()
-        .expect("a quadratic has a nonzero leading coefficient");
-    let scaled = [a, b, c].map(|coefficient| {
-        let value = coefficient.scale10(-exponent)?.to_f64();
-        if !coefficient.is_zero() && value == 0.0 {
-            return Err(RuntimeError::new(
-                ErrorKind::Unsupported,
-                "PredX quadratic coefficients exceed the supported numerical range",
-            ));
-        }
-        Ok(value)
-    });
-    let [sa, sb, sc] = scaled;
-    let (qa, qb, qc) = (sa?, sb?, sc?);
-    let cross = 4.0 * qa * qc;
+    // Scale the discriminant terms, rather than the coefficients. This
+    // keeps a*c and b² comparable even when a and c differ by hundreds
+    // of decimal orders of magnitude.
+    let a_exp = a.exp10();
+    let c_exp = c.exp10();
+    let cross_exp = a_exp + c_exp;
+    let mut exponent = cross_exp.div_euclid(2);
+    if !b.is_zero() {
+        exponent = exponent.max(b.exp10());
+    }
+    let qa = a.scale10(-a_exp)?.to_f64();
+    let qb = b.scale10(-exponent)?.to_f64();
+    let qc = c.scale10(-c_exp)?.to_f64();
+    let cross = 4.0 * qa * qc * 10.0_f64.powi(cross_exp - 2 * exponent);
     let discriminant = qb.mul_add(qb, -cross);
     let rounding = (qb * qb + cross.abs()) * f64::EPSILON;
     if discriminant <= rounding {
-        let root = (-0.5 * qb) / qa;
+        let vertex = (-0.5 * qb) / qa;
         if discriminant.abs() <= rounding
-            && (0.0..1.0).contains(&root)
-            && let Some(vertex) = sampled_quadratic_vertex(a, b, c)?
+            && vertex > 0.0
+            && vertex * 10.0_f64.powi(exponent - a_exp) < 1.0
+            && let Some(root) = sampled_quadratic_vertex(a, b, c)?
         {
-            return Ok(vertex);
+            return Ok(root);
         }
         return Err(RuntimeError::new(ErrorKind::Undefined, "Extremum found"));
     }
 
-    // Compute the farther root without subtracting nearly equal terms and
-    // derive the other from the product of the two roots.
-    let q = -0.5 * (qb + discriminant.sqrt().copysign(qb));
-    let (first, second) = (q / qa, qc / q);
-    let (left, right) = (first.min(second), first.max(second));
+    // The stable formula produces the root farther from zero first. Keep
+    // each root's exponent separate so only the selected root is rounded.
+    let b_sign = if b.is_negative() { -1.0 } else { 1.0 };
+    let q = -0.5 * (qb + discriminant.sqrt().copysign(b_sign));
+    let first = (q / qa, exponent - a_exp);
+    let second = (qc / q, c_exp - exponent);
+    let (left, right) = if first.0 < 0.0 {
+        (first, second)
+    } else {
+        (second, first)
+    };
     // The search starts at 0 and 1. The sum of the roots identifies the
     // closer endpoint when both roots are inside or straddle that interval.
-    let root = match (left < 0.0, right > 1.0) {
+    let right_over_one = right.0 > 0.0 && right.0 * 10.0_f64.powi(right.1) > 1.0;
+    let (mantissa, power) = match (left.0 < 0.0, right_over_one) {
         (true, true) if sum_over_one => left,
         (true, _) => right,
         (false, false) if sum_over_one => right,
         (false, _) => left,
     };
-    Ok(Real::from_f64(root)?)
+    Ok(Real::from_f64(mantissa)?.scale10(power)?)
 }
 
 // Sample on the original 0,1 secant, then interpolate the vertex using divided
