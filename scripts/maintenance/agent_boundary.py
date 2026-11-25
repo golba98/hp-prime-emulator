@@ -225,7 +225,7 @@ def launch(command):
         if (ROOT / '.git/refs').exists():
             shutil.copytree(ROOT / '.git/refs', metadata / 'refs')
         (metadata / 'objects').mkdir()
-        build = state / 'build' 
+        build = state / 'build'
         build.mkdir()
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
