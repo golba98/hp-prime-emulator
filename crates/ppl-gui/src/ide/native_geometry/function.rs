@@ -149,6 +149,17 @@ pub(super) fn tangent_at(
         Ok::<_, String>(element(source, p.x, snapshot, cancel.clone())?.y)
     };
     let (_, slope) = algebraic_value_and_slope(&expr, p.x, &constant)?;
+    // A normalized endpoint introduces irrational coordinates even for an
+    // integer slope. The PPL object bridge rounds those coordinates, which
+    // can change the slope of a stored tangent.
+    let dx = p.x.abs().max(1.);
+    let endpoint = Point2 {
+        x: p.x + dx,
+        y: p.y + dx * slope,
+    };
+    if let Ok(line) = primitives::line(p, endpoint, Extent::Line) {
+        return Ok(line);
+    }
     let length = slope.hypot(1.);
     let step = 1_f64.max(p.x.abs().max(p.y.abs()) * 4. * f64::EPSILON);
     primitives::line(
