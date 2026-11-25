@@ -1,6 +1,6 @@
 //! List commands and collection append. Collection operands are never modified.
 
-use std::rc::Rc;
+use std::{collections::BTreeMap, rc::Rc};
 
 use ppl_compiler::builtins::Builtin;
 use ppl_math::Real;
@@ -60,11 +60,18 @@ pub(crate) fn append_collection(
         && let Value::Str(text) = item
         && matches!(base, Value::List(_) | Value::Matrix(_))
     {
+        if let Value::Matrix(vector) = base
+            && vector.vector
+            && text.contains(';')
+            && let Some(result) = append_assignment_sequence(machine, vector, text)?
+        {
+            return Ok(result);
+        }
         if let Some(result) = append_text_assignment(machine, text)? {
             assignment = result.target.map(|target| (target, result.payload.clone()));
             Some(result.payload)
         } else {
-            append_text_payload(machine, text)?
+            append_text_payload(machine, text, &BTreeMap::new())?
         }
     } else {
         None
@@ -164,6 +171,40 @@ fn append_item(
     call(machine, Builtin::Append, "APPEND", args)
 }
 
+fn append_assignment_sequence(
+    machine: &mut Machine,
+    vector: &Matrix,
+    text: &str,
+) -> RtResult<Option<Value>> {
+    let mut result = vector.clone();
+    let mut pending = BTreeMap::new();
+    let mut assignments = Vec::new();
+    for statement in text.split(';') {
+        let Some((target, expression)) = statement.split_once(":=") else {
+            return Ok(None);
+        };
+        let target = target.trim();
+        if !matches!(target.as_bytes(), [b'A'..=b'Z']) {
+            return Ok(None);
+        }
+        let Some(Value::Real(value)) = append_text_payload(machine, expression, &pending)? else {
+            return Ok(None);
+        };
+        machine.check_len(result.data.len() + 1)?;
+        result.data.push(numeric_entry(Value::Real(value))?);
+        pending.insert(target, value);
+        assignments.push((target, value));
+    }
+
+    // Reads see earlier assignments through pending. Commit once the entire
+    // vector has been built and its resource limits have been checked.
+    result.cols = result.data.len();
+    for (target, value) in assignments {
+        machine.store_home_value(target, Value::Real(value))?;
+    }
+    Ok(Some(Value::Matrix(Rc::new(result))))
+}
+
 fn append_text_assignment<'a>(
     machine: &Machine,
     text: &'a str,
@@ -175,10 +216,11 @@ fn append_text_assignment<'a>(
     if target != "HAngle" && !matches!(target.as_bytes(), [b'A'..=b'Z']) {
         return Ok(None);
     }
+    let pending = BTreeMap::new();
     let payload = if let Some((numerator, denominator)) = expression.split_once('/') {
         let (Some(Value::Real(numerator)), Some(Value::Real(denominator))) = (
-            append_text_atom(machine, numerator.trim()),
-            append_text_atom(machine, denominator.trim()),
+            append_text_atom(machine, numerator.trim(), &pending),
+            append_text_atom(machine, denominator.trim(), &pending),
         ) else {
             return Ok(None);
         };
@@ -190,7 +232,7 @@ fn append_text_assignment<'a>(
             numerator.quotient_if_integer(denominator)?.map(Value::Real)
         }
     } else {
-        match append_text_payload(machine, expression)? {
+        match append_text_payload(machine, expression, &pending)? {
             Some(payload @ Value::Real(_)) => Some(payload),
             Some(Value::Symbolic(value))
                 if target != "HAngle"
@@ -213,7 +255,11 @@ fn append_text_assignment<'a>(
     }))
 }
 
-fn append_text_atom(machine: &Machine, text: &str) -> Option<Value> {
+fn append_text_atom(
+    machine: &Machine,
+    text: &str,
+    pending: &BTreeMap<&str, Real>,
+) -> Option<Value> {
     if let Some(number) = Real::parse_versioned(text, machine.settings.numeric_version) {
         return Some(Value::Real(number));
     }
@@ -221,9 +267,10 @@ fn append_text_atom(machine: &Machine, text: &str) -> Option<Value> {
         return None;
     }
     Some(
-        machine
-            .calculator_global(text)
-            .and_then(Value::as_real)
+        pending
+            .get(text)
+            .copied()
+            .or_else(|| machine.calculator_global(text).and_then(Value::as_real))
             .map_or_else(
                 || cas::from_cas(ppl_cas::CasValue::Symbolic(text.into())),
                 Value::Real,
@@ -231,7 +278,11 @@ fn append_text_atom(machine: &Machine, text: &str) -> Option<Value> {
     )
 }
 
-fn append_text_payload(machine: &Machine, text: &str) -> RtResult<Option<Value>> {
+fn append_text_payload(
+    machine: &Machine,
+    text: &str,
+    pending: &BTreeMap<&str, Real>,
+) -> RtResult<Option<Value>> {
     let content = text.trim();
     if content.is_empty() {
         return Ok(Some(cas::from_cas(ppl_cas::CasValue::Undefined)));
@@ -239,7 +290,7 @@ fn append_text_payload(machine: &Machine, text: &str) -> RtResult<Option<Value>>
     if content.len() >= 2 && content.starts_with('"') && content.ends_with('"') {
         return Ok(Some(Value::str(text)));
     }
-    if let Some(value) = append_text_atom(machine, content) {
+    if let Some(value) = append_text_atom(machine, content, pending) {
         return Ok(Some(value));
     }
     // Text conversion supports one addition of two atoms.
@@ -248,8 +299,8 @@ fn append_text_payload(machine: &Machine, text: &str) -> RtResult<Option<Value>>
     };
     let (left, right) = (left.trim(), right.trim());
     let (Some(a), Some(b)) = (
-        append_text_atom(machine, left),
-        append_text_atom(machine, right),
+        append_text_atom(machine, left, pending),
+        append_text_atom(machine, right, pending),
     ) else {
         return Ok(None);
     };

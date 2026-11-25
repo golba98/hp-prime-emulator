@@ -187,6 +187,40 @@ fn append_assignment_stores_once_after_the_collection_is_built() {
     assert_eq!(text(&evaluate("A", limits).unwrap()), "8");
 }
 
+#[test]
+fn append_assignment_sequence_reads_earlier_values_and_checks_limits_before_storing() {
+    use ppl_vm::{ErrorKind, HeadlessHost, Limits, ResourceKind, SessionContext};
+
+    let mut session = SessionContext::default();
+    let mut evaluate = |input: &str, limits| {
+        session
+            .evaluate_home(input, Box::new(HeadlessHost::new()), limits)
+            .result
+    };
+    let limits = Limits::default();
+    evaluate("A:=7", limits.clone()).unwrap();
+    evaluate("B:=11", limits.clone()).unwrap();
+    let append = r#"append([A,B],"A:=B+1; B:=A+2; A:=B+3")"#;
+    let error = evaluate(
+        append,
+        Limits {
+            max_collection_len: 4,
+            ..Limits::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, ErrorKind::ResourceLimit(ResourceKind::Memory));
+    assert_eq!(text(&evaluate("{A,B}", limits.clone()).unwrap()), "{7,11}");
+    let malformed = r#"append([A,B],"A:=77; B:=")"#;
+    assert!(evaluate(malformed, limits.clone()).is_err());
+    assert_eq!(text(&evaluate("{A,B}", limits.clone()).unwrap()), "{7,11}");
+    assert_eq!(
+        text(&evaluate(append, limits.clone()).unwrap()),
+        "[7,11,12,14,17]"
+    );
+    assert_eq!(text(&evaluate("{A,B}", limits).unwrap()), "{17,14}");
+}
+
 fn verify_append(fixture: &str, entry: &str) {
     fn project(value: &Value) -> serde_json::Value {
         match value {

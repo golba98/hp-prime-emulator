@@ -317,7 +317,6 @@
         ]
       ],
       "holdout_indices": [
-        5,
         6
       ]
     }
