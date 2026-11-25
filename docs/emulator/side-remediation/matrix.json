@@ -2239,6 +2239,43 @@
         }
       },
       "package_smoke": "The extracted executable passed numerical and exact Giac results, debugger stepping, input, key handling, drawing, typed matrices, cross-module diagnostics and the existing numerical complex controls. The five stored compatibility suites replayed with 44 verified, five failed, four partial and 64 unverified cases.",
+      "test_execution_audit": {
+        "integration_revision": "b101858ee58c3284f2a3d102bfd92671230214dc",
+        "method": "Ran both test commands with RUST_TEST_NOCAPTURE=1. Compared logged gates against the environment and checked the source guards and test names for 27 silent workspace returns and four silent Giac-suite returns. The default workspace run had no Giac helper selected.",
+        "workspace": {
+          "rust_harness_ok": 3079,
+          "failed": 0,
+          "ignored": 6,
+          "full_asset_gate_early_returns": 84,
+          "full_helper_gate_early_returns": 1,
+          "original_asset_subchecks_omitted": 2,
+          "ok_excluding_full_early_returns": 2994,
+          "ok_without_the_identified_asset_or_helper_omissions": 2992,
+          "benchmark_smoke_cases": 38
+        },
+        "giac": {
+          "rust_harness_ok": 1489,
+          "failed": 0,
+          "ignored": 2,
+          "full_asset_gate_early_returns": 10,
+          "full_helper_gate_early_returns": 0,
+          "original_asset_subchecks_omitted": 0,
+          "ok_excluding_full_early_returns": 1479,
+          "ok_without_the_identified_asset_or_helper_omissions": 1479,
+          "benchmark_smoke_cases": 0
+        },
+        "separate_linux_checks_from_workspace_ignored_tests": {
+          "passed": 3,
+          "failed": 0,
+          "remaining_ignored": 3,
+          "cases_passed": [
+            "gui_renders_and_closes_promptly",
+            "app::compile_tests::measure_analysis_latency",
+            "measure_capture_and_encoding"
+          ],
+          "remaining_scope": "A private mirror hardware capture and two original-firmware file compatibility tests require local fixtures."
+        }
+      },
       "spreadsheet_predx_reproduction": {
         "expression": "PredX(9,0,0.0064,-0.16,1)",
         "procedure": "Select Spreadsheet, enter the expression in Home, then save the same expression in a worksheet cell and read the cell in PPL. Repeat with Native profiles set to 15157 and 15751. PredX(9,0,0.0625,-0.5,1) returns real 0.25 in both profiles.",
