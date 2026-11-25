@@ -75,10 +75,17 @@ def cell_pixels(label, address):
     rect = state['lcd_rect']
     left, top = rect['min']
     right, bottom = rect['max']
-    sx = lambda value: round(left + value * (right - left) / 320)
-    sy = lambda value: round(top + value * (bottom - top) / 240)
-    image = Image.open(root / f'spreadsheet_attributes_{label}.png').convert('RGB')
-    return image.crop((sx(x + 1), sy(y + 2), sx(x + 98), sy(y + 48)))
+    # Measure font thresholds in LCD pixels. The full-keypad layout can
+    # render the window at a fractional physical scale.
+    columns = [math.floor(left + (col + 0.5) * (right - left) / 320)
+               for col in range(x + 1, x + 98)]
+    rows = [math.floor(top + (row + 0.5) * (bottom - top) / 240)
+            for row in range(y + 2, y + 48)]
+    with Image.open(root / f'spreadsheet_attributes_{label}.png') as capture:
+        image = capture.convert('RGB')
+        cell = Image.new('RGB', (len(columns), len(rows)))
+        cell.putdata([image.getpixel((col, row)) for row in rows for col in columns])
+    return cell
 
 
 def ink_height(label, address, red=False):

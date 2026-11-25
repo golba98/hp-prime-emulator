@@ -2,6 +2,7 @@
 
 use super::{IdeAppState, IdePanel};
 use crate::theme::{ACCENT_BLUE, BORDER_CRISP};
+use egui::emath::GuiRounding as _;
 use egui::{Color32, ColorImage, Rect, Stroke, StrokeKind, TextureOptions, Vec2};
 use ppl_graphics::Grob;
 
@@ -223,9 +224,15 @@ impl IdePanel for CalculatorDisplay {
     fn render(&mut self, ui: &mut egui::Ui, state: &mut IdeAppState) {
         let available = ui.available_size();
         let width = available.x.min(available.y * 4.0 / 3.0).max(1.0);
-        let size = pixel_perfect_size(available, ui.ctx().pixels_per_point(), state.smooth_display)
-            .unwrap_or(Vec2::new(width, width * 0.75));
-        let rect = Rect::from_center_size(ui.available_rect_before_wrap().center(), size);
+        let center = ui.available_rect_before_wrap().center();
+        let rect = if let Some(size) =
+            pixel_perfect_size(available, ui.ctx().pixels_per_point(), state.smooth_display)
+        {
+            let min = (center - size / 2.0).round_to_pixels(ui.pixels_per_point());
+            Rect::from_min_size(min, size)
+        } else {
+            Rect::from_center_size(center, Vec2::new(width, width * 0.75))
+        };
         self.paint_at(ui, state, rect);
         ui.allocate_space(available);
     }
@@ -251,6 +258,25 @@ mod tests {
             None
         );
         assert_eq!(pixel_perfect_size(Vec2::new(900.0, 900.0), 1.0, true), None);
+    }
+
+    #[test]
+    fn pixel_perfect_screen_places_its_texture_on_physical_pixel_boundaries() {
+        let ctx = egui::Context::default();
+        let mut display = CalculatorDisplay::new();
+        let mut state = IdeAppState::default();
+        let view = Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(601.0, 481.0));
+        let input = egui::RawInput {
+            screen_rect: Some(view),
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| display.render(ui, &mut state));
+        });
+        let lcd = display.last_display_rect;
+        assert_eq!(lcd.size(), Vec2::new(320.0, 240.0));
+        assert_eq!(lcd.min.x.fract(), 0.0);
+        assert_eq!(lcd.min.y.fract(), 0.0);
     }
 
     #[test]
