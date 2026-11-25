@@ -43,6 +43,7 @@
         "native_plot_view.rs"
       ],
       "status": "partial",
+      "release_status": "Partially implemented",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-gui/src/ide/native_regression.rs",
@@ -102,6 +103,7 @@
         "app_tools.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-cas/src/lib.rs",
@@ -136,6 +138,7 @@
         "app_tools.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native_tools/views.rs"
@@ -171,6 +174,7 @@
         "execution/worker.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/app_user_keys.rs",
@@ -210,6 +214,7 @@
         "ppl-cas/units.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-gui/src/ide/native_tools/pickers.rs",
@@ -252,6 +257,7 @@
         "app_native.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native/keys.rs"
@@ -285,6 +291,7 @@
         "app_tools.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native/keys.rs"
@@ -317,6 +324,7 @@
         "native/expression.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native/keys.rs"
@@ -357,6 +365,7 @@
         "syntax lexer/parser"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-gui/src/ide/native/polar_display.rs",
@@ -412,6 +421,7 @@
         "native/keys.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/keymap.rs",
@@ -448,6 +458,7 @@
         "native/math_layout.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native/expression.rs"
@@ -485,6 +496,7 @@
         "app_math_entry.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native/expression.rs",
@@ -521,6 +533,7 @@
         "native_profile.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native.rs"
@@ -554,6 +567,7 @@
         "dialog.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/app_native.rs",
@@ -589,6 +603,7 @@
         "native_tools.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native_tools.rs",
@@ -624,6 +639,7 @@
         "host.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/dialog.rs",
@@ -658,6 +674,7 @@
         "host.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/app_native.rs",
@@ -693,6 +710,7 @@
         "session/memory.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native_profile.rs",
@@ -729,6 +747,7 @@
         "linker.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/app_catalog.rs",
@@ -764,6 +783,7 @@
         "session.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/native_tools.rs",
@@ -799,6 +819,7 @@
         "builtins/io.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/dialog/matrix.rs"
@@ -838,6 +859,7 @@
         "host.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-compiler/src/bytecode.rs",
@@ -895,6 +917,7 @@
         "host.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-compiler/src/compile.rs",
@@ -969,6 +992,7 @@
         "dialog modules"
       ],
       "status": "partial",
+      "release_status": "Partially implemented",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-vm/src/value.rs",
@@ -1057,6 +1081,7 @@
         "native_tools.rs"
       ],
       "status": "partial",
+      "release_status": "Partially implemented",
       "previous_status": "partial",
       "source_files": [
         "crates/ppl-gui/src/ide/native.rs",
@@ -1096,6 +1121,7 @@
         "ide/keypad.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/keypad.rs"
@@ -1135,6 +1161,7 @@
         "session.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "partial",
       "source_files": [
         "crates/prime-emulator/src/guest_call/text.rs",
@@ -1187,6 +1214,7 @@
         "prime-emulator/session/typing.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "unresolved",
       "source_files": [
         "crates/prime-emulator/src/clipboard.rs",
@@ -1243,6 +1271,7 @@
         "services/fs/component.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "unresolved",
       "source_files": [
         "crates/prime-emulator/src/session.rs",
@@ -1337,6 +1366,7 @@
         "prime-emulator/services/{names,mod,handlers}.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "partial",
       "source_files": [
         "crates/prime-emulator/src/services/module_metadata.rs",
@@ -1391,6 +1421,7 @@
         "runner.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "partial",
       "source_files": [
         "crates/prime-emulator/src/services/threading.rs",
@@ -1445,6 +1476,7 @@
         "prime-emulator/services/system2.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented, awaiting external verification",
       "previous_status": "unresolved",
       "source_files": [
         "crates/ppl-engine/src/environment.rs",
@@ -1503,6 +1535,7 @@
         "ide/automation.rs"
       ],
       "status": "implemented",
+      "release_status": "Implemented and verified",
       "previous_status": "implemented",
       "source_files": [
         "crates/ppl-gui/src/ide/automation.rs",
@@ -1569,5 +1602,51 @@
   },
   "continuation_baseline": "2c80c4c7a8e8ca45f6ceedae0d19e4dac62b1cd4",
   "continuation_acceptance": "Incomplete:30 implemented,3 partial,0 unresolved. Findings1(app completeness),24(overloads/graphics/formatting) and25(display parity) remain required engineering. The all33 objective is not complete.",
-  "verified_counts_scope": "Historical original audit counts. Current continuation results and hashes are in verification.json.continuation.results."
+  "verified_counts_scope": "Historical original audit counts. Current continuation results and hashes are in verification.json.continuation.results.",
+  "release_candidate": {
+    "source_checkpoint": "65db1fccaf42ea514ce717f8d8e38fb3964a9528",
+    "scope": "Statuses apply to the original finding criteria. The verified label for these scoped rows reflects recorded original evidence and applicable Native regressions. Firmware rows still need a current run with the original runtime assets. Whole-app, overload and display parity remain partial.",
+    "implementation_references": {
+      "1": [
+        "3605988 consolidates the application work",
+        "2158e60 isolates the lighting profile",
+        "2b51077 preserves typed tangent slope",
+        "25e6839 reuses Advanced Graphing coordinates",
+        "f0e3280 routes Zoom taps to the Statistics menu"
+      ],
+      "18": [
+        "65db1fc makes forced-termination verification independent of the optional procfs children file"
+      ]
+    },
+    "acceptance": {
+      "applications": "Build and select the matching Giac helper, set PPL_BIN to the release binary, and run bash tests/ide_xvfb_smoke/run_native_side.sh. Expect live PPL/plot data and separate-process restore. The chart, lighting, dependent trace and report assertions target the relevant controls individually.",
+      "persistence": "With PPL_BIN and PPL_CAS_HELPER selected, run python3 tests/ide_xvfb_smoke/assert_native_side_crash_restart.py and python3 tests/ide_xvfb_smoke/assert_native_statistics_one_crash_restart.py. Each test requires the isolated child to exit from SIGKILL and a fresh child to restore the saved typed state.",
+      "firmware": "With local original firmware assets in PRIME_TEST_FIRMWARE, PRIME_TEST_INIT_DATA and PRIME_TEST_OS_ROM, run cargo test --locked -p prime-emulator --test firmware_session -- --test-threads=1 --nocapture. Set PRIME_TEST_RUNNER to the local runner for cargo test --locked -p ppl-compat --test checkpoint_scenarios -- --nocapture. Verify execution of the asset-dependent assertions.",
+      "runtime": "Run cargo test --locked --workspace --all-targets --no-fail-fast. With the matching helper in PPL_CAS_HELPER, run cargo test --locked -p ppl-cas -p ppl-vm -p ppl-gui --features giac-integration --no-fail-fast.",
+      "install": "On Linux, run cargo install --locked --path crates/ppl-cli into a user-owned prefix, then run ppl gui. The tested Linux x86-64 archive requires glibc 2.39 or later and libudev.so.1. Build and select the separate helper for symbolic calculations. Windows Native build and tests are covered by the Windows CI job when it is available."
+    },
+    "linux_validation": {
+      "workspace": {
+        "passed": 3065,
+        "failed": 0,
+        "ignored": 6,
+        "benchmark_smoke_checks": 38,
+        "rerun_reason": "The initial concurrent run exceeded the existing editor timing threshold. The unchanged condition passed in the targeted retry and in the full rerun."
+      },
+      "giac_integration": {
+        "passed": 1480,
+        "failed": 0,
+        "ignored": 2,
+        "scope": "Feature-enabled CAS, VM and GUI test targets with the matching system Giac helper."
+      },
+      "firmware_resources": "Optional runtime asset and physical hardware acceptance remains open."
+    },
+    "external_gates": [
+      "Firmware sessions with lawful G1 assets",
+      "Physical USB observations where the relevant acceptance procedure requires them",
+      "Hosted Linux and Windows CI at the integration head",
+      "Owner review and publication of updated public Markdown"
+    ],
+    "future_toolkit_cli": "Review an optional HP Prime Development Toolkit integration that consumes the emulator CLI's typed JSON diagnostics and execution results. The Toolkit is a separate project."
+  }
 }
