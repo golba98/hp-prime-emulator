@@ -528,6 +528,18 @@ fn complex_division_with_tiny_and_huge_divisors() {
 }
 
 #[test]
+fn axial_complex_division_scales_each_component_independently() {
+    assert_eq!(
+        c("1E400", "1E-200").div(c("1E100", "0")).unwrap(),
+        c("1E300", "1E-300")
+    );
+    assert_eq!(
+        c("1E-200", "1E400").div(c("0", "1E100")).unwrap(),
+        c("1E300", "-1E-300")
+    );
+}
+
+#[test]
 fn complex_sqrt_outside_f64_range() {
     // sqrt(-4E400) = 2E200 i.
     let s = c("-4E400", "0").sqrt().unwrap();
@@ -540,4 +552,24 @@ fn complex_sqrt_outside_f64_range() {
     );
     let s = c("-4", "0").sqrt().unwrap();
     assert_eq!(s.im.to_string(), "2");
+}
+
+#[test]
+fn complex_sqrt_retains_the_small_component_and_principal_sign() {
+    for (re, im, root_re, root_im) in [
+        ("3", "4", "2", "1"),
+        ("-3", "-4", "1", "-2"),
+        ("1", "1E-40", "1", "5E-41"),
+        ("-1", "-1E-40", "5E-41", "-1"),
+        ("1E400", "1E-290", "1E200", "5E-491"),
+        ("-1E400", "-1E-290", "5E-491", "-1E200"),
+        ("-1E400", "-1E-310", "0", "-1E200"),
+        ("0", "0", "0", "0"),
+    ] {
+        assert_eq!(
+            c(re, im).sqrt().unwrap(),
+            c(root_re, root_im),
+            "({re},{im})"
+        );
+    }
 }

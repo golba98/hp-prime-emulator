@@ -65,8 +65,15 @@ impl Complex {
     }
 
     pub fn div(self, o: Complex) -> Result<Complex, MathError> {
-        if o.re.is_zero() && o.im.is_zero() {
-            return Err(MathError::DivisionByZero);
+        // An axial divisor does not couple the components. Divide each at
+        // its own scale so a small component can survive the quotient.
+        if o.im.is_zero() {
+            return Ok(Complex::new(self.re.div(o.re)?, self.im.div(o.re)?)
+                .with_presentation(self.presentation));
+        }
+        if o.re.is_zero() {
+            return Ok(Complex::new(self.im.div(o.im)?, self.re.neg().div(o.im)?)
+                .with_presentation(self.presentation));
         }
         // Both operands are scaled by exact powers of ten so that their
         // larger part lies in [1, 10). This gives the same digits as the
@@ -132,24 +139,29 @@ impl Complex {
     }
 
     pub fn sqrt(self) -> Result<Complex, MathError> {
-        // Outside the f64 range, take the root of z / 10^(2h) and multiply
-        // by 10^h (exact). Inside it the f64 path is unchanged.
-        let e = self.scale_exp();
-        if !(-300..=300).contains(&e) {
-            let h = e.div_euclid(2);
-            let z = Complex::new(self.re.scale10(-2 * h)?, self.im.scale10(-2 * h)?);
-            let r = z.sqrt()?;
-            return Ok(Complex::new(r.re.scale10(h)?, r.im.scale10(h)?)
-                .with_presentation(self.presentation));
-        }
-        let (re, im) = (self.re.to_f64(), self.im.to_f64());
-        let r = re.hypot(im);
-        let a = ((r + re) / 2.0).sqrt();
-        let b = ((r - re) / 2.0)
-            .sqrt()
-            .copysign(if im == 0.0 { 1.0 } else { im });
-        Ok(Complex::new(Real::from_f64(a)?, Real::from_f64(b)?)
-            .with_presentation(self.presentation))
+        // Scale by an even exponent so the dominant component is safe to
+        // compute in f64 and the root can be rescaled by a power of ten.
+        let half_exp = self.scale_exp().div_euclid(2);
+        let re = self.re.scale10(-2 * half_exp)?.to_f64();
+        let im = self.im.scale10(-2 * half_exp)?.to_f64();
+        let large = ((re.hypot(im) + re.abs()) / 2.0).sqrt();
+        // For a root a+bi, 2ab equals the input's imaginary component.
+        // Normalize that input separately so a tiny component can survive.
+        let small = if self.im.is_zero() {
+            Real::ZERO
+        } else {
+            let im_exp = self.im.exp10();
+            let mantissa = self.im.abs().scale10(-im_exp)?.to_f64();
+            Real::from_f64(mantissa / (2.0 * large))?.scale10(im_exp - half_exp)?
+        };
+        let large = Real::from_f64(large)?.scale10(half_exp)?;
+        let (re, im) = if self.re.is_negative() {
+            (small, large)
+        } else {
+            (large, small)
+        };
+        let im = if self.im.is_negative() { im.neg() } else { im };
+        Ok(Complex::new(re, im).with_presentation(self.presentation))
     }
 
     pub fn is_real(self) -> bool {

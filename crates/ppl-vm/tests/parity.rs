@@ -543,6 +543,23 @@ fn test_helper_and_recursive_functions() {
 }
 
 #[test]
+fn complex_square_root_through_ppl_retains_both_components() {
+    let (_, result, _) =
+        run_ppl("EXPORT TEST_PROG() BEGIN RETURN {√((1,1E-40)),√((-1E400,-1E-290))}; END;");
+    let Value::List(results) = result else {
+        panic!("expected a list, got {result:?}");
+    };
+    for (root, (re, im)) in results.iter().zip([("1", "5E-41"), ("5E-491", "-1E200")]) {
+        let Value::Complex(root) = root else {
+            panic!("expected a complex root, got {root:?}");
+        };
+        assert_eq!(root.re.to_string(), re);
+        assert_eq!(root.im.to_string(), im);
+    }
+    assert_eq!(results.len(), 2);
+}
+
+#[test]
 fn local_call_arguments_and_pending_operands_survive_nested_frames() {
     let source = SourceFile::new(
         "<local calls>",
