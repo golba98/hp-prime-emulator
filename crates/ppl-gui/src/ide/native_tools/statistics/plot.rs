@@ -631,6 +631,7 @@ impl NativeTools {
         let zoom_height = ZOOM_ROW_HEIGHT.min(214 / zoom_rows);
         let zoom_top = 215 - zoom_rows * zoom_height;
         let zoom_box_open = self.statistics_panel.zoom_box.is_some();
+        let zoom_menu_open = self.statistics_panel.plot_zoom.is_some();
         let free = if !two && !zoom_box_open && !self.trace.enabled {
             self.statistics_panel.free_plot_cursor
         } else {
@@ -861,7 +862,7 @@ impl NativeTools {
                                     plot_rect.size(),
                                     scale,
                                     trace.filter(|_| two),
-                                    !zoom_box_open,
+                                    !zoom_box_open && !zoom_menu_open,
                                     !two,
                                 )
                             })
@@ -921,7 +922,7 @@ impl NativeTools {
                 if zoom_box_open {
                     self.statistics_zoom_box_input(ui, lcd, scale);
                 }
-                if self.statistics_panel.plot_zoom.is_some() {
+                if zoom_menu_open {
                     let menu = egui::Rect::from_min_max(
                         lcd.min + egui::vec2(0., zoom_top as f32 * scale),
                         lcd.min + egui::vec2(151. * scale, 220. * scale),
