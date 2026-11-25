@@ -1701,6 +1701,47 @@
       "command": "cargo check --locked --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
       "scope": "MinGW cross-check with the lockfile zlib include directory. Hosted MSVC CI and the Windows GUI lifecycle remain open."
     },
+    "windows_gnu_link_verification": {
+      "integration_revision": "2db846420d2048cd96cdb394f19227069d5009c9",
+      "target": "x86_64-pc-windows-gnu",
+      "rustc": "1.100.0 (0ef1bc386 2026-11-09)",
+      "linker": "MinGW-w64 GCC 14-posix on Linux",
+      "build_command": "cargo build --locked --offline --target x86_64-pc-windows-gnu -p ppl-cli --bin ppl",
+      "all_targets_command": "cargo check --locked --offline --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu",
+      "profile": "Development profile, unoptimized, debug information disabled",
+      "setup": "Select MinGW for the target Rust linker and C library compiler, clear inherited Linux include directories and expose the locked libz-sys zlib headers to the target C build.",
+      "result": "The all-target cross-check and full executable link passed. The file header and 20 distinct DLL import names were inspected.",
+      "artifact": "ppl.exe",
+      "binary": {
+        "bytes": 105550773,
+        "sha256": "1a4603e79ac8c767b1f936065264535173761b9f1df7e750c0a1083f0212b61c",
+        "architecture": "AMD64",
+        "format": "PE32+",
+        "imported_dll_names": [
+          "advapi32.dll",
+          "api-ms-win-core-path-l1-1-0.dll",
+          "api-ms-win-core-synch-l1-2-0.dll",
+          "bcryptprimitives.dll",
+          "cfgmgr32.dll",
+          "dwmapi.dll",
+          "gdi32.dll",
+          "hid.dll",
+          "imm32.dll",
+          "kernel32.dll",
+          "msvcrt.dll",
+          "ntdll.dll",
+          "ole32.dll",
+          "opengl32.dll",
+          "shell32.dll",
+          "shlwapi.dll",
+          "user32.dll",
+          "userenv.dll",
+          "uxtheme.dll",
+          "ws2_32.dll"
+        ]
+      },
+      "native_verification": "On Windows, run .\\ppl.exe --version, then .\\ppl.exe run --engine native examples/SQUARE.ppl --entry SQUARE --args \"[7]\" --json from the checkout and expect typed real 49. Open .\\ppl.exe gui and verify a clean start and a separate-process reopen."
+    },
     "current_source": "1f7b1d0fb904437036b83bd90821177145ac00f8",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
