@@ -71,7 +71,13 @@ pub(crate) fn append_collection(
     };
     let result = append_item(machine, args, text_item.as_ref())?;
     if let Some((target, value)) = assignment {
-        machine.store_home_value(target, value)?;
+        if target == "HAngle" {
+            machine
+                .settings
+                .set_angle_code(value.expect_i64("setting")?)?;
+        } else {
+            machine.store_home_value(target, value)?;
+        }
     }
     Ok(result)
 }
@@ -166,7 +172,7 @@ fn append_text_assignment<'a>(
         return Ok(None);
     };
     let target = target.trim();
-    if !matches!(target.as_bytes(), [b'A'..=b'Z']) {
+    if target != "HAngle" && !matches!(target.as_bytes(), [b'A'..=b'Z']) {
         return Ok(None);
     }
     if let Some((numerator, denominator)) = expression.split_once('/') {

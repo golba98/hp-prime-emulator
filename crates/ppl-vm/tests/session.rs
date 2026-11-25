@@ -50,6 +50,40 @@ fn home_uses_real_typed_ans_assignments_and_persistent_settings() {
 }
 
 #[test]
+fn append_angle_assignment_updates_home_without_a_program_setting_slot() {
+    let mut session = SessionContext::default();
+    let result = program(
+        &mut session,
+        "angle.ppl",
+        r#"EXPORT MAIN() BEGIN RETURN append([1,2],"HAngle:=1"); END;"#,
+    )
+    .result
+    .unwrap();
+    let Value::Matrix(vector) = result else {
+        panic!("APPEND returned {result:?}");
+    };
+    assert!(vector.vector);
+    assert_eq!(
+        vector.data.iter().cloned().map(number).collect::<Vec<_>>(),
+        [1, 2, 1]
+    );
+    assert_eq!(number(home(&mut session, "HAngle")), 1);
+    assert_eq!(number(home(&mut session, "SIN(90)")), 1);
+    assert!(!session.snapshot().globals.contains_key("HAngle"));
+
+    let rejected = program(
+        &mut session,
+        "invalid-angle.ppl",
+        r#"EXPORT MAIN() BEGIN RETURN append([1,2],"HAngle:=7"); END;"#,
+    );
+    assert!(rejected.result.is_err());
+    let mut reopened = SessionContext::default();
+    reopened.restore_memory(&session.memory_json()).unwrap();
+    assert_eq!(number(home(&mut reopened, "HAngle")), 1);
+    assert_eq!(number(home(&mut reopened, "SIN(90)")), 1);
+}
+
+#[test]
 fn modules_initialize_once_and_are_isolated_by_source_and_revision() {
     let mut session = SessionContext::default();
     let source = "LOCAL count:=10; EXPORT MAIN() BEGIN count:=count+1; RETURN count; END;";

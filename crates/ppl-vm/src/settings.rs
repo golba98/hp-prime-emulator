@@ -140,6 +140,13 @@ impl Settings {
             ..self.format()
         }
     }
+    pub(crate) fn set_angle_code(&mut self, code: i64) -> crate::RtResult<()> {
+        self.angle = AngleMode::from_code(code).ok_or_else(|| {
+            crate::RuntimeError::new(crate::ErrorKind::BadArgValue, "HAngle must be 0, 1 or 2")
+        })?;
+        Ok(())
+    }
+
     pub fn set_separator(&mut self, code: i64) -> crate::RtResult<()> {
         self.digit_grouping = ppl_math::DigitGrouping::from_code(code).ok_or_else(|| {
             crate::RuntimeError::new(

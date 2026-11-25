@@ -445,11 +445,7 @@ impl SessionContext {
         ) {
             let number = value.to_value().expect_i64("setting")?;
             match setting.as_str() {
-                "hangle" => {
-                    self.settings.angle = crate::AngleMode::from_code(number).ok_or_else(|| {
-                        RuntimeError::new(ErrorKind::BadArgValue, "HAngle must be 0, 1 or 2")
-                    })?
-                }
+                "hangle" => self.settings.set_angle_code(number)?,
                 "hformat" => self
                     .settings
                     .try_set_format(number, self.settings.hdigits)?,

@@ -16,7 +16,7 @@ use crate::error::{ErrorKind, ResourceKind, RtResult, RuntimeError, TraceFrame};
 use crate::host::{DisplayMode, Host};
 use crate::ops;
 use crate::rng::Rng;
-use crate::settings::{AngleMode, Settings};
+use crate::settings::Settings;
 use crate::value::{Matrix, Value};
 
 mod app_variables;
@@ -1101,11 +1101,7 @@ impl Machine {
                         app.set_code(name, n)?;
                         self.app_settings.insert(self.active_app.clone(), app);
                     }
-                    Setting::HAngle => {
-                        st.angle = AngleMode::from_code(n).ok_or_else(|| {
-                            RuntimeError::new(ErrorKind::BadArgValue, "HAngle must be 0, 1 or 2")
-                        })?
-                    }
+                    Setting::HAngle => st.set_angle_code(n)?,
                     Setting::HFormat => {
                         let d = st.hdigits;
                         st.try_set_format(n, d)?
