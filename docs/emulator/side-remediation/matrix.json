@@ -2825,6 +2825,74 @@
         }
       }
     },
+    "append_assertion_follow_up": {
+      "package_source": "afd012c6930b68d452c5acf2e6a0ba1b015cc728",
+      "fixture_glob": "tests/fixtures/native-append-*-controls.json",
+      "fixture_files": 10,
+      "programs": 34,
+      "numeric_modes": [
+        15157,
+        15751
+      ],
+      "packaged_invocations": 68,
+      "results": {
+        "rows_per_mode": 230,
+        "exact_per_mode": 206,
+        "differing_per_mode": 24,
+        "new_exact_assertions": 14
+      },
+      "reproduction": "Write a case source to a .ppl file and verify its UTF-8 source_sha256. Run ppl run --engine native --numeric-version <15157 or 15751> <case.ppl> --entry <exported function> --json. Compare return_value against the recorded rows, using typed list, real and string projections. The remaining zero-based row indices are the fixture holdout_indices.",
+      "remaining_differences": [
+        {
+          "fixture": "native-append-assignment-payload-controls.json",
+          "rows": 6,
+          "scope": "Lowercase and HAngle targets, multiple or unusual assignment forms, a symbolic right-hand side and scalar-base diagnostics."
+        },
+        {
+          "fixture": "native-append-callback-division-controls.json",
+          "rows": 5,
+          "scope": "Quotients nested in callback operands, callback failure in the base, scalar-base diagnostics and faults inside arithmetic around a callback."
+        },
+        {
+          "fixture": "native-append-callback-type-controls.json",
+          "rows": 2,
+          "scope": "Callback type faults with scalar bases or arithmetic around the callback."
+        },
+        {
+          "fixture": "native-append-collection-controls.json",
+          "rows": 1,
+          "scope": "Evaluation of the second operand and the typed diagnostic after a base callback fault."
+        },
+        {
+          "fixture": "native-append-inline-division-controls.json",
+          "rows": 6,
+          "scope": "Scalar-base and base-quotient diagnostics, nested arithmetic, square root and complex argument, and leading-dot literal division."
+        },
+        {
+          "fixture": "native-append-matrix-callback-controls.json",
+          "rows": 1,
+          "scope": "Positive infinity and encoded matrix shape when a callback receives a quotient."
+        },
+        {
+          "fixture": "native-append-string-quotient-rejection-controls.json",
+          "rows": 3,
+          "scope": "Source-preserving scalar diagnostic and continuation after nested division and callback faults."
+        }
+      ],
+      "regression_command": "cargo test --locked -p ppl-vm --test overloads",
+      "regression_counts": {
+        "default": {
+          "passed": 22,
+          "failed": 0,
+          "ignored": 0
+        },
+        "giac_integration": {
+          "passed": 22,
+          "failed": 0,
+          "ignored": 0
+        }
+      }
+    },
     "stored_transcript_audit": {
       "package_source": "1f7b1d0fb904437036b83bd90821177145ac00f8",
       "method": "Verified the three archived screenshot SHA-256 values against their evidence records. In each of the four string rows, compared the opening and closing double quote pixels as 6 by 4 windows in the 16-bit RGB565 PNG. The windows all have identical row-major samples, serialized as big-endian 16-bit integers for hashing.",

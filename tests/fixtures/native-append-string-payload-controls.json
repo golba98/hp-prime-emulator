@@ -123,9 +123,7 @@
           "{3}"
         ]
       ],
-      "holdout_indices": [
-        5
-      ]
+      "holdout_indices": []
     },
     {
       "name": "ordinary_collection_bases",

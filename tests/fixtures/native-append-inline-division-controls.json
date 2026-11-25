@@ -308,11 +308,7 @@
           "3"
         ]
       ],
-      "holdout_indices": [
-        1,
-        2,
-        3
-      ]
+      "holdout_indices": []
     },
     {
       "name": "evaluated_numerator_and_denominator",

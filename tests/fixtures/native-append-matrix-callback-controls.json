@@ -150,7 +150,6 @@
         ]
       ],
       "holdout_indices": [
-        3,
         4
       ]
     },

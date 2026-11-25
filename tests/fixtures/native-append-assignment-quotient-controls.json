@@ -302,9 +302,7 @@
           ""
         ]
       ],
-      "holdout_indices": [
-        4
-      ]
+      "holdout_indices": []
     }
   ]
 }

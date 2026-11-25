@@ -145,9 +145,7 @@
           "{1,2}"
         ]
       ],
-      "holdout_indices": [
-        4
-      ]
+      "holdout_indices": []
     },
     {
       "name": "row_and_column_shapes",
@@ -254,8 +252,7 @@
         ]
       ],
       "holdout_indices": [
-        3,
-        4
+        3
       ]
     }
   ]
