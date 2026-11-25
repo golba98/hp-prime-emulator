@@ -1724,6 +1724,34 @@
         "assertions_passed_per_scale": 21
       },
       "focused_desktop_rerun": {
+      "full_desktop": {
+      "performance": {
+        "baseline": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "candidate": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
+        "workloads": 38,
+        "method": "Two alternating pinned Criterion quick rounds, then three alternating longer pinned rounds on seven outliers. Negative time changes are improvements.",
+        "representative_time_changes_percent": {
+          "grob_fill_circle": -55.8,
+          "grob_line": -30.7,
+          "ppl_fill_circle": -26.1,
+          "fireworks_compile_longer_rerun": -8.5,
+          "matrix_multiply_longer_rerun": -1.8,
+          "matrix_determinant_longer_rerun": -0.4,
+          "editor_diagnostics_6220_lines_longer_rerun": -0.7,
+          "vm_for_sum_longer_rerun": -0.1,
+          "vm_fib_20_longer_rerun": 8.5,
+          "list_append_longer_rerun": 4.6
+        },
+        "follow_up": "The larger outliers did not reproduce in longer runs. Recursive VM calls and list appends retained smaller measured increases, and their exact causes remain open."
+      },
+        "runner": "tests/ide_xvfb_smoke/run_native_side.sh scenarios and assertions, in isolated profiles using the optimized executable",
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "sessions_unexecuted": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "scope": "All checked-in native scenarios and their assertion invocations. Earlier timeout and sequencing failures were rerun with original limits and assertions."
+      },
         "sessions_passed": 7,
         "sessions_failed": 0,
         "assertion_groups_passed": 4,
