@@ -2468,6 +2468,122 @@
       },
       "scope": "Stored TYPE/STRING observations. The disagreements involve quote, imaginary glyph, exponent and minus representations. Fresh device confirmation is open."
     },
+    "stored_transcript_audit": {
+      "package_source": "1f7b1d0fb904437036b83bd90821177145ac00f8",
+      "method": "Verified the three archived screenshot SHA-256 values against their evidence records. In each of the four string rows, compared the opening and closing double quote pixels as 6 by 4 windows in the 16-bit RGB565 PNG. The windows all have identical row-major samples, serialized as big-endian 16-bit integers for hashing.",
+      "shared_glyph_sha256": "1a0de582340de3e3dee002b31089a78db50ee44570bbd5f7cdeaa98bb76090a5",
+      "region_order": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "string_cases": {
+        "type_str_val": {
+          "archived_transcript": "c2|2|hello",
+          "artifact": "tests/compat/evidence/core/ZZT_3115CB.screen.raw.png",
+          "artifact_sha256": "a6f4f18ba62f26e8e823f9a08acbb79413d1c8ff0698ee3ee63bbc409e4967c5",
+          "identical_raw_glyph_pixels": [
+            [
+              40,
+              54,
+              6,
+              4
+            ],
+            [
+              78,
+              54,
+              6,
+              4
+            ]
+          ]
+        },
+        "str_concat_num": {
+          "archived_transcript": "c5|2|ab1",
+          "artifact": "tests/compat/evidence/core/ZZT_3115CB.screen.raw.png",
+          "artifact_sha256": "a6f4f18ba62f26e8e823f9a08acbb79413d1c8ff0698ee3ee63bbc409e4967c5",
+          "identical_raw_glyph_pixels": [
+            [
+              40,
+              102,
+              6,
+              4
+            ],
+            [
+              69,
+              102,
+              6,
+              4
+            ]
+          ]
+        },
+        "str_mid": {
+          "archived_transcript": "c6|2|ell",
+          "artifact": "tests/compat/evidence/core/ZZT_3115CB.screen.raw.png",
+          "artifact_sha256": "a6f4f18ba62f26e8e823f9a08acbb79413d1c8ff0698ee3ee63bbc409e4967c5",
+          "identical_raw_glyph_pixels": [
+            [
+              40,
+              118,
+              6,
+              4
+            ],
+            [
+              62,
+              118,
+              6,
+              4
+            ]
+          ]
+        },
+        "smoke_strcat": {
+          "archived_transcript": "c5|2|ABC",
+          "artifact": "tests/compat/evidence/g1_smoke/ZZT_998C5E.screen-2.raw.png",
+          "artifact_sha256": "0de303c9aa2ffb0d4b59e4ca123f8cda813eb26ca3451e0cc5ddb77a681c80d6",
+          "identical_raw_glyph_pixels": [
+            [
+              40,
+              102,
+              6,
+              4
+            ],
+            [
+              72,
+              102,
+              6,
+              4
+            ]
+          ]
+        }
+      },
+      "package_repeat": "All 12 string-resolution cases returned identical typed values in numeric modes 15157 and 15751. The four string fingerprints returned TYPE 2, the expected lengths and character codes, and code 34 at both ends of STRING(value).",
+      "complex_case": {
+        "archived_transcript": "c6|3|1+2*i",
+        "artifact": "tests/compat/evidence/core/ZZT_82E3D2.screen.raw.png",
+        "artifact_sha256": "1e93e45a89d6093bf31233df16afbad90db918187cde0cd6cc5d3dbef68ea14a",
+        "stored_virtual_control": "expr-locale-reference-expr5",
+        "stored_virtual_fixture": "tests/fixtures/native-settings-controls.json",
+        "package_components": {
+          "real": "1",
+          "imaginary": "2"
+        },
+        "package_string_utf16_units": [
+          49,
+          43,
+          50,
+          42,
+          57347
+        ]
+      },
+      "complex_scope": "The package returns TYPE 3, components 1 and 2, and ends STRING(value) with U+E003 in both modes. The stored original virtual control records the same TYPE and string. The physical screenshot transcript records ASCII i. The terminal bitmap alone leaves the physical character code unverified.",
+      "strict_replay_counts": {
+        "verified": 44,
+        "failed": 5,
+        "partial": 4,
+        "unverified": 64
+      },
+      "remaining_verification": "Resolve the four screenshot transcriptions through owner confirmation or a fresh raw note. To confirm the physical complex glyph, have the owner capture the typed result of LOCAL v:=(1,2),s:=STRING(v); RETURN {TYPE(v),SIZE(s),ASC(s)}; through the established note workflow."
+    },
     "remaining_engineering": {
       "1": "Some Graph 3D and Geometry tools, cross-app values, Spreadsheet calculations and app-specific plots need further parity work. Geometry ODE sampling and some repeated Spreadsheet PredX roots are recorded differences.",
       "24": "Exact complex radicals, remaining collection overloads, CAS callback/string behavior and raster/syntax edge cases require further parity work.",
