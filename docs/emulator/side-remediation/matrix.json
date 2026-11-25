@@ -1629,7 +1629,8 @@
         "05e2949 uses a direct store for literal local zero-index appends",
         "a8b979a branches directly from FOR and MAKELIST loop comparisons",
         "9088811 writes already-clipped opaque calculator line pixels directly",
-        "1f7b1d0 clips opaque bitmap glyphs before writing pixels"
+        "1f7b1d0 clips opaque bitmap glyphs before writing pixels",
+        "b4f2f7f validates and persists literal APPEND Home angle assignments"
       ],
       "25": [
         "190df21 aligns integer-scale calculator rendering to physical pixels"
@@ -1743,7 +1744,7 @@
       },
       "native_verification": "On Windows, run .\\ppl.exe --version, then .\\ppl.exe run --engine native examples/SQUARE.ppl --entry SQUARE --args \"[7]\" --json from the checkout and expect typed real 49. Open .\\ppl.exe gui and verify a clean start and a separate-process reopen."
     },
-    "current_source": "afd012c6930b68d452c5acf2e6a0ba1b015cc728",
+    "current_source": "b4f2f7f4ac8f19f26878ca903cb567f1a79af9c3",
     "runtime_follow_up": {
       "source": "9b7e8ff040dcfa67118936fc2b01aaed3fc68e6b",
       "implementation": "Local PPL calls use the already evaluated arguments as their callee slots. Cross-module initialization keeps its argument isolation. A focused regression exercises nested arguments, initialized locals and reuse after a depth-limit error.",
@@ -2680,6 +2681,97 @@
         },
         "assessment": "The longer comparisons put PPL line, filled-circle and text drawing 31.5%, 29.9% and 13.8% below main in median elapsed time. Their changes from the preceding candidate were −0.4%, +0.1% and −1.2%. Longer follow-ups for the two most variable quick workloads measured the matrix determinant 1.1% above main and the 24,772-line editor edit 2.7% below main. The 100,000-iteration sum and real arithmetic chain were 3.4% and 3.0% above main. Verified 227 saved Criterion estimates for 38 quick workloads and 11 longer workloads."
       }
+    },
+    "append_angle_follow_up": {
+      "source": "b4f2f7f4ac8f19f26878ca903cb567f1a79af9c3",
+      "previous_source": "afd012c6930b68d452c5acf2e6a0ba1b015cc728",
+      "artifact": "hp-prime-emulator-0.2.0-rc-linux-x86_64-b4f2f7f.tar.gz",
+      "sha256": "fa93bacd1b4423623f7f92b36076db1ea1935449dbf69c33e99bc39d334a5a86",
+      "finding": 24,
+      "implementation": "Literal lowercase append adds the numeric HAngle assignment result to the collection, then validates and updates the live setting. The same angle validator handles direct PPL and Home writes. Settings serialize through the normal profile path.",
+      "original_control": {
+        "fixture": "tests/fixtures/native-append-assignment-payload-controls.json",
+        "case": "home_rhs_and_target",
+        "zero_based_row": 7
+      },
+      "desktop_reproduction": "In a clean radians profile, run a PPL program with LOCAL R:=append([1,2],\"HAngle:=1\"); RETURN {TYPE(R),STRING(R),SIN(90)};. Confirm Home HAngle is 1, close the emulator and launch a separate process using the same profile. Read HAngle and SIN(90) again. Run with numeric versions 15157 and 15751.",
+      "before": "The prior Linux candidate returned Bad argument type. The reopened profile remained in radians and SIN(90) returned 0.893996663601 in either numeric mode.",
+      "after": "Both numeric modes return type 4, [1,2,1], and real 1 for SIN(90). Home and a separate reopen process report HAngle 1 and SIN(90) 1. The profile keeps the angle in Home settings.",
+      "append_replay": {
+        "fixture_files": 10,
+        "program_invocations": 68,
+        "exact_rows_per_mode": 207,
+        "differing_rows_per_mode": 23
+      },
+      "workspace_harness": {
+        "ok": 3081,
+        "failed": 0,
+        "ignored": 6
+      },
+      "workspace_benchmark_smoke_workloads": 38,
+      "giac_harness": {
+        "ok": 1491,
+        "failed": 0,
+        "ignored": 2
+      },
+      "native_desktop": {
+        "sessions_passed": 226,
+        "sessions_failed": 0,
+        "assertion_groups_passed": 121,
+        "assertion_groups_failed": 0,
+        "additional_angle_sessions_passed": 4,
+        "additional_ode_sessions_passed": 2,
+        "forced_restart_checks_passed": 2,
+        "input_assertions_passed_per_scale": {
+          "1x": 21,
+          "1.5x": 21,
+          "2x": 21
+        }
+      },
+      "packaged_runtime": "The extracted archive passed source and archive checks, numerical evaluation, symbolic solve with the Giac helper, the interactive debugger, INPUT, WAIT, GETKEY, graphics, and cross-module STDDEV diagnostics.",
+      "ubuntu_2404_runtime_smoke": "The extracted archive passed checksum, dependency loading and typed real 49 in an isolated glibc 2.39 container with networking disconnected.",
+      "windows_gnu_check": "cargo check --locked --offline --workspace --exclude prime-emulator --all-targets --target x86_64-pc-windows-gnu passed. An actual Windows desktop remains to be verified.",
+      "compatibility_replay": {
+        "failed": 5,
+        "partial": 4,
+        "unverified": 64,
+        "verified": 44
+      },
+      "performance": {
+        "comparison_main": "9a23fae57608f578801c3f259da948d3df17cd07",
+        "procedure": "Three alternating pairs per workload on the same logical core with 1 s warmup, 2 s measurement and 20 samples. Compare Criterion median time.",
+        "raw_estimates_verified": 18,
+        "workloads": {
+          "collections/list_append_10k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              -14.23,
+              -7.8,
+              -6.33
+            ],
+            "median_time_change_percent": -7.8
+          },
+          "vm/for_sum_100k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              1.58,
+              6.05,
+              -0.93
+            ],
+            "median_time_change_percent": 1.58
+          },
+          "vm/real_chain_10k": {
+            "cpu": 4,
+            "paired_time_changes_percent": [
+              0.87,
+              2.91,
+              5.08
+            ],
+            "median_time_change_percent": 2.91
+          }
+        }
+      },
+      "scope": "Formatting and workspace Clippy with warnings denied passed. Rust harness totals include early returns for unavailable original resources. The 23 reproduced APPEND differences, hosted CI, native Windows and owner review remain open."
     },
     "linux_release_archive": {
       "source": "d63d5b5c3680b275d1571a75f3f4e2edcae069bb",
